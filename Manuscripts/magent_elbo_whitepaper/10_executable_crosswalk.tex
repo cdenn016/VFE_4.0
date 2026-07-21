@@ -1,0 +1,236 @@
+\chapter{Executable MAgent Crosswalk}
+\label{ch:executable-crosswalk}
+
+This chapter audits the executable MAgent objective against the probability semantics developed in Chapters~\ref{ch:generative-model}--\ref{ch:information-geometry-gauge}. It reports what the selected click-to-run configuration actually constructs; it does not retrofit a normalized population model onto the implementation. Every implementation statement in this chapter is bound to the immutable MAgent repository snapshot at commit \texttt{3f5f094ab66c4f209fc3eb3c5b35f6f38dc13df0} \citep{Dennis2026MAgentSnapshot}, which was \texttt{main} and equal to the fetched \texttt{origin/main} at the time of inspection. The live checkout had documentation-only working-tree changes and no modified executable source. Application code and configuration remained read-only throughout this audit.
+
+\section{Selected configuration and runtime path}
+
+\paragraph{Literal \texttt{CONFIG} assignments.}
+The dictionary at \path{run_experiment.py}\allowbreak\texttt{:4599--4872} selects \path{mode='ouroboros'}, twelve agents, latent dimension seven, a $12\times12$ spherical grid, \path{vfe_class='full'}, smooth initialization, fixed synthetic Gaussian observations, and gauge-fixed model fibers.
+It also assigns \path{tau_belief=1.0}, \path{tau_model=1.0}, \path{learnable_kappa}\allowbreak\texttt{=False}, and \path{kl_regulariser_eps}\allowbreak\texttt{=None} at \path{run_experiment.py}\allowbreak\texttt{:4642--4666}.
+These four values are literal source assignments, not inherited defaults.
+
+\paragraph{Inherited dataclass defaults.}
+The literal omits the divergence order, covariance-gradient branch, frame metric, frozen-hyperprior policy, top-down prior propagation, manifold pair transport, and attention-prior configuration.
+These fields are defined in \path{run_experiment.py} at lines \texttt{217--237}, \texttt{328--355}, \texttt{404--470}, and \texttt{739--780}.
+The inherited values give divergence order $\alpha=1$, disable the covariance natural-gradient branch, select the Frobenius frame metric, freeze the hyperprior, disable top-down prior propagation and manifold pair transport, and leave the attention prior uniform before support folding.
+
+\paragraph{Loader and runtime materialization.}
+The loader constructs the nested dataclasses without replacing omitted fields at \path{run_experiment.py}\allowbreak\texttt{:1616--1636}, resolves the default geometry profile without a pure-profile override, and enables the Ouroboros dispatch at \path{run_experiment.py}\allowbreak\texttt{:1559--1694}.
+The literal \path{kl_regulariser_eps}\allowbreak\texttt{=None} does not mean a zero regulator: the runtime branch at \path{run_experiment.py}\allowbreak\texttt{:4431--4436} materializes the package value \path{KL_REGULARISER_EPS} $=10^{-4}$ defined at \path{gauge_agent/}\allowbreak\path{spd_constants.py}\allowbreak\texttt{:119}.
+The $\alpha=1$ branch passes from \path{FullVFE._divergence} at \path{gauge_agent/}\allowbreak\path{full_vfe.py}\allowbreak\texttt{:511--519} through the executable dispatch at \path{gauge_agent/}\allowbreak\path{statistical_manifold.py}\allowbreak\texttt{:631--657} to \path{gaussian_kl}.
+This path is a reference-covariance lift, not a symmetric covariance floor.
+The selected configuration has no key named \path{gauge_parameterization} and no diagonal-covariance switch.
+The executable representation instead stores full SPD covariances through Cholesky factors, stores the per-agent frame matrices $U_i$ and $\widetilde U_i$ directly as \path{agent.omega} and \path{agent.omega_model}, and enables multiplicative Lie-group updates with \path{lie_group_omega=True}.
+The dispatch precedence reaches \path{_run_ouroboros}; the relevant anchors are \path{run_experiment.py}\allowbreak\texttt{:896--906} and \path{run_experiment.py}\allowbreak\texttt{:4446--4453}.
+
+The exact selected weights are
+\begin{equation}
+ (\lambda_{\mathrm{self}},\lambda_{\mathrm{model\text{-}self}},
+ \lambda_{\mathrm{belief}},\lambda_{\mathrm{model}},\lambda_{\mathrm{obs}},
+ \lambda_{\mathrm{hyper}},\lambda_{\mathrm{smooth}},\lambda_{\mathrm{YM}})
+ = (1,0.5,1,0.5,1,0.5,0.01,0.1).
+\end{equation}
+Both optional belief-neighbor coefficients are zero. Adaptive precision is enabled, while its hyperparameters and both attention temperatures are fixed. The mean and covariance learning rates are $(0.05,0.0075)$ for $q$, $(0.02,0.0075)$ for $p$, $(0.05,0.0075)$ for $s$, and $(0.02,0.0075)$ for $r$ before the model-sector multiplier $\epsilon=0.01$ is applied. Belief and model frame rates are $0.01$, the lattice-twist rate is $0.01$, and the pairwise-connection rate is zero. These values are declared at \texttt{run\_experiment.py:4605--4872} and forwarded by \texttt{\_build\_vfe} and \texttt{\_build\_ouroboros} at \texttt{run\_experiment.py:1975--2011} and \texttt{run\_experiment.py:2123--2185}.
+
+\paragraph{Conditional main-entry-point assumption.}
+The \texttt{\_\_main\_\_} block sends the literal dictionary through \texttt{\_dict\_to\_config} and then \texttt{run} at \texttt{run\_experiment.py:4875--4877}. This provenance statement is conditional on executing the inspected file as its main program. A programmatic caller may construct a different \texttt{ExperimentConfig}, and a user may edit the literal configuration after this snapshot. No checkpoint is selected because \texttt{resume\_from=None}, so the inspected path has no checkpoint-level configuration replacement. The crosswalk establishes the source-selected path, not an unobservable out-of-process runtime state.
+
+The source also defines \texttt{geometry\_profile='pure'} as a geometry-and-numerics contract that selects the exact SPD covariance natural-gradient branch, Frobenius frame metric, fixed Hamiltonian mass, zero smoothness and Yang--Mills weights, zero KL regulator, moment-dispersion pooling, and a strict SPD policy. It is not selected here. Adding that profile to the checked-in literal would be rejected until the explicit \texttt{lambda\_smooth=0.01}, \texttt{lambda\_ym=0.1}, and \texttt{kl\_regulariser\_eps=None} entries are aligned with the profile's zero values. Even when enabled, the profile does not construct either a fixed joint or a correlated \(Q_X(dY\mid o)\), and it does not disable adaptive precision, moving-peer terms, simultaneous updates, or apex closure. Its name therefore does not mark an exact population-ELBO path.
+
+\section{The scalar differentiated by the active dynamics}
+
+Let \(\Lambda_{\mathrm{run}}\) be the finite index set of the selected $12\times12$ executable grid, and let \(a\in\Lambda_{\mathrm{run}}\). Write the active arrays as \(q_{i,a}^{\mathrm{run}}\), \(p_{i,a}^{\mathrm{run}}\), \(s_{i,a}^{\mathrm{run}}\), and \(r_{i,a}^{\mathrm{run}}\), with finite spherical weight \(v_a^{\mathrm{run}}>0\) and support value \(\chi_{i,a}^{\mathrm{run}}\). These arrays are fixed-grid objects. Any interpolation or extension from them to the continuum sections in Chapter~\ref{ch:pifb2-crosswalk} is additional structure not constructed by the runtime. Reserve $D_{\mathrm{KL}}$ for the floor-free mathematical Gaussian KL. The active executable instead uses $D_\varepsilon$ with $\varepsilon=10^{-4}$. For generic input covariance tensors, set
+\begin{gather}
+ S_q=\frac{\Sigma_q+\Sigma_q^{\mathsf T}}{2},
+ \qquad
+ S_{p,\varepsilon}=\frac{\Sigma_p+\Sigma_p^{\mathsf T}}{2}+\varepsilon I_K,
+\\
+ \mathcal E_\varepsilon(q\Vert p)
+ :=\frac12\left[
+ \log\frac{\det S_{p,\varepsilon}}{\det S_q}
+ +\operatorname{tr}(S_{p,\varepsilon}^{-1}S_q)
+ +(\mu_p-\mu_q)^{\mathsf T}S_{p,\varepsilon}^{-1}(\mu_p-\mu_q)-K
+ \right].
+\end{gather}
+After its finite-value and SPD gates, the source applies the bit-identical exact-zero shortcut and final nonnegative clamp. Let $\mathsf Z(q,p)$ denote the source predicate that the input shapes match and that both input pairs pass \texttt{torch.equal}. Then
+\begin{equation}
+ D_\varepsilon(q\Vert p)=
+ \begin{cases}
+ 0,
+ & \mathsf Z(q,p),\\
+ \max\{0,\mathcal E_\varepsilon(q\Vert p)\},
+ & \text{otherwise}.
+ \end{cases}
+ \label{eq:executable-divergence}
+\end{equation}
+The gate and reference-only lift are executable at \path{statistical_manifold.py:268--334}. The exact-zero branch, closed form, and clamp are at \path{statistical_manifold.py:337--415} in the same package. Thus $D_\varepsilon$ is not $D_{\mathrm{KL}}$: the latter is the same Gaussian divergence with no $\varepsilon I_K$ lift and denotes the floor-free object used in the exact theory. Write \(w_{i,a}^{\mathrm{run}}=\chi_{i,a}^{\mathrm{run}}v_a^{\mathrm{run}}\). For the belief self-coupling, define
+\begin{align}
+ d_{i,a}^{qp,\mathrm{run}}
+ &=D_\varepsilon\bigl(q_{i,a}^{\mathrm{run}}\Vert
+ p_{i,a}^{\mathrm{run}}\bigr),
+ &\alpha_{i,a}^{q,\mathrm{run}}
+ &=\frac{1}{1+d_{i,a}^{qp,\mathrm{run}}},\\
+ T_1
+ &=\sum_i\sum_{a\in\Lambda_{\mathrm{run}}}
+ w_{i,a}^{\mathrm{run}}\alpha_{i,a}^{q,\mathrm{run}}
+ d_{i,a}^{qp,\mathrm{run}},
+ &R_{\alpha^q}
+ &=\sum_i\sum_{a\in\Lambda_{\mathrm{run}}}
+ w_{i,a}^{\mathrm{run}}
+ \left[\alpha_{i,a}^{q,\mathrm{run}}
+ -\log\alpha_{i,a}^{q,\mathrm{run}}\right].
+\end{align}
+Here $b_{0i}=c_{0i}=1$ for every belief fiber. The model self-coupling $T_2+R_{\alpha^s}$ has the same form with
+\begin{equation}
+ d_{i,a}^{sr,\mathrm{run}}
+ =D_\varepsilon\bigl(s_{i,a}^{\mathrm{run}}\Vert
+ r_{i,a}^{\mathrm{run}}\bigr),
+ \qquad
+ \alpha_{i,a}^{s,\mathrm{run}}
+ =\frac{0.5}{1+d_{i,a}^{sr,\mathrm{run}}},
+\end{equation}
+and
+\begin{equation}
+ R_{\alpha^s}
+ =\sum_i\sum_{a\in\Lambda_{\mathrm{run}}}w_{i,a}^{\mathrm{run}}
+ \left[\alpha_{i,a}^{s,\mathrm{run}}
+ -0.5\log\alpha_{i,a}^{s,\mathrm{run}}\right],
+\end{equation}
+because $\widetilde b_{0i}=1$ and $\widetilde c_{0i}=0.5$. The implementation anchors are \path{gauge_agent/full_vfe.py:91--172} and \path{gauge_agent/full_vfe.py:617--723}. The precision hyperparameters are detached under the selected policy, but both adaptive coefficients remain differentiable functions of their local divergences.
+
+The belief pair energy and its normalized row prior are
+\begin{align}
+ E_{ij,a}^{q,\mathrm{run}}
+ &=D_\varepsilon\left(q_{i,a}^{\mathrm{run}}\middle\Vert
+    (\Omega_{ij,a}^{\mathrm{run}})_{\ast}
+    q_{j,a}^{\mathrm{run}}\right),\\
+ \widetilde\pi_{ij,a}^{q,\mathrm{run}}
+ &=\frac{\chi_{i,a}^{\mathrm{run}}\chi_{j,a}^{\mathrm{run}}
+ \pi_{ij,a}^{q,\mathrm{run}}}
+ {\sum_{k\ne i}\chi_{i,a}^{\mathrm{run}}\chi_{k,a}^{\mathrm{run}}
+ \pi_{ik,a}^{q,\mathrm{run}}}.
+\end{align}
+On a nonempty row the active attention and row functional are
+\begin{align}
+ \beta_{ij,a}^{\mathrm{run}}
+ &=\frac{\widetilde\pi_{ij,a}^{q,\mathrm{run}}
+ \exp[-E_{ij,a}^{q,\mathrm{run}}/\tau_q^{\mathrm{eff}}]}
+ {\sum_{k\ne i}\widetilde\pi_{ik,a}^{q,\mathrm{run}}
+ \exp[-E_{ik,a}^{q,\mathrm{run}}/\tau_q^{\mathrm{eff}}]},\\
+ T_3
+ &=\sum_{i,j}\sum_{a\in\Lambda_{\mathrm{run}}}v_a^{\mathrm{run}}
+ \left[
+ \beta_{ij,a}^{\mathrm{run}}E_{ij,a}^{q,\mathrm{run}}
+ +\tau_q^{\mathrm{eff}}\beta_{ij,a}^{\mathrm{run}}
+ \log\frac{\beta_{ij,a}^{\mathrm{run}}}
+ {\widetilde\pi_{ij,a}^{q,\mathrm{run}}}
+ \right],
+\end{align}
+where $j=i$ is masked and $\tau_q^{\mathrm{eff}}=\tau_q\sqrt K=\sqrt7$. The model term $T_4$ replaces $(q_{i,a}^{\mathrm{run}},\beta_{ij,a}^{\mathrm{run}},\tau_q)$ by $(s_{i,a}^{\mathrm{run}},\gamma_{ij,a}^{\mathrm{run}},\tau_s)$, uses $D_\varepsilon$, and transports through the model frame. The direct support-folding body is \path{gauge_agent/softmax_utils.py:130--175}; the effective-temperature body is \path{gauge_agent/softmax_utils.py:99--127}; the masked row-softmax body is \path{gauge_agent/softmax_utils.py:247--355}; and the elementwise variational objective body is \path{gauge_agent/softmax_utils.py:178--244}. The active $T_3$ and $T_4$ consumers call these bodies at \path{gauge_agent/full_vfe.py:729--811} and \path{gauge_agent/full_vfe.py:817--895}, rather than deriving their semantics from wrapper comments. This is an entropy-retaining, row-normalized variational attention objective. It is not the state-level entropy of the correlated recognition law $Q_X(dY\mid o)$ and is not the configuration entropy of Chapter~\ref{ch:configuration-elbo}.
+
+The selected observation source samples one fixed target mean $\mu_i^{\star}\sim\mathcal N(0,I)$ per agent with seed six, broadcasts that mean over the finite grid, and uses observation precision $\Lambda_o=I$. Since \texttt{resample=False}, each call returns the target itself rather than a new noisy draw. The executable observation energy is
+\begin{equation}
+ T_5=\frac12\sum_i\sum_{a\in\Lambda_{\mathrm{run}}}
+ w_{i,a}^{\mathrm{run}}\left[
+ (o_{i,a}^{\mathrm{run}}-\mu_{i,a}^{q,\mathrm{run}})^{\mathsf T}
+ \Lambda_o(o_{i,a}^{\mathrm{run}}-\mu_{i,a}^{q,\mathrm{run}})
+ +\operatorname{tr}\bigl(\Lambda_o\Sigma_{i,a}^{q,\mathrm{run}}\bigr)
+ \right].
+\end{equation}
+The runner constructs the source at \path{run_experiment.py:2627--2655}. Within \texttt{gauge\_agent}, the source constructor is \path{observations.py:139--185} and the fixed-target return is \path{observations.py:296--320}. The energy anchors are \path{full_vfe.py:901--934} and \path{statistical_manifold.py:418--485} in the same package. The tower supplies these observations only to scale zero, so $T_5=0$ at every higher scale (\path{ouroboros.py:3116--3131}). At the base scale this is the parameter-dependent negative expected log likelihood for a fixed normalized Gaussian observation model, with the parameter-independent normalization constant omitted. It does not by itself normalize the remaining population objective.
+
+For each available child--ancestor pair $(i,A)$ at depth $d$, the tower adds
+\begin{equation}
+ T_6=\sum_{d=1}^{d_{\max}}\rho^d
+ \sum_{(i,A)}\sum_{a\in\Lambda_{\mathrm{run}}}w_{i,a}^{\mathrm{run}}
+ D_\varepsilon\left(s_{i,a}^{\mathrm{run}}\middle\Vert
+ (\widetilde\Omega_{iA,a}^{\mathrm{run}})_{\ast}
+ s_{A,a}^{\mathrm{run}}\right),
+ \qquad \rho=0.5,
+\end{equation}
+with detached ancestor moments and frames. The active maximum depth is two, the smaller of the VFE depth five and the tower depth two. The term is zero when no higher scale supplies an ancestor and becomes live only after scale formation. Its anchors are \path{gauge_agent/full_vfe.py:940--1126} and \path{gauge_agent/ouroboros.py:623--686}.
+
+The scalar returned as \texttt{total} at each scale is therefore
+\begin{equation}
+ \boxed{
+ F_{\mathrm{live}}
+ =(T_1+R_{\alpha^q})+0.5(T_2+R_{\alpha^s})+T_3+0.5T_4+T_5
+ +0.5T_6+0.01R_{\mathrm{smooth}}+0.1R_{\mathrm{YM}}.}
+ \label{eq:f-live}
+\end{equation}
+The coefficient assembly is direct source behavior at \texttt{gauge\_agent/full\_vfe.py:2022--2129}. Scale dependence enters through the arguments: $T_5$ is absent above the base, while $T_6$ is absent at the apex and before ancestor formation. $R_{\mathrm{smooth}}$ penalizes belief-frame variation over the fixed grid. At the base scale, $R_{\mathrm{YM}}$ is the fixed-frame Frobenius plaquette deficit on the independently stored base-lattice twists. The Frobenius norm of a based holonomy deficit is not invariant under conjugation by a general $\mathrm{GL}^{+}(K)$ frame change, so this quantity is not a gauge self-action for that group. At meta scales without a lattice gauge, the same slot falls back to a finite-difference regularizer formed from single-valued vertex frames. Neither fixed-grid quantity has a proved continuum target, roughness interpretation, or truncation-error order without a declared mesh family, scaling prescription, and convergence theorem. The source branches are \texttt{gauge\_agent/full\_vfe.py:1164--1383} and \texttt{gauge\_agent/ouroboros.py:499--540}.
+
+Equation~\eqref{eq:f-live} is an engineered, differentiable consensus scalar. The code does not construct a fixed normalized population kernel $P_\theta(do,dY\mid X)$ and a correlated normalized recognition law $Q_X(dY\mid o)$ whose KL identity equals this scalar. The pair energies depend on other live variational states, the adaptive coefficients depend on current divergences, and the closure described below performs a state write outside this scalar. Calling $F_{\mathrm{live}}$ the exact population ELBO of Chapters~\ref{ch:generative-model} and~\ref{ch:structured-recognition-elbo} would therefore be false.
+
+\section{Transport, gauge fixing, and active degeneracies}
+
+Because the manifold-transport flag is false, the code computes the T3 and T4 pair transports from the stored vertex frames,
+\begin{equation}
+ \Omega_{ij,a}^{\mathrm{run}}
+ =U_{i,a}^{\mathrm{run}}(U_{j,a}^{\mathrm{run}})^{-1},
+ \qquad
+ \widetilde\Omega_{ij,a}^{\mathrm{run}}
+ =\widetilde U_{i,a}^{\mathrm{run}}
+ (\widetilde U_{j,a}^{\mathrm{run}})^{-1}.
+\end{equation}
+Means transform by left multiplication and covariances by the exact congruence
+\begin{equation}
+ \mu\mapsto\Omega\mu,
+ \qquad
+ \Sigma\mapsto\Omega\Sigma\Omega^{\mathsf T},
+\end{equation}
+at \texttt{gauge\_agent/lie\_groups.py:64--94}. This is the separate application and congruence anchor. When the vertex-local pairwise model construction is required, its operators are formed from the stored model frames at \texttt{gauge\_agent/full\_vfe.py:1463--1478}. The belief operators are constructed on the single-shot path at \texttt{gauge\_agent/full\_vfe.py:1554--1575} and on the alternative chunked path at \texttt{gauge\_agent/full\_vfe.py:1584--1599}. Before pairwise model construction, the model-alignment consumer can take the gauge-fixed exact-zero short circuit at \texttt{gauge\_agent/full\_vfe.py:845--849}; this requires an absent model transport provider and a successful strict tied-model predicate. These construction sites, rather than the transport helper alone, establish which operators reach T3 and T4. The independently stored lattice links remain live for the base-scale $R_{\mathrm{YM}}$ term, so the scalar simultaneously contains Regime-I attention transport and a Regime-II Frobenius plaquette regularizer. The base links receive updates at rate $0.01$, but they do not transport matter on this path and both neighbor-matter coefficients are zero. Their active role is therefore a fixed-frame regularizer disconnected from T3, T4, and the disabled neighbor terms.
+
+The transport map itself is gauge covariant, and the floor-free transported peer KL would be invariant under the linked endpoint action. The active $D_\varepsilon$ instead uses a fixed $\varepsilon I_K$ regulator, so that term is invariant only under orthogonal frame changes unless the regulator is removed or co-transformed. The fixed identity observation readout and precision, the Frobenius frame-smoothness term, and the fixed-frame Frobenius plaquette deficit also fix or break the general local $\mathrm{GL}^{+}(K)$ action. Consequently, $F_{\mathrm{live}}$ is not a gauge-invariant scalar under general $\mathrm{GL}^{+}(K)$ frame changes even though its covariance transport uses the exact congruence.
+
+Smooth initialization occurs before model-fiber tying. The tie operation aliases $\mu_s$, the Cholesky factor of $\Sigma_s$, $\mu_r$, the Cholesky factor of $\Sigma_r$, the model frame, and model precision parameters across all agents at \texttt{run\_experiment.py:1915--1943} and \texttt{gauge\_agent/agents.py:911--980}. Consequently $T_2$ repeats one shared model--hyperprior discrepancy across agents, and all tied model gradients accumulate onto one parameter object.
+
+The same tie degenerates $T_4$, but it does not establish $T_4=0$ under the active literals. The exact-zero shortcut requires the shared model frame to equal the identity. Here \texttt{smooth\_gauge=True} constructs a seeded smooth $SO(K)$ frame before tying. When that generated frame is nonidentity, the selected path takes the representative-pair branch: it computes one shared-state transport residual and broadcasts that value to every off-diagonal pair. Mathematically $\widetilde\Omega\widetilde\Omega^{-1}=I$, but finite-precision solve and congruence operations need not reproduce the input moments bit for bit. Static inspection did not instantiate the frame, so the defensible source-level statement is that $T_4$ is structurally collapsed either to exact zero or to one repeated numerical residual, not that the active source forces a substantive model-disagreement channel. The relevant branches are \texttt{gauge\_agent/full\_vfe.py:817--895}, \texttt{gauge\_agent/agents.py:1015--1123}, and \texttt{gauge\_agent/smooth\_init.py:204--225}.
+
+\section{Simultaneous descent and post-step closure}
+
+At each scale, \texttt{NaturalGradientDynamics.step} evaluates $F_{\mathrm{live}}$, calls \texttt{backward} once, and updates every connected sector in the same step at \texttt{gauge\_agent/dynamics.py:1260--1942}. Belief and prior means use covariance-preconditioned mean updates. Since \texttt{sigma\_natural\_gradient=False}, covariance factors use Euclidean Cholesky-parameter gradients subject to an SPD trust-region check rather than the exact SPD covariance natural-gradient branch. For a belief frame, model frame, or base lattice link $U$, the source first forms the nominal pre-guard Frobenius group proposal
+\begin{equation}
+ U^{+}=U\exp\left[-\eta U^{\mathsf T}\nabla_UF_{\mathrm{live}}\right].
+\end{equation}
+The executed update can be rescaled, rejected, or otherwise altered by the active trust-region and finite-precision guards. The tied model parameters are updated once after their gradients have been summed through aliasing. The nominal post-$\epsilon$ shared-model rates, before any trust-region rescaling, are $5\times10^{-4}$ for $\mu_s$, $7.5\times10^{-5}$ for its Cholesky factor, and $10^{-4}$ for its frame.
+
+This schedule is not an exact E-step followed by an M-step. The $q$, $p$, $s$, belief-frame, model-frame, and base lattice-twist sectors are exposed to the same backward and update phase; connected variables whose gradients are present are stepped. The $s$ and model-frame steps are multiplied by $\epsilon=0.01$, which supplies a rate separation but not coordinate minimization. The frozen $r$ sector is not updated, precision hyperparameters and temperatures are not learned, and detached ancestors receive no child-scale gradient. No line search or acceptance test checks whether a proposed update lowers equation~\eqref{eq:f-live}.
+
+The Ouroboros tower evolves all existing scales sequentially, checks for scale formation every five steps including step zero, and then invokes self-referential closure. The ordering is anchored at \path{gauge_agent/ouroboros.py:3071--3160}. With the selected frozen-hyperprior policy and at least two scales, closure computes a coherence-weighted aggregate of beliefs and directly overwrites the apex agents' prior means and prior Cholesky factors at \path{gauge_agent/ouroboros.py:2090--2220}. The resolved \texttt{covariance\_collapse='moment'} branch pools transported covariances without between-mean dispersion; \texttt{geometry\_profile='pure'} would instead select \texttt{moment\_dispersion}. The write occurs after the gradient update and after possible scale formation, on every subsequent tower step rather than only at the five-step formation cadence. A newly formed apex may therefore be closed before it has taken its own dynamics step. The write is not included in the scalar just differentiated, and it cannot affect that same scalar evaluation; it changes later evaluations. Before a higher scale exists, closure is a no-op. Because top-down prior propagation is disabled, no separate downward overwrite runs.
+
+The ordering matters for theory. A closure overwrite can be represented exactly only after it is promoted to a declared probabilistic factor, an accepted coordinate update, or an explicitly analyzed projection. In the selected code it is none of these. Neither simultaneous finite-step descent nor the post-step overwrite carries the monotonicity guarantee proved for exact E updates and accepted generalized-EM M updates in Chapter~\ref{ch:information-geometry-gauge}.
+
+\section{Three-way semantic comparison}
+
+Table~\ref{tab:runtime-three-way} separates the new finite population model, the legacy continuum scalar, and the selected executable path. ``Absent'' means that the named probabilistic object is not constructed on that path; it does not mean the implementation is useless as an optimization heuristic.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.21\textwidth}}
+\caption{Exact-theory, legacy-scalar, and active-runtime comparison.}
+\label{tab:runtime-three-way}\\
+\toprule
+Object & New finite design & Legacy continuum scalar & Active executable path \\
+\midrule
+\endfirsthead
+\multicolumn{4}{l}{\textit{Table \thetable\ continued}}\\
+\toprule
+Object & New finite design & Legacy continuum scalar & Active executable path \\
+\midrule
+\endhead
+State law & A finite joint state $Y=(k,m)$ with fixed normalized kernel $P_\theta(do,dY\mid X)$ and normalized correlated recognition $Q_X(dY\mid o)$. & Local Gaussian fields coupled through a consensus functional; no fixed population joint is supplied. & Fixed-grid full-Gaussian arrays $q_{i,a}^{\mathrm{run}},p_{i,a}^{\mathrm{run}},s_{i,a}^{\mathrm{run}},r_{i,a}^{\mathrm{run}}$, vertex-frame arrays, and lattice links; no population joint object or continuum interpolation. \\
+Observation factor & A declared normalized likelihood in $P_\theta$. & A likelihood term is exact only when its source and normalization are fixed independently of $Q$. & One fixed seeded Gaussian target with identity precision; the parameter-dependent expected negative log likelihood is retained and its constant is omitted. \\
+Objective status & Exact state ELBO, with a nested exact configuration ELBO when configuration uncertainty is enabled. & Engineered continuum free-energy scalar. & Equation~\eqref{eq:f-live}, an engineered scalar assembled by \texttt{FullVFE}. \\
+Gauge status & The complete state ELBO is invariant under the declared simultaneous pushforward of latent laws, model parameters, readouts, and reference measures. & The exact floor-free transported peer KL is invariant under linked endpoint actions; optional Frobenius regularizers are not generally invariant under $\mathrm{GL}^{+}(K)$. & Pair transport is covariant, but the fixed regulator, identity observation readout, and active Frobenius penalties make $F_{\mathrm{live}}$ noninvariant under general $\mathrm{GL}^{+}(K)$ frame changes. \\
+Cross-agent dependence & Retained by the correlated recognition law or an explicitly declared approximation. & Pairwise penalties compare live local marginals but do not define their joint covariance. & T3 and T4 use transported live-peer $D_\varepsilon$; no cross-agent covariance is represented. \\
+Attention entropy & Permitted only as a declared fixed-source normalized auxiliary factor or as an explicitly labeled surrogate. & Entropy-retaining partner rows can optimize a local variational identity. & Support-folded, row-normalized $\beta$ and $\gamma$ objectives with live-peer energies and temperature $\sqrt7$. \\
+Update semantics & Exact coordinate E updates and accepted generalized-EM M updates have stated monotonicity conditions. & Fast/slow language denotes an optimization heuristic unless coordinate conditions are proved. & One backward pass updates connected fast and slow sectors simultaneously; $\epsilon=0.01$ changes rates only. \\
+Configuration uncertainty & One normalized $R(dX\mid o)$ and one $\KL(R(\mathord\cdot\mid o)\Vert P_0)$, counted once. & Absent unless a separate configuration law is introduced. & Absent. The Gibbs clustering selector controls scale formation and is not a configuration ELBO. \\
+Apex closure & A closure operation is exact only as a declared factor, coordinate update, or accepted projection. & External closure changes the functional unless incorporated into the model. & After-step direct overwrite of apex $p$ from a belief aggregate when at least two scales exist. \\
+Monotonicity & Conditional guarantees follow from the exact update or acceptance hypotheses. & No generic finite-step guarantee. & No acceptance check; neither the simultaneous gradient step nor closure is source-guaranteed to lower $F_{\mathrm{live}}$. \\
+\bottomrule
+\end{longtable}
+
+\section{Executable conclusion}
+
+The current runtime preserves five mathematically clean local constructions: normalized Gaussian factors, exact full-covariance congruence transport, normalized variational attention rows, spherical volume weighting, and multiplicative group updates. Those local facts do not compose into the new exact population ELBO. The missing objects are a fixed normalized population joint, a correlated recognition distribution carrying cross-agent dependence, a once-counted configuration law, coordinate or accepted update semantics, and a probabilistic account of apex closure. The proper relationship is therefore a source-traceable comparison: equation~\eqref{eq:f-live} is the scalar the selected application differentiates, while Chapters~\ref{ch:generative-model}--\ref{ch:information-geometry-gauge} define a stricter probabilistic construction that a future implementation could target. No application tests were run because this manuscript task did not change application code.

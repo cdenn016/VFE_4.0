@@ -1,0 +1,60 @@
+\documentclass[11pt,letterpaper]{report}
+\usepackage{scientific_report}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{mathrsfs}
+\usepackage{microtype}
+\usepackage{cleveref}
+
+\setlength{\headheight}{22pt}
+\renewcommand{\chaptermark}[1]{\markboth{\thechapter.\ #1}{}}
+
+\hypersetup{
+  pdftitle={Gauge-Covariant Multi-Agent Variational Inference on Associated Statistical Bundles},
+  pdfauthor={Robert C. Dennis},
+  pdfsubject={Exact correlated-state ELBO, mean-field theory, and configuration extension for the MAgent model},
+  pdfkeywords={variational free energy, ELBO, multi-agent inference, principal bundle, associated bundle, mean field, gauge covariance}
+}
+
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\Fstate}{\mathcal F_{\mathrm{state}}}
+\newcommand{\Lstate}{\mathcal L_{\mathrm{state}}}
+\newcommand{\E}{\mathbb E}
+\newcommand{\R}{\mathbb R}
+\newcommand{\given}{\mid}
+
+\begin{document}
+\hypersetup{pageanchor=false}
+\makereporttitle
+  {Gauge-Covariant Multi-Agent Variational Inference\\on Associated Statistical Bundles}
+  {An Exact Correlated-State ELBO, Mean-Field Theory, and Configuration Extension}
+  {Robert C. Dennis}
+  {Independent Researcher}
+  {July 2026}
+
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+\tableofcontents
+\listoffigures
+\listoftables
+\clearpage
+\pagenumbering{arabic}
+
+\input{magent_elbo_whitepaper/01_executive_scope}
+\input{magent_elbo_whitepaper/02_bundle_geometry}
+\input{magent_elbo_whitepaper/03_probability_semantics}
+\input{magent_elbo_whitepaper/04_generative_model}
+\input{magent_elbo_whitepaper/05_structured_recognition_elbo}
+\input{magent_elbo_whitepaper/06_mean_field_theory}
+\input{magent_elbo_whitepaper/07_configuration_elbo}
+\input{magent_elbo_whitepaper/08_information_geometry_gauge}
+\input{magent_elbo_whitepaper/09_pifb2_crosswalk}
+\input{magent_elbo_whitepaper/10_executable_crosswalk}
+\input{magent_elbo_whitepaper/11_vfe4_comparison}
+\input{magent_elbo_whitepaper/12_verification_limitations}
+\appendix
+\input{magent_elbo_whitepaper/13_appendices}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

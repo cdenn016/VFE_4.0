@@ -1,0 +1,97 @@
+\begin{tikzpicture}[
+  >={Stealth[length=2.1mm]},
+  every node/.style={font=\scriptsize},
+  frame/.style={
+    rectangle,
+    draw=mediumgray,
+    rounded corners=3pt,
+    inner sep=3mm
+  },
+  statistical/.style={
+    rectangle,
+    draw=sciencegreen!85!black,
+    fill=lightgreen,
+    rounded corners=2pt,
+    minimum width=25mm,
+    minimum height=8mm,
+    align=center,
+    inner sep=2pt
+  },
+  sample/.style={
+    ellipse,
+    draw=primaryblue,
+    fill=lightblue,
+    minimum width=20mm,
+    minimum height=8mm,
+    align=center,
+    inner sep=2pt
+  },
+  coordinateview/.style={
+    rectangle,
+    rounded corners=2pt,
+    line width=0.9pt,
+    minimum width=31mm,
+    minimum height=9mm,
+    align=center,
+    inner sep=2pt
+  },
+  internal/.style={-{Stealth[length=2.1mm]}, primaryblue, line width=0.9pt},
+  morphism/.style={-{Stealth[length=2.1mm]}, cautionorange!85!black, dashed, line width=0.9pt},
+  reduction/.style={-{Stealth[length=2.2mm]}, darkgray, line width=1pt},
+  dual/.style={{Stealth[length=2.0mm]}-{Stealth[length=2.0mm]}, primaryblue, double, double distance=0.5pt, line width=0.5pt},
+  conversion/.style={{Stealth[length=2.0mm]}-{Stealth[length=2.0mm]}, darkgray, line width=0.8pt}
+]
+  \coordinate (leftanchor) at (0,0);
+  \coordinate (popanchor) at (6.2,0);
+  \coordinate (coordanchor) at (12.2,0);
+
+  \node[font=\scriptsize\bfseries] (gentitle) at (leftanchor) {general theory};
+  \node[font=\scriptsize, below=5mm of gentitle, xshift=-14mm] (qi)
+    {$q_i\in\Gamma^\infty(U_i,\mathscr B_z)$};
+  \node[font=\scriptsize, below=5mm of gentitle, xshift=14mm] (si)
+    {$s_i\in\Gamma^\infty(U_i,\mathscr B_m)$};
+  \node[statistical, below=3mm of qi] (bz) {$\mathscr B_{z,c}$\\statistical fiber};
+  \node[statistical, below=3mm of si] (bm) {$\mathscr B_{m,c}$\\statistical fiber};
+  \node[draw=darkgray, fill=lightgray, rounded corners=7pt, minimum width=29mm,
+    minimum height=7mm] (base) at (0,-2.75) {base $\mathcal C$};
+  \draw[darkgray] (bz.south) -- (base.north west);
+  \draw[darkgray] (bm.south) -- (base.north east);
+  \node[font=\scriptsize, text=darkgray] (localnote) at (0,-3.35)
+    {local sections on open domains $U_i$};
+  \node[frame, fit=(gentitle)(qi)(si)(bz)(bm)(base)(localnote)] (generalframe) {};
+
+  \node[font=\scriptsize\bfseries] (poptitle) at (popanchor)
+    {zero-dimensional population};
+  \node[font=\scriptsize\bfseries] (agentj) at (4.75,-0.55) {agent $j$};
+  \node[font=\scriptsize\bfseries] (agentt) at (7.65,-0.55) {agent $t$};
+  \node[sample] (ezj) at (4.75,-1.25) {$E_z^{(j)}$};
+  \node[sample] (ezt) at (7.65,-1.25) {$E_z^{(t)}$};
+  \node[sample] (emj) at (4.75,-2.35) {$E_m^{(j)}$};
+  \node[sample] (emt) at (7.65,-2.35) {$E_m^{(t)}$};
+  \draw[internal] (ezj) -- node[midway, above, fill=white, inner sep=1pt] {$\Omega^z_{tj}$} (ezt);
+  \draw[internal] (emj) -- node[midway, below, fill=white, inner sep=1pt] {$\Omega^m_{tj}$} (emt);
+  \draw[morphism] (emt) -- node[midway, right=1mm, fill=white, inner sep=1pt] {$B_t$} (ezt);
+  \node[font=\Large, primaryblue] (star) at (6.2,-3.25) {$\ast$};
+  \draw[mediumgray, densely dotted] (star) -- (emj);
+  \draw[mediumgray, densely dotted] (star) -- (emt);
+  \node[align=center, text=darkgray] (popnote) at (6.2,-4.0)
+    {single base point\\$\Omega_{tj}=U_tU_j^{-1}$; internal $j\to t$ relation};
+  \node[frame, fit=(poptitle)(agentj)(agentt)(ezj)(ezt)(emj)(emt)(star)(popnote)] (popframe) {};
+
+  \node[font=\scriptsize\bfseries, align=center, text width=43mm] (coordtitle) at (coordanchor)
+    {one source-conditioned correlated Gaussian\\$q(y\mid a,b,x,\Gamma_{\mathrm{core}})$};
+  \node[coordinateview, draw=primaryblue, fill=lightblue] (eta) at (12.2,-1.35)
+    {natural\\$(h,-J/2)$};
+  \node[coordinateview, draw=sciencegreen!85!black, fill=lightgreen] (xi) at (12.2,-2.95)
+    {expectation\\$(\mu,M)$};
+  \node[coordinateview, draw=cautionorange!85!black, fill=lightorange, dashed] (mom) at (12.2,-4.55)
+    {moment view\\$(\mu,\Sigma)$};
+  \draw[dual] (eta) -- node[midway, right=2mm, fill=white, inner sep=1pt] {Fisher duality} (xi);
+  \draw[conversion] (xi) -- node[midway, right=2mm, fill=white, inner sep=1pt] {$M=\Sigma+\mu\mu^\top$} (mom);
+  \node[frame, fit=(coordtitle)(eta)(xi)(mom)] (coordframe) {};
+
+  \draw[reduction] (generalframe.east) --
+    node[midway, above, fill=white, inner sep=1pt] {$\mathcal C\mapsto\{\ast\}$}
+    (popframe.west);
+  \draw[reduction] (popframe.east) -- (coordframe.west);
+\end{tikzpicture}

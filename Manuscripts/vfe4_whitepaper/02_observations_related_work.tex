@@ -1,0 +1,73 @@
+\chapter{Token Occurrences as Observations}
+
+Let $x_{1:T}$ be a sequence of realized token occurrences over a finite vocabulary, with $x_{<t}$ denoting the realized prefix before position $t$. The position index labels agents in the finite population over $\mathcal C_0=\{\ast\}$; it does not label points of the geometric base. The training target $x_t$ is an observation, not a latent belief state or a coordinate on $\mathcal C_0$. A normalized autoregressive language model assigns the sequence probability
+\begin{equation}
+p_\theta(x_{1:T})=\prod_{t=1}^{T}p_\theta(x_t\given x_{<t}).
+\label{eq:autoregressive-token-law}
+\end{equation}
+Each conditional factor in \cref{eq:autoregressive-token-law} is a categorical distribution over the vocabulary. Its negative log likelihood for the observed token is categorical cross-entropy, so summing these terms over positions yields the usual autoregressive cross-entropy objective. Introducing latent variables changes how each conditional probability is represented and bounded; it does not remove vocabulary normalization or replace the observation likelihood with a Gaussian loss.
+
+Write $\mathscr F_{t-1}^x:=\sigma(x_{<t})$ for the observed-prefix filtration. Every generative coefficient used before $x_t$ is scored must be measurable with respect to $\mathscr F_{t-1}^x$ together with the previously generated latent history and the fixed geometric data. In particular, two sequences with the same prefix must induce the same pre-observation predictive law at position $t$, even when their current targets differ. This prefix-measurability contract is the operational form of target-blind generation.
+
+For latent state $z_t$, model state $m_t$, and deterministic geometric data $\Gamma$, the causal prediction is obtained from a target-blind prefix filter. Define the complete latent history
+\begin{equation}
+U_t:=(z_{0:t},m_{0:t},a_{1:t},b_{1:t}),
+\label{eq:prefix-latent-history}
+\end{equation}
+and initialize the exact filtered law by
+\begin{equation}
+\alpha_{\theta,0}(\mathop{\mathrm dU_0}\given\Gamma)
+:=p_{\theta,0}(z_0,m_0\given\Gamma)
+\mathop{\mathrm d\lambda_{z,0}}\mathop{\mathrm d\lambda_{m,0}}.
+\label{eq:prefix-filter-initial-law}
+\end{equation}
+For $t\geq1$, the target-blind one-step prediction on the enlarged history is
+\begin{equation}
+\begin{aligned}
+\bar\alpha_{\theta,t}(\mathop{\mathrm dU_t}\given x_{<t},\Gamma)
+:={}&\alpha_{\theta,t-1}(\mathop{\mathrm dU_{t-1}}\given x_{<t},\Gamma)
+\pi_t^m(b_t)
+K^m_{\theta,tb_t}(m_t\given m_{b_t},x_{<t},\Gamma)
+\mathop{\mathrm d\lambda_{m,t}(m_t)}\\
+&\times\pi_t^z(a_t)
+K^z_{\theta,ta_t}(z_t\given z_{a_t},m_t,x_{<t},\Gamma)
+\mathop{\mathrm d\lambda_{z,t}(z_t)}.
+\end{aligned}
+\label{eq:exact-prefix-predictive-recursion}
+\end{equation}
+Summation over $(a_t,b_t)$ and integration over the complete history give the held-out conditional probability and the normalized filter update,
+\begin{equation}
+\begin{aligned}
+p_\theta(x_t\given x_{<t},\Gamma)
+&=\int L_{\theta,t}(x_t\given z_t,m_t,\Gamma)
+\bar\alpha_{\theta,t}(\mathop{\mathrm dU_t}\given x_{<t},\Gamma),\\
+\alpha_{\theta,t}(\mathop{\mathrm dU_t}\given x_{\leq t},\Gamma)
+&=\frac{L_{\theta,t}(x_t\given z_t,m_t,\Gamma)
+\bar\alpha_{\theta,t}(\mathop{\mathrm dU_t}\given x_{<t},\Gamma)}
+{p_\theta(x_t\given x_{<t},\Gamma)},
+\end{aligned}
+\label{eq:prior-predictive-token-law}
+\end{equation}
+whenever the displayed evidence is positive. Here ``target-blind'' means that \cref{eq:exact-prefix-predictive-recursion} is formed before $x_t$ is supplied. The emission logits are likewise formed before the label is read; the observed value selects the log probability that is scored. The normalized emission maps the predicted latent history to a categorical vocabulary law.
+
+Exact held-out likelihood uses \cref{eq:exact-prefix-predictive-recursion,eq:prior-predictive-token-law} with exact discrete enumeration and exact or controlled continuous integration. A sequential Monte Carlo or importance-sampling implementation is instead a declared estimator: it must specify proposals, incremental weights, resampling, particle count, and the bias or variance of the reported log-likelihood estimate. No such estimator is constructed in this paper. Free-running ancestral generation is a third operation: sample $U_t$ from the target-blind predictive law, sample $x_t$ from $L_{\theta,t}$, append that sampled occurrence to the prefix, and continue. A free-running rollout is not an estimator of the teacher-forced held-out likelihood of a fixed sequence.
+
+A training recognition law serves a different conditional role. A filtering posterior approximation may condition on $x_{\leq t}$, while a smoothing approximation may condition on $x_{1:T}$, because either law approximates a posterior after the relevant observations have been supplied. Allowing $Q_\psi$ to see $x_t$ during posterior inference is not target leakage: $Q_\psi$ appears inside a variational bound on the probability assigned by the target-blind generative model and does not provide $x_t$ to the predictive prior. Leakage would occur if a target-conditioned recognition activation entered a generative source prior, transition, emission logit, held-out likelihood, or free-running generation state. Posterior-predictive reconstruction from a law that has seen $x_t$ is therefore not perplexity. The proposed evaluation forbids all of these substitutions.
+
+The expected negative log emission under $Q_\psi$ is still expected categorical cross-entropy. The remaining ELBO terms account for the discrepancy between posterior and prior latent laws, source assignments, and any random geometric variables. Thus VFE 4.0 adds structured latent and geometric complexity around the normalized observation model while retaining the same probabilistic meaning for tokens.
+
+\section{The V3 Objective Boundary}
+
+The established V3 theorem record rules out, in general, rewriting its live posterior-to-posterior consensus functional as a KL divergence to one fixed, variationally independent joint on the original state-latent product space. The present ELBO investigation adds the corresponding optimization boundary: V3 performs target-blind model refinement, target-blind belief refinement, and a separate decoder cross-entropy update, and these three stages do not optimize one shared scalar. V3's moving peer distributions therefore cannot be relabeled as fixed causal transition factors merely by changing terminology. Its zero-dimensional agent stack supplies the geometric reduction used here, but not the missing normalized population joint.
+
+This boundary does not invalidate the individual V3 computations or re-audit their implementation. It limits the probabilistic claim they can support. VFE 4.0 is proposed as a new construction in which fixed normalized transition and emission factors define the joint first, an observation-conditioned $Q$ defines approximate inference second, and every E-like or M-like update is assessed against the resulting ELBO. The relationship is architectural ancestry rather than an asserted exact reduction.
+
+\chapter{Relation to Variational Sequence Models}
+
+The shared-scalar organization follows the variational view of expectation--maximization, in which posterior and parameter updates are related through one free-energy functional, and the standard evidence decomposition for a fixed normalized model and variational law \citep{Neal1998,Wainwright2008}. Reparameterized variational inference provides a general route for optimizing latent-variable bounds when closed-form coordinate updates are unavailable \citep{Kingma2013}. VFE 4.0 does not claim novelty for these identities. Its proposal is to instantiate them for a causal language model whose state, model, and source variables belong to one normalized joint conditional on deterministic $\Gamma_{\mathrm{core}}$. Random frames, graph links, or base-connection variables require the separately normalized extension.
+
+Sequential latent-variable research has shown how stochastic state processes can be coupled to recurrent observations and how recognition models can preserve temporal dependence rather than impose a fully factorized posterior \citep{chung2015recurrent,fraccaro2016sequential}. Structured inference networks, black-box state-space inference, and compositions of graphical-model factors with flexible recognition machinery further establish that posterior dependence and sparse probabilistic structure can be retained within scalable variational methods \citep{krishnan2017structured,archer2015black,johnson2016composing}. These works motivate the structured-sequence comparison class. They do not supply the associated-bundle geometry or the gauge-compatible causal factorization proposed here.
+
+Latent-variable text models also expose a distinct failure mode: an expressive autoregressive decoder can ignore a latent code, producing posterior collapse or a near-vanishing latent contribution \citep{bowman2016generating}. Later variational transformer designs have introduced latent variables at multiple layers to strengthen their interaction with the token pathway \citep{hu2022fuse}. These sources establish posterior collapse as a documented modeling problem and motivate explicit diagnostics. They do not establish that VFE 4.0 avoids it; avoidance remains an empirical hypothesis in this paper.
+
+Standard transformer attention routes token information through learned dot-product attention and stacked deterministic transformations \citep{Vaswani2017}. VFE 4.0 instead proposes categorical source variables inside a normalized causal latent-variable model and places their inference in a structured ELBO. The combination of source selection, same-point associated-fiber maps, model-to-state coupling, and a gauge-compatible categorical emission is the present gauge-causal synthesis. The cited sequence, variational, text, and transformer literatures provide its constituent context, not a derivation or an empirical validation of the proposal.

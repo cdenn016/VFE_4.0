@@ -1,0 +1,62 @@
+\chapter{Comparison with VFE 4.0}
+\label{ch:vfe4-comparison}
+
+VFE 4.0 and the present MAgent construction use the same reporting discipline but define different probability models. Statements about VFE 4.0 are bound to \path{manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex} at Research commit \texttt{b93d01f57dc0a55a11bf26ec13562f7019a5c84b} \citep{Dennis2026VFE4Snapshot}. VFE 4.0 is a normalized autoregressive latent-variable language-model construction specialized to the zero-dimensional population reduction of its own general section theory. The present MAgent theory retains continuum section-bearing agents over a general contextual base and places beside them a separately defined finite-design, finite-population realization. Sampling the continuum sections and marginalizing the finite recognition law are distinct operations whose outputs agree only under Equation~\eqref{eq:continuum-finite-marginal-compatibility}. In VFE 4.0, token positions label causal latent variables and associated-fiber copies over one point. In MAgent, agents remain the supported section-bearing objects of Equation~\eqref{eq:agent-object}; their evaluated state and model samples are coordinates of a finite population random variable. Neither a token position nor a graph vertex is thereby identified with an agent section.
+
+Table~\ref{tab:magent-vfe4-comparison} compares the two constructions at the level of declared mathematical types. Every VFE 4.0 entry refers to its fixed causal joint, source-conditioned recognition law, and singleton-base gauge sector, rather than to its title or to terminology shared by the reports.
+
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.37\textwidth}>{\raggedright\arraybackslash}p{0.37\textwidth}}
+\caption{Typed comparison of the MAgent and VFE 4.0 constructions.}
+\label{tab:magent-vfe4-comparison}\\
+\toprule
+\textbf{Object} & \textbf{MAgent exact-ELBO theory} & \textbf{VFE 4.0} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{l}{\textit{Table \thetable\ continued}}\\
+\toprule
+\textbf{Object} & \textbf{MAgent exact-ELBO theory} & \textbf{VFE 4.0} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+Base geometry & A smooth contextual base \(\mathcal C\) carries one principal \(G\)-bundle. Exact state probabilities are defined only after evaluation at one context or a finite design \(D\subset\mathcal C\). & The general theory also starts from a contextual base and associated statistical bundles. The language model restricts them to \(\mathcal C_0=\{\ast\}\), so its exact population joint lives over one base point and has no nonzero base two-form or nonconstant base curve. \\
+\addlinespace
+Agent ontology & An agent \(\mathcal A^i\) is a supported local section-bearing object carrying state and model statistical sections, prior sections, and a frame field. The evaluated sample \((k_i(c_a),m_i(c_a))\) and vertex label \(i\) are not the agent. & A token agent is a labeled statistical-section value after the singleton reduction. The variables \((z_t,m_t)\), token position \(t\), and causal vertex are sample or population labels, not the general local section itself. \\
+\addlinespace
+Observations & The abstract model permits any declared normalized observation kernel \(P^o_{\theta,i}\). The analytic reference uses finite-dimensional Gaussian observations at the agent--design incidences. & Realized token occurrences \(x_t\) are categorical observations. A target-blind autoregressive prior predictor and a normalized softmax emission retain ordinary categorical cross-entropy as the observation sector. \\
+\addlinespace
+Structural graph & A finite DAG, and a forest in the analytic reference, orders agent-conditionals at each design point. A Regime-II interaction complex and the smooth bundle base are separate objects. & A strict causal token DAG \(D_T\) orders source and transition factors within the population over \(\ast\). It is not the principal-bundle base; optional independent graph links belong to another sector. \\
+\addlinespace
+Latent inventory & The state core uses \(Y_D=((k_{i,a},m_{i,a}))_{i,a}\). Structural data \(X\), including graphs or frames, are conditioned on in the state tier and may become random only in the configuration tier. & The exact language core uses \(Y=(\boldsymbol z,\boldsymbol m,a,b)\): continuous state and model samples plus categorical state-source and model-source assignments. Its geometric data \(\Gamma_{\mathrm{core}}\) are deterministic. \\
+\addlinespace
+Fixed joint & One posterior-independent kernel \(P_\theta(do,dY\mid X)\) is formed from normalized root, transition, bridge, and observation kernels. The finite-design reference conditions independently across design points. & One posterior-independent autoregressive density \(p_\theta(x,\boldsymbol z,\boldsymbol m,a,b\mid\Gamma)\) is formed from an initial law, two source priors, two causal transition kernels, and a categorical emission at every noninitial token. \\
+\addlinespace
+Recognition law & One normalized \(Q_X(dY\mid o)\) may correlate agents, design points, and state--model channels. Its pushforward marginals are the finite laws \(q_{i,a}^{o,X}\) and \(s_{i,a}^{o,X}\); they are not definitions of continuum section values. & One normalized filtering or smoothing law \(Q_\psi^{(r)}(\boldsymbol z,\boldsymbol m,a,b\mid x,\Gamma)\) may retain population dependence. Conditional on source assignments, its reference continuous family is a correlated Gaussian; source marginalization generally gives a mixture. \\
+\addlinespace
+Mean-field family & The agent-block family removes cross-agent dependence while retaining within-agent state--model and within-factor design dependence. The finer family also factors state from model inside each agent. & The complete mean-field law factors every token state, token model, state-source row, and model-source row. Its Gaussian information restriction is block diagonal across all state and model blocks. \\
+\addlinespace
+Source variables & No categorical source variable occurs in the authoritative state core. A fixed-template categorical row is an optional normalized auxiliary model and cannot read live recognition marginals. & The categorical variables \(a_t\) and \(b_t\) are part of the authoritative joint. Their fixed normalized priors choose causal state and model sources, and their recognition rows contribute categorical KL terms at unit ELBO scale. \\
+\addlinespace
+Configuration tier & A proper \(P_0(dX)\), configuration recognition kernel \(R(dX\mid o)\), and state kernel define an exact hierarchical ELBO. An observation-free Gibbs prior is a separate normalized option when its partition function is finite. & The exact language core conditions on \(\Gamma_{\mathrm{core}}\). A separate configuration-Gibbs proposal can randomize a whole belief configuration, but it is not the token-state joint and requires its own proper reference probability and finite partition function. \\
+\addlinespace
+Gauge variables & Frame fields live over the general base. Regime-I comparisons \(U_i(c)U_j(c)^{-1}\) are same-context coboundaries; independent Regime-II links and a smooth base connection remain separate. Finite-design sample and information coordinates transform under the represented principal-frame changes. & Population frames \(U_t\) and coboundaries \(\Omega_{tj}=U_tU_j^{-1}\) compare labeled copies over \(\ast\). The internal action is \(G^{T+1}\), while its diagonal \(G\) subgroup is the base-bundle gauge action inherited at the singleton. \\
+\addlinespace
+Executable status & A live MAgent implementation exists, but Chapter~\ref{ch:executable-crosswalk} documents from a pinned source snapshot that it differentiates the legacy node-local consensus scalar rather than constructing the new correlated-state joint and recognition law. & The VFE 4.0 manuscript presents a proposed architecture and verification program, not a VFE 4.0 implementation or training result. Its executable discussion audits V3 only as an engineering ancestor and boundary. \\
+\addlinespace
+Exact results & The proved results include directed-joint normalization, the finite-design evidence identity, complete CAVI blankets, the Gaussian block optimum and determinant gap, the nested state--configuration identity, finite-design gauge invariance, and the moving-peer obstruction on the fine design-point-factorized mean-field family only. & The proved results include causal-joint normalization, the token evidence identity and factorwise decomposition, structured and mean-field coordinate formulas, Gaussian information identities, a restricted fixed-covariance edge identity, a fixed-template row identity, and complete internal-frame invariance under simultaneous pushforward. \\
+\addlinespace
+Open problems & A continuum section-space law, normalized loopy interactions, noncompact configuration measures, nonconjugate inference, convergence of practical updates, implementation of the new state tier, and empirical adequacy remain open. & Latent geometric priors, source-mixture scaling, nonconjugate categorical inference, sparse execution, optimizer behavior, held-out predictive benefit, and any positive-dimensional base-geometry extension remain open. \\
+\end{longtable}
+\normalsize
+
+\section{Shared report architecture and independent theories}
+
+The present report reuses five presentation decisions from VFE 4.0. Both papers define geometric and probabilistic objects before inference, separate claim classes by their proof obligations, stage normalization before the evidence identity and coordinate analysis, use the same theorem-first report architecture, and use a shared visual language for exact constructions, variational restrictions, and future tests. This reuse supports side-by-side auditability. It does not place either probability model inside the other.
+
+The MAgent construction does not reuse the VFE 4.0 causal token factorization, its state--model--source latent inventory, its categorical emission law, its zero-dimensional specialization, or its notation. MAgent instead uses agents evaluated on a finite contextual design, arbitrary normalized observation kernels with a Gaussian analytic reference, and a structural configuration variable that can define a second probability tier. Conversely, VFE 4.0 does not obtain its token-autoregressive model by specializing the MAgent directed forest or configuration hierarchy.
+
+No theorem in either manuscript proves that one construction reduces to the other. Shared ELBO algebra follows because both begin with normalized probability measures and admissible recognition laws; that algebra is not evidence that their random variables, conditioning sets, graph semantics, or gauge sectors coincide. Any future reduction claim would need an explicit map between sample spaces, factors, parameters, reference measures, and gauge actions, followed by a proof that normalization and the complete objective are preserved. Until such a theorem exists, the relationship is comparative and architectural rather than an identity or a limit.

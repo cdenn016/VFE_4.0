@@ -1,0 +1,404 @@
+\chapter{The PIFB2 Functional: Exact Sectors, Obstruction, and Exact Lifts}
+\label{ch:pifb2-crosswalk}
+
+This chapter locates the legacy PIFB2 population functional relative to the fixed-joint theory developed in Chapters~\ref{ch:generative-model}--\ref{ch:configuration-elbo}. The comparison is classificatory. A term can be an exact KL divergence, a normalized likelihood contribution, or the value of an exact simplex minimization without making the complete population scalar the negative ELBO of the fixed state model in Chapter~\ref{ch:generative-model}. Conversely, failure of that state-level identification does not invalidate the scalar as an engineered consensus objective or prevent an exact model on an enlarged sample space. Standard relative-entropy and mean-field claims below use the fixed-model convention of \citet{Kullback1951}, \citet{CoverThomas2006}, and \citet{Wainwright2008}. Project-source statements are bound to the immutable PIFB2 snapshot \path{manuscripts/PIFB2.tex} at Research commit \texttt{b93d01f57dc0a55a11bf26ec13562f7019a5c84b} \citep{Dennis2026PIFB2Snapshot}; that source is used only to identify the project's formulas and declared executable profile.
+
+\section{The canonical entropy-retaining population scalar}
+
+Let \((\mathcal C,\mathscr C,\mu_{\mathcal C})\) be the contextual base equipped with a fixed sigma-finite Borel measure. All fields in this section are assumed measurable, and every displayed integral is taken with respect to \(d\mu_{\mathcal C}(c)\). The unindexed notation describes one fixed continuum theoretical state. The state sections \(q_i(c)\) and \(p_i(c)\) are probability laws on the state fiber, while \(s_i(c)\) and \(r_i(c)\) are probability laws on the model fiber; observation- and configuration-dependent versions would be written \(q_i^{o,X}(c)\) and \(s_i^{o,X}(c)\). The represented state transport is \((\Omega_{ij})_{\#}\), and the model transport \((\widetilde\Omega_{ij})_{\#}\) is separately typed; it may be induced by a different representation or by an independent model-frame bundle. Let \(\zeta_i(dk_i,dm_i\mid c)\) be the declared joint state--model recognition marginal, with coordinate marginals \(q_i(c)\) and \(s_i(c)\). The fully factorized specialization is \(\zeta_i(c)=q_i(c)\otimes s_i(c)\). If the legacy observation model instead treats \(m_i\) as a fixed value \(\bar m_i(c)\), the corresponding specialization is \(\zeta_i(c)=q_i(c)\otimes\delta_{\bar m_i(c)}\). The observation factor \(p(o(c)\mid k_i,m_i)\) is a fixed normalized kernel whenever it is assigned state-model-factor status below; no model-fiber variable is left outside the expectation.
+
+Write \(\chi_i:\mathcal C\to[0,1]\) for the agent-presence field and \(\chi_{ij}=\chi_i\chi_j\) for pair presence. Let \(\pi_{ij}\) and \(\pi_{ij}^{(s)}\) be nonnegative source-prior rows. First define the row normalizers
+\begin{align}
+Z_i^{\chi}(c)
+&=\sum_k\chi_{ik}(c)\pi_{ik}(c),
+&
+Z_i^{\chi,s}(c)
+&=\sum_k\chi_{ik}(c)\pi_{ik}^{(s)}(c).
+\label{eq:pifb2-row-normalizers}
+\end{align}
+Define the active receiver domains
+\begin{equation}
+\mathcal C_i^{\beta}
+:=\{c\in\mathcal C:Z_i^{\chi}(c)>0\},
+\qquad
+\mathcal C_i^{\gamma}
+:=\{c\in\mathcal C:Z_i^{\chi,s}(c)>0\}.
+\label{eq:pifb2-active-receiver-domains}
+\end{equation}
+The absorbed priors are then defined on their respective domains by
+\begin{align}
+\widetilde\pi_{ij}(c)
+&=\frac{\chi_{ij}(c)\pi_{ij}(c)}{Z_i^{\chi}(c)},
+\quad c\in\mathcal C_i^{\beta},
+\label{eq:pifb2-absorbed-state-prior}\\
+\widetilde\pi_{ij}^{(s)}(c)
+&=\frac{\chi_{ij}(c)\pi_{ij}^{(s)}(c)}{Z_i^{\chi,s}(c)},
+\quad c\in\mathcal C_i^{\gamma}.
+\label{eq:pifb2-absorbed-model-prior}
+\end{align}
+On these domains, the corresponding absorbed prior is normalized. A row for which every pair-presence weight vanishes lies outside its active receiver domain and is omitted rather than assigned an undefined \(0/0\) prior. Equivalently, each retained state row has a nonempty active set \(\mathcal J_i(c)=\{j:\chi_{ij}(c)\pi_{ij}(c)>0\}\), with the analogous model set. The variational rows obey
+\begin{equation}
+\beta_{ij}(c)\geq0,
+\qquad
+\sum_j\beta_{ij}(c)=1
+\quad(c\in\mathcal C_i^{\beta}),
+\qquad
+\gamma_{ij}(c)\geq0,
+\qquad
+\sum_j\gamma_{ij}(c)=1
+\quad(c\in\mathcal C_i^{\gamma}),
+\label{eq:pifb2-row-simplexes}
+\end{equation}
+and are absolutely continuous with respect to their absorbed priors: a row weight must vanish wherever the corresponding \(\widetilde\pi\) vanishes. The convention is \(0\log(0/a)=0\) for \(a\geq0\), while a positive row weight over a zero prior has infinite cost.
+
+With these types and conventions, the canonical entropy-retaining scalar recorded by PIFB2 is
+\begin{align}
+\mathcal F_{\mathrm{PIFB2}}
+={}&\sum_i\int_{\mathcal C}
+\chi_i(c)\KL\bigl(q_i(c)\Vert p_i(c)\bigr)d\mu_{\mathcal C}(c)
+\label{eq:pifb2-canonical-functional}\\
+&+\lambda_h\sum_i\int_{\mathcal C}
+\chi_i(c)\KL\bigl(s_i(c)\Vert r_i(c)\bigr)d\mu_{\mathcal C}(c)\notag\\
+&+\sum_{ij}\int_{\mathcal C_i^{\beta}}\left[
+\beta_{ij}(c)\KL\bigl(q_i(c)\Vert(\Omega_{ij}(c))_{\#}q_j(c)\bigr)
++\tau\beta_{ij}(c)\log\frac{\beta_{ij}(c)}{\widetilde\pi_{ij}(c)}
+\right]d\mu_{\mathcal C}(c)\notag\\
+&+\sum_{ij}\int_{\mathcal C_i^{\gamma}}\left[
+\gamma_{ij}(c)\KL\bigl(s_i(c)\Vert(\widetilde\Omega_{ij}(c))_{\#}s_j(c)\bigr)
++\tau\gamma_{ij}(c)\log
+\frac{\gamma_{ij}(c)}{\widetilde\pi_{ij}^{(s)}(c)}
+\right]d\mu_{\mathcal C}(c)\notag\\
+&-\sum_i\int_{\mathcal C}\chi_i(c)
+\E_{\zeta_i(c)}\log p\bigl(o(c)\mid k_i,m_i\bigr)d\mu_{\mathcal C}(c).
+\notag
+\end{align}
+The displayed state self-coupling has unit weight. The model self or hyperprior term has the explicit coefficient \(\lambda_h\), with the unit profile obtained at \(\lambda_h=1\). PIFB2 later replaces the state coefficient by an adaptive scalar \(\alpha_i\) and adds the regularizer \(b_0\alpha_i-c_0\log\alpha_i\). That later precision envelope is a separate extension and is not silently included in Equation~\eqref{eq:pifb2-canonical-functional}. Optional frame-smoothness, Fisher-mass, and plaquette penalties are also additional regularizers rather than omitted terms of the displayed scalar.
+
+Equation~\eqref{eq:pifb2-canonical-functional} is the legacy population consensus scalar. It is not the state ELBO \(\Lstate\) of Equation~\eqref{eq:state-elbo-definition}, nor is its negative identified with that ELBO. The state ELBO is defined from one fixed normalized posterior-independent joint on the finite design. Equation~\eqref{eq:pifb2-canonical-functional} instead contains transported live recognition marginals in the denominators of its within-scale peer KL terms and is written as a continuum integral without asserting a probability measure on the full section space.
+
+\section{One-status legacy concordance}
+
+Table~\ref{tab:pifb2-legacy-concordance} assigns one status to each requested sector. A status is conditional on the scope in the last column; the table does not combine a state-level identity with a configuration-level or interpretive reading in one row.
+
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.23\textwidth}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.45\textwidth}}
+\caption{One-status concordance between PIFB2 sectors and the exact constructions in this paper.}
+\label{tab:pifb2-legacy-concordance}\\
+\toprule
+\textbf{PIFB2 sector} & \textbf{Status} & \textbf{Exact scope of the status} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{l}{\textit{Table \thetable\ continued}}\\
+\toprule
+\textbf{PIFB2 sector} & \textbf{Status} & \textbf{Exact scope of the status} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+Self KL \(\KL(q_i\Vert p_i)\) &
+exact state-model factor &
+It is an exact complexity contribution when \(p_i\) is a fixed normalized prior factor of the declared state joint and the recognition restriction supplies the matching marginal factor. Refreshing \(p_i\) from a live parent belief changes that model.\\
+Model or hyperprior KL \(\KL(s_i\Vert r_i)\) &
+exact state-model factor &
+It has the same status for a fixed normalized model-channel prior \(r_i\). The coefficient \(\lambda_h\) is an objective weight unless it is derived from the normalized joint being claimed.\\
+Gaussian observation term &
+exact state-model factor &
+The expectation under the declared joint marginal \(\zeta_i\) is an exact factor contribution when the Gaussian observation kernel is normalized, posterior-independent, and counted once as in Equation~\eqref{eq:state-free-energy-factorization}. The product and deterministic-model specializations are stated above.\\
+Entropy-regularized attention row &
+engineered scalar &
+For fixed edge energies and a proper row prior, simplex minimization is exact and yields the log-sum-exp envelope. With live transported peers, this optimization identity does not supply a fixed population joint.\\
+Live-peer KL \(\KL(q_i\Vert T_{ij}q_j)\) &
+engineered scalar &
+The exact floor-free peer KL is a gauge-invariant consensus scalar under the linked endpoint action because both arguments undergo the same receiver-frame pushforward. The active \(D_\varepsilon\) surrogate of Chapter~\ref{ch:executable-crosswalk} is invariant only under orthogonal frame changes unless \(\varepsilon=0\) or the regulator is co-transformed. The sender is another recognition factor, so the model moves over the open product family.\\
+Frozen-source row &
+exact auxiliary model &
+For fixed normalized templates \(f_{ij}\), a proper categorical prior, and unit ordinary-KL scale, Equations~\eqref{eq:fixed-source-row-joints}--\eqref{eq:fixed-source-row-optimum} give an exact row model.\\
+Zero-within-scale cross-scale hierarchy &
+exact state-model factor &
+With live within-scale alignment removed, a proper top prior, finite positive Gaussian link variance, and normalized observations, the hierarchical Gaussian tree is one fixed normalized joint \citep{Lauritzen1996}.\\
+Configuration Gibbs lift &
+exact configuration lift &
+Equations~\eqref{eq:configuration-gibbs-partition-function}--\eqref{eq:configuration-gibbs-variational-identity} are exact on configuration space when the reference law is proper and the partition function is finite.\\
+Yang--Mills or plaquette penalty &
+regularizer &
+It is an optional connection-sector penalty. Regime-I frame coboundaries give identity products on same-context discrete loops; they do not determine the curvature of an independently declared smooth connection. Smooth flatness follows only after separately declaring the pure-gauge connection \(A=-(dU)U^{-1}\). A nontrivial plaquette action requires independent Regime-II links, and a Frobenius holonomy penalty on \(\mathrm{GL}^{+}(K)\) is not a conjugacy-invariant Yang--Mills action \citep{Yang1954,Nakahara2003}.\\
+Self-referential apex closure &
+update outside the scalar &
+The coherence-weighted moment pool refreshes top-level priors from the active hierarchy. Without a separately normalized joint or an added closure term whose coordinate solution it is, this refresh is an update rule rather than a factor of Equation~\eqref{eq:pifb2-canonical-functional}.\\
+\end{longtable}
+\normalsize
+
+\section{The scoped moving-peer obstruction}
+
+The obstruction below concerns equality of functionals on an open, fine design-point-factorized mean-field family. The finite-design theorem is the rigorous closure point for that family only. The following continuum statement is a conditional corollary for a base integral and does not construct a probability measure on a space of sections.
+
+\paragraph{Theorem (finite-design moving-peer obstruction).}
+\label{thm:magent-moving-peer-obstruction}
+Fix an observation \(o\), a structural value \(X\), and the finite design \(D=\{c_a\}_{a=1}^{M}\). Define the comparison family to be the independently variable, fine design-point-factorized mean-field law
+\begin{equation}
+Q=\bigotimes_{\ell,b}q_{\ell,b},
+\qquad
+q_{\ell,b}\in\mathcal Q_{\ell,b},
+\label{eq:moving-peer-fine-comparison-family}
+\end{equation}
+where every \(\mathcal Q_{\ell,b}\) is mixture open. This additional factorization across design points is finer than both cross-design recognition families in Equations~\eqref{eq:agent-block-recognition-family} and~\eqref{eq:state-model-recognition-family}; the theorem makes no claim about those coarser families. For distinct agents \(i\) and \(j\), let the coordinate marginals \(q_{i,a}^{o,X}\) and \(q_{j,a}^{o,X}\) from Equation~\eqref{eq:recognition-marginal-sections} be the base-point factors of Equation~\eqref{eq:moving-peer-fine-comparison-family} and have positive densities with respect to sigma-finite measures \(\nu_{i,a}\) and \(\nu_{j,a}\). Let \(w_a>0\) be finite quadrature weights, let \(\lambda>0\), and let \(\mathfrak H_a\) be a nonempty finite set of peer channels. For every \(a\) and \(h\in\mathfrak H_a\), let \(b_{ij,a}^{(h)}>0\) and let
+\(T_{ij,a}^{(h)}:L^1(\nu_{j,a})\to L^1(\nu_{i,a})\) be fixed, positive, linear, and mass preserving.
+
+Choose sender tangents \(h_{j,a}\) with zero mass and bounded density ratios. Define receiver tangents below. Assume there are \(\delta_s,\delta_t>0\) for which the single open rectangle
+\begin{equation}
+\mathcal U=(-\delta_s,\delta_s)\times(-\delta_t,\delta_t).
+\label{eq:moving-peer-admissible-rectangle}
+\end{equation}
+For each \(a\), let \(\Gamma_a:\mathcal U\to\prod_{\ell,b}\mathcal Q_{\ell,b}\) be the site-local path that holds every factor fixed except
+\begin{equation}
+q_{i,a}(s)=q_{i,a}^{o,X}+s a_{i,a},
+\qquad
+q_{j,a}(t)=q_{j,a}^{o,X}+t h_{j,a},
+\label{eq:moving-peer-finite-paths}
+\end{equation}
+and assume the same rectangle is admissible for every \(\Gamma_a\). For \((s,t)\in\mathcal U\), require every transported sender density on these site-local paths to be positive on the relevant receiver support and every nearby peer KL to be finite. Positivity and the bounded sender ratio imply the transported-tangent bound
+\begin{equation}
+\left|T_{ij,a}^{(h)}h_{j,a}\right|
+\leq
+\left\lVert\frac{h_{j,a}}{q_{j,a}^{o,X}}\right\rVert_\infty
+T_{ij,a}^{(h)}q_{j,a}^{o,X}.
+\label{eq:moving-peer-transported-tangent-bound}
+\end{equation}
+Assume the resulting ratios are bounded and define
+\begin{align}
+g_{ij,a}^{(h)}
+&:=\left(
+\frac{T_{ij,a}^{(h)}h_{j,a}}
+{T_{ij,a}^{(h)}q_{j,a}^{o,X}}
+\right)^2,
+\label{eq:moving-peer-g-definition}\\
+G_{ij,a}
+&:=\sum_{h\in\mathfrak H_a}b_{ij,a}^{(h)}g_{ij,a}^{(h)}.
+\label{eq:moving-peer-aggregate-definition}
+\end{align}
+Require bounded measurable versions of these functions, domination sufficient to differentiate each sitewise finite sum through the order \(\partial_s\partial_t^2\) throughout \(\mathcal U\), and the nonconstancy condition
+\begin{equation}
+\sum_{a=1}^{M}w_a
+\operatorname{Var}_{q_{i,a}^{o,X}}(G_{ij,a})>0.
+\label{eq:moving-peer-finite-positive-variance}
+\end{equation}
+Set
+\begin{equation}
+a_{i,a}=q_{i,a}^{o,X}
+\left(G_{ij,a}-\E_{q_{i,a}^{o,X}}G_{ij,a}\right).
+\label{eq:moving-peer-receiver-tangent}
+\end{equation}
+These receiver tangents have zero mass and bounded ratios, and after reducing \(\delta_s\) if needed their paths remain in the mixture-open families. Consider
+\begin{align}
+\mathcal C_D(q)
+:={}&\lambda\sum_{a=1}^{M}w_a
+\sum_{h\in\mathfrak H_a}b_{ij,a}^{(h)}
+\KL\left(q_{i,a}\middle\Vert T_{ij,a}^{(h)}q_{j,a}\right)
++\mathcal H_D(q).
+\label{eq:moving-peer-finite-functional}
+\end{align}
+If the remainder has zero iterated derivative on every site-local path,
+\begin{equation}
+\left.\partial_s\partial_t^2
+(\mathcal H_D\circ\Gamma_a)(s,t)\right|_{(0,0)}=0
+\quad\text{for every \(a\)},
+\label{eq:moving-peer-remainder-no-cancellation}
+\end{equation}
+then
+\begin{equation}
+\sum_{a=1}^{M}
+\left.\partial_s\partial_t^2
+(\mathcal C_D\circ\Gamma_a)(s,t)\right|_{(0,0)}
+=\lambda\sum_{a=1}^{M}w_a
+\operatorname{Var}_{q_{i,a}^{o,X}}(G_{ij,a})>0.
+\label{eq:moving-peer-mixed-third}
+\end{equation}
+For the negative ELBO of any fixed posterior-independent joint evaluated on the fine site-factorized mean-field family \(Q=\bigotimes_{\ell,b}q_{\ell,b}\), assume the support, log-integrability, and domination conditions needed to make the functional finite and differentiable along the images of the \(\Gamma_a\). Each site-local path then satisfies
+\begin{equation}
+\left.\partial_s\partial_t^2
+(\mathcal F_{\mathrm{fixed\ joint}}\circ\Gamma_a)(s,t)
+\right|_{(0,0)}=0
+\quad\text{for every \(a\)}.
+\label{eq:fixed-joint-mixed-third-zero}
+\end{equation}
+Consequently, on this fine site-factorized mean-field family, \(\mathcal C_D\) cannot equal that fixed-joint negative ELBO plus a constant throughout the open product neighborhood containing the images of the \(\Gamma_a\).
+
+\paragraph{Proof.}
+Along \(\Gamma_a\), only the receiver factor \(q_{i,a}\) and sender factor \(q_{j,a}\) vary. A fixed-joint negative ELBO restricted to the fine site-factorized mean-field family in Equation~\eqref{eq:moving-peer-fine-comparison-family} is a sum of factor entropies minus an energy expectation that is affine in either selected factor while the other factors are held fixed. The second sender derivative of the energy vanishes, and the second sender derivative of the sender entropy is independent of the receiver factor, proving Equation~\eqref{eq:fixed-joint-mixed-third-zero} \citep{Wainwright2008}. For one site and channel, dominated pathwise differentiation gives
+\begin{equation}
+\left.\partial_s\partial_t^2
+\KL\left(q_{i,a}(s)\middle\Vert
+T_{ij,a}^{(h)}q_{j,a}(t)\right)\right|_{(0,0)}
+=\int a_{i,a}g_{ij,a}^{(h)}d\nu_{i,a}.
+\label{eq:moving-peer-derivative-calculation}
+\end{equation}
+For a fixed \(a\), only the site-\(a\) peer terms contribute to the derivative of \(\mathcal C_D\circ\Gamma_a\). Summing these site-local derivatives and substituting Equation~\eqref{eq:moving-peer-receiver-tangent} yields the weighted sum of variances in Equation~\eqref{eq:moving-peer-mixed-third}. The remainder cannot cancel it by Equation~\eqref{eq:moving-peer-remainder-no-cancellation}, and Equation~\eqref{eq:moving-peer-finite-positive-variance} makes the result strict. Appendix~\ref{sec:moving-peer-calculus-oracle} gives the detailed calculation and the finite discrete directional-difference oracle. This conclusion is confined to the fine site-factorized mean-field family in Equation~\eqref{eq:moving-peer-fine-comparison-family}; extending it to either coarser Chapter~\ref{ch:mean-field-theory} family requires a separate argument. \(\square\)
+
+\paragraph{Corollary (conditional continuum base-integral obstruction).}
+Let the legacy continuum fields have measurable positive fiber densities \(q_i(c)\) and \(q_j(c)\) over \((\mathcal C,\mu_{\mathcal C})\), relative to fiber measures \(\nu_{i,c}\) and \(\nu_{j,c}\). Choose a measurable sender tangent \(h_j(c)\) with zero mass in every sender fiber and a bounded fiberwise ratio \(h_j(c)/q_j(c)\). Let \(\lambda>0\), let \(\mathfrak H\) be a nonempty finite channel set, and let the positive measurable coefficients \(b_{ij}^{(h)}(c)\) and positive linear mass-preserving fiber transports \(T_{ij}^{(h)}(c)\) be measurable in \(c\). Define
+\begin{align}
+G_{ij}(c)
+&:=\sum_{h\in\mathfrak H}b_{ij}^{(h)}(c)
+\left(
+\frac{T_{ij}^{(h)}(c)h_j(c)}
+{T_{ij}^{(h)}(c)q_j(c)}
+\right)^2,
+\label{eq:moving-peer-continuum-aggregate}\\
+a_i(c)
+&:=q_i(c)\left[
+G_{ij}(c)-\E_{q_i(c)}G_{ij}(c)
+\right].
+\label{eq:moving-peer-continuum-centered-tangent}
+\end{align}
+Assume this exact centered tangent \(a_i(c)\) is jointly measurable in the base and receiver-fiber variables and has zero mass in every receiver fiber. Assume directly that there is one common open rectangle \(\mathcal U=(-\delta_s,\delta_s)\times(-\delta_t,\delta_t)\) on which the exact section paths
+\begin{equation}
+q_i(s,c)=q_i(c)+s a_i(c),
+\qquad
+q_j(t,c)=q_j(c)+t h_j(c),
+\label{eq:moving-peer-continuum-exact-path}
+\end{equation}
+are jointly admissible outside one common base-null set. A uniform essential bound on the centered ratio \(a_i(c)/q_i(c)=G_{ij}(c)-\E_{q_i(c)}G_{ij}(c)\) is sufficient for receiver positivity on a common \(s\)-interval, but it does not replace this common-rectangle hypothesis. Along this exact path, assume every nearby transported peer KL is finite almost everywhere, the transported ratios are bounded, and one common integrable envelope permits \(\partial_s\partial_t^2\) to pass through both the fiber and base integrals. If the continuum remainder has zero iterated derivative and
+\begin{equation}
+\int_{\mathcal C}
+\operatorname{Var}_{q_i(c)}\bigl(G_{ij}(c)\bigr)
+d\mu_{\mathcal C}(c)>0,
+\label{eq:moving-peer-continuum-positive-variance}
+\end{equation}
+then the exact centered path in Equations~\eqref{eq:moving-peer-continuum-centered-tangent} and~\eqref{eq:moving-peer-continuum-exact-path} gives a strictly positive \(\partial_s\partial_t^2\) derivative of the continuum peer base integral. Therefore this base integral cannot equal, on that exact section-path neighborhood, any separately defined comparison functional whose iterated derivative along the same path is zero. No fixed-joint continuum ELBO is asserted or constructed. This corollary differentiates a scalar integral against the fixed base measure \(\mu_{\mathcal C}\); it constructs neither a probability measure on a continuum of sections nor a continuum limit of the finite theorem.
+
+For the unreduced entropy-retaining functional, the finite theorem applies only on the fine site-factorized mean-field family in Equation~\eqref{eq:moving-peer-fine-comparison-family} and on a slice where the row variables \(\beta\) and \(\gamma\) are held fixed. Their categorical relative entropies, the self terms, and fixed likelihood terms have zero iterated derivative of the required order. A reverse edge is linear in the repeated sender factor outside its separate entropy, and unrelated edges omit at least one varied factor. The theorem does not classify either coarser Chapter~\ref{ch:mean-field-theory} recognition family or the minimized envelope obtained after substituting \(\beta^*(q)\), because those changes alter the factorization or pathwise derivative structure.
+
+\section{Why the scoped exceptions are genuine exceptions}
+
+\begin{samepage}
+Frozen source templates remove the sender variation. Replacing \(T_{ij}q_j\) by a fixed normalized \(f_{ij}\) makes the row an ordinary auxiliary source model. Denote its generic receiver density by \(\varrho_i\), separately from the continuum section \(q_i\). At unit temperature, Equations~\eqref{eq:fixed-source-row-joints}--\eqref{eq:fixed-source-row-optimum} give
+\begin{equation}
+\KL(Q_i\Vert P_i)
+=\sum_j\beta_{ij}\KL(\varrho_i\Vert f_{ij})
++\KL(\beta_i\Vert\pi_i),
+\label{eq:pifb2-unit-temperature-frozen-row}
+\end{equation}
+with no live \(q_j\) direction. This is the exact Task~6 construction. A general \(\tau\) still defines a valid convex row scalar and the exact envelope derived below, but it is not the same unscaled joint KL. A probabilistic nonunit-temperature reading needs a separately normalized tempered model and its temperature-dependent normalizers; refreshing \(f_{ij}=T_{ij}q_j\) changes that model between updates \citep{BissiriHolmesWalker2016}.
+\end{samepage}
+
+Restricted parametric families can fail mixture openness. A finite-dimensional Gaussian, tied-covariance, or symmetry-reduced family may not contain the tangent in Equation~\eqref{eq:moving-peer-receiver-tangent}; the required \(g_{ij}\) may also be constant on its available tangent space. The theorem makes no claim outside the tangent cone or the fine site-factorized mean-field family it states.
+
+Compatible auxiliary variables change the latent inventory and the factorization. A fixed normalized model with a source label, replicated row variables, or another declared auxiliary coordinate can have an exact ELBO if all conditionals are mutually compatible and the global normalization is proved. That construction is not equality with a fixed joint on only the original shared agent-state variables.
+
+A model fixed after equilibrium selection reverses the quantifiers. One may first choose \(q^\star\), then freeze \(T_{ij}q_j^\star\), and obtain the exact auxiliary identity in Equation~\eqref{eq:pifb2-unit-temperature-frozen-row}. The resulting model is fixed at that selected point, not uniformly fixed while \(q\) varies over the open neighborhood used by Theorem~\ref{thm:magent-moving-peer-obstruction}.
+
+The zero-within-scale hierarchical Gaussian joint removes the active edge assumption. When the raw within-scale belief and model couplings vanish, the cross-scale tree has fixed Gaussian transitions. A proper top prior and finite positive link variances make its stacked precision SPD, so ordinary mean-field inference and the state ELBO apply to that fixed hierarchy. This is an exact state-model construction rather than a representation of the active live-peer term.
+
+Correlated structured recognition removes the fine site-factorized product-family assumption. The exact recognition law \(Q_X(dY\mid o)\) in Chapter~\ref{ch:structured-recognition-elbo} can retain cross-agent and cross-channel dependence. Its entropy is joint, so the site-local separate-affinity calculation used by Theorem~\ref{thm:magent-moving-peer-obstruction} is not the functional form being varied. The same exclusion applies to Chapter~\ref{ch:mean-field-theory}'s coarser cross-design factors unless a separate obstruction is proved for those families. The exact state evidence identity remains available for a fixed normalized joint.
+
+Configuration-level Gibbs laws change both the random variable and the entropy tier. If a complete belief configuration is denoted by \(X\), a proper reference law and finite partition function produce the exact law in Equation~\eqref{eq:configuration-gibbs-prior}. Its variational identity contains configuration relative entropy. It does not turn the live peer scalar into the state ELBO over the original samples \(Y\).
+
+\section{Four row objects that must not be conflated}
+
+For one row, let \(E_{ij}(x)\) be differentiable edge energies, let \(\widetilde\pi_i\) be a fixed normalized prior, define its positive support by \(\mathcal J_i^+:=\{j:\widetilde\pi_{ij}>0\}\), and let \(\tau>0\). The full entropy-retaining objective is the scalar
+\begin{equation}
+\mathcal R_i(\beta_i,x)
+=\sum_j\beta_{ij}E_{ij}(x)
++\tau\sum_j\beta_{ij}\log\frac{\beta_{ij}}{\widetilde\pi_{ij}}.
+\label{eq:pifb2-full-row-scalar}
+\end{equation}
+Its unique simplex minimizer and minimized envelope are
+\begin{align}
+\beta_{ij}^*(x)
+&=\frac{\widetilde\pi_{ij}\exp[-E_{ij}(x)/\tau]}
+{Z_i(x)},
+&
+Z_i(x)
+&=\sum_k\widetilde\pi_{ik}\exp[-E_{ik}(x)/\tau],
+\label{eq:pifb2-row-optimum}\\
+\mathcal R_i^{\mathrm{red}}(x)
+&=-\tau\log Z_i(x),
+&
+d\mathcal R_i^{\mathrm{red}}
+&=\sum_j\beta_{ij}^*dE_{ij}.
+\label{eq:pifb2-row-envelope}
+\end{align}
+Both \(\mathcal R_i\) and \(\mathcal R_i^{\mathrm{red}}\) are scalar potentials. Equation~\eqref{eq:pifb2-row-envelope} is an exact simplex envelope identity; it does not depend on a state-ELBO interpretation.
+
+The entropy-suppressed expression
+\begin{equation}
+S_i(x)=\sum_j\beta_{ij}^*(x)E_{ij}(x).
+\label{eq:pifb2-entropy-suppressed-scalar}
+\end{equation}
+is also a scalar potential. The exact response identity is
+\begin{equation}
+\mathcal R_i^{\mathrm{red}}(x)
+=S_i(x)+\tau\KL\bigl(\beta_i^*(x)\Vert\widetilde\pi_i\bigr)
+\geq S_i(x).
+\label{eq:pifb2-response-decomposition}
+\end{equation}
+Equality holds if and only if \(\beta_i^*=\widetilde\pi_i\). By the Gibbs formula, this is equivalent to \(E_{ij}=E_{ik}\) for every \(j,k\in\mathcal J_i^+\). There is no condition on \(E_{ij}\) for \(j\notin\mathcal J_i^+\), because both \(\widetilde\pi_{ij}\) and \(\beta_{ij}^*\) vanish there. The differential of the entropy-suppressed scalar is
+\begin{equation}
+dS_i
+=\sum_j\beta_{ij}^*dE_{ij}
+-\frac{1}{\tau}
+\operatorname{Cov}_{\beta_i^*}(E_{ij},dE_{ij}).
+\label{eq:pifb2-entropy-suppressed-differential}
+\end{equation}
+The response term does not make \(S_i\) nonintegrable. Its covariance can vanish along selected directions without making the categorical KL in Equation~\eqref{eq:pifb2-response-decomposition} vanish, so directional covariance cancellation does not establish equality of the two scalars.
+
+Finally, let \(x_i\) denote receiver coordinates in a population state and define the receiver-only field by retaining the derivative of receiver row \(i\) while discarding every contribution in which \(x_i\) appears as a sender in another row:
+\begin{equation}
+V_i^{\mathrm{rec}}(x)
+=\partial_{x_i}S_i(x),
+\qquad
+\partial_{x_i}S_\ell(x)\ \text{discarded for every \(\ell\neq i\)}.
+\label{eq:pifb2-receiver-only-field}
+\end{equation}
+The assembled field \(V^{\mathrm{rec}}\) is generally not the gradient of \(\sum_iS_i\), \(\sum_i\mathcal R_i^{\mathrm{red}}\), or any other scalar without additional mixed-derivative compatibility. It is an update approximation outside the scalar. The PIFB2 source reports the checked-in \texttt{FullVFE} path as differentiating the complete entropy-retaining scalar, not Equation~\eqref{eq:pifb2-receiver-only-field}.
+
+\section{Source-scoped executable and regularizer profile}
+
+Table~\ref{tab:pifb2-source-scoped-profile} records only claims made by the current PIFB2 manuscript. It is not a fresh trace of application code or the user's active configuration. The executable crosswalk in the next chapter will refine these entries by following the live loader, overrides, and runtime call path.
+
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.32\textwidth}>{\raggedright\arraybackslash}p{0.34\textwidth}}
+\caption{Preliminary executable and regularizer profile, scoped to PIFB2 source statements.}
+\label{tab:pifb2-source-scoped-profile}\\
+\toprule
+\textbf{Profile item} & \textbf{PIFB2 source statement} & \textbf{Classification and Task~10 boundary} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{l}{\textit{Table \thetable\ continued}}\\
+\toprule
+\textbf{Profile item} & \textbf{PIFB2 source statement} & \textbf{Classification and Task~10 boundary} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+Attention scalar &
+The \texttt{FullVFE} path is described as adding both entropy-retaining alignment channels to one scalar \texttt{total} and invoking automatic differentiation. &
+Engineered scalar potential. Task~10 must verify the constructed terms, coefficient paths, and whether the active configuration reaches both channels.\\
+State self precision &
+The canonical display has unit state weight; a later profile uses scalar \(\alpha_i\) with the log-barrier regularizer \(b_0\alpha_i-c_0\log\alpha_i\). &
+Adaptive-precision extension plus regularizer. Task~10 must distinguish the configured fixed, detached, envelope, and autograd-through-weight behavior.\\
+Slow model channel &
+The canonical \(\gamma\) row and \(\lambda_h\) hyperprior term are retained, while frozen or tied model-channel profiles are separately discussed. &
+Engineered scalar or ablation according to the reached path. An ablated model-alignment channel is omitted or multiplied by a zero channel coefficient; it is not represented by an all-zero normalized \(\gamma\) row. Task~10 must resolve the live slow-coupling and model-frame settings.\\
+Observation contribution &
+PIFB2 writes a Gaussian expected negative log likelihood as part of the scalar. &
+Exact likelihood factor only if the executable term matches a fixed normalized observation kernel. Task~10 must trace the actual observation object and update boundary.\\
+Plaquette penalty &
+The manuscript reports \texttt{ym\_bounded=True} with the Frobenius action form, while the active pairwise attention transport remains the Regime-I vertex cocycle and independent Regime-II pair links are inactive. &
+Regularizer, not a state ELBO factor or continuum Yang--Mills theory. Task~10 must confirm the active config, loader path, plaquette construction, and contribution to \texttt{total}.\\
+Apex closure &
+The Ouroboros apex refreshes top priors by coherence-weighted moment pooling across active scales and drops between-mean dispersion. &
+Update outside the displayed scalar unless a separate objective is found. Task~10 must trace scheduling, detachment, and whether the refreshed priors enter the same step.\\
+Receiver-only field &
+The manuscript labels it an optional asymmetric approximation and says the checked-in scalar path does not use it. &
+Approximate update outside the scalar. Task~10 must verify that no detach, stop-gradient, or receiver-only branch is active.\\
+\end{longtable}
+\normalsize
+
+The classification leaves a clean interface for the executable crosswalk. The present chapter fixes the mathematical meanings and project-source claims; the next chapter decides which of those objects the executable actually constructs and differentiates.

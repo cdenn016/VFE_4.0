@@ -1,0 +1,248 @@
+\chapter[A Fixed Normalized Gauge-Covariant Multi-Agent Model]{A Fixed Normalized Gauge-Covariant\\Multi-Agent Model}
+\label{ch:generative-model}
+
+\section{A posterior-independent directed kernel}
+
+Fix the finite design \(D=\{c_a\}_{a=1}^{M}\) and structural value \(X\) from Chapter~\ref{ch:probability-semantics}. The structural data include a finite directed acyclic graph \(F=(V,E)\) on \(V=\{1,\ldots,N\}\). For \(i\in V\), let \(\operatorname{pa}(i)\subset V\) be its parent set, let \(m_{\operatorname{pa}(i)}=(m_j)_{j\in\operatorname{pa}(i)}\), and define \(k_{\operatorname{pa}(i)}\) analogously. A root is a vertex \(r\) for which \(\operatorname{pa}(r)=\varnothing\). At one design point, suppress the design index and introduce normalized Markov kernels
+\begin{align}
+P_{\theta,i}^{m}(dm_i\mid m_{\operatorname{pa}(i)},X),
+\qquad
+P_{\theta,i}^{k}(dk_i\mid k_{\operatorname{pa}(i)},m_i,X),
+\qquad
+P_{\theta,i}^{o}(do_i\mid k_i,m_i,X).
+\label{eq:abstract-directed-kernels}
+\end{align}
+For a root, the first kernel is interpreted as \(P_{\theta,r}^{m}(dm_r\mid X)\), and the second as the normalized bridge \(P_{\theta,r}^{k}(dk_r\mid m_r,X)\). These root conventions are definitions, not conditionals on an invented null parent.
+
+Let \(v_1,\ldots,v_N\) be a topological ordering of \(F\). The one-design-point probability law is the iterated kernel composition
+\begin{equation}
+P_{\theta,a}(do_a,dY_a\mid X)
+=\prod_{\ell=1}^{N}
+P_{\theta,v_\ell}^{m}(dm_{v_\ell}\mid m_{\operatorname{pa}(v_\ell)},X)
+P_{\theta,v_\ell}^{k}(dk_{v_\ell}\mid k_{\operatorname{pa}(v_\ell)},m_{v_\ell},X)
+P_{\theta,v_\ell}^{o}(do_{v_\ell}\mid k_{v_\ell},m_{v_\ell},X).
+\label{eq:abstract-directed-kernel-factorization}
+\end{equation}
+The product in Equation~\eqref{eq:abstract-directed-kernel-factorization} denotes successive application of probability kernels in the displayed topological order. It is not an untyped multiplication of measures. This is the standard directed graphical-model construction \citep{Lauritzen1996,Wainwright2008}.
+
+The reference model declares conditional independence across distinct design points after conditioning on \(X\):
+\begin{equation}
+P_\theta(do,dY\mid X)
+=\bigotimes_{a=1}^{M}P_{\theta,a}(do_a,dY_a\mid X).
+\label{eq:finite-design-conditional-product}
+\end{equation}
+This product structure is a modeling assumption, not a consequence of finite evaluation. A model with cross-design dependence would instead require normalized transition kernels whose conditioning arguments include the declared earlier design-point variables.
+
+When every component kernel is dominated by the component measures declared in Chapter~\ref{ch:probability-semantics}, Equation~\eqref{eq:abstract-directed-kernel-factorization} has the all-density form
+\begin{equation}
+p_{\theta,a}(o_a,y_a\mid X)
+=\prod_{i\in V}
+p_{\theta,i}^{m}(m_i\mid m_{\operatorname{pa}(i)},X)
+p_{\theta,i}^{k}(k_i\mid k_{\operatorname{pa}(i)},m_i,X)
+p_{\theta,i}^{o}(o_i\mid k_i,m_i,X),
+\label{eq:abstract-directed-density-factorization}
+\end{equation}
+and the finite-design density is
+\begin{equation}
+p_\theta(o,y\mid X)=\prod_{a=1}^{M}p_{\theta,a}(o_a,y_a\mid X),
+\qquad
+P_\theta(do,dY\mid X)
+=p_\theta(o,y\mid X)\nu_D^O(do)\nu_D^Y(dy).
+\label{eq:finite-design-density-factorization}
+\end{equation}
+The probability kernel \(P_\theta(do,dY\mid X)\) is the authoritative object. The symbol \(p_\theta\) is reserved for a density in which both observations and latent variables are represented relative to their declared dominating measures.
+
+Every kernel in Equations~\eqref{eq:abstract-directed-kernels}--\eqref{eq:finite-design-density-factorization} is fixed once \((\theta,X)\) is fixed. It may not take \(Q_X\), \(q_i\), \(s_i\), a recognition parameter, or a posterior as an input. Those objects belong to inference and can be compared with the fixed joint only after the joint has been defined. This prohibition excludes a live peer marginal from the conditioning arguments of a generative transition.
+
+\section{A directed two-channel Gaussian reference law}
+
+For an explicit analytic reference, take the same state and model dimensions at every agent within a design point,
+\begin{equation}
+k_i\in\mathbb R^{d_k},
+\qquad
+m_i\in\mathbb R^{d_m},
+\qquad
+o_i\in\mathbb R^{d_{o,i}},
+\label{eq:gaussian-reference-domains}
+\end{equation}
+and specialize \(F\) to a directed forest. Thus every nonroot \(i\) has the unique parent \(j=\operatorname{par}(i)\), while every root has no parent. The abstract construction above remains valid for a general finite DAG; a multi-parent linear-Gaussian version replaces each parent contribution below by a finite sum over \(j\in\operatorname{pa}(i)\).
+
+For a nonroot \(i\) with parent \(j\), define
+\begin{align}
+m_i\mid m_j,X
+&\sim\mathcal N\left(
+A_i^m\Omega_{ij}^m m_j+a_i^m,
+Q_i^m\right),
+\label{eq:gaussian-model-transition}\\
+k_i\mid k_j,m_i,X
+&\sim\mathcal N\left(
+A_i^k\Omega_{ij}^k k_j+B_i m_i+a_i^k,
+Q_i^k\right),
+\label{eq:gaussian-state-transition}\\
+o_i\mid k_i,m_i,X
+&\sim\mathcal N\left(
+H_i k_i+L_i m_i+d_i,
+R_i^o\right).
+\label{eq:gaussian-observation-kernel}
+\end{align}
+Here
+\begin{align}
+&\Omega_{ij}^k,A_i^k\in\mathbb R^{d_k\times d_k},
+&&\Omega_{ij}^m,A_i^m\in\mathbb R^{d_m\times d_m},
+&&B_i\in\mathbb R^{d_k\times d_m},
+\label{eq:gaussian-transition-shapes}\\
+&H_i\in\mathbb R^{d_{o,i}\times d_k},
+&&L_i\in\mathbb R^{d_{o,i}\times d_m},
+&&a_i^k\in\mathbb R^{d_k},\quad a_i^m\in\mathbb R^{d_m},\quad d_i\in\mathbb R^{d_{o,i}}.
+\label{eq:gaussian-observation-shapes}
+\end{align}
+The represented links \(\Omega_{ij}^k\) and \(\Omega_{ij}^m\) are invertible. The matrices \(A_i^k\) and \(A_i^m\) need not be invertible because normalization is supplied by the conditional covariance, not by the rank of the conditional mean map.
+
+Each root \(r\) has the proper kernels
+\begin{align}
+m_r\mid X
+&\sim\mathcal N\left(\bar m_r,Q_{r,0}^m\right),
+\label{eq:gaussian-model-root}\\
+k_r\mid m_r,X
+&\sim\mathcal N\left(B_r m_r+a_{r,0}^k,Q_{r,0}^k\right),
+\label{eq:gaussian-state-root}
+\end{align}
+followed by Equation~\eqref{eq:gaussian-observation-kernel}. The root parameters satisfy \(\bar m_r\in\mathbb R^{d_m}\), \(B_r\in\mathbb R^{d_k\times d_m}\), and \(a_{r,0}^k\in\mathbb R^{d_k}\). Every covariance is symmetric positive definite in its receiving space:
+\begin{equation}
+Q_i^m,Q_{r,0}^m\in\mathbb S_{++}^{d_m},
+\qquad
+Q_i^k,Q_{r,0}^k\in\mathbb S_{++}^{d_k},
+\qquad
+R_i^o\in\mathbb S_{++}^{d_{o,i}}.
+\label{eq:gaussian-reference-spd-requirement}
+\end{equation}
+Consequently, every displayed Gaussian is a nondegenerate normalized density on its stated Euclidean space. The observation Gaussian can be replaced by any normalized kernel from \(\mathbb R^{d_k}\times\mathbb R^{d_m}\) to \(\mathsf O_{i,c_a}\). Such a replacement changes the likelihood but not the evidence or ELBO identities derived from a normalized joint.
+
+\section{Normalization}
+
+The directed construction is normalized without a global partition function. Because its density is nonnegative, Tonelli's theorem permits iterated integration. First integrate every observation variable; each factor in Equation~\eqref{eq:gaussian-observation-kernel} contributes one. Then process the nonroot vertices in reverse topological order. Once every descendant has been removed, integrate \(k_i\) against its normalized state kernel and then \(m_i\) against its normalized model kernel. Finally, for each remaining root, integrate \(k_r\) against Equation~\eqref{eq:gaussian-state-root} and \(m_r\) against Equation~\eqref{eq:gaussian-model-root}. The complete induction is given in Appendix~\ref{sec:directed-normalization-proof}. It yields
+\begin{equation}
+P_\theta(\mathsf O_D\times\mathsf Y_D\mid X)=1,
+\label{eq:kernel-total-mass-one}
+\end{equation}
+or, under domination,
+\begin{equation}
+\int_{\mathsf O_D\times\mathsf Y_D}
+p_\theta(o,y\mid X)\nu_D^O(do)\nu_D^Y(dy)=1.
+\label{eq:density-normalization}
+\end{equation}
+
+A loopy undirected alternative requires a different construction. Given nonnegative measurable node and edge potentials, define only
+\begin{align}
+\Psi_X(o,y)
+&=\prod_{i\in V}\psi_i(o_i,k_i,m_i;X)
+\prod_{(i,j)\in E}\psi_{ij}(k_i,m_i,k_j,m_j;X),
+\label{eq:loopy-gibbs-potential}\\
+Z_X
+&=\int_{\mathsf O_D\times\mathsf Y_D}
+\Psi_X(o,y)\nu_D^O(do)\nu_D^Y(dy),
+\qquad 0<Z_X<\infty,
+\label{eq:loopy-gibbs-partition}\\
+p_\theta^{\mathrm{Gibbs}}(o,y\mid X)
+&=Z_X^{-1}\Psi_X(o,y).
+\label{eq:loopy-gibbs-density}
+\end{align}
+The condition in Equation~\eqref{eq:loopy-gibbs-partition} is part of the model's existence statement. Local positivity or local factor normalization does not replace it.
+
+\section{Gauge-covariant parameter laws}
+
+Let \(g_i\in G\) be one change of principal frame at agent \(i\), and let its represented actions be
+\begin{equation}
+g_i^k=\rho_k(g_i)\in\mathrm{GL}(d_k),
+\qquad
+g_i^m=\rho_m(g_i)\in\mathrm{GL}(d_m).
+\label{eq:generative-represented-gauge-actions}
+\end{equation}
+The latent coordinates transform as \(k_i'=g_i^k k_i\) and \(m_i'=g_i^m m_i\). These two matrices are images of the same \(g_i\); choosing them independently would define a different geometric model. The observation coordinate is gauge inert, so \(o_i'=o_i\).
+
+For a directed edge \(j\to i\), covariance of the conditional means determines
+\begin{align}
+\Omega_{ij}^{k\prime}
+&=g_i^k\Omega_{ij}^k(g_j^k)^{-1},
+&
+\Omega_{ij}^{m\prime}
+&=g_i^m\Omega_{ij}^m(g_j^m)^{-1},
+\label{eq:generative-link-gauge-laws}\\
+A_i^{k\prime}
+&=g_i^kA_i^k(g_i^k)^{-1},
+&
+A_i^{m\prime}
+&=g_i^mA_i^m(g_i^m)^{-1},
+\label{eq:generative-self-map-gauge-laws}\\
+B_i'
+&=g_i^kB_i(g_i^m)^{-1},
+&
+a_i^{k\prime}
+&=g_i^k a_i^k,
+&
+a_i^{m\prime}
+&=g_i^m a_i^m.
+\label{eq:generative-bridge-offset-gauge-laws}
+\end{align}
+The conditional covariances transform in their receiving fibers,
+\begin{equation}
+Q_i^{k\prime}=g_i^kQ_i^k(g_i^k)^\top,
+\qquad
+Q_i^{m\prime}=g_i^mQ_i^m(g_i^m)^\top.
+\label{eq:generative-covariance-gauge-laws}
+\end{equation}
+Substitution gives, for example,
+\begin{equation}
+A_i^{k\prime}\Omega_{ij}^{k\prime}k_j'
++B_i'm_i'+a_i^{k\prime}
+=g_i^k\left(A_i^k\Omega_{ij}^k k_j+B_i m_i+a_i^k\right),
+\label{eq:state-mean-gauge-covariance}
+\end{equation}
+and the model-channel mean obeys the corresponding identity with the superscript \(m\). Thus each transformed Gaussian kernel is the pushforward of the original kernel into the receiving frame.
+
+At a root,
+\begin{align}
+\bar m_r'&=g_r^m\bar m_r,
+&
+Q_{r,0}^{m\prime}&=g_r^mQ_{r,0}^m(g_r^m)^\top,
+\label{eq:model-root-gauge-laws}\\
+B_r'&=g_r^kB_r(g_r^m)^{-1},
+&
+a_{r,0}^{k\prime}&=g_r^k a_{r,0}^k,
+&
+Q_{r,0}^{k\prime}&=g_r^kQ_{r,0}^k(g_r^k)^\top.
+\label{eq:state-root-gauge-laws}
+\end{align}
+The marginal root-state mean and covariance are
+\begin{equation}
+\bar k_r=B_r\bar m_r+a_{r,0}^k,
+\qquad
+\Sigma_{r,0}^k=Q_{r,0}^k+B_rQ_{r,0}^mB_r^\top.
+\label{eq:root-state-marginal-moments}
+\end{equation}
+Equations~\eqref{eq:model-root-gauge-laws}--\eqref{eq:state-root-gauge-laws} imply \(\bar k_r'=g_r^k\bar k_r\) and \(\Sigma_{r,0}^{k\prime}=g_r^k\Sigma_{r,0}^k(g_r^k)^\top\), so both conditional and marginal root moments have the correct receiving-fiber types.
+
+Gauge-inert observations require
+\begin{equation}
+H_i'=H_i(g_i^k)^{-1},
+\qquad
+L_i'=L_i(g_i^m)^{-1},
+\qquad
+d_i'=d_i,
+\qquad
+R_i^{o\prime}=R_i^o.
+\label{eq:observation-parameter-gauge-laws}
+\end{equation}
+The predictive mean is then unchanged: \(H_i'k_i'+L_i'm_i'+d_i'=H_i k_i+L_i m_i+d_i\). The observation covariance and its inverse are also unchanged because both live in the gauge-inert observation space.
+
+For any state- or model-channel covariance \(\Sigma_i\) receiving the action \(g_i\), congruence and dual inverse congruence give
+\begin{equation}
+\Sigma_i'=g_i\Sigma_i g_i^\top,
+\qquad
+\Lambda_i'=(\Sigma_i')^{-1}
+=g_i^{-\top}\Lambda_i g_i^{-1},
+\qquad
+\Lambda_i=\Sigma_i^{-1}.
+\label{eq:generative-precision-gauge-law}
+\end{equation}
+The symbol \(g_i\) in Equation~\eqref{eq:generative-precision-gauge-law} means \(g_i^k\) or \(g_i^m\) according to the receiving channel. Congruence preserves positive definiteness, while the inverse law follows by direct matrix inversion \citep{HornJohnson2013,Bhatia2007}. Appendix~\ref{sec:gaussian-gauge-oracle} records the corresponding quadratic-form and density-Jacobian checks. The transformation changes coordinates, not the probability assigned to a measurable event, so normalization survives every allowed local reframing.

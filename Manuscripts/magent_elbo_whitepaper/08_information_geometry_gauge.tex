@@ -1,0 +1,179 @@
+\chapter{Information Geometry, Natural Gradients, and Gauge Covariance}
+\label{ch:information-geometry-gauge}
+
+This chapter develops the information geometry of the finite Gaussian recognition family and separates it from changes of principal frame. Its coordinate marginals are the finite laws \(q_{i,a}^{o,X}\) and \(s_{i,a}^{o,X}\), not the continuum sections \(q_i\) and \(s_i\); Equation~\eqref{eq:continuum-finite-marginal-compatibility} is required before their values may be identified on \(D\). The first construction concerns coordinates on a statistical manifold. The second concerns represented changes of basis in the latent sample fibers. Their compatibility yields a covariant Gaussian family, but it does not identify every frame update with a Fisher-natural step.
+
+\section{Natural, expectation, and moment coordinates}
+
+Consider the nondegenerate Gaussian recognition density in Equation~\eqref{eq:recognition-gaussian-information-form}. To avoid collision between the design cardinality \(M\) introduced in Chapter~\ref{ch:probability-semantics} and the conventional raw second-moment symbol, write \(n_D=|D|\) for the design cardinality throughout this chapter and reserve \(M\) for \(\E[YY^\top]\). The sufficient statistics are \(Y\) and \(YY^\top\). The corresponding natural coordinates and Fisher-dual expectation coordinates are
+\begin{align}
+\eta_1&=h,
+&\eta_2&=-\frac12J,
+\label{eq:gaussian-natural-coordinates}\\
+\tau_1&=\mu,
+&\tau_2&=M=C+\mu\mu^\top=\E_{Q_X}[YY^\top].
+\label{eq:gaussian-expectation-coordinates}
+\end{align}
+Here \(h\in\mathbb R^d\), \(J\in\mathbb S_{++}^d\), \(\eta_2\in\mathbb S_{--}^d\), and \(M-\mu\mu^\top=C\in\mathbb S_{++}^d\). Symmetric-matrix derivatives use the Frobenius pairing \(\langle A,B\rangle=\operatorname{tr}(A^\top B)\) on \(\operatorname{Sym}(d)\). Equivalently, one may use an \(svec\) chart whose off-diagonal entries are scaled by \(\sqrt2\), so its Euclidean pairing equals the Frobenius pairing. With an unscaled \(vech\) chart, each independent off-diagonal coordinate derivative contains the corresponding factor of two.
+
+Differentiating the log partition function in Equation~\eqref{eq:recognition-gaussian-log-normalizer} gives
+\begin{equation}
+\nabla_h A(h,J)=J^{-1}h=\mu.
+\label{eq:log-partition-h-gradient}
+\end{equation}
+For a symmetric perturbation \(dJ\), the full differential is
+\begin{equation}
+d_JA(h,J)
+=-\frac12\operatorname{tr}\left[
+\left(C+\mu\mu^\top\right)dJ
+\right],
+\label{eq:log-partition-J-differential}
+\end{equation}
+and hence
+\begin{equation}
+\nabla_JA(h,J)=-\frac12M.
+\label{eq:log-partition-J-gradient}
+\end{equation}
+Since \(d\eta_2=-dJ/2\), differentiation with respect to the actual natural matrix coordinate \(\eta_2=-J/2\) gives \(\nabla_{\eta_2}A=M\). Appendix~\ref{sec:gaussian-dual-coordinate-proof} records the matrix calculation explicitly.
+
+The pair \((\mu,C)\) remains useful for sampling, reporting, covariance transport, and SPD-manifold calculations. It is not the exact dual coordinate pair to \((h,-J/2)\), because the second dual coordinate is the raw second moment \(M\), not the centered covariance \(C=M-\mu\mu^\top\). The distinction matters whenever a coordinate identity mixes the mean and covariance sectors \citep{Amari2016,AmariNagaoka2000,Skovgaard1984}.
+
+\section{Natural-gradient identities and proposal classes}
+
+Let \(\mathcal F\) be differentiable on the regular Gaussian exponential family. Write \(g_\eta=\partial\tau/\partial\eta=\nabla_\eta^2A\) for the Fisher matrix in natural coordinates and \(g_\tau=\partial\eta/\partial\tau=g_\eta^{-1}\) for its matrix in expectation coordinates. If \(\nabla_\eta\mathcal F\) and \(\nabla_\tau\mathcal F\) denote the coordinate components of the differential, while a tilde denotes the contravariant components of the Riemannian gradient vector field, then
+\begin{equation}
+\widetilde\nabla_\eta\mathcal F
+=g_\eta^{-1}\nabla_\eta\mathcal F
+=\nabla_\tau\mathcal F,
+\qquad
+\widetilde\nabla_\tau\mathcal F
+=g_\tau^{-1}\nabla_\tau\mathcal F
+=\nabla_\eta\mathcal F.
+\label{eq:natural-gradient-dual-coordinate-identities}
+\end{equation}
+The equalities in Equation~\eqref{eq:natural-gradient-dual-coordinate-identities} compare coordinate arrays in the displayed dual charts. They do not identify a tangent vector with a covector without the Fisher musical isomorphism and the named coordinate bases. For minimization, the infinitesimal descent direction is the negative of the corresponding natural-gradient vector; for ELBO maximization, its sign is reversed \citep{Amari1998,Amari2016}.
+
+Four update classes must remain separate. An exact conjugate or variational coordinate solution solves its declared block problem for the same normalized joint and inherits the coordinate guarantee proved for that problem, as in Equations~\eqref{eq:exact-e-coordinate}, \eqref{eq:exact-m-coordinate}, and \eqref{eq:cavi-normalized-coordinate-density}. A Fisher-preconditioned direction is an infinitesimal statistical-manifold direction derived from a declared objective and Fisher metric. An SPD or Lie-group retraction maps a tangent proposal into its manifold exactly and agrees with the tangent identification to first order. An ordinary Euclidean proposal is computed in a selected chart or ambient parameterization and has no Fisher interpretation merely because its parameters later define a probability law. Retractions, exponential maps, projections, and Euclidean parameterizations determine how a proposal is represented; none by itself proves improvement of the objective \citep{Absil2008,Bhatia2007,Bonnabel2013}.
+
+At finite step size, the Fisher-natural, Riemannian-retraction, and Euclidean constructions are proposals. Monotonicity of the state ELBO or decrease of its negative requires an accepted line search, trust-region test, another objective-based acceptance rule, or an exact coordinate solution. This boundary agrees with the accepted-proposal distinction in Chapter~\ref{ch:structured-recognition-elbo}; it excludes a finite-step guarantee based only on the local steepest-direction property.
+
+\section{Finite-design population frame map}
+
+At each evaluated context \(c_a\), let \(g_{i,a}=g_i(c_a)\in G\) be the principal-frame change for agent \(i\). The state and model block maps are induced by this one principal element,
+\begin{equation}
+g_{i,a}^k=\rho_k(g_{i,a}),
+\qquad
+g_{i,a}^m=\rho_m(g_{i,a}).
+\label{eq:finite-design-represented-frame-maps}
+\end{equation}
+They are not independent channel gauges. With the population ordering fixed in Chapter~\ref{ch:structured-recognition-elbo}, define
+\begin{align}
+\mathsf G_a
+&=\operatorname{diag}
+\left(g_{1,a}^k,g_{1,a}^m,\ldots,g_{N,a}^k,g_{N,a}^m\right),
+\notag\\
+\mathsf G_D
+&=\operatorname{diag}
+\left(\mathsf G_1,\ldots,\mathsf G_{n_D}\right).
+\label{eq:finite-design-population-frame-map}
+\end{align}
+If the same frame change is used at every design point, this reduces to \(\mathsf G_D=I_{n_D}\otimes\mathsf G_1\). Every represented block is invertible, so \(\mathsf G_D\in\mathrm{GL}(d)\).
+
+The sample-coordinate change \(Y'=\mathsf G_DY\) and Gaussian pushforward give
+\begin{equation}
+\mu'=\mathsf G_D\mu,
+\qquad
+C'=\mathsf G_DC\mathsf G_D^\top.
+\label{eq:population-moment-gauge-laws}
+\end{equation}
+Substitution of \(Y=\mathsf G_D^{-1}Y'\) into the information-form exponent gives the dual laws
+\begin{equation}
+h'=\mathsf G_D^{-\top}h,
+\qquad
+J'=\mathsf G_D^{-\top}J\mathsf G_D^{-1}.
+\label{eq:population-information-gauge-laws}
+\end{equation}
+The covariance transforms by congruence and the precision by inverse congruence. These laws preserve \(C\succ0\) and \(J\succ0\), and they are compatible with \(C=J^{-1}\), \(\mu=J^{-1}h\), and \(M'= \mathsf G_DM\mathsf G_D^\top\).
+
+Let \(b\) and \(c\) denote any two blocks in the partition respected by \(\mathsf G_D\), and let their invertible represented frame maps be \(G_b\) and \(G_c\). Then
+\begin{equation}
+J_{bc}'=G_b^{-\top}J_{bc}G_c^{-1},
+\qquad
+J_{bc}'=0\quad\Longleftrightarrow\quad J_{bc}=0.
+\label{eq:block-zero-precision-gauge-invariance}
+\end{equation}
+Thus every off-diagonal zero-precision statement under the declared agent, design, or channel partition is preserved in both directions by invertible block gauges. The converse follows by multiplying a zero \(J_{bc}'\) on the left by \(G_b^\top\) and on the right by \(G_c\). A change of coordinates that mixes the declared blocks would not preserve this graph of zero blocks.
+
+A diagonal restriction inside one block has a different status. For the identity representation of \(\mathrm{GL}(2)\), take
+\begin{equation}
+C_b=I_2,
+\qquad
+G_b=
+\begin{bmatrix}
+1&1\\
+0&1
+\end{bmatrix},
+\qquad
+G_bC_bG_b^\top=
+\begin{bmatrix}
+2&1\\
+1&1
+\end{bmatrix}.
+\label{eq:diagonal-covariance-gauge-counterexample}
+\end{equation}
+The transformed covariance is SPD but not diagonal. Full covariance is closed under general invertible congruence, whereas within-block diagonal covariance is not closed when the represented group image contains unrestricted \(\mathrm{GL}(d_b)\) changes such as this shear. A smaller representation image may preserve diagonality. Appendix~\ref{sec:population-block-gauge-oracle} gives the block proof and counterexample as finite matrix checks.
+
+\section{Complete density ratios and the state ELBO}
+
+Let \(X'\) denote the structural value obtained from \(X\) by applying the frame and parameter transformations of the declared generative family, and let the prime on the recognition family denote the corresponding represented-coordinate conversion. This convention means that \(p_\theta'(o,y'\mid X')\) and \(q_{X'}'(y'\mid o)\) represent the same abstract generative and recognition probability kernels in the primed frame, rather than newly chosen models. Write \(\Delta_D=|\det\mathsf G_D|>0\). The observation coordinate is held fixed, while the latent coordinate changes by \(y'=\mathsf G_Dy\). Relative to Lebesgue coordinate volume \(dy'\), closure of the Gaussian family under the transformations in Chapters~\ref{ch:bundle-geometry} and \ref{ch:generative-model} gives
+\begin{equation}
+q_{X'}'(y'\mid o)
+=\Delta_D^{-1}q_X(\mathsf G_D^{-1}y'\mid o),
+\qquad
+p_\theta'(o,y'\mid X')
+=\Delta_D^{-1}p_\theta(o,\mathsf G_D^{-1}y'\mid X).
+\label{eq:population-density-pushforward-laws}
+\end{equation}
+The coordinate volume transforms as \(dy'=\Delta_Ddy\). Consequently, both density--measure products recover the corresponding pushforward probability measures, while the complete relative density ratio is a scalar under the coordinate change:
+\begin{equation}
+\frac{q_{X'}'(y'\mid o)}{p_\theta'(o,y'\mid X')}
+=\frac{q_X(y\mid o)}{p_\theta(o,y\mid X)}.
+\label{eq:complete-density-ratio-gauge-invariance}
+\end{equation}
+Equivalently, one may use the pushed-forward base measure \((\mathsf G_D)_\#\nu_D^Y\); the Jacobian then resides in that declared measure rather than in both displayed densities. The two conventions give the same probability measures and the same Radon--Nikodym ratio.
+
+Changing variables in the full expectation yields
+\begin{align}
+\E_{Q_{X'}'}\left[
+\log\frac{q_{X'}'(Y'\mid o)}{p_\theta'(o,Y'\mid X')}
+\right]
+&=\int q_{X'}'(y'\mid o)
+\log\frac{q_{X'}'(y'\mid o)}{p_\theta'(o,y'\mid X')}dy'
+\notag\\
+&=\int q_X(y\mid o)
+\log\frac{q_X(y\mid o)}{p_\theta(o,y\mid X)}dy.
+\label{eq:complete-free-energy-gauge-invariance}
+\end{align}
+The state ELBO in Equation~\eqref{eq:state-elbo-definition}, its negative free energy, the evidence, and the posterior KL gap are therefore unchanged when the recognition law, generative law, latent coordinates, structural values, and declared base measure are transformed consistently. Appendix~\ref{sec:population-density-ratio-oracle} supplies the direct Jacobian proof.
+
+Equation~\eqref{eq:population-density-pushforward-laws} also shows what is not invariant. Coordinate densities are weight-one objects and generally change pointwise; they are not scalar functions whose numerical value survives a non-volume-preserving gauge. The differential entropy relative to coordinate Lebesgue measure obeys
+\begin{equation}
+H(Q_{X'}')
+=-\int q_{X'}'(y'\mid o)\log q_{X'}'(y'\mid o)dy'
+=H(Q_X)+\log\Delta_D.
+\label{eq:differential-entropy-gauge-shift}
+\end{equation}
+An isolated differential entropy is therefore not a gauge scalar. Its positive Jacobian shift cancels the equal-magnitude, negative shift in the expected joint log density, \(\E_{Q_{X'}'}[\log p_\theta']=\E_{Q_X}[\log p_\theta]-\log\Delta_D\), inside the complete ELBO. Probability measures are the coordinate-independent objects, their coordinate densities transform covariantly, and complete relative density ratios are invariant.
+
+\section{Smooth connection, graph comparisons, and topology boundary}
+
+The principal connection \(\boldsymbol\omega\) on \(\mathcal P\to\mathcal C\) compares fibers along curves in the contextual base. Its curvature and smooth holonomy concern horizontal transport on \(\mathcal C\) and must be determined from that connection \citep{Kobayashi1963,Nakahara2003}. At one fixed context, Regime I instead uses the pointwise frame coboundary
+\begin{equation}
+\Omega_{ij}(c)=U_i(c)U_j(c)^{-1}.
+\label{eq:information-geometry-regime-one-coboundary}
+\end{equation}
+The same-context product around every closed interaction walk telescopes to \(e_G\), as proved in Equation~\eqref{eq:regime-one-loop-telescoping}. This discrete identity does not prove that \(\boldsymbol\omega\) is globally flat. Comparisons evaluated at different contexts require parallel transport along the base before a common-fiber loop product is even typed.
+
+Regime II assigns independent links \(L_{ij}\) to oriented edges of a separately declared interaction complex. Their closed-walk product transforms by conjugation at the base vertex and need not equal \(e_G\), so this regime can carry discrete holonomy. A discrete curvature statement further requires declared two-cells or plaquettes. Neither the Regime-II loop variable nor a Regime-I frame comparison is automatically the holonomy of the smooth principal connection.
+
+Finally, a local trivialization proves only that the restricted bundle over its patch is a product. It proves neither that the principal bundle is globally trivial nor that it has nontrivial topology. A global conclusion would require an atlas and overlap cocycle with the relevant global obstruction analysis. The finite probability model uses local represented frames and makes no topological claim beyond those data.

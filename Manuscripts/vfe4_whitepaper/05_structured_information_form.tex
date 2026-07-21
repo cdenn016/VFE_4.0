@@ -1,0 +1,425 @@
+\chapter{Structured Recognition in Information Coordinates}
+
+This chapter defines normalized recognition laws over the complete latent inventory of \cref{eq:vfe4-generative-joint} and then identifies the conditional Gaussian subfamily used by the reference implementation. The recognition law is a joint law on the labeled population fiber, not a product assembled from independently specified agent marginals. The distinction between filtering, smoothing, and prediction is part of the probability model: the first two are observation-conditioned variational laws, whereas prediction uses the target-blind causal prior.
+
+\section{Normalized filtering and smoothing laws}
+
+For $t\geq1$, define the recognition history
+\begin{equation}
+\mathcal H_t
+:=(z_{0:t-1},m_{0:t-1},a_{1:t-1},b_{1:t-1}),
+\label{eq:recognition-history}
+\end{equation}
+and set $x_{\leq0}:=\varnothing$.  The information available to the two recognition regimes is
+\begin{equation}
+\mathcal I_t^{\mathrm f}:=x_{\leq t},
+\qquad
+\mathcal I_t^{\mathrm s}:=x_{1:T},
+\qquad t=0,\ldots,T.
+\label{eq:filtering-smoothing-information}
+\end{equation}
+Thus the filtering factor at position $t$ may use the current observation $x_t$ but no later token, while every smoothing factor may use the complete observed sequence.  For either regime $r\in\{\mathrm f,\mathrm s\}$, let
+\begin{equation}
+\begin{aligned}
+Q_\psi^{(r)}(\boldsymbol z,\boldsymbol m,a,b\given x,\Gamma)
+:={}&Q_{\psi,0}^{(r)}
+(z_0,m_0\given\mathcal I_0^{(r)},\Gamma)\\
+&\times\prod_{t=1}^{T}
+Q_{\psi,t}^{(r)}
+(z_t,m_t,a_t,b_t\given
+\mathcal H_t,\mathcal I_t^{(r)},\Gamma).
+\end{aligned}
+\label{eq:normalized-filtering-smoothing-recognition}
+\end{equation}
+The source coordinates in each time-slice factor have exactly the supports declared by the generative joint,
+\begin{equation}
+a_t\in\operatorname{Pa}_z(t),
+\qquad
+b_t\in\operatorname{Pa}_m(t),
+\label{eq:recognition-source-supports}
+\end{equation}
+and the factor is zero outside those sets.  In the local frames of \cref{eq:normalized-initial-law}, normalization means
+\begin{equation}
+\begin{aligned}
+\int Q_{\psi,0}^{(r)}
+\mathop{\mathrm d\lambda_{z,0}}
+\mathop{\mathrm d\lambda_{m,0}}&=1,\\
+\sum_{a_t\in\operatorname{Pa}_z(t)}
+\sum_{b_t\in\operatorname{Pa}_m(t)}
+\int Q_{\psi,t}^{(r)}
+\mathop{\mathrm d\lambda_{z,t}}
+\mathop{\mathrm d\lambda_{m,t}}&=1,
+\end{aligned}
+\label{eq:recognition-factor-normalization}
+\end{equation}
+for every fixed value of the displayed conditioning variables. Repeated conditional integration and summation therefore normalize \cref{eq:normalized-filtering-smoothing-recognition}. The joint agent-slice notation imposes no within-slice mean-field assumption; a particular implementation may further factor a slice only after declaring the corresponding conditional independences.
+
+Dependence on $\mathcal H_t$ allows a later latent block to depend on earlier latent blocks. Consequently, even if the innovation within each conditional factor is block diagonal, the marginal population law can carry cross-agent and cross-channel covariance. Removing history dependence is a restriction of the recognition family, not a consequence of filtering.
+
+The local statistical sections are recovered from the global recognition law. After marginalizing the discrete sources, \cref{eq:agent-beliefs-as-population-marginals} defines each state belief $q_t(\ast)$ and model belief $s_t(\ast)$ by pushforward. This joint-first convention supplies cross-agent consistency automatically. Specifying only those marginals would leave the copula and therefore the population entropy, conditional dependence, and off-diagonal precision blocks undetermined.
+
+The causal predictive law at position $t$ is a different object.  Before observing $x_t$, \cref{eq:vfe4-generative-joint} induces
+\begin{equation}
+\begin{aligned}
+P_{\theta,t}^{\mathrm{pred}}
+(z_t,m_t,a_t,b_t\given\mathcal H_t,x_{<t},\Gamma)
+:={}&\pi_t^m(b_t)
+K^m_{\theta,tb_t}(m_t\given m_{b_t},x_{<t},\Gamma)\\
+&\times\pi_t^z(a_t)
+K^z_{\theta,ta_t}(z_t\given z_{a_t},m_t,x_{<t},\Gamma).
+\end{aligned}
+\label{eq:target-blind-predictive-prior}
+\end{equation}
+This normalized prior contains neither $x_t$ nor a variational parameter.  Training may use $Q_\psi^{(\mathrm f)}$ or $Q_\psi^{(\mathrm s)}$ after observations are supplied, but generation and predictive evaluation must propagate \cref{eq:target-blind-predictive-prior} and the categorical emission rather than substituting either recognition law.
+
+\section{Conditional joint Gaussian information form}
+
+Stack the continuous population sample in agent-major order as
+\begin{equation}
+y:=\operatorname{col}(z_0,m_0,\ldots,z_T,m_T)
+\in\mathbb R^D,
+\qquad
+D=(T+1)(d_z+d_m).
+\label{eq:stacked-continuous-path}
+\end{equation}
+This coordinate vector represents an element of $\mathcal Y_T$ after agent frames have been chosen. It is not a sampled path through distinct points of the base manifold.
+Because $(a,b)$ are finite discrete variables, any recognition law admits the disintegration
+\begin{equation}
+Q_\psi^{(r)}(y,a,b\given x,\Gamma)
+=w_\psi^{(r)}(a,b\given x,\Gamma)
+q_\psi^{(r)}(y\given a,b,x,\Gamma).
+\label{eq:recognition-disintegration}
+\end{equation}
+With counting measure on $(a,b)$ and Lebesgue measure on $y$, the entropy of the complete mixed recognition law is
+\begin{equation}
+\begin{aligned}
+H\left(Q_\psi^{(r)}\right)
+&:=-\sum_{a,b}\int
+Q_\psi^{(r)}(y,a,b\given x,\Gamma)
+\log Q_\psi^{(r)}(y,a,b\given x,\Gamma)
+\mathop{\mathrm dy}\\
+&=-\sum_{a,b}w_\psi^{(r)}(a,b\given x,\Gamma)
+\int q_\psi^{(r)}(y\given a,b,x,\Gamma)
+\left[
+\log w_\psi^{(r)}(a,b\given x,\Gamma)
++\log q_\psi^{(r)}(y\given a,b,x,\Gamma)
+\right]
+\mathop{\mathrm dy}\\
+&=H\left(w_\psi^{(r)}\right)
++\sum_{a,b}w_\psi^{(r)}(a,b\given x,\Gamma)
+H\left(q_\psi^{(r)}(\mathord{\cdot}\given a,b,x,\Gamma)\right).
+\end{aligned}
+\label{eq:mixed-recognition-joint-entropy}
+\end{equation}
+Here $H(w):=-\sum_{a,b}w(a,b)\log w(a,b)$, with $0\log0:=0$. The second equality uses $\log(wq)=\log w+\log q$ on every positive-weight component. Equation~\eqref{eq:mixed-recognition-joint-entropy} is the joint entropy of the categorical sources and continuous population sample that enters the ELBO, so the source entropy cannot be omitted.
+
+This joint mixed entropy is not the differential entropy of the source-marginal mixture in \cref{eq:source-marginal-gaussian-mixture}.  The latter is
+\begin{equation}
+H\left(Q_\psi^{(r)}(y\given x,\Gamma)\right)
+=-\int
+\left(\sum_{a,b}w_{ab}q_{ab}(y)\right)
+\log\left(\sum_{a,b}w_{ab}q_{ab}(y)\right)
+\mathop{\mathrm dy},
+\label{eq:source-marginal-mixture-entropy}
+\end{equation}
+which is generally not the weighted component entropy $\sum_{a,b}w_{ab}H(q_{ab})$ and does not inherit the componentwise Gaussian closed form.
+
+The reference Gaussian family is a restriction only on the continuous conditional in \cref{eq:recognition-disintegration}.  For each source assignment with positive weight, it is
+\begin{equation}
+q(y)
+=\exp\left(
+h^\top y-\frac12y^\top Jy-A(h,J)
+\right),
+\qquad
+J=J^\top\succ0,
+\label{eq:joint-gaussian-information-form}
+\end{equation}
+where dependence of $(h,J)$ on $(r,a,b,x,\Gamma)$ is suppressed and
+\begin{equation}
+A(h,J)
+=\frac12h^\top J^{-1}h
+-\frac12\log\det J
++\frac D2\log(2\pi).
+\label{eq:gaussian-log-normalizer}
+\end{equation}
+Completion of the square, given in the appendix, yields
+\begin{equation}
+\mu=J^{-1}h,
+\qquad
+\Sigma=J^{-1},
+\qquad
+h=J\mu.
+\label{eq:information-moment-conversion}
+\end{equation}
+These relations are solve interfaces: they do not require constructing a dense inverse.
+
+For an agent block $y_i=(z_i,m_i)$, partition $h$, $J$, and $\Sigma=J^{-1}$ conformably. The marginal and full conditional are different Gaussian objects:
+\begin{equation}
+\begin{aligned}
+q(y_i)&=\mathcal N(y_i;\mu_i,\Sigma_{ii}),\\
+q(y_i\given y_{-i})
+&=\mathcal N\left(
+y_i;
+J_{ii}^{-1}(h_i-J_{i,-i}y_{-i}),
+J_{ii}^{-1}
+\right),\\
+\Sigma_{ii}^{-1}
+&=J_{ii}-J_{i,-i}J_{-i,-i}^{-1}J_{-i,i}.
+\end{aligned}
+\label{eq:gaussian-agent-marginal-conditional-dictionary}
+\end{equation}
+Thus $J_{ii}$ is a conditional precision, while the Schur complement is the marginal precision. The persistent agent belief in \cref{eq:agent-beliefs-as-population-marginals} uses the first line. The structured coordinate kernel in \cref{eq:structured-block-disintegration} uses a conditional of the second kind. Equation~\eqref{eq:gaussian-agent-marginal-conditional-dictionary} applies componentwise at fixed source assignment; after source marginalization, the exact law is generally a mixture and need not have one precision matrix.
+
+Marginalizing the source variables gives
+\begin{equation}
+Q_\psi^{(r)}(y\given x,\Gamma)
+=\sum_{a,b}w_\psi^{(r)}(a,b\given x,\Gamma)
+\mathcal N(y;\mu_{ab},\Sigma_{ab}),
+\label{eq:source-marginal-gaussian-mixture}
+\end{equation}
+which is generally a Gaussian mixture rather than one Gaussian.  If a later computation replaces this mixture by a single Gaussian, that replacement is a declared moment projection.  With $w_c$ denoting a source-assignment weight, the matching moments are
+\begin{equation}
+\begin{aligned}
+\bar\mu&=\sum_cw_c\mu_c,\\
+\bar\Sigma&=\sum_cw_c
+\left[
+\Sigma_c+(\mu_c-\bar\mu)(\mu_c-\bar\mu)^\top
+\right].
+\end{aligned}
+\label{eq:mixture-moment-projection}
+\end{equation}
+Equation~\eqref{eq:mixture-moment-projection} defines an approximation to the mixture, not an identity of distributions. Even when every component precision is sparse, the between-component term generally makes $\bar\Sigma$ dense, and $\bar J=\bar\Sigma^{-1}$ is generally dense as well. A sparse implementation must instead request only declared block marginals or solve a declared sparse information projection. The retained blocks, sparsity pattern, and projection error in moments, KL, or the complete objective must then be reported.
+
+\section{Natural, expectation, and moment coordinates}
+
+Using the Frobenius pairing $\langle A,B\rangle_{\mathrm F}:=\operatorname{tr}(A^\top B)$, the sufficient statistics and their natural parameters are
+\begin{equation}
+\begin{aligned}
+T_1(y)&=y,
+&\eta_1&=h,\\
+T_2(y)&=yy^\top,
+&\eta_2&=-\frac12J.
+\end{aligned}
+\label{eq:gaussian-natural-coordinates}
+\end{equation}
+The exact expectation coordinates dual to \cref{eq:gaussian-natural-coordinates} are
+\begin{equation}
+\xi_1=\mathbb E_q[y]=\mu,
+\qquad
+\xi_2=\mathbb E_q[yy^\top]
+=M=\Sigma+\mu\mu^\top.
+\label{eq:gaussian-expectation-coordinates}
+\end{equation}
+Matrix differentiation on the symmetric domain gives
+\begin{equation}
+\nabla_hA=\mu,
+\qquad
+\nabla_JA=-\frac12M.
+\label{eq:gaussian-log-normalizer-gradients}
+\end{equation}
+Equivalently, differentiating with respect to $\eta_2=-J/2$ gives $\nabla_{\eta_2}A=M$.  The pair $(\mu,\Sigma)$ is the moment view used here for uncertainty summaries, sampling, and emissions, but it is not the exact Fisher-dual pair to $(h,-J/2)$ because the second sufficient statistic is the uncentered moment $M$, not the covariance $\Sigma$.  This exponential-family distinction follows the standard natural and mean-parameter geometry \citep{Wainwright2008,Amari2016}.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{\input{vfe4_whitepaper/figures/vfe4_bundle_dual_coordinates}}
+\caption{%
+\textbf{General statistical sections, zero-dimensional population copies, and dual Gaussian coordinates.}
+The left panel shows state and model statistical bundles over the general base $\mathcal C$. The middle panel specializes to one point $\ast$, retains labeled agent copies $j<t$, and places $\Omega^z_{tj}$, $\Omega^m_{tj}$, and $B_t$ inside the population rather than along the base. The right panel gives three coordinate descriptions of the same correlated conditional Gaussian law: natural $(h,-J/2)$ and expectation $(\mu,M)$ coordinates form the Legendre/Fisher dual pair, whereas $(\mu,\Sigma)$ is connected to the expectation view by $M=\Sigma+\mu\mu^\top$. These coordinate arrows are not additional probabilistic factors.
+}
+\label{fig:vfe4-bundle-dual-coordinates}
+\end{figure}
+
+The conditional mean-field control is the nested restriction
+\begin{equation}
+J_{\mathrm{MF}}
+=\operatorname{diag}
+(J_{z,0},J_{m,0},\ldots,J_{z,T},J_{m,T}),
+\label{eq:mean-field-information-restriction}
+\end{equation}
+which makes the continuous Gaussian component factor across every state and model block.  Removing source dependence as well gives the fully factorized control
+\begin{equation}
+Q_{\mathrm{MF}}(\boldsymbol z,\boldsymbol m\given x,\Gamma)
+=\prod_{t=0}^{T}
+q_t^z(z_t\given x,\Gamma)
+q_t^m(m_t\given x,\Gamma).
+\label{eq:full-mean-field-control}
+\end{equation}
+Neither restriction is the default structured family.
+
+\section{Joint entropy and oriented Gaussian KL}
+
+The differential entropy of the complete conditional Gaussian is
+\begin{equation}
+\begin{aligned}
+H(q)
+&=-\mathbb E_q[\log q(y)]\\
+&=\frac12
+\left[
+D\bigl(1+\log(2\pi)\bigr)-\log\det J
+\right]\\
+&=\frac12
+\left[
+D\bigl(1+\log(2\pi)\bigr)+\log\det\Sigma
+\right].
+\end{aligned}
+\label{eq:full-joint-gaussian-entropy}
+\end{equation}
+For agent blocks $y_t=(z_t,m_t)$, the difference
+\begin{equation}
+\sum_{t=0}^{T}H(q(y_t))-H(q(y))
+=D_{\mathrm{KL}}
+\left(
+q(y)\middle\Vert\prod_{t=0}^{T}q(y_t)
+\right)
+\geq0,
+\label{eq:gaussian-total-correlation}
+\end{equation}
+is the total correlation. Replacing the joint entropy by a sum of agent entropies therefore drops this dependence term and overcounts the entropy unless the agent blocks are independent.
+
+The failure of local marginals to determine the joint is visible even for two scalar agents. For every $|\rho|<1$, let
+\begin{equation}
+Q_\rho
+:=\mathcal N\left(
+0,
+\begin{pmatrix}1&\rho\\\rho&1\end{pmatrix}
+\right).
+\label{eq:fixed-marginals-varying-correlation-example}
+\end{equation}
+Both marginals are $\mathcal N(0,1)$ for every $\rho$, but
+\begin{equation}
+H(Q_\rho)-H(Q_0)
+=\frac12\log(1-\rho^2).
+\label{eq:fixed-marginals-varying-entropy}
+\end{equation}
+The agent beliefs therefore fix neither the joint entropy nor the cross-agent moments. A global ELBO requires the additional joint structure supplied here by $Q$.
+
+Let $q_i=\mathcal N(\mu_i,\Sigma_i)$ with $J_i=\Sigma_i^{-1}$ for $i\in\{0,1\}$.  With the orientation $D_{\mathrm{KL}}(q_0\Vert q_1)$ fixed, the covariance form is
+\begin{equation}
+\begin{aligned}
+D_{\mathrm{KL}}(q_0\Vert q_1)
+=\frac12\Bigl[
+&\operatorname{tr}(\Sigma_1^{-1}\Sigma_0)
++(\mu_1-\mu_0)^\top
+\Sigma_1^{-1}(\mu_1-\mu_0)\\
+&-D+\log\frac{\det\Sigma_1}{\det\Sigma_0}
+\Bigr],
+\end{aligned}
+\label{eq:gaussian-kl-covariance-form}
+\end{equation}
+and the identical precision form is
+\begin{equation}
+\begin{aligned}
+D_{\mathrm{KL}}(q_0\Vert q_1)
+=\frac12\Bigl[
+&\operatorname{tr}(J_1J_0^{-1})
++(\mu_1-\mu_0)^\top J_1(\mu_1-\mu_0)\\
+&-D+\log\frac{\det J_0}{\det J_1}
+\Bigr].
+\end{aligned}
+\label{eq:gaussian-kl-precision-form}
+\end{equation}
+In natural and expectation coordinates, the same orientation is
+\begin{equation}
+\begin{aligned}
+D_{\mathrm{KL}}(q_0\Vert q_1)
+={}&A(h_1,J_1)-A(h_0,J_0)
+-(h_1-h_0)^\top\mu_0\\
+&+\frac12\langle J_1-J_0,M_0\rangle_{\mathrm F}.
+\end{aligned}
+\label{eq:gaussian-kl-natural-expectation-form}
+\end{equation}
+The appendix derives these identities and audits their determinant signs.  They are standard Gaussian and exponential-family identities \citep{Kullback1951,petersen2012matrix,Wainwright2008}.
+
+\section{Internal population-frame action and family closure}
+
+Using the fiber coordinate matrices in \cref{eq:fiber-coordinate-change-matrices}, define the combined token maps and their block-diagonal global assembly by
+\begin{equation}
+\mathsf G_t
+:=\operatorname{diag}(\mathsf G_{z,t},\mathsf G_{m,t}),
+\qquad
+\mathsf G
+:=\operatorname{diag}(\mathsf G_0,\ldots,\mathsf G_T).
+\label{eq:block-diagonal-global-frame-map}
+\end{equation}
+The population vector transforms as $y'=\mathsf G y$. The independent matrices $g_t$ define the internal product action of $\mathcal G_T=G^{T+1}$ from \cref{eq:population-frame-torsor}; they are not independent base gauge transformations on $\mathcal C_0$. The diagonal restriction $g_0=\cdots=g_T$ is the gauge action inherited from the single principal $G$-bundle over the point. Pushforward of the Gaussian probability measure gives
+\begin{equation}
+\begin{aligned}
+h'&=\mathsf G^{-\top}h,
+&J'&=\mathsf G^{-\top}J\mathsf G^{-1},\\
+\mu'&=\mathsf G\mu,
+&\Sigma'&=\mathsf G\Sigma\mathsf G^\top,\\
+&&M'&=\mathsf G M\mathsf G^\top.
+\end{aligned}
+\label{eq:joint-gaussian-gauge-laws}
+\end{equation}
+The coordinate density and log normalizer obey
+\begin{equation}
+q'(y')=\frac{q(y)}{|\det\mathsf G|},
+\qquad
+A(h',J')=A(h,J)+\log|\det\mathsf G|.
+\label{eq:joint-density-log-normalizer-jacobian}
+\end{equation}
+Accordingly,
+\begin{equation}
+H(q')=H(q)+\log|\det\mathsf G|,
+\qquad
+D_{\mathrm{KL}}(q_0'\Vert q_1')
+=D_{\mathrm{KL}}(q_0\Vert q_1).
+\label{eq:entropy-shift-kl-invariance}
+\end{equation}
+Differential entropy is coordinate dependent, while the common Jacobian cancels from the log-density ratio defining KL.
+
+Partition $J$ into combined agent blocks $J_{ts}$. Because \cref{eq:block-diagonal-global-frame-map} does not mix population labels,
+\begin{equation}
+J_{ts}'
+=\mathsf G_t^{-\top}J_{ts}\mathsf G_s^{-1}.
+\label{eq:precision-token-block-gauge-law}
+\end{equation}
+Invertibility implies $J_{ts}'=0$ if and only if $J_{ts}=0$. Population-block sparsity, including block-banded and block-tridiagonal patterns induced by the internal graph, is therefore closed under the declared product action.
+
+Within-agent scalar diagonality is not closed under general $\mathrm{GL}(K)$. For example,
+\begin{equation}
+\Sigma=I_2,
+\qquad
+G=\begin{pmatrix}1&1\\0&1\end{pmatrix},
+\qquad
+G\Sigma G^\top
+=\begin{pmatrix}2&1\\1&1\end{pmatrix}.
+\label{eq:diagonal-covariance-nonclosure-example}
+\end{equation}
+Thus a full-$\mathrm{GL}(K)$ construction must retain full within-agent blocks, choose another representation class closed under the action, or restrict the group. Rewriting a nonclosed family in natural coordinates does not restore closure.
+
+\section{Sparse precision as the scalable interface}
+
+A sparse Markov precision need not have a sparse covariance.  The scalar tridiagonal example
+\begin{equation}
+J=\begin{pmatrix}
+2&-1&0\\
+-1&2&-1\\
+0&-1&2
+\end{pmatrix},
+\qquad
+J^{-1}=\frac14\begin{pmatrix}
+3&2&1\\
+2&4&2\\
+1&2&3
+\end{pmatrix},
+\label{eq:tridiagonal-precision-dense-covariance}
+\end{equation}
+already has a nonzero covariance between its first and third nodes.  The scalable information-form interface is therefore a factorization of $J$ together with linear solves $Jv=r$, selected inverse blocks required by the objective, log-determinant evaluation, and sampling.  If $J=LL^\top$ is a sparse Cholesky factorization, then
+\begin{equation}
+\log\det J=2\sum_i\log L_{ii},
+\qquad
+y=\mu+L^{-\top}\epsilon,
+\qquad
+\epsilon\sim\mathcal N(0,I_D),
+\label{eq:sparse-factor-logdet-sampling}
+\end{equation}
+provide the determinant and sample interfaces without a dense covariance allocation.
+
+Positive definiteness is part of the family definition. In exact arithmetic, a strictly positive-definite anchor $J_0$ and positive-semidefinite Gaussian factor contributions $A_f^\top P_fA_f$ give
+\begin{equation}
+J=J_0+\sum_f A_f^\top P_fA_f\succ0.
+\label{eq:exact-spd-factor-assembly}
+\end{equation}
+This exact-arithmetic statement does not by itself guarantee a positive numerical pivot after float32 accumulation. The reference implementation must use checked square-root or Cholesky assembly, or accumulate the information factors in higher precision before conversion. It must record condition estimates and pivot margins and declare whether a failed candidate is rejected, rescaled, or regularized. Rescaling or regularization changes the numerical candidate and therefore requires a new complete-objective evaluation. An unconstrained entrywise update to $J$ is not an admissible default. Ordinary Euclidean SGD or Adam on $(h,J)$ is likewise not a natural gradient merely because $(h,-J/2)$ are natural coordinates; that name requires the Fisher metric or the exact natural--expectation dual update developed in the next chapter.

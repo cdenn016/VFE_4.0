@@ -1,0 +1,78 @@
+\begin{tikzpicture}[
+  >={Stealth[length=2.2mm]},
+  every node/.style={font=\footnotesize},
+  gate/.style={
+    rectangle,
+    draw=primaryblue,
+    fill=lightblue,
+    rounded corners=2pt,
+    line width=0.9pt,
+    minimum width=48mm,
+    minimum height=8mm,
+    align=center,
+    inner sep=3pt
+  },
+  stop/.style={
+    rectangle,
+    draw=cautionorange!85!black,
+    fill=lightorange,
+    dashed,
+    rounded corners=2pt,
+    line width=0.9pt,
+    minimum width=27mm,
+    minimum height=8mm,
+    align=center,
+    inner sep=2pt
+  },
+  outcome/.style={
+    rectangle,
+    draw=sciencegreen!85!black,
+    fill=lightgreen,
+    double,
+    double distance=0.7pt,
+    rounded corners=2pt,
+    line width=0.8pt,
+    minimum width=48mm,
+    minimum height=9mm,
+    align=center,
+    inner sep=3pt
+  },
+  pass/.style={-{Stealth[length=2.2mm]}, sciencegreen!85!black, line width=1pt},
+  halt/.style={-{Stealth[length=2.2mm]}, cautionorange!85!black, dashed, line width=1pt}
+]
+  \node[draw=darkgray, fill=lightgray, rounded corners=2pt, align=center,
+    minimum width=75mm, minimum height=8mm] (rule) {Promotion requires the declared decision rule at the current gate.};
+
+  \node[gate, below=7mm of rule] (identity) {H1: ELBO implementation};
+  \node[gate, below=7mm of identity] (representation) {H2: coordinate implementation};
+  \node[gate, below=7mm of representation] (posterior) {H3: structured-posterior adequacy};
+  \node[gate, below=7mm of posterior] (optimization) {H4--H5: cost hypothesis and update-label verification};
+  \node[gate, below=7mm of optimization] (prediction) {H6: prefix-measurability oracle\\and held-out prediction};
+  \node[gate, below=7mm of prediction] (gauge) {H7: population-frame\\covariance implementation};
+  \node[gate, below=7mm of gauge] (scale) {H8: sparse systems};
+  \node[outcome, below=7mm of scale] (advance) {bounded claim may advance};
+
+  \node[stop, right=26mm of identity] (stopidentity) {repair and report};
+  \node[stop, right=26mm of representation] (stoprepresentation) {repair and report};
+  \node[stop, right=26mm of posterior] (stopposterior) {revise and report};
+  \node[stop, right=26mm of optimization] (stopoptimization) {revise and report};
+  \node[stop, right=26mm of prediction] (stopprediction) {repair leakage or\\report unsupported};
+  \node[stop, right=26mm of gauge] (stopgauge) {repair covariance\\path and report};
+  \node[stop, right=26mm of scale] (stopscale) {report unsupported};
+
+  \draw[pass] (identity) -- node[midway, left=2mm] {pass} (representation);
+  \draw[pass] (representation) -- node[midway, left=2mm] {pass} (posterior);
+  \draw[pass] (posterior) -- node[midway, left=2mm] {pass} (optimization);
+  \draw[pass] (optimization) -- node[midway, left=2mm] {pass} (prediction);
+  \draw[pass] (prediction) -- node[midway, left=2mm] {pass} (gauge);
+  \draw[pass] (gauge) -- node[midway, left=2mm] {pass} (scale);
+  \draw[pass] (scale) -- node[midway, left=2mm] {pass} (advance);
+
+  \draw[halt] (identity) -- node[midway, above=1mm] {stop} (stopidentity);
+  \draw[halt] (representation) -- node[midway, above=1mm] {stop} (stoprepresentation);
+  \draw[halt] (posterior) -- node[midway, above=1mm] {stop} (stopposterior);
+  \draw[halt] (optimization) -- node[midway, above=1mm] {stop} (stopoptimization);
+  \draw[halt] (prediction) -- node[midway, above=1mm] {stop} (stopprediction);
+  \draw[halt] (gauge) -- node[midway, above=1mm] {stop} (stopgauge);
+  \draw[halt] (scale) -- node[midway, above=1mm] {stop} (stopscale);
+\end{tikzpicture}

@@ -1,0 +1,231 @@
+\chapter{Principal Bundles, Associated Statistical Bundles, and Agents as Sections}
+\label{ch:bundle-geometry}
+
+\section{Contextual base and statistical fibers}
+
+Let \(\mathcal C\) be a smooth contextual base manifold and let \(G\) be a Lie group acting on the right of a principal bundle
+\begin{equation}
+\pi:\mathcal P\longrightarrow\mathcal C.
+\label{eq:principal-bundle}
+\end{equation}
+The base indexes contexts at which an agent's statistical fields may be evaluated. It is not an interaction graph, a population index set, or a latent state space. The principal bundle supplies local frames and their transition law; it does not by itself supply a probability distribution. We use the standard principal- and associated-bundle constructions of \citet{Kobayashi1963} and \citet{Nakahara2003}.
+
+Before any Gaussian specialization, let \(\mathsf K\) and \(\mathsf M\) denote representative state and model sample fibers in a local trivialization. Let \(\mathcal B_{\mathrm{state}}\) and \(\mathcal B_{\mathrm{model}}\) be smooth statistical manifolds whose points are probability measures on \(\mathsf K\) and \(\mathsf M\), respectively. The statistical-manifold assumption concerns the differentiable family of probability laws; it does not identify a law with one draw from that law. Information geometry supplies a metric and dual affine structure when those objects are required later \citep{Amari2016,AmariNagaoka2000}.
+
+Let
+\begin{equation}
+\rho_k:G\longrightarrow\operatorname{Aut}(\mathsf K),
+\qquad
+\rho_m:G\longrightarrow\operatorname{Aut}(\mathsf M).
+\label{eq:sample-representations}
+\end{equation}
+be sample-fiber representations whose action maps are measurable, so that their actions on probability measures are well-defined pushforwards. For measurable \(A\subseteq\mathsf K\) and \(B\subseteq\mathsf M\), define
+\begin{equation}
+(g\mathbin{\cdot}q)(A)=q\left(\rho_k(g)^{-1}A\right),
+\qquad
+(g\mathbin{\cdot}s)(B)=s\left(\rho_m(g)^{-1}B\right).
+\label{eq:measure-pushforward-actions}
+\end{equation}
+For the smooth associated-bundle construction, measurability alone is insufficient. Assume that the represented sample-fiber action maps are smooth in the selected smooth structures, that each chosen statistical family is closed under its represented pushforward, and that the induced maps
+\begin{equation}
+(g,q)\longmapsto(\rho_k(g))_{\#}q,
+\qquad
+(g,s)\longmapsto(\rho_m(g))_{\#}s,
+\label{eq:smooth-statistical-actions}
+\end{equation}
+are smooth in the selected statistical-manifold coordinates. The formulas above then define smooth, family-preserving actions \(\rho_{\mathrm{state}}\) and \(\rho_{\mathrm{model}}\) on \(\mathcal B_{\mathrm{state}}\) and \(\mathcal B_{\mathrm{model}}\), respectively. The nondegenerate Gaussian families used below satisfy both closure and smoothness in \((\mu,\Sigma)\) coordinates under smooth invertible linear represented actions. Thus \(g\mathbin{\cdot}q=(\rho_k(g))_{\#}q\) and \(g\mathbin{\cdot}s=(\rho_m(g))_{\#}s\). The associated statistical bundles are
+\begin{equation}
+\mathcal E_{\mathrm{state}}
+=\mathcal P\times_{\rho_{\mathrm{state}}}\mathcal B_{\mathrm{state}},
+\qquad
+\mathcal E_{\mathrm{model}}
+=\mathcal P\times_{\rho_{\mathrm{model}}}\mathcal B_{\mathrm{model}}.
+\label{eq:associated-statistical-bundles}
+\end{equation}
+For the right principal action and the displayed left fiber actions, the quotient convention is
+\begin{equation}
+(u\mathbin{\cdot}g,b)\sim(u,g\mathbin{\cdot}b).
+\label{eq:associated-bundle-quotient-convention}
+\end{equation}
+Equation~\eqref{eq:measure-pushforward-actions}, rather than a matrix multiplied directly into a density, fixes how the group acts on the probability objects. A density representation is secondary and must include the reference-measure Jacobian when the action does not preserve that measure.
+
+Analytic formulas later specialize the statistical fibers to nondegenerate Gaussian families,
+\begin{align}
+\mathcal B_{\mathrm{state}}^{\mathrm G}
+&=\left\{\mathcal N(\mu_k,\Sigma_k):
+\mu_k\in\mathbb R^{d_k},\ \Sigma_k\in\mathbb S_{++}^{d_k}\right\},
+\label{eq:gaussian-state-fiber}\\
+\mathcal B_{\mathrm{model}}^{\mathrm G}
+&=\left\{\mathcal N(\mu_m,\Sigma_m):
+\mu_m\in\mathbb R^{d_m},\ \Sigma_m\in\mathbb S_{++}^{d_m}\right\}.
+\label{eq:gaussian-model-fiber}
+\end{align}
+For linear represented actions, pushforward gives
+\begin{align}
+(\rho_k(g))_{\#}\mathcal N(\mu_k,\Sigma_k)
+&=\mathcal N\left(\rho_k(g)\mu_k,
+\rho_k(g)\Sigma_k\rho_k(g)^{\top}\right),
+\label{eq:state-gaussian-pushforward}\\
+(\rho_m(g))_{\#}\mathcal N(\mu_m,\Sigma_m)
+&=\mathcal N\left(\rho_m(g)\mu_m,
+\rho_m(g)\Sigma_m\rho_m(g)^{\top}\right).
+\label{eq:model-gaussian-pushforward}
+\end{align}
+The covariance therefore transforms by congruence. If \(\Lambda=\Sigma^{-1}\) is the corresponding precision, then
+\begin{equation}
+\Lambda\longmapsto\rho(g)^{-\top}\Lambda\rho(g)^{-1}.
+\label{eq:precision-dual-action}
+\end{equation}
+These are the primal and dual transformation laws used throughout the Gaussian reference regime \citep{HornJohnson2013,Bhatia2007}.
+
+\section{One principal frame and two represented channels}
+
+The reference construction has one principal bundle, one structure-group element at each frame change, and two represented channel actions. If \(g_i\in G\) changes the principal frame used by agent \(i\), define
+\begin{equation}
+g_i^k=\rho_k(g_i),
+\qquad
+g_i^m=\rho_m(g_i).
+\label{eq:represented-frame-changes}
+\end{equation}
+The matrices \(g_i^k\) and \(g_i^m\) may have different dimensions and act on different sample fibers, but they are images of the same \(g_i\). They are not independent gauge choices. This typing is needed for any state--model bridge: both sides of the bridge must transform under representations of the same principal-frame change.
+
+Independent channel bundles are an optional extension, not an alternate reading of Equation~\eqref{eq:associated-statistical-bundles}. Such an extension must introduce separate projections
+\begin{equation}
+\pi_k:\mathcal P_k\longrightarrow\mathcal C,
+\qquad
+\pi_m:\mathcal P_m\longrightarrow\mathcal C.
+\label{eq:independent-channel-principal-bundles}
+\end{equation}
+with separate structure groups, frame fields, group elements, connections, and transports. A cross-channel term is then not typed until one also supplies a bundle morphism. For example, a principal-bundle morphism \(\Phi:\mathcal P_m\to\mathcal P_k\) over \(\operatorname{id}_{\mathcal C}\), a group homomorphism \(\psi:G_m\to G_k\), and a compatible fiber map \(f:\mathcal B_{\mathrm{model}}\to\mathcal B_{\mathrm{state}}\) must satisfy
+\begin{equation}
+\Phi(u\mathbin{\cdot}h)=\Phi(u)\mathbin{\cdot}\psi(h),
+\qquad
+f(h\mathbin{\cdot}s)=\psi(h)\mathbin{\cdot}f(s).
+\label{eq:cross-channel-bundle-morphism}
+\end{equation}
+Without this additional data, independently chosen state and model frames do not define a covariant cross-channel map.
+
+\section{Agent ontology and sample ontology}
+
+Let \(\mathcal U_i\subseteq\mathcal C\) be the support of agent \(\mathcal A^i\). The agent carries local distribution-valued sections
+\begin{align}
+q_i,p_i&\in\Gamma\left(\mathcal U_i,
+\mathcal E_{\mathrm{state}}\vert_{\mathcal U_i}\right),
+\label{eq:agent-state-sections}\\
+s_i,r_i&\in\Gamma\left(\mathcal U_i,
+\mathcal E_{\mathrm{model}}\vert_{\mathcal U_i}\right).
+\label{eq:agent-model-sections}
+\end{align}
+We use the convention that unindexed \(q_i,s_i,p_i,r_i\) describe one fixed theoretical state. When recognition sections depending on an observation and structural configuration are supplied, they are written explicitly and satisfy
+\begin{equation}
+q_i^{o,X}\in\Gamma\left(\mathcal U_i,
+\mathcal E_{\mathrm{state}}\vert_{\mathcal U_i}\right),
+\qquad
+s_i^{o,X}\in\Gamma\left(\mathcal U_i,
+\mathcal E_{\mathrm{model}}\vert_{\mathcal U_i}\right).
+\label{eq:observation-configuration-section-types}
+\end{equation}
+These sections are never inferred from a finite marginal law. The agent also carries a group-valued local frame coordinate
+\begin{equation}
+U_i:\mathcal U_i\longrightarrow G.
+\label{eq:agent-frame-field}
+\end{equation}
+Each statistical section covers the identity on its support; for example,
+\begin{equation}
+\pi_{\mathrm{state}}\circ q_i
+=\pi_{\mathrm{state}}\circ p_i
+=\operatorname{id}_{\mathcal U_i},
+\qquad
+\pi_{\mathrm{model}}\circ s_i
+=\pi_{\mathrm{model}}\circ r_i
+=\operatorname{id}_{\mathcal U_i}.
+\label{eq:agent-section-projections}
+\end{equation}
+For a finite design \(D=\{c_a\}_{a=1}^{M}\subseteq\mathcal U_i\), continuum-section sampling is the map
+\begin{align}
+\operatorname{Samp}_{D,i}^{k}:
+\Gamma\left(\mathcal U_i,\mathcal E_{\mathrm{state}}\vert_{\mathcal U_i}\right)
+&\longrightarrow\prod_{a=1}^{M}\mathcal B_{\mathrm{state},c_a},
+&q_i^{o,X}&\longmapsto\bigl(q_i^{o,X}(c_a)\bigr)_{a=1}^{M},
+\label{eq:continuum-state-section-sampling}\\
+\operatorname{Samp}_{D,i}^{m}:
+\Gamma\left(\mathcal U_i,\mathcal E_{\mathrm{model}}\vert_{\mathcal U_i}\right)
+&\longrightarrow\prod_{a=1}^{M}\mathcal B_{\mathrm{model},c_a},
+&s_i^{o,X}&\longmapsto\bigl(s_i^{o,X}(c_a)\bigr)_{a=1}^{M}.
+\label{eq:continuum-model-section-sampling}
+\end{align}
+For concise pair notation, define
+\begin{equation}
+\operatorname{Samp}_{D,i}^{k,m}
+:=\left(\operatorname{Samp}_{D,i}^{k},
+\operatorname{Samp}_{D,i}^{m}\right).
+\label{eq:collective-continuum-section-sampling}
+\end{equation}
+Its outputs are tuples of probability measures in the statistical fibers over the selected points. This sampling operation is defined from the continuum sections and does not use the finite recognition kernel. The latter has separately defined coordinate marginals \(q_{i,a}^{o,X}\) and \(s_{i,a}^{o,X}\) in Equation~\eqref{eq:recognition-marginal-sections}. Equality of a sampled section value with the corresponding finite marginal is a compatibility hypothesis stated in Chapter~\ref{ch:probability-semantics}; it is not a definition supplied by \(Q_X\). These probability roles do not reduce the agent to any one section. The agent is the supported section-bearing object
+\begin{equation}
+\mathcal A^i=
+\left(\mathcal U_i;q_i,p_i,s_i,r_i,U_i\right).
+\label{eq:agent-object}
+\end{equation}
+
+Within a local exponential chart one may write \(U_i=\exp\phi_i\) for a Lie-algebra coordinate \(\phi_i\). The group-valued field \(U_i\) is primary. The notation does not assert that one real matrix exponential covers every element of \(\mathrm{GL}^{+}(K)\); real logarithms have spectral obstructions, and exponential coordinates are only local without additional hypotheses \citep{Higham2008}.
+
+At \(c\in\bigcap_{i=1}^{N}\mathcal U_i\), let \(k_i(c)\) be a state sample in \(\mathsf K_{i,c}\) and let \(m_i(c)\) be a model sample in \(\mathsf M_{i,c}\). The population sample at that common-support context is
+\begin{equation}
+Y(c)=\bigl((k_1(c),m_1(c)),\ldots,(k_N(c),m_N(c))\bigr).
+\label{eq:population-sample}
+\end{equation}
+The random variable \(Y(c)\) is a population sample and is not an agent. Likewise, the vertex label \(i\) records population incidence but is not the geometric object \(\mathcal A^i\). This distinction permits two agents to carry different probability sections over overlapping regions of \(\mathcal C\) while their evaluated samples remain ordinary random variables in separate fibers.
+
+Figure~\ref{fig:magent-geometry-type-stack} keeps the finite-design maps typed separately: \(\operatorname{Ev}_D\) acts on sample-field realizations, \(\operatorname{Samp}_{D,i}^{k,m}\) samples continuum sections, and coordinate marginalization acts on \(Q_X\). The last two outputs are joined only by the optional compatibility hypothesis.
+
+\begin{figure}[tbp]
+\centering
+\input{magent_elbo_whitepaper/figures/magent_geometry_type_stack}
+\caption{\textbf{Geometry and probability occupy different typed layers.} The bundle projection and associated-bundle construction are exact geometric declarations. Finite sample evaluation sends a sample-field realization \(y\) to \(\operatorname{Ev}_D(y)=Y_D\in\mathsf Y_D\). Continuum sampling sends \(q_i^{o,X}\) and \(s_i^{o,X}\) to their values on \(D\), whereas finite marginalization sends \(Q_X(dY\mid o)\) to \(q_{i,a}^{o,X}\) and \(s_{i,a}^{o,X}\). The dashed relation has no direction: it records coordinatewise equality only under the additional compatibility hypothesis, and neither map defines the other. The continuum sections do not generate the correlated joint law. The dashed interaction graph is only finite incidence data in \(X\), not the base of \(\mathcal P\), and neither its vertices nor the evaluated variables \(Y\) are agents.}
+\label{fig:magent-geometry-type-stack}
+\end{figure}
+
+\section{Three transport structures}
+
+A principal connection \(\boldsymbol\omega\in\Omega^1(\mathcal P,\mathfrak g)\) defines horizontal lifts and parallel transport along curves \(\gamma:[0,1]\to\mathcal C\). Its input is a base curve, and its output compares principal fibers over \(\gamma(0)\) and \(\gamma(1)\). The connection is therefore not supplied by a population adjacency matrix. Curvature or smooth holonomy of this connection requires its own geometric analysis \citep{Kobayashi1963,Nakahara2003}.
+
+Regime I compares local agent frames in one chosen trivialization. At \(c\in\mathcal U_i\cap\mathcal U_j\), define pointwise
+\begin{equation}
+\Omega_{ij}(c)=U_i(c)U_j(c)^{-1}.
+\end{equation}
+On a triple overlap \(c\in\mathcal U_i\cap\mathcal U_j\cap\mathcal U_k\), these comparisons obey the cocycle identity
+\begin{equation}
+\Omega_{ij}(c)\Omega_{jk}(c)=\Omega_{ik}(c).
+\label{eq:regime-one-cocycle}
+\end{equation}
+The state and model channel transports are the represented maps
+\begin{equation}
+\Omega_{ij}^{k}(c)=\rho_k(\Omega_{ij}(c)),
+\qquad
+\Omega_{ij}^{m}(c)=\rho_m(\Omega_{ij}(c)).
+\label{eq:represented-regime-one-links}
+\end{equation}
+Under the local coordinate reframing \(U_i'(c)=g_i(c)U_i(c)\), the comparison transforms pointwise as
+\begin{equation}
+\Omega_{ij}'(c)=g_i(c)\Omega_{ij}(c)g_j(c)^{-1}.
+\label{eq:regime-one-gauge-law}
+\end{equation}
+For a closed interaction walk \(i_0,i_1,\ldots,i_r=i_0\), fix one context \(c\in\bigcap_{a=0}^{r-1}\mathcal U_{i_a}\). The ordered product at this single common-support context telescopes,
+\begin{equation}
+\prod_{a=0}^{r-1}\Omega_{i_a i_{a+1}}(c)
+=U_{i_0}(c)U_{i_1}(c)^{-1}U_{i_1}(c)U_{i_2}(c)^{-1}\cdots
+U_{i_{r-1}}(c)U_{i_0}(c)^{-1}
+=e_G.
+\label{eq:regime-one-loop-telescoping}
+\end{equation}
+Noncommutativity does not alter this pointwise identity. Edge comparisons evaluated at different contexts require base parallel transport to a common fiber and do not telescope by this argument. Regime-I links at one fixed context are a frame coboundary, so they do not support a claim of nontrivial discrete interaction holonomy.
+
+Regime II begins only after a finite interaction complex \(\mathfrak I\) with oriented edges has been declared independently of \(\mathcal C\). Assign an edge variable \(L_{ij}\in G\), with \(L_{ji}=L_{ij}^{-1}\) when both orientations represent the same link. Under independent changes of vertex frames, its gauge law is
+\begin{equation}
+L_{ij}'=g_iL_{ij}g_j^{-1}.
+\label{eq:regime-two-gauge-law}
+\end{equation}
+The ordered link product around a closed walk transforms by conjugation at its base vertex and need not equal \(e_G\). Only Regime II can carry nontrivial discrete holonomy on the interaction complex in the present construction. Discrete curvature additionally requires declared two-cells or plaquettes. This statement does not identify interaction-complex holonomy with the smooth holonomy of \(\boldsymbol\omega\) along curves in \(\mathcal C\).
+
+Finally, the local transition data used in the reference construction form a coboundary in the chosen trivialization. The paper makes no claim of nontrivial principal-bundle topology from those data. A topologically nontrivial extension would require an atlas and transition cocycle not globally reducible to the displayed frame comparison, together with probability kernels compatible on overlaps.

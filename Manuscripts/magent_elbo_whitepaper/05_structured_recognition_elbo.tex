@@ -1,0 +1,176 @@
+\chapter{Correlated Population Recognition and the Exact State ELBO}
+\label{ch:structured-recognition-elbo}
+
+\section{The population recognition kernel}
+
+Fix the finite design, observed value \(o\in\mathsf O_D\), and structural value \(X\in\mathsf X\) from Chapter~\ref{ch:probability-semantics}. Recognition is represented by the normalized Markov kernel
+\begin{equation}
+Q:(\mathsf O_D\times\mathsf X,
+\mathscr O_D\otimes\mathscr X)
+\longrightarrow\mathcal P(\mathsf Y_D,\mathscr Y_D),
+\qquad
+(o,X)\longmapsto Q_X(dY\mid o).
+\label{eq:structured-recognition-kernel}
+\end{equation}
+Thus \(Q_X(\mathsf Y_D\mid o)=1\), and for every \(B\in\mathscr Y_D\) the map \((o,X)\mapsto Q_X(B\mid o)\) is \(\mathscr O_D\otimes\mathscr X\)-measurable. This joint law may correlate agents, state and model channels, and distinct design points. It is a law for the finite population random element \(Y_D\), not a replacement for the section-bearing agent object.
+
+Let \(\operatorname{pr}_{i,a}^{k}\) and \(\operatorname{pr}_{i,a}^{m}\) be the state and model coordinate projections at agent \(i\) and design point \(c_a\). The finite coordinate marginals are
+\begin{equation}
+q_{i,a}^{o,X}
+=\left(\operatorname{pr}_{i,a}^{k}\right)_{\#}
+Q_X(\mathord\cdot\mid o),
+\qquad
+s_{i,a}^{o,X}
+=\left(\operatorname{pr}_{i,a}^{m}\right)_{\#}
+Q_X(\mathord\cdot\mid o).
+\label{eq:structured-recognition-pushforwards}
+\end{equation}
+These are the outputs of finite marginalization, not definitions of the continuum sections. Their equality to \(q_i^{o,X}(c_a)\) and \(s_i^{o,X}(c_a)\) requires Equation~\eqref{eq:continuum-finite-marginal-compatibility}. The collection of all \(q_{i,a}^{o,X}\) and \(s_{i,a}^{o,X}\) does not determine \(Q_X\). It leaves the dependence law unspecified; in continuous Euclidean coordinates, it leaves the copula unspecified, and when second moments exist, it leaves every cross-agent, cross-design, and cross-channel covariance block unspecified. Marginal recognition laws therefore cannot be substituted for the population law in an exact joint entropy or evidence calculation.
+
+\section{Gaussian information form}
+
+In the finite Gaussian reference regime, choose an ordering of every state and model coordinate in \(Y_D\), stack them as \(Y\in\mathbb R^d\), and take Lebesgue measure as \(\nu_D^Y\). Under the uniform dimensions of Chapter~\ref{ch:generative-model}, \(d=MN(d_k+d_m)\). Let \(h:\mathsf O_D\times\mathsf X\to\mathbb R^d\) and \(J:\mathsf O_D\times\mathsf X\to\mathbb S_{++}^d\) be measurable maps. Suppressing their displayed dependence on \((o,X)\), define
+\begin{equation}
+q_X(y\mid o)
+=\exp\left(
+h^\top y-\frac12y^\top Jy-A(h,J)
+\right),
+\qquad
+J=J^\top\succ0,
+\label{eq:recognition-gaussian-information-form}
+\end{equation}
+where the exact log normalizer is
+\begin{equation}
+A(h,J)
+=\frac12h^\top J^{-1}h
+-\frac12\log\det J
++\frac d2\log(2\pi).
+\label{eq:recognition-gaussian-log-normalizer}
+\end{equation}
+Setting
+\begin{equation}
+\mu=J^{-1}h,
+\qquad
+C=J^{-1},
+\label{eq:recognition-gaussian-moments}
+\end{equation}
+and completing the square converts Equation~\eqref{eq:recognition-gaussian-information-form} into the density of \(\mathcal N(\mu,C)\). Appendix~\ref{sec:gaussian-information-normalization} gives the normalization and moment calculation.
+
+Partition \(Y\) into declared agent, design-point, or channel blocks. The block \(C_{bc}\) is a cross-covariance, whereas \(J_{bc}\) is an off-diagonal block of the precision. These objects are generally different. For a nondegenerate joint Gaussian law, \(J_{bc}=0\) is equivalent to conditional independence of blocks \(Y_b\) and \(Y_c\) given all remaining blocks. A nonzero \(J_{bc}\) is therefore a conditional-dependence parameter, not a covariance value \citep{Lauritzen1996,Wainwright2008}.
+
+\section{The state evidence identity}
+
+The evidence identity requires the following conditions at the selected \((o,X)\). The joint kernel \(P_\theta(\mathord\cdot\mid X)\) and recognition kernel \(Q_X(\mathord\cdot\mid o)\) are measurable and normalized as stated in Chapters~\ref{ch:probability-semantics} and \ref{ch:generative-model}. The dominated densities \(p_\theta(o,y\mid X)\) and \(q_X(y\mid o)\) are measurable relative to the declared reference measures. The evidence satisfies \(0<p_\theta(o\mid X)<\infty\). The recognition measure obeys
+\begin{equation}
+Q_X(\mathord\cdot\mid o)
+\ll P_\theta(\mathord\cdot\mid o,X),
+\label{eq:recognition-posterior-absolute-continuity}
+\end{equation}
+and the logarithms are integrable:
+\begin{equation}
+\E_{Q_X}\left[
+\left|\log p_\theta(o,Y\mid X)\right|
++\left|\log q_X(Y\mid o)\right|
+\right]<\infty.
+\label{eq:state-elbo-log-integrability}
+\end{equation}
+Here \(P_\theta(\mathord\cdot\mid o,X)\) is the conditional posterior probability measure; the lowercase symbol \(p_\theta\) is used only for a density relative to the declared base measure.
+
+Under these assumptions, define the state evidence lower bound by
+\begin{equation}
+\Lstate(Q_X;X)
+=\E_{Q_X}\left[
+\log p_\theta(o,Y\mid X)-\log q_X(Y\mid o)
+\right].
+\label{eq:state-elbo-definition}
+\end{equation}
+The notation suppresses the fixed observation \(o\) and generative parameter \(\theta\); parameter subscripts are restored when two parameter values are compared.
+Radon--Nikodym algebra then gives the exact identity
+\begin{equation}
+\log p_\theta(o\mid X)
+=\Lstate(Q_X;X)
++\KL\left(
+Q_X(\mathord\cdot\mid o)
+\middle\Vert
+P_\theta(\mathord\cdot\mid o,X)
+\right).
+\label{eq:state-evidence-identity}
+\end{equation}
+The derivation appears in Appendix~\ref{sec:state-elbo-radon-nikodym}. Nonnegativity of relative entropy makes \(\Lstate\) a lower bound on the log evidence, and equality holds if and only if
+\begin{equation}
+Q_X(\mathord\cdot\mid o)
+=P_\theta(\mathord\cdot\mid o,X)
+\quad\text{as probability measures}.
+\label{eq:state-elbo-equality-condition}
+\end{equation}
+This equality condition is measure-theoretic and does not follow from agreement of the coordinate marginals alone \citep{Kullback1951,Csiszar1967}.
+
+The state variational free energy uses the opposite sign,
+\begin{equation}
+\Fstate[Q_X;X,o]
+=-\Lstate(Q_X;X).
+\label{eq:state-free-energy-definition}
+\end{equation}
+Consequently, minimizing \(\Fstate\) over a recognition family that contains the finite-ELBO conditional posterior recovers that posterior. Restricting the family can leave a positive KL gap; the next chapter introduces the product restrictions without changing the fixed joint.
+
+\section{One factorwise decomposition}
+
+Restore the design-point index \(a\) that Chapter~\ref{ch:generative-model} suppresses, and let \(\mathcal R\subseteq V\) denote the root set. For \(i\notin\mathcal R\), write \(m_{\operatorname{pa}(i),a}\) and \(k_{\operatorname{pa}(i),a}\) for the parent coordinates. To display the factor expectations separately, assume in this section that the absolute logarithm of every component density in the finite directed factorization is \(Q_X\)-integrable. This condition is stronger than integrability of the complete log joint and excludes cancellation between undefined extended-real summands. Substituting the normalized directed density from Equation~\eqref{eq:finite-design-density-factorization} into Equation~\eqref{eq:state-free-energy-definition} then yields exactly one decomposition:
+\begin{align}
+\Fstate[Q_X;X,o]
+={}&
+\sum_{a=1}^{M}\sum_{r\in\mathcal R}
+\E_{Q_X}\left[
+-\log p_{\theta,r,a}^{m}(m_{r,a}\mid X)
+\right]
+\label{eq:state-free-energy-factorization}\\
+&+\sum_{a=1}^{M}\sum_{r\in\mathcal R}
+\E_{Q_X}\left[
+-\log p_{\theta,r,a}^{k}(k_{r,a}\mid m_{r,a},X)
+\right]\notag\\
+&+\sum_{a=1}^{M}\sum_{i\in V\setminus\mathcal R}
+\E_{Q_X}\left[
+-\log p_{\theta,i,a}^{m}
+(m_{i,a}\mid m_{\operatorname{pa}(i),a},X)
+\right]\notag\\
+&+\sum_{a=1}^{M}\sum_{i\in V\setminus\mathcal R}
+\E_{Q_X}\left[
+-\log p_{\theta,i,a}^{k}
+(k_{i,a}\mid k_{\operatorname{pa}(i),a},m_{i,a},X)
+\right]\notag\\
+&+\sum_{a=1}^{M}\sum_{i\in V}
+\E_{Q_X}\left[
+-\log p_{\theta,i,a}^{o}(o_{i,a}\mid k_{i,a},m_{i,a},X)
+\right]\notag\\
+&+\E_{Q_X}\left[\log q_X(Y\mid o)\right].\notag
+\end{align}
+The first line contains the root model factors, the second the root state bridges, the third and fourth the nonroot model and state transitions, and the fifth the observation factors. Every root and every nonroot contributes two latent factors and one observation factor at each design point, giving \(3MN\) generative factors. The final line is one joint recognition log-density, equivalently the negative joint entropy relative to \(\nu_D^Y\) when that entropy is finite. It is not a sum of marginal entropies. Appendix~\ref{sec:state-elbo-factor-audit} verifies the factor count and the equality between the monolithic log-ratio expectation and Equation~\eqref{eq:state-free-energy-factorization}.
+
+\section{Exact coordinates and accepted proposals}
+
+All coordinate statements in this section refer to the same normalized family \(P_\theta\). Let \(B\) be a latent block for which the posterior admits a regular conditional distribution, and assume the fixed complement marginal \(Q_{X,-B}\) is absolutely continuous with respect to the corresponding posterior marginal. Holding that complement marginal fixed, an exact E-coordinate uses
+\begin{equation}
+Q_X^{\mathrm{new}}(dY_B,dY_{-B}\mid o)
+=P_\theta(dY_B\mid Y_{-B},o,X)
+Q_{X,-B}(dY_{-B}\mid o).
+\label{eq:exact-e-coordinate}
+\end{equation}
+The KL chain rule shows that this conditional posterior is the exact optimum over the block-conditional recognition law. An exact full E-step is the special case \(Q_X^{\mathrm{new}}=P_\theta(\mathord\cdot\mid o,X)\). A product-family variational coordinate is a different restriction and is derived in the next chapter.
+
+With \(Q_X\) fixed, and when a maximizer exists in the declared parameter space, an exact M-coordinate is any maximizer
+\begin{equation}
+\theta^{\mathrm{new}}
+\in\operatorname*{argmax}_{\vartheta}
+\E_{Q_X}\left[\log p_{\vartheta}(o,Y\mid X)\right],
+\label{eq:exact-m-coordinate}
+\end{equation}
+within the same normalized generative family. The recognition entropy is then constant in \(\vartheta\), so Equation~\eqref{eq:exact-m-coordinate} maximizes the same ELBO. A generalized-EM M-coordinate need not attain the maximum, but it must pass the acceptance condition
+\begin{equation}
+\mathcal L_{\mathrm{state},\theta^{\mathrm{new}}}(Q_X;X)
+\geq
+\mathcal L_{\mathrm{state},\theta^{\mathrm{old}}}(Q_X;X).
+\label{eq:generalized-em-acceptance}
+\end{equation}
+The classical evidence-monotonicity conclusion follows when this accepted M-coordinate is paired with the exact posterior E-step for the old parameter value \citep{Dempster1977,Neal1998}.
+
+A natural-gradient direction and an ordinary optimizer direction are proposals, not accepted coordinates by definition. At finite step size, neither proposal has a monotonicity guarantee for Equation~\eqref{eq:state-elbo-definition} without a line search, trust-region test, or another acceptance rule that verifies the change in the same ELBO. Optimizing a separate population energy supplies no such guarantee for the fixed-joint evidence.

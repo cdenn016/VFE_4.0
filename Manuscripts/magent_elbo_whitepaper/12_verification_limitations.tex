@@ -1,0 +1,137 @@
+\chapter[Verification Obligations and Experimental Program]{Verification Obligations and\\Experimental Program}
+\label{ch:verification-program}
+
+The identities proved in this manuscript create finite verification obligations. The deterministic reference suite implements representative fixtures for the oracle rows and input-validation cases below. Appendix~\ref{sec:executable-oracle-verification-record} preserves an earlier unbound project record. The revision-bound evidence record for the present source is
+\begin{quote}
+\small
+\path{sources/manuscripts/}\\
+\path{magent-exact-elbo-}\\
+\path{whitepaper-2026-07-19-}\\
+\path{continuum-finite-remediation.md}.
+\end{quote}
+The fixtures test specific manuscript identities but do not discharge the full typed contracts or conditioning envelopes in Table~\ref{tab:magent-verification-oracles}. The table therefore separates the analytic statement, the implemented fixture coverage, and the remaining general obligation. Each numerical tolerance below applies only to the stated well-conditioned reference envelope. Any additional trial must freeze its operands, precision, condition-number ceiling, estimator, and error budget before execution. A stress trial outside that envelope may diagnose numerical fragility but cannot refute an exact-arithmetic identity.
+
+For deterministic float64 reference problems, define the scale function
+\begin{equation}
+\operatorname{sc}(u_1,\ldots,u_r)
+=\max\left\{1,\lVert u_1\rVert,\ldots,\lVert u_r\rVert\right\}.
+\label{eq:verification-scale-function}
+\end{equation}
+Unless a row states a stricter value, scalar and matrix residuals use an absolute-plus-relative budget of \(10^{-10}\operatorname{sc}(u_1,\ldots,u_r)\) on inputs whose relevant SPD condition numbers do not exceed \(10^6\). Exact rational or symbolic checks have tolerance zero. These are preregistered reference tolerances, not universal accuracy claims for arbitrary dimensions or conditioning.
+
+\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.29\textwidth}>{\raggedright\arraybackslash}p{0.21\textwidth}}
+\caption{Verification and falsification contract for the MAgent exact-ELBO theory.}
+\label{tab:magent-verification-oracles}\\
+\toprule
+\textbf{Check and status} & \textbf{Typed inputs} & \textbf{Invariant, residual, and tolerance} & \textbf{Failure interpretation} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{l}{\textit{Table \thetable\ continued}}\\
+\toprule
+\textbf{Check and status} & \textbf{Typed inputs} & \textbf{Invariant, residual, and tolerance} & \textbf{Failure interpretation} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+Joint normalization; proved, deterministic fixture implemented, full contract partial & A finite DAG \(F\), finite design \(D\), fixed \(X\), normalized root, state, model, and observation kernels, and their declared product reference measures. & The suite checks a representative directed-Gaussian normalization and exact strict-DAG structure. The remaining contract requires generic reverse-topological integration, an exact finite or rational residual of zero, and a deterministic Gaussian or quadrature mass residual \(r_{\mathrm{norm}}\leq10^{-12}\). & A failure falsifies the implemented factor order, measure convention, or component normalization on the fixture. It does not falsify the theorem unless all theorem assumptions and exact arithmetic are reproduced. \\
+\addlinespace
+State evidence identity; proved, deterministic fixture implemented, full contract partial & One normalized \(P_\theta(do,dY\mid X)\), one normalized \(Q_X(dY\mid o)\), positive finite evidence, posterior absolute continuity, and integrable log densities. & A linear-Gaussian fixture independently evaluates the evidence, ELBO, posterior KL, and posterior moments. The full support, reference-measure, and conditioning-envelope obligations remain; on matched inputs \(r_{\mathrm{state}}=|\log p_\theta(o\mid X)-\Lstate-\KL|\) must stay within the stated budget. & A matched-input excess falsifies the implementation of the state identity or one of its support and reference-measure claims. \\
+\addlinespace
+Nested KL chain rule; proved, deterministic fixture implemented, full contract partial & A proper \(P_0(dX)\), normalized state kernel, normalized \(R(dX\mid o)\), measurable \(X\mapsto Q_X\), positive evidence, absolute continuity, and finite nested logs. & A finite-enumeration fixture checks unit and nonunit common scales, the KL-chain residual, and the nested-evidence residual. Generic kernels and conditioning-envelope enforcement remain; both residuals must stay within \(10^{-10}\operatorname{sc}\) of their compared terms. & An excess falsifies the coded chain rule, entropy count, or conditioning convention. Double counting state, source, or configuration entropy is a failure. \\
+\addlinespace
+Gaussian information normalization; proved, deterministic fixture implemented, full contract partial & \(h\in\mathbb R^d\), \(J=J^\top\succ0\), the declared Lebesgue measure, and solve-derived \(\mu=J^{-1}h\), \(C=J^{-1}\). & The suite checks the analytic log normalizer and information-to-moment conversion. An independent numerical mass integral and the stated information--moment ELBO residual remain; the complete float64 residual set must be at most \(10^{-10}\operatorname{sc}(h,J,\mu,C)\). & A failure falsifies the implementation's normalizer, determinant sign, solve, or coordinate conversion on the fixture. \\
+\addlinespace
+CAVI Markov blankets; proved, deterministic fixture implemented, full contract partial & A conjugate directed state model, one declared block partition, normalized product factors, finite coordinate normalizers, and the complete factor-incidence map. & A Gaussian precision fixture converges to the exact mean and checks block covariances. A symbolic audit of the complete factor-incidence map and a per-coordinate ELBO monotonicity trace remain; every exact coordinate must satisfy the stated ELBO budget. & An omitted receiving, observation, bridge, or child factor falsifies the CAVI label. A decrease beyond tolerance falsifies the coordinate implementation, not arbitrary finite-step optimizers. \\
+\addlinespace
+Gaussian block optimum; proved, deterministic fixture implemented, full contract partial & An exact posterior \(\mathcal N(m,J^{-1})\), \(J\succ0\), and a declared block partition with unrestricted SPD covariance inside each product block. & The fixtures exercise the block covariances and converged means. The complete stationarity residual set and an independently certified optimizer comparison remain; \(\mu^\star=m\), \(C_b^\star=J_{bb}^{-1}\), \(J\mu^\star=Jm\), and \(C_b^\star J_{bb}=I\) must meet the stated budget. & A different certified optimum falsifies the formula or the optimizer's claimed target family. Failure before convergence diagnoses the optimizer only. \\
+\addlinespace
+Determinant evidence gap; proved, deterministic fixture implemented, full contract partial & The same Gaussian posterior and block optimum, with SPD determinant evaluations performed through stable log determinants. & Numerical reverse KL agrees with the determinant formula, the symbolic scalar identity is exact, and positivity is checked. The independent comparison with \(\log p_\theta(o\mid X)-\mathcal L_{\mathfrak B}^\star\) remains; all three values must meet the stated budget. & Disagreement falsifies the determinant sign, partition, or reverse-KL implementation. A materially negative gap violates the stated SPD reference calculation. \\
+\addlinespace
+Zero-coupling equality; proved, deterministic fixture implemented, full contract partial & A fully assembled Gaussian posterior precision including every transition, bridge, observation, and added coupling contribution, together with the tested block partition. & Hard-coded block-diagonal precision fixtures give zero determinant and product-family KL gaps under the declared partitions. Assembly from every generative contribution and an explicit forbidden-block norm check remain; the full residuals must meet the stated budgets. & A surviving block or gap falsifies the control construction. Setting one named coefficient to zero is insufficient evidence that the complete precision factorizes. \\
+\addlinespace
+Fixed-source row envelope; proved, deterministic fixture implemented, full contract partial & Fixed normalized component densities \(f_{ij}\), a nonnegative normalized prior row \(\widetilde\pi_i\) with nonempty positive support \(\mathcal J_i^+\), an admissible receiver density \(\varrho_i\), and declared \(\tau>0\). The ordinary joint-KL interpretation remains restricted to unit scale. & Fixtures check row normalization, envelope equality, and \(\mathcal R_i^{\mathrm{red}}=S_i+\tau\KL(\beta_i^*\Vert\widetilde\pi_i)\) at nonunit temperature. An equal-active-energy fixture checks \(\beta_i^*=\widetilde\pi_i\) and equality of the two scalars while leaving an energy outside \(\mathcal J_i^+\) unrestricted. An independently evaluated stationary-equation residual remains; the complete residual set must be at most \(10^{-12}\). & A failure falsifies the row implementation. Scalar equality requires equal energies only on \(\mathcal J_i^+\), with no condition outside that support. A live refresh of \(f_{ij}\) or an undeclared temperature fails the typed-input contract rather than the algebra. Vanishing response covariance in one direction is not an equality test. \\
+\addlinespace
+Covariance and precision transport; proved, deterministic fixture implemented, full contract partial & Invertible represented frame maps, typed state and model means, SPD covariances, dual precisions, bridge maps, transitions, and gauge-inert observation coordinates. & The suite checks covariance congruence, dual precision transport, and singular-frame rejection. Means, roots, bridges, transitions, quadratic forms, and gauge-inert observations remain; each complete scaled residual must meet the stated budget. & A failure falsifies the implemented tensor type, inverse placement, or parameter transformation. A covariance transform without the congruence is a hard failure. \\
+\addlinespace
+Complete state-ELBO gauge invariance; proved, deterministic fixture implemented, full contract partial & One complete generative law, one recognition law, all frame-dependent parameters and structural data, an invertible block frame map, and the transformed latent reference measure. & One linear-Gaussian latent fixture checks evidence and ELBO invariance. Separate posterior-KL, density-Jacobian, operand round-trip, and complete population-law checks remain; the full residuals must meet the stated budgets. & A transition-only or latent-only pass is insufficient. An excess falsifies the claimed complete-objective covariance of the implementation on the bounded trial. \\
+\addlinespace
+Moving-peer iterated variation; finite theorem proved, symbolic fixture implemented, finite-difference contract future & The fine design-point-factorized mean-field family \(Q=\bigotimes_{\ell,b}q_{\ell,b}\), finite marginals \(q_{i,a}^{o,X},q_{j,a}^{o,X}\), independently mixture-open site factors, positive quadrature and channel weights, positive mass-preserving transports, site-local paths \(\Gamma_a\) on one admissible open \((s,t)\) rectangle, finite nearby KLs, bounded ratios, a nonconstant aggregate \(G_{ij,a}\), domination, and zero iterated remainder derivatives along those paths. & The analytic residual is the difference between the sum of \(\left.\partial_s\partial_t^2(\mathcal C_D\circ\Gamma_a)\right|_{(0,0)}\) and the positive weighted variance sum in Equation~\eqref{eq:moving-peer-mixed-third}. An executable symbolic Bernoulli fixture confirms the derivative order. The exact \(27/3200\) one-site fixture and preregistered centered finite-difference sequence remain; the stable-step error must be at most \(10^{-6}\) with decreasing truncation error across the preceding steps. The continuum corollary separately constructs the exact centered tangent after \(h_j(c)\) and \(G_{ij}(c)\), then requires its joint measurability, fiberwise zero mass, one common admissible rectangle for that exact receiver--sender path, finite nearby KLs and a common differentiation envelope on that path, and Equation~\eqref{eq:moving-peer-continuum-positive-variance}. & A wrong sign, derivative order, variance value, or stable finite-difference limit falsifies the finite oracle under matched assumptions. The finite theorem concerns only the displayed fine site-factorized family and does not cover Chapter~\ref{ch:mean-field-theory}'s coarser cross-design factors. Failure of measurability, common-path admissibility, domination, or positive integrated variance blocks the continuum corollary rather than refuting the finite theorem. Neither result constructs a continuum probability measure or proves a continuum limit. \\
+\addlinespace
+Executable source anchors; documented trace, future recheck & The pinned MAgent commit, literal active configuration, loader and default resolution, dispatch path, scalar assembly, update schedule, and closure anchors of Chapter~\ref{ch:executable-crosswalk}. & Require an exact commit match and zero missing, out-of-range, or content-mismatched anchors. Recompute the active key-to-call-path map and require exact agreement with every stated branch and coefficient. This check has zero tolerance for unresolved anchors. & Any mismatch falsifies the corresponding implementation fact at the new snapshot and requires the chapter to be revised. It does not change the abstract MAgent theorems. \\
+\end{longtable}
+\normalsize
+
+\section{Future empirical and executable studies}
+
+The following five studies are proposals. This paper reports no measurements from them, and none is evidence for predictive, computational, or implementation benefit.
+
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.37\textwidth}>{\raggedright\arraybackslash}p{0.32\textwidth}}
+\caption{Future studies, measurable outcomes, and falsification conditions.}
+\label{tab:magent-future-studies}\\
+\toprule
+\textbf{Study} & \textbf{Design and measured outcomes} & \textbf{Falsification condition} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{l}{\textit{Table \thetable\ continued}}\\
+\toprule
+\textbf{Study} & \textbf{Design and measured outcomes} & \textbf{Falsification condition} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Correlated versus agent-block versus fully factorized Gaussian recognition & Use one fixed coupled linear-Gaussian population model with an independently computed exact posterior. Optimize the three nested recognition families under matched initialization, stopping rules, and budgets. Report posterior KL, ELBO gap, mean error, retained covariance blocks, determinant gap, runtime, and peak memory. & The hypothesis that retained correlation closes a resolvable approximation gap is falsified on the benchmark if the richer family does not improve posterior KL and ELBO after optimization error and numerical uncertainty are bounded. A worse certified optimum would instead falsify the family nesting or implementation. \\
+\addlinespace
+Zero-coupling control & Construct a matched model whose complete assembled posterior precision is block diagonal first under the agent partition and then under the finer state--model partition. Measure forbidden-block norms, posterior KLs, and determinant gaps for all three families. & The control is falsified if the exact posterior does not factorize under the declared partition or if any restricted-family gap exceeds the oracle budget. \\
+\addlinespace
+Gauge-change oracle & Sample bounded, well-conditioned principal-frame changes and transform the full model, recognition law, bridge and observation parameters, covariances, precisions, and reference measures. Measure evidence, posterior-KL, ELBO, and round-trip residuals separately for the common principal action and declared finite population reframings. & The implemented covariance claim is falsified when any complete-objective residual exceeds Table~\ref{tab:magent-verification-oracles}'s gauge budgets. Passing local transport alone does not support the claim. \\
+\addlinespace
+Conjugate-DAG CAVI monotonicity & Use a finite linear-Gaussian DAG whose exact posterior and coordinate optima are available. Run the complete state, model, and agent-block Markov blankets and record the full ELBO after every coordinate, the coordinate stationarity residual, and distance to the exact product-family optimum. & The CAVI implementation is falsified by an ELBO decrease beyond evaluation tolerance, an omitted outgoing child contribution, or convergence to a point that fails the coordinate stationarity equations. \\
+\addlinespace
+Runtime--theory gap assessment & Preserve the pinned Chapter~\ref{ch:executable-crosswalk} trace as the legacy baseline. Audit any future prototype for a fixed normalized population joint, a normalized correlated \(Q\), once-counted entropy sectors, complete-objective update acceptance, and a probabilistic treatment of closure. On a shared Gaussian fixture, compare its monolithic log ratio with its decomposed objective. & A claim that the runtime implements the new theory is falsified if any required probabilistic object is absent, an entropy is duplicated, closure remains an external write, or the common-fixture residual exceeds its budget. Agreement of one scalar value is insufficient. \\
+\end{longtable}
+\normalsize
+
+\chapter{Limitations and Research Outlook}
+\label{ch:limitations}
+
+The construction answers a finite probability-model question. It does not establish a continuum field theory, a practical inference algorithm, or an empirical advantage. The limits below constrain every use of the exact results.
+
+\section{Finite-design and continuum boundaries}
+
+Every state-level normalization and ELBO identity is proved for one context or a finite design \(D\). The continuum distribution-valued sections over \(\mathcal C\) remain the primary geometric theory, while the exact ELBO is a finite-site realization. The paper supplies no unique smooth extension of \(q_{i,a}^{o,X}\) or \(s_{i,a}^{o,X}\), no continuum probability measure, and no continuum limit. Establishing such a limit would require refining designs, compatible finite laws or a projective system, reconstruction in a declared topology, tightness or compactness where needed, convergence of functionals and observables, and control of gauge choices and reference measures. A continuum interaction model would additionally require a normalizability proof. Pointwise densities, finite-dimensional marginals, and the compatibility hypothesis in Equation~\eqref{eq:continuum-finite-marginal-compatibility} do not supply those missing results.
+
+The directed reference model is also a simplification. The abstract state tier permits a finite DAG, while the analytic Gaussian model uses a forest and the reference finite-design law assumes conditional independence across design points given \(X\). Reciprocal or loopy population interactions do not inherit directed normalization. An undirected alternative must declare a global potential and prove \(0<Z_X<\infty\); local factor normalization does not determine the loopy partition function.
+
+\section{Configuration and gauge normalization}
+
+The exact hierarchical identity assumes a proper configuration prior. The optional Gibbs prior exists only under a proper reference probability and a finite nonzero partition function. Since \(\mathrm{GL}^{+}(K)\) is noncompact, an invariant uniform frame prior is unavailable. Treating frames as physical variables requires a proper prior or regulator. Treating them as gauge redundancy requires a quotient or gauge-fixing construction with its induced Jacobian and a treatment of stabilizers and singular strata. Either route must still prove integrability in the remaining configuration directions.
+
+The finite reference uses local trivializations and Regime-I coboundaries. Their same-context loop products telescope, but this establishes neither global triviality nor nontrivial topology of the principal bundle. Cross-context comparisons require base parallel transport, and a nontrivial bundle claim would require an atlas, overlap cocycle, and global obstruction analysis. Independent Regime-II links can support discrete holonomy only after the interaction complex and link law are separately declared.
+
+\section{Approximation and optimization limits}
+
+Mean field can understate posterior uncertainty, but the precise result proved here is narrower than that general warning. For the Gaussian reverse-KL block optimum of Chapter~\ref{ch:mean-field-theory}, block inversion and the Schur complement give
+\begin{equation}
+J_{bb}^{-1}\preceq(J^{-1})_{bb},
+\label{eq:gaussian-mean-field-block-underdispersion}
+\end{equation}
+with equality when block \(b\) is precision-decoupled from its complement. Thus the optimal product block covariance is no larger in Loewner order than the exact marginal covariance in this Gaussian regime. The manuscript does not claim a universal covariance order for arbitrary non-Gaussian mean-field families.
+
+The abstract observation kernel need not be Gaussian or conjugate. For categorical, robust, nonlinear, or other nonconjugate likelihoods, the ELBO identity remains exact when its measure-theoretic assumptions hold, but the Gaussian coordinate equations generally cease to close. Quadrature, Monte Carlo estimates, auxiliary bounds, or accepted gradient proposals then add numerical error, stochastic error, or an approximation gap that must be reported separately.
+
+One scalar objective does not prove convergence of a practical optimizer. Exact coordinate maxima and accepted generalized-EM proposals have the conditional monotonicity statements given earlier. Finite natural-gradient, Euclidean, retracted, simultaneous, or stochastic steps need not be monotone, may converge locally, and may fail to converge. No global convergence or finite-step rate is established for the proposed correlated family or configuration hierarchy.
+
+\section{Executable and empirical boundaries}
+
+The active MAgent runtime is not an implementation of the new correlated-state theory. It stores node-local Gaussian fields, evaluates live moving-peer consensus terms, takes simultaneous finite updates, and applies an external apex closure. Chapter~\ref{ch:executable-crosswalk} documents these facts from a pinned source snapshot. A future implementation must construct the missing fixed joint, correlated recognition law, once-counted entropy sectors, and accepted update semantics before it can inherit the new ELBO interpretation.
+
+This paper reports no new empirical evidence. It contains analytic identities, source traces, thirteen deterministic identity fixtures, and four input-validation fixtures, but no completed comparison among recognition families, no full general gauge-contract result, no per-coordinate CAVI monotonicity study, no runtime implementation of the new theory, and no predictive or computational benchmark. The fixtures validate manuscript algebra on frozen reference problems; they are not runtime or empirical validation. The five studies in Table~\ref{tab:magent-future-studies} therefore remain future work. Their outcomes may reject an implementation or an empirical hypothesis without invalidating an exact identity whose assumptions remain satisfied.
+
+\section{Outlook}
+
+The next defensible step is the smallest finite implementation that exposes every normalized factor and every entropy once. A conjugate Gaussian DAG can first test normalization, CAVI, determinant gaps, and gauge changes without inference-estimator noise. Nonconjugate observations, loopy interactions, random noncompact geometry, and continuum section laws should enter only after their additional normalization and verification obligations have been met. This order preserves the paper's core ontology: agents remain sections of associated bundles over one principal \(G\)-bundle, while every finite latent vector, graph coordinate, and variational factor retains its separate probabilistic type.

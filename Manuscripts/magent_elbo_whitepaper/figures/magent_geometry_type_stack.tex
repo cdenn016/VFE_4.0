@@ -1,0 +1,78 @@
+\begin{tikzpicture}[
+  >={Latex[length=2.2mm]},
+  every node/.style={font=\small},
+  stack/.style={
+    draw=primaryblue,
+    line width=0.8pt,
+    rounded corners=2pt,
+    minimum width=9.1cm,
+    minimum height=0.92cm,
+    align=center,
+    fill=lightblue
+  },
+  statistical/.style={stack,draw=darkgreen,fill=lightgreen},
+  probabilistic/.style={stack,draw=recommendpurple,fill=lightpurple},
+  samplefield/.style={
+    draw=darkgray,
+    line width=0.8pt,
+    rounded corners=2pt,
+    minimum width=2.15cm,
+    minimum height=0.78cm,
+    align=center,
+    fill=white,
+    font=\scriptsize
+  },
+  graphvertex/.style={circle,draw=darkgray,fill=white,minimum size=5.5mm,inner sep=0pt,font=\scriptsize},
+  graphbox/.style={draw=darkgray,dashed,line width=0.8pt,rounded corners=2pt,fill=lightgray},
+  relation/.style={->,line width=0.8pt,draw=darkgray},
+  compatibility/.style={dashed,line width=0.8pt,draw=darkgray}
+]
+\node[stack] (base) {contextual base \(\mathcal C\)};
+\node[stack,above=0.52cm of base] (principal)
+  {principal bundle \(\pi:\mathcal P\to\mathcal C\) with structure group \(G\)};
+\node[statistical,above=0.52cm of principal] (associated)
+  {associated statistical bundles \(\mathcal E_{\mathrm{state}}\) and \(\mathcal E_{\mathrm{model}}\)};
+\node[statistical,above=0.52cm of associated] (sections)
+  {agent local sections \(q_i,p_i,s_i,r_i\in\Gamma(\mathcal U_i,\mathcal E|_{\mathcal U_i})\)};
+\node[statistical,minimum width=4.25cm,minimum height=1.20cm,above=1.00cm of sections,xshift=-2.35cm] (sampled)
+  {sampled continuum values on \(D\):\\
+   \(\operatorname{Samp}_{D,i}^{k}(q_i^{o,X})\),\\
+   \(\operatorname{Samp}_{D,i}^{m}(s_i^{o,X})\)};
+\node[probabilistic,minimum width=4.25cm,minimum height=1.20cm,above=1.00cm of sections,xshift=2.35cm] (marginals)
+  {finite coordinate marginals:\\
+   \(q_{i,a}^{o,X}=\operatorname{Marg}_{i,a}^{k}(Q_X)\),\\
+   \(s_{i,a}^{o,X}=\operatorname{Marg}_{i,a}^{m}(Q_X)\)};
+\node[probabilistic,minimum width=4.25cm,above=1.28cm of marginals,xshift=0.25cm] (joint)
+  {correlated finite recognition law\\\(Q_X(dY\mid o)\) on \(\mathsf Y_D\)};
+\node[probabilistic,minimum width=4.25cm,above=1.28cm of sampled,xshift=-0.25cm] (samplevector)
+  {finite sample vector \(Y_D\in\mathsf Y_D\)};
+\node[samplefield,left=0.75cm of samplevector] (samplefield)
+  {sample-field\\realization \(y\)};
+
+\draw[relation] (principal.south) -- node[midway,right,font=\scriptsize,fill=white,inner sep=1pt]
+  {bundle projection \(\pi\)} (base.north);
+\draw[relation] (principal.north) -- node[midway,right,font=\scriptsize,fill=white,inner sep=1pt]
+  {association by \(\rho\)} (associated.south);
+\draw[relation] (associated.north) -- node[midway,right,font=\scriptsize,fill=white,inner sep=1pt]
+  {local section} (sections.south);
+\draw[relation] (sections.north) -- node[midway,left,font=\scriptsize,fill=white,inner sep=1pt]
+  {\(\operatorname{Samp}_{D,i}^{k,m}\)} (sampled.south);
+\draw[relation] (samplefield.east) -- node[midway,above,font=\scriptsize,fill=white,inner sep=1pt]
+  {\(\operatorname{Ev}_D\)} (samplevector.west);
+\draw[relation] (joint.south east) -- node[midway,right,font=\scriptsize,fill=white,inner sep=1pt]
+  {\(\operatorname{Marg}_{i,a}^{k,m}\)} (marginals.north east);
+\draw[compatibility] (sampled.north) -- ++(0,0.18cm)
+  -- node[midway,above,font=\scriptsize,fill=white,inner sep=1pt,align=center]
+  {coordinatewise equality only under\\the compatibility hypothesis}
+  ([yshift=0.18cm]marginals.north) -- (marginals.north);
+
+\node[graphvertex,right=1.35cm of principal.east] (g1) {1};
+\node[graphvertex,above right=0.48cm and 0.62cm of g1] (g2) {2};
+\node[graphvertex,below right=0.48cm and 0.62cm of g1] (g3) {3};
+\draw[line width=0.75pt,draw=darkgray] (g1) -- (g2) -- (g3) -- (g1);
+\begin{scope}[on background layer]
+  \node[graphbox,fit=(g1)(g2)(g3),inner sep=5mm,label={[font=\scriptsize,align=center]above:interaction graph \(\mathcal G_X\)}] (graph) {};
+\end{scope}
+\node[below=0.18cm of graph,font=\scriptsize,align=center,text=darkgray]
+  {finite incidence datum in \(X\)\\not a bundle base};
+\end{tikzpicture}

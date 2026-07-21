@@ -1,0 +1,1018 @@
+\chapter[The VFE 4.0 ELBO and Coordinate Updates]{The VFE 4.0 ELBO and\\Coordinate Updates}
+
+This chapter derives the shared ELBO only after the normalized joint and structured recognition law have been specified. It then defines E-like and M-like updates as operations on that scalar objective. The exact statements concern the zero-dimensional population model with deterministic singleton-base, frame-coboundary, and morphism data collected in $\Gamma_{\mathrm{core}}$. Independent graph links and a positive-dimensional base connection are distinct latent-geometry extensions separated below.
+
+\section{Mixed-reference assumptions and the evidence identity}
+
+Fix an observed sequence $x=x_{1:T}$ and deterministic $\Gamma$, and collect the random population variables as
+\begin{equation}
+Y:=(\boldsymbol z,\boldsymbol m,a,b).
+\label{eq:vfe4-latent-inventory}
+\end{equation}
+The reference measure for $Y$ is the product of the Lebesgue measures on the labeled sample copies and the finite source counting measures,
+\begin{equation}
+\begin{aligned}
+\mu_Y
+:={}&\left(\bigotimes_{t=0}^{T}
+(\lambda_{z,t}\otimes\lambda_{m,t})\right)\\
+&\otimes\left(\bigotimes_{t=1}^{T}
+(\#_{\operatorname{Pa}_z(t)}\otimes
+\#_{\operatorname{Pa}_m(t)})\right).
+\end{aligned}
+\label{eq:vfe4-latent-reference-measure}
+\end{equation}
+Let $Q_\psi^{(r)}(Y\given x,\Gamma)$ denote either normalized recognition density from \cref{eq:normalized-filtering-smoothing-recognition}, with $r\in\{\mathrm f,\mathrm s\}$. Assume
+\begin{equation}
+0<p_\theta(x\given\Gamma)<\infty,
+\qquad
+Q_\psi^{(r)}(\mathord{\cdot}\given x,\Gamma)
+\ll p_\theta(\mathord{\cdot}\given x,\Gamma),
+\label{eq:elbo-posterior-absolute-continuity}
+\end{equation}
+with absolute continuity taken relative to the mixed reference in \cref{eq:vfe4-latent-reference-measure}. Equivalently, $Q_\psi^{(r)}$ assigns zero mass to every set on which the posterior density vanishes. A recognition source probability must therefore vanish wherever the corresponding $\pi_t^z$ or $\pi_t^m$ vanishes. Assume also
+\begin{equation}
+\mathbb E_{Q_\psi^{(r)}}\left[
+\left|\log p_\theta(x,Y\given\Gamma)\right|
++\left|\log Q_\psi^{(r)}(Y\given x,\Gamma)\right|
+\right]<\infty.
+\label{eq:elbo-log-integrability}
+\end{equation}
+These hypotheses make the ELBO and the posterior KL finite. They may be weakened to extended-real conditions, but the finite form is the one required by the coordinate updates below.
+
+\paragraph{Theorem (conditional evidence decomposition).}
+Under \cref{eq:elbo-posterior-absolute-continuity,eq:elbo-log-integrability}, define
+\begin{equation}
+\ELBO^{(r)}(\theta,\psi;x,\Gamma)
+:=\mathbb E_{Q_\psi^{(r)}}\left[
+\log p_\theta(x,Y\given\Gamma)
+-\log Q_\psi^{(r)}(Y\given x,\Gamma)
+\right].
+\label{eq:vfe4-elbo-definition}
+\end{equation}
+Then
+\begin{equation}
+\log p_\theta(x\given\Gamma)
+=\ELBO^{(r)}(\theta,\psi;x,\Gamma)
++\KL\left(
+Q_\psi^{(r)}(Y\given x,\Gamma)
+\middle\Vert
+p_\theta(Y\given x,\Gamma)
+\right).
+\label{eq:vfe4-evidence-elbo-kl-identity}
+\end{equation}
+The VFE 4.0 free energy is the negative of this bound,
+\begin{equation}
+\VFE^{(r)}(\theta,\psi;x,\Gamma)
+:=-\ELBO^{(r)}(\theta,\psi;x,\Gamma).
+\label{eq:vfe4-free-energy-definition}
+\end{equation}
+
+\emph{Proof.}
+Bayes' rule holds on the support of $Q_\psi^{(r)}$ and gives
+\begin{equation}
+\begin{aligned}
+\KL\left(Q_\psi^{(r)}\middle\Vert p_\theta(\mathord{\cdot}\given x,\Gamma)\right)
+&=\mathbb E_{Q_\psi^{(r)}}\left[
+\log\frac{Q_\psi^{(r)}(Y\given x,\Gamma)}
+{p_\theta(Y\given x,\Gamma)}
+\right]\\
+&=\mathbb E_{Q_\psi^{(r)}}\left[
+\log Q_\psi^{(r)}(Y\given x,\Gamma)
+-\log p_\theta(x,Y\given\Gamma)
+\right]\\
+&\quad+\log p_\theta(x\given\Gamma)\\
+&=\log p_\theta(x\given\Gamma)-\ELBO^{(r)}.
+\end{aligned}
+\label{eq:evidence-decomposition-proof}
+\end{equation}
+Rearrangement proves \cref{eq:vfe4-evidence-elbo-kl-identity}. \hfill$\square$
+
+\section{Conditional KL decomposition}
+
+The joint time-slice factor in \cref{eq:normalized-filtering-smoothing-recognition} can always be disintegrated in the generative within-slice order. Up to versions on null sets, write
+\begin{equation}
+\begin{aligned}
+&Q_{\psi,t}^{(r)}
+(z_t,m_t,a_t,b_t\given
+\mathcal H_t,\mathcal I_t^{(r)},\Gamma)\\
+&\quad=
+\gamma_{\psi,t}^{(r)}
+(b_t\given\mathcal H_t,\mathcal I_t^{(r)},\Gamma)\\
+&\qquad\times
+q_{\psi,t}^{m,(r)}
+(m_t\given b_t,\mathcal H_t,\mathcal I_t^{(r)},\Gamma)\\
+&\qquad\times
+\beta_{\psi,t}^{(r)}
+(a_t\given m_t,b_t,\mathcal H_t,\mathcal I_t^{(r)},\Gamma)\\
+&\qquad\times
+q_{\psi,t}^{z,(r)}
+(z_t\given a_t,m_t,b_t,\mathcal H_t,
+\mathcal I_t^{(r)},\Gamma).
+\end{aligned}
+\label{eq:structured-slice-disintegration}
+\end{equation}
+This is a chain-rule disintegration, not a mean-field assumption. Each conditional can depend on the complete preceding latent history, and the state source can depend on the sampled model state and model source. The local absolute-continuity conditions induced by \cref{eq:elbo-posterior-absolute-continuity} are
+\begin{equation}
+\begin{aligned}
+Q_{\psi,0}^{(r)}&\ll p_{\theta,0},
+&\gamma_{\psi,t}^{(r)}&\ll\pi_t^m,
+&q_{\psi,t}^{m,(r)}&\ll K^m_{\theta,tb_t},\\
+\beta_{\psi,t}^{(r)}&\ll\pi_t^z,
+&q_{\psi,t}^{z,(r)}&\ll K^z_{\theta,ta_t},
+\end{aligned}
+\label{eq:local-elbo-absolute-continuity}
+\end{equation}
+for the corresponding outer histories almost surely under $Q_\psi^{(r)}$. The conditioning arguments in \cref{eq:local-elbo-absolute-continuity} are exactly those displayed below.
+
+Taking the logarithm of the ratio between \cref{eq:normalized-filtering-smoothing-recognition} with \cref{eq:structured-slice-disintegration} and the joint in \cref{eq:vfe4-generative-joint} gives the pointwise identity
+\begin{equation}
+\begin{aligned}
+\log\frac{Q_\psi^{(r)}(Y\given x,\Gamma)}
+{p_\theta(x,Y\given\Gamma)}
+={}&
+\log\frac{Q_{\psi,0}^{(r)}
+(z_0,m_0\given\mathcal I_0^{(r)},\Gamma)}
+{p_{\theta,0}(z_0,m_0\given\Gamma)}\\
+&+\sum_{t=1}^{T}
+\log\frac{\gamma_{\psi,t}^{(r)}
+(b_t\given\mathcal H_t,\mathcal I_t^{(r)},\Gamma)}
+{\pi_t^m(b_t)}\\
+&+\sum_{t=1}^{T}
+\log\frac{q_{\psi,t}^{m,(r)}
+(m_t\given b_t,\mathcal H_t,\mathcal I_t^{(r)},\Gamma)}
+{K^m_{\theta,tb_t}
+(m_t\given m_{b_t},x_{<t},\Gamma)}\\
+&+\sum_{t=1}^{T}
+\log\frac{\beta_{\psi,t}^{(r)}
+(a_t\given m_t,b_t,\mathcal H_t,
+\mathcal I_t^{(r)},\Gamma)}
+{\pi_t^z(a_t)}\\
+&+\sum_{t=1}^{T}
+\log\frac{q_{\psi,t}^{z,(r)}
+(z_t\given a_t,m_t,b_t,\mathcal H_t,
+\mathcal I_t^{(r)},\Gamma)}
+{K^z_{\theta,ta_t}
+(z_t\given z_{a_t},m_t,x_{<t},\Gamma)}\\
+&-\sum_{t=1}^{T}
+\log L_{\theta,t}(x_t\given z_t,m_t,\Gamma).
+\end{aligned}
+\label{eq:monolithic-to-local-log-ratio}
+\end{equation}
+Every factor from both declared factorizations occurs once in \cref{eq:monolithic-to-local-log-ratio}.
+
+To display the resulting expectations without hiding the conditioning structure, define the initial complexity
+\begin{equation}
+\mathcal K_0^{(r)}
+:=\KL\left(
+Q_{\psi,0}^{(r)}(z_0,m_0\given\mathcal I_0^{(r)},\Gamma)
+\middle\Vert
+p_{\theta,0}(z_0,m_0\given\Gamma)
+\right),
+\label{eq:initial-complexity-term}
+\end{equation}
+the model-source complexity
+\begin{equation}
+\begin{aligned}
+\mathcal K_{b,t}^{(r)}
+:={}&\mathbb E_{Q_\psi^{(r)}(\mathcal H_t\given x,\Gamma)}
+\left[
+\KL\left(
+\gamma_{\psi,t}^{(r)}
+(\mathord{\cdot}\given\mathcal H_t,\mathcal I_t^{(r)},\Gamma)
+\middle\Vert
+\pi_t^m
+\right)
+\right],
+\end{aligned}
+\label{eq:model-source-complexity-term}
+\end{equation}
+the model-transition complexity
+\begin{equation}
+\begin{aligned}
+\mathcal K_{m,t}^{(r)}
+:={}&\mathbb E_{Q_\psi^{(r)}
+(\mathcal H_t,b_t\given x,\Gamma)}
+\left[
+\KL\left(
+q_{\psi,t}^{m,(r)}
+(\mathord{\cdot}\given b_t,\mathcal H_t,
+\mathcal I_t^{(r)},\Gamma)
+\right.\right.\\
+&\left.\left.\hspace{7em}\middle\Vert
+K^m_{\theta,tb_t}
+(\mathord{\cdot}\given m_{b_t},x_{<t},\Gamma)
+\right)
+\right],
+\end{aligned}
+\label{eq:model-transition-complexity-term}
+\end{equation}
+the state-source complexity
+\begin{equation}
+\begin{aligned}
+\mathcal K_{a,t}^{(r)}
+:={}&\mathbb E_{Q_\psi^{(r)}
+(\mathcal H_t,b_t,m_t\given x,\Gamma)}
+\left[
+\KL\left(
+\beta_{\psi,t}^{(r)}
+(\mathord{\cdot}\given m_t,b_t,\mathcal H_t,
+\mathcal I_t^{(r)},\Gamma)
+\middle\Vert
+\pi_t^z
+\right)
+\right],
+\end{aligned}
+\label{eq:state-source-complexity-term}
+\end{equation}
+and the state-transition complexity
+\begin{equation}
+\begin{aligned}
+\mathcal K_{z,t}^{(r)}
+:={}&\mathbb E_{Q_\psi^{(r)}
+(\mathcal H_t,b_t,m_t,a_t\given x,\Gamma)}
+\left[
+\KL\left(
+q_{\psi,t}^{z,(r)}
+(\mathord{\cdot}\given a_t,m_t,b_t,\mathcal H_t,
+\mathcal I_t^{(r)},\Gamma)
+\right.\right.\\
+&\left.\left.\hspace{7em}\middle\Vert
+K^z_{\theta,ta_t}
+(\mathord{\cdot}\given z_{a_t},m_t,x_{<t},\Gamma)
+\right)
+\right].
+\end{aligned}
+\label{eq:state-transition-complexity-term}
+\end{equation}
+All KL divergences in \cref{eq:initial-complexity-term,eq:model-source-complexity-term,eq:model-transition-complexity-term,eq:state-source-complexity-term,eq:state-transition-complexity-term} are oriented from the recognition conditional to the corresponding generative conditional.
+
+Taking $Q_\psi^{(r)}$-expectations in \cref{eq:monolithic-to-local-log-ratio} yields the local ELBO
+\begin{equation}
+\boxed{
+\begin{aligned}
+\ELBO^{(r)}
+={}&\sum_{t=1}^{T}
+\mathbb E_{Q_\psi^{(r)}(Y\given x,\Gamma)}
+\left[
+\log L_{\theta,t}(x_t\given z_t,m_t,\Gamma)
+\right]
+-\mathcal K_0^{(r)}\\
+&-\sum_{t=1}^{T}
+\left(
+\mathcal K_{b,t}^{(r)}
++\mathcal K_{m,t}^{(r)}
++\mathcal K_{a,t}^{(r)}
++\mathcal K_{z,t}^{(r)}
+\right).
+\end{aligned}}
+\label{eq:vfe4-local-elbo-decomposition}
+\end{equation}
+The first line is the expected categorical token log likelihood from \cref{eq:gauge-compatible-categorical-emission}. The source terms in \cref{eq:model-source-complexity-term,eq:state-source-complexity-term} are ordinary conditional categorical KL divergences with coefficient one. No geometry KL occurs in \cref{eq:vfe4-local-elbo-decomposition} because $\Gamma$ is deterministic in the exact core.
+
+Equivalently, the negative ELBO displays the status of cross-entropy directly:
+\begin{equation}
+\boxed{
+\begin{aligned}
+\VFE^{(r)}
+={}&\mathcal C_{\mathrm{obs}}(Q_\psi^{(r)};x,\Gamma)
++\mathcal K_0^{(r)}\\
+&+\sum_{t=1}^{T}
+\left(
+\mathcal K_{b,t}^{(r)}
++\mathcal K_{m,t}^{(r)}
++\mathcal K_{a,t}^{(r)}
++\mathcal K_{z,t}^{(r)}
+\right).
+\end{aligned}}
+\label{eq:vfe4-negative-elbo-ce-plus-complexity}
+\end{equation}
+Cross-entropy is therefore the exact observation sector of $\VFE$, not a competing loss and not the complete objective unless a declared reduction removes every latent and source complexity term.
+
+\paragraph{Temperature boundary.}
+A temperature may parameterize a normalized source prior. For example,
+\begin{equation}
+\pi_{\tau,t}^{m}(j)
+:=\frac{\exp(s_{t,j}^{m}/\tau)}
+{\sum_{k\in\operatorname{Pa}_m(t)}\exp(s_{t,k}^{m}/\tau)},
+\qquad \tau>0,
+\label{eq:temperature-parameterized-source-prior}
+\end{equation}
+is a valid model factor, and its normalizer is already part of $\log\pi_{\tau,t}^{m}$. Writing
+$\mathcal C_t^{(r)}:=(\mathcal H_t,\mathcal I_t^{(r)},\Gamma)$,
+the negative ELBO still contains the corresponding conditional categorical divergence
+\[
+\E_{Q_\psi^{(r)}}\left[
+\KL\left(
+\gamma_{\psi,t}^{(r)}(\mathord{\cdot}\given\mathcal C_t^{(r)})
+\middle\Vert
+\pi_{\tau,t}^{m}
+\right)
+\right],
+\]
+with coefficient one. Multiplying only the categorical entropy or the entire source KL by an arbitrary coefficient changes \cref{eq:monolithic-to-local-log-ratio} and is not the ELBO of \cref{eq:vfe4-generative-joint}.
+
+Generalized Bayes has a separate proper construction and does not require a normalized sampling model. Let $\Pi(\mathop{\mathrm d\omega})$ be a prior probability, let $\ell(\omega;x)$ be a measurable loss, and let $w>0$. If
+\begin{equation}
+0<Z_w(x):=\int\exp[-w\ell(\omega;x)]\Pi(\mathop{\mathrm d\omega})<\infty,
+\label{eq:generalized-bayes-finite-normalizer}
+\end{equation}
+then the loss posterior
+\begin{equation}
+\Pi_w(\mathop{\mathrm d\omega}\given x)
+:=\frac{\exp[-w\ell(\omega;x)]}{Z_w(x)}
+\Pi(\mathop{\mathrm d\omega}),
+\label{eq:generalized-bayes-loss-posterior}
+\end{equation}
+is normalized and minimizes $w\mathbb E_R[\ell(\omega;x)]+\KL(R\Vert\Pi)$ over absolutely continuous $R$ under the corresponding finiteness conditions \citep{BissiriHolmesWalker2016}. It is not the ordinary evidence ELBO in \cref{eq:vfe4-evidence-elbo-kl-identity} unless the loss is the negative log of the declared normalized likelihood with the matching scale. Learning or comparing parameterized loss families must account for their changing $Z_w(x)$ and must not relabel that normalizer as ordinary model evidence.
+
+\section{Separate latent internal-geometry or base-geometry extension}
+
+Suppose an extension declares a measurable geometry space with reference $\nu_\Gamma$, a proper prior $p_\theta(\Gamma)$ satisfying \cref{eq:proper-latent-geometry-prior}, and the factorization
+\begin{equation}
+Q_\psi(Y,\Gamma\given x)
+=Q_\psi^\Gamma(\Gamma\given x)
+Q_\psi(Y\given x,\Gamma).
+\label{eq:latent-geometry-recognition-factorization}
+\end{equation}
+Under the corresponding absolute-continuity and integrability conditions, the extended ELBO is
+\begin{equation}
+\begin{aligned}
+\mathcal L_{4,\mathrm{lat}\text{-}\Gamma}
+={}&\mathbb E_{Q_\psi^\Gamma(\Gamma\given x)}
+\left[
+\ELBO(\theta,\psi;x,\Gamma)
+\right]\\
+&-\KL\left(
+Q_\psi^\Gamma(\Gamma\given x)
+\middle\Vert
+p_\theta(\Gamma)
+\right).
+\end{aligned}
+\label{eq:latent-geometry-elbo-extension}
+\end{equation}
+The final term is the geometry KL and has coefficient one. It is absent from the deterministic conditional core. Random population frames, random internal graph links, and a random connection on a positive-dimensional base are different extensions and require different sample spaces and priors. The zero-dimensional model has no nontrivial base-connection coordinate to randomize. Equation~\eqref{eq:latent-geometry-elbo-extension} does not provide the proper prior, gauge fixing, quotient measure, or noncompact-volume treatment required to instantiate any of these extensions.
+
+\section{E-like and M-like updates on one scalar}
+
+Let $\mathfrak F_\theta$ denote the set containing the initial density, every source prior, every transition density, and every emission mass function in \cref{eq:vfe4-generative-joint}. For a latent block $C\subseteq Y$, define its generative Markov-blanket factor set and log potential by
+\begin{equation}
+\begin{aligned}
+\operatorname{MB}(C)
+&:=\{f\in\mathfrak F_\theta:
+\operatorname{vars}(f)\cap C\ne\varnothing\},\\
+\Phi_C(Y;x,\Gamma)
+&:=\sum_{f\in\operatorname{MB}(C)}\log f.
+\end{aligned}
+\label{eq:generative-markov-blanket-potential}
+\end{equation}
+Disintegrate a structured recognition law as
+\begin{equation}
+Q_\psi(\mathop{\mathrm dY}\given x,\Gamma)
+=Q_{\psi,\bar C}(\mathop{\mathrm dY}_{\bar C}\given x,\Gamma)
+Q_{\psi,C}(\mathop{\mathrm dY}_C\given
+Y_{\bar C},x,\Gamma).
+\label{eq:structured-block-disintegration}
+\end{equation}
+This representation preserves arbitrary dependence inside $C$ and between $C$ and its complement. With $\theta$ and $Q_{\psi,\bar C}$ fixed, an exact structured E-coordinate update is
+\begin{equation}
+Q_{\psi,C}^{\mathrm{new}}
+\in\operatorname*{argmax}_{R_C\in\mathcal Q_C}
+\mathbb E_{Q_{\psi,\bar C}R_C}
+\left[
+\Phi_C(Y;x,\Gamma)-\log R_C(Y_C\given Y_{\bar C},x,\Gamma)
+\right].
+\label{eq:structured-e-coordinate-update}
+\end{equation}
+If the unrestricted posterior conditional belongs to $\mathcal Q_C$, the maximizer is proportional to $\exp\Phi_C$ with respect to the mixed block reference measure. Otherwise \cref{eq:structured-e-coordinate-update} defines the constrained block problem, and the complete $\ELBO$ must be evaluated after a proposed update.
+
+The optional mean-field coordinate problem is different. If the recognition family is restricted to $Q(Y)=q_C(Y_C)Q_{-C}(Y_{-C})$, then its unrestricted factor update within that product family is
+\begin{equation}
+\log q_C^\star(Y_C)
+=\mathbb E_{Q_{-C}}
+\left[
+\log p_\theta(x,Y\given\Gamma)
+\right]
++\operatorname{constant},
+\label{eq:mean-field-cavi-update}
+\end{equation}
+where the constant normalizes $q_C^\star$. Equation~\eqref{eq:mean-field-cavi-update} averages over the complement, whereas \cref{eq:structured-e-coordinate-update} updates a conditional that may retain dependence on $Y_{\bar C}$. Neither formula supplies a closed-form Gaussian step when a nonconjugate categorical emission touches the block.
+
+The factor set in \cref{eq:generative-markov-blanket-potential} prevents a child contribution from being silently dropped. For $1\leq s\leq T$, the singleton state and model potentials are
+\begin{equation}
+\begin{aligned}
+\Phi_{z_s}
+={}&\log K^z_{\theta,sa_s}
+(z_s\given z_{a_s},m_s,x_{<s},\Gamma)
++\log L_{\theta,s}(x_s\given z_s,m_s,\Gamma)\\
+&+\sum_{t=s+1}^{T}\mathbf 1_{\{a_t=s\}}
+\log K^z_{\theta,ts}
+(z_t\given z_s,m_t,x_{<t},\Gamma),\\
+\Phi_{m_s}
+={}&\log K^m_{\theta,sb_s}
+(m_s\given m_{b_s},x_{<s},\Gamma)\\
+&+\log K^z_{\theta,sa_s}
+(z_s\given z_{a_s},m_s,x_{<s},\Gamma)
++\log L_{\theta,s}(x_s\given z_s,m_s,\Gamma)\\
+&+\sum_{t=s+1}^{T}\mathbf 1_{\{b_t=s\}}
+\log K^m_{\theta,ts}
+(m_t\given m_s,x_{<t},\Gamma).
+\end{aligned}
+\label{eq:state-model-markov-blanket-potentials}
+\end{equation}
+Thus an observation-conditioned update of either current continuous latent includes the emission. It also includes its own transition and every later transition for which it is the selected source. The initial joint block has
+\begin{equation}
+\begin{aligned}
+\Phi_{(z_0,m_0)}
+={}&\log p_{\theta,0}(z_0,m_0\given\Gamma)\\
+&+\sum_{t=1}^{T}\mathbf 1_{\{a_t=0\}}
+\log K^z_{\theta,t0}(z_t\given z_0,m_t,x_{<t},\Gamma)\\
+&+\sum_{t=1}^{T}\mathbf 1_{\{b_t=0\}}
+\log K^m_{\theta,t0}(m_t\given m_0,x_{<t},\Gamma),
+\end{aligned}
+\label{eq:initial-block-markov-blanket-potential}
+\end{equation}
+while the source-coordinate potentials are
+\begin{equation}
+\begin{aligned}
+\Phi_{a_s}
+&=\log\pi_s^z(a_s)
++\log K^z_{\theta,sa_s}
+(z_s\given z_{a_s},m_s,x_{<s},\Gamma),\\
+\Phi_{b_s}
+&=\log\pi_s^m(b_s)
++\log K^m_{\theta,sb_s}
+(m_s\given m_{b_s},x_{<s},\Gamma).
+\end{aligned}
+\label{eq:source-markov-blanket-potentials}
+\end{equation}
+For a larger structured block, $\operatorname{MB}(C)$ takes the union of these factor sets and counts a shared factor once. Equations~\eqref{eq:structured-e-coordinate-update} through \eqref{eq:source-markov-blanket-potentials} therefore impose no nodewise mean-field restriction.
+
+With $Q_\psi$ fixed, an exact M-like coordinate update is
+\begin{equation}
+\theta^{\mathrm{new}}
+\in\operatorname*{argmax}_{\vartheta\in\Theta}
+\mathbb E_{Q_\psi(Y\given x,\Gamma)}
+\left[
+\log p_\vartheta(x,Y\given\Gamma)
+\right],
+\label{eq:vfe4-exact-m-coordinate-update}
+\end{equation}
+because the recognition entropy is then constant. If deterministic $\Gamma$ is learned rather than fixed during this coordinate, it is included among the model coordinates represented by $\vartheta$, and every factor that depends on it is re-evaluated. A decoder-only expected cross-entropy update is an exact or partial M-coordinate update only when the decoder parameters affect no factor other than the normalized emissions $L_{\theta,t}$. If those parameters also affect a transition, source prior, initial law, or deterministic geometry, every affected factor must enter \cref{eq:vfe4-exact-m-coordinate-update}. A gradient proposal is called generalized EM only after direct evaluation of $\ELBO$ or an accepted line search confirms an increase.
+
+Exact coordinate maxima cannot decrease $\ELBO$. The same monotonic statement applies to a valid minorize-maximize step for $\ELBO$, equivalently a valid majorize-minimize step for $\VFE$, and to an accepted generalized-EM proposal \citep{Dempster1977,Neal1998}. It does not apply to an arbitrary finite step of SGD, Adam, a stochastic estimator, or a natural-gradient discretization.
+
+\section{Explicit mean-field theory of the fixed joint}
+
+The product restriction in \cref{eq:full-mean-field-control} becomes a complete recognition law after the categorical source coordinates are also factorized. Suppressing repeated dependence on $(x,\Gamma)$, define
+\begin{equation}
+\begin{aligned}
+Q_{\mathrm{MF}}(Y\given x,\Gamma)
+:={}&\left[
+\prod_{t=0}^{T}q_t^z(z_t)q_t^m(m_t)
+\right]\left[
+\prod_{t=1}^{T}\beta_t(a_t)\gamma_t(b_t)
+\right].
+\end{aligned}
+\label{eq:vfe4-complete-mean-field-law}
+\end{equation}
+Each source factor is supported on the corresponding causal parent set and satisfies $\beta_t\ll\pi_t^z$ and $\gamma_t\ll\pi_t^m$. The continuous factors satisfy the absolute-continuity and integrability conditions needed for the KL divergences below. Equation~\eqref{eq:vfe4-complete-mean-field-law} is a restriction of the recognition family, not a new data-generating model \citep{Blei2017,Wainwright2008}.
+
+\subsection{Product-family negative ELBO}
+
+Define the initial and observation contributions
+\begin{equation}
+\begin{aligned}
+\mathcal K_{0,\mathrm{MF}}
+&:=\KL\left(
+q_0^zq_0^m
+\middle\Vert
+p_{\theta,0}
+\right),\\
+\mathcal C_{t,\mathrm{MF}}
+&:=-\mathbb E_{q_t^zq_t^m}
+\left[
+\log L_{\theta,t}(x_t\given z_t,m_t,\Gamma)
+\right].
+\end{aligned}
+\label{eq:mean-field-initial-observation-costs}
+\end{equation}
+The arguments $(z_0,m_0\given\Gamma)$ of the initial law are suppressed in the first line. A correlated $p_{\theta,0}$ is permitted, so $\mathcal K_{0,\mathrm{MF}}$ need not split into state and model KL divergences. For $j$ in the applicable parent set, define the expected conditional transition costs
+\begin{equation}
+\begin{aligned}
+\mathcal A_{tj}^m
+:={}&\mathbb E_{q_j^m}
+\left[
+\KL\left(
+q_t^m
+\middle\Vert
+K^m_{\theta,tj}(\mathord{\cdot}\given m_j,x_{<t},\Gamma)
+\right)
+\right],\\
+\mathcal A_{tj}^z
+:={}&\mathbb E_{q_j^zq_t^m}
+\left[
+\KL\left(
+q_t^z
+\middle\Vert
+K^z_{\theta,tj}(\mathord{\cdot}\given z_j,m_t,x_{<t},\Gamma)
+\right)
+\right].
+\end{aligned}
+\label{eq:mean-field-expected-transition-costs}
+\end{equation}
+
+\paragraph{Proposition (exact mean-field decomposition).}
+For the fixed normalized joint in \cref{eq:vfe4-generative-joint} and the product law in \cref{eq:vfe4-complete-mean-field-law}, the negative ELBO is
+\begin{equation}
+\boxed{
+\begin{aligned}
+\mathcal F_{4,\mathrm{MF}}
+={}&\mathcal K_{0,\mathrm{MF}}\\
+&+\sum_{t=1}^{T}\left[
+\mathcal C_{t,\mathrm{MF}}
++\KL(\gamma_t\Vert\pi_t^m)
++\sum_{j\in\operatorname{Pa}_m(t)}
+\gamma_t(j)\mathcal A_{tj}^m
+\right.\\
+&\left.\hspace{5.5em}
++\KL(\beta_t\Vert\pi_t^z)
++\sum_{j\in\operatorname{Pa}_z(t)}
+\beta_t(j)\mathcal A_{tj}^z
+\right].
+\end{aligned}}
+\label{eq:vfe4-exact-mean-field-free-energy}
+\end{equation}
+No approximation remains in \cref{eq:vfe4-exact-mean-field-free-energy} beyond the declared product family. To verify the identity, expand $\mathbb E_{Q_{\mathrm{MF}}}[\log Q_{\mathrm{MF}}-\log p_\theta]$ using \cref{eq:vfe4-generative-joint}. The source-prior terms give the two categorical KL divergences. The selected transition factors give the source-weighted costs in \cref{eq:mean-field-expected-transition-costs}. Because every source row sums to one, the entropy of each receiving factor $q_t^m$ or $q_t^z$ is counted exactly once rather than once per candidate parent. The initial and emission factors give \cref{eq:mean-field-initial-observation-costs}. \hfill$\square$
+
+\subsection{Categorical source-coordinate updates}
+
+Holding the continuous factors fixed, each source row is a strictly convex simplex problem on the positive prior support. Its unique interior solution is
+\begin{equation}
+\begin{aligned}
+\beta_t^\star(j)
+&=\frac{\pi_t^z(j)\exp[-\mathcal A_{tj}^z]}
+{\sum_{k\in\operatorname{Pa}_z(t)}
+\pi_t^z(k)\exp[-\mathcal A_{tk}^z]},\\
+\gamma_t^\star(j)
+&=\frac{\pi_t^m(j)\exp[-\mathcal A_{tj}^m]}
+{\sum_{k\in\operatorname{Pa}_m(t)}
+\pi_t^m(k)\exp[-\mathcal A_{tk}^m]}.
+\end{aligned}
+\label{eq:mean-field-source-row-updates}
+\end{equation}
+Equivalently, eliminating either categorical row gives the exact envelope
+\begin{equation}
+\min_{r\in\Delta(S)}
+\left\{
+\sum_{j\in S}r(j)A_j+\KL(r\Vert\pi)
+\right\}
+=-\log\sum_{j\in S}\pi(j)\exp(-A_j).
+\label{eq:mean-field-source-row-envelope}
+\end{equation}
+Thus the ordinary V4 ELBO produces an attention-like soft minimum at unit ELBO scale. Replacing the source block by $\sum_jr(j)A_j+\tau\KL(r\Vert\pi)$ changes \cref{eq:mean-field-source-row-updates} to $r(j)\propto\pi(j)\exp(-A_j/\tau)$. For $\tau\ne1$, that expression is not the ELBO of the present joint unless a separately normalized tempered model, including its changed normalizers, is declared.
+
+\subsection{Continuous mean-field coordinate equations}
+
+The general rule in \cref{eq:mean-field-cavi-update} gives explicit population equations once the complete Markov blankets are retained. For $1\leq s\leq T$, the state-factor update is
+\begin{equation}
+\begin{aligned}
+\log q_s^{z\star}(z_s)
+={}&\sum_{j\in\operatorname{Pa}_z(s)}\beta_s(j)
+\mathbb E_{q_j^zq_s^m}
+\left[
+\log K^z_{\theta,sj}(z_s\given z_j,m_s,x_{<s},\Gamma)
+\right]\\
+&+\mathbb E_{q_s^m}
+\left[
+\log L_{\theta,s}(x_s\given z_s,m_s,\Gamma)
+\right]\\
+&+\sum_{\substack{t>s\\s\in\operatorname{Pa}_z(t)}}
+\beta_t(s)\mathbb E_{q_t^zq_t^m}
+\left[
+\log K^z_{\theta,ts}(z_t\given z_s,m_t,x_{<t},\Gamma)
+\right]
++\operatorname{constant}.
+\end{aligned}
+\label{eq:mean-field-state-factor-cavi}
+\end{equation}
+The model-factor update is
+\begin{equation}
+\begin{aligned}
+\log q_s^{m\star}(m_s)
+={}&\sum_{j\in\operatorname{Pa}_m(s)}\gamma_s(j)
+\mathbb E_{q_j^m}
+\left[
+\log K^m_{\theta,sj}(m_s\given m_j,x_{<s},\Gamma)
+\right]\\
+&+\sum_{j\in\operatorname{Pa}_z(s)}\beta_s(j)
+\mathbb E_{q_s^zq_j^z}
+\left[
+\log K^z_{\theta,sj}(z_s\given z_j,m_s,x_{<s},\Gamma)
+\right]\\
+&+\mathbb E_{q_s^z}
+\left[
+\log L_{\theta,s}(x_s\given z_s,m_s,\Gamma)
+\right]\\
+&+\sum_{\substack{t>s\\s\in\operatorname{Pa}_m(t)}}
+\gamma_t(s)\mathbb E_{q_t^m}
+\left[
+\log K^m_{\theta,ts}(m_t\given m_s,x_{<t},\Gamma)
+\right]
++\operatorname{constant}.
+\end{aligned}
+\label{eq:mean-field-model-factor-cavi}
+\end{equation}
+For $s=0$, the corresponding factor receives the expectation of $\log p_{\theta,0}(z_0,m_0\given\Gamma)$ over the other initial factor and every child transition for which index $0$ is selected. Equations~\eqref{eq:mean-field-state-factor-cavi} and \eqref{eq:mean-field-model-factor-cavi} contain the receiving transition, the local observation when one exists, and every outgoing child transition. An update that freezes sender roles and minimizes only the receiving row omits the child or recoil terms and is therefore a local surrogate rather than coordinate ascent on \cref{eq:vfe4-exact-mean-field-free-energy}. The categorical emission in \cref{eq:gauge-compatible-categorical-emission} is nonconjugate, so these exact factor equations do not generally close inside a Gaussian family.
+
+\subsection{Linear-Gaussian transition costs}
+
+For the Gaussian kernels in \cref{eq:normalized-gaussian-transition-densities}, let
+\begin{equation}
+q_t^u=\mathcal N(\mu_t^u,\Sigma_t^u),
+\qquad
+P_t^u:=(R_{\theta,t}^u)^{-1},
+\qquad u\in\{z,m\},
+\label{eq:mean-field-gaussian-factor-notation}
+\end{equation}
+and define the transported mean residuals
+\begin{equation}
+\begin{aligned}
+\delta_{tj}^m
+&:=\mu_t^m-\Omega_{tj}^m\mu_j^m-c_{\theta,t}^m,\\
+\delta_{tj}^z
+&:=\mu_t^z-\Omega_{tj}^z\mu_j^z-B_t\mu_t^m-c_{\theta,t}^z.
+\end{aligned}
+\label{eq:mean-field-gaussian-edge-residuals}
+\end{equation}
+Direct Gaussian integration gives
+\begin{equation}
+\begin{aligned}
+\mathcal A_{tj}^m
+= {}&\frac12\Bigg[
+\operatorname{tr}(P_t^m\Sigma_t^m)
++\operatorname{tr}\left(
+P_t^m\Omega_{tj}^m\Sigma_j^m(\Omega_{tj}^m)^\top
+\right)\\
+&+(\delta_{tj}^m)^\top P_t^m\delta_{tj}^m
+-d_m
++\log\frac{\det R_{\theta,t}^m}{\det\Sigma_t^m}
+\Bigg],
+\end{aligned}
+\label{eq:mean-field-model-gaussian-edge-cost}
+\end{equation}
+and
+\begin{equation}
+\begin{aligned}
+\mathcal A_{tj}^z
+= {}&\frac12\Bigg[
+\operatorname{tr}(P_t^z\Sigma_t^z)
++\operatorname{tr}\left(
+P_t^z\Omega_{tj}^z\Sigma_j^z(\Omega_{tj}^z)^\top
+\right)\\
+&+\operatorname{tr}\left(
+P_t^zB_t\Sigma_t^mB_t^\top
+\right)
++(\delta_{tj}^z)^\top P_t^z\delta_{tj}^z\\
+&-d_z
++\log\frac{\det R_{\theta,t}^z}{\det\Sigma_t^z}
+\Bigg].
+\end{aligned}
+\label{eq:mean-field-state-gaussian-edge-cost}
+\end{equation}
+For example, the model cost can be written as
+\begin{equation}
+\begin{aligned}
+\mathcal A_{tj}^m
+={}&\KL\left(
+q_t^m
+\middle\Vert
+\mathcal N(
+\Omega_{tj}^m\mu_j^m+c_{\theta,t}^m,
+R_{\theta,t}^m)
+\right)\\
+&+\frac12\operatorname{tr}\left(
+P_t^m\Omega_{tj}^m\Sigma_j^m(\Omega_{tj}^m)^\top
+\right).
+\end{aligned}
+\label{eq:mean-field-model-edge-kl-plus-uncertainty}
+\end{equation}
+The state identity has the analogous sender term and the additional model-uncertainty trace from \cref{eq:mean-field-state-gaussian-edge-cost}. Mean-field inference therefore averages the log of a fixed conditional kernel; it does not replace that kernel by the transported recognition marginal.
+
+This distinction remains after the parent is marginalized. Let $\overline K_{\theta,tj}^m$ average the model kernel over $q_j^m$, and let $\overline K_{\theta,tj}^z$ average the state kernel over $q_j^zq_t^m$. Convexity of KL in its second argument gives
+\begin{equation}
+\mathcal A_{tj}^u
+\geq\KL\left(q_t^u\middle\Vert\overline K_{\theta,tj}^u\right),
+\qquad u\in\{z,m\}.
+\label{eq:mean-field-predictive-kernel-bound}
+\end{equation}
+The averaged Gaussian kernels have covariances
+\begin{equation}
+\begin{aligned}
+\operatorname{Cov}(\overline K_{\theta,tj}^m)
+&=R_{\theta,t}^m
++\Omega_{tj}^m\Sigma_j^m(\Omega_{tj}^m)^\top,\\
+\operatorname{Cov}(\overline K_{\theta,tj}^z)
+&=R_{\theta,t}^z
++\Omega_{tj}^z\Sigma_j^z(\Omega_{tj}^z)^\top
++B_t\Sigma_t^mB_t^\top.
+\end{aligned}
+\label{eq:mean-field-predictive-kernel-covariances}
+\end{equation}
+Even this arithmetic predictive mixture is not the noiseless transported sender law in general.
+
+\subsection{Natural-parameter form in conjugate quadratic sectors}
+
+The transition contribution to a Gaussian CAVI factor is most direct in natural coordinates. Write $h_{u,s}=J_{u,s}\mu_s^u$. If the observation contribution to the factor is quadratic, denote its information increments by $(\Delta J_{u,s}^{\mathrm{obs}},\Delta h_{u,s}^{\mathrm{obs}})$. For $1\leq s\leq T$, the state update implied by \cref{eq:mean-field-state-factor-cavi} is
+\begin{equation}
+\begin{aligned}
+J_{z,s}^\star
+={}&P_s^z
++\sum_{\substack{t>s\\s\in\operatorname{Pa}_z(t)}}
+\beta_t(s)(\Omega_{ts}^z)^\top P_t^z\Omega_{ts}^z
++\Delta J_{z,s}^{\mathrm{obs}},\\
+h_{z,s}^\star
+={}&P_s^z\left[
+\sum_{j\in\operatorname{Pa}_z(s)}
+\beta_s(j)\Omega_{sj}^z\mu_j^z
++B_s\mu_s^m+c_{\theta,s}^z
+\right]\\
+&+\sum_{\substack{t>s\\s\in\operatorname{Pa}_z(t)}}
+\beta_t(s)(\Omega_{ts}^z)^\top P_t^z
+\left(
+\mu_t^z-B_t\mu_t^m-c_{\theta,t}^z
+\right)
++\Delta h_{z,s}^{\mathrm{obs}}.
+\end{aligned}
+\label{eq:mean-field-state-natural-update}
+\end{equation}
+The corresponding model update is
+\begin{equation}
+\begin{aligned}
+J_{m,s}^\star
+={}&P_s^m+B_s^\top P_s^zB_s\\
+&+\sum_{\substack{t>s\\s\in\operatorname{Pa}_m(t)}}
+\gamma_t(s)(\Omega_{ts}^m)^\top P_t^m\Omega_{ts}^m
++\Delta J_{m,s}^{\mathrm{obs}},\\
+h_{m,s}^\star
+={}&P_s^m\left[
+\sum_{j\in\operatorname{Pa}_m(s)}
+\gamma_s(j)\Omega_{sj}^m\mu_j^m
++c_{\theta,s}^m
+\right]\\
+&+B_s^\top P_s^z\left[
+\mu_s^z
+-\sum_{j\in\operatorname{Pa}_z(s)}
+\beta_s(j)\Omega_{sj}^z\mu_j^z
+-c_{\theta,s}^z
+\right]\\
+&+\sum_{\substack{t>s\\s\in\operatorname{Pa}_m(t)}}
+\gamma_t(s)(\Omega_{ts}^m)^\top P_t^m
+\left(
+\mu_t^m-c_{\theta,t}^m
+\right)
++\Delta h_{m,s}^{\mathrm{obs}}.
+\end{aligned}
+\label{eq:mean-field-model-natural-update}
+\end{equation}
+Whenever these information matrices are positive definite, $\Sigma_s^{u\star}=(J_{u,s}^\star)^{-1}$ and $\mu_s^{u\star}=(J_{u,s}^\star)^{-1}h_{u,s}^\star$. The initial factors use the natural blocks obtained from $\mathbb E_{q_0^m}[\log p_{\theta,0}]$ or $\mathbb E_{q_0^z}[\log p_{\theta,0}]$ together with their child contributions. For the categorical softmax emission in the exact language model, no finite Gaussian $(\Delta J,\Delta h)$ identity exists. Gaussian-restricted inference must then use a declared bound, quadrature, gradient optimization, or an accepted generalized-EM proposal evaluated against the complete ELBO.
+
+\subsection{Relation to the V3 moving-peer divergence}
+
+The V3 state-channel edge uses the transported recognition marginal
+\begin{equation}
+\mathcal D_{tj}^{\mathrm{V3}}
+:=\KL\left(
+q_t^z
+\middle\Vert
+(\Omega_{tj}^z)_\#q_j^z
+\right).
+\label{eq:v3-moving-peer-divergence}
+\end{equation}
+For Gaussian factors, its reference covariance is
+\begin{equation}
+S_{tj}^z
+:=\Omega_{tj}^z\Sigma_j^z(\Omega_{tj}^z)^\top.
+\label{eq:v3-transported-sender-covariance}
+\end{equation}
+This differs from the fixed receiver covariance $R_{\theta,t}^z$ in \cref{eq:mean-field-state-gaussian-edge-cost}.
+
+\paragraph{Proposition (fixed-covariance V3 reduction).}
+Set $B_t=0$ and $c_{\theta,t}^z=0$. Suppose the sender covariance $\Sigma_j^z=\overline\Sigma_j^z$ is fixed rather than variationally updated and the fixed transition covariance satisfies
+\begin{equation}
+R_{\theta,t}^z
+=\Omega_{tj}^z\overline\Sigma_j^z(\Omega_{tj}^z)^\top
+,
+\label{eq:fixed-covariance-v3-compatibility}
+\end{equation}
+for the edge under consideration. Then
+\begin{equation}
+\mathcal A_{tj}^z
+=\mathcal D_{tj}^{\mathrm{V3}}+\frac{d_z}{2}.
+\label{eq:mean-field-fixed-covariance-v3-reduction}
+\end{equation}
+Indeed, substituting \cref{eq:fixed-covariance-v3-compatibility} into \cref{eq:mean-field-state-gaussian-edge-cost} reproduces the Gaussian formula for \cref{eq:v3-moving-peer-divergence}; the sender-uncertainty trace contributes $\operatorname{tr}[(S_{tj}^z)^{-1}S_{tj}^z]/2=d_z/2$. Because the source weights sum to one, this additive term is constant across a row when the dimensions agree. The source-row and receiving-factor minimizers of that isolated edge block therefore agree with the V3 pair term at unit temperature. The current V4 kernel uses a receiver covariance shared across candidate sources, so exact simultaneous compatibility requires all active $S_{tj}^z$ to coincide with $R_{\theta,t}^z$. An edge-specific $R_{\theta,tj}^z$ would be a declared extension of the generative model. \hfill$\square$
+
+The reduction in \cref{eq:mean-field-fixed-covariance-v3-reduction} does not extend to a live sender covariance. Setting $R_{\theta,t}^z=S_{tj}^z$ while $\Sigma_j^z$ moves would make the generative kernel depend on the variational posterior and would contradict the fixed-joint definition in \cref{eq:vfe4-generative-joint}. The obstruction is structural on an open product family. For fixed $p$, a mean-field free energy has the form
+\begin{equation}
+\mathcal F_{\mathrm{fixed}}(q_1,\ldots,q_n)
+=\sum_i\int q_i\log q_i
+-\int\left(\prod_iq_i\right)\log p,
+\label{eq:fixed-joint-open-family-free-energy}
+\end{equation}
+whose energy term is affine in each factor separately. Hence its mixed variation $D_{q_i}D_{q_j}^2\mathcal F_{\mathrm{fixed}}$ vanishes for $i\ne j$. By contrast, for a mass-preserving sender perturbation $h_j$ and receiver perturbation $a_i$,
+\begin{equation}
+D_{q_i}D_{q_j}^2
+\KL\left(q_i\middle\Vert\Omega_\#q_j\right)
+[a_i,h_j,h_j]
+=\int a_i
+\left(
+\frac{\Omega_\#h_j}{\Omega_\#q_j}
+\right)^2,
+\label{eq:moving-peer-mixed-variation}
+\end{equation}
+which is generically nonzero. The fixed-covariance Gaussian subfamily avoids this open-family argument because the sender covariance directions have been removed.
+
+An exact normalized row construction is still available when the sender is a fixed model-side template. For fixed probability laws $r_j$, define
+\begin{equation}
+\begin{aligned}
+P_t^r(\mathop{\mathrm dz},j)
+&:=\pi_t^z(j)(\Omega_{tj}^z)_\#r_j(\mathop{\mathrm dz}),\\
+Q_t^r(\mathop{\mathrm dz},j)
+&:=\beta_t(j)q_t^z(\mathop{\mathrm dz}).
+\end{aligned}
+\label{eq:fixed-template-row-laws}
+\end{equation}
+The KL chain rule gives
+\begin{equation}
+\begin{aligned}
+\KL(Q_t^r\Vert P_t^r)
+={}&\KL(\beta_t\Vert\pi_t^z)\\
+&+\sum_j\beta_t(j)
+\KL\left(q_t^z\middle\Vert(\Omega_{tj}^z)_\#r_j\right).
+\end{aligned}
+\label{eq:fixed-template-row-kl-decomposition}
+\end{equation}
+Taking $r_j$ to be a previous iterate of $q_j^z$ reproduces the unit-temperature V3 row algebra while the templates are frozen, but refreshing them changes the row model. That procedure is a plug-in best response or majorization surrogate, not coordinate ascent on one fixed global ELBO. One exact construction that can house the fully live peer divergence is the separate configuration-Gibbs model in \cref{eq:configuration-gibbs-prior,eq:configuration-gibbs-elbo}, where whole belief configurations are random and the finite-temperature objective also contains configuration entropy and the partition function.
+
+\section{Natural and expectation-coordinate duality}
+
+For each conditional Gaussian component, use the canonical coordinates already fixed in \cref{eq:gaussian-natural-coordinates,eq:gaussian-expectation-coordinates},
+\begin{equation}
+\eta=\left(h,-\frac12J\right),
+\qquad
+\xi=(\mu,M).
+\label{eq:canonical-natural-expectation-pairs}
+\end{equation}
+The corresponding open coordinate domains are
+\begin{equation}
+\begin{aligned}
+\mathcal D_\eta
+&:=\left\{\left(h,-\frac12J\right):
+h\in\mathbb R^D,
+J=J^\top\succ0\right\},\\
+\mathcal D_\xi
+&:=\left\{(\mu,M):
+\mu\in\mathbb R^D,
+M=M^\top,
+M-\mu\mu^\top\succ0\right\}.
+\end{aligned}
+\label{eq:gaussian-dual-open-domains}
+\end{equation}
+On these interiors of the regular Gaussian family, the log normalizer $A(\eta)$ and its Legendre dual $A^*(\xi)$ satisfy
+\begin{equation}
+\xi=\nabla_\eta A(\eta),
+\qquad
+\eta=\nabla_\xi A^*(\xi).
+\label{eq:legendre-coordinate-duality}
+\end{equation}
+Using the Euclidean pairing for vectors and the Frobenius pairing for symmetric matrix coordinates, the two Fisher matrices are
+\begin{equation}
+G_\eta
+:=\nabla_\eta^2A
+=\frac{\partial\xi}{\partial\eta},
+\qquad
+G_\xi
+:=\nabla_\xi^2A^*
+=\frac{\partial\eta}{\partial\xi}
+=G_\eta^{-1}.
+\label{eq:dual-fisher-hessians}
+\end{equation}
+For any differentiable scalar $\VFE$ on this family, the chain rule and symmetry of the Hessians give
+\begin{equation}
+\nabla_\eta\VFE
+=G_\eta\nabla_\xi\VFE,
+\qquad
+\nabla_\xi\VFE
+=G_\xi\nabla_\eta\VFE.
+\label{eq:dual-coordinate-gradient-chain-rule}
+\end{equation}
+Applying the inverse metric in each chart proves
+\begin{equation}
+\boxed{
+\widetilde\nabla_\eta\VFE
+=\nabla_\xi\VFE,
+\qquad
+\widetilde\nabla_\xi\VFE
+=\nabla_\eta\VFE.}
+\label{eq:vfe4-natural-gradient-dual-identity}
+\end{equation}
+This is the natural-gradient identity for one conditional Gaussian component at fixed source label, not a name for a coordinate system alone \citep{Amari1998,Amari2016}. For the labeled mixed law $Q(c,y)=w_cq_c(y)$ on the interior of the categorical simplex, the complete Fisher metric contains the categorical-simplex block and component blocks weighted by $w_c$. The source-marginal density $\sum_cw_cq_c(y)$ does not inherit a componentwise global dual chart because its labels have been marginalized and its component supports overlap.
+
+Three update classes must remain separate. When all factors touching a Gaussian block are conjugate quadratic factors, their information contributions add and an exact conditional update sets $(h,J)$ to the resulting information vector and precision. An explicitly Fisher-preconditioned proposal such as $\eta^{\mathrm{new}}=\eta-\rho G_\eta^{-1}\nabla_\eta\VFE$ is a natural-gradient step. Ordinary Euclidean SGD or Adam applied to the entries of $(h,J)$ is neither of these, and natural coordinates alone do not change that fact. The categorical softmax emission is nonconjugate to the Gaussian latent family, so it generally prevents an exact closed-form Gaussian information update.
+
+The pure conjugate reference uses an SPD convex path. Given current $(h,J)$ and a conjugate target $(h_\star,J_\star)$ with $J,J_\star\succ0$, define
+\begin{equation}
+h_\rho=(1-\rho)h+\rho h_\star,
+\qquad
+J_\rho=(1-\rho)J+\rho J_\star,
+\qquad 0<\rho\leq1.
+\label{eq:spd-convex-damped-coordinate-path}
+\end{equation}
+Convexity of the SPD cone keeps $J_\rho$ positive definite in exact arithmetic. For a general proposed increment $(\Delta h,\Delta J)$, factor the current precision as $J=CC^\top$, symmetrize $\Delta J$, and form the whitened increment $\Delta\widehat J=C^{-1}\Delta JC^{-\top}$. Backtrack over $\rho=2^{-k}$ and test
+\begin{equation}
+J_\rho=C(I+\rho\Delta\widehat J)C^\top,
+\qquad
+h_\rho=h+\rho\Delta h.
+\label{eq:whitened-spd-backtracking-path}
+\end{equation}
+The candidate is accepted only when a checked factorization succeeds with the preregistered pivot and condition margins and the complete ELBO, including every affected factor, is nondecreasing beyond its declared evaluation error. Otherwise backtracking continues or the candidate is rejected. A rescaled or regularized candidate is a new proposal and must repeat the same checks. The corresponding $\xi$-proposal is converted to $(h,J)$ before this acceptance test. A candidate outside $\mathcal D_\eta$ or $\mathcal D_\xi$ does not define a Gaussian law, and domain admissibility alone does not imply that a finite natural-gradient step lowers $\VFE$.
+
+\section{Internal population-frame invariance of the complete ELBO}
+
+Let $\mathcal T_{\mathsf G}$ be the block frame map in \cref{eq:block-diagonal-global-frame-map}. It sends $y$ to $y'=\mathsf G y$, leaves $(a,b)$ and $x$ unchanged, and transforms the deterministic geometric and model data to $\Gamma'$ and $\theta'$ by \cref{eq:link-morphism-gauge-laws,eq:transition-offset-covariance-gauge-laws,eq:dual-decoder-gauge-laws}. The general block map represents the internal product group $\mathcal G_T$; the diagonal subgroup is the base-bundle gauge action inherited at $\ast$. Define the absolute Jacobian
+\begin{equation}
+\mathcal J_{\mathsf G}
+:=|\det\mathsf G|
+=\prod_{t=0}^{T}
+|\det\mathsf G_{z,t}|
+|\det\mathsf G_{m,t}|.
+\label{eq:global-frame-jacobian}
+\end{equation}
+The categorical source priors are unchanged. The initial density supplies the two $t=0$ inverse Jacobians, and each receiver transition supplies the inverse Jacobian for its own continuous variable by \cref{eq:receiver-density-kernel-measure-invariance,eq:initial-density-gauge-jacobian}. The emission is unchanged because its logits are invariant. Hence the complete generative density transforms as
+\begin{equation}
+p_{\theta'}(x,y',a,b\given\Gamma')
+=\frac{p_\theta(x,y,a,b\given\Gamma)}
+{\mathcal J_{\mathsf G}}.
+\label{eq:complete-generative-density-pushforward}
+\end{equation}
+Simultaneously push the recognition law forward. Its categorical weights remain fixed, while each continuous conditional density, including every source-conditioned Gaussian component, obeys
+\begin{equation}
+Q_{\psi'}^{(r)}(y',a,b\given x,\Gamma')
+=\frac{Q_\psi^{(r)}(y,a,b\given x,\Gamma)}
+{\mathcal J_{\mathsf G}}.
+\label{eq:complete-recognition-density-pushforward}
+\end{equation}
+The coordinate log ratio is therefore invariant pointwise,
+\begin{equation}
+\log\frac{p_{\theta'}(x,y',a,b\given\Gamma')}
+{Q_{\psi'}^{(r)}(y',a,b\given x,\Gamma')}
+=\log\frac{p_\theta(x,y,a,b\given\Gamma)}
+{Q_\psi^{(r)}(y,a,b\given x,\Gamma)}.
+\label{eq:complete-elbo-log-ratio-invariance}
+\end{equation}
+Since $\mathop{\mathrm dy}'=\mathcal J_{\mathsf G}\mathop{\mathrm dy}$ and the discrete measures do not change, a change of variables gives
+\begin{equation}
+\begin{aligned}
+\ELBO^{(r)}(\theta',\psi';x,\Gamma')
+&=\sum_{a,b}\int
+\frac{Q_\psi^{(r)}(y,a,b\given x,\Gamma)}
+{\mathcal J_{\mathsf G}}
+\log\frac{p_\theta(x,y,a,b\given\Gamma)}
+{Q_\psi^{(r)}(y,a,b\given x,\Gamma)}
+\mathcal J_{\mathsf G}\mathop{\mathrm dy}\\
+&=\ELBO^{(r)}(\theta,\psi;x,\Gamma).
+\end{aligned}
+\label{eq:complete-elbo-gauge-invariance}
+\end{equation}
+The same calculation without the recognition denominator proves evidence invariance, and applying it to the posterior ratio proves invariance of the KL gap in \cref{eq:vfe4-evidence-elbo-kl-identity}. By contrast, the continuous differential entropy alone shifts by $\log\mathcal J_{\mathsf G}$ as in \cref{eq:entropy-shift-kl-invariance}; the matching generative-density shift is what cancels it in the complete objective.
+
+If the linear decoder readouts are held fixed, categorical-kernel invariance is weaker than strict logit invariance because softmax ignores a common shift of all vocabulary logits. Define the centered-logit projector
+\begin{equation}
+\mathsf C_V
+:=I_V-\frac1V\boldsymbol 1\boldsymbol 1^\top.
+\label{eq:centered-logit-projector}
+\end{equation}
+For finite logit vectors $u$ and $v$, $\operatorname{softmax}(u)=\operatorname{softmax}(v)$ if and only if $\mathsf C_Vu=\mathsf C_Vv$. Under the contragredient convention in \cref{eq:dual-decoder-gauge-laws}, the exact held-fixed emission-kernel stabilizer is therefore
+\begin{equation}
+\begin{aligned}
+\operatorname{Stab}^{\mathrm{em}}_{\mathcal G_T}(W^z,W^m)
+:=\bigl\{(g_0,\ldots,g_T)\in\mathcal G_T:
+&\mathsf C_VW_t^z\rho_z(g_t)^{-1}
+=\mathsf C_VW_t^z,\\
+&\mathsf C_VW_t^m\rho_m(g_t)^{-1}
+=\mathsf C_VW_t^m\\
+&\text{for every }t=1,\ldots,T\bigr\}.
+\end{aligned}
+\label{eq:fixed-decoder-emission-kernel-stabilizer}
+\end{equation}
+The strict readout stabilizer in \cref{eq:fixed-decoder-stabilizer} is sufficient. More precisely,
+\begin{equation}
+\operatorname{Stab}_{\mathcal G_T}(W^z,W^m)
+\subseteq
+\operatorname{Stab}^{\mathrm{em}}_{\mathcal G_T}(W^z,W^m).
+\label{eq:strict-readout-stabilizer-subset}
+\end{equation}
+The inclusion can be proper when a transformed readout differs only by a row-common linear functional, which adds the same input-dependent scalar to every vocabulary logit.
+
+\paragraph{Proposition (complete internal frame invariance).}
+Under simultaneous pushforward of the generative and recognition measures, transformation of every transition and decoder law, and the support and integrability conditions above, the evidence, posterior KL, $\ELBO$, and $\VFE$ are invariant under the declared block frame map. If the decoder weights are held fixed instead of transformed by \cref{eq:dual-decoder-gauge-laws}, the statement holds on the categorical emission-kernel stabilizer in \cref{eq:fixed-decoder-emission-kernel-stabilizer}. The strict subgroup in \cref{eq:fixed-decoder-stabilizer} remains sufficient, but need not exhaust the softmax-kernel symmetry. Outside the emission-kernel stabilizer, the full internal product group is not a symmetry. This proposition is a probability-measure reparameterization theorem. It does not imply nontrivial base transport, curvature, or holonomy in the zero-dimensional reduction. \hfill$\square$

@@ -1,0 +1,122 @@
+\begin{tikzpicture}[
+  >={Stealth[length=2.2mm]},
+  every node/.style={font=\footnotesize},
+  continuous/.style={
+    circle,
+    draw=primaryblue,
+    fill=lightblue,
+    line width=0.8pt,
+    minimum size=8mm,
+    inner sep=1pt
+  },
+  categorical/.style={
+    diamond,
+    draw=cautionorange!85!black,
+    fill=lightorange,
+    line width=0.8pt,
+    minimum width=9mm,
+    minimum height=8mm,
+    inner sep=1pt
+  },
+  parentbank/.style={
+    rectangle,
+    draw=mediumgray,
+    fill=lightgray,
+    rounded corners=2pt,
+    align=center,
+    text width=27mm,
+    minimum height=9mm,
+    inner sep=3pt
+  },
+  observed/.style={
+    rectangle,
+    draw=darkgray,
+    double,
+    double distance=0.7pt,
+    fill=white,
+    minimum width=10mm,
+    minimum height=8mm,
+    inner sep=2pt
+  },
+  deterministic/.style={
+    regular polygon,
+    regular polygon sides=6,
+    draw=darkgray,
+    fill=lightgray,
+    line width=0.8pt,
+    minimum width=11mm,
+    minimum height=9mm,
+    inner sep=1pt
+  },
+  recognitiondata/.style={
+    rectangle,
+    draw=sciencegreen!85!black,
+    fill=lightgreen,
+    rounded corners=2pt,
+    align=center,
+    minimum width=27mm,
+    minimum height=8mm,
+    inner sep=2pt
+  },
+  generative/.style={-{Stealth[length=2.2mm]}, primaryblue, line width=0.9pt},
+  fixed/.style={-{Stealth[length=2.0mm]}, darkgray, line width=0.8pt},
+  recognition/.style={-{Stealth[length=2.2mm]}, sciencegreen!85!black, dashed, line width=0.9pt},
+  plate/.style={draw=mediumgray, rounded corners=3pt, line width=0.7pt, inner sep=5mm}
+]
+  \node[parentbank] (mpast) {internal model sources\\$\{m_j:j\in\mathcal P_t^m\}$};
+  \node[parentbank, below=12mm of mpast] (zpast) {internal state sources\\$\{z_j:j\in\mathcal P_t^z\}$};
+  \node[parentbank, below=12mm of zpast] (history) {observed history\\$x_{<t}$};
+
+  \node[categorical, right=17mm of mpast] (bt) {$b_t$};
+  \node[continuous, right=38mm of bt] (mt) {$m_t$};
+
+  \node[categorical, right=17mm of zpast] (at) {$a_t$};
+  \node[continuous, right=38mm of at] (zt) {$z_t$};
+  \node[observed, right=18mm of zt] (xt) {$x_t$};
+
+  \node[deterministic, above right=18mm and 22mm of mt] (geometry) {$\Gamma_{\mathrm{core}}$};
+  \node[font=\scriptsize, text=darkgray, above=1mm of geometry] {fixed core structural data};
+  \node[recognitiondata, below=13mm of zt] (information) {$\mathcal I_t^{(r)}$ from observed tokens};
+
+  \draw[generative] (mpast.north east) to[out=18,in=162] (mt.north west);
+  \draw[generative] (bt) -- (mt);
+  \draw[generative] (zpast.south east) to[out=-18,in=198] (zt.south west);
+  \draw[generative] (at) -- (zt);
+  \draw[generative] (mt) -- (zt);
+  \draw[generative] (mt) to[bend left=16] (xt);
+  \draw[generative] (zt) -- (xt);
+  \draw[generative] (history) to[bend right=13] (mt);
+  \draw[generative] (history) to[bend right=7] (zt);
+
+  \draw[fixed] (geometry.west) to[out=180,in=65] (mt.north east);
+  \draw[fixed] (geometry.south west) to[out=235,in=45] (zt.north east);
+  \draw[fixed] (geometry.south) to[out=270,in=90] (xt.north);
+
+  \draw[recognition] (information.north west) to[out=145,in=255] (mt.south west);
+  \draw[recognition] (information) -- (zt);
+  \draw[recognition] (information) to[bend right=13] (bt);
+  \draw[recognition] (information) to[bend right=7] (at);
+
+  \begin{scope}[on background layer]
+    \node[plate, fit=(bt)(at)(mt)(zt)(xt)(information),
+      label={[font=\scriptsize\bfseries, text=darkgray]above left:population slots $t=1,\ldots,T$ over $\ast$}] (timeplate) {};
+  \end{scope}
+
+  \node[continuous, minimum size=5mm, below=15mm of history] (legcontinuous) {};
+  \node[right=2mm of legcontinuous] (legcontinuoustext) {continuous};
+  \node[categorical, minimum width=6mm, minimum height=5mm, right=9mm of legcontinuoustext] (legcategorical) {};
+  \node[right=2mm of legcategorical] (legcategoricaltext) {categorical};
+  \node[observed, minimum width=6mm, minimum height=5mm, right=9mm of legcategoricaltext] (legobserved) {};
+  \node[right=2mm of legobserved] (legobservedtext) {observed};
+  \node[deterministic, minimum width=7mm, minimum height=5mm, right=9mm of legobservedtext] (legfixed) {};
+  \node[right=2mm of legfixed] (legfixedtext) {fixed geometry};
+
+  \coordinate[right=9mm of legfixedtext] (leggenstart);
+  \coordinate[right=10mm of leggenstart] (leggenend);
+  \draw[generative] (leggenstart) -- (leggenend);
+  \node[right=2mm of leggenend] (leggentext) {generative};
+  \coordinate[right=9mm of leggentext] (legrecstart);
+  \coordinate[right=10mm of legrecstart] (legrecend);
+  \draw[recognition] (legrecstart) -- (legrecend);
+  \node[right=2mm of legrecend] {recognition only};
+\end{tikzpicture}

@@ -1,0 +1,228 @@
+\chapter[Transformer-Inspired Structural Crosswalk and the V3 Boundary]{Transformer-Inspired Structural\\Crosswalk and the V3 Boundary}
+\chaptermark{Transformer-Inspired Structural Crosswalk}
+
+This chapter maps the probabilistic factors and update roles already defined to transformer-like operations. The mapping is structural: it identifies source routing on the internal causal graph, same-point frame-aligned propagation, cross-channel conversion, iterative refinement, and categorical decoding. It does not assert that the resulting algebra is scaled dot-product attention, a standard transformer block, or a reduction of the V3 update equations. Any such recovery would require an explicit limiting theorem with matched parameters and normalizers.
+
+\section{Source posteriors as attention-like routing}
+
+The categorical variables $a_t$ and $b_t$ make source selection part of the probability model. Their generative priors in the present joint are fixed with respect to realized latent content, so they define normalized mixture ancestry rather than content-dependent transformer attention. The source indices refer to labeled agents over the same point $\ast$; they do not select locations on the bundle base. Write $Y=(\boldsymbol z,\boldsymbol m,a,b)$, and let $Y_{\setminus a_t}$ and $Y_{\setminus b_t}$ denote the complete latent configuration with the named coordinate removed. The positive-prior source supports are
+\begin{equation}
+S_t^z
+:=\{j\in\operatorname{Pa}_z(t):\pi_t^z(j)>0\},
+\qquad
+S_t^m
+:=\{j\in\operatorname{Pa}_m(t):\pi_t^m(j)>0\}.
+\label{eq:positive-source-prior-supports}
+\end{equation}
+They are nonempty because the source priors are normalized. If an unrestricted recognition block may condition pointwise on the entire complement, its ELBO-coordinate optimum is the corresponding posterior full conditional. On the set where the displayed normalizer is positive, the two source coordinates are exactly
+\begin{equation}
+\begin{aligned}
+\log Q^\star(a_t=j\given Y_{\setminus a_t},x,\Gamma)
+={}&\log\pi_t^z(j)
++\log K^z_{\theta,tj}
+(z_t\given z_j,m_t,x_{<t},\Gamma)
+-\log Z_t^z(Y_{\setminus a_t}),
+\qquad j\in S_t^z,\\
+Z_t^z(Y_{\setminus a_t})
+:={}&\sum_{k\in S_t^z}
+\pi_t^z(k)
+K^z_{\theta,tk}
+(z_t\given z_k,m_t,x_{<t},\Gamma),\\
+\log Q^\star(b_t=j\given Y_{\setminus b_t},x,\Gamma)
+={}&\log\pi_t^m(j)
++\log K^m_{\theta,tj}
+(m_t\given m_j,x_{<t},\Gamma)
+-\log Z_t^m(Y_{\setminus b_t}),
+\qquad j\in S_t^m,\\
+Z_t^m(Y_{\setminus b_t})
+:={}&\sum_{k\in S_t^m}
+\pi_t^m(k)
+K^m_{\theta,tk}
+(m_t\given m_k,x_{<t},\Gamma).
+\end{aligned}
+\label{eq:source-posterior-routing-logits}
+\end{equation}
+The first and third lines of \cref{eq:source-posterior-routing-logits} apply for $j\in S_t^z$ and $j\in S_t^m$, respectively. The normalizers are positive almost surely under the declared continuous law; for the Gaussian reference kernels they are positive at every finite latent configuration. Posterior mass is zero for $j\notin S_t^z$ or $j\notin S_t^m$. Only the source prior and selected transition appear in these pointwise full conditionals because, with the remaining realized variables fixed, no other generative factor contains $a_t$ or $b_t$. This statement is exact and imposes no mean-field factorization.
+
+The forward recognition factors called $\beta_t$ and $\gamma_t$ generally condition on less information than the full complements above. Their coordinate problem is different when a source choice also indexes a source-conditioned continuous recognition factor. To state that problem without dropping dependent terms, let $\mathcal C_t^z\subseteq Y_{\setminus a_t}$ be the variables exposed to $\beta_t$, let $\mathcal R_t^z:=Y_{\setminus a_t}\setminus\mathcal C_t^z$, and hold fixed a normalized component density $q^z_{t,j}(\mathcal R_t^z\given\mathcal C_t^z,x,\Gamma)$ for each $j\in S_t^z$. A component is admissible only if it is absolutely continuous with respect to the applicable generative support and its complete component score is finite and integrable. For an admissible component, define that score by
+\begin{equation}
+\begin{aligned}
+\mathcal A^z_{t,j}(\mathcal C_t^z)
+:={}&\mathbb E_{q^z_{t,j}}
+\left[
+\log p_\theta
+(x,Y_{\setminus a_t},a_t=j\given\Gamma)
+-\log\pi_t^z(j)
+\right.\\
+&\left.\hspace{7em}
+-\log q^z_{t,j}
+(\mathcal R_t^z\given\mathcal C_t^z,x,\Gamma)
+\right],
+\qquad j\in S_t^z,\\
+\beta_t^\star(j\given\mathcal C_t^z)
+={}&
+\frac{
+\pi_t^z(j)\exp\mathcal A^z_{t,j}(\mathcal C_t^z)
+}{
+\sum_{k\in S_t^z}
+\pi_t^z(k)\exp\mathcal A^z_{t,k}(\mathcal C_t^z)
+},
+\qquad j\in S_t^z.
+\end{aligned}
+\label{eq:restricted-source-component-softmax}
+\end{equation}
+The analogous model-channel construction uses $b_t$, $m$, $\pi^m$, and $S_t^m$ in place of their state-channel counterparts. Its conditioning set, remainder, and component law are $\mathcal C_t^m$, $\mathcal R_t^m$, and $q^m$, and the resulting routing row is $\gamma_t^\star$. Routing mass is zero outside the corresponding positive-prior support. By convention, an invalid or nonfinite component has score $-\infty$ and therefore cannot receive positive routing mass; the softmax is normalized over the positive-prior support with those zero-mass components retained only formally. A routing row is defined only when at least one component is admissible, which makes its denominator positive. Because the score in \cref{eq:restricted-source-component-softmax} uses the complete joint log density and the component log density, it contains the conditional component entropy and every emission, transition, or descendant factor whose expectation changes with the source-conditioned component. An expected log transition alone is sufficient only in a special restricted family where all omitted contributions are source independent. If the component densities are updated jointly with the routing row, the coupled problem must be solved or accepted against the complete ELBO rather than treated as this fixed-component softmax.
+
+Both exact objects retain an attention-like interpretation. The full conditional routes a realized configuration among causal source transitions. The limited-conditioning $\beta_t$ and $\gamma_t$ rows route component evidence after integrating variables hidden from the row. In either case, the state source selects frame-aligned information $\Omega^z_{tj}z_j$, and the model source selects $\Omega^m_{tj}m_j$. These maps compare labeled copies over the same base point; they are not base parallel transports. Marginalizing a source variable generally produces a mixture; replacing it by one moment-matched Gaussian is a declared projection and not an identity. The source KL terms in \cref{eq:vfe4-local-elbo-decomposition} retain coefficient one.
+
+Scaled dot-product attention instead obtains its logits from query-key inner products and then uses the resulting categorical weights to average values \citep{Vaswani2017}. No equality between that construction and \cref{eq:source-posterior-routing-logits,eq:restricted-source-component-softmax} has been proved here. Such an equality would require a specified transition and recognition family for which the applicable full-conditional or component-ELBO score reduces, up to source-independent terms, to the chosen query-key score, with a matching probabilistic source prior. Similarity of the final normalization is not enough.
+
+A content-dependent generative source prior is possible only as a changed normalized model factor. For example,
+\begin{equation}
+\pi_{\theta,t}^z(j\given Y_{<t},x_{<t},\Gamma)
+:=
+\frac{
+\mathbf 1_{\{j\in\operatorname{Pa}_z(t)\}}
+\exp s_{\theta,tj}^z(Y_{<t},x_{<t},\Gamma)
+}{
+\sum_{k\in\operatorname{Pa}_z(t)}
+\exp s_{\theta,tk}^z(Y_{<t},x_{<t},\Gamma)
+}.
+\label{eq:prefix-measurable-content-source-prior}
+\end{equation}
+The score must be prefix measurable and must not consume $x_t$. A query derived from $x_t$ is forbidden in this generative factor but may appear in the recognition law after the observation has been supplied. Marginalizing $a_t$ under either a fixed or content-dependent prior yields a mixture of transition laws. A deterministic weighted value $\sum_j\beta_t(j)\Omega^z_{tj}z_j$ is an expectation or moment approximation and is not identical to that mixture distribution.
+
+\section{State propagation, channel conversion, and inference depth}
+
+For a selected state source $a_t=j$, the transition mean in \cref{eq:typed-gaussian-transition-locations} maps $z_j$ from its labeled copy into the receiver copy through $\Omega^z_{tj}$, then adds the model-channel contribution $B_tm_t$ and the receiver offset. This resembles frame-aligned value propagation followed by a channel map. The resemblance is structural because the VFE 4.0 object is a normalized conditional density with a covariance and normalization constant, rather than a deterministic value update. For a selected model source $b_t=j$, the model transition similarly acts on $m_j$ through $\Omega^m_{tj}$. All of these maps are internal to the population over $\ast$, not parallel transport between base points. Different representations $\rho_z$ and $\rho_m$ may have different dimensions, so $B_t:E_{m,t}\to E_{z,t}$ is the typed operation that permits the two channels to interact.
+
+Repeated E-like updates supply an inference depth. One sweep may update source assignments, model states, state variables, and selected parameter blocks; additional sweeps revisit their Markov blankets. This recurrence is analogous to stacking refinement layers only in the operational sense that later computations use revised latent summaries. An exact coordinate maximum, a valid minorize-maximize update, an accepted generalized-EM proposal, and an ordinary truncated optimizer have different guarantees under \cref{eq:structured-e-coordinate-update,eq:vfe4-exact-m-coordinate-update}. Calling every sweep a layer would conceal those distinctions.
+
+The observation operation is the normalized categorical kernel $L_{\theta,t}$. Training uses
+\begin{equation}
+\mathbb E_{Q_\psi}
+\left[
+\log L_{\theta,t}(x_t\given z_t,m_t,\Gamma)
+\right],
+\label{eq:expected-categorical-transformer-readout}
+\end{equation}
+not merely the decoder evaluated at a posterior mean unless that replacement is separately justified. Generation and prior-predictive evaluation use the causal predictive distribution obtained before assimilating $x_t$. The softmax negative log likelihood remains categorical cross-entropy. VFE 4.0 places that term inside the shared latent-variable objective rather than replacing it.
+
+These correspondences establish an architectural vocabulary. They do not establish algebraic recovery of a conventional transformer. A recovery theorem would need to specify a limiting posterior family, transition covariance, source score, internal frame or graph-link action, channel morphism, number of inference iterations, residual convention, and decoder action, then show equality of the resulting maps. That theorem is outside the present construction.
+
+\section{Executable V3 boundary}
+
+The V3 comparison is based on the executable baseline rather than on names inherited from the broader theory. Both V3 and the present V4 language specialization use the zero-dimensional reduction: token occurrences are labeled agents stacked over one base point, while causal order is internal population structure. V3 stores one \texttt{BeliefState} with tokenwise $\mu$, within-token diagonal or full $\Sigma$, and frame coordinates $\phi$; its pairwise routine returns an $N\times N$ or head-indexed $N\times N$ divergence array.\footnote{Live-source locations inspected on 2026-07-17 are \path{V3_Transformer/vfe3/belief.py}, lines 23 through 28, and \path{V3_Transformer/vfe3/free_energy.py}, lines 162 through 173.} The energy array is therefore a directed score grid, not a covariance matrix or an off-diagonal block of a joint precision. It and the derived $\beta$ and $\gamma$ maps are deterministic routing calculations and diagnostics, not persistent probabilistic edge latents or marginals of a declared joint $Q$.
+
+On the investigated training path, \texttt{forward\_beliefs} runs before the target is used, categorical cross-entropy is formed afterward, and the initial outer loss is set to that cross-entropy.\footnote{See \path{V3_Transformer/vfe3/model/model.py}, lines 1549 through 1611. The optional \texttt{log\_likelihood} input in \path{V3_Transformer/vfe3/free_energy.py}, lines 389 through 471, is not called by this production path.} The active model-channel refinement replaces the initial belief and its prior with the refined $s$ moments, after which the belief stack performs another refinement.\footnote{See \path{V3_Transformer/vfe3/model/model.py}, lines 1069 through 1113. The same-$K$ model table and broadcast hyperprior shapes appear at lines 821 through 839, and the prior handoff recurrence appears in \path{V3_Transformer/vfe3/model/stack.py}, lines 139 through 140.} These are deterministic replacement and refinement maps among same-dimensional parameter tuples. They are not four stochastic conditionals that by themselves instantiate $h\to s\to p\to q$.
+
+The named baseline uses \texttt{block\_glk}, the option called flat transport in the implementation, causal ALiBi priors without self edges for both $\beta$ and $\gamma$, an active $s$ refinement, and the linear decoder selected by \texttt{use\_prior\_bank=false}.\footnote{See \path{V3_Transformer/vfe3_runs/122.14_wikitext-103_K20_block_glk_linear_mix_s6/config.json}, lines 16 through 20, 60 through 66, 78 through 80, and 97 through 100.} In the zero-dimensional interpretation, these ``flat transports'' are pure internal frame-coboundary maps. That decoder computes logits from $\mu$ and discards $\Sigma$.\footnote{See \path{V3_Transformer/vfe3/model/prior_bank.py}, lines 1727 through 1740.} Because the learned readout is fixed while the latent coordinates carry the block internal action, this active route does not transform every observation parameter contragrediently and is not an end-to-end realization of the complete internal frame-invariance proposition in \cref{eq:complete-elbo-gauge-invariance}. It still contains meaningful frame-aligned internal operations.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.16\textwidth} >{\raggedright\arraybackslash}p{0.37\textwidth} >{\raggedright\arraybackslash}p{0.37\textwidth}}
+\caption{Architectural boundary between the executable V3 baseline and the proposed VFE 4.0 construction.}
+\label{tab:v3-v4-crosswalk}\\
+\toprule
+\textbf{Criterion} & \textbf{V3 baseline} & \textbf{VFE 4.0 proposal} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{c}{\tablename\ \thetable\ continued}\\
+\toprule
+\textbf{Criterion} & \textbf{V3 baseline} & \textbf{VFE 4.0 proposal} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{Continued on the next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+State representation
+& Token marginals \texttt{BeliefState}$(\mu,\Sigma,\phi)$, with diagonal or full covariance inside each token. The live $h,s,p,q$ language denotes same-$K$ tables, copies, priors, and refinements rather than a declared stochastic hierarchy.
+& A joint law over the labeled state--model population, source variables, and optional internal geometry. A structured Gaussian component uses joint information coordinates $(h,J)$ with distinct state and model fibers allowed. \\
+\addlinespace
+Cross-token correlation
+& \texttt{BeliefState} contains no cross-token covariance or persistent probabilistic edge latent. The $N\times N$ energies and derived $\beta$ and $\gamma$ maps are deterministic routing calculations or diagnostics, not marginals of a declared joint $Q$.
+& Off-diagonal population blocks of $J$ encode conditional dependence. The covariance may be dense even when $J$ is sparse, and source marginalization generally yields a mixture. \\
+\addlinespace
+Peer interaction
+& $D(q_i\Vert\Omega_{ij}q_j)$ compares two moving posterior marginals. It is an engineered consensus energy with useful routing semantics, not a fixed generative transition.
+& Normalized kernels $K^z_{\theta,tj}$ and $K^m_{\theta,tj}$ are fixed model factors. Under the complete mean-field restriction they yield the expected conditional transition costs in \cref{eq:mean-field-expected-transition-costs}, together with categorical source KL divergences. They do not yield a live moving-peer divergence, except for the restricted fixed-covariance Gaussian identity in \cref{eq:mean-field-fixed-covariance-v3-reduction}. \\
+\addlinespace
+Target access
+& The $q$, $s$, $\beta$, and $\gamma$ refinements consume observed input tokens but do not consume the held-out next-token target. The target first enters at decode and cross-entropy.
+& The predictive prior remains target-blind. A training filtering posterior may condition on $x_{\leq t}$, and a smoothing posterior may condition on $x_{1:T}$; prior-based evaluation never uses this target-conditioned recognition law. \\
+\addlinespace
+Observation term
+& The investigated run uses a mean-only linear categorical decoder. Cross-entropy is its live target-data-fit scalar; the optional observation input of the internal free-energy assembler is not on the production path.
+& The objective contains the expected log of a normalized categorical emission under the declared joint $Q$. Cross-entropy is retained as the observation sector. \\
+\addlinespace
+Objective
+& Outer categorical loss differentiates through VFE-inspired refinements, with any enabled regularizers added by separate gates. The model, belief, and decode operations are not coordinate updates of one proved global ELBO.
+& State inference, model inference, source selection, and M-like parameter updates are evaluated against $\VFE=-\ELBO$ from one normalized joint and one normalized recognition law. \\
+\addlinespace
+Geometry
+& The baseline uses pure block-$\mathrm{GL}(K)$ frame-coboundary maps and other gauge-structured internal operations. Its fixed linear readout prevents covariance of the complete scored model under independent node-frame changes.
+& The general theory has associated state, model, and statistical bundles over $\mathcal C$. The language model restricts to $\mathcal C_0=\{\ast\}$, where base curvature and base holonomy vanish. Its $G^{T+1}$ action is an internal population reparameterization whose diagonal $G$ subgroup is the actual base gauge action; optional independent graph links form a separate sector. Complete invariance requires simultaneous pushforward of $p$, $Q$, transitions, covariances, morphisms, and decoder weights, or restriction to the emission stabilizer. \\
+\addlinespace
+Checkpoint compatibility
+& V3 checkpoints encode token tables, same-$K$ refinements, pair-score mechanisms, and the existing decoder contract.
+& They are not directly loadable as VFE 4.0 checkpoints. A deliberate one-way initializer may copy compatible tables or frames after an explicit dimension and representation map, but it cannot manufacture joint precision blocks, normalized transitions, or new variational state. \\
+\addlinespace
+Empirical status
+& The 28-epoch run is evidence about this V3 baseline and its optimization plateau.
+& No VFE 4.0 training result exists in this paper. The V3 result neither validates the global ELBO implementation nor predicts a VFE 4.0 gain. \\
+\end{longtable}
+
+The crosswalk supports a clean development boundary. V3 remains the comparison arm and a source of tested numerical kernels. VFE 4.0 is a new probabilistic architecture. A one-way migration utility may initialize compatible emissions, token statistics, or pure internal frame-coboundary data, but the V4 state, objective, and checkpoint schema must remain independently versioned.
+
+\section{A separate configuration-Gibbs extension}
+
+The state-level joint in \cref{eq:vfe4-generative-joint} is not the only possible probabilistic use of the earlier population free energy. A distinct construction takes an entire belief configuration as its random variable. Let
+\begin{equation}
+\mathfrak X
+=
+(q,s,\alpha,\beta,\gamma,\phi,\ldots),
+\label{eq:configuration-gibbs-random-variable}
+\end{equation}
+collect the distributions, weights, and geometric coordinates of one settled population configuration. Let $c$ be an observed prefix, let $y$ be held-out token data, let $\rho_0(\mathop{\mathrm d\mathfrak X})$ be a proper reference probability, and let $\mathcal F_{\mathrm{vac}}(\mathfrak X;c)$ exclude the held-out observation term. If
+\begin{equation}
+0<Z_{\mathcal F}(c)
+:=
+\int
+\exp\left[-\frac{\mathcal F_{\mathrm{vac}}(\mathfrak X;c)}{T_{\mathrm{cfg}}}\right]
+\rho_0(\mathop{\mathrm d\mathfrak X})
+<\infty,
+\label{eq:configuration-gibbs-partition}
+\end{equation}
+then
+\begin{equation}
+P_{\mathcal F}(\mathop{\mathrm d\mathfrak X}\given c)
+=
+\frac{1}{Z_{\mathcal F}(c)}
+\exp\left[-\frac{\mathcal F_{\mathrm{vac}}(\mathfrak X;c)}{T_{\mathrm{cfg}}}\right]
+\rho_0(\mathop{\mathrm d\mathfrak X}),
+\label{eq:configuration-gibbs-prior}
+\end{equation}
+is a normalized prior over configurations.
+
+One may attach an explicit state draw $k\sim q_{\mathfrak X}$ and normalized observation $y\sim p_\theta(\mathord{\cdot}\given k,c)$. With a recognition law $R(\mathop{\mathrm d\mathfrak X}\given c,y)$ and the tied conditional $q_{\mathfrak X}(\mathop{\mathrm dk})$, the resulting ELBO is
+\begin{equation}
+\begin{aligned}
+\mathcal L_{\mathrm{cfg}}
+={}&
+\mathbb E_R\mathbb E_{q_{\mathfrak X}}
+\left[
+\log p_\theta(y\given k,c)
+\right]
+-\frac{1}{T_{\mathrm{cfg}}}
+\mathbb E_R
+\left[
+\mathcal F_{\mathrm{vac}}(\mathfrak X;c)
+\right]\\
+&-\KL\left(R\Vert\rho_0\right)
+-\log Z_{\mathcal F}(c).
+\end{aligned}
+\label{eq:configuration-gibbs-elbo}
+\end{equation}
+The term $\KL(R\Vert\rho_0)$ contains the configuration-level entropy. A point estimate of $\mathfrak X$ drops that entropy and is a MAP or zero-configuration-temperature approximation, not the finite-temperature ELBO in \cref{eq:configuration-gibbs-elbo}. If parameters inside $\mathcal F_{\mathrm{vac}}$ are learned, the partition function is generally parameter dependent and cannot be omitted from their M-like update.
+
+The geometric coordinate $\phi$ in \cref{eq:configuration-gibbs-random-variable} denotes internal node-frame data in the zero-dimensional specialization. It becomes a base field $\phi(c)$ only after a separate positive-dimensional base and its smoothness assumptions are introduced. The random variable in \cref{eq:configuration-gibbs-random-variable} is a whole configuration of belief objects. It is not the population state $Y=(\boldsymbol z,\boldsymbol m,a,b)$ in \cref{eq:vfe4-generative-joint}, and its entropy is not the joint state entropy in \cref{eq:full-joint-gaussian-entropy}. The two constructions answer different questions. The state-level VFE 4.0 model asks which latent states generated the observed tokens. The configuration-Gibbs model asks which population configuration is probable under a configuration energy. They must not be combined by identifying their random variables, by counting the observation likelihood twice, or by inserting a live $Q$-dependent peer divergence into the fixed generative joint.

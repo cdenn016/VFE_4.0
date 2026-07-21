@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# Local secrets and machine-specific settings.
+.env
+.env.*
+
+# LaTeX build products; manuscript sources and authored figures remain tracked.
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.synctex.gz
+*.toc
+
+# Generated experiment outputs.
+runs/
+
+# Common desktop metadata.
+.DS_Store
+Thumbs.db

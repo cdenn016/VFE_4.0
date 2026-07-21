@@ -1,0 +1,61 @@
+\chapter*{Executive Summary}
+\addcontentsline{toc}{chapter}{Executive Summary}
+\markboth{Executive Summary}{}
+
+The general theory represents an agent as a smooth local section of a statistical associated bundle, defined on an open domain of a contextual or noumenal base manifold \(\mathcal C\). VFE 4.0 specializes that theory to the zero-dimensional base \(\mathcal C_0=\{\ast\}\). The token agents remain distinct labeled section values, but every one of them lies over the same base point. The causal token graph therefore records internal probabilistic dependencies among the stacked agents; it is not the bundle base.
+
+Realized token occurrences are observations in a normalized autoregressive probability model. Their categorical negative log likelihood is cross-entropy. VFE 4.0 retains this observation term and augments it with the complexity of latent state samples, model samples, source assignments, and, only in a separately normalized extension, random geometric variables. The proposed construction is therefore a latent-variable language model whose observation semantics remain those of ordinary probabilistic language modeling.
+
+The exact probabilistic object is one normalized causal joint and one normalized, generally correlated recognition law \(Q\) on the complete labeled population fiber. The local state and model beliefs associated with an agent are pushforward marginals of that joint law; full conditionals are distinct objects used when an update holds the rest of the population fixed. A list of local beliefs does not determine their cross-agent dependence, so the paper adopts a joint-first construction. An agent-first construction would require an explicit copula, correlation field, or compatible family of conditional kernels in addition to the local sections. Mean-field appears only as an optional block-diagonal precision restriction.
+
+Conditional on the declared joint, \(Q\), support, and integrability assumptions, the evidence decomposition is an exact algebraic identity and its negative evidence lower bound is the VFE 4.0 objective. This identity does not establish that \(Q\) equals the posterior, that a truncated or stochastic optimizer converges, or that the resulting model improves prediction. It does establish the condition under which model-channel refinement, state refinement, source inference, and decoder learning are coordinates or accepted partial updates of one scalar objective.
+
+Three geometric objects are kept separate. A connection on the general bundle transports along curves in \(\mathcal C\). Its base-direction curvature disappears when \(\mathcal C\) collapses to one point. V3-style links \(\Omega_{tj}=U_tU_j^{-1}\) compare agent frames at that point and form a flat internal coboundary. Independent links on a separately declared interaction complex may carry internal cycle holonomy, but that holonomy is not curvature of the zero-dimensional base.
+
+The conditional core treats the geometric data \(\Gamma\) as deterministic and therefore does not provide a normalizable latent law over a noncompact gauge volume. Its categorical softmax emission is nonconjugate to the conditional Gaussian family, so closed-form Gaussian coordinate updates generally do not survive the observation factor. Marginalizing the source assignments produces a mixture whose component count grows with the assignment space; truncation, projection, or restricted-source algorithms are additional approximations rather than consequences of the ELBO identity.
+
+VFE 4.0 is a research proposal, not a report of VFE 4.0 experimental results. Perplexity, calibration, posterior collapse, the value of structured correlation, internal holonomy effects, and computational scaling remain empirical questions. The construction places those questions under one jointly normalized, auditable probabilistic objective rather than answering them in advance.
+
+\usetikzlibrary{arrows.meta, backgrounds, calc, fit, positioning, shapes.geometric}
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{\input{vfe4_whitepaper/figures/vfe4_graphical_abstract_zero_dim}}
+\caption{%
+\textbf{General bundle theory, zero-dimensional language reduction, and exact ELBO.}
+Agents are local statistical sections over a general base \(\mathcal C\). The language-model specialization collapses the base to \(\{\ast\}\), stacks labeled token agents over that point, and uses an internal causal graph to organize normalized dependencies. One correlated recognition law on the population fiber supplies structured posterior inference. Expected categorical cross-entropy and every declared complexity term enter one negative ELBO, while held-out next-token evaluation uses only the prefix-measurable prior-predictive law. Navy marks exact constructions, teal marks variational inference, and dashed orange marks empirical tests.
+}
+\label{fig:vfe4-graphical-abstract}
+\end{figure}
+
+\chapter{Scope, Contribution, and Claim Status}
+
+The proposed contribution is an exact-ELBO language-model construction that preserves the program's general agents-as-local-sections geometry and specializes it without turning the token graph into a surrogate manifold. The general principal and statistical associated bundles define the geometric types. Their zero-dimensional population reduction defines the finite latent sample space used by the normalized causal joint. The structured recognition law, source assignments, and categorical decoder are then evaluated against one evidence lower bound.
+
+The generative model is defined before its recognition law and optimization procedure. Consequently, the later ELBO identity is conditional on the fixed normalized joint and normalized \(Q\) that the paper specifies; it is not a premise from which those objects are inferred. The noumenal base is likewise a modeling hypothesis rather than an object identified from text by the ELBO.
+
+The manuscript separates mathematical statements from engineering decisions and empirical predictions according to \cref{tab:claim-status}. This separation applies throughout: a valid probability model can support exact identities even when posterior approximation, optimizer behavior, predictive quality, and computational feasibility remain unresolved.
+
+\begin{sciencetable}{Claim status used throughout the VFE 4.0 white paper.}
+\label{tab:claim-status}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.19\textwidth} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{0.25\textwidth}}
+\toprule
+\textbf{Status} & \textbf{Content} & \textbf{Required support} \\
+\midrule
+Definition & General principal, sample, and statistical associated bundles; agents as local statistical sections; zero-dimensional population reduction; internal causal graph; normalized transition and emission factors; source variables; global structured recognition law; information-form Gaussian family; VFE 4.0 objective. & Explicit notation, domains, conditioning sets, normalization assumptions, and a clear distinction between base, population index, and probability graph. \\
+\addlinespace
+Identity/Lemma & Normalization of the directed joint; the ELBO evidence identity and its factorwise decomposition; recovery of agent beliefs as marginals; Gaussian coordinate conversion and factor assembly; gauge transformation laws. & Algebra from the later-defined normalized joint and \(Q\), with every support, measurability, and integrability assumption stated. \\
+\addlinespace
+Proposition & Gauge invariance under simultaneous pushforward; preservation of population-block precision sparsity; flatness of the same-point frame coboundary; absence of smooth base curvature in the zero-dimensional reduction; nonclosure of diagonal covariance under general \(\mathrm{GL}(K)\). & Proof or proof sketch with the applicable group, representation, reference measure, and invertibility assumptions. \\
+\addlinespace
+Implementation choice & Sparse Cholesky or related sparse factorization; solver, damping, storage, recognition parameterization, and approximation choices. & Numerical specification and verification against analytic reference problems. \\
+\addlinespace
+Implementation verification & ELBO decomposition, information--moment equality, marginal consistency, prefix measurability, complete-objective update acceptance, and numerical population-frame covariance. & Deterministic high-precision references or declared error budgets, finite-precision contracts, and complete-objective checks. \\
+\addlinespace
+Synthetic adequacy test & Structured versus factorized recognition on a model with an independently available exact posterior. & Matched optimization and a separately generated factorizing control. \\
+\addlinespace
+Empirical hypothesis & Information-form cost, held-out prediction, sparse execution, and any benefit from internal equivariance or nontrivial graph links. & Frozen comparison protocols, matched controls, uncertainty intervals, and explicit decision rules. \\
+\bottomrule
+\end{tabularx}
+\end{sciencetable}
+
+The exact core excludes claims that are not consequences of its factorization. The paper therefore does not call the recognition law exact, infer optimizer convergence from the ELBO identity, identify the base manifold from language data, or treat population-frame covariance as evidence of predictive benefit. Extensions such as a latent connection on a positive-dimensional base, independent graph links with internal cycle holonomy, configuration-space Gibbs laws, and additional \(h\to s\to p\to q\) factors require their own normalized constructions before they can enter the same claim class.

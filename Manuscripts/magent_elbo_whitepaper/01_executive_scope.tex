@@ -1,0 +1,61 @@
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,matrix,positioning,shapes.geometric}
+
+\chapter*{Executive Summary}
+\addcontentsline{toc}{chapter}{Executive Summary}
+\markboth{Executive Summary}{}
+
+This paper develops a typed finite-design construction for gauge-covariant multi-agent variational inference. The construction begins with agents as local section-bearing objects over a contextual base, evaluates their sample fibers on one context or a finite design, and then defines one normalized generative law and one generally correlated recognition law on the resulting finite product space. Under positive finite evidence, posterior absolute continuity, and the stated logarithmic integrability assumptions, the exact evidence lower bound (ELBO) follows from those probability measures. Agent-block and fully factorized mean-field laws enter only as restrictions of the correlated recognition family; they do not replace the geometric ontology.
+
+The theory has two probability levels. The state level describes finite populations of state and model samples conditional on structural data. The optional configuration level randomizes the structural data themselves and therefore requires its own prior, posterior, reference measure, entropy, and normalization argument. This separation prevents state entropy, categorical source entropy, and configuration entropy from being combined as though they belonged to one sample space. It also keeps the configuration-Gibbs construction distinct from a state-level ELBO on the original agent latents.
+
+The geometric reference construction uses one principal \(G\)-bundle. State and model channels carry different representations of the same principal-frame change, so their represented actions are linked and cannot be selected independently. Frame comparisons of the form \(U_i(c)U_j(c)^{-1}\), evaluated pointwise at one common context in the shared support of a closed interaction walk, are coboundaries and have a trivial loop product. Comparisons across contexts require base parallel transport before they can be composed. Nontrivial discrete holonomy requires independently declared edge links on an interaction complex. A connection along curves in the contextual base remains a separate object, and the interaction graph is never identified with that base.
+
+Nothing in this paper asserts that the active MAgent executable already implements the correlated-state ELBO developed here. The executable supplies a legacy node-local population objective whose mathematical and computational status is audited separately. Exact identities, proved propositions, inherited legacy results, implementation facts, finite verification targets, and open constructions are labeled according to the claim taxonomy below. This division is part of the mathematical statement rather than a rhetorical qualification: changing the random object, reference measure, or conditioning set changes the probability model.
+
+The continuum distribution-valued sections are the primary geometric theory, while the exact state results form a separately typed finite-site realization on a declared design. No continuum section-space measure, normalized loopy interaction model, or normalizable noncompact gauge ensemble is constructed. Sampling continuum sections on the design and marginalizing the finite recognition law are different maps; equality of their outputs is an additional compatibility hypothesis, not a consequence of the finite law. The Gaussian reverse-KL covariance and determinant results require an exact nondegenerate Gaussian posterior and the declared block-product family, while coordinate monotonicity requires exact coordinate solutions or accepted proposals. The paper reports no new empirical result, and a local trivialization with coboundary frame data establishes neither nontrivial topology nor global triviality.
+
+\chapter{Scope, Contribution, and Claim Status}
+\label{ch:scope}
+
+\section{Construction boundary}
+
+The paper is a standalone MAgent theory document and not an amendment to the VFE 4.0 language-model construction. Its order is geometric typing, finite evaluation, normalized generation, correlated recognition, exact evidence algebra, and only then approximation or comparison. The geometry remains section-valued over the contextual base \(\mathcal C\), whereas every exact probability identity in the state tier is stated at a single context or a finite design. No probability measure on a continuum of sections is inferred from pointwise densities.
+
+The principal contribution is a fixed, posterior-independent joint law \(P_\theta(do,dY\mid X)\) on a finite population product space, together with a normalized recognition kernel \(Q_X(dY\mid o)\). Later chapters derive its exact ELBO, its complete coordinate equations, and the loss incurred by declared Gaussian mean-field restrictions. A separate hierarchical construction permits structural data \(X\) to be random. The common positive factor \(T_{\mathrm{cfg}}\) in that hierarchy scales the complete nested identity; by itself it does not change the relative weighting of the state and configuration sectors.
+
+The paper also locates the established moving-peer consensus functional relative to the new theory. A live term comparing one recognition marginal with a transported second recognition marginal is not, on the fine independently variable design-point-factorized mean-field family stated in Theorem~\ref{thm:magent-moving-peer-obstruction}, the energy sector of a fixed-joint mean-field ELBO. The theorem does not cover the coarser cross-design recognition factors of Chapter~\ref{ch:mean-field-theory}. Frozen sources, restricted families, compatible auxiliary variables, zero within-scale coupling, and configuration-level Gibbs measures remain separate admissible constructions. The scoped obstruction therefore limits one representation claim on that fine family; it does not rule out multi-agent probabilistic modeling.
+
+\section{Related work and novelty boundary}
+
+Coordinate-ascent variational inference and variational message passing localize standard mean-field updates for a fixed graphical model; their local computations do not change which normalized joint is being approximated \citep{WinnBishop2005,Blei2017,Wainwright2008}. Structured stochastic variational inference instead retains declared dependence between global parameters and local latent variables that a fully factorized family removes \citep{HoffmanBlei2015}. The correlated recognition kernel used here belongs to that broad structured-inference lineage, but its coordinates are the state and model variables of a finite agent--design population rather than a claim that structured variational inference itself is new.
+
+Bethe, Kikuchi, and region-graph methods optimize free-energy approximations over collections of locally consistent region beliefs \citep{Yedidia2005,Wainwright2008}. Such local consistency does not by itself turn the region functional into the ordinary evidence lower bound of one normalized loopy global law. Partitioned variational inference divides likelihood or client contributions around uncertainty in shared global parameters \citep{Ashman2022PVI}; the construction here instead partitions population latent coordinates and permits the recognition law to retain cross-agent covariance. Federated belief sharing supplies relevant multi-agent context \citep{friston2024federated}, but it does not establish that the legacy scalar built from live-peer KL terms is the ELBO of one posterior-independent joint.
+
+Gauge-equivariant convolutional and transformer architectures already impose local-frame equivariance on neural feature fields \citep{cohen2019gauge,He2021GaugeEquivariantTransformer,Bronstein2021,weiler2021coordinate}. The present construction instead studies simultaneous pushforward of generative and recognition probability measures on associated statistical fibers. The contribution claimed here is the combination, in one typed construction, of a posterior-independent finite-population joint on associated statistical fibers, correlated recognition with explicit mean-field reductions, a separately normalized configuration tier, and the moving-peer obstruction scoped to the fine design-point-factorized mean-field family. No historical priority is claimed for structured variational inference, variational message passing, region methods, partitioned or federated inference, or gauge-equivariant learning.
+
+\section{Claim taxonomy}
+
+Table~\ref{tab:claim-taxonomy} assigns each recurring claim class a proof obligation and a representative use in this paper. The labels are not interchangeable. An algebraic identity can hold without an optimizer converging, an implementation fact can hold without establishing the proposed theory, and an open proposal remains open until its existence conditions have been proved.
+
+\begin{sciencetable}{Claim classes and their proof obligations in this paper.}
+\label{tab:claim-taxonomy}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}p{0.31\textwidth}>{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Status} & \textbf{Meaning} & \textbf{Representative placement} \\
+\midrule
+Definition & A declared mathematical type, convention, or construction. & The principal and associated bundles, finite-design sample spaces, normalized kernels, and recognition families. \\
+Identity & An equality obtained from normalization or algebra under the stated support and finiteness assumptions. & The state ELBO equality and the nested state--configuration ELBO equality. \\
+Proposition & A proved consequence with explicit hypotheses. & The Gaussian block-mean-field optimum and its determinant-form evidence gap. \\
+Legacy theorem & A previously established project result restated with its original scope and exceptions. & The moving-peer mixed-variation obstruction to a fixed-joint representation on the fine design-point-factorized open mean-field family; no result is asserted for the coarser cross-design factors. \\
+Implementation fact & A statement established by tracing the active executable rather than by the new theory. & The runtime objective, transport path, and update schedule recorded in the executable crosswalk. \\
+Verification target & A finite symbolic, numerical, or property-based test whose success checks a stated formula but is not itself a theorem. & Normalization, gauge-covariance, Gaussian determinant-gap, and finite-difference oracles. \\
+Open proposal & A construction for which one or more existence, normalization, convergence, or empirical obligations remain. & A noncompact configuration theory over Gaussian fields and \(\mathrm{GL}^{+}(K)\) frames, pending a proper reference law, gauge treatment, and partition-function proof. \\
+\bottomrule
+\end{tabularx}
+\end{sciencetable}
+
+\section{Nonclaims and verification standard}
+
+An ELBO identity proves neither convergence of finite optimization steps nor adequacy of a variational family. A gauge-covariant formula proves neither nontrivial bundle topology nor nonzero curvature. A finite collection of probability laws proves neither existence nor normalizability of a continuum random field. Likewise, agreement between a legacy scalar and one restricted Gaussian formula does not make the active runtime an implementation of the correlated-state model.
+
+The verification program therefore follows the claim types. Exact equalities are checked by independent algebra and finite test instances; geometric formulas are audited through domains, codomains, and transformation laws; implementation statements are traced through executable paths without changing the active configuration; and open proposals retain their missing hypotheses. Standard variational and information-theoretic terminology follows established sources \citep{Kullback1951,Csiszar1967,Bishop2006,Blei2017,Wainwright2008}.

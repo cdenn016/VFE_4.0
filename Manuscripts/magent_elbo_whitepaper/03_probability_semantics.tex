@@ -1,0 +1,148 @@
+\chapter[Observations, Latent Variables, Structural Data, and Reference Measures]{Observations, Latent Variables,\\Structural Data, and Reference Measures}
+\label{ch:probability-semantics}
+
+\section{Finite-design evaluation}
+
+The geometric fields of Chapter~\ref{ch:bundle-geometry} may be defined over all of \(\mathcal C\), but the exact probabilistic model begins with a finite design
+\begin{equation}
+D=\{c_a\}_{a=1}^{M}\subseteq\mathcal C,
+\label{eq:finite-design}
+\end{equation}
+where the displayed \(c_a\) are distinct. For the reference presentation, \(D\subseteq\bigcap_{i=1}^{N}\mathcal U_i\), so every listed agent is defined at every design point. A sparse-support extension replaces the rectangular index set by the declared incidence set \(\{(i,a):c_a\in\mathcal U_i\}\); it does not insert undefined fibers into a product.
+
+At \(c_a\), agent \(i\) has measurable state and model sample fibers \((\mathsf K_{i,c_a},\mathscr K_{i,c_a})\) and \((\mathsf M_{i,c_a},\mathscr M_{i,c_a})\). Finite evaluation produces the measurable product space
+\begin{equation}
+\mathsf Y_D
+=\prod_{a=1}^{M}\prod_{i=1}^{N}
+\left(\mathsf K_{i,c_a}\times\mathsf M_{i,c_a}\right),
+\label{eq:finite-population-sample-space}
+\end{equation}
+equipped with the corresponding finite product sigma-algebra \(\mathscr Y_D\). For a sample-field realization \(y=((k_i,m_i))_{i=1}^{N}\) defined on \(D\), the evaluation map is
+\begin{equation}
+\operatorname{Ev}_D(y)
+=\left((k_i(c_a),m_i(c_a))_{i=1}^{N}\right)_{a=1}^{M}
+\in\mathsf Y_D.
+\label{eq:sample-evaluation-map}
+\end{equation}
+Evaluating a distribution-valued section has a different codomain: \(q_i^{o,X}(c_a)\) is a probability measure on \(\mathsf K_{i,c_a}\), and \(s_i^{o,X}(c_a)\) is a probability measure on \(\mathsf M_{i,c_a}\). A section value is therefore not an element of \(\mathsf Y_D\). The finite random vector \(Y_D\) takes values in \(\mathsf Y_D\), while its component laws may agree with those sampled continuum-section values only under the compatibility hypothesis stated below.
+
+Let \((\mathsf O_{i,c_a},\mathscr O_{i,c_a})\) be the observation space associated with agent \(i\) at \(c_a\). The finite observation space is
+\begin{equation}
+\mathsf O_D
+=\prod_{a=1}^{M}\prod_{i=1}^{N}\mathsf O_{i,c_a},
+\qquad
+\mathscr O_D
+=\bigotimes_{a=1}^{M}\bigotimes_{i=1}^{N}\mathscr O_{i,c_a}.
+\label{eq:finite-observation-space}
+\end{equation}
+The realized observation is denoted \(o\in\mathsf O_D\). Missing or aggregated observations require a separately declared observation map or kernel; they are not represented by silently deleting latent coordinates.
+
+\section{Structural data and conditioning}
+
+Fix a measurable configuration space \((\mathsf X,\mathscr X)\), and write \(\mathcal P(\mathsf S,\mathscr S)\) for the probability measures on a measurable space \((\mathsf S,\mathscr S)\). Every \(X\in\mathsf X\) uses the same design \(D\), agent index set, incidence pattern, and measurable identifications of its latent and observation fibers with the declared spaces \((\mathsf Y_D,\mathscr Y_D)\) and \((\mathsf O_D,\mathscr O_D)\). Accordingly, these sample spaces and sigma-algebras do not vary with \(X\). The configuration may contain a finite directed graph or forest on the fixed incidence structure, deterministic Regime-I frames or Regime-II link values, root and transition parameters, observation-kernel parameters, and other structural values. Conditioning on \(X\) is part of the type of every state-level kernel. A factor of the fixed generative model may not read a live marginal of the recognition law.
+
+Later configuration chapters may make \(X\) random only within this fixed measurable space. At that different probability level, \(P_0\in\mathcal P(\mathsf X,\mathscr X)\) will denote a configuration prior, \(R:(\mathsf O_D,\mathscr O_D)\to\mathcal P(\mathsf X,\mathscr X)\) a configuration recognition kernel, and \(\rho_0\in\mathcal P(\mathsf X,\mathscr X)\) a reference probability measure for a configuration-Gibbs construction. For every \(B\in\mathscr X\), the map \(o\mapsto R(B\mid o)\) is \(\mathscr O_D\)-measurable. Thus neither \(P_0\) nor \(R\) changes \(D\), the incidence pattern, or the identified fibers. None of these objects is denoted \(q_i\). The unindexed symbols \(q_i\) and \(s_i\) remain continuum state and model sections in one fixed theoretical state; finite recognition marginals carry both the design index and the \((o,X)\) dependence.
+
+The finite design is not by itself a lattice gauge theory. Its coordinate marginal laws are site or matter-field data. A lattice-gauge construction additionally requires a declared interaction complex with separately declared group-valued link degrees of freedom on oriented edges; plaquette holonomy or discrete curvature further requires declared two-cells. These are the structural ingredients of the standard lattice formulation, not consequences of choosing finitely many contexts \citep{WilsonConfinement1974,KogutSusskind1975,Creutz1983}.
+
+\section{Reference measures and normalized kernels}
+
+Each continuous Euclidean sample coordinate is assigned its Borel sigma-algebra and Lebesgue base measure. Each discrete coordinate is assigned its power-set sigma-algebra and counting base measure. More general fibers require an explicitly declared sigma-finite base measure. Denote the component measures by \(\nu^k_{i,a}\), \(\nu^m_{i,a}\), and \(\nu^o_{i,a}\), and define the finite product reference measures
+\begin{align}
+\nu_D^Y
+&=\bigotimes_{a=1}^{M}\bigotimes_{i=1}^{N}
+\left(\nu^k_{i,a}\otimes\nu^m_{i,a}\right),
+\label{eq:latent-reference-measure}\\
+\nu_D^O
+&=\bigotimes_{a=1}^{M}\bigotimes_{i=1}^{N}\nu^o_{i,a}.
+\label{eq:observation-reference-measure}
+\end{align}
+Probability measures and Markov kernels are primary. Densities are Radon--Nikodym derivatives relative to the displayed reference measures, and any two versions that agree outside a null set of the declared reference measure represent the same density. Under a non-volume-preserving frame change, the density and base-measure Jacobian transform together so that the pushforward probability measure remains the typed object.
+
+For each fixed \(X\), the generative model is a normalized probability kernel
+\begin{equation}
+P_\theta:(\mathsf X,\mathscr X)\longrightarrow
+\mathcal P\left(\mathsf O_D\times\mathsf Y_D,
+\mathscr O_D\otimes\mathscr Y_D\right),
+\qquad
+X\longmapsto P_\theta(\mathord\cdot\mid X).
+\label{eq:generative-kernel-type}
+\end{equation}
+For every measurable \(A\subseteq\mathsf O_D\times\mathsf Y_D\), the map \(X\mapsto P_\theta(A\mid X)\) is \(\mathscr X\)-measurable. When \(P_\theta(\mathord\cdot\mid X)\) is absolutely continuous with respect to \(\nu_D^O\otimes\nu_D^Y\), its density \(p_\theta(o,y\mid X)\) is defined by
+\begin{equation}
+P_\theta(do,dY\mid X)
+=p_\theta(o,y\mid X)\nu_D^O(do)\nu_D^Y(dy).
+\label{eq:generative-density-reference-measures}
+\end{equation}
+The evidence is the normalized marginal
+\begin{equation}
+p_\theta(o\mid X)
+=\int_{\mathsf Y_D}p_\theta(o,y\mid X)\nu_D^Y(dy).
+\label{eq:evidence-density-definition}
+\end{equation}
+
+The recognition model is a normalized Markov kernel
+\begin{equation}
+Q:(\mathsf O_D\times\mathsf X,
+\mathscr O_D\otimes\mathscr X)
+\longrightarrow\mathcal P(\mathsf Y_D,\mathscr Y_D),
+\qquad
+(o,X)\longmapsto Q_X(dY\mid o).
+\label{eq:recognition-kernel-type}
+\end{equation}
+It is generally correlated across agents, design points, and channels. Define the finite marginalization maps by
+\begin{align}
+\operatorname{Marg}_{i,a}^{k}:
+\mathcal P(\mathsf Y_D,\mathscr Y_D)
+&\longrightarrow\mathcal P(\mathsf K_{i,c_a},\mathscr K_{i,c_a}),
+&R&\longmapsto\left(\operatorname{pr}_{i,a}^{k}\right)_{\#}R,
+\label{eq:finite-state-marginalization-map}\\
+\operatorname{Marg}_{i,a}^{m}:
+\mathcal P(\mathsf Y_D,\mathscr Y_D)
+&\longrightarrow\mathcal P(\mathsf M_{i,c_a},\mathscr M_{i,c_a}),
+&R&\longmapsto\left(\operatorname{pr}_{i,a}^{m}\right)_{\#}R.
+\label{eq:finite-model-marginalization-map}
+\end{align}
+For concise pair notation, define
+\begin{equation}
+\operatorname{Marg}_{i,a}^{k,m}
+:=\left(\operatorname{Marg}_{i,a}^{k},
+\operatorname{Marg}_{i,a}^{m}\right).
+\label{eq:collective-finite-marginalization-map}
+\end{equation}
+The state and model coordinate marginals of the recognition kernel are therefore
+\begin{equation}
+\begin{aligned}
+q_{i,a}^{o,X}
+&:=\operatorname{Marg}_{i,a}^{k}\left(Q_X(\mathord\cdot\mid o)\right)\\
+&=\left(\operatorname{pr}_{i,a}^{k}\right)_{\#}Q_X(\mathord\cdot\mid o),\\
+s_{i,a}^{o,X}
+&:=\operatorname{Marg}_{i,a}^{m}\left(Q_X(\mathord\cdot\mid o)\right)\\
+&=\left(\operatorname{pr}_{i,a}^{m}\right)_{\#}Q_X(\mathord\cdot\mid o).
+\end{aligned}
+\label{eq:recognition-marginal-sections}
+\end{equation}
+Specifying all of these marginals does not specify \(Q_X\): their cross-agent, cross-design, and cross-channel dependence remains undetermined. The correlated finite population law is therefore primitive at the inference level. It does not define continuum sections. When the continuum theory is given observation- and configuration-dependent sections, agreement with the finite realization is the additional compatibility hypothesis
+\begin{equation}
+q_i^{o,X}(c_a)=q_{i,a}^{o,X},
+\qquad
+s_i^{o,X}(c_a)=s_{i,a}^{o,X}
+\quad\text{for every }i,a.
+\label{eq:continuum-finite-marginal-compatibility}
+\end{equation}
+Equivalently, the tuples produced by \(\operatorname{Samp}_{D,i}^{k,m}\) agree coordinatewise with those produced by \(\operatorname{Marg}_{i,a}^{k,m}\). Neither side constructs the other, and no unique smooth extension of the finite marginals is implied.
+
+\section{Support and finiteness conditions}
+
+For an observed \(o\) and fixed \(X\), assume \(0<p_\theta(o\mid X)<\infty\). Assume also that \(Q_X(\mathord\cdot\mid o)\) is absolutely continuous with respect to the posterior \(P_\theta(\mathord\cdot\mid o,X)\). In density form, \(q_X(y\mid o)>0\) may occur only where \(p_\theta(o,y\mid X)>0\), up to a \(Q_X\)-null set. The logarithmic terms used by the ELBO must satisfy
+\begin{equation}
+\mathbb E_{Q_X}
+\left[
+\left|\log p_\theta(o,Y\mid X)\right|
++\left|\log q_X(Y\mid o)\right|
+\right]<\infty.
+\label{eq:elbo-integrability-condition}
+\end{equation}
+These assumptions make the density ratios and expectations well-defined. If a later result permits extended-real relative entropy, that relaxation will be stated locally rather than hidden in the notation. The relative-entropy convention follows the measure-theoretic formulations of \citet{Kullback1951} and \citet{Csiszar1967}.
+
+The finite construction supplies only the probability spaces and kernels associated with the declared design \(D\). It does not supply a probability measure on the space of full sections over \(\mathcal C\), a unique smooth extension of the coordinate marginals, or a continuum limit. A continuum probabilistic theory would require refining designs; compatible finite laws, such as a projective system where appropriate; a reconstruction theorem and topology on the candidate section or distribution space; tightness or compactness hypotheses where needed; convergence of the relevant functionals and observables; and control of gauge choices and reference measures. It would also require a proof that any proposed continuum interaction energy is normalizable. None of those conclusions follows from Equation~\eqref{eq:finite-population-sample-space} or the compatibility hypothesis alone. All state-level ELBO claims in this paper therefore remain finite-context claims.

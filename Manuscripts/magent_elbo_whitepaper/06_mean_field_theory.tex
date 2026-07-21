@@ -1,0 +1,327 @@
+\chapter{Explicit Mean-Field Theory}
+\label{ch:mean-field-theory}
+
+This chapter restricts the recognition law of Chapter~\ref{ch:structured-recognition-elbo} while leaving the normalized generative kernel of Chapter~\ref{ch:generative-model} unchanged. The restriction neither replaces an agent by a variational factor nor changes the section-bearing agent ontology. It selects smaller families of probability measures on the same finite-design latent space.
+
+\section{Nested product families on the finite design}
+
+For each agent, collect its coordinates across the declared design as
+\begin{equation}
+k_i^D=(k_{i,a})_{a=1}^{M},
+\qquad
+m_i^D=(m_{i,a})_{a=1}^{M}.
+\label{eq:mean-field-design-blocks}
+\end{equation}
+The agent-block family and the finer state--model product family are
+\begin{align}
+Q_{X,\mathrm{block}}(dY\mid o)
+&=\prod_{i=1}^{N}Q_{X,i}(dk_i^D,dm_i^D\mid o),
+\label{eq:agent-block-recognition-family}\\
+Q_{X,\mathrm{MF}}(dY\mid o)
+&=\prod_{i=1}^{N}Q^k_{X,i}(dk_i^D\mid o)Q^m_{X,i}(dm_i^D\mid o).
+\label{eq:state-model-recognition-family}
+\end{align}
+Thus the first family removes dependence between distinct agents but permits dependence between the state and model channels of one agent. The second also removes state--model dependence within each agent. Write \(Q_{X,-(i,k)}\) for the product of every factor in Equation~\eqref{eq:state-model-recognition-family} except \(Q^k_{X,i}\), and write \(Q_{X,-(i,m)}\) for the corresponding complement of \(Q^m_{X,i}\). These finite-design factor measures are distinct from the continuum sections \(q_i\) and \(s_i\). Neither equation requires factorization across the design points inside one displayed factor. A still finer design-point product would be an additional restriction and would require its own declared partition.
+
+For the density-form CAVI equations, assume the finite factor measures are dominated by the corresponding design-product base measures
+\begin{equation}
+\nu_i^{k,D}:=\bigotimes_{a=1}^{M}\nu_{i,a}^{k},
+\qquad
+\nu_i^{m,D}:=\bigotimes_{a=1}^{M}\nu_{i,a}^{m},
+\label{eq:mean-field-factor-base-measures}
+\end{equation}
+and define their distinct density symbols by
+\begin{align}
+Q_{X,i}(dk_i^D,dm_i^D\mid o)
+&=\xi^{\mathrm{block}}_{X,i}(k_i^D,m_i^D\mid o)
+\left(\nu_i^{k,D}\otimes\nu_i^{m,D}\right)(dk_i^D,dm_i^D),
+\label{eq:agent-block-factor-density}\\
+Q^k_{X,i}(dk_i^D\mid o)
+&=\xi^k_{X,i}(k_i^D\mid o)\nu_i^{k,D}(dk_i^D),
+\label{eq:state-factor-density}\\
+Q^m_{X,i}(dm_i^D\mid o)
+&=\xi^m_{X,i}(m_i^D\mid o)\nu_i^{m,D}(dm_i^D).
+\label{eq:model-factor-density}
+\end{align}
+Thus \(Q_{X,i},Q^k_{X,i},Q^m_{X,i}\) are probability measures, whereas \(\xi^{\mathrm{block}}_{X,i},\xi^k_{X,i},\xi^m_{X,i}\) are their Radon--Nikodym densities. The three explicit Markov-blanket coordinate logarithms below apply to these densities, never to the capital factor measures.
+
+Let \(\mathfrak B\) denote any finite measurable partition of the coordinates of \(Y_D\), and write \(Y=(Y_b,Y_{-b})\) for one block and its complement. A product-family member has density
+\begin{equation}
+q(y)=q_b(y_b)q_{-b}(y_{-b}),
+\qquad
+q_{-b}(y_{-b})=\prod_{c\in\mathfrak B\setminus\{b\}}q_c(y_c),
+\label{eq:generic-product-recognition-density}
+\end{equation}
+relative to the corresponding finite product base measure. The product factors are recognition objects only; every expectation below is evaluated against the same fixed \(p_\theta(o,y\mid X)\).
+
+\section{Normalized functional coordinate equation}
+
+Fix every factor except \(q_b\), and define the expected log joint
+\begin{equation}
+g_b(y_b)
+=\E_{Q_{-b}}\left[\log p_\theta(o,y_b,Y_{-b}\mid X)\right].
+\label{eq:cavi-expected-log-joint}
+\end{equation}
+Assume that \(g_b\) has a measurable finite version \(\nu_b\)-almost everywhere, that the product ELBO is well-defined under the componentwise absolute-log-integrability condition used in Equation~\eqref{eq:state-free-energy-factorization}, and that
+\begin{equation}
+0<Z_b
+:=\int \exp\bigl(g_b(u_b)\bigr)\nu_b(du_b)<\infty.
+\label{eq:cavi-coordinate-existence}
+\end{equation}
+These conditions permit Fubini's theorem and define a normalized candidate. If the integral is zero or infinite, or if the expected log joint has no measurable finite version \(\nu_b\)-almost everywhere, the coordinate displayed below need not exist.
+
+For a bounded signed perturbation \(\delta q_b\) with \(\int\delta q_b d\nu_b=0\), the terms of the state ELBO that depend on \(q_b\) are
+\begin{equation}
+\mathcal J_b(q_b)
+=\int q_b(y_b)g_b(y_b)\nu_b(dy_b)
+-\int q_b(y_b)\log q_b(y_b)\nu_b(dy_b).
+\label{eq:cavi-coordinate-functional}
+\end{equation}
+Introducing a multiplier \(\lambda_b\) for \(\int q_b d\nu_b=1\), the first variation is
+\begin{equation}
+\delta\left\{\mathcal J_b(q_b)
++\lambda_b\left(\int q_b d\nu_b-1\right)\right\}
+=\int\delta q_b(y_b)
+\left[g_b(y_b)-\log q_b(y_b)-1+\lambda_b\right]\nu_b(dy_b).
+\label{eq:cavi-constrained-first-variation}
+\end{equation}
+Stationarity for every admissible perturbation, followed by normalization, gives
+\begin{align}
+\log q_b^\star(y_b)
+&=\E_{Q_{-b}}\left[\log p_\theta(o,Y\mid X)\right]-\log Z_b,
+\label{eq:cavi-normalized-coordinate-log}\\
+q_b^\star(y_b)
+&=\frac{\exp\left(\E_{Q_{-b}}[\log p_\theta(o,Y\mid X)]\right)}
+{\displaystyle\int
+\exp\left(\E_{Q_{-b}}[\log p_\theta(o,u_b,Y_{-b}\mid X)]\right)
+\nu_b(du_b)}.
+\label{eq:cavi-normalized-coordinate-density}
+\end{align}
+The additive constant in Equation~\eqref{eq:cavi-normalized-coordinate-log} is explicitly the negative log integral \(-\log Z_b\), not an unspecified parameter. Equivalently, subtracting the value at \(q_b^\star\) from Equation~\eqref{eq:cavi-coordinate-functional} gives \(-\KL(q_b\Vert q_b^\star)\), so \(q_b^\star\nu_b\) is the unique coordinate-maximizing probability measure whenever the displayed relative entropy is defined; its density version is unique only up to \(\nu_b\)-null sets \citep{Bishop2006,Blei2017,Wainwright2008}.
+
+\section{Complete directed Markov blankets}
+
+Let \(\operatorname{ch}(i)=\{\ell\in V:i\in\operatorname{pa}(\ell)\}\). For each design point, define the receiving log factors using the root conventions of Chapter~\ref{ch:generative-model}:
+\begin{align}
+\ell_{i,a}^{m}
+&=
+\begin{cases}
+\log p_{\theta,i,a}^{m}(m_{i,a}\mid X),&i\in\mathcal R,\\
+\log p_{\theta,i,a}^{m}(m_{i,a}\mid m_{\operatorname{pa}(i),a},X),&i\notin\mathcal R,
+\end{cases},
+\label{eq:model-receiving-log-factor}\\
+\ell_{i,a}^{k}
+&=
+\begin{cases}
+\log p_{\theta,i,a}^{k}(k_{i,a}\mid m_{i,a},X),&i\in\mathcal R,\\
+\log p_{\theta,i,a}^{k}(k_{i,a}\mid k_{\operatorname{pa}(i),a},m_{i,a},X),&i\notin\mathcal R,
+\end{cases},
+\label{eq:state-receiving-log-factor}\\
+\ell_{i,a}^{o}
+&=\log p_{\theta,i,a}^{o}(o_{i,a}\mid k_{i,a},m_{i,a},X).
+\label{eq:observation-log-factor}
+\end{align}
+
+In the state--model family of Equation~\eqref{eq:state-model-recognition-family}, the exact coordinate for the complete state factor of agent \(i\) is
+\begin{align}
+\log \bigl(\xi^k_{X,i}\bigr)^\star(k_i^D\mid o)
+={}&\sum_{a=1}^{M}\E_{Q_{X,-(i,k)}}\left[
+\ell_{i,a}^{k}+\ell_{i,a}^{o}
++\sum_{\ell\in\operatorname{ch}(i)}
+\log p_{\theta,\ell,a}^{k}
+(k_{\ell,a}\mid k_{\operatorname{pa}(\ell),a},m_{\ell,a},X)
+\right]
+-\log Z_i^k.
+\label{eq:complete-state-cavi-coordinate}
+\end{align}
+The child sum is present because \(k_i\) occurs as a conditioning variable in every outgoing state transition. Likewise, the complete model-factor coordinate is
+\begin{align}
+\log \bigl(\xi^m_{X,i}\bigr)^\star(m_i^D\mid o)
+={}&\sum_{a=1}^{M}\E_{Q_{X,-(i,m)}}\left[
+\ell_{i,a}^{m}+\ell_{i,a}^{k}+\ell_{i,a}^{o}
++\sum_{\ell\in\operatorname{ch}(i)}
+\ell_{\ell,a}^{m}
+\right]
+-\log Z_i^m.
+\label{eq:complete-model-cavi-coordinate}
+\end{align}
+Here \(\ell_{i,a}^{k}\) is the local state bridge or receiving transition, which depends on \(m_i\), and \(\ell_{i,a}^{o}\) is included because the declared observation kernel depends on both local channels. Every outgoing model transition appears because its parent tuple contains \(m_i\). No outgoing child-state factor in the fixed joint depends on a parent model coordinate; if a different joint introduced such a dependence, that factor would also belong in Equation~\eqref{eq:complete-model-cavi-coordinate}. The constants \(-\log Z_i^k\) and \(-\log Z_i^m\) normalize the complete design-block factors under the existence conditions of Equation~\eqref{eq:cavi-coordinate-existence}.
+
+For the coarser agent block, the corresponding complete coordinate combines both blankets:
+\begin{align}
+&\log \bigl(\xi^{\mathrm{block}}_{X,i}\bigr)^\star
+\left(k_i^D,m_i^D\mid o\right)\notag\\
+&\quad={}
+\sum_{a=1}^{M}\E_{Q_{X,-i}}\left[
+\ell_{i,a}^{m}+\ell_{i,a}^{k}+\ell_{i,a}^{o}
+\right.\notag\\
+&\left.\qquad+
+\sum_{\ell\in\operatorname{ch}(i)}
+\left\{
+\ell_{\ell,a}^{m}+\ell_{\ell,a}^{k}
+\right\}
+\right]
+-\log Z_i^{\mathrm{block}}.
+\label{eq:complete-agent-block-cavi-coordinate}
+\end{align}
+
+An update that retains only the receiving factor and perhaps the local observation while omitting either child sum is a receiver-only local surrogate. It is not coordinate-ascent variational inference for the ELBO in Equation~\eqref{eq:state-elbo-definition}. This distinction holds even if the surrogate is numerically stable or shares a fixed point with CAVI in a special parameter regime.
+
+\section{Gaussian reverse-KL optimum and evidence gap}
+
+Assume the exact posterior for the stacked \(d\)-dimensional finite-design latent vector is
+\begin{equation}
+P_\theta(dy\mid o,X)=\mathcal N(m,J^{-1})(dy),
+\qquad
+J=J^\top\succ0,
+\label{eq:gaussian-exact-posterior}
+\end{equation}
+and declare a block partition \(\mathfrak B\) with block dimensions \(d_b\) satisfying \(\sum_{b\in\mathfrak B}d_b=d\). Restrict recognition to
+\begin{equation}
+Q=\mathcal N(\mu,C),
+\qquad
+C=\operatorname{blockdiag}_{b\in\mathfrak B}(C_b),
+\qquad
+C_b\in\mathbb S_{++}^{d_b}.
+\label{eq:gaussian-block-product-family}
+\end{equation}
+Direct evaluation of the Gaussian density ratio gives
+\begin{equation}
+\KL(Q\Vert P_\theta)
+=\frac12\left[
+\operatorname{tr}(JC)
++(\mu-m)^\top J(\mu-m)
+-d-\log\det J-\log\det C
+\right].
+\label{eq:gaussian-reverse-kl-block}
+\end{equation}
+The first-principles calculation and matrix derivatives are recorded in Appendix~\ref{sec:gaussian-block-reverse-kl-proof}. Differentiation on the open SPD blocks yields
+\begin{equation}
+\nabla_\mu\KL=J(\mu-m),
+\qquad
+\nabla_{C_b}\KL=\frac12\left(J_{bb}-C_b^{-1}\right).
+\label{eq:gaussian-reverse-kl-derivatives}
+\end{equation}
+Strict positive definiteness and strict convexity in each covariance block therefore give the unique optimum
+\begin{equation}
+\mu^\star=m,
+\qquad
+C_b^\star=J_{bb}^{-1}.
+\label{eq:gaussian-block-reverse-kl-optimum}
+\end{equation}
+The mean is exact even though the recognition covariance is restricted. The covariance result concerns the diagonal blocks of posterior precision. In general,
+\begin{equation}
+J_{bb}^{-1}\neq(J^{-1})_{bb},
+\label{eq:precision-block-not-marginal-covariance}
+\end{equation}
+because \((J^{-1})_{bb}\) is the posterior marginal covariance and includes the Schur-complement effect of every other block.
+
+The same conclusion appears from Gaussian CAVI. Writing the posterior information vector as \(h=Jm\), one coordinate has covariance \(J_{bb}^{-1}\) and mean update
+\begin{equation}
+\mu_b^{\mathrm{new}}
+=J_{bb}^{-1}
+\left(h_b-\sum_{c\in\mathfrak B\setminus\{b\}}J_{bc}\mu_c\right).
+\label{eq:gaussian-cavi-mean-update}
+\end{equation}
+Every fixed point satisfies \(J\mu=h\), hence \(\mu=m\).
+
+Write \(\mathcal L_{\mathfrak B}^\star=\Lstate(Q_{\mathfrak B}^\star;X)\) for the state ELBO evaluated at this block-Gaussian optimum. At the optimum, \(\operatorname{tr}(JC^\star)=d\) and \(\log\det C^\star=-\sum_b\log\det J_{bb}\). Combining Equation~\eqref{eq:state-evidence-identity} with Equation~\eqref{eq:gaussian-reverse-kl-block} gives
+\begin{equation}
+\log p_\theta(o\mid X)-\mathcal L_{\mathfrak B}^\star
+=\frac12\log
+\frac{\displaystyle\prod_{b\in\mathfrak B}\det J_{bb}}
+{\det J}.
+\label{eq:gaussian-mean-field-evidence-gap}
+\end{equation}
+The block Fischer determinant inequality for \(J\succ0\) states
+\begin{equation}
+\det J\leq\prod_{b\in\mathfrak B}\det J_{bb},
+\label{eq:block-fischer-determinant-inequality}
+\end{equation}
+with equality if and only if every off-diagonal block under the declared partition vanishes \citep{HornJohnson2013}. The gap is therefore nonnegative and is zero exactly when \(J\) is block diagonal under \(\mathfrak B\). Appendix~\ref{sec:gaussian-block-reverse-kl-proof} proves the equality condition by successive Schur complements.
+
+For Equation~\eqref{eq:agent-block-recognition-family}, the blocks are \((k_i^D,m_i^D)\), so the criterion removes only cross-agent posterior-precision blocks. For Equation~\eqref{eq:state-model-recognition-family}, the blocks are the separate \(k_i^D\) and \(m_i^D\) coordinates, so the criterion also removes every within-agent state--model precision block. The two determinant gaps refer to different partitions and need not agree.
+
+\begin{figure}[tbp]
+\centering
+\input{magent_elbo_whitepaper/figures/magent_precision_mean_field}
+\caption{\textbf{Gaussian mean field restricts conditional dependence, not posterior covariance.} The exact nondegenerate Gaussian posterior has full precision \(J\). Restricting recognition to the declared block-product family gives the exact reverse-KL optimum \(C_b^\star=J_{bb}^{-1}\) within that family and the displayed nonnegative determinant gap. This restriction removes off-diagonal conditional-dependence blocks from the variational precision description; it does not assert that the exact marginal covariance blocks \((J^{-1})_{bc}\) vanish. A block may collect one agent or split one agent's channels, so matrix blocks must not be identified with the agent ontology without the stated partition.}
+\label{fig:magent-precision-mean-field}
+\end{figure}
+
+\section{Partition-specific zero-coupling controls}
+
+The Gaussian reference joint supplies a direct precision audit. Write
+\begin{equation}
+T_i^k=A_i^k\Omega_{ij}^k,
+\qquad
+T_i^m=A_i^m\Omega_{ij}^m,
+\qquad
+\Lambda_i^k=(Q_i^k)^{-1},
+\qquad
+\Lambda_i^m=(Q_i^m)^{-1},
+\label{eq:gaussian-transition-precision-notation}
+\end{equation}
+for a nonroot edge \(j\to i\), with the root state precision denoted \(\Lambda_{r,0}^k=(Q_{r,0}^k)^{-1}\). Expanding the Gaussian residuals shows that a nonroot model transition contributes the cross-agent precision block \(-\Lambda_i^mT_i^m\) between \(m_i\) and \(m_j\). A nonroot state transition contributes \(-\Lambda_i^kT_i^k\) between \(k_i\) and \(k_j\), \(-\Lambda_i^kB_i\) between \(k_i\) and \(m_i\), and \((T_i^k)^\top\Lambda_i^kB_i\) between \(k_j\) and \(m_i\), together with their transposes. The local observation contributes
+\begin{equation}
+H_i^\top(R_i^o)^{-1}L_i,
+\label{eq:observation-state-model-cross-precision}
+\end{equation}
+to the \((k_i,m_i)\) precision block. Appendix~\ref{sec:gaussian-zero-coupling-proof} derives these signs from the quadratic residuals.
+
+For the agent-block control, require the total assembled posterior-precision block between any two distinct agent blocks to vanish at every design point. A transparent sufficient construction sets \(T_i^k=0\) and \(T_i^m=0\) on every directed edge, thereby removing all parent dependence while preserving normalized receiving kernels. More general cancellations are admissible only when the sum of all cross-agent precision contributions is exactly zero. The bridge matrices \(B_i\) and the local observation cross curvature in Equation~\eqref{eq:observation-state-model-cross-precision} may remain. Since every remaining latent quadratic term is contained within one \((k_i^D,m_i^D)\) block, the posterior precision has the form
+\begin{equation}
+J=\operatorname{blockdiag}_{i=1}^{N}J_{(k_i^D,m_i^D)},
+\label{eq:agent-block-zero-coupling-precision}
+\end{equation}
+the exact posterior belongs to the family in Equation~\eqref{eq:agent-block-recognition-family}, and its determinant gap is zero.
+
+For the fully factorized state--model control, impose the agent-block condition and also require the total \((k_i^D,m_i^D)\) cross-precision block to vanish for every agent. In the displayed Gaussian reference, the local condition at a nonroot is
+\begin{equation}
+-\Lambda_i^kB_i
++H_i^\top(R_i^o)^{-1}L_i
++J_{k_i m_i}^{\mathrm{other}}=0,
+\label{eq:fully-factorized-local-cross-precision-control}
+\end{equation}
+with \(-\Lambda_{r,0}^kB_r\) replacing the first term at a root. The term \(J_{k_i m_i}^{\mathrm{other}}\) denotes the sum of any additional fixed factors that couple the two local channels; it is zero for the joint in Chapter~\ref{ch:generative-model}. Under these conditions,
+\begin{equation}
+J=\operatorname{blockdiag}
+\left(J_{k_1^D},J_{m_1^D},\ldots,J_{k_N^D},J_{m_N^D}\right),
+\label{eq:fully-factorized-zero-coupling-precision}
+\end{equation}
+so the exact posterior belongs to Equation~\eqref{eq:state-model-recognition-family} and the finer determinant gap is zero. Setting one named edge coefficient to zero does not prove either block-diagonality statement, and a small numerical off-diagonal block does not establish exact equality. The theorem requires the complete assembled precision, including all transition, bridge, observation, and other coupling contributions.
+
+\section{A fixed-source categorical row model}
+
+Let \((\mathsf Y_i,\mathscr Y_i,\nu_i)\) be a state sample space. Fix normalized densities \(f_{ij}\) on this space and a normalized prior row \(\pi_i=(\pi_{ij})_{j\in\mathcal J_i}\) with \(\pi_{ij}>0\). Let \(\varrho_i\) be a normalized density satisfying \(\varrho_i\ll f_{ij}\) and \(\KL(\varrho_i\Vert f_{ij})<\infty\) for every candidate source. Define two normalized joint laws on \(\mathsf Y_i\times\mathcal J_i\) by
+\begin{equation}
+P_i(y,j)=\pi_{ij}f_{ij}(y),
+\qquad
+Q_i(y,j)=\beta_{ij}\varrho_i(y),
+\qquad
+\sum_j\beta_{ij}=1.
+\label{eq:fixed-source-row-joints}
+\end{equation}
+Direct expansion of the joint density ratio gives
+\begin{align}
+\KL(Q_i\Vert P_i)
+&=\sum_j\beta_{ij}
+\int \varrho_i(y)
+\log\frac{\beta_{ij}\varrho_i(y)}{\pi_{ij}f_{ij}(y)}\nu_i(dy)
+\label{eq:fixed-source-row-kl-expansion}\\
+&=\sum_j\beta_{ij}\KL(\varrho_i\Vert f_{ij})
++\KL(\beta_i\Vert\pi_i).
+\label{eq:fixed-source-row-kl-decomposition}
+\end{align}
+Minimizing this exact joint KL over the probability simplex and normalizing the Lagrange stationary equation yields
+\begin{equation}
+\beta_{ij}^\star
+=\frac{\pi_{ij}\exp[-\KL(\varrho_i\Vert f_{ij})]}
+{\displaystyle\sum_{\ell\in\mathcal J_i}
+\pi_{i\ell}\exp[-\KL(\varrho_i\Vert f_{i\ell})]}.
+\label{eq:fixed-source-row-optimum}
+\end{equation}
+This formula is exact for fixed normalized component densities and unit temperature. A nonunit temperature is not obtained by inserting a scale into Equation~\eqref{eq:fixed-source-row-optimum} while claiming the same joint KL. It requires a separately normalized tempered construction, including each component's temperature-dependent normalizer. Refreshing \(f_{ij}\) from live recognition marginals also changes \(P_i\) and therefore changes the model between updates.
+
+The categorical entropy of \(\beta_i\) is an auxiliary source-row entropy on \(\mathcal J_i\). It is distinct from the state entropy of \(\varrho_i\) on \(\mathsf Y_i\), and both are distinct from the configuration entropy of a recognition law on \((\mathsf X,\mathscr X)\). Equation~\eqref{eq:fixed-source-row-kl-decomposition} supplies no license to merge or double count those sectors.
+The row-local construction is normalized for one receiver. Multiplying two or more such rows does not by itself define a normalized population joint when their state variables are shared; that would require a separately specified global construction.

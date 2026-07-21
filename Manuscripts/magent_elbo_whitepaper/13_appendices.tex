@@ -1,0 +1,927 @@
+\chapter{Normalization and ELBO Algebra}
+
+This appendix collects the normalization conditions and algebraic conventions needed to state the evidence decomposition from a fixed joint and a normalized recognition law. Its purpose is to make conditioning sets, Radon--Nikodym requirements, and integrability assumptions available in one proof reference.
+
+\section{Finite-design measure conventions}
+
+For the state-tier results, all latent and observation products are finite and carry the finite product sigma-algebras of Chapter~\ref{ch:probability-semantics}. The configuration space \((\mathsf X,\mathscr X)\) has one fixed design, incidence pattern, and set of identified latent and observation fibers, so every state kernel has the same measurable codomain. Continuous coordinates use the declared Borel base measures, discrete coordinates use counting measures, and mixed coordinates use their product. Probability kernels are normalized before densities are introduced. Whenever a logarithmic density ratio is used, its numerator is absolutely continuous with respect to its denominator and both densities are taken relative to a declared dominating measure. These conventions do not define a measure on a continuum of sections.
+
+\section{Radon--Nikodym derivation of the state evidence identity}
+\label{sec:state-elbo-radon-nikodym}
+
+Fix \((o,X)\) under the assumptions of Chapter~\ref{ch:structured-recognition-elbo}. For \(B\in\mathscr Y_D\), the dominated conditional posterior measure is
+\begin{equation}
+P_\theta(B\mid o,X)
+=\frac{1}{p_\theta(o\mid X)}
+\int_B p_\theta(o,y\mid X)\nu_D^Y(dy).
+\label{eq:appendix-posterior-measure}
+\end{equation}
+It is normalized because the denominator is the evidence in Equation~\eqref{eq:evidence-density-definition}. Its density relative to \(\nu_D^Y\) is therefore
+\begin{equation}
+\frac{dP_\theta(\mathord\cdot\mid o,X)}{d\nu_D^Y}(y)
+=\frac{p_\theta(o,y\mid X)}{p_\theta(o\mid X)}.
+\label{eq:appendix-posterior-density}
+\end{equation}
+
+Write \(q_X(y\mid o)=dQ_X(\mathord\cdot\mid o)/d\nu_D^Y\). Absolute continuity of \(Q_X(\mathord\cdot\mid o)\) with respect to the posterior and the Radon--Nikodym chain rule give, \(Q_X\)-almost surely,
+\begin{equation}
+\frac{dQ_X(\mathord\cdot\mid o)}
+{dP_\theta(\mathord\cdot\mid o,X)}(y)
+=\frac{q_X(y\mid o)p_\theta(o\mid X)}
+{p_\theta(o,y\mid X)}.
+\label{eq:appendix-radon-nikodym-ratio}
+\end{equation}
+The declared log-integrability condition permits integration of the logarithm. Hence
+\begin{align}
+\KL\left(
+Q_X(\mathord\cdot\mid o)
+\middle\Vert
+P_\theta(\mathord\cdot\mid o,X)
+\right)
+&=\int_{\mathsf Y_D}
+\log\frac{dQ_X}{dP_\theta(\mathord\cdot\mid o,X)}(y)
+Q_X(dy\mid o)
+\label{eq:appendix-kl-rn-expansion}\\
+&=\E_{Q_X}\left[
+\log q_X(Y\mid o)-\log p_\theta(o,Y\mid X)
+\right]
++\log p_\theta(o\mid X)\notag\\
+&=-\Lstate(Q_X;X)+\log p_\theta(o\mid X).\notag
+\end{align}
+Rearranging Equation~\eqref{eq:appendix-kl-rn-expansion} proves Equation~\eqref{eq:state-evidence-identity}. For probability measures, strict convexity of \(u\mapsto u\log u\) gives
+\(\KL(Q_X(\mathord\cdot\mid o)\Vert P_\theta(\mathord\cdot\mid o,X))=0\) exactly when the Radon--Nikodym derivative equals one \(P_\theta(\mathord\cdot\mid o,X)\)-almost surely. This is equivalent to equality of the two probability measures and proves Equation~\eqref{eq:state-elbo-equality-condition} \citep{Kullback1951,Csiszar1967}.
+
+\section{Joint-KL chain rule for the configuration hierarchy}
+\label{sec:hierarchical-joint-kl-proof}
+
+Fix \(o\) under the assumptions preceding Equation~\eqref{eq:nested-configuration-objective}, and write
+\begin{equation}
+r_o(X)
+=\frac{dR(\mathord\cdot\mid o)}{dP_0}(X).
+\label{eq:appendix-configuration-radon-nikodym-density}
+\end{equation}
+Relative to \(P_0\otimes\nu_D^Y\), the joint recognition and hierarchical posterior densities are
+\begin{equation}
+\frac{d\mathcal Q_o}{d(P_0\otimes\nu_D^Y)}(X,y)
+=r_o(X)q_X(y\mid o),
+\qquad
+\frac{d\mathbf P_\theta(\mathord\cdot,\mathord\cdot\mid o)}
+{d(P_0\otimes\nu_D^Y)}(X,y)
+=\frac{p_\theta(o,y\mid X)}{p_\theta(o)}.
+\label{eq:appendix-hierarchical-densities}
+\end{equation}
+The absolute-continuity assumptions and the Radon--Nikodym chain rule therefore give
+\begin{equation}
+\frac{d\mathcal Q_o}
+{d\mathbf P_\theta(\mathord\cdot,\mathord\cdot\mid o)}(X,y)
+=r_o(X)
+\frac{q_X(y\mid o)p_\theta(o)}
+{p_\theta(o,y\mid X)}
+\quad
+\text{for \(\mathcal Q_o\)-almost every \((X,y)\)}.
+\label{eq:appendix-hierarchical-radon-nikodym-ratio}
+\end{equation}
+The absolute-log-integrability condition permits direct integration of its logarithm:
+\begin{align}
+\KL\left(
+\mathcal Q_o
+\middle\Vert
+\mathbf P_\theta(\mathord\cdot,\mathord\cdot\mid o)
+\right)
+={}&
+\int_{\mathsf X}\log r_o(X)R(dX\mid o)
+\notag\\
+&+\int_{\mathsf X}\int_{\mathsf Y_D}
+\left[
+\log q_X(y\mid o)-\log p_\theta(o,y\mid X)
+\right]
+Q_X(dy\mid o)R(dX\mid o)
+\notag\\
+&+\log p_\theta(o)
+\label{eq:appendix-hierarchical-kl-expansion}\\
+={}&
+\KL\left(R(\mathord\cdot\mid o)\middle\Vert P_0\right)
++\int_{\mathsf X}
+\Fstate[Q_X;X,o]R(dX\mid o)
++\log p_\theta(o).
+\notag
+\end{align}
+Multiplication by \(T_{\mathrm{cfg}}>0\) and rearrangement prove Equation~\eqref{eq:nested-configuration-evidence-identity}.
+
+The same result has the conditional chain-rule form
+\begin{align}
+\KL\left(
+\mathcal Q_o
+\middle\Vert
+\mathbf P_\theta(\mathord\cdot,\mathord\cdot\mid o)
+\right)
+={}&
+\KL\left(
+R(\mathord\cdot\mid o)
+\middle\Vert
+\mathbf P_\theta(\mathord\cdot\mid o)
+\right)
+\label{eq:appendix-hierarchical-conditional-kl-chain-rule}\\
+&+\int_{\mathsf X}
+\KL\left(
+Q_X(\mathord\cdot\mid o)
+\middle\Vert
+P_\theta(\mathord\cdot\mid o,X)
+\right)
+R(dX\mid o).
+\notag
+\end{align}
+To see this directly, factor the Radon--Nikodym derivative in Equation~\eqref{eq:appendix-hierarchical-radon-nikodym-ratio} into the configuration-marginal derivative and the conditional-state derivative, take logarithms, and integrate. Both summands in Equation~\eqref{eq:appendix-hierarchical-conditional-kl-chain-rule} are nonnegative. The joint KL is zero exactly when
+\(R(\mathord\cdot\mid o)=\mathbf P_\theta(\mathord\cdot\mid o)\) and
+\(Q_X(\mathord\cdot\mid o)=P_\theta(\mathord\cdot\mid o,X)\) for \(R\)-almost every \(X\). This proves Equations~\eqref{eq:hierarchical-elbo-equality-condition} and \eqref{eq:hierarchical-elbo-component-equality}.
+
+Dividing the definition of \(\mathcal J\) by \(T_{\mathrm{cfg}}\) also gives the explicit sector audit
+\begin{align}
+\frac{\mathcal J[R,Q]}{T_{\mathrm{cfg}}}
+={}&
+\int_{\mathsf X}\int_{\mathsf Y_D}
+[-\log p_\theta(o,y\mid X)]Q_X(dy\mid o)R(dX\mid o)
+\notag\\
+&+\int_{\mathsf X}\int_{\mathsf Y_D}
+\log q_X(y\mid o)Q_X(dy\mid o)R(dX\mid o)
+\label{eq:appendix-hierarchical-entropy-sector-audit}\\
+&+\int_{\mathsf X}
+\log r_o(X)R(dX\mid o).
+\notag
+\end{align}
+The complete state log-density appears once and the configuration log-density ratio appears once. Any auxiliary source entropy is already included in whichever joint recognition measure contains that source variable.
+
+\section{Normalization identity for the configuration-Gibbs prior}
+\label{sec:configuration-gibbs-proof}
+
+Under Equation~\eqref{eq:configuration-gibbs-partition-function}, define
+\begin{equation}
+g_{\mathcal F}(X)
+=\frac{dP_{\mathcal F}}{d\rho_0}(X)
+=Z_{\mathcal F}^{-1}
+\exp\left[-\frac{\mathcal F_{\mathrm{vac}}(X)}
+{T_{\mathrm{cfg}}}\right].
+\label{eq:appendix-configuration-gibbs-density}
+\end{equation}
+Measurability of \(\mathcal F_{\mathrm{vac}}\) makes \(g_{\mathcal F}\) measurable, its nonnegativity is immediate, and the definition of \(Z_{\mathcal F}\) gives
+\begin{equation}
+\int_{\mathsf X}g_{\mathcal F}(X)\rho_0(dX)=1.
+\label{eq:appendix-configuration-gibbs-normalization}
+\end{equation}
+Thus \(P_{\mathcal F}\) is a probability measure. For \(R\ll\rho_0\) with finite displayed terms and support contained in \(\{X:\mathcal F_{\mathrm{vac}}(X)<+\infty\}\), the Radon--Nikodym chain rule gives, \(R\)-almost surely,
+\begin{equation}
+\log\frac{dR}{dP_{\mathcal F}}(X)
+=\log\frac{dR}{d\rho_0}(X)
++\frac{\mathcal F_{\mathrm{vac}}(X)}{T_{\mathrm{cfg}}}
++\log Z_{\mathcal F}.
+\label{eq:appendix-configuration-gibbs-log-ratio}
+\end{equation}
+Integrating and multiplying by \(T_{\mathrm{cfg}}\) yields
+\begin{align}
+T_{\mathrm{cfg}}\KL(R\Vert P_{\mathcal F})
+={}&T_{\mathrm{cfg}}\KL(R\Vert\rho_0)
++\int_{\mathsf X}\mathcal F_{\mathrm{vac}}(X)R(dX)
++T_{\mathrm{cfg}}\log Z_{\mathcal F}.
+\label{eq:appendix-configuration-gibbs-kl-expansion}
+\end{align}
+Rearrangement proves Equation~\eqref{eq:configuration-gibbs-variational-identity}. If the Gibbs law is selected as \(P_0\), Equation~\eqref{eq:appendix-configuration-gibbs-kl-expansion} is the complete expansion of \(T_{\mathrm{cfg}}\KL(R\Vert P_0)\); adding the expected vacuum energy a second time would double count it.
+
+\section{Algebraic audit of the directed-factor decomposition}
+\label{sec:state-elbo-factor-audit}
+
+Let \(\mathcal R\) be the roots and restore the design index on every factor. Define the one-design-point log density
+\begin{align}
+\ell_{\theta,a}(y_a;o_a,X)
+={}&\sum_{r\in\mathcal R}
+\left[
+\log p_{\theta,r,a}^{m}(m_{r,a}\mid X)
++\log p_{\theta,r,a}^{k}(k_{r,a}\mid m_{r,a},X)
+\right]
+\label{eq:appendix-one-point-log-factorization}\\
+&+\sum_{i\in V\setminus\mathcal R}
+\left[
+\log p_{\theta,i,a}^{m}
+(m_{i,a}\mid m_{\operatorname{pa}(i),a},X)
++\log p_{\theta,i,a}^{k}
+(k_{i,a}\mid k_{\operatorname{pa}(i),a},m_{i,a},X)
+\right]\notag\\
+&+\sum_{i\in V}
+\log p_{\theta,i,a}^{o}
+(o_{i,a}\mid k_{i,a},m_{i,a},X).\notag
+\end{align}
+Equation~\eqref{eq:finite-design-density-factorization} gives
+\begin{equation}
+\log p_\theta(o,y\mid X)
+=\sum_{a=1}^{M}\ell_{\theta,a}(y_a;o_a,X).
+\label{eq:appendix-finite-design-log-factorization}
+\end{equation}
+The root sector contains \(2M|\mathcal R|\) latent factors, the nonroot sector contains \(2M(N-|\mathcal R|)\), and the observation sector contains \(MN\). Their sum is \(3MN\). Root state bridges replace nonroot state transitions at roots; they are not additional factors.
+
+Let \(\Fstate^{\mathrm{fact}}\) denote the right-hand side of Equation~\eqref{eq:state-free-energy-factorization}. Direct substitution gives the audit identity
+\begin{align}
+\Fstate[Q_X;X,o]-\Fstate^{\mathrm{fact}}
+&=\E_{Q_X}\left[
+\log q_X(Y\mid o)-\log p_\theta(o,Y\mid X)
+\right]\notag\\
+&\quad-
+\left\{
+\E_{Q_X}\left[\log q_X(Y\mid o)\right]
+-\E_{Q_X}\left[
+\sum_{a=1}^{M}\ell_{\theta,a}(Y_a;o_a,X)
+\right]
+\right\}\notag\\
+&=0.
+\label{eq:appendix-factorization-zero-residual}
+\end{align}
+The same joint recognition term appears once on each side and cancels as a whole. No step in this audit replaces it by marginal entropies.
+
+\section{Reverse-topological normalization of the directed joint}
+\label{sec:directed-normalization-proof}
+
+Fix one design point and a topological order \(v_1,\ldots,v_N\) of the finite DAG in Equation~\eqref{eq:abstract-directed-kernel-factorization}. Under the domination assumptions, write its nonnegative density as
+\begin{equation}
+f(o,k,m)
+=\prod_{\ell=1}^{N}
+p_{\theta,v_\ell}^{m}(m_{v_\ell}\mid m_{\operatorname{pa}(v_\ell)},X)
+p_{\theta,v_\ell}^{k}(k_{v_\ell}\mid k_{\operatorname{pa}(v_\ell)},m_{v_\ell},X)
+p_{\theta,v_\ell}^{o}(o_{v_\ell}\mid k_{v_\ell},m_{v_\ell},X).
+\label{eq:appendix-directed-density}
+\end{equation}
+Tonelli's theorem applies because \(f\geq0\). Integrating all \(o_i\) removes every observation factor, since each is a probability density for every fixed \((k_i,m_i,X)\).
+
+Now traverse the nonroot vertices in reverse topological order. Consider the current vertex \(i\). Every child of \(i\), and hence every descendant of \(i\), occurs later in the forward order and has already been integrated out. After those integrations, the only remaining factor that depends on \(k_i\) as its sampled variable is
+\begin{equation}
+p_{\theta,i}^{k}(k_i\mid k_{\operatorname{pa}(i)},m_i,X),
+\end{equation}
+whose integral with respect to \(\nu_i^k(dk_i)\) is one for every fixed conditioning value. Once \(k_i\) is removed, the only remaining factor that contains \(m_i\) as its sampled variable is
+\begin{equation}
+p_{\theta,i}^{m}(m_i\mid m_{\operatorname{pa}(i)},X),
+\end{equation}
+whose integral with respect to \(\nu_i^m(dm_i)\) is also one. This pair of integrations removes vertex \(i\) without changing the remaining integrand. The argument covers multiple parents because their coordinates are held fixed while the child kernel is integrated.
+
+After every nonroot has been removed, only roots remain. No edge joins one root as a child of another root, because the child would then have a parent. For each root \(r\), integrate its normalized state bridge \(p_{\theta,r}^{k}(k_r\mid m_r,X)\) and then its normalized model root \(p_{\theta,r}^{m}(m_r\mid X)\). The resulting scalar is one. The kernel statement follows without domination by the same successive-kernel argument. Finally, the declared product over \(a=1,\ldots,M\) multiplies \(M\) unit masses, which proves Equations~\eqref{eq:kernel-total-mass-one} and \eqref{eq:density-normalization}.
+
+\chapter[Gaussian Information and Mean-Field Identities]{Gaussian Information and\\Mean-Field Identities}
+
+This appendix fixes the Gaussian information-form notation and the block partitions used by the restricted recognition controls. It provides the matrix identities required to compare a correlated Gaussian law with block-product approximations.
+
+\section{Information-form normalization and moments}
+\label{sec:gaussian-information-normalization}
+
+Let \(J=J^\top\succ0\), \(h\in\mathbb R^d\), and \(\mu=J^{-1}h\). The exponent before its log normalizer satisfies
+\begin{equation}
+h^\top y-\frac12y^\top Jy
+=-\frac12(y-\mu)^\top J(y-\mu)
++\frac12h^\top J^{-1}h.
+\label{eq:appendix-information-complete-square}
+\end{equation}
+The Gaussian integral is
+\begin{align}
+\int_{\mathbb R^d}
+\exp\left(h^\top y-\frac12y^\top Jy\right)dy
+&=\exp\left(\frac12h^\top J^{-1}h\right)
+(2\pi)^{d/2}(\det J)^{-1/2}\notag\\
+&=\exp\left(A(h,J)\right).
+\label{eq:appendix-information-normalizer-integral}
+\end{align}
+Subtracting Equation~\eqref{eq:recognition-gaussian-log-normalizer} from the exponent therefore produces a density of unit mass. Equation~\eqref{eq:appendix-information-complete-square} identifies that density as \(\mathcal N(\mu,J^{-1})\). Equivalently, differentiation of the log normalizer with respect to \(h\) gives
+\begin{equation}
+\E[Y]=\nabla_h A(h,J)=J^{-1}h=\mu,
+\qquad
+\operatorname{Cov}(Y)=\nabla_h^2A(h,J)=J^{-1}=C.
+\label{eq:appendix-information-moment-derivatives}
+\end{equation}
+Positive definiteness of \(J\) is used both for integrability and for the existence of \(J^{-1}\). An off-diagonal block of \(J\) belongs to the conditional-dependence structure of the joint Gaussian law; the corresponding covariance block is obtained only after inversion of the full precision matrix.
+
+\subsection{Dual-coordinate differential}
+\label{sec:gaussian-dual-coordinate-proof}
+
+Treat \(h\) and \(J\) as independent variables and let \(dJ\) be symmetric. With \(C=J^{-1}\), the inverse differential \(dC=-C(dJ)C\) gives
+\begin{align}
+dA
+&=\frac12(dh)^\top Ch+\frac12h^\top C(dh)
+-\frac12h^\top C(dJ)Ch
+-\frac12\operatorname{tr}(C(dJ))\notag\\
+&=\mu^\top dh-\frac12\operatorname{tr}
+\left[\left(C+\mu\mu^\top\right)dJ\right]\notag\\
+&=\mu^\top d\eta_1+\operatorname{tr}(M(d\eta_2))\text{.}
+\label{eq:appendix-log-partition-full-differential}
+\end{align}
+The first equality uses \(d\log\det J=\operatorname{tr}(J^{-1}dJ)\), and the last uses \(d\eta_1=dh\), \(d\eta_2=-dJ/2\), and \(M=C+\mu\mu^\top\). Under the Frobenius pairing on \(\operatorname{Sym}(d)\), Equation~\eqref{eq:appendix-log-partition-full-differential} proves
+\begin{equation}
+\nabla_hA=\mu,
+\qquad
+\nabla_JA=-\frac12M,
+\qquad
+\nabla_{\eta_2}A=M.
+\label{eq:appendix-log-partition-coordinate-gradients}
+\end{equation}
+An \(svec\) chart with \(\sqrt2\)-scaled off-diagonal coordinates realizes the Frobenius pairing as the ordinary Euclidean dot product. If instead an unscaled independent coordinate \(J_{ab}=J_{ba}\), \(a<b\), is varied by \(dx\), then \(\operatorname{tr}(M(dJ))=2M_{ab}dx\) and \(\partial A/\partial x=-M_{ab}\). This coordinate factor does not change the symmetric-matrix gradient in Equation~\eqref{eq:appendix-log-partition-coordinate-gradients}.
+
+For completeness, let \(\tau=\nabla_\eta A\), so the Fisher matrices in the two dual charts are
+\begin{equation}
+g_\eta=\frac{\partial\tau}{\partial\eta},
+\qquad
+g_\tau=\frac{\partial\eta}{\partial\tau}=g_\eta^{-1}.
+\label{eq:appendix-dual-fisher-jacobians}
+\end{equation}
+The chain rule for a differentiable scalar \(\mathcal F\) gives \(\nabla_\eta\mathcal F=g_\eta\nabla_\tau\mathcal F\). Multiplication by \(g_\eta^{-1}\), and the same argument with the charts exchanged, proves Equation~\eqref{eq:natural-gradient-dual-coordinate-identities}. The ordinary derivatives on the right are covector components in the dual chart; their numerical equality to the natural-gradient vector components on the left is a coordinate identity mediated by the Fisher metric.
+
+\section{Block-product reverse-KL proof}
+\label{sec:gaussian-block-reverse-kl-proof}
+
+Let \(P=\mathcal N(m,J^{-1})\) and \(Q=\mathcal N(\mu,C)\) under the assumptions of Equations~\eqref{eq:gaussian-exact-posterior} and \eqref{eq:gaussian-block-product-family}. Their log-density ratio is
+\begin{align}
+\log\frac{q(y)}{p(y)}
+={}&-\frac12\log\det C-\frac12\log\det J
+-\frac12(y-\mu)^\top C^{-1}(y-\mu)
+\notag\\
+&+\frac12(y-m)^\top J(y-m).
+\label{eq:appendix-gaussian-log-density-ratio}
+\end{align}
+The Gaussian moment identities give
+\begin{align}
+\E_Q\left[(Y-\mu)^\top C^{-1}(Y-\mu)\right]
+&=\operatorname{tr}(C^{-1}C)=d,
+\label{eq:appendix-gaussian-centered-quadratic}\\
+\E_Q\left[(Y-m)^\top J(Y-m)\right]
+&=\operatorname{tr}(JC)+(\mu-m)^\top J(\mu-m).
+\label{eq:appendix-gaussian-target-quadratic}
+\end{align}
+Taking the expectation of Equation~\eqref{eq:appendix-gaussian-log-density-ratio} proves Equation~\eqref{eq:gaussian-reverse-kl-block} directly from the two normalized densities.
+
+Because \(C\) is block diagonal,
+\begin{equation}
+\operatorname{tr}(JC)=\sum_{b\in\mathfrak B}\operatorname{tr}(J_{bb}C_b),
+\qquad
+\log\det C=\sum_{b\in\mathfrak B}\log\det C_b.
+\label{eq:appendix-block-trace-logdet}
+\end{equation}
+For a symmetric perturbation \(dC_b\), the identities
+\begin{equation}
+d\operatorname{tr}(J_{bb}C_b)=\operatorname{tr}(J_{bb}dC_b),
+\qquad
+d\log\det C_b=\operatorname{tr}(C_b^{-1}dC_b),
+\label{eq:appendix-block-matrix-differentials}
+\end{equation}
+give the covariance derivative in Equation~\eqref{eq:gaussian-reverse-kl-derivatives}. The mean derivative follows from symmetry of \(J\). Every principal block \(J_{bb}\) is positive definite. The covariance-dependent objective
+\begin{equation}
+C_b\longmapsto
+\operatorname{tr}(J_{bb}C_b)-\log\det C_b,
+\label{eq:appendix-covariance-block-objective}
+\end{equation}
+is strictly convex on \(\mathbb S_{++}^{d_b}\), while the mean quadratic is strictly convex because \(J\succ0\). The stationary values in Equation~\eqref{eq:gaussian-block-reverse-kl-optimum} are therefore the unique global minimizers.
+
+At that optimum,
+\begin{equation}
+\operatorname{tr}(JC^\star)
+=\sum_{b\in\mathfrak B}\operatorname{tr}(J_{bb}J_{bb}^{-1})
+=\sum_{b\in\mathfrak B}d_b=d,
+\qquad
+\log\det C^\star=-\sum_{b\in\mathfrak B}\log\det J_{bb}.
+\label{eq:appendix-gaussian-optimum-substitution}
+\end{equation}
+Substitution in Equation~\eqref{eq:gaussian-reverse-kl-block} yields the right-hand side of Equation~\eqref{eq:gaussian-mean-field-evidence-gap}.
+
+For completeness, partition an SPD matrix into two nonempty block groups:
+\begin{equation}
+J=\begin{bmatrix}A&B\\B^\top&D\end{bmatrix},
+\qquad
+A\succ0,
+\qquad
+D-B^\top A^{-1}B\succ0.
+\label{eq:appendix-fischer-two-block-partition}
+\end{equation}
+The Schur determinant identity and the Loewner inequality \(D-B^\top A^{-1}B\preceq D\) give
+\begin{equation}
+\det J
+=\det A\det(D-B^\top A^{-1}B)
+\leq\det A\det D.
+\label{eq:appendix-fischer-two-block-proof}
+\end{equation}
+Equality holds only when \(B^\top A^{-1}B=0\), which is equivalent to \(B=0\). Applying this two-block argument to the first declared block and its complement, then recursively to the complementary principal submatrix, proves
+\begin{equation}
+\det J\leq\prod_{b\in\mathfrak B}\det J_{bb}.
+\label{eq:appendix-fischer-multiblock-proof}
+\end{equation}
+Equality at every recursive step is equivalent to the vanishing of all off-diagonal blocks. This proves both the sign and the equality condition in Equation~\eqref{eq:gaussian-mean-field-evidence-gap}.
+
+\section{Gaussian precision audit for the zero-coupling controls}
+\label{sec:gaussian-zero-coupling-proof}
+
+At one design point, set \(T_i^m=A_i^m\Omega_{ij}^m\), \(T_i^k=A_i^k\Omega_{ij}^k\), \(\Lambda_i^m=(Q_i^m)^{-1}\), and \(\Lambda_i^k=(Q_i^k)^{-1}\). The nonroot model residual \(r_i^m=m_i-T_i^m m_j-a_i^m\) contributes the following Hessian to the latent negative log joint in the order \((m_i,m_j)\):
+\begin{equation}
+J_i^m=
+\begin{bmatrix}
+\Lambda_i^m&-\Lambda_i^mT_i^m\\
+-(T_i^m)^\top\Lambda_i^m&(T_i^m)^\top\Lambda_i^mT_i^m
+\end{bmatrix}.
+\label{eq:appendix-model-transition-precision-blocks}
+\end{equation}
+The nonroot state residual \(r_i^k=k_i-T_i^k k_j-B_i m_i-a_i^k\) contributes, in the order \((k_i,k_j,m_i)\),
+\begin{equation}
+J_i^k=
+\begin{bmatrix}
+\Lambda_i^k&-\Lambda_i^kT_i^k&-\Lambda_i^kB_i\\
+-(T_i^k)^\top\Lambda_i^k&(T_i^k)^\top\Lambda_i^kT_i^k&(T_i^k)^\top\Lambda_i^kB_i\\
+-B_i^\top\Lambda_i^k&B_i^\top\Lambda_i^kT_i^k&B_i^\top\Lambda_i^kB_i
+\end{bmatrix}.
+\label{eq:appendix-state-transition-precision-blocks}
+\end{equation}
+At a root, the state bridge contributes the local \((k_r,m_r)\) matrix
+\begin{equation}
+J_{r,0}^k=
+\begin{bmatrix}
+\Lambda_{r,0}^k&-\Lambda_{r,0}^kB_r\\
+-B_r^\top\Lambda_{r,0}^k&B_r^\top\Lambda_{r,0}^kB_r
+\end{bmatrix}.
+\label{eq:appendix-root-bridge-precision-blocks}
+\end{equation}
+Finally, the observation residual \(r_i^o=o_i-H_i k_i-L_i m_i-d_i\) contributes
+\begin{equation}
+J_i^o=
+\begin{bmatrix}
+H_i^\top(R_i^o)^{-1}H_i&H_i^\top(R_i^o)^{-1}L_i\\
+L_i^\top(R_i^o)^{-1}H_i&L_i^\top(R_i^o)^{-1}L_i
+\end{bmatrix},
+\label{eq:appendix-observation-precision-blocks}
+\end{equation}
+in the local order \((k_i,m_i)\). These matrices follow by differentiating \(r^\top\Lambda r/2\); offsets and the observed value affect only the information vector and additive constant.
+
+The posterior precision is the sum of the embedded factor Hessians. Conditional independence across design points makes that sum block diagonal across \(a\). If every total off-diagonal block between distinct agents vanishes, every remaining summand is supported within one \((k_i^D,m_i^D)\) block. Hence Equation~\eqref{eq:agent-block-zero-coupling-precision} follows. Setting \(T_i^k=T_i^m=0\) removes all cross-agent blocks in Equations~\eqref{eq:appendix-model-transition-precision-blocks} and \eqref{eq:appendix-state-transition-precision-blocks} while retaining the \(B_i\)-dependent local terms and Equation~\eqref{eq:appendix-observation-precision-blocks}.
+
+Under the agent-block condition, the only state--model off-diagonal contribution in the declared local factors is
+\begin{equation}
+J_{k_i m_i}
+=-\Lambda_i^kB_i
++H_i^\top(R_i^o)^{-1}L_i,
+\label{eq:appendix-local-state-model-total}
+\end{equation}
+for a nonroot, with \(\Lambda_i^k\) replaced by \(\Lambda_{r,0}^k\) at a root. Adding any further fixed factor that couples \(k_i\) and \(m_i\) adds its Hessian block to this expression. Requiring the complete sum to vanish yields Equation~\eqref{eq:fully-factorized-zero-coupling-precision}. An SPD Gaussian with either displayed block-diagonal precision has a covariance with the same block structure, so its normalized density factorizes under that partition. Equation~\eqref{eq:gaussian-mean-field-evidence-gap} then gives a zero gap.
+
+\section{Fixed-source row KL and simplex optimum}
+\label{sec:fixed-source-row-proof}
+
+Under the support and normalization assumptions preceding Equation~\eqref{eq:fixed-source-row-joints}, direct use of counting measure on \(\mathcal J_i\) gives
+\begin{align}
+\KL(Q_i\Vert P_i)
+&=\sum_j\int\beta_{ij}\varrho_i(y)
+\left[
+\log\frac{\varrho_i(y)}{f_{ij}(y)}
++\log\frac{\beta_{ij}}{\pi_{ij}}
+\right]\nu_i(dy)\notag\\
+&=\sum_j\beta_{ij}\KL(\varrho_i\Vert f_{ij})
++\sum_j\beta_{ij}\log\frac{\beta_{ij}}{\pi_{ij}},
+\label{eq:appendix-fixed-source-row-kl}
+\end{align}
+which proves Equation~\eqref{eq:fixed-source-row-kl-decomposition}. Write \(c_{ij}=\KL(\varrho_i\Vert f_{ij})\). The simplex Lagrangian has derivative
+\begin{equation}
+\frac{\partial}{\partial\beta_{ij}}
+\left\{
+\sum_\ell\beta_{i\ell}
+\left(c_{i\ell}+\log\frac{\beta_{i\ell}}{\pi_{i\ell}}\right)
++\lambda_i\left(\sum_\ell\beta_{i\ell}-1\right)
+\right\}
+=c_{ij}+\log\frac{\beta_{ij}}{\pi_{ij}}+1+\lambda_i.
+\label{eq:appendix-fixed-source-simplex-derivative}
+\end{equation}
+The stationary values obey \(\beta_{ij}=\pi_{ij}\exp(-c_{ij}-1-\lambda_i)\). Summing over \(j\) determines the multiplier and gives Equation~\eqref{eq:fixed-source-row-optimum}. Strict convexity of categorical relative entropy on the interior of the simplex makes this stationary row the unique minimizer.
+
+\chapter{Legacy Population-Functional Calculus}
+
+This appendix supplies the functional derivatives and simplex identities used in Chapter~\ref{ch:pifb2-crosswalk}. The calculations concern densities relative to declared base measures. They do not introduce a probability measure on a continuum of sections.
+
+\section{Typed moving-peer iterated path derivative}
+\label{sec:moving-peer-calculus-oracle}
+
+Use the assumptions and notation of Theorem~\ref{thm:magent-moving-peer-obstruction}. For each site \(a\) and channel \(h\), abbreviate
+\begin{equation}
+r_a^{(h)}=T_{ij,a}^{(h)}q_{j,a}^{o,X},
+\qquad
+u_a^{(h)}=T_{ij,a}^{(h)}h_{j,a}.
+\label{eq:appendix-moving-peer-paths}
+\end{equation}
+Linearity gives \(T_{ij,a}^{(h)}q_{j,a}(t)=r_a^{(h)}+t u_a^{(h)}\). On the single open rectangle \(\mathcal U\) in Equation~\eqref{eq:moving-peer-admissible-rectangle}, the positivity, support, bounded-ratio, finiteness, and domination assumptions permit the pathwise derivatives
+\begin{align}
+\KL\left(q_{i,a}(s)\middle\Vert
+T_{ij,a}^{(h)}q_{j,a}(t)\right)
+={}&\int(q_{i,a}^{o,X}+s a_{i,a})
+\log(q_{i,a}^{o,X}+s a_{i,a})d\nu_{i,a}
+\notag\\
+&-\int(q_{i,a}^{o,X}+s a_{i,a})
+\log(r_a^{(h)}+t u_a^{(h)})d\nu_{i,a},
+\label{eq:appendix-moving-peer-kl-split}\\
+\partial_t\left[-\log(r_a^{(h)}+t u_a^{(h)})\right]
+={}&-\frac{u_a^{(h)}}{r_a^{(h)}+t u_a^{(h)}},
+\label{eq:appendix-moving-peer-first-sender}\\
+\partial_t^2\left[-\log(r_a^{(h)}+t u_a^{(h)})\right]
+={}&\frac{(u_a^{(h)})^2}
+{(r_a^{(h)}+t u_a^{(h)})^2}.
+\label{eq:appendix-moving-peer-second-sender}
+\end{align}
+The receiver entropy in Equation~\eqref{eq:appendix-moving-peer-kl-split} has no \(t\) dependence. Applying \(\partial_s\partial_t^2\) to the cross-entropy term and evaluating at the origin gives
+\begin{equation}
+\left.\partial_s\partial_t^2
+\KL\left(q_{i,a}(s)\middle\Vert
+T_{ij,a}^{(h)}q_{j,a}(t)\right)\right|_{(0,0)}
+=\int a_{i,a}g_{ij,a}^{(h)}d\nu_{i,a}.
+\label{eq:appendix-moving-peer-third-variation}
+\end{equation}
+This is the iterated pathwise derivative proved in the theorem; no unrestricted ambient third Fr\'echet derivative is invoked.
+
+Let \(B_{i,a}=G_{ij,a}-\E_{q_{i,a}^{o,X}}G_{ij,a}\). Then \(a_{i,a}=q_{i,a}^{o,X}B_{i,a}\), \(\int a_{i,a}d\nu_{i,a}=0\), and \(B_{i,a}\) is bounded. After shrinking the common \(s\)-interval if necessary, the finite number of site paths obey
+\begin{equation}
+q_{i,a}(s)=q_{i,a}^{o,X}(1+sB_{i,a})>0,
+\qquad
+\int q_{i,a}(s)d\nu_{i,a}=1.
+\label{eq:appendix-moving-peer-positive-mixture}
+\end{equation}
+Mixture openness makes every site-local path \(\Gamma_a\) admissible on the same rectangle. Multiplying Equation~\eqref{eq:appendix-moving-peer-third-variation} by the positive channel coefficients and quadrature weights, summing the derivatives of the separate site-local paths, and using the definition of \(G_{ij,a}\) yields
+\begin{align}
+\sum_{a=1}^{M}\left.\partial_s\partial_t^2
+(\mathcal C_D\circ\Gamma_a)(s,t)\right|_{(0,0)}
+&=\lambda\sum_{a=1}^{M}w_a
+\int q_{i,a}^{o,X}B_{i,a}G_{ij,a}d\nu_{i,a}\notag\\
+&=\lambda\sum_{a=1}^{M}w_a
+\operatorname{Var}_{q_{i,a}^{o,X}}(G_{ij,a})>0.
+\label{eq:appendix-moving-peer-variance-identity}
+\end{align}
+The first equality also uses the zero remainder derivative along every \(\Gamma_a\). It is a sum of site-local derivatives, not the derivative of one simultaneous path that varies all sites. The second equality is the centered-moment identity, and strict positivity is exactly Equation~\eqref{eq:moving-peer-finite-positive-variance}. This finite conclusion is restricted to the fine site-factorized mean-field comparison family in Equation~\eqref{eq:moving-peer-fine-comparison-family}; it does not cover Chapter~\ref{ch:mean-field-theory}'s coarser cross-design factors.
+
+For the continuum corollary, first choose the measurable sender tangent \(h_j(c)\), then form \(G_{ij}(c)\) in Equation~\eqref{eq:moving-peer-continuum-aggregate}, and then form the exact centered receiver tangent \(a_i(c)\) in Equation~\eqref{eq:moving-peer-continuum-centered-tangent}. The corollary directly assumes that this \(a_i(c)\) is jointly measurable, has zero mass in every receiver fiber, and shares one common admissible open rectangle with the sender path in Equation~\eqref{eq:moving-peer-continuum-exact-path}. Its nearby-KL, bounded-ratio, and common-envelope assumptions apply to that exact path. The common integrable envelope first permits the fiberwise derivatives and then permits \(\partial_s\partial_t^2\) to pass through the base integral. The centered receiver tangent gives the integral in Equation~\eqref{eq:moving-peer-continuum-positive-variance}, which is strictly positive by hypothesis. This step uses only the fixed base measure and dominated differentiation; it defines no law on the set of continuum fields and asserts no limiting relation to the finite designs.
+
+An exact two-state oracle makes the strictness concrete. Take counting measure, identity transport, and
+\begin{equation}
+q_i=\left(\frac25,\frac35\right),
+\qquad
+q_j=\left(\frac13,\frac23\right),
+\qquad
+h_j=\left(\frac16,-\frac16\right).
+\label{eq:appendix-moving-peer-discrete-data}
+\end{equation}
+Then
+\begin{equation}
+g_{ij}=\left(\frac14,\frac1{16}\right),
+\qquad
+\E_{q_i}g_{ij}=\frac{11}{80},
+\qquad
+a_i=\left(\frac9{200},-\frac9{200}\right),
+\label{eq:appendix-moving-peer-discrete-tangent}
+\end{equation}
+and
+\begin{equation}
+\int a_i g_{ij}d\nu_i
+=\operatorname{Var}_{q_i}(g_{ij})
+=\frac{27}{3200}>0.
+\label{eq:appendix-moving-peer-discrete-variance}
+\end{equation}
+For \(F(s,t)=\KL(q_i+s a_i\Vert q_j+t h_j)\), the centered directional-difference oracle is
+\begin{align}
+\Delta_{s,t}F
+:={}&\frac{1}{2st^2}\left[
+F(s,t)+F(s,-t)-2F(s,0)
+\right.\notag\\
+&\left.-F(-s,t)-F(-s,-t)+2F(-s,0)
+\right],
+\label{eq:appendix-moving-peer-finite-difference}\\
+\lim_{(s,t)\to(0,0)}\Delta_{s,t}F
+={}&\frac{27}{3200}.
+\label{eq:appendix-moving-peer-finite-difference-limit}
+\end{align}
+The finite difference differentiates once in the receiver direction and twice in the sender direction, matching the iterated pathwise derivative rather than a permutation of it.
+
+\section{Row-simplex envelope and channel normalization}
+\label{sec:pifb2-row-envelope-proof}
+
+Let the row index set be finite, let \(\widetilde\pi_{ij}\geq0\) sum to one, define \(\mathcal J_i^+:=\{j:\widetilde\pi_{ij}>0\}\), and require \(\beta_i\ll\widetilde\pi_i\). For finite edge energies \(E_{ij}\) and \(\tau>0\), define
+\begin{equation}
+Z_i=\sum_j\widetilde\pi_{ij}e^{-E_{ij}/\tau}.
+\label{eq:appendix-pifb2-row-partition}
+\end{equation}
+At least one positive prior entry makes \(Z_i>0\). The proposed optimum in Equation~\eqref{eq:pifb2-row-optimum} is normalized because
+\begin{equation}
+\sum_j\beta_{ij}^*
+=\frac{1}{Z_i}\sum_j\widetilde\pi_{ij}e^{-E_{ij}/\tau}
+=1.
+\label{eq:appendix-pifb2-beta-normalization}
+\end{equation}
+Its logarithmic ratio satisfies
+\begin{equation}
+\log\frac{\beta_{ij}^*}{\widetilde\pi_{ij}}
+=-\frac{E_{ij}}{\tau}-\log Z_i,
+\label{eq:appendix-pifb2-optimal-log-ratio}
+\end{equation}
+for \(j\in\mathcal J_i^+\). Substitution in the full row scalar gives
+\begin{align}
+\mathcal R_i(\beta_i^*,x)
+&=\sum_j\beta_{ij}^*E_{ij}
++\tau\sum_j\beta_{ij}^*
+\left(-\frac{E_{ij}}{\tau}-\log Z_i\right)
+\notag\\
+&=-\tau\log Z_i.
+\label{eq:appendix-pifb2-row-envelope-substitution}
+\end{align}
+Using Equation~\eqref{eq:appendix-pifb2-optimal-log-ratio} and \(S_i=\sum_j\beta_{ij}^*E_{ij}\), the categorical response term satisfies
+\begin{align}
+\tau\KL(\beta_i^*\Vert\widetilde\pi_i)
+&=\tau\sum_j\beta_{ij}^*
+\left(-\frac{E_{ij}}{\tau}-\log Z_i\right)\notag\\
+&=-S_i-\tau\log Z_i
+=\mathcal R_i^{\mathrm{red}}-S_i.
+\label{eq:appendix-pifb2-response-decomposition}
+\end{align}
+Nonnegativity of categorical relative entropy proves Equation~\eqref{eq:pifb2-response-decomposition}. Equality holds exactly when \(\beta_i^*=\widetilde\pi_i\). On \(\mathcal J_i^+\), the optimum formula then gives \(e^{-E_{ij}/\tau}=Z_i\), so equality is equivalent to \(E_{ij}=E_{ik}\) for every \(j,k\in\mathcal J_i^+\). Conversely, equal energies on \(\mathcal J_i^+\) make \(\beta_i^*=\widetilde\pi_i\). No condition is imposed on \(E_{ij}\) for \(j\notin\mathcal J_i^+\), where both row weights vanish. Vanishing of the covariance term in \(dS_i\) along one selected direction does not imply this equality condition.
+
+Strict convexity of categorical relative entropy on the relative interior of the supported simplex gives uniqueness. Differentiating Equation~\eqref{eq:appendix-pifb2-row-envelope-substitution} yields
+\begin{equation}
+d\mathcal R_i^{\mathrm{red}}
+=\sum_j\beta_{ij}^*dE_{ij},
+\label{eq:appendix-pifb2-row-envelope-differential}
+\end{equation}
+because the row prior and temperature are fixed in this derivative. The model-channel proof follows after replacing the state-row symbols by \(\gamma\), \(E^{(s)}\), and \(\widetilde\pi^{(s)}\). Thus the \(\beta\) and \(\gamma\) rows each normalize separately; no shared denominator is implied.
+
+\chapter{Gauge Transformations and Verification Oracles}
+
+This appendix specifies the transformation rules and finite-dimensional test constructions used to audit covariance, precision, and probability-ratio calculations. These oracles verify declared formulas under controlled inputs and do not stand in for a claim about the active runtime.
+
+\section{Population block-gauge oracle}
+\label{sec:population-block-gauge-oracle}
+
+Use the full finite-design block map \(\mathsf G_D\) from Equation~\eqref{eq:finite-design-population-frame-map}, and abbreviate it by \(\mathsf G\) in this section. The change \(y'=\mathsf Gy\) gives \(y=\mathsf G^{-1}y'\). Substitution into the information-form exponent yields
+\begin{equation}
+h^\top y-\frac12y^\top Jy
+=\left(\mathsf G^{-\top}h\right)^\top y'
+-\frac12y'^\top
+\left(\mathsf G^{-\top}J\mathsf G^{-1}\right)y',
+\label{eq:appendix-information-exponent-gauge-law}
+\end{equation}
+which proves the transformations of \(h\) and \(J\). Direct inversion gives
+\begin{equation}
+(J')^{-1}=\mathsf GJ^{-1}\mathsf G^\top,
+\qquad
+(J')^{-1}h'=\mathsf GJ^{-1}h.
+\label{eq:appendix-information-moment-gauge-compatibility}
+\end{equation}
+Thus \(C'=\mathsf GC\mathsf G^\top\), \(\mu'=\mathsf G\mu\), and \(M'=\mathsf GM\mathsf G^\top\).
+
+The quadratic term in the log normalizer is unchanged, while
+\begin{equation}
+\det J'
+=\det(\mathsf G)^{-2}\det J.
+\label{eq:appendix-information-determinant-gauge-law}
+\end{equation}
+Since \(J\) and \(J'\) are SPD, their determinants are positive, and Equation~\eqref{eq:recognition-gaussian-log-normalizer} gives
+\begin{equation}
+A(h',J')
+=A(h,J)+\log|\det\mathsf G|.
+\label{eq:appendix-log-normalizer-gauge-law}
+\end{equation}
+Combining Equations~\eqref{eq:appendix-information-exponent-gauge-law} and \eqref{eq:appendix-log-normalizer-gauge-law} shows that the information-form density in the primed frame equals \(|\det\mathsf G|^{-1}q(\mathsf G^{-1}y')\), including its normalization.
+
+For blocks \(b\) and \(c\), block diagonality of \(\mathsf G\) gives
+\begin{equation}
+J_{bc}'=G_b^{-\top}J_{bc}G_c^{-1}.
+\label{eq:appendix-precision-block-gauge-law}
+\end{equation}
+If \(J_{bc}=0\), then \(J_{bc}'=0\). Conversely, invertibility gives \(J_{bc}=G_b^\top J_{bc}'G_c\), so a zero primed block implies a zero unprimed block. This proves the equivalence in Equation~\eqref{eq:block-zero-precision-gauge-invariance} for every partition block respected by the represented frame map.
+
+The within-block diagonal family is not closed when the represented image includes unrestricted general linear changes. The explicit shear
+\begin{equation}
+G_b=
+\begin{bmatrix}
+1&1\\
+0&1
+\end{bmatrix},
+\qquad
+C_b=I_2,
+\qquad
+G_bC_bG_b^\top=
+\begin{bmatrix}
+2&1\\
+1&1
+\end{bmatrix}.
+\label{eq:appendix-diagonal-family-counterexample}
+\end{equation}
+has determinant one, and its transformed covariance has eigenvalues \((3-\sqrt5)/2\) and \((3+\sqrt5)/2\), both positive. It therefore leaves the diagonal subfamily while remaining inside the full SPD family.
+
+\section{Complete density-ratio Jacobian oracle}
+\label{sec:population-density-ratio-oracle}
+
+Let \(\Phi(y)=\mathsf G_Dy\), \(\Delta_D=|\det\mathsf G_D|\), and \(dy'=\Delta_Ddy\). The primed structural value \(X'\) contains the frame-dependent quantities obtained from the laws in Equations~\eqref{eq:generative-link-gauge-laws}--\eqref{eq:observation-parameter-gauge-laws}, together with the corresponding root laws. Those equations make each normalized Gaussian latent kernel the pushforward of its unprimed kernel, leave each observation kernel unchanged in the gauge-inert observation coordinate, and preserve the finite directed factorization. Hence the complete density generated by the primed parameters is
+\begin{equation}
+p_\theta'(o,y'\mid X')
+=\Delta_D^{-1}
+p_\theta(o,\Phi^{-1}(y')\mid X).
+\label{eq:appendix-generative-density-pushforward}
+\end{equation}
+Closure of the full Gaussian recognition family, including Equation~\eqref{eq:appendix-log-normalizer-gauge-law}, likewise gives
+\begin{equation}
+q_{X'}'(y'\mid o)
+=\Delta_D^{-1}
+q_X(\Phi^{-1}(y')\mid o).
+\label{eq:appendix-recognition-density-pushforward}
+\end{equation}
+Equations~\eqref{eq:appendix-generative-density-pushforward} and \eqref{eq:appendix-recognition-density-pushforward} show separately that \(p_\theta'(o,y'\mid X')dy'=p_\theta(o,y\mid X)dy\) and \(q_{X'}'(y'\mid o)dy'=q_X(y\mid o)dy\). They also give the pointwise ratio identity
+\begin{equation}
+\log\frac{q_{X'}'(y'\mid o)}
+{p_\theta'(o,y'\mid X')}
+=\log\frac{q_X(y\mid o)}
+{p_\theta(o,y\mid X)}.
+\label{eq:appendix-log-density-ratio-gauge-law}
+\end{equation}
+Multiplying Equation~\eqref{eq:appendix-log-density-ratio-gauge-law} by the transformed recognition density and changing variables proves Equation~\eqref{eq:complete-free-energy-gauge-invariance}. Reversing the ratio proves invariance of the state ELBO. Integrating Equation~\eqref{eq:appendix-generative-density-pushforward} over \(y'\) proves invariance of the evidence density in the gauge-inert observation coordinate.
+
+The separated density terms are not invariant. Their expectation laws are
+\begin{align}
+\E_{Q_{X'}'}[\log q_{X'}'(Y'\mid o)]
+&=\E_{Q_X}[\log q_X(Y\mid o)]-\log\Delta_D,
+\label{eq:appendix-recognition-log-density-shift}\\
+\E_{Q_{X'}'}[\log p_\theta'(o,Y'\mid X')]
+&=\E_{Q_X}[\log p_\theta(o,Y\mid X)]-\log\Delta_D.
+\label{eq:appendix-joint-log-density-shift}
+\end{align}
+The two expected log densities shift equally, so their difference is unchanged. Negating Equation~\eqref{eq:appendix-recognition-log-density-shift} gives the differential-entropy law \(H(Q_{X'}')=H(Q_X)+\log\Delta_D\). The entropy shift and either expected-log-density shift have equal magnitude and opposite sign; only the complete ratio supplies a scalar.
+
+\section{Gaussian kernel gauge oracle}
+\label{sec:gaussian-gauge-oracle}
+
+For a nonroot state transition, define its residual
+\begin{equation}
+\delta_i^k
+=k_i-A_i^k\Omega_{ij}^k k_j-B_i m_i-a_i^k.
+\label{eq:state-transition-residual}
+\end{equation}
+Equations~\eqref{eq:generative-link-gauge-laws}--\eqref{eq:generative-bridge-offset-gauge-laws} give \(\delta_i^{k\prime}=g_i^k\delta_i^k\). With \(Q_i^{k\prime}=g_i^kQ_i^k(g_i^k)^\top\), direct inversion gives
+\begin{equation}
+(Q_i^{k\prime})^{-1}
+=(g_i^k)^{-\top}(Q_i^k)^{-1}(g_i^k)^{-1},
+\qquad
+(\delta_i^{k\prime})^\top(Q_i^{k\prime})^{-1}\delta_i^{k\prime}
+=(\delta_i^k)^\top(Q_i^k)^{-1}\delta_i^k.
+\label{eq:state-transition-quadratic-invariance}
+\end{equation}
+The determinant obeys
+\begin{equation}
+\det Q_i^{k\prime}=\det(g_i^k)^2\det Q_i^k.
+\label{eq:state-transition-determinant-law}
+\end{equation}
+Therefore the transformed Gaussian density acquires the factor \(|\det g_i^k|^{-1}\), which is exactly canceled by the coordinate volume change \(dk_i'=|\det g_i^k|dk_i\). The conditional probability measure, rather than its coordinate density alone, is invariantly defined. Replacing \(k\) by \(m\) proves the model-channel result.
+
+For the observation residual
+\begin{equation}
+\delta_i^o=o_i-H_i k_i-L_i m_i-d_i,
+\label{eq:observation-residual}
+\end{equation}
+Equation~\eqref{eq:observation-parameter-gauge-laws} gives \(\delta_i^{o\prime}=\delta_i^o\) and \(R_i^{o\prime}=R_i^o\). Hence the observation density itself is unchanged. The same calculations apply to the root kernels after replacing the nonroot means and covariances by Equations~\eqref{eq:gaussian-model-root}--\eqref{eq:gaussian-state-root}. These identities provide a finite matrix oracle: sample invertible represented frame matrices and SPD covariances, transform every parameter by the displayed laws, and test the residual, quadratic-form, determinant, root-moment, and observation-mean equalities to numerical tolerance.
+
+
+\section{Historical Task~12 verification record}
+\label{sec:executable-oracle-verification-record}
+
+This section preserves a historical project record only. The exact source revision and artifact hashes for the reported run were not recorded, and the manuscript has since changed. The statements below are therefore not current closure evidence. The revision-bound record for the present source is
+\path{sources/manuscripts/}\allowbreak
+\path{magent-exact-elbo-whitepaper-2026-07-19-}\allowbreak
+\path{continuum-finite-remediation.md}.
+
+The deterministic reference implementation is stored in
+\path{magent_elbo_whitepaper/verification/elbo_oracles.py}, with its
+independent checks in the adjacent test module.  The final focused correction run on
+2026-07-18 used Python 3.14.4, NumPy 2.4.4, SymPy 1.14.0, and pytest 9.0.2.
+The suite returned 16 passed tests in 0.43 seconds with no warnings.  Twelve
+tests instantiate the planned Gaussian, hierarchical, source-row, symbolic,
+and gauge identities.  Four additional validation tests enforce exact
+strict-lower-triangular structure for the directed Gaussian, active-support
+handling at nonunit source-row temperature, valid CAVI block indices, and
+invertible precision transports.  Symbolic identities use exact arithmetic.
+
+A post-implementation review found that eight NumPy closeness calls inherited
+at least one library-default tolerance and that two transport checks admitted
+a nonzero relative tolerance.  The correction sets \texttt{rtol=0.0} on every
+\texttt{isclose} and \texttt{allclose} assertion.  Fixed source-row,
+directed-Gaussian moment, analytic posterior-moment, CAVI block-covariance, and
+exact transport comparisons use \texttt{atol=1e-12}; the iterative CAVI mean
+check uses \texttt{atol=1e-10}.  Existing scalar residual checks retain their
+explicit absolute bounds.  These frozen, well-conditioned fixture checks are
+equal to or stricter than the applicable budgets in
+Table~\ref{tab:magent-verification-oracles}; they do not execute every
+full-oracle or conditioning-envelope obligation in the table.
+
+A Task~12 LuaLaTeX and BibTeX build through \texttt{latexmk} exited zero and
+produced a stabilized 96-page manuscript.  Its log contained no undefined
+citations, undefined references, multiply defined labels, rerun requests,
+missing characters, underfull boxes, or mathematical typesetting warnings.
+At that checkpoint, only the two inherited overfull chapter-heading warnings in
+Chapter~4 and Appendix~B remained; the Task~12 verification record introduced
+no box warning.
+
+\chapter{Notation}
+
+Table~\ref{tab:magent-notation} consolidates the geometric, probabilistic, and configuration-level types. A symbol in the middle column denotes a domain or mathematical type, not merely an informal role. The table reserves \(q_i\) and \(s_i\) for continuum state and model sections in one fixed theoretical state. Observation- and configuration-dependent continuum sections carry superscripts, finite marginals carry both superscripts and the design index, and finite product-family factors use capital \(Q\). If a later random configuration contains measure-valued fields, they are written \(\widehat q_i,\widehat s_i\) and related to finite state-level marginals by an explicit model or summary map; they are never silently substituted for continuum sections or finite marginals.
+
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.31\textwidth}>{\raggedright\arraybackslash}p{0.42\textwidth}}
+\caption{Typed notation for the geometric, finite-state, and optional configuration constructions.}
+\label{tab:magent-notation}\\
+\toprule
+\textbf{Symbol} & \textbf{Domain or type} & \textbf{Meaning} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{l}{\textit{Table \thetable\ continued}}\\
+\toprule
+\textbf{Symbol} & \textbf{Domain or type} & \textbf{Meaning} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+\(\mathcal C,c,c_a,D\) &
+\(\mathcal C\) a smooth base; \(c,c_a\in\mathcal C\); \(D=\{c_a\}_{a=1}^{M}\) &
+Contextual base, base points, and finite evaluation design. These are not population-graph vertices.\\
+\(V,E,\mathfrak I\) &
+\(V\) a finite vertex set, \(E\subseteq V\times V\), \(\mathfrak I\) an interaction complex &
+Population incidence and oriented interaction links. The graph or complex is structural data, not the principal-bundle base.\\
+\(\mathcal A^i\) &
+\(\left(\mathcal U_i;q_i,p_i,s_i,r_i,U_i\right)\), with \(\mathcal U_i\subseteq\mathcal C\) &
+Agent object carrying supported local statistical sections and a local group-valued frame coordinate. It is not a vertex label, latent vector, or variational factor alone.\\
+\(q_i(c),p_i(c)\) &
+\(\mathcal B_{\mathrm{state},c}\subseteq\mathcal P(\mathsf K_{i,c})\) &
+Continuum state recognition and prior section values at \(c\) for one fixed theoretical state.\\
+\(s_i(c),r_i(c)\) &
+\(\mathcal B_{\mathrm{model},c}\subseteq\mathcal P(\mathsf M_{i,c})\) &
+Continuum model recognition and prior section values at \(c\) for one fixed theoretical state.\\
+\(q_i^{o,X}(c),s_i^{o,X}(c)\) &
+Values in \(\mathcal P(\mathsf K_{i,c})\) and \(\mathcal P(\mathsf M_{i,c})\) &
+Values of supplied continuum recognition sections \(q_i^{o,X}\in\Gamma(\mathcal U_i,\mathcal E_{\mathrm{state}}\vert_{\mathcal U_i})\) and \(s_i^{o,X}\in\Gamma(\mathcal U_i,\mathcal E_{\mathrm{model}}\vert_{\mathcal U_i})\).\\
+\(q_{i,a}^{o,X},s_{i,a}^{o,X}\) &
+Elements of \(\mathcal P(\mathsf K_{i,c_a})\) and \(\mathcal P(\mathsf M_{i,c_a})\) &
+Finite coordinate marginals of \(Q_X(dY\mid o)\). Equality to the corresponding sampled continuum-section values is an additional compatibility hypothesis.\\
+\(\operatorname{Samp}_{D,i}^{k,m}\) &
+Continuum sections to tuples of statistical-fiber values over \(D\) &
+Continuum sampling maps defined independently of the finite recognition law.\\
+\(\operatorname{Marg}_{i,a}^{k,m}\) &
+\(\mathcal P(\mathsf Y_D,\mathscr Y_D)\) to the relevant coordinate probability space &
+Finite marginalization maps induced by the coordinate projections of \(\mathsf Y_D\).\\
+\(k_i(c),m_i(c)\) &
+\(\mathsf K_{i,c}\) and \(\mathsf M_{i,c}\) &
+Latent state and model samples. These are realizations, not probability measures or agents.\\
+\(Y(c),Y_D,\mathsf Y_D\) &
+\(Y(c)\in\prod_i(\mathsf K_{i,c}\times\mathsf M_{i,c})\) for \(c\in\bigcap_i\mathcal U_i\); \(Y_D\) valued in \(\mathsf Y_D\) &
+Population sample at one common-support context, finite-design random element, and its finite product sample space.\\
+\(o,\mathsf O_D\) &
+\(o\in\mathsf O_D=\prod_{a,i}\mathsf O_{i,c_a}\) &
+Finite-design observation and observation sample space.\\
+\(X,(\mathsf X,\mathscr X)\) &
+\(X\in\mathsf X\); \((\mathsf X,\mathscr X)\) measurable, with fixed \(D\), incidence, and identified fibers &
+Structural data conditioned upon by the state model. Only structural values on the fixed measurable design may vary.\\
+\(P_\theta,p_\theta\) &
+\(P_\theta:(\mathsf X,\mathscr X)\to\mathcal P(\mathsf O_D\times\mathsf Y_D,\mathscr O_D\otimes\mathscr Y_D)\) &
+Normalized generative probability kernel and, when dominated, its density defined by \(P_\theta(do,dY\mid X)=p_\theta(o,y\mid X)\nu_D^O(do)\nu_D^Y(dy)\). No factor reads a live recognition marginal.\\
+\(Q_X(dY\mid o)\) &
+\(Q:(\mathsf O_D\times\mathsf X,\mathscr O_D\otimes\mathscr X)\to\mathcal P(\mathsf Y_D,\mathscr Y_D)\) &
+Normalized, generally correlated recognition kernel whose coordinate pushforwards give \(q_{i,a}^{o,X}\) and \(s_{i,a}^{o,X}\).\\
+\(Q_{X,i},Q^k_{X,i},Q^m_{X,i}\) &
+Finite-design agent-block, state, and model factor measures in the declared product families &
+Mean-field factor measures distinct from the continuum sections \(q_i,s_i\); the fine-factor complements are \(Q_{X,-(i,k)}\) and \(Q_{X,-(i,m)}\), while the agent-block complement is \(Q_{X,-i}\).\\
+\(\xi^{\mathrm{block}}_{X,i},\xi^k_{X,i},\xi^m_{X,i}\) &
+Radon--Nikodym densities relative to \(\nu_i^{k,D}\otimes\nu_i^{m,D}\), \(\nu_i^{k,D}\), and \(\nu_i^{m,D}\) &
+Dominated finite mean-field factor densities; these lowercase density symbols, rather than the capital factor measures, appear inside logarithms in the explicit Markov-blanket CAVI coordinates.\\
+\(\varrho_i\) &
+Normalized density on \((\mathsf Y_i,\mathscr Y_i,\nu_i)\) &
+Generic receiver density in the fixed-source categorical row model, distinct from the continuum state section \(q_i\).\\
+\(P_0(dX),R(dX\mid o)\) &
+\(P_0\in\mathcal P(\mathsf X,\mathscr X)\); \(R:(\mathsf O_D,\mathscr O_D)\to\mathcal P(\mathsf X,\mathscr X)\), with \(R(\mathord\cdot\mid o)\ll P_0\) where required &
+Configuration prior and configuration recognition law in the optional hierarchical tier.\\
+\(\rho_0(dX),P_{\mathcal F}(dX)\) &
+\(\rho_0,P_{\mathcal F}\in\mathcal P(\mathsf X,\mathscr X)\) when the partition function is finite &
+Proper configuration reference law and an optional normalized configuration-Gibbs law.\\
+\(\widehat q_i,\widehat s_i\) &
+Declared measure-valued coordinates of a random \(X\), if that extension is used &
+Configuration-level fields distinguished typographically from the finite state recognition marginals \(q_{i,a}^{o,X},s_{i,a}^{o,X}\); an explicit map must relate the two levels.\\
+\(U_i(c),g_i\) &
+\(U_i(c),g_i\in G\) &
+Local principal-frame coordinate and a principal-frame change. The exponential expression \(U_i=\exp\phi_i\) is only local.\\
+\(g_i^k,g_i^m\) &
+\(\rho_k(g_i)\in\operatorname{Aut}(\mathsf K)\), \(\rho_m(g_i)\in\operatorname{Aut}(\mathsf M)\) &
+State and model actions induced by the same principal group element \(g_i\).\\
+\(\Omega_{ij}\) &
+\(U_iU_j^{-1}\in G\) on a common local domain &
+Regime-I frame comparison; its represented actions are \(\Omega_{ij}^{k}=\rho_k(\Omega_{ij})\) and \(\Omega_{ij}^{m}=\rho_m(\Omega_{ij})\).\\
+\(L_{ij}\) &
+\(L_{ij}\in G\) on an oriented edge of \(\mathfrak I\) &
+Independent Regime-II interaction link with \(L_{ij}'=g_iL_{ij}g_j^{-1}\).\\
+\(\Sigma_k,\Sigma_m\) &
+\(\mathbb S_{++}^{d_k}\), \(\mathbb S_{++}^{d_m}\) &
+Nondegenerate state and model covariances, transforming by represented congruence.\\
+\(\Lambda_k,\Lambda_m\) &
+\(\Lambda_k=\Sigma_k^{-1}\), \(\Lambda_m=\Sigma_m^{-1}\) &
+Local precision tensors, transforming by dual inverse congruence. They are distinct from the later global population precision \(J\).\\
+\(J\) &
+\(\mathbb S_{++}^{\dim\mathsf Y_D}\) in the finite Gaussian reference regime &
+Global correlated population precision used by structured recognition and Gaussian mean-field analysis.\\
+\(\nu_D^Y,\nu_D^O\) &
+Sigma-finite measures on \(\mathsf Y_D\) and \(\mathsf O_D\) &
+Declared finite-product reference measures for densities and Radon--Nikodym ratios.\\
+\end{longtable}
+\normalsize

@@ -1,0 +1,55 @@
+\begin{tikzpicture}[
+  >={Latex[length=2.2mm]},
+  every node/.style={font=\small},
+  matrixcell/.style={draw=darkgray,line width=0.55pt,minimum width=1.16cm,minimum height=0.82cm,anchor=center},
+  matrixlabel/.style={font=\bfseries\small,text=primaryblue,align=center},
+  restriction/.style={->,line width=0.95pt,draw=criticalred},
+  callout/.style={draw=darkgray,line width=0.8pt,rounded corners=2pt,fill=lightgray,align=center,inner xsep=6pt,inner ysep=5pt}
+]
+\matrix (fullprecision) [
+  matrix of math nodes,
+  nodes={matrixcell},
+  row sep=-\pgflinewidth,
+  column sep=-\pgflinewidth,
+  left delimiter={[},
+  right delimiter={]}
+] {
+  |[fill=lightblue]| J_{11} & |[fill=lightorange]| J_{12} & |[fill=lightorange]| J_{13} \\
+  |[fill=lightorange]| J_{12}^{\mathsf T} & |[fill=lightgreen]| J_{22} & |[fill=lightorange]| J_{23} \\
+  |[fill=lightorange]| J_{13}^{\mathsf T} & |[fill=lightorange]| J_{23}^{\mathsf T} & |[fill=lightpurple]| J_{33} \\
+};
+\node[matrixlabel,above=0.34cm of fullprecision] (fulllabel)
+  {exact posterior precision\\\(J=J^{\mathsf T}\succ0\)};
+
+\matrix (restrictedcovariance) [
+  matrix of math nodes,
+  nodes={matrixcell},
+  row sep=-\pgflinewidth,
+  column sep=-\pgflinewidth,
+  left delimiter={[},
+  right delimiter={]},
+  right=4.45cm of fullprecision
+] {
+  |[fill=lightblue]| J_{11}^{-1} & 0 & 0 \\
+  0 & |[fill=lightgreen]| J_{22}^{-1} & 0 \\
+  0 & 0 & |[fill=lightpurple]| J_{33}^{-1} \\
+};
+\node[matrixlabel,above=0.34cm of restrictedcovariance] (restrictedlabel)
+  {block-product variational covariance\\\(C^\star=\operatorname{blockdiag}_b(J_{bb}^{-1})\)};
+
+\draw[restriction] (fullprecision.east) --
+  node[midway,above=0.16cm,font=\scriptsize,align=center,text=criticalred]
+  {recognition-family\\restriction}
+  node[midway,below=0.16cm,font=\scriptsize,align=center,text=darkgray]
+  {removes conditional\\dependencies \(J_{bc}\), \(b\ne c\)}
+  (restrictedcovariance.west);
+
+\coordinate (matrixmid) at ($(fullprecision.south)!0.5!(restrictedcovariance.south)$);
+\node[callout,below=1.35cm of matrixmid] (gap)
+  {\(\displaystyle
+    \log p_\theta(o\mid X)-\mathcal L_{\mathfrak B}^{\star}
+    =\frac12\log\frac{\prod_{b\in\mathfrak B}\det J_{bb}}{\det J}\geq0
+  \)};
+\node[below=0.18cm of gap,font=\scriptsize,text=darkgray,align=center]
+  {The restriction does not set posterior marginal covariances \((J^{-1})_{bc}\) to zero.};
+\end{tikzpicture}

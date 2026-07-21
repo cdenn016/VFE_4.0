@@ -1,0 +1,79 @@
+\begin{tikzpicture}[
+  >={Stealth[length=2.3mm]},
+  every node/.style={font=\scriptsize},
+  panel/.style={
+    rectangle,
+    draw=primaryblue,
+    fill=white,
+    rounded corners=3pt,
+    line width=0.9pt,
+    minimum width=38mm,
+    minimum height=43mm,
+    align=center,
+    inner sep=3mm
+  },
+  inference/.style={panel, draw=sciencegreen!85!black},
+  empirical/.style={panel, draw=cautionorange!90!black, dashed},
+  flow/.style={-{Stealth[length=2.3mm]}, primaryblue, line width=1.2pt},
+  varflow/.style={-{Stealth[length=2.3mm]}, sciencegreen!85!black, line width=1.2pt},
+  agent/.style={
+    circle,
+    draw=primaryblue,
+    fill=lightblue,
+    minimum size=7mm,
+    inner sep=1pt
+  }
+]
+  \node[panel] (general) {
+    {\bfseries General theory}\\[2mm]
+    $P\to\mathcal C$\\
+    $\mathscr B_z,\mathscr B_m\to\mathcal C$\\[2mm]
+    $q_i\in\Gamma(U_i,\mathscr B_z)$\\
+    $s_i\in\Gamma(U_i,\mathscr B_m)$\\[2mm]
+    local agent sections on open domains
+  };
+
+  \node[panel, right=8mm of general] (reduction) {};
+  \node[font=\scriptsize\bfseries, anchor=north] at ([yshift=-3mm]reduction.north) {Zero-dimensional reduction};
+  \node[agent] (a0) at ([xshift=-10mm,yshift=5mm]reduction.center) {$0$};
+  \node[agent] (a1) at ([yshift=5mm]reduction.center) {$1$};
+  \node[agent] (at) at ([xshift=10mm,yshift=5mm]reduction.center) {$t$};
+  \draw[flow] (a0) -- (a1);
+  \draw[flow] (a1) -- (at);
+  \node[font=\Large, primaryblue] (star) at ([yshift=-10mm]reduction.center) {$\ast$};
+  \draw[mediumgray] ([xshift=-15mm,yshift=-4mm]reduction.center) -- ([xshift=15mm,yshift=-4mm]reduction.center);
+  \node[align=center] at ([yshift=-17mm]reduction.center) {one base point\\internal causal graph};
+
+  \node[inference, right=8mm of reduction] (posterior) {
+    {\bfseries Correlated recognition}\\[2mm]
+    $Q_\psi(y,a,b\mid x,\Gamma_{\rm core})$\\[2mm]
+    $q(y\mid a,b,x,\Gamma_{\rm core})$ Gaussian\\
+    $J_{ab}=J_{ab}^\top\succ0$\\
+    off-diagonal population blocks\\[2mm]
+    $q_t=(\operatorname{pr}_{z,t})_\#Q$\\
+    $s_t=(\operatorname{pr}_{m,t})_\#Q$
+  };
+
+  \node[panel, right=8mm of posterior] (elbo) {
+    {\bfseries One exact objective}\\[2mm]
+    $\mathcal F_4=-\mathcal L_4$\\[1mm]
+    $=$ expected categorical CE\\
+    $+$ latent complexity\\
+    $+$ source complexity\\[2mm]
+    normalized $p_\theta$ and $Q_\psi$
+  };
+
+  \node[empirical, right=8mm of elbo] (prediction) {
+    {\bfseries Language test}\\[2mm]
+    $p_\theta(x_t\mid x_{<t})$\\[2mm]
+    target-blind prior predictor\\
+    recognition only in training\\[2mm]
+    perplexity, calibration,\\
+    cost, ablations
+  };
+
+  \draw[flow] (general) -- node[above, align=center] {$\mathcal C\mapsto\{\ast\}$} (reduction);
+  \draw[varflow] (reduction) -- (posterior);
+  \draw[flow] (posterior) -- (elbo);
+  \draw[cautionorange!90!black, dashed, -{Stealth[length=2.3mm]}, line width=1.2pt] (elbo) -- (prediction);
+\end{tikzpicture}

@@ -1,0 +1,235 @@
+\chapter{Configuration Thermodynamics and the Nested ELBO}
+\label{ch:configuration-elbo}
+
+This chapter introduces a second probabilistic tier in which the structural value \(X\) is random on the fixed measurable space of Chapter~\ref{ch:probability-semantics}. Every admissible \(X\) retains the same finite design, incidence pattern, and identified latent and observation fibers. The state recognition law is therefore a measurable kernel with one fixed codomain, while state and configuration entropies remain attached to different sample spaces. The hierarchy below extends the conditional state model without changing any of its factors.
+
+\section{Hierarchical probability law and recognition kernel}
+
+Let \(P_0\in\mathcal P(\mathsf X,\mathscr X)\) be a proper configuration prior. Combine it with the normalized state kernel of Equation~\eqref{eq:generative-kernel-type} to define the hierarchical probability measure
+\begin{equation}
+\mathbf P_\theta(dX,do,dY)
+=P_0(dX)P_\theta(do,dY\mid X).
+\label{eq:hierarchical-generative-measure}
+\end{equation}
+The bold symbol \(\mathbf P_\theta\) denotes the hierarchical measure on
+\(\mathsf X\times\mathsf O_D\times\mathsf Y_D\); the unbold \(P_\theta(\mathord\cdot\mid X)\) remains the state-level probability kernel. When that kernel is dominated as in Equation~\eqref{eq:generative-density-reference-measures}, the lowercase quantities
+\begin{align}
+p_\theta(o,y\mid X)
+&=\frac{dP_\theta(\mathord\cdot\mid X)}
+{d(\nu_D^O\otimes\nu_D^Y)}(o,y),
+\label{eq:hierarchical-conditional-density}\\
+p_\theta(o\mid X)
+&=\int_{\mathsf Y_D}p_\theta(o,y\mid X)\nu_D^Y(dy),
+\label{eq:hierarchical-conditional-evidence-density}\\
+p_\theta(o)
+&=\int_{\mathsf X}p_\theta(o\mid X)P_0(dX).
+\label{eq:hierarchical-evidence-density}
+\end{align}
+These quantities are densities relative to the declared observation and latent reference measures. No lowercase \(p_\theta\) in this chapter denotes a probability measure.
+
+The configuration recognition object is the normalized Markov kernel
+\begin{equation}
+R:(\mathsf O_D,\mathscr O_D)
+\longrightarrow\mathcal P(\mathsf X,\mathscr X),
+\qquad
+o\longmapsto R(dX\mid o),
+\label{eq:configuration-recognition-kernel}
+\end{equation}
+so \(o\mapsto R(A\mid o)\) is measurable for every \(A\in\mathscr X\). Retain the state recognition kernel \(Q\) from Equation~\eqref{eq:structured-recognition-kernel}; specifically, \(X\mapsto Q_X(B\mid o)\) is measurable for every \(B\in\mathscr Y_D\) at fixed \(o\). Their semidirect product is the normalized joint recognition law
+\begin{equation}
+\mathcal Q_o(dX,dY)
+=R(dX\mid o)Q_X(dY\mid o),
+\qquad
+\mathcal Q_o(\mathsf X\times\mathsf Y_D)=1.
+\label{eq:hierarchical-recognition-law}
+\end{equation}
+
+\begin{figure}[tbp]
+\centering
+\resizebox{\textwidth}{!}{\input{magent_elbo_whitepaper/figures/magent_state_configuration_tiers}}
+\caption{\textbf{The nested model has distinct state and configuration sectors.} The normalized measures \(P_0(dX)P_\theta(do,dY\mid X)\) and \(R(dX\mid o)Q_X(dY\mid o)\) define the exact two-tier construction once the chapter's measurability, absolute-continuity, and integrability assumptions hold. The state recognition contribution uses the entropy of \(Q_X\), whereas the configuration contribution is the coordinate-independent relative-entropy term \(-\KL(R(\mathord\cdot\mid o)\Vert P_0)\). Optional categorical source entropy belongs to a separate source sample space and enters the hierarchy only when those source variables are embedded in a declared normalized joint. The configuration \(X\), evaluated state \(Y\), and optional source labels are random objects, not agents or substitutes for the section-bearing agent ontology.}
+\label{fig:magent-state-configuration-tiers}
+\end{figure}
+
+Fix an observed \(o\in\mathsf O_D\) and \(T_{\mathrm{cfg}}>0\). Before stating the nested identity, assume that jointly measurable versions of \(p_\theta(o,y\mid X)\) and \(q_X(y\mid o)\) have been selected, that
+\begin{equation}
+0<p_\theta(o)<\infty,
+\qquad
+0<p_\theta(o\mid X)<\infty
+\quad\text{for \(R(\mathord\cdot\mid o)\)-almost every \(X\)},
+\label{eq:hierarchical-positive-evidence-assumptions}
+\end{equation}
+and that
+\begin{equation}
+R(\mathord\cdot\mid o)\ll P_0,
+\qquad
+Q_X(\mathord\cdot\mid o)
+\ll P_\theta(\mathord\cdot\mid o,X)
+\quad\text{for \(R(\mathord\cdot\mid o)\)-almost every \(X\)}.
+\label{eq:hierarchical-absolute-continuity-assumptions}
+\end{equation}
+Write \(q_X(y\mid o)=dQ_X(\mathord\cdot\mid o)/d\nu_D^Y\). Assume the absolute-log-integrability condition
+\begin{align}
+\int_{\mathsf X}
+\left[
+\left|\log\frac{dR(\mathord\cdot\mid o)}{dP_0}(X)\right|
++\int_{\mathsf Y_D}
+\left\{
+|\log q_X(y\mid o)|
++|\log p_\theta(o,y\mid X)|
+\right\}Q_X(dy\mid o)
+\right]R(dX\mid o)
+<\infty.
+\label{eq:hierarchical-log-integrability}
+\end{align}
+These assumptions make every displayed relative entropy and free-energy integral below finite. They also imply
+\(\mathcal Q_o\ll\mathbf P_\theta(\mathord\cdot,\mathord\cdot\mid o)\). An extended-real version is possible under weaker hypotheses, but it is not used here.
+
+The hierarchical posterior probability measure is
+\begin{equation}
+\mathbf P_\theta(dX,dY\mid o)
+=\frac{p_\theta(o,y\mid X)}{p_\theta(o)}
+P_0(dX)\nu_D^Y(dy).
+\label{eq:hierarchical-posterior-measure}
+\end{equation}
+It has configuration marginal and state conditional
+\begin{equation}
+\mathbf P_\theta(dX\mid o)
+=\frac{p_\theta(o\mid X)}{p_\theta(o)}P_0(dX),
+\qquad
+P_\theta(dY\mid o,X)
+=\frac{p_\theta(o,y\mid X)}{p_\theta(o\mid X)}\nu_D^Y(dy).
+\label{eq:hierarchical-posterior-disintegration}
+\end{equation}
+
+\section{Exact nested evidence identity}
+
+\paragraph{Theorem (exact hierarchical evidence identity).}
+Under Equations~\eqref{eq:hierarchical-positive-evidence-assumptions}--\eqref{eq:hierarchical-log-integrability}, define
+\begin{align}
+\mathcal J[R,Q]
+:={}&T_{\mathrm{cfg}}
+\KL\left(R(\mathord\cdot\mid o)\middle\Vert P_0\right)
++T_{\mathrm{cfg}}
+\int_{\mathsf X}
+\Fstate[Q_X;X,o]R(dX\mid o).
+\label{eq:nested-configuration-objective}
+\end{align}
+Then
+\begin{align}
+\mathcal J[R,Q]
+={}&-T_{\mathrm{cfg}}\log p_\theta(o)
++T_{\mathrm{cfg}}
+\KL\left(
+R(dX\mid o)Q_X(dY\mid o)
+\middle\Vert
+\mathbf P_\theta(dX,dY\mid o)
+\right).
+\label{eq:nested-configuration-evidence-identity}
+\end{align}
+
+The proof is direct joint-KL algebra. Relative to \(P_0\otimes\nu_D^Y\), Equations~\eqref{eq:hierarchical-recognition-law} and \eqref{eq:hierarchical-posterior-measure} give, \(\mathcal Q_o\)-almost surely,
+\begin{equation}
+\log\frac{d\mathcal Q_o}
+{d\mathbf P_\theta(\mathord\cdot,\mathord\cdot\mid o)}(X,y)
+=\log\frac{dR(\mathord\cdot\mid o)}{dP_0}(X)
++\log q_X(y\mid o)
+-\log p_\theta(o,y\mid X)
++\log p_\theta(o).
+\label{eq:hierarchical-joint-log-ratio}
+\end{equation}
+Integration first over \(Q_X\) and then over \(R\), followed by
+\(\Fstate=-\Lstate\), proves Equation~\eqref{eq:nested-configuration-evidence-identity}. Appendix~\ref{sec:hierarchical-joint-kl-proof} records the same calculation together with the conditional KL chain rule.
+
+Dividing Equation~\eqref{eq:nested-configuration-evidence-identity} by \(-T_{\mathrm{cfg}}\) gives the ordinary hierarchical evidence lower bound
+\begin{align}
+\mathcal L_{\mathrm{hier}}[R,Q]
+:={}&-\frac{\mathcal J[R,Q]}{T_{\mathrm{cfg}}}
+\label{eq:hierarchical-elbo-definition}\\
+={}&\log p_\theta(o)
+-\KL\left(
+\mathcal Q_o
+\middle\Vert
+\mathbf P_\theta(\mathord\cdot,\mathord\cdot\mid o)
+\right)
+\leq\log p_\theta(o).
+\label{eq:hierarchical-elbo-gap}
+\end{align}
+Equality holds if and only if
+\begin{equation}
+R(dX\mid o)Q_X(dY\mid o)
+=\mathbf P_\theta(dX,dY\mid o)
+\quad\text{as probability measures}.
+\label{eq:hierarchical-elbo-equality-condition}
+\end{equation}
+Equivalently, the configuration laws agree and the conditional state laws agree almost everywhere:
+\begin{equation}
+R(dX\mid o)=\mathbf P_\theta(dX\mid o),
+\qquad
+Q_X(dY\mid o)=P_\theta(dY\mid o,X)
+\quad\text{for \(R\)-almost every \(X\)}.
+\label{eq:hierarchical-elbo-component-equality}
+\end{equation}
+This equality is a statement about the complete joint law, not merely its displayed marginals \citep{Kullback1951,Csiszar1967,CoverThomas2006}.
+
+Expanding the lower bound exposes the entropy count:
+\begin{align}
+\mathcal L_{\mathrm{hier}}[R,Q]
+={}&\int_{\mathsf X}\int_{\mathsf Y_D}
+\log p_\theta(o,y\mid X)Q_X(dy\mid o)R(dX\mid o)
+\notag\\
+&-\int_{\mathsf X}\int_{\mathsf Y_D}
+\log q_X(y\mid o)Q_X(dy\mid o)R(dX\mid o)
+\label{eq:hierarchical-elbo-entropy-audit}\\
+&-\int_{\mathsf X}
+\log\frac{dR(\mathord\cdot\mid o)}{dP_0}(X)R(dX\mid o).
+\notag
+\end{align}
+The state recognition entropy occurs once, inside the averaged \(\Fstate\). The configuration relative-entropy contribution occurs once, inside \(\KL(R\Vert P_0)\). The optional categorical source-row entropy of Chapter~\ref{ch:mean-field-theory} remains a third sector on its own finite source space and is absent unless that auxiliary variable is included in the normalized model. If a source variable is embedded in \(Y\) or \(X\), its entropy is already part of the corresponding joint state or configuration entropy and must not be added again.
+
+\section{What the common temperature does not do}
+
+For fixed \(P_0\), \(P_\theta\), and admissible recognition family, the positive number \(T_{\mathrm{cfg}}\) multiplies the complete objective:
+\begin{equation}
+\operatorname*{argmin}_{R,Q}\mathcal J[R,Q]
+=\operatorname*{argmin}_{R,Q}
+\frac{\mathcal J[R,Q]}{T_{\mathrm{cfg}}}.
+\label{eq:common-temperature-optimizer-invariance}
+\end{equation}
+It changes objective units but neither the posterior nor the optimizer. Inserting different coefficients before \(\KL(R\Vert P_0)\) and the averaged \(\Fstate\) would therefore define a different objective, not a temperature interpretation of Equation~\eqref{eq:nested-configuration-evidence-identity}. A relative state/configuration temperature requires a separately normalized generative construction, such as a power or loss-based posterior, and every temperature-dependent conditional and marginal normalizer must be retained. If \(P_0=P_{\mathcal F}\) is selected through Equation~\eqref{eq:configuration-gibbs-prior}, changing \(T_{\mathrm{cfg}}\) changes that normalized prior through both its exponential weight and \(Z_{\mathcal F}\), so it can change the posterior and optimizer; the fixed-prior invariance does not compare those temperature-indexed models. Generalized Bayesian updating supplies one coherent framework for that different construction, but its loss scale is not inherited from the ordinary hierarchical ELBO \citep{BissiriHolmesWalker2016}.
+
+\section{Optional observation-free configuration-Gibbs prior}
+
+The configuration tier also permits an optional prior construction that is separate from the hierarchy with an arbitrary \(P_0\). Let \(\rho_0\in\mathcal P(\mathsf X,\mathscr X)\) be a proper reference probability measure, and let
+\(\mathcal F_{\mathrm{vac}}:\mathsf X\to\mathbb R\cup\{+\infty\}\) be a measurable observation-free configuration energy. Define
+\begin{align}
+Z_{\mathcal F}
+&=\int_{\mathsf X}
+\exp\left[-\frac{\mathcal F_{\mathrm{vac}}(X)}{T_{\mathrm{cfg}}}\right]
+\rho_0(dX),
+\label{eq:configuration-gibbs-partition-function}\\
+dP_{\mathcal F}(X)
+&=Z_{\mathcal F}^{-1}
+\exp\left[-\frac{\mathcal F_{\mathrm{vac}}(X)}{T_{\mathrm{cfg}}}\right]
+d\rho_0(X),
+\qquad
+0<Z_{\mathcal F}<\infty.
+\label{eq:configuration-gibbs-prior}
+\end{align}
+The energy may depend only on structural or configuration coordinates declared as part of \(X\), such as an admissible graph, Regime-I frames, Regime-II edge links, or separately typed observation-free fields. It may not depend on the realized observation \(o\), call the recognition kernel, or read the live finite marginals \(q_{i,a}^{o,X}\) and \(s_{i,a}^{o,X}\) from \(Q_X\). If measure-valued coordinates are themselves included in \(X\), they must be written, for example, as \(\widehat q_i\) and \(\widehat s_i\), assigned a prior, and connected to the finite state-level marginals by an explicit model or summary map.
+
+When Equation~\eqref{eq:configuration-gibbs-partition-function} is finite, \(P_{\mathcal F}\) is a normalized prior that may replace \(P_0\) in Equation~\eqref{eq:hierarchical-generative-measure} before data are observed. It also satisfies the separate configuration-space variational identity
+\begin{equation}
+\int\mathcal F_{\mathrm{vac}}(X)R(dX)
++T_{\mathrm{cfg}}\KL(R\Vert\rho_0)
+=T_{\mathrm{cfg}}\KL(R\Vert P_{\mathcal F})
+-T_{\mathrm{cfg}}\log Z_{\mathcal F},
+\label{eq:configuration-gibbs-variational-identity}
+\end{equation}
+for every \(R\ll\rho_0\) for which the terms are finite. Appendix~\ref{sec:configuration-gibbs-proof} proves the identity. Its entropy is configuration entropy relative to \(\rho_0\); it is not the state recognition entropy inside \(\Fstate\), and \(\mathcal F_{\mathrm{vac}}\) is not thereby made a state ELBO.
+
+\section{The noncompact frame boundary}
+
+The frame group \(\mathrm{GL}^+(K)\) is noncompact, so its Haar measure has infinite total mass \citep{Knapp2002}. A phrase such as ``uniform random frame'' therefore does not define a proper prior, and an invariant integrand can retain an infinite gauge-orbit volume even when its value is bounded below. A normalized configuration ensemble that includes such frames requires one of two declared interpretations. If frame transformations are physical configuration changes, their directions must receive a proper frame prior, regulator, or coercive symmetry-breaking energy. If they are gauge redundancies, the construction must specify the group action and either a quotient measure or a gauge-fixing prescription. Gauge fixing must include the reference-measure change and the applicable Jacobian, including a Faddeev--Popov-type determinant when the slice construction produces one \citep{FaddeevPopov1967,Nakahara2003}.
+
+Neither route alone proves normalization. After removing or weighting the noncompact orbit directions, one must still prove \(0<Z_{\mathcal F}<\infty\) in every remaining configuration direction. A global smooth quotient or one global gauge slice must not be assumed when the action has stabilizers, nonfree orbits, or singular orbit-type strata. Such cases require a stratified quotient or compatible local slices with their measures and residual-copy treatment stated explicitly. Until a proper reference law and a finite partition-function proof are supplied, the paper makes no normalized \(\mathrm{GL}^+(K)\) configuration-ensemble claim.
