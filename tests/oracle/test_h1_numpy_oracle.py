@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import json
 import math
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import numpy as np
 import pytest
 
 import verification.numpy_oracles.h1_elbo as oracle_module
+import vfe4.objective.h1_local as production_local_module
 from verification.numpy_oracles.h1_elbo import (
     IndependentTermAllowances,
     IndependentNumericalAllowance,
@@ -482,3 +484,84 @@ def test_oracle_numerics_use_raw_spd_factorizations_without_fallbacks() -> None:
     assert "np.linalg.pinv" not in source
     assert "jitter" not in source
     assert "np.linalg.eig" not in source
+
+
+def test_zero_probability_recognition_paths_are_supported_end_to_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    raw["recognition"]["model_source_probabilities"][1] = [1.0, 0.0]
+    reduced_path = tmp_path / "reduced-recognition-support.json"
+    reduced_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    fixture = load_h1_fixture(reduced_path)
+    model = H1GenerativeModel.from_fixture(fixture)
+    recognition = H1RecognitionLaw.from_fixture(fixture)
+    original_q_component = recognition.joint_component
+    original_p_component = model.joint_component
+    original_local_moments = production_local_module._recognition_moments
+    original_oracle_component = oracle_module._assemble_recognition_component
+
+    def guarded_q_component(path: object) -> object:
+        if recognition.source_probability(path).item() == 0.0:
+            raise AssertionError("production evaluated a zero-q component")
+        return original_q_component(path)
+
+    def guarded_p_component(path: object) -> object:
+        if recognition.source_probability(path).item() == 0.0:
+            raise AssertionError("production evaluated p on a zero-q path")
+        return original_p_component(path)
+
+    def guarded_local_moments(factors: object, path: object) -> object:
+        if path.b[1] == 1:
+            raise AssertionError("production local path evaluated zero-q moments")
+        return original_local_moments(factors, path)
+
+    def guarded_oracle_component(factors: object, path: tuple[int, int]) -> object:
+        if path[1] == 1:
+            raise AssertionError("oracle evaluated a zero-q component")
+        return original_oracle_component(factors, path)
+
+    monkeypatch.setattr(recognition, "joint_component", guarded_q_component)
+    monkeypatch.setattr(model, "joint_component", guarded_p_component)
+    monkeypatch.setattr(production_local_module, "_recognition_moments", guarded_local_moments)
+    monkeypatch.setattr(oracle_module, "_assemble_recognition_component", guarded_oracle_component)
+    monolithic = evaluate_monolithic_elbo(
+        model,
+        recognition,
+        quadrature_order=21,
+        convergence_check_order=17,
+    )
+    production_local = evaluate_local_elbo(
+        model,
+        recognition,
+        quadrature_order=21,
+        convergence_check_order=17,
+    )
+    independent_identity = h1_evidence_and_posterior_kl(
+        reduced_path, quadrature_order=21, convergence_check_order=17
+    )
+    independent_local = h1_local_diagnostics(
+        reduced_path, quadrature_order=21, convergence_check_order=17
+    )
+
+    results = (
+        monolithic.value,
+        production_local.complete_elbo,
+        independent_identity.elbo_from_identity,
+        independent_local.complete_elbo,
+    )
+    paired_allowance = math.fsum(
+        (
+            monolithic.numerical_allowance.total,
+            production_local.allowances.complete_elbo.total,
+            independent_identity.identity_allowance.total,
+            independent_local.allowances.complete_elbo.total,
+            _comparison_roundoff(*results),
+        )
+    )
+    assert max(results) - min(results) <= paired_allowance
+    assert monolithic.component_values[2:] == (0.0, 0.0)
+    assert independent_identity.posterior_kl >= -independent_identity.posterior_kl_allowance.total
+    assert math.isfinite(production_local.joint_recognition_entropy)
+    assert math.isfinite(independent_local.joint_recognition_entropy)

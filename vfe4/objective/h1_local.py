@@ -122,10 +122,17 @@ def _evaluate_order(
 ) -> _LocalEvaluation:
     generative = model.factors
     recognized = recognition.factors
-    paths = _source_paths()
-    weights = tuple(_source_weight(recognized, path) for path in paths)
-    if abs(math.fsum(weights) - 1.0) > 64.0 * _FLOAT64_EPSILON:
+    all_paths = _source_paths()
+    all_weights = tuple(_source_weight(recognized, path) for path in all_paths)
+    if abs(math.fsum(all_weights) - 1.0) > 64.0 * _FLOAT64_EPSILON:
         raise ValueError("recognition path weights must sum to one")
+    active = tuple(
+        (weight, path)
+        for weight, path in zip(all_weights, all_paths)
+        if weight > 0.0
+    )
+    weights = tuple(weight for weight, _ in active)
+    paths = tuple(path for _, path in active)
     moments = tuple(_recognition_moments(recognized, path) for path in paths)
 
     expected_log_emission = tuple(
@@ -296,9 +303,9 @@ def _initial_state_conditional(mean: Tensor, covariance: Tensor) -> tuple[float,
 def _model_transition_kl_reduction(
     *,
     time: int,
-    weights: tuple[float, float, float, float],
-    paths: tuple[SourcePath, SourcePath, SourcePath, SourcePath],
-    moments: tuple[_Moments, _Moments, _Moments, _Moments],
+    weights: tuple[float, ...],
+    paths: tuple[SourcePath, ...],
+    moments: tuple[_Moments, ...],
     recognized: H1RecognitionFactorRecord,
     model: H1GenerativeModel,
 ) -> _Reduction:
@@ -334,9 +341,9 @@ def _model_transition_kl_reduction(
 def _state_transition_kl_reduction(
     *,
     time: int,
-    weights: tuple[float, float, float, float],
-    paths: tuple[SourcePath, SourcePath, SourcePath, SourcePath],
-    moments: tuple[_Moments, _Moments, _Moments, _Moments],
+    weights: tuple[float, ...],
+    paths: tuple[SourcePath, ...],
+    moments: tuple[_Moments, ...],
     recognized: H1RecognitionFactorRecord,
     model: H1GenerativeModel,
 ) -> _Reduction:
@@ -429,8 +436,8 @@ def _mixture_emission_expectation(
     selected_index: int,
     time: int,
     order: int,
-    weights: tuple[float, float, float, float],
-    moments: tuple[_Moments, _Moments, _Moments, _Moments],
+    weights: tuple[float, ...],
+    moments: tuple[_Moments, ...],
 ) -> _Reduction:
     nodes, quadrature_weights = probabilists_gauss_hermite(order, dtype=torch.float64)
     contributions: list[float] = []
@@ -457,14 +464,15 @@ def _mixture_emission_expectation(
 
 def _recognition_entropy(
     factors: H1RecognitionFactorRecord,
-    weights: tuple[float, float, float, float],
-    paths: tuple[SourcePath, SourcePath, SourcePath, SourcePath],
+    weights: tuple[float, ...],
+    paths: tuple[SourcePath, ...],
 ) -> _Reduction:
     contributions: list[float] = []
     for weight in weights:
-        if weight <= 0.0:
-            raise ValueError("recognition path weights must be positive")
-        contributions.append(-weight * math.log(weight))
+        if weight < 0.0:
+            raise ValueError("recognition path weights must be nonnegative")
+        if weight > 0.0:
+            contributions.append(-weight * math.log(weight))
     initial_covariance = factors.initial_joint.covariance
     initial_chol = torch.linalg.cholesky(initial_covariance)
     initial_log_determinant = 2.0 * torch.log(torch.diagonal(initial_chol)).sum()
@@ -505,7 +513,7 @@ def _source_weight(factors: H1RecognitionFactorRecord, path: SourcePath) -> floa
         a = path.a[time]
         probabilities.append(_scalar(model_probabilities[time][b], "model source probability"))
         probabilities.append(_scalar(state_probabilities[time][b, a], "state source probability"))
-    return _positive(math.prod(probabilities), "recognition source weight")
+    return _nonnegative_finite(math.prod(probabilities), "recognition source weight")
 
 
 def _source_paths() -> tuple[SourcePath, SourcePath, SourcePath, SourcePath]:

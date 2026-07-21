@@ -231,3 +231,22 @@ def test_independent_evidence_rejects_non_spd_and_nonfinite_raw_data(
         h1_log_evidence(
             path, (1, 2), quadrature_order=21, convergence_check_order=17
         )
+
+
+@pytest.mark.parametrize(
+    "invalid_maximum",
+    [True, 1, 0, 2.0e-9, 1.0e-10],
+)
+def test_oracle_rejects_nonfrozen_maximum_convergence_literal(
+    tmp_path: Path, invalid_maximum: object
+) -> None:
+    raw = _raw_fixture()
+    raw["quadrature"]["maximum_convergence_estimate"] = invalid_maximum
+    path = _write_fixture(tmp_path, "invalid-maximum.json", raw)
+
+    with pytest.raises(
+        ValueError, match="maximum_convergence_estimate must be the float 1e-9"
+    ):
+        h1_log_evidence(
+            path, (1, 2), quadrature_order=21, convergence_check_order=17
+        )

@@ -537,9 +537,12 @@ def _parse_generative(root: dict[str, object]) -> _GenerativeFixture:
         raise ValueError("quadrature.order must equal 21")
     if _integer(quadrature["convergence_check_order"], "quadrature.convergence_check_order") != 17:
         raise ValueError("quadrature.convergence_check_order must equal 17")
-    maximum = _positive(
-        quadrature["maximum_convergence_estimate"], "maximum_convergence_estimate"
-    )
+    maximum_raw = quadrature["maximum_convergence_estimate"]
+    if type(maximum_raw) is not float or maximum_raw != 1.0e-9:
+        raise ValueError(
+            "maximum_convergence_estimate must be the float 1e-9"
+        )
+    maximum = maximum_raw
     return _GenerativeFixture(
         observations,
         frames,
@@ -868,7 +871,9 @@ def _recognition_source_weight(
         fixture.model_probabilities[1][b],
         fixture.state_probabilities[1][b, a],
     )
-    return _positive(math.prod(float(item) for item in factors), "recognition source weight")
+    return _nonnegative(
+        math.prod(float(item) for item in factors), "recognition source weight"
+    )
 
 
 def _softmax(logits: np.ndarray) -> np.ndarray:
@@ -906,10 +911,12 @@ def _component_all_likelihoods(
 
 def _all_evidence_from_components(
     fixture: _GenerativeFixture,
-    components: tuple[_Gaussian, _Gaussian, _Gaussian, _Gaussian],
-    source_weights: tuple[float, float, float, float],
+    components: tuple[_Gaussian, ...],
+    source_weights: tuple[float, ...],
     order: int,
 ) -> tuple[tuple[_Reduction, _Reduction, _Reduction], ...]:
+    if not components or len(components) != len(source_weights):
+        raise ValueError("components and source weights must have equal nonzero length")
     per_path_values: list[np.ndarray] = []
     per_path_absolute: list[np.ndarray] = []
     for source_weight, component in zip(source_weights, components):
@@ -1138,11 +1145,15 @@ def h1_wrong_recognition_mixture_evidence(
     _validate_orders(quadrature_order, convergence_check_order)
     labels = _observation_pair(observation_labels)
     complete = _load_complete_fixture(fixture_path)
-    components = tuple(
-        _assemble_recognition_component(complete.recognition, path) for path in _PATHS
+    weighted_paths = tuple(
+        (_recognition_source_weight(complete.recognition, path), path)
+        for path in _PATHS
     )
-    weights = tuple(
-        _recognition_source_weight(complete.recognition, path) for path in _PATHS
+    active = tuple((weight, path) for weight, path in weighted_paths if weight > 0.0)
+    weights = tuple(weight for weight, _ in active)
+    components = tuple(
+        _assemble_recognition_component(complete.recognition, path)
+        for _, path in active
     )
     reported = _all_evidence_from_components(
         complete.generative,
@@ -1163,8 +1174,8 @@ def h1_wrong_recognition_mixture_evidence(
 def _mixed_evidence_record(
     complete: _CompleteFixture,
     labels: tuple[int, int],
-    components: tuple[_Gaussian, _Gaussian, _Gaussian, _Gaussian],
-    weights: tuple[float, float, float, float],
+    components: tuple[_Gaussian, ...],
+    weights: tuple[float, ...],
     quadrature_order: int,
     convergence_check_order: int,
 ) -> H1EvidenceRecord:
@@ -1189,11 +1200,15 @@ def h1_q_weights_p_components_evidence(
     _validate_orders(quadrature_order, convergence_check_order)
     labels = _observation_pair(observation_labels)
     complete = _load_complete_fixture(fixture_path)
-    components = tuple(
-        _assemble_generative_component(complete.generative, path) for path in _PATHS
+    weighted_paths = tuple(
+        (_recognition_source_weight(complete.recognition, path), path)
+        for path in _PATHS
     )
-    weights = tuple(
-        _recognition_source_weight(complete.recognition, path) for path in _PATHS
+    active = tuple((weight, path) for weight, path in weighted_paths if weight > 0.0)
+    weights = tuple(weight for weight, _ in active)
+    components = tuple(
+        _assemble_generative_component(complete.generative, path)
+        for _, path in active
     )
     return _mixed_evidence_record(
         complete,
@@ -1432,8 +1447,14 @@ def _identity_order(
 
     posterior_contributions: list[float] = []
     posterior_absolute: list[float] = []
-    for path in _PATHS:
-        q_weight = _recognition_source_weight(complete.recognition, path)
+    recognition_weights = tuple(
+        _recognition_source_weight(complete.recognition, path) for path in _PATHS
+    )
+    if abs(math.fsum(recognition_weights) - 1.0) > 64.0 * _EPSILON:
+        raise ValueError("recognition source weights must sum to one")
+    for path, q_weight in zip(_PATHS, recognition_weights):
+        if q_weight == 0.0:
+            continue
         p_weight = _positive(
             _generative_source_weight(complete.generative, path),
             "generative source weight on recognition support",
@@ -1610,8 +1631,8 @@ def _state_source_kl(
 
 def _mixture_expected_log_emission(
     complete: _CompleteFixture,
-    components: tuple[_Gaussian, _Gaussian, _Gaussian, _Gaussian],
-    weights: tuple[float, float, float, float],
+    components: tuple[_Gaussian, ...],
+    weights: tuple[float, ...],
     *,
     time: int,
     selected_index: int,
@@ -1634,12 +1655,13 @@ def _mixture_expected_log_emission(
 
 def _model_transition_kl(
     complete: _CompleteFixture,
-    components: tuple[_Gaussian, _Gaussian, _Gaussian, _Gaussian],
-    weights: tuple[float, float, float, float],
+    components: tuple[_Gaussian, ...],
+    weights: tuple[float, ...],
+    paths: tuple[tuple[int, int], ...],
     time: int,
 ) -> _Reduction:
     contributions: list[float] = []
-    for weight, path, component in zip(weights, _PATHS, components):
+    for weight, path, component in zip(weights, paths, components):
         _, b_second = path
         b = 0 if time == 1 else b_second
         parent_index = 2 * b + 1
@@ -1670,12 +1692,13 @@ def _model_transition_kl(
 
 def _state_transition_kl(
     complete: _CompleteFixture,
-    components: tuple[_Gaussian, _Gaussian, _Gaussian, _Gaussian],
-    weights: tuple[float, float, float, float],
+    components: tuple[_Gaussian, ...],
+    weights: tuple[float, ...],
+    paths: tuple[tuple[int, int], ...],
     time: int,
 ) -> _Reduction:
     contributions: list[float] = []
-    for weight, path, component in zip(weights, _PATHS, components):
+    for weight, path, component in zip(weights, paths, components):
         a_second, b_second = path
         a = 0 if time == 1 else a_second
         b = 0 if time == 1 else b_second
@@ -1715,16 +1738,23 @@ def _state_transition_kl(
 
 def _recognition_entropy(
     recognition: _RecognitionFixture,
-    weights: tuple[float, float, float, float],
+    weights: tuple[float, ...],
+    paths: tuple[tuple[int, int], ...],
 ) -> _Reduction:
-    contributions = [-weight * math.log(weight) for weight in weights]
+    contributions = [
+        -weight * math.log(weight)
+        for weight in weights
+        if weight > 0.0
+    ]
     sign, initial_log_determinant = np.linalg.slogdet(recognition.initial.covariance)
     if sign != 1.0:
         raise ValueError("recognition initial covariance must have positive determinant")
     contributions.append(
         0.5 * (2.0 * (1.0 + math.log(2.0 * math.pi)) + initial_log_determinant)
     )
-    for weight, path in zip(weights, _PATHS):
+    for weight, path in zip(weights, paths):
+        if weight == 0.0:
+            continue
         a_second, b_second = path
         for time in (1, 2):
             a = 0 if time == 1 else a_second
@@ -1744,14 +1774,21 @@ def _recognition_entropy(
 
 
 def _local_order(complete: _CompleteFixture, order: int) -> _TermEvaluation:
-    components = tuple(
-        _assemble_recognition_component(complete.recognition, path) for path in _PATHS
-    )
-    weights = tuple(
+    all_weights = tuple(
         _recognition_source_weight(complete.recognition, path) for path in _PATHS
     )
-    if abs(math.fsum(weights) - 1.0) > 64.0 * _EPSILON:
+    if abs(math.fsum(all_weights) - 1.0) > 64.0 * _EPSILON:
         raise ValueError("recognition source weights must sum to one")
+    active = tuple(
+        (weight, path)
+        for weight, path in zip(all_weights, _PATHS)
+        if weight > 0.0
+    )
+    weights = tuple(weight for weight, _ in active)
+    paths = tuple(path for _, path in active)
+    components = tuple(
+        _assemble_recognition_component(complete.recognition, path) for path in paths
+    )
     first_index, second_index = (
         _label_to_index(label) for label in complete.generative.observations
     )
@@ -1796,6 +1833,7 @@ def _local_order(complete: _CompleteFixture, order: int) -> _TermEvaluation:
             complete,
             components,  # type: ignore[arg-type]
             weights,  # type: ignore[arg-type]
+            paths,
             time,
         )
         for time in (1, 2)
@@ -1805,11 +1843,14 @@ def _local_order(complete: _CompleteFixture, order: int) -> _TermEvaluation:
             complete,
             components,  # type: ignore[arg-type]
             weights,  # type: ignore[arg-type]
+            paths,
             time,
         )
         for time in (1, 2)
     )
-    entropy = _recognition_entropy(complete.recognition, weights)  # type: ignore[arg-type]
+    entropy = _recognition_entropy(
+        complete.recognition, weights, paths
+    )
     objective_terms = (
         *emissions,
         initial_model,

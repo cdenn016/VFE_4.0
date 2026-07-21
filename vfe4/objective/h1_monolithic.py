@@ -116,8 +116,15 @@ def _evaluate_order(
     emissions = model.factors.emissions
     for path in _source_paths():
         weight = _tensor_scalar(recognition.source_probability(path), "source probability")
-        if weight <= 0.0:
-            raise ValueError("recognition source probabilities must be positive")
+        if weight < 0.0:
+            raise ValueError("recognition source probabilities must be nonnegative")
+        weights.append(weight)
+        if weight == 0.0:
+            path_values.append(0.0)
+            gaussian_ratios.append(0.0)
+            source_ratios.append(0.0)
+            emission_values.append((0.0, 0.0))
+            continue
         q_component = recognition.joint_component(path)
         p_component = model.joint_component(path)
         gaussian_ratio = _complete_gaussian_log_ratio(q_component, p_component)
@@ -140,7 +147,6 @@ def _evaluate_order(
             (gaussian_ratio, source_ratio, per_time[0].value, per_time[1].value)
         )
 
-        weights.append(weight)
         gaussian_ratios.append(gaussian_ratio)
         source_ratios.append(source_ratio)
         emission_values.append((per_time[0].value, per_time[1].value))
@@ -153,6 +159,8 @@ def _evaluate_order(
             weighted_contributions.append(weight * reduction.value)
             weighted_absolute_contributions.append(weight * reduction.absolute_sum)
 
+    if abs(math.fsum(weights) - 1.0) > 64.0 * _FLOAT64_EPSILON:
+        raise ValueError("recognition path weights must sum to one")
     value = math.fsum(weighted_contributions)
     absolute_sum = math.fsum(weighted_absolute_contributions)
     expected_emission = tuple(
