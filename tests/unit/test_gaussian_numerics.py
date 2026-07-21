@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 import torch
 
@@ -47,4 +49,13 @@ def test_gaussian_log_prob_rejects_mismatched_shape() -> None:
             torch.ones(2, dtype=torch.float64),
             torch.ones(1, dtype=torch.float64),
             torch.eye(2, dtype=torch.float64),
+        )
+
+
+def test_gaussian_log_prob_rejects_a_nonfinite_derived_density() -> None:
+    with pytest.raises(ValueError, match="gaussian_log_prob"):
+        gaussian_log_prob(
+            torch.tensor([sys.float_info.max], dtype=torch.float64),
+            torch.zeros(1, dtype=torch.float64),
+            torch.eye(1, dtype=torch.float64),
         )

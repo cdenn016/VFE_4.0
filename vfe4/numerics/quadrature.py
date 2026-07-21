@@ -18,6 +18,8 @@ def probabilists_gauss_hermite(order: int, *, dtype: torch.dtype) -> tuple[Tenso
     hermite_nodes, hermite_weights = np.polynomial.hermite.hermgauss(order)
     nodes = torch.tensor(math.sqrt(2.0) * hermite_nodes, dtype=dtype)
     weights = torch.tensor(hermite_weights / math.sqrt(math.pi), dtype=dtype)
+    if not bool(torch.isfinite(nodes).all()) or not bool(torch.isfinite(weights).all()):
+        raise ValueError("quadrature nodes and weights must be finite")
     rounding_allowance = 64.0 * math.ulp(1.0)
     if abs(float(weights.sum().item()) - 1.0) > rounding_allowance:
         raise RuntimeError("quadrature weights failed normalization")

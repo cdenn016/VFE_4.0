@@ -103,6 +103,15 @@ def test_population_frames_checks_omega_indices(receiver: int, source: int) -> N
         frames.omega(receiver, source)
 
 
+def test_population_frames_rejects_an_overflowing_derived_ratio() -> None:
+    frames = PopulationFrames(
+        torch.tensor([sys.float_info.max, sys.float_info.min, 1.0], dtype=torch.float64)
+    )
+
+    with pytest.raises(ValueError, match="omega"):
+        frames.omega(0, 1)
+
+
 def _allowance() -> NumericalAllowance:
     return NumericalAllowance(convergence_estimate=0.0, rounding_allowance=1e-15)
 

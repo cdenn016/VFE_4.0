@@ -68,7 +68,10 @@ class PopulationFrames:
     def omega(self, receiver: int, source: int) -> torch.Tensor:
         _require_frame_index(receiver, "receiver")
         _require_frame_index(source, "source")
-        return (self._values[receiver] / self._values[source]).detach().clone()
+        ratio = self._values[receiver] / self._values[source]
+        if not bool(torch.isfinite(ratio)):
+            raise ValueError("omega must be finite")
+        return ratio.detach().clone()
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import pytest
 import torch
@@ -27,3 +28,10 @@ def test_probabilists_gauss_hermite_rejects_invalid_order(order: int) -> None:
 def test_probabilists_gauss_hermite_requires_float64() -> None:
     with pytest.raises(ValueError, match="float64"):
         probabilists_gauss_hermite(7, dtype=torch.float32)
+
+
+def test_probabilists_gauss_hermite_rejects_nonfinite_derived_rule() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        with pytest.raises(ValueError, match="nodes and weights"):
+            probabilists_gauss_hermite(1000, dtype=torch.float64)
