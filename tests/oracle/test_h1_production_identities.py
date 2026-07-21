@@ -122,7 +122,7 @@ def test_joint_recognition_entropy_matches_direct_component_entropy() -> None:
     assert abs(direct_entropy - local.joint_recognition_entropy) <= allowance
 
 
-def test_omitting_categorical_source_log_ratio_exceeds_paired_allowance() -> None:
+def test_omitting_recognition_source_entropy_exceeds_paired_allowance() -> None:
     fixture, model, recognition = _models()
     monolithic = evaluate_monolithic_elbo(
         model,
@@ -140,18 +140,15 @@ def test_omitting_categorical_source_log_ratio_exceeds_paired_allowance() -> Non
         recognition.source_probability(path).item()
         for path in enumerate_source_paths(fixture)
     )
-    source_log_ratio = math.fsum(
-        weight * ratio
-        for weight, ratio in zip(weights, monolithic.component_source_log_ratios)
-    )
-    injected_without_sources = monolithic.value - source_log_ratio
+    source_entropy = -math.fsum(weight * math.log(weight) for weight in weights)
+    injected_without_source_entropy = monolithic.value - source_entropy
     allowance = (
         monolithic.numerical_allowance.total
         + local.allowances.complete_elbo.total
-        + _comparison_roundoff(injected_without_sources, local.complete_elbo)
+        + _comparison_roundoff(injected_without_source_entropy, local.complete_elbo)
     )
 
-    assert abs(injected_without_sources - local.complete_elbo) > allowance
+    assert abs(injected_without_source_entropy - local.complete_elbo) > allowance
 
 
 def test_replacing_log_softmax_with_raw_selected_logits_exceeds_paired_allowance() -> None:
