@@ -23,7 +23,9 @@ The initial implementation uses block-coordinate variational EM:
 
 1. exact CAVI or analytic Gaussian/source updates when the selected family
    admits them;
-2. PyTorch autograd for general E-like or M-like gradient proposals;
+2. PyTorch reverse-mode autograd for coordinate derivatives of general E-like
+   or M-like scalar-objective proposals, followed by the separately declared
+   statistical or group-geometric update map;
 3. a fixed-recognition M-like update by default, using an immutable recognition
    snapshot with disjoint parameter ownership and storage before
    model-parameter optimization;
@@ -35,6 +37,12 @@ The initial implementation uses block-coordinate variational EM:
 This is a hybrid design. Individual phases can be autograd-free, but the whole
 language model will not be advertised as "backpropagation-free" when any
 configured update uses autograd.
+
+Terminology is strict throughout this design. A reverse-mode VJP or backward
+sweep through the scalar objective is backpropagation. It is not a
+"forward-gradient" method merely because the differentiated variables occur in
+the forward recognition computation. Forward-mode AD means a JVP and is a
+different derivative algorithm.
 
 ## 2. Source hierarchy and scope
 
@@ -275,6 +283,14 @@ has no nontrivial base connection, curvature, or holonomy.
 Its full `G^{T+1}` action is an internal reparameterization; the diagonal `G`
 subgroup is the base gauge action in the singleton specialization.
 
+The first reference fixtures keep the primary group elements `U_t` fixed as
+deterministic geometry. Learned population frames are introduced only after the
+analytic oracles pass and belong to an explicit M-like deterministic-geometry
+parameter block. A local chart `U_t = exp(phi_t)` may be selected for a bounded
+profile, but `U_t` remains the primary object; the profile must record the chart
+domain and cannot imply that one real exponential chart covers all of
+`GL^+(K)`.
+
 Optional independent graph links are a separate future type. They cannot be
 stored in `PopulationFrames` or inferred from a causal graph.
 
@@ -365,11 +381,28 @@ the executed update does not possess.
 
 ### 9.1 Default rule
 
-For a scalar ELBO with many learned parameters, PyTorch reverse-mode autograd
-is the default derivative engine. It is easier to keep aligned with the
-forward calculation and less error-prone than maintaining hand-derived
-gradients for every coupled transition, source, decoder, and frame-dependent
-term.
+Let `S` denote the scalar being differentiated: either the ELBO to maximize or
+the VFE `F = -ELBO` to minimize. When `S` depends on many active coordinates,
+PyTorch reverse-mode autograd is the default derivative engine. A call of the
+form
+
+```python
+g_mu, g_sigma_parameter, g_phi = torch.autograd.grad(
+    S, (mu, sigma_parameter, phi)
+)
+```
+
+performs one reverse-mode VJP with scalar seed one and returns the coordinate
+components of the differential with respect to the tensors that are actually
+stored. It computes gradients *of a scalar produced by the forward
+calculation*; it is not forward-mode AD and the result is not itself an update
+rule. Only tensors owned by the active block appear in the call.
+
+This derivative engine is easier to keep aligned with the implemented scalar
+and less error-prone than maintaining hand-derived derivatives for every
+coupled transition, source, decoder, and frame-dependent term. It is still
+backpropagation. Exact coordinate solutions take precedence, and independent
+hand derivations remain verification oracles.
 
 ### 9.2 Exact coordinates remain explicit
 
@@ -396,6 +429,95 @@ closed-form coordinate:
 Using natural coordinates does not by itself make the step a natural gradient.
 Using autograd does not make a finite step coordinate ascent.
 
+### 9.3.1 Coordinate covectors are not geometric update vectors
+
+For a directly parameterized Gaussian `q = N(mu, Sigma)`, reverse-mode AD can
+return the Euclidean/Frobenius coordinate covectors
+
+```text
+g_mu    = partial F / partial mu
+g_Sigma = sym(partial F / partial Sigma).
+```
+
+Under the Gaussian Fisher metric, the corresponding natural-gradient vectors
+for VFE minimization are
+
+```text
+ng_mu    = Sigma @ g_mu
+ng_Sigma = 2 * Sigma @ g_Sigma @ Sigma,
+```
+
+and the descent direction is their negative. For ELBO maximization the sign is
+reversed. A finite covariance proposal must still use the declared SPD-safe
+path and acceptance rule.
+
+The promoted structured-Gaussian path stores information coordinates and a
+sparse precision factor, not a global dense `Sigma`. Autograd therefore returns
+derivatives with respect to the stored `(h, J)` representation or its stable
+factor parameters. Conjugate blocks use the exact information-coordinate target.
+For a nonconjugate block, the initial promoted profile labels its proposal as
+Euclidean descent in the stored chart and subjects it to sparse SPD
+backtracking and complete-objective acceptance. It does not claim a natural
+gradient. A Fisher label for a sparse precision subfamily is permitted only
+after the restricted Fisher operator, its solve or projection, and preservation
+of the declared sparsity pattern have independent derivations and H-gate
+coverage; the full-Gaussian Fisher map alone is insufficient.
+
+Symmetric precision covectors use the Frobenius pairing, implemented with an
+`svec` convention whose independent off-diagonal entries are scaled by
+`sqrt(2)`. An unscaled `vech` implementation is permitted only with its explicit
+factor-two off-diagonal pullback and matching oracle; the two conventions cannot
+be mixed.
+
+For an exact target `(h_star, J_star)`, damping uses the SPD convex path
+`(1-rho)*(h, J) + rho*(h_star, J_star)`. For a general sparse proposal it tests
+`h + rho*delta_h` and `J + rho*sym(delta_J)` over `rho = 2**(-k)`. The step is
+accepted only if the declared sparse pattern is preserved, sparse
+factorization succeeds within the pivot/condition envelope, and the complete
+objective passes its error-bounded acceptance test. The bounded dense oracle
+also checks equivalence with the manuscript's whitened-increment formulation.
+
+If a bounded profile stores a Cholesky factor `L`, autograd returns
+`partial F / partial L`; that is not interchangeable with
+`partial F / partial Sigma` or `partial F / partial J`, and Euclidean
+optimization of `L` is not labeled an SPD natural-gradient step.
+
+### 9.3.2 Frame-coordinate derivatives
+
+The first reference profile keeps population frames fixed, so it has no
+`g_phi`. The default later learned-frame M-like profile stores the primary group
+element `U` directly. Reverse mode supplies its ambient Frobenius covector
+`g_U`. For the initial learned-frame scope `G = GL^+(K)`, use the explicitly
+selected left-invariant Frobenius group metric and the left trivialization
+`delta_U = U @ xi`. The body gradient is `xi = U.T @ g_U`; VFE descent proposes
+`U_new = U @ matrix_exp(-eta * xi)`. This is labeled left-trivialized
+Frobenius group descent, not a Fisher natural gradient. Its covariance under
+the complete declared internal-frame action remains an H7 obligation rather
+than an optimizer-name guarantee. The complete-objective acceptance and
+frame-condition checks still apply. A later proper subgroup requires an
+explicit projection of `U.T @ g_U` onto its Lie algebra and separate evidence.
+
+An opt-in bounded local-chart profile may instead use
+`U = matrix_exp(phi)`. Differentiating through that map gives
+
+```text
+g_phi = D exp_phi^* [g_U],
+```
+
+the pullback of the group-element covector through the exact Frechet derivative
+of the matrix exponential under the chosen coordinate pairing. PyTorch can
+compute this pullback by reverse mode. It is an ordinary local-chart covector,
+not automatically a Fisher natural gradient, a gauge-invariant direction, or a
+left/right-trivialized group velocity. Any geometric frame update must name a
+group metric or preconditioner, convert the covector to the appropriate tangent
+vector, and apply a declared group retraction. A direct Euclidean step on
+`phi` is labeled as chart descent. A chart-pullback group profile additionally
+requires a declared group-metric operator `M_U`, the pullback metric
+`M_phi = D exp_phi^* @ M_U @ D exp_phi`, and a solve
+`M_phi @ v_phi = g_phi`. It must verify that `D exp_phi` is injective and within
+a frozen conditioning envelope, then name the retraction and any recharting
+operation before the profile can be enabled.
+
 ### 9.4 M-like updates
 
 The default M-like step treats the accepted recognition law as fixed. It
@@ -418,9 +540,12 @@ named `unrolled_inference` or `implicit_inference` profile. Enabling one
 changes memory use, optimization semantics, and evidence freshness. It requires
 its own tests and cannot inherit the default profile's H5 record.
 
-Forward-mode JVPs through `torch.func.jvp` are reserved for Jacobian-vector
-products, implicit solvers, or local sensitivity diagnostics where their shape
-is advantageous. They are not the default way to differentiate a scalar ELBO.
+Forward-mode JVPs through `torch.func.jvp` return directional derivatives such
+as `DS[delta_mu, delta_Sigma, delta_phi]`. They are reserved for implicit
+solvers or local sensitivity diagnostics where that shape is advantageous.
+Recovering every component of the gradient of one scalar by forward mode would
+require a basis sweep (or its vectorized equivalent), so it is not the default
+for the high-dimensional scalar ELBO/VFE.
 
 ### 9.6 Manual/custom backward
 

@@ -136,9 +136,109 @@ path.
 ### 4.5 The model is hybrid, not categorically backpropagation-free
 
 Exact CAVI and analytic Gaussian/source coordinates should be used where they
-exist. PyTorch reverse-mode autograd is the default derivative engine for
-general E-like and M-like proposals because the objective is scalar and the
-learned parameter count is large.
+exist. For a scalar VFE, PyTorch reverse-mode autograd can obtain the complete
+coordinate covectors with respect to all active tensors in one VJP/backward
+sweep. Thus `grad_mu F`, `grad_Sigma F`, and, in a later local frame-chart
+profile, `grad_phi F` can be computed without maintaining three separate
+hand-derived production derivatives. This is reverse-mode differentiation of a
+forward-computed scalar; it is backpropagation and must not be called
+forward-mode AD or a "forward gradient."
+
+The returned covectors are not the final geometric updates. In direct Gaussian
+mean-covariance coordinates, the Gaussian Fisher map sends
+`g_mu` to `Sigma @ g_mu` and the symmetric `g_Sigma` to
+`2 * Sigma @ g_Sigma @ Sigma`. The promoted implementation instead stores
+sparse information coordinates. It uses exact information-coordinate targets
+for conjugate blocks and initially labels nonconjugate sparse proposals as
+Euclidean chart steps with SPD backtracking. The full-Gaussian Fisher formula
+does not by itself define a natural gradient on a sparsity-constrained precision
+subfamily: the ambient full-Gaussian direction may leave the sparse tangent
+space, while a correctly restricted Fisher solve would remain inside that
+space but requires its own derivation. A derivative with respect to a Cholesky
+or other SPD factor is a derivative in that factor chart, not `grad_Sigma F` or
+`grad_J F`.
+Symmetric precision coordinates use the Frobenius-equivalent `svec` convention
+with `sqrt(2)`-scaled off-diagonal entries; an unscaled `vech` chart would need
+the corresponding factor-two pullback.
+
+Frame handling is later and separate. The VFE 4.0 reference regime keeps the
+primary group elements `U_t` fixed until the analytic oracles pass. The default
+learned-frame profile should retain `U_t` directly and use an explicitly named
+left-trivialized Frobenius group step; this is a group-constrained optimizer,
+not a Fisher natural gradient. Complete internal-frame covariance still belongs
+to H7. If an opt-in M-like profile chooses the local chart
+`U_t = exp(phi_t)`, reverse-mode autograd through
+`matrix_exp` returns the chart pullback
+`D exp_phi^*[grad_U F]`. It does not by itself supply a Fisher natural gradient
+or a left/right-trivialized Lie-group update; the group metric,
+preconditioner, tangent conversion, and retraction must be declared.
+
+#### 4.5.1 Derivation record
+
+For direct coordinates on one regular Gaussian block, write the differential as
+
+```text
+dF = g_mu^T dmu + tr(g_Sigma^T dSigma).
+```
+
+Reverse mode evaluates the VJP of the scalar-output program with output
+covector one, which yields both coefficient arrays in this differential in one
+backward sweep. Forward mode instead evaluates `dF` on one supplied tangent
+`(dmu, dSigma)` at a time.
+
+For symmetric tangent matrices, the Gaussian Fisher metric is
+
+```text
+G((v, V), (dmu, dSigma))
+  = v^T Sigma^{-1} dmu
+    + 1/2 tr(Sigma^{-1} V Sigma^{-1} dSigma).
+```
+
+The Riemannian gradient `(v, V)` is defined by equating this expression to `dF`
+for every `(dmu, dSigma)`. Matching the vector coefficient gives
+`v = Sigma @ g_mu`. Matching the symmetric-matrix coefficient gives
+`V = 2 * Sigma @ sym(g_Sigma) @ Sigma`. This proves the two displayed Fisher
+maps and also shows why reverse-mode AD supplies the covector before the metric
+supplies the natural-gradient vector.
+
+For a local frame chart `U = exp(phi)`, the chain rule is
+
+```text
+d(F o exp)_phi[dphi]
+  = <g_U, D exp_phi[dphi]>
+  = <D exp_phi^*[g_U], dphi>.
+```
+
+Thus reverse mode through `matrix_exp` produces the chart covector
+`g_phi = D exp_phi^*[g_U]`. To raise this covector within the chart, a declared
+group-metric operator `M_U` induces the pullback metric
+`M_phi = D exp_phi^* @ M_U @ D exp_phi`; the chart vector solves
+`M_phi @ v_phi = g_phi`. This requires an injective, well-conditioned
+`D exp_phi` on the declared chart domain. The chain rule alone supplies no
+Fisher metric and no left/right trivialization.
+
+For the selected direct-`U` learned-frame proposal, define the left-invariant
+Frobenius metric by
+
+```text
+G_U(U @ xi, U @ eta) = tr(xi.T @ eta).
+```
+
+Since
+
+```text
+dF_U[U @ eta]
+  = tr(g_U.T @ U @ eta)
+  = tr((U.T @ g_U).T @ eta),
+```
+
+the left-trivialized Riemannian-gradient coordinate for `G = GL^+(K)` is
+`xi = U.T @ g_U`. The proposal `U_new = U @ exp(-eta_step * xi)` has tangent
+`-U @ xi` at zero step and remains in the same `GL^+(K)` component in exact
+arithmetic. This establishes the stated group-constrained descent direction;
+it does not turn the metric into a Fisher metric or prove finite-step objective
+decrease, which still requires the acceptance test. A proper matrix subgroup
+would additionally require projection of `U.T @ g_U` onto its Lie algebra.
 
 The default block-coordinate schedule freezes model parameters during E-like
 updates, materializes an immutable nonaliasing recognition snapshot, then
@@ -149,6 +249,18 @@ inside the M-step.
 Hand-derived gradients remain independent oracles. Custom backward kernels are
 deferred until profiling identifies a concrete need and analytic,
 finite-difference, and double-precision gradient checks agree.
+
+The source boundary for this correction is explicit: the VFE 4.0 manuscript
+separates exact coordinates, Fisher-preconditioned proposals, and ordinary
+Euclidean steps in
+`Manuscripts/vfe4_whitepaper/06_elbo_coordinate_updates.tex:857-938`, and keeps
+frames deterministic in the first reference regime at
+`Manuscripts/vfe4_whitepaper/08_hypotheses_limitations.tex:7`. The MAgent
+whitepaper makes `U` primary and `U = exp(phi)` only a local chart at
+`Manuscripts/magent_elbo_whitepaper/02_bundle_geometry.tex:128-171`, while its
+information-geometry chapter separates coordinate covectors, Fisher directions,
+and retractions at
+`Manuscripts/magent_elbo_whitepaper/08_information_geometry_gauge.tex:41-58`.
 
 ## 5. Oracle evidence
 
