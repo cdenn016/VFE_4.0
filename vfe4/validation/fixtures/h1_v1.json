@@ -1,0 +1,41 @@
+{
+  "fixture_schema_version": 1,
+  "fixture_id": "h1-v1",
+  "continuous_order": ["z0", "m0", "z1", "m1", "z2", "m2"],
+  "vocabulary_labels": [1, 2, 3],
+  "observation_label_base": 1,
+  "observation_labels": [1, 2],
+  "frames": [1.0, 1.25, 0.8],
+  "initial_joint": {"mean": [0.2, -0.15], "covariance": [[0.8, 0.18], [0.18, 0.65]]},
+  "model_source_priors": [[1.0], [0.35, 0.65]],
+  "state_source_priors": [[1.0], [0.55, 0.45]],
+  "model_offsets": [0.1, -0.05],
+  "model_variances": [0.42, 0.55],
+  "state_offsets": [-0.12, 0.08],
+  "state_variances": [0.37, 0.48],
+  "state_model_slopes": [0.45, -0.35],
+  "decoder": [
+    {"w_z": [0.2, -0.4, 0.1], "w_m": [0.3, 0.2, -0.5], "bias": [0.05, -0.1, 0.15]},
+    {"w_z": [-0.1, 0.35, -0.25], "w_m": [0.25, -0.2, 0.15], "bias": [-0.05, 0.12, -0.07]}
+  ],
+  "recognition": {
+    "initial_mean": [-0.1, 0.25],
+    "initial_covariance": [[0.65, 0.11], [0.11, 0.78]],
+    "model_source_probabilities": [[1.0], [0.4, 0.6]],
+    "state_source_probabilities_given_model_source": [[[1.0]], [[0.75, 0.25], [0.2, 0.8]]],
+    "model_kernels": [
+      [{"slope": 0.9, "offset": -0.05, "variance": 0.58}],
+      [{"slope": 0.7, "offset": 0.06, "variance": 0.6}, {"slope": 0.95, "offset": -0.09, "variance": 0.5}]
+    ],
+    "state_kernels": [
+      [{"z_slope": 0.75, "m_slope": 0.25, "offset": 0.08, "variance": 0.52}],
+      [
+        {"a": 0, "b": 0, "z_slope": 0.65, "m_slope": 0.35, "offset": -0.02, "variance": 0.55},
+        {"a": 1, "b": 0, "z_slope": 0.85, "m_slope": 0.3, "offset": 0.04, "variance": 0.48},
+        {"a": 0, "b": 1, "z_slope": 0.55, "m_slope": 0.4, "offset": -0.07, "variance": 0.58},
+        {"a": 1, "b": 1, "z_slope": 0.8, "m_slope": 0.2, "offset": 0.05, "variance": 0.46}
+      ]
+    ]
+  },
+  "quadrature": {"order": 21, "convergence_check_order": 17, "maximum_convergence_estimate": 1e-9}
+}
