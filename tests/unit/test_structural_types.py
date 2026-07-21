@@ -177,6 +177,22 @@ def test_elbo_terms_rejects_an_inconsistent_complete_total() -> None:
         )
 
 
+def test_elbo_terms_rejects_an_overflowing_derived_objective() -> None:
+    with pytest.raises(ValueError, match="expected objective"):
+        ElboTerms(
+            expected_log_emission=(sys.float_info.max, sys.float_info.max),
+            initial_model_kl=0.0,
+            initial_state_kl=0.0,
+            model_source_kl=(0.0, 0.0),
+            model_transition_kl=(0.0, 0.0),
+            state_source_kl=(0.0, 0.0),
+            state_transition_kl=(0.0, 0.0),
+            joint_recognition_entropy=0.0,
+            allowances=_term_allowances(),
+            complete_elbo=0.0,
+        )
+
+
 def test_gate_result_uses_an_immutable_copy_of_measurements() -> None:
     measurements = {"elbo": 2.0}
     result = GateResult(

@@ -107,10 +107,18 @@ class ElboTerms:
             - sum(self.state_source_kl)
             - sum(self.state_transition_kl)
         )
-        arithmetic_allowance = 256.0 * math.ulp(1.0) * max(
-            1.0, sum(abs(term) for term in objective_terms)
-        )
-        if abs(self.complete_elbo - expected) > arithmetic_allowance:
+        if not math.isfinite(expected):
+            raise ValueError("expected objective must be finite")
+        absolute_term_sum = sum(abs(term) for term in objective_terms)
+        if not math.isfinite(absolute_term_sum):
+            raise ValueError("absolute-term sum must be finite")
+        arithmetic_allowance = 256.0 * math.ulp(1.0) * max(1.0, absolute_term_sum)
+        if not math.isfinite(arithmetic_allowance):
+            raise ValueError("arithmetic allowance must be finite")
+        residual = abs(self.complete_elbo - expected)
+        if not math.isfinite(residual):
+            raise ValueError("complete_elbo residual must be finite")
+        if residual > arithmetic_allowance:
             raise ValueError("complete_elbo does not match its partitioned terms")
 
 
