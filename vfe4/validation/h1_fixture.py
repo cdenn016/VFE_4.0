@@ -49,6 +49,12 @@ def _number(value: object, name: str) -> float:
     return float(value)
 
 
+def _integer(value: object, name: str) -> int:
+    if type(value) is not int:
+        raise ValueError(f"{name} must be an integer")
+    return value
+
+
 def _tensor_vector(value: object, size: int, name: str) -> torch.Tensor:
     return torch.tensor([_number(item, f"{name}[{i}]") for i, item in enumerate(_sequence(value, size, name))], dtype=torch.float64)
 
@@ -94,17 +100,26 @@ def load_h1_fixture(path: Path | None = None) -> H1Fixture:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"fixture JSON could not be loaded: {exc}") from exc
     root = _fields(raw, _ROOT_FIELDS, "fixture")
-    if type(root["fixture_schema_version"]) is not int or root["fixture_schema_version"] != 1:
-        raise ValueError("fixture_schema_version must equal 1")
+    fixture_schema_version = _integer(root["fixture_schema_version"], "fixture_schema_version")
+    if fixture_schema_version != 1:
+        raise ValueError("fixture_schema_version integer must equal 1")
     if root["fixture_id"] != "h1-v1":
         raise ValueError("fixture_id must equal h1-v1")
     continuous_order = tuple(_sequence(root["continuous_order"], 6, "continuous_order"))
     if continuous_order != ("z0", "m0", "z1", "m1", "z2", "m2"):
         raise ValueError("continuous_order must match h1-v1")
-    if root["vocabulary_labels"] != [1, 2, 3] or root["observation_label_base"] != 1:
-        raise ValueError("vocabulary labels and label base must match h1-v1")
+    vocabulary_labels = [
+        _integer(value, f"vocabulary_labels[{index}]")
+        for index, value in enumerate(_sequence(root["vocabulary_labels"], 3, "vocabulary_labels"))
+    ]
+    observation_label_base = _integer(root["observation_label_base"], "observation_label_base")
+    if vocabulary_labels != [1, 2, 3] or observation_label_base != 1:
+        raise ValueError("vocabulary and label-base integers must match h1-v1")
     observation_data = _sequence(root["observation_labels"], 2, "observation_labels")
-    observation_labels = tuple(int(item) if type(item) is int else -1 for item in observation_data)
+    observation_labels = tuple(
+        _integer(item, f"observation_labels[{index}]")
+        for index, item in enumerate(observation_data)
+    )
     for label in observation_labels:
         label_to_index(label)
 
@@ -190,8 +205,16 @@ def load_h1_fixture(path: Path | None = None) -> H1Fixture:
     for time, size in enumerate((1, 4)):
         expected_fields = {"z_slope", "m_slope", "offset", "variance"} if time == 0 else {"a", "b", "z_slope", "m_slope", "offset", "variance"}
         records = [_fields(item, expected_fields, f"recognition.state_kernels[{time}]") for item in _sequence(state_kernel_data[time], size, f"recognition.state_kernels[{time}]")]
-        if time == 1 and [(item["a"], item["b"]) for item in records] != [(0, 0), (1, 0), (0, 1), (1, 1)]:
-            raise ValueError("recognition state kernel source order must be (0,0),(1,0),(0,1),(1,1)")
+        if time == 1:
+            source_tags = [
+                (
+                    _integer(item["a"], f"recognition.state_kernels[{time}][{index}].a"),
+                    _integer(item["b"], f"recognition.state_kernels[{time}][{index}].b"),
+                )
+                for index, item in enumerate(records)
+            ]
+            if source_tags != [(0, 0), (1, 0), (0, 1), (1, 1)]:
+                raise ValueError("recognition state kernel integer source order must be (0,0),(1,0),(0,1),(1,1)")
         state_kernels_list.append(RecognitionStateKernelRecord(
             torch.tensor([_number(item["z_slope"], "z_slope") for item in records], dtype=torch.float64),
             torch.tensor([_number(item["m_slope"], "m_slope") for item in records], dtype=torch.float64),
@@ -210,9 +233,13 @@ def load_h1_fixture(path: Path | None = None) -> H1Fixture:
                 if bool(q_b > 0) and bool(q_a > 0) and not bool(state_priors[time][a] > 0):
                     raise ValueError("recognition state-source mass lies outside positive generative support")
     quadrature = _fields(root["quadrature"], {"order", "convergence_check_order", "maximum_convergence_estimate"}, "quadrature")
+    quadrature_order = _integer(quadrature["order"], "quadrature.order")
+    convergence_check_order = _integer(
+        quadrature["convergence_check_order"], "quadrature.convergence_check_order"
+    )
     return H1Fixture(
-        1, "h1-v1", continuous_order, structure, frames, observation_labels, initial_joint,
+        fixture_schema_version, "h1-v1", continuous_order, structure, frames, observation_labels, initial_joint,
         model_priors, state_priors, model_transitions, state_transitions, emissions, recognition,
-        quadrature["order"], quadrature["convergence_check_order"],
+        quadrature_order, convergence_check_order,
         _number(quadrature["maximum_convergence_estimate"], "maximum_convergence_estimate"),
     )

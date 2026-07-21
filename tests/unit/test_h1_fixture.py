@@ -142,3 +142,41 @@ def test_loader_rejects_recognition_mass_outside_generative_support(
 
     with pytest.raises(ValueError, match="support"):
         load_h1_fixture(_write_fixture(tmp_path, raw))
+
+
+def _set_nested(raw: dict[str, object], path: tuple[object, ...], value: object) -> None:
+    target: object = raw
+    for key in path[:-1]:
+        target = target[key]  # type: ignore[index]
+    target[path[-1]] = value  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (("fixture_schema_version",), True),
+        (("fixture_schema_version",), 1.0),
+        (("vocabulary_labels", 0), True),
+        (("vocabulary_labels", 0), 1.0),
+        (("observation_label_base",), True),
+        (("observation_label_base",), 1.0),
+        (("observation_labels", 0), True),
+        (("observation_labels", 0), 1.0),
+        (("recognition", "state_kernels", 1, 0, "a"), True),
+        (("recognition", "state_kernels", 1, 0, "a"), 0.0),
+        (("recognition", "state_kernels", 1, 0, "b"), True),
+        (("recognition", "state_kernels", 1, 0, "b"), 0.0),
+        (("quadrature", "order"), True),
+        (("quadrature", "order"), 21.0),
+        (("quadrature", "convergence_check_order"), True),
+        (("quadrature", "convergence_check_order"), 17.0),
+    ],
+)
+def test_loader_rejects_bool_or_float_for_every_integer_literal(
+    tmp_path: Path, path: tuple[object, ...], value: object
+) -> None:
+    raw = _raw_fixture()
+    _set_nested(raw, path, value)
+
+    with pytest.raises(ValueError, match="integer"):
+        load_h1_fixture(_write_fixture(tmp_path, raw))

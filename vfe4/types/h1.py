@@ -344,7 +344,7 @@ class H1Fixture:
     maximum_convergence_estimate: float
 
     def __init__(self, fixture_schema_version: Literal[1], fixture_id: Literal["h1-v1"], continuous_order: tuple[str, str, str, str, str, str], structural: StructuralData, frames: PopulationFrames, observation_labels: tuple[int, int], initial_joint: GaussianLaw, model_source_priors: tuple[Tensor, Tensor], state_source_priors: tuple[Tensor, Tensor], model_transitions: tuple[ModelTransitionRecord, ModelTransitionRecord], state_transitions: tuple[StateTransitionRecord, StateTransitionRecord], emissions: tuple[EmissionRecord, EmissionRecord], recognition: RecognitionParameterRecord, quadrature_order: Literal[21], convergence_check_order: Literal[17], maximum_convergence_estimate: float) -> None:
-        if fixture_schema_version != 1 or fixture_id != "h1-v1":
+        if type(fixture_schema_version) is not int or fixture_schema_version != 1 or fixture_id != "h1-v1":
             raise ValueError("unsupported H1 fixture identity")
         if continuous_order != ("z0", "m0", "z1", "m1", "z2", "m2"):
             raise ValueError("continuous_order must match h1-v1")
@@ -360,7 +360,12 @@ class H1Fixture:
             raise ValueError("observation_labels must be two labels from {1,2,3}")
         if not isinstance(recognition, RecognitionParameterRecord):
             raise ValueError("recognition must be a RecognitionParameterRecord")
-        if quadrature_order != 21 or convergence_check_order != 17:
+        if (
+            type(quadrature_order) is not int
+            or quadrature_order != 21
+            or type(convergence_check_order) is not int
+            or convergence_check_order != 17
+        ):
             raise ValueError("quadrature orders must match h1-v1")
         if type(maximum_convergence_estimate) is not float or not math.isfinite(maximum_convergence_estimate) or maximum_convergence_estimate != 1e-9:
             raise ValueError("maximum_convergence_estimate must equal 1e-9")
