@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import sys
 from types import MappingProxyType
 
 import pytest
@@ -114,6 +115,11 @@ def test_numerical_allowance_is_nonnegative_and_sums_its_components() -> None:
         NumericalAllowance(-1.0, 0.0)
 
 
+def test_numerical_allowance_rejects_an_overflowing_total() -> None:
+    with pytest.raises(ValueError, match="total"):
+        NumericalAllowance(sys.float_info.max, sys.float_info.max)
+
+
 def _term_allowances() -> ElboTermAllowances:
     allowance = _allowance()
     return ElboTermAllowances(
@@ -193,4 +199,29 @@ def test_gate_result_requires_obligation_when_inconclusive() -> None:
             measurements={"elbo": None},
             invariants=(),
             obligations=(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("residual", "calibrated_allowance"),
+    [
+        (float("nan"), None),
+        (float("inf"), None),
+        (None, float("nan")),
+        (None, float("inf")),
+    ],
+)
+def test_inconclusive_gate_rejects_nonfinite_optional_scalars(
+    residual: float | None, calibrated_allowance: float | None
+) -> None:
+    with pytest.raises(ValueError):
+        GateResult(
+            gate="H1",
+            status=GateStatus.INCONCLUSIVE,
+            fixture_id="h1-v1",
+            residual=residual,
+            calibrated_allowance=calibrated_allowance,
+            measurements={"elbo": None},
+            invariants=(),
+            obligations=("obtain the unavailable measurement",),
         )

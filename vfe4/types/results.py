@@ -18,6 +18,8 @@ class NumericalAllowance:
     def __post_init__(self) -> None:
         _require_nonnegative_finite(self.convergence_estimate, "convergence_estimate")
         _require_nonnegative_finite(self.rounding_allowance, "rounding_allowance")
+        if not math.isfinite(self.total):
+            raise ValueError("total allowance must be finite")
 
     @property
     def total(self) -> float:
@@ -155,6 +157,8 @@ class GateResult:
             raise ValueError("fixture_id must be h1-v1")
         if not isinstance(self.status, GateStatus):
             raise ValueError("status must be a GateStatus")
+        _require_optional_finite(self.residual, "residual")
+        _require_optional_finite(self.calibrated_allowance, "calibrated_allowance")
         if not isinstance(self.measurements, Mapping):
             raise ValueError("measurements must be a mapping")
         copied_measurements = dict(self.measurements)
