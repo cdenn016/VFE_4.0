@@ -239,3 +239,23 @@ the two-key sentinel. Missing primary measurements map respectively to
 `all_equivalence_allowances_decisive` and use the frozen inconclusive detail.
 The coupled H3 anchor compares its frozen evidence; zero H3 has no frozen
 reference evidence and instead requires independent adapter/oracle `c/logZ` agreement.
+
+The exact ordered invariant names are: `h3_anchor_identity`,
+`fixed_seed_problem_identity`, `coupled_zero_control_contract`,
+`cpu_float64_one_thread`, `shared_protocol_identity`,
+`scaled_condition_envelope`, `complete_repetition_table`,
+`primary_timed_order_balance`, `exact_posterior_gap_equivalence`,
+`terminal_h_equivalence`, `terminal_J_equivalence`,
+`selected_moment_equivalence`, `complete_objective_equivalence`,
+`all_equivalence_allowances_decisive`, `real_operation_instrumentation`,
+`primary_seed_level_inference`, and `primary_effect_threshold`.
+The only sentinel reasons are
+`not_evaluated_after_decisive_h3_anchor_failure` and
+`not_evaluated_after_inconclusive_eligibility`. For an INCONCLUSIVE result,
+every inapplicable allowance must use the latter reason exactly. After timing,
+FAIL requires invariants 0--7 and the three eligibility invariants
+`all_equivalence_allowances_decisive`, `real_operation_instrumentation`, and
+`primary_seed_level_inference` to pass, plus either a finite decisive
+equivalence miss or a nondegenerate bootstrap interval whose lower endpoint is
+at least the threshold. A crossing interval, `[threshold,threshold]`, or an
+eligibility failure remains INCONCLUSIVE.

@@ -124,8 +124,9 @@ class H4AffineGaussianFactor:
             raise ValueError("matrix may support only normalized and parent columns")
         if type(self.raw_draws) is not tuple or not all(isinstance(draw, H4RawDraw) for draw in self.raw_draws):
             raise ValueError("raw_draws must be a tuple of H4RawDraw")
-        if tuple(draw.draw_index for draw in self.raw_draws) != tuple(sorted(draw.draw_index for draw in self.raw_draws)):
-            raise ValueError("raw_draws must be increasing by draw_index")
+        indices = tuple(draw.draw_index for draw in self.raw_draws)
+        if any(left >= right for left, right in zip(indices, indices[1:], strict=False)):
+            raise ValueError("raw_draws must be strictly increasing by draw_index")
         if len({draw.name for draw in self.raw_draws}) != len(self.raw_draws):
             raise ValueError("raw draw names must be unique per factor")
         object.__setattr__(self, "matrix", matrix)
@@ -170,13 +171,15 @@ class H4NeutralProblem:
             expected_coordinates = tuple(f"{prefix}[{t},{i}]" for t in range(self.horizon + 1) for prefix in ("z", "m") for i in range(4))
             if self.coordinate_order != expected_coordinates:
                 raise ValueError("scaled coordinate order is frozen")
+            if self.problem_id != f"h4-{self.kind}-T{self.horizon}-dz4-dm4-seed{self.seed}-v1":
+                raise ValueError("scaled problem ID is frozen")
             expected_ids = ("initial_joint", *(item for t in range(1, self.horizon + 1) for item in (f"m_transition[{t}]", f"z_transition[{t}]", f"observation[{t}]")))
             if tuple(f.factor_id for f in self.factor_schedule) != expected_ids:
                 raise ValueError("scaled factor schedule is frozen")
             all_draws = tuple(draw.draw_index for factor in self.factor_schedule for draw in factor.raw_draws)
             if all_draws and tuple(sorted(all_draws)) != tuple(range(11 * self.horizon)):
                 raise ValueError("scaled draw indices must be globally unique")
-            _validate_scaled_schedule(self.factor_schedule, self.horizon, self.dimension)
+            _validate_scaled_schedule(self.factor_schedule, self.kind, self.horizon, self.dimension)
         else:
             if self.seed != 0 or self.horizon != 1 or (self.d_z, self.d_m, self.dimension) != (1, 1, 4) or self.coordinate_order != ("z0", "m0", "z1", "m1"):
                 raise ValueError("invalid H3 anchor problem")
@@ -298,7 +301,20 @@ class H4GateResult:
         elif self.status in (GateStatus.PASS, GateStatus.FAIL) and any(value is None for value in measurements.values()): raise ValueError("completed pass/fail measurements must be finite")
         if self.status is GateStatus.PASS and (self.obligations or not all(item.passed for item in self.invariants)): raise ValueError("PASS requires complete passing evidence")
         if self.status is GateStatus.FAIL and not anchor_fail:
-            if self.obligations or not all(item.passed for item in self.invariants[:8]) or not any(not item.passed and item.value is not None and item.limit is not None for item in self.invariants[8:]): raise ValueError("post-timing FAIL requires a decisive comparison miss")
+            equivalence_miss = any(
+                not item.passed and item.value is not None and item.limit is not None and item.value > item.limit
+                for item in self.invariants[8:13]
+            )
+            lower = measurements["primary_bootstrap_lower"]
+            upper = measurements["primary_bootstrap_upper"]
+            threshold = measurements["primary_effect_threshold"]
+            no_support = (
+                not self.invariants[16].passed
+                and lower is not None and upper is not None and threshold is not None
+                and lower >= threshold and upper >= lower
+                and (lower, upper) != (threshold, threshold)
+            )
+            if self.obligations or not all(item.passed for item in self.invariants[:8]) or not all(item.passed for item in self.invariants[13:16]) or not (equivalence_miss or no_support): raise ValueError("post-timing FAIL requires a decisive equivalence miss or bootstrap no-support interval")
         if self.status is GateStatus.INCONCLUSIVE:
             if not self.obligations or not any(not item.passed for item in self.invariants): raise ValueError("INCONCLUSIVE requires failed evidence and obligation")
             producers = {"primary_seed_ratio_geometric_mean":"primary_seed_level_inference","primary_bootstrap_lower":"primary_seed_level_inference","primary_bootstrap_upper":"primary_seed_level_inference","primary_effect_threshold":"primary_effect_threshold","primary_timed_ab_total":"primary_timed_order_balance","primary_timed_ba_total":"primary_timed_order_balance","maximum_solver_stopping_residual":"shared_protocol_identity","maximum_allowance_scale_fraction":"all_equivalence_allowances_decisive"}
@@ -331,7 +347,7 @@ class H4GateResult:
             for name, record in frozen.items():
                 if record.get("applicable") is False:
                     item = self.invariants[H4_INVARIANT_NAMES.index(name)]
-                    if (item.passed,item.value,item.limit,item.detail) != (False,None,None,_UNAVAILABLE_ELIGIBILITY): raise ValueError("inapplicable inconclusive allowance requires matching invariant")
+                    if record.get("reason") != _UNAVAILABLE_ELIGIBILITY or (item.passed,item.value,item.limit,item.detail) != (False,None,None,_UNAVAILABLE_ELIGIBILITY): raise ValueError("inapplicable inconclusive allowance requires matching eligibility sentinel")
         object.__setattr__(self, "measurements", MappingProxyType(measurements))
         object.__setattr__(self, "allowances_by_invariant", MappingProxyType(frozen))
 
@@ -395,7 +411,7 @@ def _matrix(value: object, rows: int, columns: int, name: str) -> tuple[tuple[fl
     if type(value) is not tuple or len(value) != rows: raise ValueError(f"{name} has invalid rows")
     return tuple(_vector(row, columns, f"{name}[{i}]") for i, row in enumerate(value))
 def _indices(value: object, dimension: int, name: str) -> tuple[int, ...]:
-    if type(value) is not tuple or any(type(item) is not int or item < 0 or item >= dimension for item in value) or len(set(value)) != len(value): raise ValueError(f"{name} must be unique indices in range")
+    if type(value) is not tuple or any(type(item) is not int or item < 0 or item >= dimension for item in value) or len(set(value)) != len(value) or any(left >= right for left, right in zip(value, value[1:], strict=False)): raise ValueError(f"{name} must be strictly ascending unique indices in range")
     return value
 def _spd(matrix: tuple[tuple[float, ...], ...], name: str) -> None:
     size = len(matrix)
@@ -416,7 +432,7 @@ def _law(arm: object, h: object, J: object, mean: object, objective: object, nam
     _spd(matrix, f"{name}.J")
     _vector(mean, len(vector), f"{name}.mean"); _finite(objective, f"{name}.complete_objective")
 
-def _validate_scaled_schedule(schedule: tuple[H4AffineGaussianFactor, ...], horizon: int, dimension: int) -> None:
+def _validate_scaled_schedule(schedule: tuple[H4AffineGaussianFactor, ...], kind: H4ProblemKind, horizon: int, dimension: int) -> None:
     initial = schedule[0]
     if initial.role != "initial" or initial.time_index != 0 or initial.normalized_coordinate_indices != tuple(range(8)) or initial.parent_coordinate_indices or initial.target != (0.0,) * 8 or initial.covariance != tuple(tuple(1.0 if i == j else 0.0 for j in range(8)) for i in range(8)) or initial.matrix != tuple(tuple(1.0 if i == j else 0.0 for j in range(dimension)) for i in range(8)) or initial.raw_draws:
         raise ValueError("scaled initial factor is frozen")
@@ -430,6 +446,8 @@ def _validate_scaled_schedule(schedule: tuple[H4AffineGaussianFactor, ...], hori
             if (factor.role, factor.time_index, factor.normalized_coordinate_indices, factor.parent_coordinate_indices) != (role,index,normalized,parents): raise ValueError("scaled factor metadata is frozen")
             if tuple(draw.draw_index for draw in factor.raw_draws) != tuple(11*(time-1)+item for item in local_indices): raise ValueError("scaled draw ownership is frozen")
             if tuple(draw.name for draw in factor.raw_draws) != tuple(f"{names[item]}[{time}]" for item in local_indices) or tuple(draw.shape for draw in factor.raw_draws) != tuple(shapes[item] for item in local_indices): raise ValueError("scaled draw names/shapes are frozen")
+        if kind == "zero_control" and (any(value != 0.0 for row in m_factor.matrix for value in (row[index] for index in m_factor.parent_coordinate_indices)) or any(value != 0.0 for row in z_factor.matrix for value in (row[index] for index in z_factor.parent_coordinate_indices))):
+            raise ValueError("zero-control transition parent blocks must be zero")
 
 def _validate_anchor_schedule(problem: H4NeutralProblem) -> None:
     expected_ids = ("z0_prior", "m0_prior", "m1_transition", "z1_transition", "z1_observation", "m1_observation")

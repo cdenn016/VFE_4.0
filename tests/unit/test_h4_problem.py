@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import FrozenInstanceError, fields
+from dataclasses import FrozenInstanceError, fields, replace
 
 import numpy as np
 import pytest
@@ -22,6 +22,7 @@ from vfe4.types.h4 import (
     H4AffineGaussianFactor,
     H4GateResult,
     H4MemoryRecord,
+    H4NeutralProblem,
     H4NativeInformationState,
     H4NativeMomentState,
     H4OperationRecord,
@@ -163,16 +164,38 @@ def test_every_scaled_horizon_has_complete_local_schedule_and_global_draw_indice
     assert observed_indices == tuple(range(11 * horizon))
 
 
-def test_full_t31_pcg64_stream_never_restarts_and_pins_every_raw_draw() -> None:
+@pytest.mark.parametrize("kind", ("coupled", "zero_control"))
+def test_full_t31_pcg64_stream_never_restarts_and_pins_every_raw_draw(kind: str) -> None:
     seed, horizon = 155921, 31
-    problem = make_h4_problem(seed=seed, kind="coupled", horizon=horizon)
+    problem = make_h4_problem(seed=seed, kind=kind, horizon=horizon)  # type: ignore[arg-type]
+    initial = problem.factor_schedule[0]
+    assert np.array_equal(np.asarray(initial.matrix), np.column_stack((np.eye(8), np.zeros((8, problem.dimension - 8)))))
+    assert initial.target == (0.0,) * 8 and np.array_equal(np.asarray(initial.covariance), np.eye(8))
     rng = np.random.Generator(np.random.PCG64(seed))
     for time in range(1, horizon + 1):
         expected = _independent_draws_from_rng(rng)
         factors = problem.factor_schedule[1 + 3 * (time - 1):1 + 3 * time]
         draws = tuple(sorted((draw for factor in factors for draw in factor.raw_draws), key=lambda draw: draw.draw_index))
         assert tuple(draw.draw_index for draw in draws) == tuple(range(11 * (time - 1), 11 * time))
-        for draw, value in zip(draws, expected, strict=True): assert np.array_equal(np.asarray(draw.values).reshape(draw.shape), value)
+        for draw, value in zip(draws, expected, strict=True):
+            assert np.array_equal(np.asarray(draw.values).reshape(draw.shape), value)
+        raw_a_m, raw_a_z, raw_b, c_m, c_z, r_m, r_z, raw_g, offset, observation_noise, target = expected
+        m_factor, z_factor, observation = factors
+        clip = lambda value: value * min(1.0, 0.65 / np.linalg.norm(value, 2))
+        joined = clip(np.concatenate((raw_a_z, raw_b), axis=1))
+        assert np.array_equal(np.asarray(m_factor.matrix)[:, m_factor.normalized_coordinate_indices], np.eye(4))
+        expected_m_parent = -clip(raw_a_m) if kind == "coupled" else np.zeros((4, 4))
+        expected_z_parent = -joined if kind == "coupled" else np.zeros((4, 8))
+        assert np.array_equal(np.asarray(m_factor.matrix)[:, m_factor.parent_coordinate_indices], expected_m_parent)
+        assert m_factor.target == tuple(c_m) and np.array_equal(np.asarray(m_factor.covariance), np.diag(r_m))
+        assert np.array_equal(np.asarray(z_factor.matrix)[:, z_factor.normalized_coordinate_indices], np.eye(4))
+        assert np.array_equal(np.asarray(z_factor.matrix)[:, z_factor.parent_coordinate_indices], expected_z_parent)
+        assert z_factor.target == tuple(c_z) and np.array_equal(np.asarray(z_factor.covariance), np.diag(r_z))
+        assert np.array_equal(np.asarray(observation.matrix)[:, observation.parent_coordinate_indices], np.eye(8) + .05 * raw_g / max(1.0, np.linalg.norm(raw_g, 2)))
+        assert observation.target == tuple(target - offset) and np.array_equal(np.asarray(observation.covariance), np.diag(observation_noise))
+        for factor in factors:
+            supported = set(factor.normalized_coordinate_indices) | set(factor.parent_coordinate_indices)
+            assert np.all(np.asarray(factor.matrix)[:, tuple(index for index in range(problem.dimension) if index not in supported)] == 0.0)
 
 
 def _independent_draws_from_rng(rng: np.random.Generator):
@@ -223,6 +246,15 @@ def test_zero_control_and_canonical_bytes_have_only_frozen_differences() -> None
     with pytest.raises(ValueError): parse_h4_problem_bytes(json.dumps(malformed_digest).encode())
     malformed_extra = json.loads(bytes_one); malformed_extra["extra"] = 1
     with pytest.raises(ValueError): parse_h4_problem_bytes(json.dumps(malformed_extra).encode())
+    recomputed_wrong_id = json.loads(bytes_one); recomputed_wrong_id["problem"]["problem_id"] = "h4-coupled-T7-dz4-dm4-seed130363-v0"
+    recomputed_wrong_id["canonical_sha256"] = hashlib.sha256(b"vfe4.h4.neutral-problem.v1\0" + json.dumps(recomputed_wrong_id["problem"], sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+    with pytest.raises(ValueError): parse_h4_problem_bytes(json.dumps(recomputed_wrong_id, sort_keys=True, separators=(",", ":")).encode())
+    recomputed_wrong_draw = json.loads(bytes_one); recomputed_wrong_draw["problem"]["factor_schedule"][1]["raw_draws"][0]["values"][0] += 1.0
+    recomputed_wrong_draw["canonical_sha256"] = hashlib.sha256(b"vfe4.h4.neutral-problem.v1\0" + json.dumps(recomputed_wrong_draw["problem"], sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+    with pytest.raises(ValueError): parse_h4_problem_bytes(json.dumps(recomputed_wrong_draw, sort_keys=True, separators=(",", ":")).encode())
+    recomputed_wrong_factor = json.loads(bytes_one); recomputed_wrong_factor["problem"]["factor_schedule"][1]["matrix"][0][4] += .01
+    recomputed_wrong_factor["canonical_sha256"] = hashlib.sha256(b"vfe4.h4.neutral-problem.v1\0" + json.dumps(recomputed_wrong_factor["problem"], sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+    with pytest.raises(ValueError): parse_h4_problem_bytes(json.dumps(recomputed_wrong_factor, sort_keys=True, separators=(",", ":")).encode())
     for broken in (
         bytes_one.replace(b'"schema_version"', b'"schema_version","schema_version"', 1),
         bytes_one.replace(b'"factor_id"', b'"unknown"', 1),
@@ -249,6 +281,12 @@ def test_h3_structural_adapter_and_independent_canonical_assembly() -> None:
             ("observation", 1, (), (2,)), ("observation", 1, (), (3,)),
         )
         J, h, c, log_z = canonical_h4_gaussian(problem)
+        if fixture.kind == "coupled":
+            assert np.allclose(J, np.asarray(((2.96, 0.0, -2.8, 1.68), (0.0, 2.77777777777778, 0.0, -2.22222222222222), (-2.8, 0.0, 5.5625, -2.4), (1.68, -2.22222222222222, -2.4, 5.78027777777778))), rtol=0.0, atol=1.0e-14)
+            assert np.allclose(h, np.asarray((0.0, 0.0, 1.71875, 0.3125)), rtol=0.0, atol=1.0e-14)
+        else:
+            assert np.allclose(J, np.asarray(((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, 5.5625, 0.0), (0.0, 0.0, 0.0, 4.34027777777778))), rtol=0.0, atol=1.0e-14)
+            assert np.allclose(h, np.asarray((0.0, 0.0, 0.625, -1.09375)), rtol=0.0, atol=1.0e-14)
         expected_J = sum(np.outer(np.asarray(f.row), np.asarray(f.row)) / f.variance for f in fixture.factors)
         expected_h = sum(f.target * np.asarray(f.row) / f.variance for f in fixture.factors)
         expected_c = sum(-.5 * (f.target * f.target / f.variance + math.log(2.0 * math.pi * f.variance)) for f in fixture.factors)
@@ -259,8 +297,11 @@ def test_h3_structural_adapter_and_independent_canonical_assembly() -> None:
             (H3_COUPLED_FIXTURE_PATH if fixture.kind == "coupled" else H3_ZERO_CONTROL_FIXTURE_PATH).read_bytes(),
             expected_fixture_id=fixture.fixture_id,
         )
-        left = scalar_allowance(4, value=log_z, absolute_sum=abs(log_z), kappas=(1.0,), optimized=False)
-        right = scalar_allowance(4, value=oracle.log_evidence, absolute_sum=abs(oracle.log_evidence), kappas=(1.0,), optimized=False)
+        assert fixture.reference_log_evidence == (-2.6536596233553 if fixture.kind == "coupled" else None)
+        if fixture.kind == "coupled":
+            assert math.isclose(log_z, -2.6536596233553, rel_tol=0.0, abs_tol=1.0e-12)
+        left = scalar_allowance(4, value=log_z, absolute_sum=float(oracle.diagnostics["log_evidence_absolute_summand_accumulation"]), kappas=tuple(oracle.diagnostics["log_evidence_operand_kappas"]), optimized=False)
+        right = scalar_allowance(4, value=oracle.log_evidence, absolute_sum=float(oracle.diagnostics["log_evidence_absolute_summand_accumulation"]), kappas=tuple(oracle.diagnostics["log_evidence_operand_kappas"]), optimized=False)
         assert abs(log_z - oracle.log_evidence) <= pair_allowance(4, left=log_z, right=oracle.log_evidence, left_allowance=left, right_allowance=right)
 
 
@@ -302,6 +343,20 @@ def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes(
     assert tuple(H4GateResult("H4", GateStatus.PASS, measurements, passing, allowances, ()).allowances_by_invariant["h3_anchor_identity"]) == EXPECTED_APPLICABLE_ALLOWANCE_FIELDS
     failed = list(passing); failed[8] = InvariantResult("exact_posterior_gap_equivalence", False, 2.0, 1.0, "miss")
     assert H4GateResult("H4", GateStatus.FAIL, measurements, tuple(failed), allowances, ()).status is GateStatus.FAIL
+    for index in (13, 14, 15):
+        forbidden = list(passing); forbidden[index] = InvariantResult(EXPECTED_INVARIANTS[index], False, 2.0, 1.0, "eligibility_miss")
+        with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, tuple(forbidden), allowances, ())
+    crossing = list(passing); crossing[16] = InvariantResult("primary_effect_threshold", False, .7, .8, "bootstrap_interval_crosses_threshold")
+    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, tuple(crossing), allowances, ())
+    no_support = list(passing); no_support[16] = InvariantResult("primary_effect_threshold", False, .9, .8, "bootstrap_interval_excludes_support")
+    no_support_measurements = dict(measurements); no_support_measurements.update({"primary_bootstrap_lower": .9, "primary_bootstrap_upper": 1.1})
+    assert H4GateResult("H4", GateStatus.FAIL, no_support_measurements, tuple(no_support), allowances, ()).status is GateStatus.FAIL
+    ambiguous = list(passing); ambiguous[5] = InvariantResult("scaled_condition_envelope", False, None, None, "not_evaluated_after_inconclusive_eligibility")
+    ambiguous[8] = InvariantResult("exact_posterior_gap_equivalence", False, 2.0, 1.0, "miss")
+    assert H4GateResult("H4", GateStatus.INCONCLUSIVE, measurements, tuple(ambiguous), allowances, ("scaled_condition_envelope: not_evaluated_after_inconclusive_eligibility",)).status is GateStatus.INCONCLUSIVE
+    inapplicable = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}; inapplicable["exact_posterior_gap_equivalence"] = {"applicable": False, "reason": "not_evaluated_after_decisive_h3_anchor_failure"}
+    inconclusive_equivalence = list(passing); inconclusive_equivalence[8] = InvariantResult("exact_posterior_gap_equivalence", False, None, None, "not_evaluated_after_inconclusive_eligibility")
+    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.INCONCLUSIVE, measurements, tuple(inconclusive_equivalence), inapplicable, ("exact_posterior_gap_equivalence: not_evaluated_after_inconclusive_eligibility",))
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, tuple(failed), allowances, ())
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, passing, allowances, ())
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.INCONCLUSIVE, measurements, tuple(failed), allowances, ())
@@ -314,7 +369,17 @@ def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes(
 def test_every_task_one_record_has_frozen_fields_and_positive_negative_validation() -> None:
     assert tuple(field.name for field in fields(H4RawDraw)) == ("draw_index", "name", "shape", "values")
     assert tuple(field.name for field in fields(H4AffineGaussianFactor)) == ("factor_id", "role", "time_index", "normalized_coordinate_indices", "parent_coordinate_indices", "matrix", "target", "covariance", "raw_draws")
+    assert tuple(field.name for field in fields(H4NeutralProblem)) == ("problem_id", "source_kind", "seed", "kind", "horizon", "d_z", "d_m", "dimension", "coordinate_order", "factor_schedule", "canonical_sha256")
     assert tuple(field.name for field in fields(H4SolveProtocol)) == ("protocol_id", "dtype", "device", "factor_passes", "solver_relative_budget", "stopping_rule")
+    assert tuple(field.name for field in fields(H4SelectedMoment)) == ("name", "mean", "covariance")
+    assert tuple(field.name for field in fields(H4TerminalLaw)) == ("arm", "h", "J", "mean", "selected_moments", "complete_objective", "stopping_residual")
+    assert tuple(field.name for field in fields(H4NativeInformationState)) == ("h", "J", "mean", "complete_objective")
+    assert tuple(field.name for field in fields(H4NativeMomentState)) == ("mean", "covariance", "complete_objective")
+    assert tuple(field.name for field in fields(H4SolverResult)) == ("problem_id", "problem_sha256", "arm", "protocol_id", "factor_count", "native_information", "native_moment")
+    assert tuple(field.name for field in fields(H4TimingRecord)) == ("problem_id", "problem_index", "horizon_index", "seed_index", "kind_index", "seed", "kind", "horizon", "repetition_index", "pair_index", "order", "information_nanoseconds", "moment_nanoseconds")
+    assert tuple(field.name for field in fields(H4OperationRecord)) == ("problem_id", "arm", "operation", "operand_shapes", "result_shape", "count")
+    assert tuple(field.name for field in fields(H4MemoryRecord)) == ("problem_id", "arm", "python_peak_bytes", "process_working_set_delta_bytes", "unavailable_fields")
+    assert tuple(field.name for field in fields(H4GateResult)) == ("gate", "status", "measurements", "invariants", "allowances_by_invariant", "obligations")
     assert H4SolveProtocol().solver_relative_budget == 1e-9
     with pytest.raises(ValueError): H4SolveProtocol(solver_relative_budget=1e-8)
     selected = (
@@ -339,3 +404,12 @@ def test_every_task_one_record_has_frozen_fields_and_positive_negative_validatio
     memory = H4MemoryRecord("p", "moment", None, -5, ("python_peak_bytes",))
     assert memory.process_working_set_delta_bytes == -5
     with pytest.raises(ValueError): H4MemoryRecord("p", "moment", None, -5, ())
+
+
+def test_scaled_problem_rejects_wrong_id_duplicate_draw_and_unordered_metadata() -> None:
+    problem = make_h4_problem(seed=104729, kind="coupled", horizon=7)
+    with pytest.raises(ValueError): replace(problem, problem_id="h4-coupled-T7-dz4-dm4-seed104729-v0")
+    m_factor = problem.factor_schedule[1]
+    with pytest.raises(ValueError):
+        replace(m_factor, raw_draws=(m_factor.raw_draws[0], replace(m_factor.raw_draws[1], draw_index=m_factor.raw_draws[0].draw_index), m_factor.raw_draws[2]))
+    with pytest.raises(ValueError): replace(m_factor, parent_coordinate_indices=(5, 4, 6, 7))
