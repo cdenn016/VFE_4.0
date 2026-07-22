@@ -103,6 +103,57 @@ H4OperationKind = Literal[
     "cholesky", "triangular_solve", "matrix_multiply",
     "symmetric_rank_update", "selected_block_extract",
 ]
+H4JsonScalar: TypeAlias = str | int | float | bool | None
+H4JsonValue: TypeAlias = H4JsonScalar | tuple["H4JsonValue", ...] | Mapping[str, "H4JsonValue"]
+H4JsonMapping: TypeAlias = Mapping[str, H4JsonValue]
+H4MeasurementName = Literal[
+    "primary_seed_ratio_geometric_mean", "primary_bootstrap_lower",
+    "primary_bootstrap_upper", "primary_effect_threshold",
+    "primary_timed_ab_total", "primary_timed_ba_total",
+    "maximum_solver_stopping_residual", "maximum_allowance_scale_fraction",
+]
+H4AllowanceInvariantName = Literal[
+    "h3_anchor_identity", "exact_posterior_gap_equivalence",
+    "terminal_h_equivalence", "terminal_J_equivalence",
+    "selected_moment_equivalence", "complete_objective_equivalence",
+]
+H4_INVARIANT_NAMES = (
+    "h3_anchor_identity",
+    "fixed_seed_problem_identity",
+    "coupled_zero_control_contract",
+    "cpu_float64_one_thread",
+    "shared_protocol_identity",
+    "scaled_condition_envelope",
+    "complete_repetition_table",
+    "primary_timed_order_balance",
+    "exact_posterior_gap_equivalence",
+    "terminal_h_equivalence",
+    "terminal_J_equivalence",
+    "selected_moment_equivalence",
+    "complete_objective_equivalence",
+    "all_equivalence_allowances_decisive",
+    "real_operation_instrumentation",
+    "primary_seed_level_inference",
+    "primary_effect_threshold",
+)
+H4_MEASUREMENT_NAMES = (
+    "primary_seed_ratio_geometric_mean",
+    "primary_bootstrap_lower",
+    "primary_bootstrap_upper",
+    "primary_effect_threshold",
+    "primary_timed_ab_total",
+    "primary_timed_ba_total",
+    "maximum_solver_stopping_residual",
+    "maximum_allowance_scale_fraction",
+)
+H4_ALLOWANCE_INVARIANT_NAMES = (
+    "h3_anchor_identity",
+    "exact_posterior_gap_equivalence",
+    "terminal_h_equivalence",
+    "terminal_J_equivalence",
+    "selected_moment_equivalence",
+    "complete_objective_equivalence",
+)
 
 @dataclass(frozen=True)
 class H4RawDraw:
@@ -224,9 +275,9 @@ class H4MemoryRecord:
 class H4GateResult:
     gate: Literal["H4"]
     status: GateStatus
-    measurements: Mapping[str, float | None]
+    measurements: Mapping[H4MeasurementName, float | None]
     invariants: tuple[InvariantResult, ...]
-    allowances_by_invariant: Mapping[str, object]
+    allowances_by_invariant: Mapping[H4AllowanceInvariantName, H4JsonMapping]
     obligations: tuple[str, ...]
 
 def canonical_h4_problem_bytes(problem: H4NeutralProblem) -> bytes: ...
@@ -262,11 +313,11 @@ def decide_h4_interval(interval: H4BootstrapInterval, threshold: float) -> H4Int
 
 `H4AffineGaussianFactor` requires a nonempty unique factor ID, a nonnegative time index, finite tuple-owned values, matrix `A` of exact shape `d x D`, target `b` of shape `d`, and exactly symmetric positive-definite covariance `R` of shape `d x d`; it encodes `A y-b` and stores no normalizer, because the normalizer is derived only from `d` and `R`. Metadata tuples are ordered, unique, disjoint, and in `[0,D)`. Initial and transition normalized-coordinate tuples have length `d`, while observation normalized coordinates are empty. Initial parent metadata is empty; transition and observation parent metadata is explicit. Initial/transition factors require `A[:, normalized_coordinate_indices] = I_d` and support only normalized and parent columns. Observation factors use local latent coordinates as parents and support only parent columns. Initial normalized indices are ascending `z_0` components then ascending `m_0` components. For every scaled `t`, `m_transition[t]` has ascending `m_t` normalized indices and ascending `m_{t-1}` parents; `z_transition[t]` has ascending `z_t` normalized indices and parents `z_{t-1}` then `m_t`, each ascending; `observation[t]` has no normalized indices and parents `z_t` then `m_t`, each ascending. This metadata is schedule-causal even though storage puts `z_t` before `m_t`. For scaled controls, zero every designated transition-parent column, not merely a parent coefficient that happens to be nonzero.
 
-Scaled coordinates are exactly `z[t,i]` for `i=0..3`, then `m[t,i]` for `i=0..3`, for each `t=0..T`, in storage order. Scaled factor IDs are exactly `initial_joint`, then `m_transition[t]`, `z_transition[t]`, and `observation[t]` for each ascending `t`; H3 IDs remain unchanged. A scaled problem ID is exactly `h4-{kind}-T{horizon}-dz4-dm4-seed{seed}-v1`; an H3 anchor ID is exactly `h4-anchor-{fixture.fixture_id}`. `H4NeutralProblem.source_kind` is exact and never inferred from an ID: `scaled_pcg64` validates supported kind, `horizon in {7,15,31}`, `d_z=d_m=4`, `dimension=(horizon+1)*(d_z+d_m)`, the scaled coordinate tuple, and the exact scaled factor-ID schedule; `h3_anchor` retains public `('z0','m0','z1','m1')` spelling, IDs, and H3 dimensions rather than being rewritten as scaled. Both sources require a nonempty schedule with unique IDs and a lowercase 64-hex-character `canonical_sha256`.
+Scaled coordinates are exactly `z[t,i]` for `i=0..3`, then `m[t,i]` for `i=0..3`, for each `t=0..T`, in storage order. Scaled factor IDs are exactly `initial_joint`, then `m_transition[t]`, `z_transition[t]`, and `observation[t]` for each ascending `t`; H3 IDs remain unchanged. A scaled problem ID is exactly `h4-{kind}-T{horizon}-dz4-dm4-seed{seed}-v1`; an H3 anchor ID is exactly `h4-anchor-{fixture.fixture_id}`. `H4NeutralProblem.source_kind` is exact and never inferred from an ID: `scaled_pcg64` validates a requested positive PCG64 seed, supported kind, `horizon in {7,15,31}`, `d_z=d_m=4`, `dimension=(horizon+1)*(d_z+d_m)`, the scaled coordinate tuple, and the exact scaled factor-ID schedule; `h3_anchor` validates its exact anchor ID together with `seed=0`, and retains public `('z0','m0','z1','m1')` spelling, IDs, and H3 dimensions rather than being rewritten as scaled. Both source-specific seed values are included in core serialization/digest validation, and both sources require a nonempty schedule with unique IDs and a lowercase 64-hex-character `canonical_sha256`.
 
 `H4SolveProtocol` accepts only `protocol_id="h4-single-pass-v1"`, `dtype="float64"`, `device="cpu"`, `factor_passes=1`, `solver_relative_budget=1e-9`, and `stopping_rule="complete_schedule_finite_spd"`. `H4SolverResult` requires its nonempty problem ID, lowercase 64-hex problem hash, one of the two arms, the frozen protocol ID, and a factor count equal to the consumed schedule count; exactly one native state is non-`None`, and it must be the state matching the declared arm. `H4OperationRecord` admits only the listed operation literal, has a positive count, and has only positive operand/result dimensions; records are aggregates of real shared-facade calls, never estimates. `H4MemoryRecord.unavailable_fields` is an ordered duplicate-free subset of exactly `("python_peak_bytes", "process_working_set_delta_bytes")`; each metric is `None` if and only if named unavailable. Python peak is nonnegative, whereas process working-set delta may be signed.
 
-`H4GateResult` follows the existing fail-closed H3 record semantics: gate is exactly `"H4"`; measurement keys are nonempty strings and values are finite floats or `None`; invariant names are unique; the immutable allowance mapping has exactly the names of allowance-owning invariants; and conclusive `PASS`/`FAIL` versus `INCONCLUSIVE` is checked against complete, decisive invariant evidence and named obligations. Its mapping fields are owned immutable mappings, and obligations are an immutable duplicate-free string tuple.
+`H4GateResult` follows the existing fail-closed H3 record semantics with exact H4 schemas: invariant names must equal `H4_INVARIANT_NAMES` in that order; measurement mapping keys must equal `H4_MEASUREMENT_NAMES` in that order; and allowance mapping keys must equal `H4_ALLOWANCE_INVARIANT_NAMES` in that order, with every allowance record nonempty. `measurements` and `allowances_by_invariant` contain only recursive owned immutable H4 JSON: scalars are `str|int|float|bool|None`, values may be immutable tuples or owned immutable string-key mappings, and every float is finite. Construction rejects lists, mutable mappings after ownership conversion, empty or non-string mapping keys, duplicate keys, and nonfinite floats. Conclusive states require finite measurement values; `INCONCLUSIVE` may use `None` only with named obligations. Gate is exactly `"H4"`, and obligations are an immutable duplicate-free string tuple.
 
 Canonical problem bytes are exact. Let `core` be the ordered public `H4NeutralProblem` content excluding `canonical_sha256`, recursively represented by compact finite JSON objects/arrays and including every factor field and raw draw. Compute `digest = SHA256(b"vfe4.h4.neutral-problem.v1\\x00" + compact UTF-8 sorted-key finite JSON(core))`. The published bytes returned by `canonical_h4_problem_bytes` are compact UTF-8 sorted-key finite JSON of `{"schema_version":"h4-neutral-problem-v1","canonical_sha256":digest,"problem":core}`. Parsing first requires the exact envelope schema literal, then recomputes the domain-separated core digest before accepting it. Embedded `canonical_sha256` is that core digest, not `SHA256` of full envelope bytes. The envelope is not self-hashed, and reserialization cannot substitute for core-digest validation.
 
@@ -379,7 +430,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 - Produce `make_h4_problem(*, seed: int, kind: H4ProblemKind, horizon: Literal[7,15,31], d_z: Literal[4], d_m: Literal[4]) -> H4NeutralProblem` and `h4_anchor_from_h3(fixture: H3Fixture) -> H4NeutralProblem`.
 - The generator returns one fully materialized immutable problem. Neither solver receives a seed or generator callback.
 
-- [ ] **Step 1: Write the H4 preregistration before any timing exists.** Copy every H4 global constraint, the exact 20 seed values, zero-based horizon/seed/kind indices, exact traversal, the dimension table, factor-generation formulas, three warmup-pair and 11 timed-pair AB/BA formulas, primary per-seed and aggregate timed-order balance, timer/batched-postflight boundaries, primary endpoint, bootstrap algorithm, `0.80` decision table, scaled conditioning envelope, `1e-9` solver budget, strict `1e-4` allowance/scale cap, equivalence fields, status precedence, operation/memory secondary status, JSON schema, and H5/H6/H7/H8/training nonclaims. State explicitly that warmups do not enter inferential balance and that no coefficient, seed, order, repetition count, envelope, budget, cap, bootstrap setting, or threshold was chosen from H4 measurements.
+- [ ] **Step 1: Write the H4 preregistration before any timing exists.** Copy every H4 global constraint, the exact 20 seed values, zero-based horizon/seed/kind indices, exact traversal, the dimension table, factor-generation formulas, three warmup-pair and 11 timed-pair AB/BA formulas, primary per-seed and aggregate timed-order balance, timer/batched-postflight boundaries, primary endpoint, bootstrap algorithm, `0.80` decision table, scaled conditioning envelope, `1e-9` solver budget, strict `1e-4` allowance/scale cap, equivalence fields, status precedence, operation/memory secondary status, JSON schema, and H5/H6/H7/H8/training nonclaims. Before timing, copy the exact raw-draw schema/order/names, factor metadata/support rules, `source_kind`/seed rule, coordinate/problem/factor ID spellings, scoped scaled zero-control exceptions, exact `J`/`h`/`c` and derived-normalizer assembly, digest domain/core/envelope contract, and exact `H4GateResult` measurement/invariant/allowance schemas. State explicitly that warmups do not enter inferential balance and that no coefficient, seed, order, repetition count, envelope, budget, cap, bootstrap setting, or threshold was chosen from H4 measurements.
 
   Freeze the 20 problem seeds as:
 
@@ -426,7 +477,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 
   for SPD `J`. Higher is better. This is the unrestricted Gaussian optimum/evidence, not negative VFE and not a second ELBO. The information and moment arms independently compute this same scalar, including all factor constants; `J,h` and selected moments are comparison records, not alternate objectives.
 
-  The H3 anchor adapter maps the explicit structural fixture groups `initial_factors`, `transition_factors`, and `observation_factors`, each in declared order, into `H4NeutralProblem.factor_schedule`. Each scalar becomes `matrix=(row,)`, `target=(target,)`, and `covariance=((variance,),)` with a normalizer derived as `-0.5*log(2*pi*variance)`; role/time/normalized/parent metadata comes only from group and declared position. It preserves IDs and exact H3 coordinate spelling, does not infer groups or roles from IDs/names, and does not synthesize a state-space factorization. The coupled fixture compares its frozen reference log evidence; the zero fixture has no frozen reference log evidence and only compares independently derived `c/logZ` under H3 allowances.
+  The H3 anchor adapter maps the explicit structural fixture groups `initial_factors`, `transition_factors`, and `observation_factors`, each in declared order, into `H4NeutralProblem.factor_schedule`. Its `source_kind` is exactly `h3_anchor` and its retained integer seed is exactly `0`, which enters the anchor core and digest validation. Each scalar becomes `matrix=(row,)`, `target=(target,)`, and `covariance=((variance,),)` with a normalizer derived as `-0.5*log(2*pi*variance)`; role/time/normalized/parent metadata comes only from group and declared position. It preserves IDs and exact H3 coordinate spelling, does not infer groups or roles from IDs/names, and does not synthesize a state-space factorization. The coupled fixture compares its frozen reference log evidence; the zero fixture has no frozen reference log evidence and only compares independently derived `c/logZ` under H3 allowances.
 
   The exact selected-moment labels are `("initial", "terminal", "observation[1]", ..., "observation[T]")`. `initial` and `terminal` are the full joint `[z_t,m_t]` blocks at `t=0` and `t=T`; every `observation[t]` is the full local `[z_t,m_t]` block in ascending time. Keep all labels even when `T=1` makes blocks overlap; do not deduplicate, map, or alias them.
 
@@ -434,7 +485,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 
   Resolve H4 status in this fixed precedence: protocol/environment/thread/fixture/condition/table-completeness/nonfinite ambiguity is `INCONCLUSIVE`; otherwise a finite decisive H3-anchor or terminal-law miss is `FAIL`; otherwise apply the primary interval rule (`PASS` only when upper bound `<=0.80`, `FAIL` only when lower bound `>=0.80`, and `[0.80,0.80]` or a crossing interval `INCONCLUSIVE`). Operation and memory diagnostics are secondary and never rescue or overturn that status.
 
-- [ ] **Step 2: Write strict type/generator tests.** Assert exact ordered fields and validations for every defined H4 record, including explicit `source_kind` rather than ID inference; `H4RawDraw` global zero-based indices, row-major values, shape product, finite values, factor-local ordering/names, and H3 empty raw draws; the factor residual/no-normalizer, exact `A:d x D`, `b:d`, SPD `R:d x d`, metadata order/disjointness/support/identity-column contracts; immutable tuple/mapping ownership; schedule availability rather than ID/numeric-role inference; and `factor_schedule` as the sole canonical source. Assert exact scaled coordinate strings, factor IDs, causal metadata tuple orders, and `D` table `(64,128,256)`, H3's unchanged coordinate spelling/IDs, fixed no-RNG initial `N(0,I_8)`, the exact PCG64 names/indices/draw order/distributions, separate `A_m` and joint `[A_z B]` spectral-clip envelopes, exact `H`, and scaled observation `b=observed_target-offset` with raw provenance retained. Require that only scaled matched controls have exactly the listed exceptions and that every designated transition-parent column is zeroed; do not apply this invariant to H3 anchors. Require deterministic core digest and published envelope bytes, exact hash domain/schema literal before digest verification, parser recomputation rather than self-reference/full-envelope hash, and distinct hashes across kind/seed/size. Require exact `J`, `h`, and `c` factor assembly including derived normalizers. Require each `H4TimingRecord` to carry independent `problem_index`, `horizon_index`, `seed_index`, `kind_index`, timed `repetition_index`, absolute `pair_index`, exact order label, and both positive native-arm durations; reject an order inconsistent with the independent-index parity formula. Require the exact immutable selected-moment labels `("initial","terminal","observation[1]",...,"observation[T]")`, with immutable mean/covariance rows; reject reordered, duplicate, missing, mapping, mutable, or aliased values. Adapt both raw H3 fixtures through the explicit structural-group adapter; require the coupled canonical `(J,h,c,logZ)` to agree with H3/reference allowances and the zero anchor to compare independently derived adapter/oracle `c/logZ` only, without asserting a nonexistent frozen reference.
+- [ ] **Step 2: Write strict type/generator tests.** Assert exact ordered fields and validations for every defined H4 record, including explicit `source_kind` rather than ID inference; scaled positive PCG64 seeds and H3-anchor `seed=0` exactly in IDs/core/digests; `H4RawDraw` global zero-based indices, row-major values, shape product, finite values, factor-local ordering/names, and H3 empty raw draws; the factor residual/no-normalizer, exact `A:d x D`, `b:d`, SPD `R:d x d`, metadata order/disjointness/support/identity-column contracts; immutable tuple/mapping ownership; schedule availability rather than ID/numeric-role inference; and `factor_schedule` as the sole canonical source. Assert exact scaled coordinate strings, factor IDs, causal metadata tuple orders, and `D` table `(64,128,256)`, H3's unchanged coordinate spelling/IDs, fixed no-RNG initial `N(0,I_8)`, the exact PCG64 names/indices/draw order/distributions, separate `A_m` and joint `[A_z B]` spectral-clip envelopes, exact `H`, and scaled observation `b=observed_target-offset` with raw provenance retained. Require that only scaled matched controls have exactly the listed exceptions and that every designated transition-parent column is zeroed; do not apply this invariant to H3 anchors. Require deterministic core digest and published envelope bytes, exact hash domain/schema literal before digest verification, parser recomputation rather than self-reference/full-envelope hash, and distinct hashes across kind/seed/size. Require exact `J`, `h`, and `c` factor assembly including derived normalizers. Require exact `H4_INVARIANT_NAMES`, `H4_MEASUREMENT_NAMES`, and `H4_ALLOWANCE_INVARIANT_NAMES` ordering, closed result aliases, finite conclusive measurements, `INCONCLUSIVE` `None` values only with obligations, and recursive owned immutable finite allowance records. Require each `H4TimingRecord` to carry independent `problem_index`, `horizon_index`, `seed_index`, `kind_index`, timed `repetition_index`, absolute `pair_index`, exact order label, and both positive native-arm durations; reject an order inconsistent with the independent-index parity formula. Require the exact immutable selected-moment labels `("initial","terminal","observation[1]",...,"observation[T]")`, with immutable mean/covariance rows; reject reordered, duplicate, missing, mapping, mutable, or aliased values. Adapt both raw H3 fixtures through the explicit structural-group adapter; require the coupled canonical `(J,h,c,logZ)` to agree with H3/reference allowances and the zero anchor to compare independently derived adapter/oracle `c/logZ` only, without asserting a nonexistent frozen reference.
 
 - [ ] **Step 3: Run the Task 1 test for RED.**
 
@@ -475,7 +526,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 
 **Interfaces:**
 
-- Produce `OperationKind`, `OperationRecorder`, `NullOperationRecorder`, `CountingOperationRecorder`, `InstrumentedLinearAlgebra`, and `measure_untimed_memory(callable) -> H4MemoryRecord`.
+- Consume and re-export the already public `H4OperationKind`, and produce `OperationRecorder`, `NullOperationRecorder`, `CountingOperationRecorder`, `InstrumentedLinearAlgebra`, and `measure_untimed_memory(callable) -> H4MemoryRecord`. A second operation-kind alias or operation universe is forbidden.
 - Produce `H4GaussianSolver`, `InformationFormH4Solver`, `MomentFormH4Solver`, `solve_information_form`, and `solve_moment_form`.
 - `H4GaussianSolver` lives in `vfe4/inference/h4_solvers.py` beside the facade functions; `vfe4/types/h4.py` contains only dependency-light immutable data. Both solvers return the identical `H4SolverResult` envelope with an exactly one-of native information/moment state. The untimed common converter produces `H4TerminalLaw` and the canonical selected-moment tuple named `initial`, `terminal`, and every local observation block.
 
@@ -588,27 +639,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 - Produce `H4GateEvaluation(result, anchors, problems, oracle_by_problem, solver_results, equivalence, raw_timings, primary_timed_order_balance, timing_summary, operation_counts, memory_records, environment, validation_payload)`.
 - Produce `evaluate_h4(config: ResolvedConfig, *, h3_coupled_bytes: bytes, h3_zero_bytes: bytes) -> H4GateEvaluation` and `h4_validation_payload(evaluation) -> dict[str, object]`.
 
-- [ ] **Step 1: Write the promotion test with exact invariant names.** Require this ordered tuple:
-
-  ```text
-  h3_anchor_identity
-  fixed_seed_problem_identity
-  coupled_zero_control_contract
-  cpu_float64_one_thread
-  shared_protocol_identity
-  scaled_condition_envelope
-  complete_repetition_table
-  primary_timed_order_balance
-  exact_posterior_gap_equivalence
-  terminal_h_equivalence
-  terminal_J_equivalence
-  selected_moment_equivalence
-  complete_objective_equivalence
-  all_equivalence_allowances_decisive
-  real_operation_instrumentation
-  primary_seed_level_inference
-  primary_effect_threshold
-  ```
+- [ ] **Step 1: Write the promotion test with exact invariant names.** Require `H4_INVARIANT_NAMES` from the public type contract exactly and in order; do not duplicate this literal in Task 4. Require `H4_MEASUREMENT_NAMES` and `H4_ALLOWANCE_INVARIANT_NAMES` from that same contract as the exact ordered outer mapping key sets, and validate their closed aliases and recursive immutable finite allowance-record JSON.
 
   Assert H4 can be `PASS`, `FAIL`, or `INCONCLUSIVE` independently of an H5 result. A decisive terminal-equivalence miss and an interval wholly at/above the no-support region are finite `FAIL` cases. Missing environment facts, wrong traversal/pair formula, incomplete raw timings, any primary per-seed balance mismatch, aggregate primary totals other than exactly `110/110`, warmups counted toward balance, nonfinite solver output, any exact/problem/terminal condition outside the inclusive envelope, allowance/scale ratio at or above `1e-4`, or crossing interval is `INCONCLUSIVE`. Test the exact 20-row primary balance table plus all single-row/aggregate failure controls, every exact envelope boundary, and every decisiveness boundary. No secondary size/control/memory/count value can change `primary_effect_threshold`.
 
