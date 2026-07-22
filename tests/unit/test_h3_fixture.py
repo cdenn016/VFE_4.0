@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
 from types import MappingProxyType
 
 import pytest
 
+import vfe4.types as public_types
+import vfe4.validation as public_validation
 from vfe4.types.h3 import (
     H3ArmResult,
     H3DecisionConfig,
@@ -215,27 +217,56 @@ def test_parser_rejects_observation_map_covariance_and_reference_shape_changes()
 
 
 def test_control_validator_rejects_couplings_initial_drift_and_offdiagonal_reference() -> None:
-    coupled, _ = _parse_pair()
-    mutations: list[dict[str, object]] = []
-    parent = _raw(H3_ZERO_CONTROL_FIXTURE_PATH)
-    parent["transitions"]["factors"][0]["row"] = [0.0, -0.1, 0.0, 1.0]  # type: ignore[index]
-    mutations.append(parent)
-    initial = _raw(H3_ZERO_CONTROL_FIXTURE_PATH)
-    initial["initial"]["factors"][0]["variance"] = 1.1  # type: ignore[index]
-    mutations.append(initial)
-    offdiagonal = _raw(H3_ZERO_CONTROL_FIXTURE_PATH)
-    offdiagonal["reference"]["posterior_precision"][0][1] = 0.01  # type: ignore[index]
-    offdiagonal["reference"]["posterior_precision"][1][0] = 0.01  # type: ignore[index]
-    mutations.append(offdiagonal)
-    for raw in mutations:
-        try:
-            zero = parse_h3_fixture_bytes(
-                _encoded(raw), expected_fixture_id="h3-zero-control-v1"
-            )
-        except ValueError:
-            continue
+    coupled, zero = _parse_pair()
+    changed_parent = replace(
+        zero,
+        transition_factors=(
+            replace(zero.transition_factors[0], row=(0.0, -0.1, 0.0, 1.0)),
+            zero.transition_factors[1],
+        ),
+    )
+    changed_initial_law = replace(
+        zero,
+        initial_factors=(
+            replace(zero.initial_factors[0], variance=1.1),
+            zero.initial_factors[1],
+        ),
+    )
+    changed_observation = replace(zero, observation_values=(0.5, -0.7))
+    offdiagonal_precision = replace(
+        zero,
+        reference_posterior_precision=(
+            (1.0, 0.01, 0.0, 0.0),
+            (0.01, 1.0, 0.0, 0.0),
+            (0.0, 0.0, 5.5625, 0.0),
+            (0.0, 0.0, 0.0, 4.34027777777778),
+        ),
+    )
+    for invalid_control in (
+        changed_parent,
+        changed_initial_law,
+        changed_observation,
+        offdiagonal_precision,
+    ):
         with pytest.raises(ValueError):
-            validate_independent_control(coupled, zero)
+            validate_independent_control(coupled, invalid_control)
+
+
+def test_h3_public_package_surfaces_export_declared_types_and_hash_mapping() -> None:
+    for name in (
+        "H3FixtureId",
+        "H3FixtureKind",
+        "H3Matrix4",
+        "H3RecognitionFamily",
+        "H3Vector4",
+    ):
+        assert name in public_types.__all__
+        assert hasattr(public_types, name)
+    assert "H3_EXPECTED_SHA256_BY_FIXTURE_ID" in public_validation.__all__
+    assert public_validation.H3_EXPECTED_SHA256_BY_FIXTURE_ID == {
+        "h3-coupled-v1": H3_COUPLED_SHA256,
+        "h3-zero-control-v1": H3_ZERO_CONTROL_SHA256,
+    }
 
 
 def test_h3_configuration_and_arm_records_are_immutable_and_frozen() -> None:
@@ -381,6 +412,54 @@ def test_h3_gate_result_fail_closed_status_consistency() -> None:
     assert _gate_result(
         status=GateStatus.FAIL, invariants=(failing,), allowances=allowance
     ).status is GateStatus.FAIL
+
+
+def test_h3_gate_result_rejects_conclusive_missing_decision_evidence() -> None:
+    missing_value = InvariantResult(
+        "coupled_factorized_analytic_gap", True, None, 1.0e-7, "missing value"
+    )
+    missing_limit = InvariantResult(
+        "coupled_factorized_analytic_gap", False, 0.1, None, "missing limit"
+    )
+    allowance = {
+        "coupled_factorized_analytic_gap": {
+            "kind": "pair",
+            "final_allowance": 1.0e-7,
+        }
+    }
+    with pytest.raises(ValueError):
+        _gate_result(
+            status=GateStatus.PASS,
+            invariants=(missing_value,),
+            allowances=allowance,
+        )
+    with pytest.raises(ValueError):
+        _gate_result(
+            status=GateStatus.FAIL,
+            invariants=(missing_limit,),
+            allowances=allowance,
+        )
+
+
+def test_h3_gate_result_rejects_failed_eligibility_as_fail_decision() -> None:
+    failed_eligibility = InvariantResult(
+        "fixture_hashes_match", False, 0.0, 0.0, "fixture bytes differ"
+    )
+    passing_decision = InvariantResult(
+        "coupled_factorized_analytic_gap", True, 0.0, 1.0e-7, "closed"
+    )
+    allowance = {
+        "coupled_factorized_analytic_gap": {
+            "kind": "pair",
+            "final_allowance": 1.0e-7,
+        }
+    }
+    with pytest.raises(ValueError):
+        _gate_result(
+            status=GateStatus.FAIL,
+            invariants=(failed_eligibility, passing_decision),
+            allowances=allowance,
+        )
 
 
 def test_fixture_hash_record_requires_distinct_well_formed_domains() -> None:

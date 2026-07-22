@@ -406,6 +406,16 @@ class H3GateResult:
         expected_allowances = {
             name for name in invariant_names if name not in H3_NON_ALLOWANCE_INVARIANTS
         }
+        eligibility_invariants = tuple(
+            item
+            for item in self.invariants
+            if item.name in H3_NON_ALLOWANCE_INVARIANTS
+        )
+        decision_invariants = tuple(
+            item
+            for item in self.invariants
+            if item.name not in H3_NON_ALLOWANCE_INVARIANTS
+        )
         if set(allowance_mapping) != expected_allowances:
             raise ValueError(
                 "allowances_by_invariant names must exactly match allowance-bearing invariants"
@@ -432,15 +442,27 @@ class H3GateResult:
                 raise ValueError("pass/fail H3 results cannot retain obligations")
             if any(value is None for value in copied_measurements.values()):
                 raise ValueError("pass/fail H3 results require finite measurements")
+            if any(not item.passed for item in eligibility_invariants):
+                raise ValueError(
+                    "pass/fail H3 results require every eligibility invariant to pass"
+                )
+            if any(
+                item.value is None or item.limit is None
+                for item in decision_invariants
+            ):
+                raise ValueError(
+                    "pass/fail H3 decision invariants require finite values and limits"
+                )
             if self.status is GateStatus.PASS and not all(
                 item.passed for item in self.invariants
             ):
                 raise ValueError("H3 PASS requires every invariant to pass")
             if self.status is GateStatus.FAIL and not any(
-                not item.passed and item.value is not None and item.limit is not None
-                for item in self.invariants
+                not item.passed for item in decision_invariants
             ):
-                raise ValueError("H3 FAIL requires a finite failed invariant")
+                raise ValueError(
+                    "H3 FAIL requires a finite failed allowance-bearing invariant"
+                )
         object.__setattr__(
             self,
             "measurements",
