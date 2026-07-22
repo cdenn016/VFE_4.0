@@ -80,4 +80,41 @@ H1 must detect, at minimum:
 
 ## Nonclaims
 
-Passing H1 will establish agreement for this one frozen finite fixture under its recorded float64 calculations and allowances. It will not prove predictive quality, posterior adequacy, optimizer convergence, training stability, gauge learning, nontrivial base curvature or holonomy, scalability beyond the bounded dense `6x6` check, H2 or later hypotheses, or a universal quadrature error theorem. Frames remain fixed deterministic structure; no `phi`, frame gradient, optimizer, ELBO objective implementation, independent oracle, or promotion gate is introduced by the present model/recognition task.
+Passing H1 establishes agreement for this one frozen finite fixture under its recorded float64 calculations and allowances. It does not prove predictive quality, posterior adequacy, optimizer convergence, training stability, gauge learning, nontrivial base curvature or holonomy, scalability beyond the bounded dense `6x6` check, H2 or later hypotheses, or a universal quadrature error theorem. Frames remain fixed deterministic structure. H1 includes evaluation-only ELBO objectives, an independent oracle, and a promotion gate, but no `phi`, frame gradient, optimizer, parameter update, dataset, or language-model training path.
+
+## Post-run H1 closure record
+
+The preregistered fixture was executed and independently reviewed at Git revision
+`b736d21c4110fb735c23c71b2ae3df2bea463f1c`. The exact-head click-run artifact
+is `runs/verify-h1-20260722T020300559669Z-f74102f4173f` and reports `PASS`.
+
+Measured values are:
+
+```text
+monolithic ELBO                  -3.9115229061747407
+local ELBO                       -3.911522906174741
+evidence - posterior KL          -3.911522906174741
+maximum pairwise residual         4.440892098500626e-16
+largest pair-specific allowance   7.582209551464146e-13
+p(x=(1,2))                        0.14371954991133756
+log p(x=(1,2))                   -1.9398914484468608
+posterior KL                      1.9716314577278802
+sum of all nine evidences         1.0000000000000009
+evidence-sum residual             8.881784197001252e-16
+```
+
+The summary allowance above is descriptive only. The gate decision uses three
+separate pair-specific allowances and fourteen term-specific comparisons; it
+never compares the maximum residual with the maximum allowance. All 51 declared
+convergence estimates and all 96 named invariants pass. The three preregistered
+negative controls are detected in their declared numeric domains.
+
+The expected and observed fixture SHA-256 values are identical:
+
+```text
+388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b
+```
+
+The full regression suite passed `327/327` on the exact source tree committed as
+`b736d21`; the frozen-scope Windows boundary recheck passed `36/36`. The commit
+contains the unchanged tested source tree. H2 through H8 remain unimplemented.
