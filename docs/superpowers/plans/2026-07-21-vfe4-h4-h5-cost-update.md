@@ -647,7 +647,18 @@ header containing invariant,
 problem/hash, comparison source, repetition, optional arm, path prefix, shape,
 element-count, both ordered
 operation tables, condition-number tuples encoded with `float.hex()`, and
-solver flags. Its scalar rows are appended in row-major order as a packed,
+solver flags. The header also binds each operand's value norm as `float.hex()`
+and, separately for `left` and `right`, the element count and SHA-256 of both
+the value vector and the absolute-summand vector. Each vector digest begins
+with `b"vfe4.h4.allowance-group-vector.v1\x00"`, the ASCII lane name
+(`left_value`, `right_value`, `left_absolute_summand`, or
+`right_absolute_summand`), a zero byte, and its unsigned eight-byte
+big-endian element count, followed by the exact contiguous little-endian
+`<f8` bytes. The expected-header path and observed-group path independently
+recompute all four vector digests and both norms; a caller cannot supply them.
+Thus equal metadata around different numerical operands is a header mismatch,
+not a self-consistent observed stream. Its scalar rows are appended in
+row-major order as a packed,
 unaligned little-endian structured array with the exact fields
 `left_value,right_value,left_value_norm,right_value_norm,left_absolute_sum,
 right_absolute_sum,left_rounding,left_solver,right_rounding,right_solver,
@@ -1057,7 +1068,7 @@ The unified runner accepts the explicit H1–H5 result union. H4 and H5 retain s
 
   The exact selected-moment labels are `("initial", "terminal", "observation[1]", ..., "observation[T]")`. `initial` and `terminal` are the full joint `[z_t,m_t]` blocks at `t=0` and `t=T`; every `observation[t]` is the full local `[z_t,m_t]` block in ascending time. Keep all labels even when `T=1` makes blocks overlap; do not deduplicate, map, or alias them.
 
-  H4 thread control is process-scoped and mandatory. After H1--H3 work and before H4 preflight/timing, capture `torch.get_num_threads()`, call `torch.set_num_threads(1)`, and verify the observed intra-op count is one. In a `finally` block attempt to restore the captured count and record prior, effective, restored, and restoration-error fields. A set/verify failure suppresses timed records and makes H4 `INCONCLUSIVE`; a restoration failure is an environment/protocol obligation that prevents H4 `PASS`. Do not change inter-op threads.
+  H4 thread control is process-scoped and mandatory. After H1--H3 work and before H4 preflight/timing, read-only capture both intra-op and inter-op counts. Any capture error permits no set and requires no restore. Only after both succeed, call `torch.set_num_threads(1)` and verify the observed intra-op count is one; after any set attempt, restore the captured intra-op count in `finally` and verify inter-op remained exact. A capture/set/verify failure suppresses timed records and makes H4 `INCONCLUSIVE`; a restoration failure is an environment/protocol obligation that prevents H4 `PASS`. Never set inter-op threads.
 
   Resolve H4 status in this fixed precedence: protocol/environment/thread/fixture/condition/table-completeness/nonfinite ambiguity is `INCONCLUSIVE`; otherwise a finite decisive H3-anchor or terminal-law miss is `FAIL`; otherwise apply the primary interval rule (`PASS` only when upper bound `<=0.80`, `FAIL` only when lower bound `>=0.80`, and `[0.80,0.80]` or a crossing interval `INCONCLUSIVE`). Operation and memory diagnostics are secondary and never rescue or overturn that status.
 
@@ -1764,6 +1775,25 @@ class H4ConditionStreamSummary:
     all_eligible: bool
 
 @dataclass(frozen=True, slots=True)
+class H4ProblemConditionSummary:
+    problem_id: str
+    problem_sha256: str
+    name: Literal[
+        "oracle_posterior",
+        "terminal_posterior",
+        "oracle_innovation",
+        "moment_innovation",
+    ]
+    stream_domain: Literal["vfe4.h4.problem-condition-record-stream.v1"]
+    expected_record_count: int
+    observed_record_count: int
+    record_stream_sha256: str
+    eligible_record_count: int
+    ineligible_record_count: int
+    witnesses: tuple[H4ConditionWitness, ...]
+    all_eligible: bool
+
+@dataclass(frozen=True, slots=True)
 class H4CoverageRecord:
     name: Literal[
         "oracle_posterior",
@@ -1827,16 +1857,27 @@ for inapplicable optionals and no timing value. `complete` is true exactly when 
 three discrepancy counts are zero. First discrepancy witnesses use canonical
 lowest expected/observed position.
 
-Condition records are likewise consumed once in canonical key order. Their
+Condition records are likewise consumed once in canonical key order. The
+global `H4ConditionStreamSummary` is never used as a per-problem carrier. Its
 stream digest begins with
 `b"vfe4.h4.condition-record-stream.v1\x00" + name.encode("ascii") + b"\x00"`
-and appends length-prefixed compact sorted-key JSON with every float encoded as
-`float.hex()`. Posterior summaries have the exact ordered metric witnesses
+and consumes the complete traversal with exact counts `120`, `2640`, `2120`,
+and `23320` in the four-name order above. The distinct compact
+`H4ProblemConditionSummary` binds exactly one problem ID/full SHA-256; its
+digest begins with
+`b"vfe4.h4.problem-condition-record-stream.v1\x00" +
+problem_sha256.encode("ascii") + b"\x00" + name.encode("ascii") + b"\x00"`
+and has exact counts `1`, `22`, `T`, and `11*T`. It rejects a record carrying
+another problem identity. Both forms append length-prefixed compact sorted-key
+JSON with every float encoded as `float.hex()`. Posterior summaries have the
+exact ordered metric witnesses
 minimum eigenvalue, maximum eigenvalue, maximum condition number, minimum
 Cholesky pivot, maximum mean infinity norm, then optional first ineligible.
 Innovation summaries omit the inapplicable pivot and mean metrics. Extremum
 ties select the lowest stream index. `all_eligible` is equivalent to
-`ineligible_record_count == 0`, never to a sampled witness.
+`ineligible_record_count == 0`, never to a sampled witness. A global summary
+is finalized from the global accumulator, not by concatenating compact
+per-problem digests; the gate cross-checks their counts and eligibility only.
 
 ##### Execution and restoration records
 
@@ -1987,6 +2028,21 @@ patch every excluded gate callable and
 prove the guard, rather than inferring exclusion from the absence of a trace
 event.
 
+Thread capture is a read-only preliminary phase: call
+`torch.get_num_threads()` and then `torch.get_num_interop_threads()` exactly
+once each before any setter. If either getter raises, retain the phase-valid
+prior value (if any) plus one bounded `capture_error`, set
+`set_attempted=False`, perform no process-global mutation, and therefore set
+`restore_attempted=False`, `restored_intra_op_threads=None`,
+`restoration_error=None`, and `restored_exact_prior_state=False`. A partial
+capture is not permission to set or restore. Only after both priors were
+captured does the guard attempt `torch.set_num_threads(1)`. Once that setter
+has been attempted, restoration to the captured prior intra-op value is
+mandatory in the outer `finally`, even if the setter or subsequent
+verification raised, because a failed setter may have mutated state. Inter-op
+threads are read again after restoration and must exactly equal the captured
+prior value; they are never set.
+
 Thread restoration is an outer `try/finally` around all post-set H4 work. Each
 timed batch has an inner `try/finally` that restores cyclic GC to the exact
 prior enabled state, including the case where GC was already disabled. GC
@@ -2000,7 +2056,7 @@ All capture/disable/effective-state/restore errors are capped at 512 Unicode
 code points and retained. A solver or GC exception may yield the typed scaled
 incomplete-phase record defined below only after both restoration attempts
 finish; it may not leak process-global state or fabricate timing rows. Thread
-set/verify or restore failure and GC restore failure preclude a conclusive
+capture/set/verify or restore failure and GC restore failure preclude a conclusive
 result, including the narrowly typed anchor-miss/restoration branch above.
 Inter-op thread count is never changed.
 
@@ -2027,6 +2083,11 @@ H4OracleRouteOperationLabel = Literal[
     "factor_assembly_matmuls",
     "factor_quadratics",
     "factor_logdet_reductions",
+    "factor_J_sum_reduction",
+    "factor_h_sum_reduction",
+    "factor_c_scalar_combinations",
+    "factor_c_sum_reduction",
+    "posterior_precision_symmetrization",
     "posterior_precision_cholesky",
     "posterior_natural_solve",
     "posterior_quadratic",
@@ -2227,7 +2288,10 @@ eligible = passed and decisive
 The canonical route table is exactly
 `factor_covariance_cholesky`, `factor_triangular_solves`,
 `factor_assembly_matmuls`, `factor_quadratics`,
-`factor_logdet_reductions`, `posterior_precision_cholesky`,
+`factor_logdet_reductions`, `factor_J_sum_reduction`,
+`factor_h_sum_reduction`, `factor_c_scalar_combinations`,
+`factor_c_sum_reduction`, `posterior_precision_symmetrization`,
+`posterior_precision_cholesky`,
 `posterior_natural_solve`, `posterior_quadratic`,
 `posterior_logdet_reduction`, `route_sum_reduction`. The predictive table is
 exactly `affine_propagation_matmuls`,
@@ -2238,6 +2302,20 @@ exactly `affine_propagation_matmuls`,
 from the actual factor dimensions and declared schedule using the closed
 operation formulas below; missing, duplicate, reordered, or extra labels are
 rejected.
+
+For `F` normalized factors and posterior dimension `D`, the canonical counts
+introduced for the executable accumulations are exact:
+`factor_J_sum_reduction = F*D*D`,
+`factor_h_sum_reduction = F*D`,
+`factor_c_scalar_combinations = 4*F`,
+`factor_c_sum_reduction = F`, and
+`posterior_precision_symmetrization = 2*D*D`. These counts match zero-array/
+zero-scalar initialization followed by one in-place accumulation per factor;
+they must not use the first contribution as an implicit initializer. The four
+c scalar-combination operations per factor are one multiplication for
+`d_f*log(2*pi)`, two additions forming
+`quadratic + d_f*log(2*pi) + logdet`, and one multiplication by `-0.5`;
+the separate c-sum count is the following `constant += contribution`.
 
 All derived fields are recomputed in `__post_init__`. `passed` is only the
 numerical predicate `residual <= final_allowance`; equality at the final
@@ -2398,10 +2476,13 @@ constructors used by focused tests and by final witness materialization. The
 production complete stream uses only `aggregate_allowance_groups`; it may not
 call either function once per scalar.
 
-The six public builders above are the only gate-facing allowance aggregation
-entry points. Each delegates to `aggregate_allowance_groups` with the caller's
-two keyword-only iterables and its own frozen literal invariant/count pair; the
-caller cannot supply or override either value:
+The six public builders above are the only single-invariant allowance
+aggregation entry points. Each delegates to `aggregate_allowance_groups` with
+the caller's two keyword-only iterables and its own frozen literal
+invariant/count pair; the caller cannot supply or override either value. They
+exist for focused tests and bounded direct fixtures. The production gate uses
+the unified one-pass Task 3 accumulator frozen below so it never replays or
+buffers the complete source stream:
 
 ```text
 build_h4_anchor_identity_allowance -> ("h3_anchor_identity", 184)
@@ -2464,6 +2545,297 @@ The two condition builders are the only eligibility classifiers. They apply
 the inclusive config comparisons literally, recompute `finite`/`spd`, and
 return immutable records. The oracle emits raw diagnostics and never imports
 configuration or embeds a second copy of the envelope.
+
+##### Task 3-owned allowance group producers
+
+Task 4 must not instantiate `_H4AllowanceOperandGroup` or
+`_H4AllowanceGroupInput`, choose an operation count, condition number, norm,
+absolute-summand value, solver flag, path, or expected header. Task 3 therefore
+adds these bounded helpers to `verification/h4_budget.py`; the private group
+types are removed from `__all__`:
+
+```python
+@dataclass(frozen=True, slots=True)
+class H4ResultAllowanceGroupBundle:
+    kl_to_zero: _H4AllowanceGroupInput
+    terminal_h: _H4AllowanceGroupInput
+    terminal_J: _H4AllowanceGroupInput
+    selected_mean_and_covariance: tuple[_H4AllowanceGroupInput, ...]
+    complete_objective: _H4AllowanceGroupInput
+
+@dataclass(frozen=True, slots=True)
+class H4AllowanceResultSource:
+    problem_payload: bytes
+    repetition_index: int | None
+    oracle: H4OracleEvaluation
+    result: H4SolverResult
+    terminal: H4TerminalLaw
+    kl_to_oracle: H4OracleKLEvaluation
+
+@dataclass(frozen=True, slots=True)
+class H4AnchorAllowanceSource:
+    h3_fixture_bytes: bytes
+    information: H4AllowanceResultSource
+    moment: H4AllowanceResultSource
+
+def h4_result_allowance_group_bundle(
+    *,
+    source: H4AllowanceResultSource,
+) -> H4ResultAllowanceGroupBundle: ...
+
+def h4_anchor_identity_groups(
+    *,
+    source: H4AnchorAllowanceSource,
+) -> tuple[_H4AllowanceGroupInput, ...]: ...
+
+class H4SixInvariantAllowanceAccumulator:
+    def consume(
+        self,
+        source: H4AnchorAllowanceSource | H4AllowanceResultSource,
+    ) -> None: ...
+
+    def finalize(self) -> tuple[
+        H4ApplicableAllowance,
+        H4ApplicableAllowance,
+        H4ApplicableAllowance,
+        H4ApplicableAllowance,
+        H4ApplicableAllowance,
+        H4ApplicableAllowance,
+    ]: ...
+
+def new_h4_six_invariant_allowance_accumulator(
+) -> H4SixInvariantAllowanceAccumulator: ...
+```
+
+The source records own no budget field; they only bind the original bytes and
+full current-problem numerical records needed by both independent paths.
+`H4AllowanceResultSource.repetition_index` is exactly `None` for a result
+inside either `H4AnchorAllowanceSource` and exactly `0..10` for a scaled
+result. It is part of every group identity and header. The constructors reject
+an anchor repetition, a scaled `None`, a value outside `0..10`, or disagreement
+with the accumulator's canonical problem/repetition/arm position; neither
+`H4SolverResult` nor `H4TerminalLaw` is treated as an implicit repetition
+carrier.
+`h4_result_allowance_group_bundle` validates byte/object identity and exact
+problem/hash/arm/dimension/selected-label agreement. It creates read-only
+one-dimensional C-contiguous `float64` arrays and never retains a complete-run
+array collection. `h4_anchor_identity_groups` reparses the supplied raw H3
+bytes and canonical problem bytes internally; no caller supplies a reference
+scalar or a `coupled`/`zero` switch.
+
+Task 4 constructs one `H4SixInvariantAllowanceAccumulator`, calls `consume`
+first for the coupled and zero-control anchor sources, then once for each
+scaled result in exact problem, repetition `0..10`, arm
+`information,moment` order, and calls `finalize` once. `consume` first invokes
+a module-private expected-path producer that reparses the immutable bytes and
+independently recomputes values, norms, absolute-summand vectors, conditions,
+operation tables, vector digests, and group headers. It then invokes the
+separate observed-path bundle producer and advances only the applicable
+invariant accumulators. Anchor sources advance only `h3_anchor_identity`;
+scaled result sources advance the other five invariants. No source is replayed,
+`tee`d, or retained after `consume` returns. Each private invariant accumulator
+retains only its digest state, counters, maxima, and bounded witnesses.
+`finalize` refuses missing, duplicate, reordered, or extra sources and returns
+the six records in the frozen `H4AllowanceInvariantName` order.
+
+The six literal single-invariant builders remain public for focused unit tests
+and direct bounded fixtures. Task 4 must use only the unified accumulator; it
+may not call those builders sequentially, construct a private group, or access
+a private accumulator.
+
+The result bundle order is exactly `kl_to_zero`, `terminal_h`, `terminal_J`,
+then `selected_mean,selected_covariance` for every declared selected label,
+then `complete_objective`. The complete anchor stream is coupled information,
+coupled moment, coupled adapter `J,h,c,logZ`, zero-control information,
+zero-control moment, zero-control adapter `c,logZ`; its respective scalar
+subtotals are `40,40,22,40,40,2`. Scaled streams traverse problem, repetition
+`0..10`, arm `information,moment`; each invariant selects only its matching
+bundle field. This order alone yields the six frozen counts.
+
+The exact operand vectors and provenance are:
+
+- `kl_to_zero`: left is the one signed `kl_to_oracle.value`; right is literal
+  zero. Left uses `abs(value)`, the KL record's absolute-summand scalar,
+  `(candidate_condition_number, oracle_condition_number)`, and the KL record's
+  ordered operation table; right uses norm/summand zero, conditions `(1.0,)`,
+  and an empty table.
+- `terminal_h` and `terminal_J`: left is terminal `h` or row-major `J`; right
+  is oracle `natural` or row-major `precision`. Vector norm is infinity norm
+  and matrix norm is maximum absolute row sum. Per-lane absolute summands are
+  the sum of absolute factor contributions for an assembly, the sum of
+  absolute products for a matrix product, and otherwise `abs(output_lane)` for
+  an indivisible Cholesky/triangular-solve output. Oracle operation tables and
+  conditions are recomputed from the canonical factor route. Information-left
+  `h` has an empty postflight table and information-left `J` has its required
+  `cholesky(D)` proof receipt. Moment-left `J` has native-covariance
+  `cholesky(D)`, two `triangular_solve(D,D)` receipts, and the derived-precision
+  `cholesky(D)` proof; moment-left `h` appends
+  `matrix_multiply(D,D,1)`. Conditions list the corresponding Cholesky-input
+  condition numbers in that same order.
+- each selected mean/covariance uses the declared label and shape `(s,)` or
+  `(s,s)` with row-major covariance. Means use infinity norm; covariances use
+  maximum absolute row sum. A selected extraction contributes the explicit
+  zero-count `selected_extract` receipt. Information covariance appends the
+  native-precision `cholesky(D)`, two `triangular_solve(D,s)`, and selected
+  `cholesky(s)` receipts; moment covariance appends selected
+  `cholesky(s)`. The oracle side uses the canonical-posterior solve receipt and
+  the same selected extraction/block-proof order. Absolute-summand lanes use
+  the exact product sums where a product occurs and `abs(output_lane)` for a
+  solve/extract result.
+- `complete_objective`: left is terminal `complete_objective` propagated
+  verbatim with norm/summand `abs(value)`, conditions `(1.0,)`, and an empty
+  postflight table; right is `oracle.canonical_log_normalizer` with the exact
+  canonical route operand norm, absolute-summand scalar, condition tuple, and
+  ordered operation table already validated by `H4OracleRouteAgreement`.
+- the coupled adapter groups use canonical factor assembly for row-major
+  `J`, `h`, `c`, and canonical `logZ`; frozen H3-reference operands use
+  `abs(value)`, conditions `(1.0,)`, an empty operation table, and no solver
+  term. The zero-control adapter uses only canonical `c,logZ` against the
+  independently evaluated oracle operands; no nonexistent frozen zero-control
+  reference is synthesized.
+
+Operation labels are emitted in the written order with zero-count
+`selected_extract` retained; all other zero counts are omitted. Counts use
+only the closed Task 3 scalar formulas and the exact operand shapes above.
+The literal conversion-table labels/counts are: information `h` `()`;
+information `J` `(("terminal_information_precision_proof_cholesky",
+cholesky(D)),)`; moment `J`
+`("terminal_moment_covariance_cholesky",cholesky(D)),
+("terminal_moment_precision_solves",2*triangular_solve(D,D)),
+("terminal_moment_precision_proof_cholesky",cholesky(D))`; moment `h` is
+that tuple plus `("terminal_moment_natural_matmul",matmul(D,D,1))`.
+A selected mean table is exactly `(("selected_extract",0),)`. An information
+selected-covariance table is `("selected_information_precision_cholesky",
+cholesky(D)),("selected_information_covariance_solves",
+2*triangular_solve(D,s)),("selected_extract",0),
+("selected_covariance_proof_cholesky",cholesky(s))`; a moment selected-
+covariance table is `("selected_extract",0),
+("selected_covariance_proof_cholesky",cholesky(s))`. Here the abbreviated
+functions are exactly the public Task 3 count functions, not new formulas.
+Oracle and adapter operands use these distinct operand-local tables; the full
+canonical-`logZ` table is never copied onto an upstream `J`, `h`, `c`, or
+selected operand. Let `F` be the normalized factor schedule and `d_f` the row
+dimension of factor `f`. Each written label remains present even when its
+derived count is zero:
+
+```text
+oracle_or_adapter_J =
+  factor_covariance_cholesky
+  factor_precision_solves_A
+  factor_J_assembly_matmuls
+  factor_J_sum_reduction
+  posterior_precision_symmetrization
+
+oracle_or_adapter_h =
+  factor_covariance_cholesky
+  factor_precision_solves_b
+  factor_h_assembly_matmuls
+  factor_h_sum_reduction
+
+oracle_or_adapter_c =
+  factor_covariance_cholesky
+  factor_precision_solves_b
+  factor_c_quadratics
+  factor_c_logdet_reductions
+  factor_c_scalar_combinations
+  factor_c_sum_reduction
+
+oracle_selected_mean =
+  factor_covariance_cholesky
+  factor_precision_solves_A
+  factor_precision_solves_b
+  factor_J_assembly_matmuls
+  factor_h_assembly_matmuls
+  factor_J_sum_reduction
+  factor_h_sum_reduction
+  posterior_precision_symmetrization
+  posterior_precision_cholesky
+  posterior_natural_solve
+  selected_extract
+
+oracle_selected_covariance =
+  factor_covariance_cholesky
+  factor_precision_solves_A
+  factor_J_assembly_matmuls
+  factor_J_sum_reduction
+  posterior_precision_symmetrization
+  posterior_precision_cholesky
+  posterior_covariance_solves
+  selected_extract
+  selected_covariance_proof_cholesky
+
+oracle_logZ =
+  factor_covariance_cholesky
+  factor_triangular_solves
+  factor_assembly_matmuls
+  factor_quadratics
+  factor_logdet_reductions
+  factor_J_sum_reduction
+  factor_h_sum_reduction
+  factor_c_scalar_combinations
+  factor_c_sum_reduction
+  posterior_precision_symmetrization
+  posterior_precision_cholesky
+  posterior_natural_solve
+  posterior_quadratic
+  posterior_logdet_reduction
+  route_sum_reduction
+```
+
+The count for each factor Cholesky is `cholesky_operation_count(d_f)`.
+`factor_precision_solves_A` and `factor_precision_solves_b` use respectively
+two triangular solves with `D` and one right-hand-side column per factor;
+their union, in factor order and A-then-b order, is the already frozen
+`factor_triangular_solves` count. J/h assembly uses respectively
+`matrix_multiply_operation_count(D,d_f,D)` and
+`matrix_multiply_operation_count(D,d_f,1)` per factor.
+`factor_J_sum_reduction` and `factor_h_sum_reduction` contain exactly
+`F*D*D` and `F*D` scalar additions because the executable route initializes
+zero arrays and applies `+=` once per factor. `factor_c_scalar_combinations`
+is exactly `4*F` and `factor_c_sum_reduction` is exactly `F`, using the four
+per-factor operations and subsequent accumulation defined with the canonical
+table above. `posterior_precision_symmetrization` is exactly `2*D*D` for one
+lane-wise addition and one multiplication by `0.5`. The c labels plus the
+quadratic/log-diagonal labels are bit-for-bit the c-producing subset of the
+frozen full canonical route table. Posterior Cholesky/solve and selected-block
+counts use the public Task 3 count functions and exact dimensions. Tests
+require the de-duplicated union of the upstream subsets plus
+`posterior_precision_symmetrization` and the posterior/logZ-only suffixes to
+reconstruct the full canonical table with the exact counts above; shared
+factor Choleskys are counted once in that union. A missing, duplicated, or
+downstream operation in an upstream table is an error. KL alone uses its
+record's exact literal-label order.
+
+The per-lane absolute-summand vectors are also distinct and recomputed from
+the normalized factors: J lane `(i,j)` is
+`sum_f(abs((A_f.T @ solve(R_f,A_f))[i,j]))`; h lane `i` is
+`sum_f(abs((A_f.T @ solve(R_f,b_f))[i]))`; c is the one-element vector whose
+value is the sum of the absolute per-factor c contributions. A selected mean
+or covariance is the exact absolute value of each selected solve/extraction
+output lane, because the final triangular solve is treated as indivisible;
+the selected-block proof does not change the covariance lanes. Canonical
+`logZ` uses exactly the four-term absolute accumulation already frozen in
+`H4OracleRouteAgreement`. Adapter J/h/c/logZ use the same respective oracle
+vectors and tables on the adapter side; the frozen H3 reference side remains
+an empty table with `abs(reference_lane)`.
+
+The chronological condition tuple for J, h, or c is the factor-covariance
+condition number in factor order and contains no posterior-J condition. For a
+selected mean, selected covariance, or `logZ`, append
+`condition_number(J)` exactly once after the factor conditions. A selected
+block proof does not append a second condition because it validates the
+already produced operand and cannot affect its lanes. When `F=0` (for a
+literal reference operand only), the tuple is `(1.0,)`. These rules are used
+independently by the expected-header and observed-group producers.
+Every chronological Cholesky input that can affect the operand lanes
+contributes its own condition number;
+when no such input exists the tuple is exactly `(1.0,)`. No global/run-wide
+condition number or value norm is accepted. `solver_produced=True` appears on
+every left operand derived from a solver result, including KL, and nowhere
+else, so each compared solver operand receives exactly one solver term. The
+producer recomputes every vector from full current-problem records and rejects
+a caller-supplied receipt, missing factor contribution, changed label/order,
+or mismatch with the repaired Task 2 converter shape/count contract.
 
 ##### Statistics interfaces
 
@@ -2535,7 +2907,11 @@ and digest above. `decide_h4_interval` contains no inequality.
   retention, typed power-policy category, condition coverage, full-repetition
   trace rule, exact postflight schedule/count/digest, and exception-safe
   thread/GC boundaries and incomplete phases above. Do not record an H4
-  result.
+  result. Replace every obsolete flat/free-form applicable-allowance field
+  list with the typed `H4ApplicableAllowance` aggregate, its nested witness
+  records, exact six invariant counts, and typed inapplicable sentinels; Task 4
+  may not begin while the preregistration still describes the removed flat
+  schema.
 
 - [ ] **Step 2: Write prerequisite type/config/record tests.** Freeze exact
   dataclass field order, slots/frozen/deep ownership, Task 1 allowance
@@ -2545,8 +2921,13 @@ and digest above. `decide_h4_interval` contains no inequality.
   including 4,096-row/64 MiB bounds and derived
   balance, condition limits, compact condition/coverage stream schemas, trace
   cardinalities, coverage-key order, power-policy order, and restoration
-  records. Reject every old flat/full-element allowance mapping and every
-  duplicate classifier.
+  records. Assert distinct per-problem/global condition-summary types and
+  counts, the Task 3-owned allowance group producers and private group
+  constructors, exact anchor/scaled repetition ownership, numeric-vector-
+  bound independent headers, one-pass six-invariant consumption without
+  source retention, operand-local oracle/adapter tables, and read-only
+  partial-thread-capture semantics. Reject every old flat/full-element
+  allowance mapping and every duplicate classifier.
 
 - [ ] **Step 3: Run prerequisite tests for RED.**
 
@@ -2574,7 +2955,9 @@ and digest above. `decide_h4_interval` contains no inequality.
   element-local solver-flag controls; exact six stream counts and digest
   encoding; vectorized multi-chunk arithmetic with only final witness objects;
   late-chunk failure/indecisive controls; repaired visible converter
-  Cholesky-count tables with no hidden `_spd`; complete condition counts; exact
+  Cholesky-count tables with no hidden `_spd`; all six exact producer vector,
+  norm, absolute-summand, condition, operation-table, solver-flag, path, and
+  independent expected-header rules; complete global and per-problem condition counts; exact
   3-warmup/11-timed trace validation; exact balance; bootstrap first/last row,
   header, digest, log-space percentile; and all interval boundaries.
 
@@ -2588,7 +2971,10 @@ and digest above. `decide_h4_interval` contains no inequality.
   modules do not exist.
 
 - [ ] **Step 8: Implement the independent oracle, element-local budget, and
-  statistics modules.** No production solver/materializer import is allowed.
+  statistics modules.** No production solver/materializer implementation
+  module import is allowed; dependency-light public H4 record types are valid
+  producer inputs. Complete the typed preregistration replacement in Step 1
+  before Task 4 RED.
 
 - [ ] **Step 9: Run numerical-authority tests for GREEN.** Use the Step 7
   command. Expected: both independent logZ routes, oracle-zero KL, exact
@@ -2726,7 +3112,7 @@ class H4CompactOracleRecord:
     route_agreement: H4OracleRouteAgreement
     selected_moments: tuple[H4SelectedMomentSummary, ...]
     posterior_condition: H4PosteriorConditionRecord
-    innovation_conditions: H4ConditionStreamSummary
+    innovation_conditions: H4ProblemConditionSummary
 
 @dataclass(frozen=True, slots=True)
 class H4NativeReplayRecord:
@@ -2778,11 +3164,11 @@ class H4ProblemEvaluation:
     execution_trace: H4ExecutionTrace
     retained_results: tuple[H4CompactResultRecord, ...]
     native_replays: tuple[H4NativeReplayRecord, ...]
-    condition_streams: tuple[
-        H4ConditionStreamSummary,
-        H4ConditionStreamSummary,
-        H4ConditionStreamSummary,
-        H4ConditionStreamSummary,
+    condition_summaries: tuple[
+        H4ProblemConditionSummary,
+        H4ProblemConditionSummary,
+        H4ProblemConditionSummary,
+        H4ProblemConditionSummary,
     ]
     counting_passes: tuple[H4CountingPassRecord, H4CountingPassRecord]
     memory_passes: tuple[H4MemoryPassRecord, H4MemoryPassRecord]
@@ -2927,6 +3313,12 @@ class H4GateEvaluation:
     ]
     allowances: tuple[H4AllowanceRecord, ...]
     coverage: tuple[H4CoverageRecord, ...]
+    condition_summaries: tuple[
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+    ]
     raw_timings: tuple[H4TimingRecord, ...]
     primary_timed_order_balance: H4PrimaryTimedOrderBalance | None
     timing_summary: H4TimingSummary | None
@@ -2960,6 +3352,12 @@ class H4ValidationArtifact:
     ]
     allowances: tuple[H4AllowanceRecord, ...]
     coverage: tuple[H4CoverageRecord, ...]
+    condition_summaries: tuple[
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+    ]
     raw_timings: tuple[H4TimingRecord, ...]
     primary_timed_order_balance: H4PrimaryTimedOrderBalance | None
     timing_summary: H4TimingSummary | None
@@ -3070,11 +3468,48 @@ is `INCONCLUSIVE`, and serializes through both `H4GateEvaluation` and
 `H4ValidationArtifact` because both problem unions accept the dedicated
 carrier.
 
-Each problem's four condition summaries are in exact order
+Each problem's four `H4ProblemConditionSummary` values are in exact order
 `oracle_posterior`, `terminal_posterior`, `oracle_innovation`,
 `moment_innovation`, with expected counts `1`, `22`, `T`, and `11*T`.
-Their concatenated global counts must equal the four condition coverage totals
-before the corresponding global coverage record can be complete.
+The top-level `condition_summaries` field of both `H4GateEvaluation` and
+`H4ValidationArtifact`, and the identically positioned JSON payload field, is
+the exact ordered tuple of four global `H4ConditionStreamSummary` values with
+counts `120`, `2640`, `2120`, and `23320`. Their global counts must equal the
+sums of the compact per-problem counts and the four condition coverage totals
+before the corresponding global coverage record can be complete. The global
+digest is accumulated directly over canonical records and is not derived by
+hashing per-problem summary digests.
+
+The oracle-evaluation stream header is one length-prefixed compact sorted-key
+JSON mapping with exactly `schema_version,problem_id,problem_sha256,
+source_kind,seed,kind,horizon,d_z,d_m,dimension,coordinate_order,factor_ids,
+selected_blocks`; each selected-block header is exactly
+`name,coordinate_indices,dimension` in declared order. Its numeric lanes are,
+in order, row-major `precision`, `natural`, `constant`, `mean`, row-major
+`covariance`, `canonical_log_normalizer`, `predictive_log_normalizer`, then for
+each selected block its mean and row-major covariance. Thus
+`record_count=1` and
+`scalar_count=2*D*D + 2*D + 3 + (T+2)*(s+s*s)`, where `s=d_z+d_m`.
+Route-agreement allowance fields, operand-evidence tables, condition
+diagnostics, and their derived booleans are excluded from these lanes because
+they are independently retained and fieldwise checked in the typed route and
+condition records; no other `H4OracleEvaluation` numeric field is excluded.
+
+The native-diagnostic stream header is one length-prefixed compact sorted-key
+JSON mapping with exactly `problem_id,problem_sha256,protocol_id,arm,
+factor_count,replayed_native_sha256,innovation_records`; each innovation
+header is exactly `factor_id,time_index,parent_coordinate_indices,
+innovation_dimension` in factor-schedule order. Its lanes for each innovation
+are exactly `minimum_eigenvalue,maximum_eigenvalue,condition_number,
+minimum_cholesky_pivot`. Therefore `record_count=N_innovation` and
+`scalar_count=4*N_innovation`: information has `0/0`, a scaled moment replay
+has `T/4*T`, and an H3 moment replay has `2/8`. The replayed native numeric
+state is excluded because `replayed_native_sha256` binds the separate native
+stream; literal `finite/spd/replay_matches_result` proofs are excluded because
+construction requires them to be true. A missing, extra, reordered, or
+renamed header key/lane is a stream mismatch. `byte_count` is the total bytes
+fed to SHA-256, including literal domain plus NUL, header length/header, and
+numeric lane bytes.
 
 `H4CanonicalStreamDigest` uses its literal ASCII domain plus `b"\x00"`, then
 unsigned eight-byte big-endian-length-prefixed compact sorted-key UTF-8
@@ -3311,11 +3746,10 @@ preflight is `INCONCLUSIVE`, never repaired.
 
 ##### Exception-safe execution
 
-The implementation has an outer shape equivalent to:
+The implementation has an outer shape equivalent to the following only after
+both read-only captures succeed:
 
 ```python
-prior_threads = torch.get_num_threads()
-prior_interop = torch.get_num_interop_threads()
 try:
     set_attempted = True
     torch.set_num_threads(1)
@@ -3332,10 +3766,13 @@ finally:
         restoration_error = stable_error(error)
 ```
 
-The actual guard captures both prior counts inside a protected preliminary
-step. A capture failure populates `capture_error`, suppresses set/timing, and
-returns `INCONCLUSIVE`; restoration is attempted whenever a prior intra-op
-value was obtained, even if the later set or verification step failed.
+The actual guard captures intra-op and then inter-op counts inside a protected
+read-only preliminary step. Any capture failure populates `capture_error`,
+suppresses set/timing, and returns `INCONCLUSIVE` without restoration because
+no mutation occurred. It may retain an intra-op value captured before an
+inter-op getter failure, but that partial value cannot authorize a setter.
+After both captures succeed, any set attempt makes restoration mandatory,
+even if set or verification fails.
 
 Each problem's timed section has an inner shape equivalent to:
 
@@ -3491,7 +3928,8 @@ converter totals are `S+1` and `S+2`.
 
 After all problems, finalize the four condition accumulators, all nine
 coverage key streams, all 120 postflight schedule summaries and their
-146,720-event aggregate, the six allowance accumulators, and the exact primary
+146,720-event aggregate, the unified allowance accumulator's six private
+invariant states, and the exact primary
 timed balance before statistics. Their exact counts and stream digests must
 close even when every retained numerical scalar passed; no witness can replace
 coverage. Only after every condition, schedule, and allowance is eligible may
@@ -3559,13 +3997,18 @@ the digest/witness/status while all expected coverage counts remain exact.
   ownership, two H3
   anchors, 120-problem complete branch, materialization count/identity,
   3/11 traces, guard exclusions, exact 146,720-event postflight schedule
-  counts/order/digests, posterior/innovation coverage counts, typed retained
+  counts/order/digests, distinct compact per-problem and top-level global
+  posterior/innovation condition summaries/counts/digests, exact
+  oracle-evaluation and native-diagnostic headers/lane orders/scalar counts,
+  typed retained
   oracle-route agreements, replay/count/memory digest equality, exact
   six allowance group counts/digests/witnesses, compact per-result summaries,
   persisted selected coordinate indices and index-bound hashes,
   public decision identity, status precedence, restoration, ordered power
   policy, payload-size ceiling, no-per-scalar-object behavior, and exact
-  artifact keys. Include GC capture/disable/effective-state/restore exceptions,
+  artifact keys. Include read-only intra/inter-op capture failures (including
+  partial capture with no set/restore), mandatory restore after every set
+  attempt, GC capture/disable/effective-state/restore exceptions,
   every typed scaled incomplete phase, and both integrity failure kinds at all
   four scaled checkpoints with the exact `materialized_integrity` carrier and
   obligation, without fabricated records.
@@ -3618,7 +4061,10 @@ the digest/witness/status while all expected coverage counts remain exact.
   fixture prove all schemas, boundaries, restoration, guard, coverage,
   scalar-stream equivalence, route agreement, selected-index retention,
   postflight schedule, scaled incomplete-phase compaction lifetime, bounded
-  chunks, exact power policy serialization, payload size, and artifact
+  chunks, Task 3-owned allowance group producers without constructing private
+  groups or budget provenance in Task 4, one-pass source consumption and
+  numeric-vector-bound expected headers, exact power policy serialization,
+  payload size, and artifact
   behavior. No test result is H4 promotion evidence.
 
 - [ ] **Step 8: Commit corrected Task 4 only.**
@@ -4974,11 +5420,14 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   ```
 
   Expected: the launcher prints separate H1, H2, H3, H4, and H5 statuses and one run directory. Independently recompute `manifest.sha256`; verify exact source/config/environment identity; artifact `dirty_content_digest == preflightDirtyDigest`; raw fixture and H4 problem hashes; H4 prior/effective/restored thread fields; exact indexed traversal and parity formula; separate warmup/timed event order with warmups excluded from balance; complete H4 raw timing table; primary observed balance equal to the literal 20-row table, ten `6/5` plus ten `5/6` seeds, and exactly `110 AB/110 BA`; bootstrap/envelope/budget/decisiveness metadata; raw H5 update-spec fixture ID/SHA-256/schema and H5-only fixture-consumer provenance; complete H5 factor-input/affectedness/quadrature/allowance attempts, immutable model-snapshot ownership/no-alias evidence, and seven controls; and separate `validation/h4.json` / `validation/h5.json`. Recheck `HEAD`, both diffs, unexpected-untracked rule, and dirty digest after inspection. This is the only full 20-seed H4 timing execution for the candidate.
+  For H4 also require the four ordered top-level global condition summaries to
+  have counts `120/2640/2120/23320`, their per-problem sums to agree, and the
+  oracle/native-diagnostic stream scalar counts to match the frozen formulas.
 
 - [ ] **Step 4: Have fresh reviewers inspect existing evidence only.** Assign at least these independent reviews:
 
   - H4 protocol/statistics reviewer: exact horizon/seed/kind traversal with independent indices, common factors, independent arms, all three warmup pairs before all 11 timed pairs per problem, AB iff `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`, warmups excluded from balance, primary observed rows exactly equal to the literal 20-row balance table, ten `6/5` plus ten `5/6` timed seeds, exact aggregate `110 AB/110 BA`, no conversion/hashing/diagnostics between timed repetitions, fixed batched conversion order, seeds as inferential units, bootstrap implementation, and threshold/status mapping;
-  - H4 numerical/runtime reviewer: exact optimum, inclusive scaled conditioning envelope and boundaries, `h/J`/moment/objective equivalence, per-invariant scales, exact solver contribution, strict allowance/scale cap, no unbalanced H2 diagnostic, canonical immutable selected moments, real-operation instrumentation, raw timing/environment/BLAS/affinity provenance;
+  - H4 numerical/runtime reviewer: exact optimum, inclusive scaled conditioning envelope and boundaries, distinct per-problem/global condition-summary counts/digests, exact oracle/native-diagnostic headers/lane counts, `h/J`/moment/objective equivalence, Task 3-owned one-pass six-invariant allowance consumption, explicit anchor/scaled repetition identity, numeric-vector-bound independent headers, operand-local oracle/adapter operation routes and conditions, exact solver contribution, strict allowance/scale cap, no unbalanced H2 diagnostic, canonical immutable selected moments, real-operation instrumentation, raw timing/environment/BLAS/affinity provenance;
   - H5 theory/dependency reviewer: exact-case `Manuscripts/...` Markov blankets, the conditional categorical recognition law, source-independent continuous reconstruction, same complete ELBO, dependency prediction versus input-hash-derived observed affected sets, exact/source/M/GEM semantics, factor-universe completeness, and proof that MM is absent from attempt/gate paths;
   - H5 implementation/transaction reviewer: captured update-spec raw bytes/digest/parser/schema, proof that no short fixture-digest prefix is accepted or exposed anywhere in the H5 parser/config/gate/artifact path, immutable recognition and model-snapshot ownership with declared shared storage only, differentiable-working versus immutable-snapshot boundary, fixed recognition M-block, order-21/order-17 convergence estimates for every term, complete total allowances and exact epsilon formula, emission-touching indecision, acceptance/rollback hashes, cache/reuse proofs, seven controls, and value-change diagnostic nonauthority;
   - artifact/compatibility reviewer: required tracked-file list, no unexpected untracked content, stable dirty-content digest, separate H4/H5 statuses/payloads, exact prefix behavior, H5 full raw-digest-only provenance with no accepted/exposed short prefix, atomic manifest, prior-ledger hashes, H6--H8/training nonclaims.
