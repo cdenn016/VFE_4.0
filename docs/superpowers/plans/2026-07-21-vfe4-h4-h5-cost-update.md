@@ -5591,10 +5591,15 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
 
 **Why one milestone is allowed:** H4 and H5 are evaluated by the same ordered click-run, config snapshot, source revision, environment capture, JUnit revision, artifact manifest, and fixture-byte snapshot. Their gate results, payloads, statuses, and ledger claims remain separate. If either implementation changes, both evidence sets are invalidated and the replacement candidate again uses one common revision.
 
+Run every Task 10 code block in one PowerShell 5.1 session from the repository root. The retained variables bind the one JUnit run, one click invocation, one artifact, and one ledger; never rerun a native command merely to reconstruct lost shell state.
+
 - [ ] **Step 1: Fail-closed on tracked scope, unexpected untracked content, revision, dirty-content identity, activation, and preserved ledgers.**
 
   ```powershell
-  $candidateHead = (git rev-parse HEAD).Trim()
+  $candidateHeadOutput = @(git rev-parse HEAD)
+  $candidateHeadExit = $LASTEXITCODE
+  if ($candidateHeadExit -ne 0) { throw 'git rev-parse HEAD failed during H4/H5 preflight' }
+  $candidateHead = ($candidateHeadOutput -join '').Trim()
   if ($candidateHead.Length -ne 40) { throw 'H4/H5 requires a full 40-character HEAD' }
   $requiredTracked = @(
       '.gitattributes',
@@ -5614,13 +5619,16 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
        'verification/numpy_oracles/h4_gaussian.py',
        'verification/numpy_oracles/h5_updates.py',
        'verification/numpy_oracles/__init__.py',
-       'verification/h4_budget.py', 'verification/h4_statistics.py',
+       'verification/h4_records.py', 'verification/h4_budget.py',
+       'verification/h4_statistics.py',
        'verification/h4_gate.py', 'verification/h5_gate.py',
        'verification/run_gates.py',
-      'vfe4/config/schema.py', 'vfe4/config/resolve.py',
+      'vfe4/config/__init__.py', 'vfe4/config/schema.py',
+      'vfe4/config/resolve.py',
       'vfe4/artifacts/provenance.py', 'verify_vfe4.py', 'README.md',
       'tests/unit/test_h4_problem.py', 'tests/unit/test_h4_solvers.py',
-      'tests/unit/test_h4_instrumentation.py', 'tests/unit/test_h4_statistics.py',
+      'tests/unit/test_h4_instrumentation.py', 'tests/unit/test_h4_records.py',
+      'tests/unit/test_h4_budget.py', 'tests/unit/test_h4_statistics.py',
       'tests/oracle/test_h4_numpy_oracle.py', 'tests/promotion/test_h4_gate.py',
         'tests/unit/test_h5_update_types.py', 'tests/unit/test_h5_objective_schema.py',
         'tests/unit/test_h5_dependency_graph.py', 'tests/unit/test_h5_update_spec.py',
@@ -5630,13 +5638,17 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
       'tests/unit/test_atomic_artifacts.py', 'tests/integration/test_verify_vfe4.py'
   )
   $tracked = @(git ls-files -- $requiredTracked)
+  if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed during H4/H5 tracked-scope preflight' }
   $missingTracked = @($requiredTracked | Where-Object { $_ -notin $tracked })
   if ($missingTracked.Count -ne 0) {
       throw "H4/H5 candidate has missing or untracked required files: $($missingTracked -join ', ')"
   }
   git diff --exit-code
+  if ($LASTEXITCODE -ne 0) { throw 'tracked worktree changes block H4/H5 preflight' }
   git diff --cached --exit-code
+  if ($LASTEXITCODE -ne 0) { throw 'staged changes block H4/H5 preflight' }
   $nonignoredUntracked = @(git ls-files --others --exclude-standard)
+  if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed while checking untracked H4/H5 content' }
   $unexpectedUntracked = @(
       $nonignoredUntracked |
           Where-Object { $_ -ne '.verification' -and -not $_.StartsWith('.verification/') }
@@ -5647,7 +5659,15 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   if (Test-Path -LiteralPath '.verification/active.json') {
       throw 'existing verification activation blocks H4/H5; preserve and resolve its owning workflow'
   }
-  $preflightDirtyDigest = (& python -c "from pathlib import Path; from verify_vfe4 import CONFIG; from vfe4.artifacts.provenance import dirty_content_digest; print(dirty_content_digest(Path.cwd(), Path(CONFIG['artifacts']['run_root'])))").Trim()
+  $ledger = ".verification/h4-h5-$candidateHead-ledger.json"
+  if (Test-Path -LiteralPath $ledger) {
+      throw "revision-specific H4/H5 ledger exists and must not be overwritten: $ledger"
+  }
+  $ledgerFullPath = [System.IO.Path]::GetFullPath($ledger)
+  $preflightDirtyOutput = @(& python -c "from pathlib import Path; from verify_vfe4 import CONFIG; from vfe4.artifacts.provenance import dirty_content_digest; print(dirty_content_digest(Path.cwd(), Path(CONFIG['artifacts']['run_root'])))")
+  $preflightDirtyExit = $LASTEXITCODE
+  if ($preflightDirtyExit -ne 0) { throw 'dirty-content digest capture failed during H4/H5 preflight' }
+  $preflightDirtyDigest = ($preflightDirtyOutput -join '').Trim()
   if ($preflightDirtyDigest -notmatch '^[0-9a-f]{64}$') { throw 'invalid preflight dirty-content digest' }
   $ledgerHashes = @(
       Get-ChildItem -LiteralPath '.verification' -File -Filter '*ledger.json' -ErrorAction SilentlyContinue |
@@ -5659,32 +5679,166 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
       dirty_content_digest = $preflightDirtyDigest
       required_tracked = $requiredTracked
       nonignored_untracked = $nonignoredUntracked
+      expected_ledger = $ledger
+      expected_ledger_path = $ledgerFullPath
       prior_ledgers = @($ledgerHashes | ForEach-Object {
           [ordered]@{ path = $_.Path; sha256 = $_.Hash.ToLowerInvariant() }
       })
   } | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 -LiteralPath C:\tmp\vfe4-h4-h5-preflight.json
+
+  function Assert-H4H5CandidateState {
+      param(
+          [Parameter(Mandatory = $true)][string]$Stage,
+          [switch]$RequireNoActiveMarker
+      )
+
+      $currentHeadOutput = @(git rev-parse HEAD)
+      $currentHeadExit = $LASTEXITCODE
+      if ($currentHeadExit -ne 0) { throw ("{0}: git rev-parse HEAD failed" -f $Stage) }
+      $currentHead = ($currentHeadOutput -join '').Trim()
+      if ($currentHead -ne $candidateHead) { throw ("{0}: candidate HEAD changed" -f $Stage) }
+
+      git diff --exit-code
+      if ($LASTEXITCODE -ne 0) { throw ("{0}: tracked worktree changed" -f $Stage) }
+      git diff --cached --exit-code
+      if ($LASTEXITCODE -ne 0) { throw ("{0}: staged index changed" -f $Stage) }
+
+      $currentUntracked = @(git ls-files --others --exclude-standard)
+      if ($LASTEXITCODE -ne 0) { throw ("{0}: git ls-files failed" -f $Stage) }
+      $currentUnexpected = @(
+          $currentUntracked |
+              Where-Object { $_ -ne '.verification' -and -not $_.StartsWith('.verification/') }
+      )
+      if ($currentUnexpected.Count -ne 0) {
+          throw ("{0}: unexpected untracked content: {1}" -f $Stage, ($currentUnexpected -join ', '))
+      }
+
+      $currentDirtyOutput = @(& python -c "from pathlib import Path; from verify_vfe4 import CONFIG; from vfe4.artifacts.provenance import dirty_content_digest; print(dirty_content_digest(Path.cwd(), Path(CONFIG['artifacts']['run_root'])))")
+      $currentDirtyExit = $LASTEXITCODE
+      if ($currentDirtyExit -ne 0) { throw ("{0}: dirty-content digest capture failed" -f $Stage) }
+      $currentDirtyDigest = ($currentDirtyOutput -join '').Trim()
+      if ($currentDirtyDigest -ne $preflightDirtyDigest) {
+          throw ("{0}: dirty-content digest changed" -f $Stage)
+      }
+      if ($RequireNoActiveMarker -and (Test-Path -LiteralPath '.verification/active.json')) {
+          throw ("{0}: verification activation marker must not exist" -f $Stage)
+      }
+  }
   ```
 
-  Expected: exact 40-character revision; every named plan/preregistration/source/config/launcher/test is tracked; no tracked modification; no nonignored untracked content outside `.verification`; no active marker; valid dirty-content digest; and a machine-readable retained SHA-256 table for every prior ledger. Do not delete unexpected content to make this pass; preserve it and resolve ownership.
+  Expected: exact 40-character revision; every named plan/preregistration/source/config/launcher/test is tracked; no tracked modification; no nonignored untracked content outside `.verification`; no active marker; the revision-specific ledger does not yet exist; valid dirty-content digest; and a machine-readable retained SHA-256 table for every prior ledger. Do not delete unexpected content to make this pass; preserve it and resolve ownership.
 
 - [ ] **Step 2: Run the only coupled milestone full regression and parse JUnit.**
 
   ```powershell
   python -m pytest -q --junitxml=C:\tmp\vfe4-h4-h5-milestone.xml
+  if ($LASTEXITCODE -ne 0) { throw 'H4/H5 milestone pytest failed' }
+
+  [xml]$junitDocument = Get-Content -Raw -LiteralPath C:\tmp\vfe4-h4-h5-milestone.xml
+  $junitSuites = @($junitDocument.SelectNodes('/testsuites/testsuite | /testsuite'))
+  if ($junitSuites.Count -eq 0) { throw 'JUnit contains no top-level testsuite' }
+  $junitTotals = [ordered]@{ suites = $junitSuites.Count; tests = 0L; failures = 0L; errors = 0L; skipped = 0L }
+  foreach ($suite in $junitSuites) {
+      foreach ($field in @('tests', 'failures', 'errors', 'skipped')) {
+          $parsed = 0L
+          $raw = [string]$suite.GetAttribute($field)
+          if (-not [long]::TryParse($raw, [ref]$parsed) -or $parsed -lt 0) {
+              throw "invalid JUnit $field total: $raw"
+          }
+          $junitTotals[$field] += $parsed
+      }
+  }
+  if ($junitTotals.tests -le 0 -or $junitTotals.failures -ne 0 -or $junitTotals.errors -ne 0) {
+      throw 'JUnit totals are inconsistent with successful pytest completion'
+  }
+  $junitSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath C:\tmp\vfe4-h4-h5-milestone.xml).Hash.ToLowerInvariant()
+  Assert-H4H5CandidateState -Stage 'after JUnit' -RequireNoActiveMarker
   ```
 
-  Expected: pytest exits zero. Parse suite/test/failure/error/skip totals only from `C:\tmp\vfe4-h4-h5-milestone.xml`. Immediately recheck `HEAD`, both diffs, the no-unexpected-untracked rule, and `dirty_content_digest == preflightDirtyDigest`; any mismatch invalidates the run. Do not report terminal dots or remembered earlier totals. Do not run another full suite unless a subsequent source/test/config/protocol change invalidates this candidate.
+  Expected: pytest exits zero; suite/test/failure/error/skip totals and the retained JUnit hash come only from `C:\tmp\vfe4-h4-h5-milestone.xml`; and the executable identity recheck passes. Do not report terminal dots or remembered earlier totals. Do not run another full suite unless a subsequent source/test/config/protocol change invalidates this candidate.
 
 - [ ] **Step 3: Run the single full click-run and verify the artifact without rerunning H4.**
 
   ```powershell
-  python verify_vfe4.py
+  $clickOutput = @(python verify_vfe4.py 2>&1)
+  $clickExitCode = $LASTEXITCODE
+  if ($clickExitCode -notin @(0, 1)) { throw "click-run raised or returned unsupported exit code $clickExitCode" }
+  $clickLines = @($clickOutput | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_.Length -ne 0 })
+  if ($clickLines.Count -ne 6) { throw 'click-run must emit exactly five status lines and one artifact line' }
+
+  $gateStatuses = [ordered]@{}
+  for ($index = 0; $index -lt 5; $index++) {
+      $gate = "H$($index + 1)"
+      if ($clickLines[$index] -notmatch ('^{0}: (pass|fail|inconclusive)$' -f [regex]::Escape($gate))) {
+          throw "invalid or out-of-order click status line: $($clickLines[$index])"
+      }
+      $gateStatuses[$gate] = $Matches[1].ToUpperInvariant()
+  }
+  if ($clickLines[5] -notmatch '^artifact: (.+)$') { throw 'click-run emitted no unique artifact path' }
+  $artifactText = $Matches[1].Trim()
+  $artifactItem = Get-Item -LiteralPath $artifactText -Force -ErrorAction Stop
+  if (-not $artifactItem.PSIsContainer) { throw 'click artifact path is not a directory' }
+  $artifactPath = $artifactItem.FullName
+
+  $allFivePass = @($gateStatuses.Values | Where-Object { $_ -eq 'PASS' }).Count -eq 5
+  $nonpassCount = @($gateStatuses.Values | Where-Object { $_ -in @('FAIL', 'INCONCLUSIVE') }).Count
+  if ($clickExitCode -eq 0 -and -not $allFivePass) {
+      throw 'click exit 0 is permitted only when all five gates are PASS'
+  }
+  if ($clickExitCode -eq 1 -and ($allFivePass -or $nonpassCount -lt 1)) {
+      throw 'click exit 1 requires the artifact plus at least one FAIL or INCONCLUSIVE gate'
+  }
+
+  $expectedManifestEntries = @(
+      'config.json',
+      'environment.json',
+      'provenance.json',
+      'validation/h1.json',
+      'validation/h2.json',
+      'validation/h3.json',
+      'validation/h4.json',
+      'validation/h5.json'
+  )
+  $manifestPath = Join-Path $artifactPath 'manifest.sha256'
+  $manifestLines = @(Get-Content -LiteralPath $manifestPath -Encoding UTF8 -ErrorAction Stop)
+  if ($manifestLines.Count -ne $expectedManifestEntries.Count) { throw 'manifest must contain exactly eight entries' }
+  for ($index = 0; $index -lt $expectedManifestEntries.Count; $index++) {
+      $line = [string]$manifestLines[$index]
+      if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "invalid manifest line: $line" }
+      $declaredHash = $Matches[1]
+      $relativePath = $Matches[2]
+      if ($relativePath -ne $expectedManifestEntries[$index]) {
+          throw "manifest entry is missing, extra, or out of lexicographic order: $relativePath"
+      }
+      $payloadPath = Join-Path $artifactPath ($relativePath.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+      if (-not (Test-Path -LiteralPath $payloadPath -PathType Leaf)) { throw "manifest payload missing: $relativePath" }
+      $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $payloadPath).Hash.ToLowerInvariant()
+      if ($actualHash -ne $declaredHash) { throw "manifest payload hash mismatch: $relativePath" }
+  }
+  $artifactPrefix = $artifactPath.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+  $actualArtifactFiles = @(
+      Get-ChildItem -LiteralPath $artifactPath -File -Recurse -Force |
+          ForEach-Object { $_.FullName.Substring($artifactPrefix.Length).Replace('\', '/') } |
+          Sort-Object
+  )
+  $expectedArtifactFiles = @(($expectedManifestEntries + 'manifest.sha256') | Sort-Object)
+  if ($actualArtifactFiles.Count -ne $expectedArtifactFiles.Count -or
+      (($actualArtifactFiles -join "`n") -cne ($expectedArtifactFiles -join "`n"))) {
+      throw 'artifact contains missing or extra files beyond the exact eight JSON payloads and manifest'
+  }
+  $manifestSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $manifestPath).Hash.ToLowerInvariant()
   ```
 
   Expected: the launcher prints separate H1, H2, H3, H4, and H5 statuses and one run directory. Independently recompute `manifest.sha256`; verify exact source/config/environment identity; artifact `dirty_content_digest == preflightDirtyDigest`; raw fixture and H4 problem hashes; H4 prior/effective/restored thread fields; exact indexed traversal and parity formula; separate warmup/timed event order with warmups excluded from balance; complete H4 raw timing table; primary observed balance equal to the literal 20-row table, ten `6/5` plus ten `5/6` seeds, and exactly `110 AB/110 BA`; bootstrap/envelope/budget/decisiveness metadata; raw H5 update-spec fixture ID/SHA-256/schema and H5-only fixture-consumer provenance; successful H5 preflight with exact phase/error map, no unavailable fields, and exact `H5_NONCLAIM_IDS`; complete H5 factor-input/affectedness/quadrature/allowance attempts; five independently derived operand-shaped production/oracle delta agreements whose oracle aggregates reproduce from the serialized both-order 12-term traces; deterministic candidate reconstructions with provenance hashes matched only to outcome provenance hashes and semantic hash matched only to `after.evaluated_state_sha256`; exact case/control request IDs and base-rule mappings; immutable model-snapshot ownership/no-alias evidence; and seven controls; and separate `validation/h4.json` / `validation/h5.json`. Recheck `HEAD`, both diffs, unexpected-untracked rule, and dirty digest after inspection. This is the only full 20-seed H4 timing execution for the candidate.
   For H4 also require the four ordered top-level global condition summaries to
   have counts `120/2640/2120/23320`, their per-problem sums to agree, and the
   oracle/native-diagnostic stream scalar counts to match the frozen formulas.
+
+  After every listed artifact-field inspection succeeds, execute:
+
+  ```powershell
+  Assert-H4H5CandidateState -Stage 'after click inspection' -RequireNoActiveMarker
+  ```
 
 - [ ] **Step 4: Have fresh reviewers inspect existing evidence only.** Assign at least these independent reviews:
 
@@ -5694,31 +5848,35 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   - H5 implementation/transaction reviewer: captured update-spec raw bytes/digest/parser/schema; typed pre-reference `INCONCLUSIVE` with the exact phase/error map, real raw digests, exact unavailable fields/JSON nulls, unchanged `H5_NONCLAIM_IDS`, `INCONCLUSIVE`-before-`FAIL` precedence, and no fabricated reference/schema/case/control/oracle evidence; proof that no short fixture-digest prefix is accepted or exposed anywhere in the H5 parser/config/gate/artifact path; immutable recognition and model-snapshot ownership with declared shared storage only; differentiable-working versus immutable-snapshot boundary; fixed recognition M-block; order-21/order-17 convergence estimates for every term; independently derived production/oracle before/after/delta operand evidence, self-sufficient oracle 12-term traces, and exact comparison allowance; deterministic candidate reconstruction with strict provenance-to-provenance and semantic-to-semantic hash checks; exact case/control request IDs, including exact-M control 6 and GEM control 7; complete total allowances and exact epsilon formula; emission-touching indecision; acceptance/rollback hashes; cache/reuse proofs; seven controls; and value-change diagnostic nonauthority;
   - artifact/compatibility reviewer: required tracked-file list, no unexpected untracked content, stable dirty-content digest, separate H4/H5 statuses/payloads, exact prefix behavior, H5 full raw-digest-only provenance with no accepted/exposed short prefix, atomic manifest, prior-ledger hashes, H6--H8/training nonclaims.
 
-  Reviewers cite source lines, focused command outputs, JUnit XML, click artifact fields, and preregistrations. They do not rerun tests or timings. Before ledger activation, resolve every Critical/Important issue by returning to its owning task; any tracked change invalidates the candidate and requires one replacement coupled milestone run at the new revision. Recheck exact `HEAD`, tracked diffs, unexpected-untracked rule, and dirty-content digest after review and before Step 5.
+  Reviewers cite source lines, focused command outputs, JUnit XML, click artifact fields, and preregistrations. They do not rerun tests or timings. Before ledger activation, resolve every Critical/Important issue by returning to its owning task; any tracked change invalidates the candidate and requires one replacement coupled milestone run at the new revision. Then execute the review-boundary recheck:
+
+  ```powershell
+  Assert-H4H5CandidateState -Stage 'after reviews' -RequireNoActiveMarker
+  ```
 
 - [ ] **Step 5: Start, populate, and validate the coupled revision-specific ledger.** Read the verification contract and code, mathematics, evidence, experiment, and general criterion files before assigning states. Recheck revision/activation, then:
 
   ```powershell
   $preflight = Get-Content -Raw -LiteralPath C:\tmp\vfe4-h4-h5-preflight.json | ConvertFrom-Json
-  $candidateHead = (git rev-parse HEAD).Trim()
-  if ($candidateHead -ne $preflight.candidate_head) { throw 'candidate HEAD changed before ledger activation' }
-  git diff --exit-code
-  git diff --cached --exit-code
-  $unexpectedUntracked = @(
-      git ls-files --others --exclude-standard |
-          Where-Object { $_ -ne '.verification' -and -not $_.StartsWith('.verification/') }
-  )
-  if ($unexpectedUntracked.Count -ne 0) { throw 'unexpected untracked content before ledger activation' }
-  $currentDirtyDigest = (& python -c "from pathlib import Path; from verify_vfe4 import CONFIG; from vfe4.artifacts.provenance import dirty_content_digest; print(dirty_content_digest(Path.cwd(), Path(CONFIG['artifacts']['run_root'])))").Trim()
-  if ($currentDirtyDigest -ne $preflight.dirty_content_digest) { throw 'dirty-content digest changed before ledger activation' }
-  $ledger = ".verification/h4-h5-$candidateHead-ledger.json"
-  if (Test-Path -LiteralPath '.verification/active.json') {
-      throw 'existing verification activation blocks H4/H5'
+  if ([string]$preflight.candidate_head -ne $candidateHead) { throw 'preflight candidate HEAD changed in memory' }
+  if ([string]$preflight.dirty_content_digest -ne $preflightDirtyDigest) { throw 'preflight dirty digest changed in memory' }
+  $ledger = [string]$preflight.expected_ledger
+  if ([System.IO.Path]::GetFullPath($ledger) -ne [string]$preflight.expected_ledger_path) {
+      throw 'preflight ledger path is inconsistent'
   }
+  Assert-H4H5CandidateState -Stage 'before ledger activation' -RequireNoActiveMarker
   if (Test-Path -LiteralPath $ledger) {
       throw "revision-specific H4/H5 ledger exists and must not be overwritten: $ledger"
   }
-  & "C:\Python314\python.exe" "C:\Users\chris and christine\.codex\skills\verification\scripts\verification_gate.py" start --cwd . --ledger $ledger --mode closure
+  $startOutput = @(& "C:\Python314\python.exe" "C:\Users\chris and christine\.codex\skills\verification\scripts\verification_gate.py" start --cwd . --ledger $ledger --mode closure)
+  if ($LASTEXITCODE -ne 0) { throw "verification start failed: $($startOutput -join [Environment]::NewLine)" }
+  if ($startOutput.Count -ne 1 -or ([string]$startOutput[0]).Trim() -ne $ledger) {
+      throw 'verification start output does not identify the exact revision-specific ledger'
+  }
+  if (-not (Test-Path -LiteralPath $ledger -PathType Leaf) -or
+      -not (Test-Path -LiteralPath '.verification/active.json' -PathType Leaf)) {
+      throw 'verification start did not create both ledger and activation marker'
+  }
   ```
 
   Populate one claim per check, keeping H4 experiment claims and H5 code/mathematics/evidence claims distinct. H4 claims cover indexed traversal/parity/no-inter-repetition-work identity; warmup exclusion; exact primary per-seed `H4_PRIMARY_TIMED_BALANCE`, ten/ten pattern counts, and `110/110` aggregate timed balance; independent solver reachability; scaled condition-envelope eligibility; terminal equivalence; per-invariant solver budgets and strict allowance decisiveness; canonical immutable selected moments; raw repetition completeness; seed-level statistics; bootstrap interval; threshold decision; thread set/verify/restore environment identity; and secondary count/memory nonclaim. H5 claims cover typed no-fabrication preflight behavior, exact phase/error validity, unchanged inconclusive nonclaims, and `INCONCLUSIVE` precedence over simultaneous decisive failure; update-spec fixture full raw SHA-256/parser/schema/provenance; proof that no short fixture-digest prefix is accepted or exposed in the parser/config/gate/artifact path; immutable model-snapshot ownership; taxonomy; exact positive/control request IDs and base-rule map; graph completeness; complete before/after factor-input hashes; exact expected/observed affected equality; diagnostic-only value changes; deterministic candidate reconstruction with same-domain provenance/semantic hash comparisons; each positive case; all seven adversarial controls; every term's deterministic quadrature convergence plus rounding; independently derived production/oracle before/after/delta evidence, self-sufficient oracle term traces, and comparison; complete before/after total allowances; exact zero-stochastic epsilon formula; emission-touching decisiveness; full factor/term evaluation; snapshot separation; fixed recognition; label-specific acceptance; rollback hashes; and cache/reuse proof. Add separate required-tracked-scope, exact-case manuscript source, artifact/JUnit, dirty-content-digest, and prior-ledger-preservation claims.
@@ -5728,47 +5886,119 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   Populate the exact generated ledger with `apply_patch` if the installed tool has no claim-add operation, then validate:
 
   ```powershell
-  $candidateHead = (git rev-parse HEAD).Trim()
-  $ledger = ".verification/h4-h5-$candidateHead-ledger.json"
-  & "C:\Python314\python.exe" "C:\Users\chris and christine\.codex\skills\verification\scripts\verification_gate.py" validate $ledger --cwd .
+  $validateOutput = @(& "C:\Python314\python.exe" "C:\Users\chris and christine\.codex\skills\verification\scripts\verification_gate.py" validate $ledger --cwd .)
+  if ($LASTEXITCODE -ne 0) { throw "verification validate failed: $($validateOutput -join [Environment]::NewLine)" }
+  $validatedLedgerSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ledger).Hash.ToLowerInvariant()
   ```
 
   Expected: validation exits zero; every claim matches the current artifact revision; H4/H5 outcomes remain separate; the ledger records the unchanged preflight dirty-content digest; prior ledgers retain their Step 1 hashes. Do not manually remove the active marker or reuse the ledger path for another revision.
 
-  If a source-changing defect is discovered after `start`, stop implementation immediately. Populate every affected/current claim as `INCONCLUSIVE` with the exact repair obligation, validate and report this revision-specific ledger so verification tooling—not a manual delete—retires `.verification/active.json`, and preserve the ledger. Only after that retirement may the owning task be repaired and committed. The repaired revision gets a new full 40-character path, one replacement joint JUnit/click-run, fresh preflight JSON, and a new ledger; it never reuses evidence or the old ledger.
+  If a source-changing defect is discovered after `start`, stop implementation immediately. Populate every affected/current claim as `INCONCLUSIVE` with the exact repair obligation, validate it, and use Step 6 with a message that names this revision-specific ledger so the installed verification hook—not a manual delete—retires `.verification/active.json`; preserve the ledger. Only after that retirement may the owning task be repaired and committed. The repaired revision gets a new full 40-character path, one replacement joint JUnit/click-run, fresh preflight JSON, and a new ledger; it never reuses evidence or the old ledger.
 
-- [ ] **Step 6: Perform the final read-only cross-check and report exact evidence surfaces.**
+- [ ] **Step 6: Retire the installed verification hook cleanly before any H6 continuation.** Invoke the installed tool's hook with a final-message surrogate that names the validated ledger, parse its JSON response, require the exact successful empty object, and require tool-driven marker removal. Never delete or edit `.verification/active.json` manually.
 
   ```powershell
-  git rev-parse HEAD
-  git diff --exit-code
-  git diff --cached --exit-code
+  $hookPayload = [ordered]@{
+      cwd = (Get-Location).Path
+      stop_hook_active = $true
+      last_assistant_message = "Validated ledger: $ledger"
+  } | ConvertTo-Json -Compress
+  $hookOutput = @($hookPayload | & "C:\Python314\python.exe" "C:\Users\chris and christine\.codex\skills\verification\scripts\verification_gate.py" hook)
+  if ($LASTEXITCODE -ne 0) { throw "verification hook process failed: $($hookOutput -join [Environment]::NewLine)" }
+  $hookText = ($hookOutput -join [Environment]::NewLine).Trim()
+  if ($hookText.Length -eq 0) { throw 'verification hook emitted no JSON response' }
+  try {
+      $hookResult = $hookText | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+      throw "verification hook emitted invalid JSON: $hookText"
+  }
+  if ($null -eq $hookResult) { throw 'verification hook JSON decoded to null' }
+  $hookProperties = @($hookResult.PSObject.Properties)
+  if ($hookProperties.Count -ne 0) {
+      if ([string]$hookResult.decision -eq 'block' -and ([string]$hookResult.reason).Length -ne 0) {
+          throw "verification hook blocked retirement: $($hookResult.reason)"
+      }
+      throw "verification hook emitted an inconsistent success response: $hookText"
+  }
+  if (Test-Path -LiteralPath '.verification/active.json') {
+      throw 'installed verification hook did not retire the activation marker'
+  }
+  ```
+
+  Expected: hook process exit zero, exactly one parseable `{}` response, and no active marker. This is the only permitted retirement path before starting an H6 verification workflow.
+
+- [ ] **Step 7: Perform the final read-only cross-check and report exact evidence surfaces.**
+
+  ```powershell
   $preflight = Get-Content -Raw -LiteralPath C:\tmp\vfe4-h4-h5-preflight.json | ConvertFrom-Json
-  $closureHead = (git rev-parse HEAD).Trim()
-  if ($closureHead -ne $preflight.candidate_head) { throw 'candidate HEAD changed at closure' }
+  Assert-H4H5CandidateState -Stage 'at closure' -RequireNoActiveMarker
   $requiredTracked = @($preflight.required_tracked)
   $stillTracked = @(git ls-files -- $requiredTracked)
+  if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed during closure tracked-scope check' }
   $missingTracked = @($requiredTracked | Where-Object { $_ -notin $stillTracked })
   if ($missingTracked.Count -ne 0) { throw "required tracked file missing at closure: $($missingTracked -join ', ')" }
-  $unexpectedUntracked = @(
-      git ls-files --others --exclude-standard |
-          Where-Object { $_ -ne '.verification' -and -not $_.StartsWith('.verification/') }
+
+  $currentJunitSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath C:\tmp\vfe4-h4-h5-milestone.xml).Hash.ToLowerInvariant()
+  if ($currentJunitSha256 -ne $junitSha256) { throw 'JUnit XML changed after parsing' }
+  $currentManifestSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $manifestPath).Hash.ToLowerInvariant()
+  if ($currentManifestSha256 -ne $manifestSha256) { throw 'artifact manifest changed after inspection' }
+  $closureManifestLines = @(Get-Content -LiteralPath $manifestPath -Encoding UTF8 -ErrorAction Stop)
+  if ($closureManifestLines.Count -ne $expectedManifestEntries.Count) {
+      throw 'artifact manifest entry count changed after inspection'
+  }
+  for ($index = 0; $index -lt $expectedManifestEntries.Count; $index++) {
+      $line = [string]$closureManifestLines[$index]
+      if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "invalid closure manifest line: $line" }
+      $declaredHash = $Matches[1]
+      $relativePath = $Matches[2]
+      if ($relativePath -ne $expectedManifestEntries[$index]) {
+          throw "closure manifest order changed: $relativePath"
+      }
+      $payloadPath = Join-Path $artifactPath ($relativePath.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+      if (-not (Test-Path -LiteralPath $payloadPath -PathType Leaf)) {
+          throw "closure manifest payload missing: $relativePath"
+      }
+      $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $payloadPath).Hash.ToLowerInvariant()
+      if ($actualHash -ne $declaredHash) { throw "closure payload hash mismatch: $relativePath" }
+  }
+  $closureArtifactFiles = @(
+      Get-ChildItem -LiteralPath $artifactPath -File -Recurse -Force |
+          ForEach-Object { $_.FullName.Substring($artifactPrefix.Length).Replace('\', '/') } |
+          Sort-Object
   )
-  if ($unexpectedUntracked.Count -ne 0) { throw 'unexpected untracked content at closure' }
-  $closureDirtyDigest = (& python -c "from pathlib import Path; from verify_vfe4 import CONFIG; from vfe4.artifacts.provenance import dirty_content_digest; print(dirty_content_digest(Path.cwd(), Path(CONFIG['artifacts']['run_root'])))").Trim()
-  if ($closureDirtyDigest -ne $preflight.dirty_content_digest) { throw 'dirty-content digest changed at closure' }
+  if ($closureArtifactFiles.Count -ne $expectedArtifactFiles.Count -or
+      (($closureArtifactFiles -join "`n") -cne ($expectedArtifactFiles -join "`n"))) {
+      throw 'artifact file set changed after inspection'
+  }
+
+  $currentValidatedLedgerSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ledger).Hash.ToLowerInvariant()
+  if ($currentValidatedLedgerSha256 -ne $validatedLedgerSha256) {
+      throw 'validated H4/H5 ledger changed after hook retirement'
+  }
+
   foreach ($prior in @($preflight.prior_ledgers)) {
       if (-not (Test-Path -LiteralPath $prior.path)) { throw "prior ledger missing at closure: $($prior.path)" }
       $actualPriorHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $prior.path).Hash.ToLowerInvariant()
       if ($actualPriorHash -ne $prior.sha256) { throw "prior ledger changed at closure: $($prior.path)" }
   }
-  Get-FileHash -Algorithm SHA256 -LiteralPath C:\tmp\vfe4-h4-h5-milestone.xml
-  Get-ChildItem -LiteralPath '.verification' -File -Filter '*ledger.json' -ErrorAction SilentlyContinue |
-      Sort-Object FullName |
-      Get-FileHash -Algorithm SHA256
+
+  $priorLedgerPaths = @($preflight.prior_ledgers | ForEach-Object { [System.IO.Path]::GetFullPath([string]$_.path) })
+  $currentLedgerItems = @(
+      Get-ChildItem -LiteralPath '.verification' -File -Filter '*ledger.json' -ErrorAction SilentlyContinue |
+          Sort-Object FullName
+  )
+  $currentLedgerPaths = @($currentLedgerItems | ForEach-Object { [System.IO.Path]::GetFullPath($_.FullName) })
+  $removedLedgerPaths = @($priorLedgerPaths | Where-Object { $_ -notin $currentLedgerPaths })
+  $newLedgerPaths = @($currentLedgerPaths | Where-Object { $_ -notin $priorLedgerPaths })
+  $expectedLedgerPath = [System.IO.Path]::GetFullPath([string]$preflight.expected_ledger_path)
+  if ($removedLedgerPaths.Count -ne 0) { throw "prior ledger set shrank: $($removedLedgerPaths -join ', ')" }
+  if ($newLedgerPaths.Count -ne 1 -or $newLedgerPaths[0] -ne $expectedLedgerPath) {
+      throw "closure requires exactly one new ledger, the revision-specific H4/H5 ledger: $($newLedgerPaths -join ', ')"
+  }
+  $closureLedgerHashes = @($currentLedgerItems | Get-FileHash -Algorithm SHA256)
   ```
 
-  Expected: `HEAD` matches the revision in preflight JSON, JUnit, artifact provenance, and ledger; every required file remains tracked; tracked source is unchanged; no nonignored untracked content exists outside `.verification`; preflight/artifact/ledger/closure dirty-content digests agree; prior ledger hashes match Step 1; the only new ledger is `.verification/h4-h5-<FULL_HEAD>-ledger.json`. Report JUnit totals from XML, artifact path, H4 status/interval, H5 status, dirty-content digest, and validated ledger path. Do not add a post-evidence documentation commit or rerun the suite/timing.
+  Expected: `HEAD` matches the revision in preflight JSON, JUnit, artifact provenance, and ledger; every required file remains tracked; tracked source is unchanged; no nonignored untracked content exists outside `.verification`; preflight/artifact/ledger/closure dirty-content digests agree; JUnit and manifest hashes remain unchanged; prior ledger hashes match Step 1; and set difference proves the only new ledger is `.verification/h4-h5-<FULL_HEAD>-ledger.json`. Report JUnit totals from XML, artifact path, manifest hash, H4 status/interval, H5 status, dirty-content digest, and validated ledger path. Do not add a post-evidence documentation commit or rerun the suite/timing.
 
 ## Out of Scope for This Plan
 
