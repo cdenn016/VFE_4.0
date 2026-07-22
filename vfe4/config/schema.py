@@ -1,4 +1,4 @@
-"""Frozen records that define the supported ordered H1/H2/H3 configuration."""
+"""Frozen records for the supported ordered H1--H5 verification prefixes."""
 
 from __future__ import annotations
 
@@ -23,6 +23,18 @@ from vfe4.types.h4 import (
     H4ProblemKind,
     H4SolveProtocol,
 )
+from vfe4.types.h5_schema import (
+    H5_FACTOR_INPUT_SCHEMA_SHA256,
+    H5_FACTOR_INPUT_SCHEMA_VERSION,
+    H5_FACTOR_UNIVERSE,
+    H5_H1_FIXTURE_RAW_SHA256,
+    H5_MODEL_BLOCK_UNIVERSE,
+    H5_OBJECTIVE_SCHEMA_SHA256,
+    H5_QUADRATURE_ORDERS,
+    H5_RECOGNITION_COORDINATE_UNIVERSE,
+)
+from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
+from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
 
 
 @dataclass(frozen=True)
@@ -40,6 +52,10 @@ class ValidationConfig:
         tuple[Literal["H1"]]
         | tuple[Literal["H1"], Literal["H2"]]
         | tuple[Literal["H1"], Literal["H2"], Literal["H3"]]
+        | tuple[
+            Literal["H1"], Literal["H2"], Literal["H3"],
+            Literal["H4"], Literal["H5"],
+        ]
     )
     fixture_id: Literal["h1-v1"]
     quadrature_order: Literal[21]
@@ -344,6 +360,142 @@ class H4ValidationConfig:
             raise ValueError("H4 config SHA-256 does not match canonical JSON")
 
 
+H5_POSITIVE_CASE_IDS = (
+    "exact_gaussian_e_coordinate",
+    "exact_categorical_source_coordinate",
+    "exact_gaussian_m_coordinate_fixed_recognition",
+    "accepted_resolved_generalized_em",
+    "rejected_proposal_rollback",
+)
+H5_CONTROL_IDS = (
+    "child_factor_omission_detected",
+    "emission_factor_omission_detected",
+    "unresolved_gem_acceptance_detected",
+    "natural_gradient_mislabel_detected",
+    "rejection_mutation_detected",
+    "changed_input_equal_value_detected",
+    "changed_value_unchanged_input_not_affected",
+)
+H5_UPDATE_SPEC_CANONICAL_SHA256 = (
+    "0e4e870dd725aeaec77ffd128ba85dbf619df5b0261b2178e6a115a8970715d6"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class H5ValidationConfig:
+    schema_version: Literal["h5-validation-config-v1"]
+    fixture_id: Literal["h5-conditional-update-v1"]
+    fixture_schema_version: Literal[1]
+    recognition_family: Literal["continuous_mean_field_conditional_categorical"]
+    h1_fixture_id: Literal["h1-v1"]
+    h1_fixture_raw_sha256: str
+    update_spec_raw_sha256: str
+    update_spec_canonical_sha256: str
+    objective_schema_sha256: str
+    factor_input_schema_version: Literal["h5-factor-input-v1"]
+    factor_input_schema_sha256: str
+    factor_universe: tuple[str, ...]
+    recognition_coordinate_universe: tuple[str, ...]
+    model_block_universe: tuple[str, ...]
+    enabled_update_rules: tuple[H5UpdateRule, ...]
+    enabled_update_labels: tuple[UpdateLabel, ...]
+    positive_case_ids: tuple[str, ...]
+    control_ids: tuple[str, ...]
+    quadrature_orders: tuple[Literal[21], Literal[17]]
+    allowance_policy: Literal["deterministic_convergence_plus_rounding_v1"]
+    rounding_constant: Literal[4096]
+    stochastic_contribution: float
+    epsilon_delta_formula: Literal[
+        "before_total+after_total+subtraction_rounding"
+    ]
+    mm_proof_artifact: None
+    canonical_json: str
+    config_sha256: str
+
+    def __post_init__(self) -> None:
+        rules = tuple(H5UpdateRule)
+        labels: list[UpdateLabel] = []
+        for rule in rules:
+            producer = H5_RULE_CONTRACTS[rule][0]
+            if producer not in labels:
+                labels.append(producer)
+        expected_labels = tuple(labels)
+        expected = (
+            self.schema_version == "h5-validation-config-v1"
+            and self.fixture_id == "h5-conditional-update-v1"
+            and type(self.fixture_schema_version) is int
+            and self.fixture_schema_version == 1
+            and self.recognition_family
+            == "continuous_mean_field_conditional_categorical"
+            and self.h1_fixture_id == "h1-v1"
+            and self.h1_fixture_raw_sha256 == H5_H1_FIXTURE_RAW_SHA256
+            and self.update_spec_raw_sha256 == EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
+            and self.update_spec_canonical_sha256
+            == H5_UPDATE_SPEC_CANONICAL_SHA256
+            and self.objective_schema_sha256 == H5_OBJECTIVE_SCHEMA_SHA256
+            and self.factor_input_schema_version == H5_FACTOR_INPUT_SCHEMA_VERSION
+            and self.factor_input_schema_sha256 == H5_FACTOR_INPUT_SCHEMA_SHA256
+            and self.factor_universe == H5_FACTOR_UNIVERSE
+            and self.recognition_coordinate_universe
+            == H5_RECOGNITION_COORDINATE_UNIVERSE
+            and self.model_block_universe == H5_MODEL_BLOCK_UNIVERSE
+            and self.enabled_update_rules == rules
+            and self.enabled_update_labels == expected_labels
+            and UpdateLabel.VALID_MM not in self.enabled_update_labels
+            and self.positive_case_ids == H5_POSITIVE_CASE_IDS
+            and self.control_ids == H5_CONTROL_IDS
+            and self.quadrature_orders == H5_QUADRATURE_ORDERS
+            and self.allowance_policy
+            == "deterministic_convergence_plus_rounding_v1"
+            and type(self.rounding_constant) is int
+            and self.rounding_constant == 4096
+            and type(self.stochastic_contribution) is float
+            and self.stochastic_contribution == 0.0
+            and self.epsilon_delta_formula
+            == "before_total+after_total+subtraction_rounding"
+            and self.mm_proof_artifact is None
+        )
+        if not expected:
+            raise ValueError("H5 validation configuration is not the frozen v1 contract")
+        payload = _h5_validation_payload(self)
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        if self.canonical_json != canonical:
+            raise ValueError("H5 canonical JSON does not match resolved fields")
+        if self.config_sha256 != hashlib.sha256(canonical.encode("utf-8")).hexdigest():
+            raise ValueError("H5 config SHA-256 does not match canonical JSON")
+
+
+def _h5_validation_payload(config: H5ValidationConfig) -> dict[str, object]:
+    return {
+        "schema_version": config.schema_version,
+        "fixture_id": config.fixture_id,
+        "fixture_schema_version": config.fixture_schema_version,
+        "recognition_family": config.recognition_family,
+        "h1_fixture_id": config.h1_fixture_id,
+        "h1_fixture_raw_sha256": config.h1_fixture_raw_sha256,
+        "update_spec_raw_sha256": config.update_spec_raw_sha256,
+        "update_spec_canonical_sha256": config.update_spec_canonical_sha256,
+        "objective_schema_sha256": config.objective_schema_sha256,
+        "factor_input_schema_version": config.factor_input_schema_version,
+        "factor_input_schema_sha256": config.factor_input_schema_sha256,
+        "factor_universe": config.factor_universe,
+        "recognition_coordinate_universe": config.recognition_coordinate_universe,
+        "model_block_universe": config.model_block_universe,
+        "enabled_update_rules": tuple(item.value for item in config.enabled_update_rules),
+        "enabled_update_labels": tuple(item.value for item in config.enabled_update_labels),
+        "positive_case_ids": config.positive_case_ids,
+        "control_ids": config.control_ids,
+        "quadrature_orders": config.quadrature_orders,
+        "allowance_policy": config.allowance_policy,
+        "rounding_constant": config.rounding_constant,
+        "stochastic_contribution": config.stochastic_contribution,
+        "epsilon_delta_formula": config.epsilon_delta_formula,
+        "mm_proof_artifact": config.mm_proof_artifact,
+    }
+
+
 def _h4_validation_payload(config: H4ValidationConfig) -> dict[str, object]:
     return {
         "schema_version": config.schema_version,
@@ -379,3 +531,5 @@ class ResolvedConfig:
     canonical_json: str
     config_sha256: str
     h3: H3ValidationConfig | None = None
+    h4: H4ValidationConfig | None = None
+    h5: H5ValidationConfig | None = None

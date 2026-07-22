@@ -1,10 +1,15 @@
-"""Revision- and content-bound provenance for H1 publications."""
+"""Revision- and content-bound provenance for ordered verification publications."""
 
 from __future__ import annotations
 
 import hashlib
+import io
+import os
+import platform
 import subprocess
 import sys
+import time
+from contextlib import redirect_stdout
 from pathlib import Path
 
 import numpy as np
@@ -127,9 +132,11 @@ def build_provenance(
             "fixture observed SHA-256 must match expected SHA-256 for a closed gate"
         )
     objective_input = f"objective_schema_version:{config.objective_schema_version}"
+    dirty_digest = dirty_content_digest(repo_root, config.artifacts.run_root)
     values: dict[str, object] = {
         "git_head": git_head(repo_root),
-        "dirty_digest": dirty_content_digest(repo_root, config.artifacts.run_root),
+        "dirty_digest": dirty_digest,
+        "dirty_content_digest": dirty_digest,
         "config_sha256": config.config_sha256,
         "objective_schema_input": objective_input,
         "objective_schema_sha256": hashlib.sha256(objective_input.encode("utf-8")).hexdigest(),
@@ -157,6 +164,37 @@ def build_provenance(
 
 
 def build_environment(config: ResolvedConfig) -> dict[str, object]:
+    clock = time.get_clock_info("perf_counter")
+    torch_config_text = str(torch.__config__.show())
+    numpy_buffer = io.StringIO()
+    with redirect_stdout(numpy_buffer):
+        np.show_config()
+    numpy_blas_text = numpy_buffer.getvalue()
+    try:
+        affinity: tuple[int, ...] | None = tuple(sorted(os.sched_getaffinity(0)))
+    except (AttributeError, OSError):
+        try:
+            import psutil  # type: ignore[import-not-found]
+
+            affinity = tuple(sorted(psutil.Process().cpu_affinity()))
+        except (ImportError, AttributeError, OSError):
+            affinity = None
+    try:
+        import psutil  # type: ignore[import-not-found]
+
+        physical_cpu_count: int | None = psutil.cpu_count(logical=False)
+    except (ImportError, AttributeError, OSError):
+        physical_cpu_count = None
+    thread_environment = {
+        name: {"present": name in os.environ, "value": os.environ.get(name)}
+        for name in (
+            "OMP_NUM_THREADS",
+            "MKL_NUM_THREADS",
+            "OPENBLAS_NUM_THREADS",
+            "NUMEXPR_NUM_THREADS",
+            "VECLIB_MAXIMUM_THREADS",
+        )
+    }
     return {
         "python_version": sys.version.split()[0],
         "pytorch_version": str(torch.__version__),
@@ -166,4 +204,29 @@ def build_environment(config: ResolvedConfig) -> dict[str, object]:
         "seed": config.run.seed,
         "deterministic": config.run.deterministic,
         "stochastic_policy": "no-stochastic-operations",
+        "timing_clock": {
+            "name": "perf_counter",
+            "function": "time.perf_counter_ns",
+            "implementation": clock.implementation,
+            "resolution_seconds": float(clock.resolution),
+            "monotonic": bool(clock.monotonic),
+            "adjustable": bool(clock.adjustable),
+        },
+        "process_cpu_affinity": affinity,
+        "logical_cpu_count": os.cpu_count(),
+        "physical_cpu_count": physical_cpu_count,
+        "processor": platform.processor(),
+        "platform": platform.platform(),
+        "torch_intra_op_threads": torch.get_num_threads(),
+        "torch_inter_op_threads": torch.get_num_interop_threads(),
+        "torch_config_sha256": hashlib.sha256(
+            torch_config_text.encode("utf-8")
+        ).hexdigest(),
+        "torch_config_text": torch_config_text,
+        "numpy_blas_config_sha256": hashlib.sha256(
+            numpy_blas_text.encode("utf-8")
+        ).hexdigest(),
+        "numpy_blas_config_text": numpy_blas_text,
+        "cuda_available": bool(torch.cuda.is_available()),
+        "thread_environment": thread_environment,
     }

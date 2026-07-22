@@ -28,6 +28,14 @@ def _load_launcher():
     return module
 
 
+def _h3_compatibility_config(module: object) -> dict[str, object]:
+    raw = copy.deepcopy(module.CONFIG)
+    raw["validation"]["gates"] = ["H1", "H2", "H3"]
+    raw.pop("h4")
+    raw.pop("h5")
+    return raw
+
+
 def test_launcher_import_is_safe_and_has_no_cli_framework(monkeypatch: pytest.MonkeyPatch) -> None:
     import verification.run_gates as gates
 
@@ -36,7 +44,8 @@ def test_launcher_import_is_safe_and_has_no_cli_framework(monkeypatch: pytest.Mo
     )
     module = _load_launcher()
     assert type(module.CONFIG) is dict
-    assert module.CONFIG["validation"]["gates"] == ["H1", "H2", "H3"]
+    assert module.CONFIG["validation"]["gates"] == ["H1", "H2", "H3", "H4", "H5"]
+    assert set(module.CONFIG) >= {"h4", "h5"}
     h3 = module.CONFIG["h3"]
     assert h3["recognition_families"] == [
         "structured_full_spd",
@@ -65,7 +74,7 @@ def test_editable_mapping_runs_three_gates_once_from_one_fixture_snapshot_set(
     import verification.run_gates as gates
 
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h3_compatibility_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "absolute runs")
     before = copy.deepcopy(raw)
     fixture_paths = {
@@ -182,6 +191,158 @@ def test_editable_mapping_runs_three_gates_once_from_one_fixture_snapshot_set(
     ] == h3_payload["fixtures"]["zero_control"]["observed_sha256"]
 
 
+def test_coupled_click_run_captures_once_orders_five_gates_and_publishes_eight_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.run_gates as gates
+    from verification.h5_gate import H5GateResult
+    from vfe4.types import H3GateResult, H4GateResult
+
+    module = _load_launcher()
+    raw = copy.deepcopy(module.CONFIG)
+    raw["artifacts"]["run_root"] = str(tmp_path / "runs")
+    fixture_paths = {
+        "h1": gates.FIXTURE_PATH,
+        "coupled": gates.H3_COUPLED_FIXTURE_PATH,
+        "zero": gates.H3_ZERO_CONTROL_FIXTURE_PATH,
+        "h5": gates.H5_UPDATE_SPEC_FIXTURE_PATH,
+    }
+    reads = {name: 0 for name in fixture_paths}
+
+    class CountingPath:
+        def __init__(self, name: str, path: Path) -> None:
+            self.name = name
+            self.path = path
+
+        def read_bytes(self) -> bytes:
+            reads[self.name] += 1
+            return self.path.read_bytes()
+
+    for attribute, name in (
+        ("FIXTURE_PATH", "h1"),
+        ("H3_COUPLED_FIXTURE_PATH", "coupled"),
+        ("H3_ZERO_CONTROL_FIXTURE_PATH", "zero"),
+        ("H5_UPDATE_SPEC_FIXTURE_PATH", "h5"),
+    ):
+        monkeypatch.setattr(gates, attribute, CountingPath(name, fixture_paths[name]))
+
+    def forged(cls: type, gate: str, status: GateStatus):
+        value = object.__new__(cls)
+        object.__setattr__(value, "gate", gate)
+        object.__setattr__(value, "status", status)
+        return value
+
+    passed_invariant = (InvariantResult("mock", True, 0.0, 0.0, "mock"),)
+    h1_result = GateResult(
+        "H1", GateStatus.PASS, "h1-v1", 0.0, 0.0,
+        {"x": 0.0}, passed_invariant, (),
+    )
+    h2_result = GateResult(
+        "H2", GateStatus.PASS, "h1-v1", 0.0, 0.0,
+        {"x": 0.0}, passed_invariant, (),
+    )
+    h3_result = forged(H3GateResult, "H3", GateStatus.PASS)
+    h4_result = forged(H4GateResult, "H4", GateStatus.INCONCLUSIVE)
+    h5_result = forged(H5GateResult, "H5", GateStatus.PASS)
+    order: list[str] = []
+    captures: dict[str, tuple[bytes, ...]] = {}
+
+    def evaluation(name: str, result: object, captured: tuple[bytes, ...]):
+        order.append(name)
+        captures[name] = captured
+        return SimpleNamespace(result=result, validation_payload={"gate": name})
+
+    monkeypatch.setattr(
+        gates, "evaluate_h1",
+        lambda _config, *, fixture_bytes: evaluation("H1", h1_result, (fixture_bytes,)),
+    )
+    monkeypatch.setattr(
+        gates, "evaluate_h2",
+        lambda _config, *, fixture_bytes: evaluation("H2", h2_result, (fixture_bytes,)),
+    )
+    monkeypatch.setattr(
+        gates, "evaluate_h3",
+        lambda _config, *, coupled_fixture_bytes, zero_control_fixture_bytes: evaluation(
+            "H3", h3_result, (coupled_fixture_bytes, zero_control_fixture_bytes)
+        ),
+    )
+    monkeypatch.setattr(
+        gates, "evaluate_h4",
+        lambda _config, *, h3_coupled_bytes, h3_zero_bytes: evaluation(
+            "H4", h4_result, (h3_coupled_bytes, h3_zero_bytes)
+        ),
+    )
+    monkeypatch.setattr(
+        gates, "evaluate_h5",
+        lambda _config, *, h1_fixture_bytes, h5_update_spec_bytes: evaluation(
+            "H5", h5_result, (h1_fixture_bytes, h5_update_spec_bytes)
+        ),
+    )
+    monkeypatch.setattr(gates, "h2_validation_payload", lambda value: value.validation_payload)
+    monkeypatch.setattr(gates, "h3_validation_payload", lambda value: value.validation_payload)
+    monkeypatch.setattr(gates, "h4_validation_artifact", lambda value: value)
+    monkeypatch.setattr(gates, "h4_validation_payload", lambda value: value.validation_payload)
+    monkeypatch.setattr(gates, "h5_validation_payload", lambda value: value.validation_payload)
+    monkeypatch.setattr(
+        gates,
+        "_combined_provenance",
+        lambda *_args: {
+            "gate_states": {
+                "H1": "pass", "H2": "pass", "H3": "pass",
+                "H4": "inconclusive", "H5": "pass",
+            }
+        },
+    )
+
+    result = module.main(raw)
+
+    assert order == ["H1", "H2", "H3", "H4", "H5"]
+    assert reads == {"h1": 1, "coupled": 1, "zero": 1, "h5": 1}
+    assert captures["H1"][0] is captures["H2"][0] is captures["H5"][0]
+    assert captures["H3"][0] is captures["H4"][0]
+    assert captures["H3"][1] is captures["H4"][1]
+    assert tuple(item.status for item in result.gate_results[-2:]) == (
+        GateStatus.INCONCLUSIVE, GateStatus.PASS,
+    )
+    manifest_paths = [
+        line.split("  ", 1)[1]
+        for line in (result.run_directory / "manifest.sha256")
+        .read_text(encoding="utf-8").splitlines()
+    ]
+    assert manifest_paths == [
+        "config.json", "environment.json", "provenance.json",
+        "validation/h1.json", "validation/h2.json", "validation/h3.json",
+        "validation/h4.json", "validation/h5.json",
+    ]
+
+
+def test_coupled_runner_checks_full_h5_digest_before_any_gate_decode_or_evaluation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.run_gates as gates
+
+    module = _load_launcher()
+    raw = copy.deepcopy(module.CONFIG)
+    raw["artifacts"]["run_root"] = str(tmp_path / "runs")
+
+    class WrongBytes:
+        def read_bytes(self) -> bytes:
+            return b"{}\n"
+
+    monkeypatch.setattr(gates, "H5_UPDATE_SPEC_FIXTURE_PATH", WrongBytes())
+    monkeypatch.setattr(
+        gates, "evaluate_h1",
+        lambda *_args, **_kwargs: pytest.fail("evaluation began before H5 digest check"),
+    )
+    monkeypatch.setattr(
+        gates, "evaluate_h5",
+        lambda *_args, **_kwargs: pytest.fail("mismatched H5 bytes reached decoder"),
+    )
+    with pytest.raises(ArtifactPublicationError, match="H5 update-spec raw SHA-256"):
+        module.main(raw)
+    assert not (tmp_path / "runs").exists()
+
+
 @pytest.mark.parametrize("gates", (("H1",), ("H1", "H2")))
 def test_compatibility_prefixes_never_touch_or_publish_h3(
     gates: tuple[str, ...],
@@ -194,6 +355,8 @@ def test_compatibility_prefixes_never_touch_or_publish_h3(
     raw = copy.deepcopy(module.CONFIG)
     raw["validation"]["gates"] = list(gates)
     del raw["h3"]
+    del raw["h4"]
+    del raw["h5"]
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
 
     class ForbiddenH3Path:
@@ -206,6 +369,15 @@ def test_compatibility_prefixes_never_touch_or_publish_h3(
         run_gates,
         "evaluate_h3",
         lambda *_args, **_kwargs: pytest.fail("compatibility prefix evaluated H3"),
+    )
+    monkeypatch.setattr(run_gates, "H5_UPDATE_SPEC_FIXTURE_PATH", ForbiddenH3Path())
+    monkeypatch.setattr(
+        run_gates, "evaluate_h4",
+        lambda *_args, **_kwargs: pytest.fail("compatibility prefix evaluated H4"),
+    )
+    monkeypatch.setattr(
+        run_gates, "evaluate_h5",
+        lambda *_args, **_kwargs: pytest.fail("compatibility prefix evaluated H5"),
     )
 
     result = module.main(raw)
@@ -222,6 +394,9 @@ def test_compatibility_prefixes_never_touch_or_publish_h3(
     assert "h3_profile" not in provenance
     assert "h3-coupled-v1" not in provenance_bytes
     assert "h3-zero-control-v1" not in provenance_bytes
+    assert "H4" not in provenance_bytes and "H5" not in provenance_bytes
+    assert not (run_dir / "validation" / "h4.json").exists()
+    assert not (run_dir / "validation" / "h5.json").exists()
 
 
 def test_invalid_raw_mapping_fails_resolution_and_creates_no_run(tmp_path: Path) -> None:
@@ -302,6 +477,8 @@ def test_launcher_resolves_repo_paths_from_file_not_cwd_with_spaces(tmp_path: Pa
     code = (
         f"import sys; sys.path.insert(0, {str(REPO_ROOT)!r}); "
         "import verify_vfe4; "
+        "verify_vfe4.CONFIG['validation']['gates'] = ['H1','H2','H3']; "
+        "verify_vfe4.CONFIG.pop('h4'); verify_vfe4.CONFIG.pop('h5'); "
         f"verify_vfe4.CONFIG['artifacts']['run_root'] = {str(run_root)!r}; "
         "raise SystemExit(verify_vfe4._script_main())"
     )
@@ -374,7 +551,7 @@ def test_repeated_frozen_clock_collision_preserves_first_run_bytes(
     import verification.run_gates as gates
 
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h3_compatibility_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
     monkeypatch.setattr(gates, "_utc_now", lambda: "2026-07-21T23-59-58.000000Z")
     first = module.main(raw)
@@ -391,13 +568,13 @@ def test_repeated_frozen_clock_collision_preserves_first_run_bytes(
 
 def test_provenance_schema_is_frozen_and_content_hashes_recompute(tmp_path: Path) -> None:
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h3_compatibility_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
     module.main(raw)
     run_dir = next((tmp_path / "runs").iterdir())
     provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
     assert set(provenance) == {
-        "git_head", "dirty_digest", "config_sha256", "objective_schema_input",
+        "git_head", "dirty_digest", "dirty_content_digest", "config_sha256", "objective_schema_input",
         "objective_schema_sha256", "fixture_expected_sha256",
         "fixture_observed_sha256", "fixture_available", "python_version", "pytorch_version",
         "numpy_version", "device", "dtype", "seed", "deterministic",
@@ -406,6 +583,7 @@ def test_provenance_schema_is_frozen_and_content_hashes_recompute(tmp_path: Path
         "gate_fixture_consumers", "h3_profile",
     }
     assert len(provenance["git_head"]) == 40 and provenance["git_head"] != "unknown"
+    assert provenance["dirty_content_digest"] == provenance["dirty_digest"]
     assert provenance["config_sha256"] == json.loads((run_dir / "config.json").read_text(encoding="utf-8"))["config_sha256"]
     fixture = REPO_ROOT / "vfe4" / "validation" / "fixtures" / "h1_v1.json"
     fixture_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()

@@ -12,6 +12,7 @@ import torch
 
 from vfe4.artifacts import (
     ArtifactPublicationError,
+    build_environment,
     build_provenance,
     canonical_json_bytes,
     dirty_content_digest,
@@ -105,6 +106,54 @@ def test_publish_run_is_atomic_and_manifest_is_sorted_and_content_bound(
         "provenance.json",
         "validation/h1.json",
     ]
+
+
+def test_coupled_h1_h5_manifest_has_exact_eight_json_entries(tmp_path: Path) -> None:
+    payloads = {
+        "validation/h5.json": {"status": "pass"},
+        "validation/h4.json": {"status": "inconclusive"},
+        "validation/h3.json": {"status": "pass"},
+        "validation/h2.json": {"status": "pass"},
+        "validation/h1.json": {"status": "pass"},
+        "provenance.json": {"gate_states": {"H4": "inconclusive", "H5": "pass"}},
+        "environment.json": {"device": "cpu"},
+        "config.json": {"schema_version": 1},
+    }
+    run_dir = publish_run_directory(tmp_path / "runs", "verify-h1-h5", payloads)
+    assert [line.split("  ", 1)[1] for line in _verify_manifest(run_dir)] == [
+        "config.json",
+        "environment.json",
+        "provenance.json",
+        "validation/h1.json",
+        "validation/h2.json",
+        "validation/h3.json",
+        "validation/h4.json",
+        "validation/h5.json",
+    ]
+
+
+def test_environment_records_timing_cpu_backend_and_thread_environment() -> None:
+    config = SimpleNamespace(
+        run=SimpleNamespace(
+            device="cpu", dtype="float64", seed=20260721, deterministic=True
+        )
+    )
+    environment = build_environment(config)
+    assert environment["timing_clock"]["name"] == "perf_counter"
+    assert environment["timing_clock"]["monotonic"] is True
+    assert environment["timing_clock"]["resolution_seconds"] > 0.0
+    assert environment["logical_cpu_count"] is None or environment["logical_cpu_count"] > 0
+    assert set(environment["thread_environment"]) == {
+        "OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS",
+    }
+    assert all(
+        set(record) == {"present", "value"}
+        for record in environment["thread_environment"].values()
+    )
+    assert len(environment["torch_config_sha256"]) == 64
+    assert len(environment["numpy_blas_config_sha256"]) == 64
+    assert environment["cuda_available"] is bool(torch.cuda.is_available())
 
 
 def test_publish_run_cleans_staging_and_temporary_files_after_injected_failure(

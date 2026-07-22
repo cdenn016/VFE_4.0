@@ -1,9 +1,11 @@
 # VFE 4.0
 
 This repository implements the bounded H1 foundation, H2 information--moment
-representation gate, and H3 structured-recognition adequacy gate for a
-deterministic VFE 4.0 verification run. The implemented ordered prefixes are
-H1, H1/H2, and H1/H2/H3; H4 through H8 remain unimplemented.
+representation gate, H3 structured-recognition adequacy gate, and one coupled
+H1--H5 verification prefix that integrates the already frozen H4 cost artifact
+with the H5 update-coherence gate. The implemented ordered prefixes are H1,
+H1/H2, H1/H2/H3, and H1/H2/H3/H4/H5. H4 is not available as a standalone
+prefix, and H6 through H8 and training remain deferred.
 
 The user-facing surface is `verify_vfe4.py`. Its top-level `CONFIG` dictionary
 is editable, and the file can be run directly from an IDE or file association;
@@ -50,15 +52,20 @@ precision. Only H3 recognition parameters enter its reverse-mode autograd
 graph; the frozen generative factors and independent NumPy oracle do not.
 Operand-local absolute allowances and two signed three-way thresholds determine
 PASS, FAIL, or INCONCLUSIVE without relative tolerances or blanket `allclose`.
-This bounded protocol does not establish H4 cost, H5 update coherence, H6
+This bounded H3 protocol does not establish H4 cost, H5 update coherence, H6
 prediction, H7 frame covariance, or H8 sparse scaling.
 
-The one editable `CONFIG` now requests `H1`, `H2`, then `H3`. One run captures
-only the fixtures required by that prefix and publishes the requested
-validation payloads through a single atomic, manifest-checked artifact
-directory. Removing the H3 section and selecting H1 or H1/H2 preserves the
-legacy evaluate-only/no-autograd configuration and does not read either H3
-fixture.
+The one editable `CONFIG` now requests H1 through H5. One run captures each
+required fixture exactly once, evaluates H1, H2, H3, H4, then H5, and publishes
+separate `validation/h4.json` and `validation/h5.json` payloads in one atomic,
+manifest-checked artifact directory. The runner serializes the preexisting
+typed H4 validation artifact; it does not reconstruct H4 status or measurement
+content. H4 and H5 statuses remain separate and may differ. Selecting H1,
+H1/H2, or H1/H2/H3 and removing the later conditional sections preserves the
+shorter compatibility surface and does not capture, evaluate, or publish H4/H5
+data. The theory sources are
+`Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex` and
+`Manuscripts/MAgent_exact_elbo_whitepaper.tex`.
 
 H2 is verified at implementation revision
 `00de72b93ebcc504ef5652d11ad3012f80852aa0`. The revision-bound JUnit XML

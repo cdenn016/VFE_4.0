@@ -12,6 +12,7 @@ import pytest
 from vfe4.config import (
     H3ValidationConfig,
     H4ValidationConfig,
+    H5ValidationConfig,
     ResolvedConfig,
     resolve_config,
     resolve_h4_validation_config,
@@ -23,6 +24,16 @@ from vfe4.types.h3 import (
     H3OptimizationConfig,
 )
 from vfe4.types.h4 import H4_PRIMARY_TIMED_BALANCE, H4_PROBLEM_SEEDS, H4SolveProtocol
+from vfe4.types.h5_schema import (
+    H5_FACTOR_INPUT_SCHEMA_SHA256,
+    H5_FACTOR_INPUT_SCHEMA_VERSION,
+    H5_FACTOR_UNIVERSE,
+    H5_MODEL_BLOCK_UNIVERSE,
+    H5_OBJECTIVE_SCHEMA_SHA256,
+    H5_RECOGNITION_COORDINATE_UNIVERSE,
+)
+from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
+from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
 
 
 def _raw_h4_section() -> dict[str, object]:
@@ -223,6 +234,190 @@ def _raw_h3_config() -> dict[str, object]:
     return raw
 
 
+def _raw_h5_section() -> dict[str, object]:
+    return {
+        "schema_version": "h5-validation-config-v1",
+        "fixture_id": "h5-conditional-update-v1",
+        "fixture_schema_version": 1,
+        "recognition_family": "continuous_mean_field_conditional_categorical",
+        "h1_fixture_id": "h1-v1",
+        "h1_fixture_raw_sha256": (
+            "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+        ),
+        "update_spec_raw_sha256": EXPECTED_H5_UPDATE_SPEC_RAW_SHA256,
+        "update_spec_canonical_sha256": (
+            "0e4e870dd725aeaec77ffd128ba85dbf619df5b0261b2178e6a115a8970715d6"
+        ),
+        "objective_schema_sha256": H5_OBJECTIVE_SCHEMA_SHA256,
+        "factor_input_schema_version": H5_FACTOR_INPUT_SCHEMA_VERSION,
+        "factor_input_schema_sha256": H5_FACTOR_INPUT_SCHEMA_SHA256,
+        "factor_universe": list(H5_FACTOR_UNIVERSE),
+        "recognition_coordinate_universe": list(H5_RECOGNITION_COORDINATE_UNIVERSE),
+        "model_block_universe": list(H5_MODEL_BLOCK_UNIVERSE),
+        "enabled_update_rules": [item.value for item in H5UpdateRule],
+        "enabled_update_labels": [
+            UpdateLabel.EXACT_COORDINATE.value,
+            UpdateLabel.GENERALIZED_EM.value,
+            UpdateLabel.NATURAL_GRADIENT_PROPOSAL.value,
+        ],
+        "positive_case_ids": [
+            "exact_gaussian_e_coordinate",
+            "exact_categorical_source_coordinate",
+            "exact_gaussian_m_coordinate_fixed_recognition",
+            "accepted_resolved_generalized_em",
+            "rejected_proposal_rollback",
+        ],
+        "control_ids": [
+            "child_factor_omission_detected",
+            "emission_factor_omission_detected",
+            "unresolved_gem_acceptance_detected",
+            "natural_gradient_mislabel_detected",
+            "rejection_mutation_detected",
+            "changed_input_equal_value_detected",
+            "changed_value_unchanged_input_not_affected",
+        ],
+        "quadrature_orders": [21, 17],
+        "allowance_policy": "deterministic_convergence_plus_rounding_v1",
+        "rounding_constant": 4096,
+        "stochastic_contribution": 0.0,
+        "epsilon_delta_formula": "before_total+after_total+subtraction_rounding",
+        "mm_proof_artifact": None,
+    }
+
+
+def _raw_h5_config() -> dict[str, object]:
+    raw = _raw_h3_config()
+    raw["validation"]["gates"] = ["H1", "H2", "H3", "H4", "H5"]  # type: ignore[index]
+    raw["h4"] = _raw_h4_section()
+    raw["h5"] = _raw_h5_section()
+    return raw
+
+
+def test_coupled_h1_h5_config_reuses_h4_and_freezes_h5_without_fixture_io(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import pathlib
+
+    raw = _raw_h5_config()
+    standalone_h4 = resolve_h4_validation_config(raw["h4"])  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        pathlib.Path,
+        "read_bytes",
+        lambda _path: pytest.fail("configuration resolution performed fixture I/O"),
+    )
+
+    resolved = resolve_config(raw, repo_root=tmp_path)
+
+    assert resolved.validation.gates == ("H1", "H2", "H3", "H4", "H5")
+    assert resolved.h4 == standalone_h4
+    assert resolved.h4.canonical_json == standalone_h4.canonical_json
+    assert resolved.h4.config_sha256 == standalone_h4.config_sha256
+    assert resolved.h4.solve_protocol == standalone_h4.solve_protocol
+    assert isinstance(resolved.h5, H5ValidationConfig)
+    assert resolved.h5.update_spec_raw_sha256 == EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
+    assert resolved.h5.factor_universe == H5_FACTOR_UNIVERSE
+    assert resolved.h5.recognition_coordinate_universe == H5_RECOGNITION_COORDINATE_UNIVERSE
+    assert resolved.h5.model_block_universe == H5_MODEL_BLOCK_UNIVERSE
+    assert resolved.h5.enabled_update_rules == tuple(H5UpdateRule)
+    assert tuple(H5_RULE_CONTRACTS[rule] for rule in resolved.h5.enabled_update_rules) == (
+        (UpdateLabel.EXACT_COORDINATE, ("q[z0]",), (), (1.0,)),
+        (UpdateLabel.EXACT_COORDINATE, ("q[source_row_a2]",), (), (1.0,)),
+        (UpdateLabel.EXACT_COORDINATE, (), ("theta[state_transition_2]",), (1.0,)),
+        (
+            UpdateLabel.GENERALIZED_EM,
+            (),
+            ("theta[emission_1]",),
+            (1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625,
+             0.0078125, 0.00390625, 0.001953125, 0.0009765625),
+        ),
+        (UpdateLabel.NATURAL_GRADIENT_PROPOSAL, ("q[z1]",), (), (64.0,)),
+    )
+    assert resolved.h5.enabled_update_labels == (
+        UpdateLabel.EXACT_COORDINATE,
+        UpdateLabel.GENERALIZED_EM,
+        UpdateLabel.NATURAL_GRADIENT_PROPOSAL,
+    )
+    assert resolved.h5.mm_proof_artifact is None
+    assert "missing_mm" not in resolved.h5.canonical_json
+    projected = json.loads(resolved.canonical_json)["h4"]
+    assert json.dumps(projected, sort_keys=True, separators=(",", ":")) == resolved.h4.canonical_json
+
+
+@pytest.mark.parametrize(
+    "gates",
+    [
+        ["H1", "H2", "H3", "H4"],
+        ["H1", "H2", "H3", "H5"],
+        ["H1", "H2", "H3", "H5", "H4"],
+        ["H1", "H2", "H3", "H4", "H5", "H5"],
+    ],
+)
+def test_coupled_prefix_is_all_or_nothing(tmp_path: Path, gates: list[str]) -> None:
+    raw = _raw_h5_config()
+    raw["validation"]["gates"] = gates  # type: ignore[index]
+    with pytest.raises(ValueError, match="validation.gates"):
+        resolve_config(raw, repo_root=tmp_path)
+
+
+@pytest.mark.parametrize("missing", ["h4", "h5", "both"])
+def test_coupled_prefix_requires_both_typed_sections(
+    tmp_path: Path, missing: str
+) -> None:
+    raw = _raw_h5_config()
+    if missing in ("h4", "both"):
+        raw.pop("h4")
+    if missing in ("h5", "both"):
+        raw.pop("h5")
+    with pytest.raises(ValueError, match="h4|h5"):
+        resolve_config(raw, repo_root=tmp_path)
+
+
+def test_h5_rejects_unsupported_mm_during_resolution(tmp_path: Path) -> None:
+    raw = _raw_h5_config()
+    raw["h5"]["enabled_update_labels"].append(UpdateLabel.VALID_MM.value)  # type: ignore[index,union-attr]
+    with pytest.raises(ValueError, match="VALID_MM|valid_mm|MM"):
+        resolve_config(raw, repo_root=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("update_spec_raw_sha256", EXPECTED_H5_UPDATE_SPEC_RAW_SHA256[:12]),
+        ("update_spec_canonical_sha256", "0" * 64),
+        ("objective_schema_sha256", "0" * 64),
+        ("factor_input_schema_sha256", "0" * 64),
+        ("quadrature_orders", [17, 21]),
+        ("allowance_policy", "stochastic"),
+        ("rounding_constant", 4095),
+        ("stochastic_contribution", 1.0e-12),
+        ("epsilon_delta_formula", "after-before"),
+        ("enabled_update_rules", [item.value for item in reversed(tuple(H5UpdateRule))]),
+    ],
+)
+def test_h5_resolution_rejects_frozen_identity_and_budget_drift(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    raw = _raw_h5_config()
+    raw["h5"][field] = value  # type: ignore[index]
+    with pytest.raises(ValueError, match="h5|H5"):
+        resolve_config(raw, repo_root=tmp_path)
+
+
+def test_h5_documentation_uses_exact_manuscripts_path_case() -> None:
+    root = Path(__file__).resolve().parents[2]
+    text = "\n".join(
+        (root / relative).read_text(encoding="utf-8")
+        for relative in (
+            "README.md",
+            "docs/preregistrations/2026-07-21-h5-update-coherence.md",
+        )
+    )
+    assert "Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex" in text
+    assert "Manuscripts/MAgent_exact_elbo_whitepaper.tex" in text
+    assert "manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex" not in text
+    assert "manuscripts/MAgent_exact_elbo_whitepaper.tex" not in text
+
+
 def _reordered(value: object) -> object:
     if isinstance(value, dict):
         return {key: _reordered(item) for key, item in reversed(tuple(value.items()))}
@@ -240,6 +435,7 @@ def test_resolve_config_builds_the_frozen_h1_h2_record(tmp_path: Path) -> None:
     assert resolved.model.state_parent_sets == ((0,), (0, 1))
     assert resolved.validation.gates == ("H1", "H2")
     assert resolved.h3 is None
+    assert resolved.h4 is None and resolved.h5 is None
     assert resolved.artifacts.run_root == (tmp_path / "runs").resolve()
     assert json.loads(resolved.canonical_json)["artifacts"]["run_root"] == (
         tmp_path / "runs"
@@ -255,6 +451,7 @@ def test_resolve_config_accepts_the_h1_compatibility_prefix(tmp_path: Path) -> N
 
     assert resolved.validation.gates == ("H1",)
     assert resolved.h3 is None
+    assert resolved.h4 is None and resolved.h5 is None
 
 
 def test_resolve_config_builds_the_exact_frozen_h3_profile(tmp_path: Path) -> None:
@@ -265,6 +462,7 @@ def test_resolve_config_builds_the_exact_frozen_h3_profile(tmp_path: Path) -> No
 
     assert resolved.validation.gates == ("H1", "H2", "H3")
     assert isinstance(resolved.h3, H3ValidationConfig)
+    assert resolved.h4 is None and resolved.h5 is None
     assert tuple(field.name for field in dataclasses.fields(resolved.h3)) == (
         "coupled_fixture_id",
         "coupled_expected_sha256",

@@ -4,6 +4,8 @@ Date frozen: 2026-07-21
 Implementation gate: H5
 Fixture: `h5-conditional-update-v1`
 Raw fixture SHA-256: `9dd42603419952a2ffa4b6602971240ec00572283557d672ae6ee106c31dd91c`
+Theory sources: `Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex` and
+`Manuscripts/MAgent_exact_elbo_whitepaper.tex`.
 
 ## Scope and claim
 
@@ -192,6 +194,11 @@ natural_gradient_z1 -> natural_gradient_proposal; variables=(q[z1]); parameters=
 `valid_mm` deliberately has no H5 v1 producer. Configuration resolution must
 reject an MM request unless a revision-bound proof artifact exists. MM absence is
 not a gate obligation and does not enter attempt or status logic.
+
+The supported click configuration therefore freezes `mm_proof_artifact=None`
+and omits `valid_mm` from `enabled_update_labels`. Adding `valid_mm` while that
+field is `None` is rejected by configuration resolution before update-state
+construction or gate evaluation; it never becomes a missing-MM obligation.
 
 The initial optimizer state is `FrozenByteState("h5-no-optimizer-v1",
 b'{"kind":"none"}')`. The initial RNG state is

@@ -1,4 +1,4 @@
-"""Strict resolution of the frozen ordered H1/H2/H3 configuration."""
+"""Strict resolution of the frozen ordered H1--H5 configuration prefixes."""
 
 from __future__ import annotations
 
@@ -15,6 +15,18 @@ from vfe4.types.h3 import (
     H3OptimizationConfig,
 )
 from vfe4.types.h4 import H4_PRIMARY_TIMED_BALANCE, H4_PROBLEM_SEEDS, H4SolveProtocol
+from vfe4.types.h5_schema import (
+    H5_FACTOR_INPUT_SCHEMA_SHA256,
+    H5_FACTOR_INPUT_SCHEMA_VERSION,
+    H5_FACTOR_UNIVERSE,
+    H5_H1_FIXTURE_RAW_SHA256,
+    H5_MODEL_BLOCK_UNIVERSE,
+    H5_OBJECTIVE_SCHEMA_SHA256,
+    H5_QUADRATURE_ORDERS,
+    H5_RECOGNITION_COORDINATE_UNIVERSE,
+)
+from vfe4.types.updates import H5UpdateRule, UpdateLabel
+from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
 
 from .schema import (
     ArtifactConfig,
@@ -27,6 +39,10 @@ from .schema import (
     H4TimingConfig,
     H4TraversalConfig,
     H4ValidationConfig,
+    H5ValidationConfig,
+    H5_CONTROL_IDS,
+    H5_POSITIVE_CASE_IDS,
+    H5_UPDATE_SPEC_CANONICAL_SHA256,
     InferenceConfig,
     ModelConfig,
     OptimizationConfig,
@@ -53,6 +69,7 @@ _ROOT_KEYS = frozenset(
     }
 )
 _ROOT_KEYS_WITH_H3 = _ROOT_KEYS | {"h3"}
+_ROOT_KEYS_WITH_H4_H5 = _ROOT_KEYS | {"h3", "h4", "h5"}
 _RUN_KEYS = frozenset({"mode", "seed", "device", "dtype", "deterministic"})
 _DATA_KEYS = frozenset({"kind", "identity"})
 _MODEL_KEYS = frozenset(
@@ -131,8 +148,19 @@ _H3_DECISION_KEYS = frozenset(
         "maximum_allowance_fraction",
     }
 )
+_H5_KEYS = frozenset({
+    "schema_version", "fixture_id", "fixture_schema_version", "recognition_family",
+    "h1_fixture_id", "h1_fixture_raw_sha256", "update_spec_raw_sha256",
+    "update_spec_canonical_sha256", "objective_schema_sha256",
+    "factor_input_schema_version", "factor_input_schema_sha256", "factor_universe",
+    "recognition_coordinate_universe", "model_block_universe",
+    "enabled_update_rules", "enabled_update_labels", "positive_case_ids",
+    "control_ids", "quadrature_orders", "allowance_policy", "rounding_constant",
+    "stochastic_contribution", "epsilon_delta_formula", "mm_proof_artifact",
+})
 _PARENT_SETS = ((0,), (0, 1))
 _H3_GATES = ("H1", "H2", "H3")
+_H5_GATES = ("H1", "H2", "H3", "H4", "H5")
 _H3_FAMILIES = ("structured_full_spd", "fine_factorized_diagonal")
 _H3_ZERO_MEAN = (0.0, 0.0, 0.0, 0.0)
 _H3_IDENTITY_PRECISION = (
@@ -323,9 +351,12 @@ def _validate_h4_orders(traversal: H4TraversalConfig, timing: H4TimingConfig) ->
 
 
 def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedConfig:
-    """Validate and freeze an ordered implemented H1/H2/H3 gate prefix."""
+    """Validate and freeze one implemented ordered H1--H5 gate prefix."""
     root = _require_mapping(raw, "config")
-    expected_root_keys = _ROOT_KEYS_WITH_H3 if "h3" in root else _ROOT_KEYS
+    if "h4" in root or "h5" in root:
+        expected_root_keys = _ROOT_KEYS_WITH_H4_H5
+    else:
+        expected_root_keys = _ROOT_KEYS_WITH_H3 if "h3" in root else _ROOT_KEYS
     _validate_keys(root, expected_root_keys, "config")
 
     run_raw = _section(root, "run", _RUN_KEYS)
@@ -436,6 +467,25 @@ def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedCon
     )
 
     h3 = _resolve_h3(root, validation.gates)
+    coupled = validation.gates == _H5_GATES
+    if coupled:
+        if "h4" not in root or "h5" not in root:
+            raise ValueError(
+                "h4 and h5 are both required for the coupled H1--H5 prefix"
+            )
+        h4 = resolve_h4_validation_config(
+            _require_mapping(root["h4"], "h4")
+        )
+        h5 = _resolve_h5_validation_config(
+            _require_mapping(root["h5"], "h5")
+        )
+    else:
+        if "h4" in root or "h5" in root:
+            raise ValueError(
+                "h4 and h5 must be present exactly for the coupled H1--H5 prefix"
+            )
+        h4 = None
+        h5 = None
 
     artifacts_raw = _section(root, "artifacts", _ARTIFACT_KEYS)
     artifacts = ArtifactConfig(
@@ -454,7 +504,22 @@ def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedCon
         validation=validation,
         artifacts=artifacts,
         h3=h3,
+        h4=h4,
+        h5=h5,
     )
+    if h4 is not None:
+        projected_h4 = json.dumps(
+            json.loads(canonical_json)["h4"],
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        if (
+            projected_h4 != h4.canonical_json
+            or hashlib.sha256(projected_h4.encode("utf-8")).hexdigest()
+            != h4.config_sha256
+        ):
+            raise ValueError("full resolved configuration H4 projection drifted")
     config_sha256 = hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
     return ResolvedConfig(
         schema_version=_require_exact(root["schema_version"], 1, "schema_version"),
@@ -474,6 +539,83 @@ def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedCon
         canonical_json=canonical_json,
         config_sha256=config_sha256,
         h3=h3,
+        h4=h4,
+        h5=h5,
+    )
+
+
+def _resolve_h5_validation_config(raw_h5: Mapping[str, object]) -> H5ValidationConfig:
+    """Resolve H5 only from frozen declarations; never inspect fixture bytes."""
+    root = _require_mapping(raw_h5, "h5")
+    _validate_keys(root, _H5_KEYS, "h5")
+
+    def exact_list(name: str, expected: tuple[object, ...]) -> tuple[object, ...]:
+        return _require_exact_list(root[name], expected, f"h5.{name}")
+
+    rules = tuple(H5UpdateRule)
+    labels = (
+        UpdateLabel.EXACT_COORDINATE,
+        UpdateLabel.GENERALIZED_EM,
+        UpdateLabel.NATURAL_GRADIENT_PROPOSAL,
+    )
+    resolved_rules = tuple(
+        H5UpdateRule(value)
+        for value in exact_list(
+            "enabled_update_rules", tuple(item.value for item in rules)
+        )
+    )
+    raw_labels = root["enabled_update_labels"]
+    if type(raw_labels) is not list:
+        raise ValueError("h5.enabled_update_labels must be an exact list")
+    if UpdateLabel.VALID_MM.value in raw_labels and root["mm_proof_artifact"] is None:
+        raise ValueError("VALID_MM requires a revision-bound MM proof artifact")
+    resolved_labels = tuple(
+        UpdateLabel(value)
+        for value in _require_exact_list(
+            raw_labels, tuple(item.value for item in labels),
+            "h5.enabled_update_labels",
+        )
+    )
+    if root["mm_proof_artifact"] is not None:
+        raise ValueError("H5 v1 does not admit an MM proof artifact")
+    payload = {
+        "schema_version": _require_exact(root["schema_version"], "h5-validation-config-v1", "h5.schema_version"),
+        "fixture_id": _require_exact(root["fixture_id"], "h5-conditional-update-v1", "h5.fixture_id"),
+        "fixture_schema_version": _require_exact(root["fixture_schema_version"], 1, "h5.fixture_schema_version"),
+        "recognition_family": _require_exact(root["recognition_family"], "continuous_mean_field_conditional_categorical", "h5.recognition_family"),
+        "h1_fixture_id": _require_exact(root["h1_fixture_id"], "h1-v1", "h5.h1_fixture_id"),
+        "h1_fixture_raw_sha256": _require_exact(root["h1_fixture_raw_sha256"], H5_H1_FIXTURE_RAW_SHA256, "h5.h1_fixture_raw_sha256"),
+        "update_spec_raw_sha256": _require_exact(root["update_spec_raw_sha256"], EXPECTED_H5_UPDATE_SPEC_RAW_SHA256, "h5.update_spec_raw_sha256"),
+        "update_spec_canonical_sha256": _require_exact(root["update_spec_canonical_sha256"], H5_UPDATE_SPEC_CANONICAL_SHA256, "h5.update_spec_canonical_sha256"),
+        "objective_schema_sha256": _require_exact(root["objective_schema_sha256"], H5_OBJECTIVE_SCHEMA_SHA256, "h5.objective_schema_sha256"),
+        "factor_input_schema_version": _require_exact(root["factor_input_schema_version"], H5_FACTOR_INPUT_SCHEMA_VERSION, "h5.factor_input_schema_version"),
+        "factor_input_schema_sha256": _require_exact(root["factor_input_schema_sha256"], H5_FACTOR_INPUT_SCHEMA_SHA256, "h5.factor_input_schema_sha256"),
+        "factor_universe": exact_list("factor_universe", H5_FACTOR_UNIVERSE),
+        "recognition_coordinate_universe": exact_list("recognition_coordinate_universe", H5_RECOGNITION_COORDINATE_UNIVERSE),
+        "model_block_universe": exact_list("model_block_universe", H5_MODEL_BLOCK_UNIVERSE),
+        "enabled_update_rules": resolved_rules,
+        "enabled_update_labels": resolved_labels,
+        "positive_case_ids": exact_list("positive_case_ids", H5_POSITIVE_CASE_IDS),
+        "control_ids": exact_list("control_ids", H5_CONTROL_IDS),
+        "quadrature_orders": exact_list("quadrature_orders", H5_QUADRATURE_ORDERS),
+        "allowance_policy": _require_exact(root["allowance_policy"], "deterministic_convergence_plus_rounding_v1", "h5.allowance_policy"),
+        "rounding_constant": _require_exact(root["rounding_constant"], 4096, "h5.rounding_constant"),
+        "stochastic_contribution": _require_exact(root["stochastic_contribution"], 0.0, "h5.stochastic_contribution"),
+        "epsilon_delta_formula": _require_exact(root["epsilon_delta_formula"], "before_total+after_total+subtraction_rounding", "h5.epsilon_delta_formula"),
+        "mm_proof_artifact": None,
+    }
+    canonical_payload = {
+        **payload,
+        "enabled_update_rules": tuple(item.value for item in resolved_rules),
+        "enabled_update_labels": tuple(item.value for item in resolved_labels),
+    }
+    canonical = json.dumps(
+        canonical_payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    return H5ValidationConfig(
+        **payload,
+        canonical_json=canonical,
+        config_sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
     )
 
 
@@ -539,15 +681,19 @@ def _require_gates(
     tuple[Literal["H1"]]
     | tuple[Literal["H1"], Literal["H2"]]
     | tuple[Literal["H1"], Literal["H2"], Literal["H3"]]
+    | tuple[
+        Literal["H1"], Literal["H2"], Literal["H3"], Literal["H4"], Literal["H5"]
+    ]
 ):
     if type(value) is not list or value not in (
         ["H1"],
         ["H1", "H2"],
         ["H1", "H2", "H3"],
+        ["H1", "H2", "H3", "H4", "H5"],
     ):
         raise ValueError(
             "validation.gates must equal ['H1'], ['H1', 'H2'], or "
-            "['H1', 'H2', 'H3']"
+            "['H1', 'H2', 'H3'], or ['H1', 'H2', 'H3', 'H4', 'H5']"
         )
     return tuple(value)  # type: ignore[return-value]
 
@@ -555,12 +701,12 @@ def _require_gates(
 def _resolve_h3(
     root: Mapping[str, object], gates: tuple[str, ...]
 ) -> H3ValidationConfig | None:
-    requested = gates == _H3_GATES
+    requested = gates[:3] == _H3_GATES and len(gates) >= 3
     present = "h3" in root
     if requested != present:
         raise ValueError(
             "h3 must be present exactly when validation.gates equals "
-            "['H1', 'H2', 'H3']"
+            "an implemented prefix containing ['H1', 'H2', 'H3']"
         )
     if not requested:
         return None
@@ -813,6 +959,8 @@ def _canonical_json(
     validation: ValidationConfig,
     artifacts: ArtifactConfig,
     h3: H3ValidationConfig | None,
+    h4: H4ValidationConfig | None,
+    h5: H5ValidationConfig | None,
 ) -> str:
     payload = {
         "schema_version": schema_version,
@@ -932,4 +1080,9 @@ def _canonical_json(
                 h3.structured_closure_inconclusive_obligation
             ),
         }
+    if (h4 is None) != (h5 is None):
+        raise ValueError("canonical H4/H5 sections must appear together")
+    if h4 is not None and h5 is not None:
+        payload["h4"] = json.loads(h4.canonical_json)
+        payload["h5"] = json.loads(h5.canonical_json)
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
