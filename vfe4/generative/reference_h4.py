@@ -96,7 +96,7 @@ def parse_h4_problem_bytes(data: bytes) -> H4NeutralProblem:
         if h4_problem_digest(problem) != problem.canonical_sha256 or canonical_h4_problem_bytes(problem) != data: raise ValueError("noncanonical H4 bytes")
         if problem.source_kind == "scaled_pcg64":
             replay = make_h4_problem(seed=problem.seed, kind=problem.kind, horizon=problem.horizon)
-            if problem != replay:
+            if canonical_h4_problem_bytes(replay) != data:
                 raise ValueError("scaled H4 bytes do not replay the frozen PCG64 provenance")
         return problem
     except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:

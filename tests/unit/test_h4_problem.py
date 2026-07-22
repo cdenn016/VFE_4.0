@@ -101,6 +101,32 @@ def _numerical_allowance() -> dict[str, object]:
     }
 
 
+def _complete_measurements(lower: float, upper: float) -> dict[str, float]:
+    return {
+        "primary_seed_ratio_geometric_mean": (lower + upper) / 2.0,
+        "primary_bootstrap_lower": lower,
+        "primary_bootstrap_upper": upper,
+        "primary_effect_threshold": 0.80,
+        "primary_timed_ab_total": 110.0,
+        "primary_timed_ba_total": 110.0,
+        "maximum_solver_stopping_residual": 0.0,
+        "maximum_allowance_scale_fraction": 0.0,
+    }
+
+
+def _complete_invariants(lower: float, upper: float) -> tuple[InvariantResult, ...]:
+    values = [InvariantResult(name, True, 0.0, 1.0, "closed") for name in EXPECTED_INVARIANTS]
+    if (lower, upper) == (0.80, 0.80):
+        values[16] = InvariantResult("primary_effect_threshold", False, 0.80, 0.80, "bootstrap_interval_equals_threshold")
+    elif upper <= 0.80:
+        values[16] = InvariantResult("primary_effect_threshold", True, upper, 0.80, "bootstrap_interval_supports_effect")
+    elif lower >= 0.80:
+        values[16] = InvariantResult("primary_effect_threshold", False, lower, 0.80, "bootstrap_interval_excludes_support")
+    else:
+        values[16] = InvariantResult("primary_effect_threshold", False, lower, 0.80, "bootstrap_interval_crosses_threshold")
+    return tuple(values)
+
+
 def test_scaled_problem_has_exact_schema_coordinate_schedule_and_pcg64_provenance() -> None:
     problem = make_h4_problem(seed=104729, kind="coupled", horizon=7)
     assert tuple(field.name for field in fields(problem)) == (
@@ -265,6 +291,36 @@ def test_zero_control_and_canonical_bytes_have_only_frozen_differences() -> None
         with pytest.raises(ValueError): parse_h4_problem_bytes(broken)
 
 
+@pytest.mark.parametrize("kind", ("coupled", "zero_control"))
+@pytest.mark.parametrize(
+    "path",
+    (
+        ("factor_schedule", 0, "target", 0),
+        ("factor_schedule", 0, "matrix", 0, 1),
+    ),
+)
+def test_scaled_parser_rejects_signed_zero_provenance_forgery(kind: str, path: tuple[object, ...]) -> None:
+    envelope = json.loads(canonical_h4_problem_bytes(make_h4_problem(seed=130363, kind=kind, horizon=7)))
+    target = envelope["problem"]
+    for part in path:
+        target = target[part]
+    target = -0.0
+    container = envelope["problem"]
+    for part in path[:-1]:
+        container = container[part]
+    container[path[-1]] = target
+    core = envelope["problem"]
+    envelope["canonical_sha256"] = hashlib.sha256(
+        b"vfe4.h4.neutral-problem.v1\0" + json.dumps(
+            core, sort_keys=True, separators=(",", ":"), allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    forged = json.dumps(envelope, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    assert b"-0.0" in forged
+    with pytest.raises(ValueError, match="frozen PCG64 provenance"):
+        parse_h4_problem_bytes(forged)
+
+
 def test_h3_structural_adapter_and_independent_canonical_assembly() -> None:
     coupled_fixture = _fixture(H3_COUPLED_FIXTURE_PATH, "h3-coupled-v1")
     zero_fixture = _fixture(H3_ZERO_CONTROL_FIXTURE_PATH, "h3-zero-control-v1")
@@ -337,8 +393,8 @@ def test_records_reject_malformed_inputs_and_gate_freezes_exact_early_failure_sh
 
 
 def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes() -> None:
-    passing = tuple(InvariantResult(name, True, 0.0, 1.0, "closed") for name in EXPECTED_INVARIANTS)
-    measurements = {name: 0.0 for name in EXPECTED_MEASUREMENTS}; measurements["primary_effect_threshold"] = .8
+    measurements = _complete_measurements(.70, .79)
+    passing = _complete_invariants(.70, .79)
     allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
     assert tuple(H4GateResult("H4", GateStatus.PASS, measurements, passing, allowances, ()).allowances_by_invariant["h3_anchor_identity"]) == EXPECTED_APPLICABLE_ALLOWANCE_FIELDS
     failed = list(passing); failed[8] = InvariantResult("exact_posterior_gap_equivalence", False, 2.0, 1.0, "miss")
@@ -346,10 +402,14 @@ def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes(
     for index in (13, 14, 15):
         forbidden = list(passing); forbidden[index] = InvariantResult(EXPECTED_INVARIANTS[index], False, 2.0, 1.0, "eligibility_miss")
         with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, tuple(forbidden), allowances, ())
-    crossing = list(passing); crossing[16] = InvariantResult("primary_effect_threshold", False, .7, .8, "bootstrap_interval_crosses_threshold")
-    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, tuple(crossing), allowances, ())
-    no_support = list(passing); no_support[16] = InvariantResult("primary_effect_threshold", False, .9, .8, "bootstrap_interval_excludes_support")
-    no_support_measurements = dict(measurements); no_support_measurements.update({"primary_bootstrap_lower": .9, "primary_bootstrap_upper": 1.1})
+    crossing_measurements = _complete_measurements(.70, .90)
+    crossing = _complete_invariants(.70, .90)
+    assert H4GateResult("H4", GateStatus.INCONCLUSIVE, crossing_measurements, crossing, allowances, ("primary_effect_threshold: bootstrap_interval_crosses_threshold",)).status is GateStatus.INCONCLUSIVE
+    boundary_measurements = _complete_measurements(.80, .80)
+    boundary = _complete_invariants(.80, .80)
+    assert H4GateResult("H4", GateStatus.INCONCLUSIVE, boundary_measurements, boundary, allowances, ("primary_effect_threshold: bootstrap_interval_equals_threshold",)).status is GateStatus.INCONCLUSIVE
+    no_support = _complete_invariants(.90, 1.10)
+    no_support_measurements = _complete_measurements(.90, 1.10)
     assert H4GateResult("H4", GateStatus.FAIL, no_support_measurements, tuple(no_support), allowances, ()).status is GateStatus.FAIL
     ambiguous = list(passing); ambiguous[5] = InvariantResult("scaled_condition_envelope", False, None, None, "not_evaluated_after_inconclusive_eligibility")
     ambiguous[8] = InvariantResult("exact_posterior_gap_equivalence", False, 2.0, 1.0, "miss")
@@ -364,6 +424,103 @@ def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes(
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, passing, bad, ())
     bad_ratio = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}; bad_ratio["h3_anchor_identity"]["allowance_scale_ratio"] = .5
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, passing, bad_ratio, ())
+
+
+@pytest.mark.parametrize(
+    ("lower", "upper", "status", "obligations"),
+    (
+        (.70, .79, GateStatus.PASS, ()),
+        (.80, .80, GateStatus.INCONCLUSIVE, ("primary_effect_threshold: bootstrap_interval_equals_threshold",)),
+        (.81, .90, GateStatus.FAIL, ()),
+    ),
+)
+def test_gate_interval_classifier_preserves_point_interval_semantics(
+    lower: float,
+    upper: float,
+    status: GateStatus,
+    obligations: tuple[str, ...],
+) -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    assert H4GateResult(
+        "H4", status, _complete_measurements(lower, upper),
+        _complete_invariants(lower, upper), allowances, obligations,
+    ).status is status
+
+
+def test_gate_rejects_interval_classifier_and_comparison_contradictions() -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    support_measurements = _complete_measurements(.70, .79)
+    support_invariants = list(_complete_invariants(.70, .79))
+    for threshold in (None, .79, .81):
+        bad = dict(support_measurements); bad["primary_effect_threshold"] = threshold
+        with pytest.raises(ValueError):
+            H4GateResult("H4", GateStatus.PASS, bad, tuple(support_invariants), allowances, ())
+    for lower, upper in ((.90, .80), (0.0, .80)):
+        bad = _complete_measurements(.70, .79); bad.update({"primary_bootstrap_lower": lower, "primary_bootstrap_upper": upper})
+        with pytest.raises(ValueError):
+            H4GateResult("H4", GateStatus.PASS, bad, tuple(support_invariants), allowances, ())
+    wrong_interval = list(support_invariants)
+    wrong_interval[16] = InvariantResult("primary_effect_threshold", False, .70, .80, "bootstrap_interval_crosses_threshold")
+    with pytest.raises(ValueError):
+        H4GateResult("H4", GateStatus.PASS, support_measurements, tuple(wrong_interval), allowances, ())
+    unresolved = list(_complete_invariants(.90, 1.10))
+    unresolved[8] = InvariantResult("exact_posterior_gap_equivalence", False, None, None, "not_evaluated_after_inconclusive_eligibility")
+    with pytest.raises(ValueError):
+        H4GateResult("H4", GateStatus.FAIL, _complete_measurements(.90, 1.10), tuple(unresolved), allowances, ())
+    contradictory = list(_complete_invariants(.70, .79))
+    contradictory[8] = InvariantResult("exact_posterior_gap_equivalence", False, 1.0, 1.0, "not_a_miss")
+    with pytest.raises(ValueError):
+        H4GateResult("H4", GateStatus.INCONCLUSIVE, support_measurements, tuple(contradictory), allowances, ("exact_posterior_gap_equivalence: not_evaluated_after_inconclusive_eligibility",))
+
+
+def test_gate_requires_exact_nonanchor_missing_interval_sentinels() -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    measurements = _complete_measurements(.70, .79)
+    measurements.update({
+        "primary_seed_ratio_geometric_mean": None,
+        "primary_bootstrap_lower": None,
+        "primary_bootstrap_upper": None,
+    })
+    invariants = list(_complete_invariants(.70, .79))
+    unavailable = InvariantResult(
+        "primary_seed_level_inference", False, None, None,
+        "not_evaluated_after_inconclusive_eligibility",
+    )
+    invariants[15] = unavailable
+    invariants[16] = InvariantResult(
+        "primary_effect_threshold", False, None, None,
+        "not_evaluated_after_inconclusive_eligibility",
+    )
+    obligations = (
+        "primary_seed_level_inference: not_evaluated_after_inconclusive_eligibility",
+        "primary_effect_threshold: not_evaluated_after_inconclusive_eligibility",
+    )
+    assert H4GateResult(
+        "H4", GateStatus.INCONCLUSIVE, measurements, tuple(invariants), allowances, obligations,
+    ).status is GateStatus.INCONCLUSIVE
+    finite_threshold = list(invariants)
+    finite_threshold[16] = InvariantResult(
+        "primary_effect_threshold", True, .79, .80, "bootstrap_interval_supports_effect",
+    )
+    with pytest.raises(ValueError):
+        H4GateResult(
+            "H4", GateStatus.INCONCLUSIVE, measurements, tuple(finite_threshold), allowances, obligations,
+        )
+
+
+def test_gate_rejects_anchor_unavailable_sentinel_outside_anchor_fail() -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    invariants = list(_complete_invariants(.70, .79))
+    invariants[8] = InvariantResult(
+        "exact_posterior_gap_equivalence", False, None, None,
+        "not_evaluated_after_decisive_h3_anchor_failure",
+    )
+    with pytest.raises(ValueError, match="reserved for anchor FAIL"):
+        H4GateResult(
+            "H4", GateStatus.INCONCLUSIVE, _complete_measurements(.70, .79),
+            tuple(invariants), allowances,
+            ("exact_posterior_gap_equivalence: not_evaluated_after_inconclusive_eligibility",),
+        )
 
 
 def test_every_task_one_record_has_frozen_fields_and_positive_negative_validation() -> None:
@@ -382,6 +539,8 @@ def test_every_task_one_record_has_frozen_fields_and_positive_negative_validatio
     assert tuple(field.name for field in fields(H4GateResult)) == ("gate", "status", "measurements", "invariants", "allowances_by_invariant", "obligations")
     assert H4SolveProtocol().solver_relative_budget == 1e-9
     with pytest.raises(ValueError): H4SolveProtocol(solver_relative_budget=1e-8)
+    with pytest.raises(ValueError): H4SolveProtocol(factor_passes=1.0)  # type: ignore[arg-type]
+    with pytest.raises(ValueError): H4SolveProtocol(factor_passes=True)  # type: ignore[arg-type]
     selected = (
         H4SelectedMoment("initial", (0.0,), ((1.0,),)),
         H4SelectedMoment("terminal", (0.0,), ((1.0,),)),
@@ -398,12 +557,31 @@ def test_every_task_one_record_has_frozen_fields_and_positive_negative_validatio
     timing = H4TimingRecord("p", 0, 0, 0, 0, 104729, "coupled", 7, 0, 3, "moment_then_information", 1, 1)
     assert timing.order == "moment_then_information"
     with pytest.raises(ValueError): H4TimingRecord("p", 0, 0, 0, 0, 104729, "coupled", 7, 0, 3, "information_then_moment", 1, 1)
+    timing_values = ["p", 0, 0, 0, 0, 104729, "coupled", 7, 0, 3, "moment_then_information", 1, 1]
+    for index in (1, 2, 3, 4, 5, 7, 8, 9, 11, 12):
+        invalid = list(timing_values); invalid[index] = float(invalid[index])
+        with pytest.raises(ValueError): H4TimingRecord(*invalid)  # type: ignore[arg-type]
+    for index in (1, 2, 3, 4, 8):
+        invalid = list(timing_values); invalid[index] = bool(invalid[index])
+        with pytest.raises(ValueError): H4TimingRecord(*invalid)  # type: ignore[arg-type]
     operation = H4OperationRecord("p", "information", "cholesky", ((2, 2),), (2, 2), 1)
     assert operation.count == 1
     with pytest.raises(ValueError): H4OperationRecord("p", "information", "cholesky", ((0, 2),), (2, 2), 1)
     memory = H4MemoryRecord("p", "moment", None, -5, ("python_peak_bytes",))
     assert memory.process_working_set_delta_bytes == -5
     with pytest.raises(ValueError): H4MemoryRecord("p", "moment", None, -5, ())
+
+
+def test_gate_requires_exact_base_invariant_result_records() -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    invariants = list(_complete_invariants(.70, .79))
+
+    class InvariantSubclass(InvariantResult):
+        pass
+
+    invariants[0] = InvariantSubclass("h3_anchor_identity", True, 0.0, 1.0, "closed")
+    with pytest.raises(ValueError, match="exact InvariantResult"):
+        H4GateResult("H4", GateStatus.PASS, _complete_measurements(.70, .79), tuple(invariants), allowances, ())
 
 
 def test_scaled_problem_rejects_wrong_id_duplicate_draw_and_unordered_metadata() -> None:

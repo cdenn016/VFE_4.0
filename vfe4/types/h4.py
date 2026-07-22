@@ -24,6 +24,7 @@ H4JsonValue: TypeAlias = H4JsonScalar | tuple["H4JsonValue", ...] | Mapping[str,
 H4JsonMapping: TypeAlias = Mapping[str, H4JsonValue]
 H4MeasurementName: TypeAlias = Literal["primary_seed_ratio_geometric_mean", "primary_bootstrap_lower", "primary_bootstrap_upper", "primary_effect_threshold", "primary_timed_ab_total", "primary_timed_ba_total", "maximum_solver_stopping_residual", "maximum_allowance_scale_fraction"]
 H4AllowanceInvariantName: TypeAlias = Literal["h3_anchor_identity", "exact_posterior_gap_equivalence", "terminal_h_equivalence", "terminal_J_equivalence", "selected_moment_equivalence", "complete_objective_equivalence"]
+H4IntervalClass: TypeAlias = Literal["support", "no_support", "crossing", "boundary"]
 
 H4_INVARIANT_NAMES = (
     "h3_anchor_identity", "fixed_seed_problem_identity", "coupled_zero_control_contract",
@@ -56,6 +57,7 @@ H4_PROBLEM_SEEDS = (
     307831, 333271, 358747, 384253, 409891, 435437, 461009, 486587,
     512161, 537793, 563359, 588937,
 )
+H4_PRIMARY_EFFECT_THRESHOLD = 0.80
 
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _UNAVAILABLE_ANCHOR = "not_evaluated_after_decisive_h3_anchor_failure"
@@ -195,7 +197,7 @@ class H4SolveProtocol:
     solver_relative_budget: float = 1.0e-9
     stopping_rule: Literal["complete_schedule_finite_spd"] = "complete_schedule_finite_spd"
     def __post_init__(self) -> None:
-        if (self.protocol_id, self.dtype, self.device, self.factor_passes, self.stopping_rule) != ("h4-single-pass-v1", "float64", "cpu", 1, "complete_schedule_finite_spd") or self.solver_relative_budget != 1.0e-9:
+        if type(self.factor_passes) is not int or (self.protocol_id, self.dtype, self.device, self.factor_passes, self.stopping_rule) != ("h4-single-pass-v1", "float64", "cpu", 1, "complete_schedule_finite_spd") or self.solver_relative_budget != 1.0e-9:
             raise ValueError("H4 solve protocol is frozen")
 
 
@@ -248,6 +250,16 @@ class H4TimingRecord:
     problem_id: str; problem_index: int; horizon_index: int; seed_index: int; kind_index: int; seed: int; kind: H4ProblemKind; horizon: int; repetition_index: int; pair_index: int; order: H4PairOrder; information_nanoseconds: int; moment_nanoseconds: int
     def __post_init__(self) -> None:
         _string(self.problem_id, "problem_id")
+        if any(
+            type(value) is not int
+            for value in (
+                self.problem_index, self.horizon_index, self.seed_index,
+                self.kind_index, self.seed, self.horizon,
+                self.repetition_index, self.pair_index,
+                self.information_nanoseconds, self.moment_nanoseconds,
+            )
+        ):
+            raise ValueError("H4 timing integer fields must have exact int type")
         horizons = (7,15,31)
         if self.horizon_index not in range(3) or self.seed_index not in range(20) or self.kind_index not in (0,1) or self.repetition_index not in range(11) or self.horizon != horizons[self.horizon_index] or self.seed != H4_PROBLEM_SEEDS[self.seed_index] or self.kind != ("coupled" if self.kind_index == 0 else "zero_control") or self.problem_index != ((self.horizon_index * 20 + self.seed_index) * 2 + self.kind_index): raise ValueError("invalid timing identity")
         if self.pair_index != 3 + self.repetition_index or self.order not in ("information_then_moment", "moment_then_information") or self.order != ("information_then_moment" if (self.horizon_index + self.seed_index + self.kind_index + self.pair_index) % 2 == 0 else "moment_then_information") or type(self.information_nanoseconds) is not int or type(self.moment_nanoseconds) is not int or self.information_nanoseconds <= 0 or self.moment_nanoseconds <= 0: raise ValueError("invalid H4 timing record")
@@ -281,12 +293,18 @@ class H4GateResult:
     def __post_init__(self) -> None:
         if self.gate != "H4" or not isinstance(self.status, GateStatus):
             raise ValueError("invalid H4 gate result")
+        if type(self.invariants) is not tuple or not all(
+            type(item) is InvariantResult for item in self.invariants
+        ):
+            raise ValueError("invariants must be exact InvariantResult records")
         measurements = dict(self.measurements)
         if tuple(measurements) != H4_MEASUREMENT_NAMES:
             raise ValueError("measurement names/order must equal H4_MEASUREMENT_NAMES")
         for name, value in measurements.items():
             _optional_finite(value, f"measurements[{name}]")
-        if type(self.invariants) is not tuple or tuple(item.name for item in self.invariants) != H4_INVARIANT_NAMES:
+        if measurements["primary_effect_threshold"] != H4_PRIMARY_EFFECT_THRESHOLD:
+            raise ValueError("primary_effect_threshold is frozen at 0.80")
+        if tuple(item.name for item in self.invariants) != H4_INVARIANT_NAMES:
             raise ValueError("invariants must equal H4_INVARIANT_NAMES in order")
         allowances = dict(self.allowances_by_invariant)
         if tuple(allowances) != H4_ALLOWANCE_INVARIANT_NAMES:
@@ -294,34 +312,111 @@ class H4GateResult:
         if type(self.obligations) is not tuple or len(set(self.obligations)) != len(self.obligations) or not all(type(x) is str and x for x in self.obligations):
             raise ValueError("obligations must be unique nonempty strings")
         anchor = self.invariants[0]
-        anchor_fail = self.status is GateStatus.FAIL and not anchor.passed and anchor.value is not None and anchor.limit is not None and all((not item.passed and item.value is None and item.limit is None and item.detail == _UNAVAILABLE_ANCHOR) for item in self.invariants[1:])
+        anchor_fail = (
+            self.status is GateStatus.FAIL
+            and not anchor.passed
+            and anchor.value is not None
+            and anchor.limit is not None
+            and anchor.value > anchor.limit
+            and not self.obligations
+            and all(
+                (not item.passed and item.value is None and item.limit is None
+                 and item.detail == _UNAVAILABLE_ANCHOR)
+                for item in self.invariants[1:]
+            )
+        )
         if anchor_fail:
-            if tuple(name for name, value in measurements.items() if value is None) != H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL or measurements["primary_effect_threshold"] != .80:
+            if tuple(name for name, value in measurements.items() if value is None) != H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL:
                 raise ValueError("anchor failure measurements are frozen")
-        elif self.status in (GateStatus.PASS, GateStatus.FAIL) and any(value is None for value in measurements.values()): raise ValueError("completed pass/fail measurements must be finite")
-        if self.status is GateStatus.PASS and (self.obligations or not all(item.passed for item in self.invariants)): raise ValueError("PASS requires complete passing evidence")
-        if self.status is GateStatus.FAIL and not anchor_fail:
-            equivalence_miss = any(
-                not item.passed and item.value is not None and item.limit is not None and item.value > item.limit
-                for item in self.invariants[8:13]
+        elif any(item.detail == _UNAVAILABLE_ANCHOR for item in self.invariants):
+            raise ValueError("anchor-unavailable invariant sentinel is reserved for anchor FAIL")
+        elif self.status in (GateStatus.PASS, GateStatus.FAIL) and any(
+            value is None for value in measurements.values()
+        ):
+            raise ValueError("completed pass/fail measurements must be finite")
+
+        interval_class: H4IntervalClass | None = None
+        lower = measurements["primary_bootstrap_lower"]
+        upper = measurements["primary_bootstrap_upper"]
+        if (lower is None) != (upper is None):
+            raise ValueError("bootstrap interval endpoints must be jointly available")
+        if lower is not None and upper is not None:
+            interval_class = _classify_h4_interval(lower, upper)
+            _validate_interval_invariant(self.invariants[16], interval_class, lower, upper)
+        elif not anchor_fail:
+            _require_unavailable_invariant(
+                self.invariants[15], "primary_seed_level_inference", self.obligations
             )
-            lower = measurements["primary_bootstrap_lower"]
-            upper = measurements["primary_bootstrap_upper"]
-            threshold = measurements["primary_effect_threshold"]
-            no_support = (
-                not self.invariants[16].passed
-                and lower is not None and upper is not None and threshold is not None
-                and lower >= threshold and upper >= lower
-                and (lower, upper) != (threshold, threshold)
+            _require_unavailable_invariant(
+                self.invariants[16], "primary_effect_threshold", self.obligations
             )
-            if self.obligations or not all(item.passed for item in self.invariants[:8]) or not all(item.passed for item in self.invariants[13:16]) or not (equivalence_miss or no_support): raise ValueError("post-timing FAIL requires a decisive equivalence miss or bootstrap no-support interval")
-        if self.status is GateStatus.INCONCLUSIVE:
-            if not self.obligations or not any(not item.passed for item in self.invariants): raise ValueError("INCONCLUSIVE requires failed evidence and obligation")
-            producers = {"primary_seed_ratio_geometric_mean":"primary_seed_level_inference","primary_bootstrap_lower":"primary_seed_level_inference","primary_bootstrap_upper":"primary_seed_level_inference","primary_effect_threshold":"primary_effect_threshold","primary_timed_ab_total":"primary_timed_order_balance","primary_timed_ba_total":"primary_timed_order_balance","maximum_solver_stopping_residual":"shared_protocol_identity","maximum_allowance_scale_fraction":"all_equivalence_allowances_decisive"}
+
+        comparison_states = (
+            ("unresolved",) * 5
+            if anchor_fail
+            else tuple(_comparison_state(item) for item in self.invariants[8:13])
+        )
+        preconditions_pass = all(item.passed for item in self.invariants[:8])
+        eligibility_pass = all(item.passed for item in self.invariants[13:16])
+        comparisons_complete = all(state in ("pass", "miss") for state in comparison_states)
+        has_equivalence_miss = any(state == "miss" for state in comparison_states)
+        upstream_ambiguity = (
+            not preconditions_pass
+            or not eligibility_pass
+            or not comparisons_complete
+            or interval_class is None
+            or any(value is None for value in measurements.values())
+        )
+
+        if self.status is GateStatus.PASS:
+            if (
+                self.obligations
+                or not preconditions_pass
+                or not eligibility_pass
+                or comparison_states != ("pass",) * 5
+                or interval_class != "support"
+            ):
+                raise ValueError("PASS requires complete support evidence")
+        elif self.status is GateStatus.FAIL and not anchor_fail:
+            if self.obligations or upstream_ambiguity:
+                raise ValueError("post-timing FAIL requires complete eligible evidence")
+            if has_equivalence_miss:
+                pass
+            elif comparison_states == ("pass",) * 5 and interval_class == "no_support":
+                pass
+            else:
+                raise ValueError("post-timing FAIL requires a decisive equivalence miss or bootstrap no-support interval")
+        elif self.status is GateStatus.INCONCLUSIVE:
+            if not self.obligations or not any(not item.passed for item in self.invariants):
+                raise ValueError("INCONCLUSIVE requires failed evidence and obligation")
+            if not upstream_ambiguity:
+                if has_equivalence_miss or interval_class in ("support", "no_support"):
+                    raise ValueError("complete decisive evidence cannot be INCONCLUSIVE")
+                expected_obligation = (
+                    "primary_effect_threshold: bootstrap_interval_crosses_threshold"
+                    if interval_class == "crossing"
+                    else "primary_effect_threshold: bootstrap_interval_equals_threshold"
+                )
+                if self.obligations != (expected_obligation,):
+                    raise ValueError("interval precision obligation is frozen")
+            producers = {
+                "primary_seed_ratio_geometric_mean": "primary_seed_level_inference",
+                "primary_bootstrap_lower": "primary_seed_level_inference",
+                "primary_bootstrap_upper": "primary_seed_level_inference",
+                "primary_timed_ab_total": "primary_timed_order_balance",
+                "primary_timed_ba_total": "primary_timed_order_balance",
+                "maximum_solver_stopping_residual": "shared_protocol_identity",
+                "maximum_allowance_scale_fraction": "all_equivalence_allowances_decisive",
+            }
             for measurement, producer in producers.items():
                 if measurements[measurement] is None:
-                    item = self.invariants[H4_INVARIANT_NAMES.index(producer)]
-                    if (item.passed, item.value, item.limit, item.detail) != (False, None, None, _UNAVAILABLE_ELIGIBILITY) or f"{producer}: {_UNAVAILABLE_ELIGIBILITY}" not in self.obligations: raise ValueError("inconclusive unavailable producer evidence is malformed")
+                    _require_unavailable_invariant(
+                        self.invariants[H4_INVARIANT_NAMES.index(producer)],
+                        producer,
+                        self.obligations,
+                    )
+        elif not anchor_fail:
+            raise ValueError("invalid H4 gate status")
         frozen: dict[str, H4JsonMapping] = {}
         for name, record in allowances.items():
             if not isinstance(record, Mapping) or not record:
@@ -350,6 +445,79 @@ class H4GateResult:
                     if record.get("reason") != _UNAVAILABLE_ELIGIBILITY or (item.passed,item.value,item.limit,item.detail) != (False,None,None,_UNAVAILABLE_ELIGIBILITY): raise ValueError("inapplicable inconclusive allowance requires matching eligibility sentinel")
         object.__setattr__(self, "measurements", MappingProxyType(measurements))
         object.__setattr__(self, "allowances_by_invariant", MappingProxyType(frozen))
+
+
+def _classify_h4_interval(lower: float, upper: float) -> H4IntervalClass:
+    """Classify the frozen positive bootstrap interval without status side effects."""
+
+    if not (
+        math.isfinite(lower)
+        and math.isfinite(upper)
+        and lower > 0.0
+        and upper > 0.0
+        and lower <= upper
+    ):
+        raise ValueError("bootstrap interval must be finite, positive, and ordered")
+    if lower == H4_PRIMARY_EFFECT_THRESHOLD and upper == H4_PRIMARY_EFFECT_THRESHOLD:
+        return "boundary"
+    if upper <= H4_PRIMARY_EFFECT_THRESHOLD:
+        return "support"
+    if lower >= H4_PRIMARY_EFFECT_THRESHOLD:
+        return "no_support"
+    return "crossing"
+
+
+def _validate_interval_invariant(
+    invariant: InvariantResult,
+    interval_class: H4IntervalClass,
+    lower: float,
+    upper: float,
+) -> None:
+    expected = {
+        "support": (True, upper, H4_PRIMARY_EFFECT_THRESHOLD, "bootstrap_interval_supports_effect"),
+        "no_support": (False, lower, H4_PRIMARY_EFFECT_THRESHOLD, "bootstrap_interval_excludes_support"),
+        "crossing": (False, lower, H4_PRIMARY_EFFECT_THRESHOLD, "bootstrap_interval_crosses_threshold"),
+        "boundary": (False, H4_PRIMARY_EFFECT_THRESHOLD, H4_PRIMARY_EFFECT_THRESHOLD, "bootstrap_interval_equals_threshold"),
+    }[interval_class]
+    if (invariant.passed, invariant.value, invariant.limit, invariant.detail) != expected:
+        raise ValueError("primary_effect_threshold invariant must match bootstrap classifier")
+
+
+def _comparison_state(invariant: InvariantResult) -> Literal["pass", "miss", "unresolved"]:
+    if invariant.value is None or invariant.limit is None:
+        if (
+            invariant.passed is False
+            and invariant.value is None
+            and invariant.limit is None
+            and invariant.detail == _UNAVAILABLE_ELIGIBILITY
+        ):
+            return "unresolved"
+        raise ValueError("equivalence comparison availability is malformed")
+    if invariant.value < 0.0 or invariant.limit < 0.0:
+        raise ValueError("equivalence comparison residual and limit must be nonnegative")
+    if invariant.passed:
+        if invariant.value > invariant.limit:
+            raise ValueError("passing equivalence comparison exceeds its limit")
+        return "pass"
+    if invariant.value <= invariant.limit:
+        raise ValueError("failed equivalence comparison is not a decisive miss")
+    return "miss"
+
+
+def _require_unavailable_invariant(
+    invariant: InvariantResult,
+    producer: str,
+    obligations: tuple[str, ...],
+) -> None:
+    if (
+        invariant.passed,
+        invariant.value,
+        invariant.limit,
+        invariant.detail,
+    ) != (False, None, None, _UNAVAILABLE_ELIGIBILITY) or (
+        f"{producer}: {_UNAVAILABLE_ELIGIBILITY}" not in obligations
+    ):
+        raise ValueError("inconclusive unavailable producer evidence is malformed")
 
 
 def h4_problem_core(problem: H4NeutralProblem) -> dict[str, object]:
