@@ -32,17 +32,27 @@
 - Freeze `H4_SOLVER_RELATIVE_BUDGET=1e-9` and `H4_MAXIMUM_ALLOWANCE_SCALE_FRACTION=1e-4`. Each solver-produced operand contributes exactly `1e-9 * invariant_scale` once; oracle operands contribute no solver term. Each comparison records `invariant_scale=max(1, every compared scalar absolute value or vector/matrix infinity norm)`, its rounding and solver contributions, final allowance, and `allowance/invariant_scale`. Eligibility requires the ratio to be strictly less than `1e-4`; equality or a larger ratio is `INCONCLUSIVE`. No invariant borrows another invariant's scale or condition number.
 - H4 retains raw times. Peak memory and real-operation counts are secondary and are collected in separate untimed diagnostic passes using the same arm wrappers. They cannot rescue or overturn the primary timing decision and are not H8 sparse-allocation evidence.
 - Instrument real operations symmetrically through one shared `InstrumentedLinearAlgebra` facade used by both arms. A `NullOperationRecorder` is used in timed runs and a `CountingOperationRecorder` in untimed diagnostic runs. The recorder may observe an operation only inside the wrapper that actually executes it; no solver may emit estimated or formula-derived counts as if they were runtime operations.
-- H5's closed update taxonomy is exactly `exact_coordinate`, `valid_mm`, `generalized_em`, `natural_gradient_proposal`, `sgd_proposal`, `adam_proposal`, and `truncated_iteration`. Unknown aliases and optimizer-name inference fail configuration resolution.
-- An `exact_coordinate` or enabled `valid_mm` attempt may be accepted only when `delta_elbo >= -epsilon_delta`. A `generalized_em` attempt may be accepted only when the observed complete-objective change is resolved positive: `delta_elbo > epsilon_delta`. Natural-gradient, SGD, Adam, and truncated-iteration labels carry no monotonic theorem; any accepted instance still requires the declared proposal acceptance rule and remains labeled as a proposal/iteration.
-- `valid_mm` is disabled in the initial H5 profile. Configuration resolution rejects it unless a revision-bound proof artifact identifies the surrogate, touching/equality property, global minorization domain for ELBO (or majorization for VFE), maximization rule, and current derivation evidence. H5 contains the label and rejection test but no positive MM fixture.
-- A rejected valid proposal is a successful H5 outcome only when live model-state, recognition-state, optimizer-state (if present), and RNG hashes are byte-for-byte unchanged before and after rejection. Rejection with mutation is `FAIL`.
-- Every `UpdateAttempt` records: label; affected variables and parameter blocks; the complete expected factor IDs; the expected affected-factor subset; observed reevaluated factor IDs; before/after factor-input hashes; `observed_affected_factor_ids` derived only from unequal input hashes; diagnostic-only `value_changed_factor_ids`; complete factor-universe IDs; full `ElboTerms` before and after; objective schema hash; frozen-complement hash; candidate snapshot hash; live state/recognition/optimizer/RNG hashes before proposal, after proposal, and after acceptance/rollback; missing, extra, cache-hit, and reused factor IDs; delta; every operand/term-shaped allowance; `epsilon_delta`; decision; convergence/line-search metadata; autograd scope; and any damping/projection.
-- H5's dependency graph is explicit and fail-closed. It maps every recognition variable and model parameter block to the complete set of objective factor IDs whose inputs they can affect. Define `observed_affected_factor_ids` as the factor-universe-ordered IDs whose canonical input hash differs before versus after, and require exact ordered equality with `expected_affected_factor_ids`. Scalar equality never hides an input change, and scalar roundoff/change never invents a dependency; `value_changed_factor_ids` is diagnostic only. An attempt is ineligible if this equality fails, an expected reevaluation is missing, an unexpected factor appears without schema declaration, a changed-input factor is served from stale cache, a reused factor lacks matching input/frozen-complement hashes, or before/after objective schemas differ.
-- H5 minimum positive cases are: one exact conjugate Gaussian E-block; one exact normalized categorical source row where the bounded fixture exposes it; one exact Gaussian M-block with an immutable nonaliasing recognition snapshot; one accepted resolved-positive generalized-EM proposal; and one deliberately rejected objective-decreasing proposal with proven rollback.
-- H5 mandatory controls are: omit a child transition factor; omit an emission factor; accept an unresolved generalized-EM delta; mislabel a natural-gradient proposal as exact; mutate live state or RNG during rejection; change a factor input while preserving its scalar value to catch a value-based false negative; and perturb a scalar value while preserving its factor-input hash to catch a value-based false positive. Each control must be detected or classified by the intended independent dependency/acceptance/hash invariant, not by a generic exception alone.
-- H5 starts deterministic on CPU float64. Stochastic estimators and lower precision are outside this milestone. There is no stochastic error-budget branch in the initial gate.
-- H5 numerical budgets are term- and operand-shaped. Evaluate every before/after `ElboTerms` field at frozen deterministic quadrature orders `21` and `17`; its `convergence_estimate` is `abs(term_order_21-term_order_17)`, including an explicit zero for analytic terms, and its rounding allowance uses only that field's actual summands, dimensions, condition numbers, and operation count. Each term's total allowance is `convergence_estimate + rounding_allowance`. The complete before/after allowance sums every signed term's total allowance and one final reduction-rounding term. Freeze `epsilon_delta = before_total_allowance + after_total_allowance + subtraction_rounding`; the stochastic contribution is exactly zero in H5 v1. An emission-touching update whose decision does not clear this total is `INCONCLUSIVE`; no run-wide maximum or unrelated condition number may be borrowed.
-- H5 `PASS` requires every mandatory positive case and every control to pass. A finite, complete, decisive label/acceptance/dependency/rollback violation is `FAIL`. Missing proof, missing factor evidence, nonfinite output, stale schema/cache ambiguity, or an allowance that cannot resolve the required comparison is `INCONCLUSIVE` with a named obligation.
+- H5 v1 uses horizon `T=2`, the exact raw `h1-v1` fixture whose full SHA-256 is `388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b`, and one separately tracked H5 update-spec fixture.
+- The recognition law is exactly
+  \[
+  Q_{\mathrm{H5}}=\prod_{t=0}^{2}q_t^z(z_t)q_t^m(m_t)
+  \prod_{t=1}^{2}\gamma_t(b_t)\beta_t(a_t\mid b_t).
+  \]
+  It is continuous mean-field with conditional categorical state-source rows. It must never be described as fully factorized categorical recognition.
+- Every continuous factor is source-independent. In the equivalent H1 structured record, every model kernel has slope zero and identical offset/variance across all `b` slots; every state kernel has both slopes zero and identical offset/variance across all `(a,b)` slots. Equality includes offsets and variances, not slopes alone.
+- The equivalent H1 reconstruction is exact: its initial mean is `(mu_z0,mu_m0)` with diagonal covariance `diag(V_z0,V_m0)`; at each `t in (1,2)`, every model-source slot is `Normal(offset=mu_mt, slope=0, variance=V_mt)` and every state-source `(a,b)` slot is `Normal(offset=mu_zt, z_slope=0, m_slope=0, variance=V_zt)`. The parser constructs every repeated slot from the one corresponding H5 coordinate, then validates literal equality of every repeated offset and variance.
+- The exact initial continuous recognition values are, in order `(z0,m0,z1,m1,z2,m2)`, means `(-0.10,0.25,0.05,0.175,-0.04,0.14)` and variances `(0.65,0.78,0.96,1.21,0.90,1.40)`.
+- The exact categorical values are `gamma_1=(1)`, `beta_1(.|b1=0)=(1)`, `gamma_2=(0.4,0.6)`, `beta_2(.|b2=0)=(0.75,0.25)`, and `beta_2(.|b2=1)=(0.2,0.8)`. Every listed probability is finite, nonnegative, normalized, and positive on its declared support.
+- `q[source_row_a2]` means only `beta_2(.|b2=0)` on ordered support `(0,1)`. No alias names are accepted.
+- The exact mutable model-block universe is `theta[state_transition_2]`, `theta[emission_1]`, and `theta[shared_decoder_transition]`. All other H1 model values are frozen reference inputs.
+- `theta[state_transition_2]` stores the full scalar-Gaussian base block `(alpha_0,alpha_1,B_base,c,R)`, initially `(0.8,0.64,-0.35,0.08,0.48)`; the effective normalized-factor block is `(alpha_0,alpha_1,B_effective=B_base+s,c,R)`. H5 promotes these copied transition coefficients to independently mutable parameters; an accepted H5 candidate does not claim to remain derived from the frozen H1 frame object.
+- `theta[emission_1]` initially owns `w_z=(0.2,-0.4,0.1)`, `w_m=(0.3,0.2,-0.5)`, and `bias=(0.05,-0.1,0.15)`.
+- `theta[shared_decoder_transition]` is one scalar `s`, initially `0.0`. Reconstruction uses `B_effective=B_base+s`, `emission[1].w_z[0]=w_z_base[0]+s`, and `emission[2].w_z[0]=-0.1+s`. The remaining emission-2 values stay frozen from H1. This one primitive block, not accidental tensor aliasing, creates the declared three-factor dependency.
+- H5 v1 is deterministic CPU float64. Quadrature orders are exactly `21` and `17`; stochastic contribution is exactly zero.
+- The initial optimizer state is `FrozenByteState("h5-no-optimizer-v1", b'{"kind":"none"}')`. The initial RNG state is `FrozenByteState("h5-deterministic-rng-v1", b'{"algorithm":"none","counter":0}')`; production H5 v1 never advances it. The rejection-mutation control changes only its test-local counter to one so rollback hashing has a declared target.
+- The existing `ElboTerms.complete_elbo` is the sole scalar objective. Raw expected-log-factor values plus recognition entropy and the KL-partitioned `ElboTerms` are two reconstructions of that scalar, never two objectives.
+- Accepted state changes only by whole `RecognitionSnapshot` and `H5ModelSnapshot` replacement inside `execute_update`. No accepted snapshot contains a live tensor, autograd graph, optimizer method, or alias of H1/H2 records.
+- `valid_mm` remains in `UpdateLabel` but has no H5 v1 producer. A request for it is rejected during configuration resolution unless a revision-bound proof artifact is present. Absence of an MM request is irrelevant to H5 gate status; H5 attempt and gate code have no missing-MM-proof branch.
 - Each task runs only its named focused RED/GREEN command. Do not run cumulative suites between tasks. The finished H4/H5 candidate uses exactly one full pytest run with JUnit because both gates, both payloads, and both configs are committed at the same exact revision and evaluated by one click artifact. If any source, test, configuration, fixture, preregistration, or artifact-schema change follows review, invalidate both gates' coupled evidence and run one replacement full suite at the new joint candidate revision.
 - Fresh reviewers inspect existing focused output, the one exact-revision JUnit XML, raw H4 timings, H5 attempts, manifest, payloads, and claim ledger. They do not rerun implementer tests, the full suite, or benchmark repetitions.
 - Preserve `.verification/ledger.json`, every `.verification/h3-<FULL_HEAD>-ledger.json`, and every prior H4/H5 ledger byte-for-byte. The coupled milestone uses only `.verification/h4-h5-<FULL_HEAD>-ledger.json`. An existing `.verification/active.json` blocks activation; never delete, overwrite, or repoint it manually.
@@ -73,13 +83,17 @@
 | `verification/h4_budget.py` | Operand-shaped terminal equivalence allowances only. |
 | `verification/h4_statistics.py` | Primary per-seed/aggregate timed-order balance, seed-level medians, geometric mean, fixed paired bootstrap, and three-way threshold decision. |
 | `verification/h4_gate.py` | Preflight, correctness anchor, scaled equivalence, independently indexed timed AB/BA harness, balance gate, diagnostics, status mapping, and H4 payload. |
-| `vfe4/types/updates.py` | Closed H5 taxonomy, factor IDs, immutable snapshots, hashes, `UpdateAttempt`, and H5 gate-result records. |
-| `vfe4/objective/dependency_graph.py` | Static variable/parameter-to-factor graph and expected affected-factor calculation. |
-| `vfe4/objective/h5_complete.py` | One authoritative full `ElboTerms` evaluation with factor-level trace and cache provenance. |
-| `vfe4/inference/h5_updates.py` | Differentiable proposal construction, exact/source/M/GEM operations, freeze-before-evaluate, acceptance, and rollback controller. |
-| `verification/numpy_oracles/h5_updates.py` | Independent exact E/source/M reference updates and complete-objective deltas. |
-| `verification/h5_budget.py` | Per-term deterministic-convergence plus rounding records, complete before/after totals, subtraction rounding, and exact `epsilon_delta`. |
-| `verification/h5_gate.py` | Positive cases, adversarial controls, dependency/acceptance/hash decisions, and H5 payload. |
+| `.gitattributes` | Freezes `h5_conditional_update_v1.json` as raw non-text bytes so Git cannot rewrite the pinned fixture. |
+| `vfe4/types/updates.py` | Closed H5 labels/rules, immutable recognition/model/reference/live/candidate/request records, transaction-outcome union, and canonical state hashes. |
+| `vfe4/types/h5_schema.py` | Dependency-neutral identifier universes, reconstruction records, term signs, hash domains, operation-count tables, and objective/factor-input schema hashes. |
+| `vfe4/validation/fixtures/h5_conditional_update_v1.json` | Exact conditional-categorical H5 update specification with pinned raw bytes. |
+| `vfe4/validation/h5_update_spec.py` | Full-digest-first strict parser, canonical specification encoding, exact H1 reconstruction, and reference-state builder. |
+| `vfe4/objective/dependency_graph.py` | Closed variable/parameter-to-factor graph and exact ordered affected-factor calculation. |
+| `vfe4/objective/h5_complete.py` | One authoritative complete `ElboTerms` evaluation with raw factor trace, factor-input hashes, and fail-closed cache provenance. |
+| `vfe4/numerics/h5_budget.py` | Production-owned term, complete-objective, delta, and exact-candidate operand-shaped numerical allowances. |
+| `vfe4/inference/h5_updates.py` | Differentiable proposal construction, exact/source/M/GEM/natural operations, freeze-before-evaluate, acceptance, and transactional rollback. |
+| `verification/numpy_oracles/h5_updates.py` | NumPy-only independent exact E/source/M candidates and complete-objective deltas from raw captured bytes. |
+| `verification/h5_gate.py` | Five positive cases, seven adversarial controls, independent candidate comparison, status mapping, and byte-bound H5 payload. |
 | `vfe4/config/schema.py` | Frozen `H4ValidationConfig` and `H5ValidationConfig` sections plus closed literals. |
 | `vfe4/config/resolve.py` | Exact protocol and derived timed-balance validation, coupled prefix validation, and canonical config hashing. |
 | `verification/run_gates.py` | Conditional one-time fixture capture, ordered H1--H5 evaluation, and one atomic artifact family. |
@@ -410,77 +424,251 @@ Canonical problem bytes are exact. Let `core` be the ordered public `H4NeutralPr
 
 For a matched coupled/control pair with `source_kind="scaled_pcg64"`, allowed differences are only `kind`, `problem_id`, `canonical_sha256`, and designated transition-parent matrix columns. Raw draws, targets, covariances, roles, time indices, normalized metadata, parent metadata, factor IDs/order, seed, horizon, shape, and every other factor field are identical; parent metadata remains identical when its designated coefficient columns are zero. This invariant does not apply to H3 anchors: the independently authored H3 zero fixture changes observation targets. The adapter maps each H3 scalar structurally as `matrix=(row,)`, `target=(target,)`, and `covariance=((variance,),)`. It derives role/time/normalized/parent metadata from the public `initial_factors`, `transition_factors`, and `observation_factors` group and declared position only, never IDs/names. It reproduces derived scalar normalizers as `-.5*log(2*pi*variance)`. For every H4 schedule, assemble `J=sum(A^T R^-1 A)`, `h=sum(A^T R^-1 b)`, and `c=-.5 sum(b^T R^-1 b + d*log(2*pi) + logdet(R))`. The coupled anchor compares its frozen reference log evidence; the zero H3 fixture has no frozen reference log evidence and compares independently derived adapter/oracle `c/logZ` only, never a frozen-reference logZ.
 
+## H5 Authoritative Identifier Universes
+
 ```python
-# vfe4/types/updates.py
-class UpdateLabel(str, Enum):
-    EXACT_COORDINATE = "exact_coordinate"
-    VALID_MM = "valid_mm"
-    GENERALIZED_EM = "generalized_em"
-    NATURAL_GRADIENT_PROPOSAL = "natural_gradient_proposal"
-    SGD_PROPOSAL = "sgd_proposal"
-    ADAM_PROPOSAL = "adam_proposal"
-    TRUNCATED_ITERATION = "truncated_iteration"
+H5_FACTOR_UNIVERSE = (
+    "initial_joint",
+    "model_source[1]", "model_transition[1]", "state_source[1]",
+    "state_transition[1]", "emission[1]",
+    "model_source[2]", "model_transition[2]", "state_source[2]",
+    "state_transition[2]", "emission[2]", "recognition_entropy",
+)
 
-@dataclass(frozen=True)
-class RecognitionSnapshot:
-    schema_version: str
-    tensors: Mapping[str, FrozenTensorValue]
-    state_sha256: str
+H5_RECOGNITION_COORDINATE_UNIVERSE = (
+    "q[z0]", "q[m0]", "q[z1]", "q[m1]", "q[z2]", "q[m2]",
+    "q[model_source_b1]", "q[state_source_a1_b0]",
+    "q[model_source_b2]", "q[source_row_a2]", "q[state_source_a2_b1]",
+)
 
-@dataclass(frozen=True)
-class CompleteElboEvaluation:
-    terms: ElboTerms
-    factor_values: Mapping[str, float]
-    factor_input_hashes: Mapping[str, str]
-    factor_ids: tuple[str, ...]
-    cache_hits: tuple[str, ...]
-    reused_factor_ids: tuple[str, ...]
-    objective_schema_sha256: str
-    frozen_complement_sha256: str
+H5_MODEL_BLOCK_UNIVERSE = (
+    "theta[state_transition_2]",
+    "theta[emission_1]",
+    "theta[shared_decoder_transition]",
+)
 
-@dataclass(frozen=True)
-class UpdateAttempt:
-    label: UpdateLabel
-    variables: tuple[str, ...]
-    parameters: tuple[str, ...]
-    expected_factor_ids: tuple[str, ...]
-    expected_affected_factor_ids: tuple[str, ...]
-    observed_factor_ids: tuple[str, ...]
-    observed_affected_factor_ids: tuple[str, ...]
-    value_changed_factor_ids: tuple[str, ...]
-    complete_factor_ids: tuple[str, ...]
-    missing_factor_ids: tuple[str, ...]
-    extra_factor_ids: tuple[str, ...]
-    cache_hits: tuple[str, ...]
-    reused_factor_ids: tuple[str, ...]
-    before: CompleteElboEvaluation
-    after: CompleteElboEvaluation
-    delta_elbo: float
-    epsilon_delta: float
-    accepted: bool
-    decision_reason: str
-    hashes: UpdateHashRecord
-    autograd_scope: str
-
-# vfe4/objective/dependency_graph.py
-def expected_affected_factors(
-    graph: FactorDependencyGraph,
-    *,
-    variables: tuple[str, ...],
-    parameters: tuple[str, ...],
-) -> tuple[str, ...]: ...
-
-# vfe4/inference/h5_updates.py
-def freeze_recognition_candidate(working: DifferentiableRecognitionState) -> RecognitionSnapshot: ...
-def execute_update(
-    live: H5LiveState,
-    specification: UpdateSpecification,
-    evaluator: CompleteElboEvaluator,
-    budget: H5BudgetConfig,
-) -> UpdateAttempt: ...
+H5_SIGNED_TERM_IDS = (
+    "expected_log_emission[1]", "expected_log_emission[2]",
+    "initial_model_kl", "initial_state_kl",
+    "model_source_kl[1]", "model_source_kl[2]",
+    "model_transition_kl[1]", "model_transition_kl[2]",
+    "state_source_kl[1]", "state_source_kl[2]",
+    "state_transition_kl[1]", "state_transition_kl[2]",
+)
+H5_SIGNED_TERM_SIGNS = (+1,+1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1)
+H5_DIAGNOSTIC_TERM_IDS = ("joint_recognition_entropy",)
+H5_DERIVED_TERM_IDS = ("complete_elbo",)
+H5_NONCLAIM_IDS = (
+    "no_h4_cost_claim",
+    "no_h6_prediction_claim",
+    "no_h7_scaling_claim",
+    "no_h8_training_or_readiness_claim",
+)
 ```
 
-The exact field order above is part of canonical JSON and hashing. Add `H4GateResult` and `H5GateResult` as separate fail-closed records rather than widening H1/H2's singular-residual assumptions or H3's allowance mapping into an untyped union. The unified runner accepts the explicit result union.
+`ElboTerms.allowances` is metadata, not an evaluated term. `joint_recognition_entropy` is evaluated and budgeted diagnostically but is not added again to the KL-partitioned complete scalar. `complete_elbo` is derived once from `H5_SIGNED_TERM_IDS`.
+
+## H5 Closed Dependency Graph
+
+```text
+q[z0] -> initial_joint, state_transition[1], state_transition[2], recognition_entropy
+q[m0] -> initial_joint, model_transition[1], model_transition[2], recognition_entropy
+q[z1] -> state_transition[1], emission[1], state_transition[2], recognition_entropy
+q[m1] -> model_transition[1], state_transition[1], emission[1], model_transition[2], recognition_entropy
+q[z2] -> state_transition[2], emission[2], recognition_entropy
+q[m2] -> model_transition[2], state_transition[2], emission[2], recognition_entropy
+q[model_source_b1] -> model_source[1], model_transition[1], state_source[1], state_transition[1], recognition_entropy
+q[state_source_a1_b0] -> state_source[1], state_transition[1], recognition_entropy
+q[model_source_b2] -> model_source[2], model_transition[2], state_source[2], state_transition[2], recognition_entropy
+q[source_row_a2] -> state_source[2], state_transition[2], recognition_entropy
+q[state_source_a2_b1] -> state_source[2], state_transition[2], recognition_entropy
+theta[state_transition_2] -> state_transition[2]
+theta[emission_1] -> emission[1]
+theta[shared_decoder_transition] -> state_transition[2], emission[1], emission[2]
+```
+
+Singleton categorical coordinates remain in the universe and graph even though their only valid probability vector is `(1)`. Public update-request resolution rejects attempts to change a singleton coordinate.
+
+## H5 Canonical Encoding and Hash Domains
+
+All runtime snapshot/hash encoders recursively convert each finite binary64 value to `float.hex()`, bytes to `{"length":len(payload),"hex":payload.hex()}`, tuples to arrays, enums to their exact string values, and mappings to exact-schema sorted-key compact UTF-8 JSON with `ensure_ascii=True`, separators `(',', ':')`, and no trailing newline. This distinguishes signed zero and avoids interpreter-dependent decimal formatting. Constructors compute hashes; callers never supply trusted state hashes.
+
+```text
+vfe4.h5.update-spec.v1\0
+vfe4.h5.update-request.v1\0
+vfe4.h5.reference-state.v1\0
+vfe4.h5.recognition-snapshot.v1\0
+vfe4.h5.model-snapshot.v1\0
+vfe4.h5.live-state.v1\0
+vfe4.h5.candidate.v1\0
+vfe4.h5.semantic-state.v1\0
+vfe4.h5.attempt.v1\0
+vfe4.h5.transaction.v1\0
+vfe4.h5.factor-input-schema.v1\0
+vfe4.h5.factor-input.v1\0
+vfe4.h5.frozen-complement.v1\0
+vfe4.h5.optimizer-state.v1\0
+vfe4.h5.rng-state.v1\0
+vfe4.h5.objective-schema.v1\0
+vfe4.h5.validation-payload.v1\0
+```
+
+The H5 update-spec parser computes `SHA256(raw_bytes)` before UTF-8 decoding and compares all 64 hexadecimal characters with its pinned literal. It then rejects duplicate keys, unknown/missing fields, nonfinite constants, wrong sequence types/order, aliases, and schema drift. `UpdateSpecification` accepts the already checked immutable raw bytes but no digest/canonical metadata; its constructor recomputes `raw_sha256`, encodes only the decoded semantic fields (never `raw_bytes` or derived hashes) into `canonical_bytes`, and derives the domain-separated canonical hash. `H5ReferenceState` requires byte equality between its update-spec bytes and `specification.raw_bytes`, verifies the exact H1/update IDs, and likewise recomputes all four displayed hashes from its bytes/specification/schema constants instead of accepting them from callers.
+
+The reference-state hash core is exactly `(h1_fixture_sha256, update_spec_raw_sha256, specification.canonical_sha256, objective_schema_sha256, factor_input_schema_sha256, initial_recognition.state_sha256, initial_model.state_sha256, initial_optimizer_state.state_sha256, initial_rng_state.state_sha256)` in that order under the reference-state domain. `initial_live(reference)` returns a new complete `H5LiveState` containing exactly those four initial state objects after defensive reconstruction; its resulting nested hashes equal the four recorded reference hashes.
+
+The request-independent semantic-state digest is `SHA256(semantic-state-domain || uint64_be(len(canonical_recognition_bytes)) || canonical_recognition_bytes || uint64_be(len(canonical_model_bytes)) || canonical_model_bytes)`. Production and the independent oracle both retain it as provenance, but independent NumPy/PyTorch arithmetic is not required to produce bit-identical digests. Candidate correctness uses the frozen fieldwise allowance below. This digest deliberately excludes rule/request/label/active-block/damping provenance, which remains protected only by `candidate_sha256` and transaction validation.
+
+`factor_input_schema_sha256` is the hash of the factor-input-schema domain followed by canonical JSON of `(H5_FACTOR_UNIVERSE, ("schema_version","factor_id","normalized_factor","observation","recognition_inputs"), reconstruction_records)`. For each factor, `normalized_factor` is its reconstructed effective generative factor after applying shared groups, `observation` is the exact time-labeled observation or `null`, and `recognition_inputs` is the ordered `(coordinate_id, canonical coordinate value)` tuple named by its reconstruction record; `recognition_entropy` instead uses `normalized_factor=null`, `observation=null`, and all recognition coordinates in universe order. `objective_schema_sha256` is the hash of the objective-schema domain followed by canonical JSON of the factor-input schema hash, all three identifier sets and signs, the complete dependency graph, reconstruction/shared-group records, quadrature orders, all three operation-count tables, and literal formula tags `h5-term-budget-v1`, `h5-complete-budget-v1`, `h5-delta-budget-v1`, and `h5-candidate-comparison-v1`.
+
+For one request, the frozen-complement core is exactly `(h1_raw_sha256, update_spec_raw_sha256, objective_schema_sha256, every recognition coordinate not named in request.variables, every model block not named in request.parameters, optimizer_state_sha256, rng_state_sha256)` in the universe orders above. Its domain-separated hash is computed before proposal construction and must be identical in the candidate evaluation. Active blocks never appear in the complement; undeclared blocks cannot be omitted.
+
+## H5 Exact Numerical Budget
+
+```python
+H5_EPS = float(np.finfo(np.float64).eps)
+H5_C = 4096.0
+
+def gamma_n(n: int) -> float:
+    return (n * H5_EPS) / (1.0 - n * H5_EPS)
+
+H5_ANALYTIC_OPERATION_COUNTS = {
+    "initial_model_kl": 192,
+    "initial_state_kl": 192,
+    "model_source_kl[1]": 32,
+    "model_source_kl[2]": 64,
+    "model_transition_kl[1]": 192,
+    "model_transition_kl[2]": 320,
+    "state_source_kl[1]": 32,
+    "state_source_kl[2]": 96,
+    "state_transition_kl[1]": 256,
+    "state_transition_kl[2]": 448,
+    "joint_recognition_entropy": 320,
+}
+
+H5_ANALYTIC_FACTOR_OPERATION_COUNTS = {
+    "initial_joint": 256,
+    "model_source[1]": 32,
+    "model_transition[1]": 192,
+    "state_source[1]": 32,
+    "state_transition[1]": 256,
+    "model_source[2]": 64,
+    "model_transition[2]": 320,
+    "state_source[2]": 96,
+    "state_transition[2]": 448,
+    "recognition_entropy": 320,
+}
+
+H5_CANDIDATE_COMPARISON_OPERATION_COUNTS = {
+    "exact_z0.mean": 512,
+    "exact_z0.variance": 512,
+    "exact_source_row_a2.probability[0]": 512,
+    "exact_source_row_a2.probability[1]": 512,
+    "exact_state_transition_2_m.alpha_0": 4096,
+    "exact_state_transition_2_m.alpha_1": 4096,
+    "exact_state_transition_2_m.B_base": 4096,
+    "exact_state_transition_2_m.c": 4096,
+    "exact_state_transition_2_m.R": 4096,
+}
+
+def emission_operation_count(order: int) -> int:
+    if order not in (21, 17):
+        raise ValueError("H5 quadrature order must be 21 or 17")
+    return 32 * order * order + 8 * order + 32
+```
+
+These are frozen conservative scalar-operation upper bounds for the stated evaluator and independent-candidate algebra, not runtime profiler counts. The candidate table applies separately to the production and independent oracle value. Changing either algebra invalidates the table and evidence.
+
+For each term and order `r`:
+
+\[
+\rho_r=4096\,\gamma_{N_r}\max(1,\kappa_{r,1},\ldots)
+\max(1,|v_r|,S_r),
+\]
+
+where `S_r` is that term's actual absolute-summand accumulation and the kappas are only its actual SPD solve/precision condition numbers; terms without an SPD solve use `(1.0,)`. Define
+
+\[
+\rho_{21-17}=4096\,\gamma_3
+\max(1,|v_{21}|,|v_{17}|,|v_{21}|+|v_{17}|),
+\]
+\[
+A_{\mathrm{term}}=|v_{21}-v_{17}|+\rho_{21}+\rho_{17}+\rho_{21-17}.
+\]
+
+Analytic terms have identical order values and explicit zero convergence, while retaining rounding allowances. The complete before/after allowance is
+
+\[
+A_{\mathrm{complete}}=\sum_{i=1}^{12}A_i+
+4096\,\gamma_{13}\max\left(1,\sum_{i=1}^{12}|s_iv_i|\right).
+\]
+
+For `delta=after-before`,
+
+\[
+A_{\mathrm{sub}}=4096\,\gamma_3
+\max(1,|before|,|after|,|delta|,|before|+|after|),
+\]
+\[
+\epsilon_\Delta=A_{before}+A_{after}+A_{sub}.
+\]
+
+For an independently generated exact-candidate scalar pair `(p_j,o_j)` with frozen count `N_j`, define
+
+\[
+\rho^p_j=4096\gamma_{N_j}\max(1,\kappa^p_j)\max(1,|p_j|),\qquad
+\rho^o_j=4096\gamma_{N_j}\max(1,\kappa^o_j)\max(1,|o_j|),
+\]
+\[
+\rho^{cmp}_j=4096\gamma_3\max(1,|p_j|,|o_j|,|p_j|+|o_j|),\qquad
+A^{candidate}_j=\rho^p_j+\rho^o_j+\rho^{cmp}_j.
+\]
+
+For z0 and source-row fields both kappas are `1.0`; for every M-block field both are the recorded condition number of `G`. Exact-candidate agreement requires each `abs(p_j-o_j) <= A_candidate_j`. Proposal cases GEM/natural have no independently generated parameter candidate and therefore no candidate-field comparison; their independent check is the complete before/after delta.
+
+No global kappa, run-wide maximum, unrelated term scale, stochastic allowance, or solver contribution may be added.
+
+
+## H5 Public Interface Seams
+
+The complete immutable schemas and exact canonical field orders are owned by Tasks 5–8 below. These top-level seams are normative:
+
+```python
+H5AttemptOutcome: TypeAlias = CompletedUpdateAttempt | FailedUpdateAttempt
+
+def build_h5_reference_state(
+    h1_fixture_bytes: bytes,
+    h5_update_spec_bytes: bytes,
+) -> H5ReferenceState: ...
+
+def evaluate_h5_complete_elbo(
+    reference: H5ReferenceState,
+    state: H5LiveState | H5CandidateSnapshot,
+    *,
+    frozen_complement_sha256: str,
+    cache: Mapping[FactorCacheKey, FactorCacheEntry] | None = None,
+) -> CompleteElboEvaluation: ...
+
+def execute_update(
+    reference: H5ReferenceState,
+    live: H5LiveState,
+    request: UpdateRequest,
+    evaluator: CompleteElboEvaluator,
+    budget: H5BudgetConfig,
+    *,
+    fault_injection: H5FaultInjection | None = None,
+) -> H5TransactionResult: ...
+
+def evaluate_h5(
+    config: ResolvedConfig,
+    *,
+    h1_fixture_bytes: bytes,
+    h5_update_spec_bytes: bytes,
+) -> H5GateEvaluation: ...
+```
+
+The unified runner accepts the explicit H1–H5 result union. H4 and H5 retain separate fail-closed result records, measurements, statuses, payloads, and provenance.
+
 
 ## Design Rationale and Nonclaims
 
@@ -493,7 +681,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 - H4 memory/count diagnostics are separated from the primary timer because Python/native allocation tracking and counting wrappers add different overheads. They remain useful implementation evidence but not primary inferential endpoints.
 - H5 verifies labels against the complete implemented ELBO. It does not prove the whitepaper's exact-arithmetic coordinate theorem, and numerical monotonicity tests cannot replace the derivation in the manuscript.
 - A natural coordinate, natural-gradient direction, reverse-mode gradient, optimizer class, or accepted line search does not imply exact coordinate ascent. The stored label describes the executed operation.
-- Exact/MM allow a resolved rounding-scale nonincrease (`delta >= -epsilon_delta`). GEM is stricter: it must resolve a positive increase (`delta > epsilon_delta`). This prevents a numerically unresolved tie from being advertised as generalized-EM progress.
+- Exact-coordinate attempts allow a resolved rounding-scale nonincrease (`delta >= -epsilon_delta`). GEM is stricter: it must resolve a positive increase (`delta > epsilon_delta`). A future proof-bound MM rule could use the former policy, but no MM request reaches H5 attempt or gate code in v1. This prevents a numerically unresolved tie from being advertised as generalized-EM progress.
 - H5's rejected-proposal case is positive verification of transactional behavior, not a claim that the proposal was a good update.
 - The initial H5 profile proves no MM implementation because no current revision-bound minorization artifact exists. Rejecting `valid_mm` configuration is the correct closed-world behavior.
 
@@ -1003,207 +1191,877 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
   ```
 
 ---
-### Task 5: Freeze the H5 Taxonomy, Factor-Dependency Graph, Immutable Snapshot Boundary, and Preregistration
+### Task 5: Freeze H5 Types, Raw Specification, Snapshot Ownership, Hashes, and Complete Dependency Graph
 
 **Files:**
 
+- Create: `.gitattributes` containing exactly `vfe4/validation/fixtures/h5_conditional_update_v1.json -text` so Git never rewrites the raw hashed fixture bytes.
 - Create: `vfe4/types/updates.py`
-- Modify: `vfe4/types/__init__.py`
+- Modify after H4 export serialization: `vfe4/types/__init__.py`
+- Create: `vfe4/types/h5_schema.py`
 - Create: `vfe4/objective/dependency_graph.py`
 - Modify: `vfe4/objective/__init__.py`
-- Create: `vfe4/validation/fixtures/h5_factorized_update_v1.json`
+- Create: `vfe4/validation/fixtures/h5_conditional_update_v1.json`
 - Create: `vfe4/validation/h5_update_spec.py`
 - Create: `tests/unit/test_h5_update_types.py`
+- Create: `tests/unit/test_h5_objective_schema.py`
 - Create: `tests/unit/test_h5_dependency_graph.py`
 - Create: `tests/unit/test_h5_update_spec.py`
 - Create: `docs/preregistrations/2026-07-21-h5-update-coherence.md`
 
 **Interfaces:**
 
-- Produce `UpdateLabel`, `FactorId`, `UpdateSpecification`, `FrozenTensorValue`, `RecognitionSnapshot`, `H5ModelSnapshot`, `H5ReferenceState`, `FactorInputHashRecord`, `UpdateHashRecord`, `CompleteElboEvaluation`, `UpdateAttempt`, `H5PositiveCaseResult`, `H5ControlResult`, and `H5GateResult`. `CompleteElboEvaluation.factor_values` and `.factor_input_hashes` are defensive-copy `MappingProxyType` mappings in exact factor-universe order. `H5ModelSnapshot` owns only immutable model parameter-block values, normalized-factor reconstruction metadata, declared shared-storage groups, and schema hashes; `H5ReferenceState` owns the parsed update specification plus immutable initial recognition/model snapshots.
-- Produce `FactorDependencyGraph(factor_universe, variable_dependencies, parameter_dependencies)`, `build_h5_reference_dependency_graph()`, and `expected_affected_factors(...)`.
-- Freeze factor IDs in exact order: `initial_joint`, `model_source[1]`, `model_transition[1]`, `state_source[1]`, `state_transition[1]`, `emission[1]`, `model_source[2]`, `model_transition[2]`, `state_source[2]`, `state_transition[2]`, `emission[2]`, `recognition_entropy`.
+`vfe4/types/updates.py` owns every displayed snapshot/request/value record and update enum plus canonical recognition/model/request/live/reference/candidate/semantic-state encoders and `initial_live`. `vfe4/types/h5_schema.py` owns every identifier/dependency/reconstruction literal tuple, sign, operation-count table/function, hash domain, factor-input/objective schema encoder, and resulting schema hash as plain immutable data, importing no update dataclass; lower-level types and higher-level objective/numerical modules therefore share one dependency-neutral source. `vfe4/objective/dependency_graph.py` owns `FactorDependencyGraph` plus dependency resolution. `vfe4/validation/h5_update_spec.py` owns the expected raw-digest literal, strict parser, reference builder, H1 reconstruction, and update-spec canonical encoder.
 
-- [ ] **Step 1: Write the H5 preregistration before executing any update.** Copy the closed taxonomy, factor universe, variable/parameter dependency table, canonical factor-input hash schema, exact `observed_affected = ordered(input_hash_before != input_hash_after)` rule, diagnostic-only value-change rule, positive cases, seven controls, snapshot/alias rules, cache/reuse rules, hash state machine, frozen quadrature orders `21/17`, per-term deterministic convergence estimates, rounding formulas, complete before/after totals, exact `epsilon_delta` formula, zero stochastic contribution, exact/MM/GEM/proposal decisions, emission-touching indecision rule, status precedence, JSON schema, and H4/H6/H7/H8/training nonclaims. Record `valid_mm` as configuration-disabled pending a named proof artifact; do not reserve a blank proof path.
+```python
+class UpdateLabel(str, Enum):
+    EXACT_COORDINATE = "exact_coordinate"
+    VALID_MM = "valid_mm"
+    GENERALIZED_EM = "generalized_em"
+    NATURAL_GRADIENT_PROPOSAL = "natural_gradient_proposal"
+    SGD_PROPOSAL = "sgd_proposal"
+    ADAM_PROPOSAL = "adam_proposal"
+    TRUNCATED_ITERATION = "truncated_iteration"
 
-  Freeze the bounded H5 state as the unchanged `h1-v1` generative factors plus `vfe4/validation/fixtures/h5_factorized_update_v1.json`, a separately declared fully factorized continuous/categorical recognition and model-state specification parsed only by `vfe4/validation/h5_update_spec.py`. The fixture contains its fixture ID, fixture schema version, factor-input-hash schema version, exact ordered factor universe, fully factorized CPU-float64 recognition initialization, immutable model parameter blocks, normalized-factor reconstruction schema, source-support masks, the exact `source_row_a2` coordinate/parent conditioning, and every declared shared-storage group. Before JSON decoding, the parser computes `SHA256(raw_fixture_bytes)` and compares it to the exact pinned literal; mismatch is a typed failure. Any canonical reserialization digest is recorded separately and cannot substitute for the raw-byte digest. The parser then validates every required field and finite value, rejects unknown/extra fields and undeclared/ambiguous aliases, and returns canonical bytes plus hash before any dependency graph is built. Task 5 authors the bytes and pins the measured exact `SHA256(raw_fixture_bytes)` literal in the parser and parser tests before Task 5 GREEN/commit; Task 9 later copies exactly that literal into `H5ValidationConfig` and verifies equality. Do not invent the digest before the fixture exists. Its zero cross-block recognition slopes make the `q[z0]` Markov-blanket coordinate conjugate while retaining positive source support, child transitions, and both categorical emissions elsewhere in the complete objective. The fixture/update-spec hashes, not mutable runtime constructors, identify this initial state.
+class H5UpdateRule(str, Enum):
+    EXACT_Z0 = "exact_z0"
+    EXACT_SOURCE_ROW_A2 = "exact_source_row_a2"
+    EXACT_STATE_TRANSITION_2_M = "exact_state_transition_2_m"
+    GENERALIZED_EM_EMISSION_1 = "generalized_em_emission_1"
+    NATURAL_GRADIENT_Z1 = "natural_gradient_z1"
 
-  Freeze `q[source_row_a2]` as the **state-source recognition conditional row** at `t=2`, with fixed model-source condition `b2=0`, ordered parent support `a2=(0,1)`, and initial probabilities `(0.75,0.25)`. Its exact categorical update uses this fixed positive support, the state-source prior, and the complete expected state-transition score. It is neither the `b2` model-source row nor the state-source row conditioned on `b2=1`.
+@dataclass(frozen=True)
+class FrozenTensorValue:
+    dtype: Literal["float64"]
+    shape: tuple[int, ...]
+    values: tuple[float, ...]
 
-  `H5LiveState` owns accepted recognition and model snapshots only by whole-snapshot replacement. `DifferentiableRecognitionState` and any differentiable model working values are ephemeral proposal inputs; they cannot be accepted state, serialized snapshots, or aliases of H1/H2 records. Accepted `H5ModelSnapshot` values are immutable `FrozenTensorValue` records and rebuild normalized factor inputs from the declared reconstruction schema. This supplies explicit ownership for `theta[state_transition_2]` and every shared parameter block without mutating H1 generative factors.
+@dataclass(frozen=True)
+class FrozenByteState:
+    schema_version: str
+    payload: bytes
+    state_sha256: str = field(init=False)
 
-  The preregistered dependency table must include at least:
+@dataclass(frozen=True)
+class GaussianRecognitionCoordinate:
+    coordinate_id: str
+    mean: FrozenTensorValue       # scalar shape ()
+    variance: FrozenTensorValue   # scalar shape (), strictly positive
 
-  ```text
-  q[z0] -> initial_joint, state_transition[1], state_transition[2], recognition_entropy
-  q[m0] -> initial_joint, model_transition[1], model_transition[2], recognition_entropy
-  q[z1] -> state_transition[1], emission[1], state_transition[2], recognition_entropy
-  q[m1] -> model_transition[1], state_transition[1], emission[1], model_transition[2], recognition_entropy
-  q[source_row_a2] (state-source t=2 | b2=0, support a2=(0,1)) -> state_source[2], state_transition[2], recognition_entropy
-  theta[state_transition_2] -> state_transition[2]
-  theta[emission_1] -> emission[1]
-  theta[shared_decoder_transition] -> emission[1], emission[2], state_transition[2]
-  ```
+@dataclass(frozen=True)
+class CategoricalRecognitionCoordinate:
+    coordinate_id: str
+    support: tuple[int, ...]
+    conditioned_on: tuple[tuple[str, int], ...]
+    probabilities: FrozenTensorValue
 
-  The graph builder expands source-supported child edges from the frozen parent sets, so the implementation does not hard-code only one realized source assignment.
+@dataclass(frozen=True)
+class RecognitionSnapshot:
+    schema_version: Literal["h5-recognition-snapshot-v1"]
+    gaussians: tuple[GaussianRecognitionCoordinate, ...]
+    categoricals: tuple[CategoricalRecognitionCoordinate, ...]
+    state_sha256: str = field(init=False)
 
-- [ ] **Step 2: Write strict type, parser, hash, and graph tests.** Reject unknown labels, string aliases, duplicate/unknown factor IDs, unsorted affected blocks, missing complete factor IDs, mutable mappings, nonfinite terms/deltas/allowances, inconsistent accept/reject reasons, and PASS/FAIL/INCONCLUSIVE result contradictions. The update-spec parser tests reject a raw-digest mismatch, missing/extra/schema-invalid fields, source-row ambiguity, and undeclared shared storage, and require exact canonical raw-byte/hash capture. Prove `RecognitionSnapshot` and `H5ModelSnapshot` clone and detach CPU float64 values, share no storage with differentiable sources or each other except declared reconstructible sharing, expose no optimizer methods, and have stable canonical bytes/hash. Require before/after factor-input hashes for every universe ID, exact universe order, 64-hex digests, `observed_affected_factor_ids` equal to the ordered unequal-hash set, and `value_changed_factor_ids` to be accepted only as diagnostic metadata. Reject a value-derived affected set even when it happens to match one example.
+@dataclass(frozen=True)
+class ModelParameterBlock:
+    block_id: str
+    values: tuple[tuple[str, FrozenTensorValue], ...]
 
-  Assert the graph's exact factor universe and dependency sets. Cover unions across multiple variables/parameters, source-supported children, shared parameters, empty update blocks, unknown coordinates, and a deliberately incomplete graph. Require the incomplete graph to fail construction because each declared variable/parameter lacks its preregistered factors.
+@dataclass(frozen=True)
+class FactorReconstructionRecord:
+    factor_id: str
+    bindings: tuple[str, ...]
 
-- [ ] **Step 3: Run the Task 5 tests for RED.**
+@dataclass(frozen=True)
+class SharedParameterGroup:
+    group_id: Literal["shared_decoder_transition"]
+    source: Literal["theta[shared_decoder_transition].s"]
+    consumers: tuple[str, ...]
 
-  ```powershell
-  python -m pytest tests/unit/test_h5_update_types.py tests/unit/test_h5_dependency_graph.py tests/unit/test_h5_update_spec.py -q
-  ```
+@dataclass(frozen=True)
+class H5ModelSnapshot:
+    schema_version: Literal["h5-model-snapshot-v1"]
+    parameter_blocks: tuple[ModelParameterBlock, ...]
+    reconstruction_records: tuple[FactorReconstructionRecord, ...]
+    shared_groups: tuple[SharedParameterGroup, ...]
+    objective_schema_sha256: str = field(init=False)
+    state_sha256: str = field(init=False)
 
-  Expected: collection fails because the update types, dependency graph, and H5 update-spec parser do not exist.
+@dataclass(frozen=True)
+class UpdateSpecification:
+    raw_bytes: bytes = field(repr=False)
+    fixture_id: Literal["h5-conditional-update-v1"]
+    fixture_schema_version: Literal[1]
+    recognition_family: Literal["continuous_mean_field_conditional_categorical"]
+    h1_fixture_id: Literal["h1-v1"]
+    h1_fixture_sha256: str
+    factor_input_schema_version: Literal["h5-factor-input-v1"]
+    factor_input_schema_sha256: str = field(init=False)
+    factor_universe: tuple[str, ...]
+    recognition_coordinate_universe: tuple[str, ...]
+    model_block_universe: tuple[str, ...]
+    quadrature_orders: tuple[Literal[21], Literal[17]]
+    reconstruction_records: tuple[FactorReconstructionRecord, ...]
+    shared_groups: tuple[SharedParameterGroup, ...]
+    initial_recognition: RecognitionSnapshot
+    initial_model: H5ModelSnapshot
+    canonical_bytes: bytes = field(init=False)
+    canonical_sha256: str = field(init=False)
+    raw_sha256: str = field(init=False)
 
-- [ ] **Step 4: Implement immutable records, parser, and canonical hashing.** `FrozenTensorValue` stores dtype, shape, and finite row-major numeric tuples, not a live tensor. `RecognitionSnapshot` hashes schema plus all tensor records. `H5ModelSnapshot` hashes its schema, parameter blocks, reconstruction mapping, and declared shared-storage groups; `H5ReferenceState` binds it to the parsed raw update-spec bytes/hash. `FactorInputHashRecord` canonicalizes the exact normalized factor inputs, recognition moments/source probabilities, model parameters, and frozen complement that determine one factor expectation. `UpdateAttempt` validates that before/after schemas match, `expected_factor_ids` equals the complete declared factor universe for a full comparison, `expected_affected_factor_ids` is the dependency-graph subset, `observed_affected_factor_ids` is derived from input hashes and equals that subset exactly, `missing_factor_ids` and `extra_factor_ids` are exact differences between complete expected and observed reevaluated IDs, factor lists preserve universe order, and acceptance is compatible with the label-specific reason. It never derives affectedness from scalar values.
+    def as_h1_recognition_record(self) -> H1RecognitionFactorRecord: ...
 
-- [ ] **Step 5: Implement the static dependency graph.** Store both forward mappings and a validated factor universe. `expected_affected_factors` returns the factor-universe-ordered union. Recognition entropy is included for every recognition-coordinate update and excluded from model-only updates with frozen recognition. Model parameters that share storage or feed multiple normalized factors must name every factor. The graph predicts input dependencies only; evaluator scalar equality/difference is never consulted.
+@dataclass(frozen=True)
+class H5ReferenceState:
+    schema_version: Literal["h5-reference-state-v1"]
+    raw_h1_fixture_bytes: bytes
+    raw_update_spec_bytes: bytes
+    h1_fixture_sha256: str = field(init=False)
+    update_spec_raw_sha256: str = field(init=False)
+    objective_schema_sha256: str = field(init=False)
+    factor_input_schema_sha256: str = field(init=False)
+    specification: UpdateSpecification
+    initial_recognition: RecognitionSnapshot
+    initial_model: H5ModelSnapshot
+    initial_optimizer_state: FrozenByteState
+    initial_rng_state: FrozenByteState
+    reference_sha256: str = field(init=False)
 
-- [ ] **Step 6: Run the Task 5 tests for GREEN.**
+@dataclass(frozen=True)
+class H5LiveState:
+    schema_version: Literal["h5-live-state-v1"]
+    recognition: RecognitionSnapshot
+    model: H5ModelSnapshot
+    optimizer_state: FrozenByteState
+    rng_state: FrozenByteState
+    state_sha256: str = field(init=False)
 
-  ```powershell
-  python -m pytest tests/unit/test_h5_update_types.py tests/unit/test_h5_dependency_graph.py tests/unit/test_h5_update_spec.py -q
-  ```
+@dataclass(frozen=True)
+class UpdateRequest:
+    schema_version: Literal["h5-update-request-v1"]
+    request_id: str
+    rule: H5UpdateRule
+    requested_label: UpdateLabel
+    variables: tuple[str, ...]
+    parameters: tuple[str, ...]
+    damping_schedule: tuple[float, ...]
+    request_sha256: str = field(init=False)
 
-  Expected: closed taxonomy, raw-byte update-spec capture, immutable recognition/model snapshots, complete dependency graph, and fail-closed result semantics pass.
+@dataclass(frozen=True)
+class H5CandidateSnapshot:
+    schema_version: Literal["h5-candidate-v1"]
+    rule: H5UpdateRule
+    request_sha256: str
+    producer_label: UpdateLabel
+    variables: tuple[str, ...]
+    parameters: tuple[str, ...]
+    damping: float
+    numerical_diagnostics: tuple[tuple[str, float], ...]
+    recognition: RecognitionSnapshot
+    model: H5ModelSnapshot
+    candidate_sha256: str = field(init=False)
+```
 
-- [ ] **Step 7: Commit Task 5.**
+All snapshot/specification constructors require the displayed schema literals, exact universe and field order, exact block names/shapes, finite binary64 values, positive variances/`R`, normalized positive-supported categorical rows, exact reconstruction/shared-group equality, and recomputed hashes. `H5LiveState` and `H5CandidateSnapshot` defensively rebuild their nested immutable values; supplying an existing mutable tensor, mapping, hash, or alias cannot bypass validation. `initial_live(reference)` uses exactly the reference's four initial state records.
 
-  ```powershell
-  git add vfe4/types/updates.py vfe4/types/__init__.py vfe4/objective/dependency_graph.py vfe4/objective/__init__.py vfe4/validation/fixtures/h5_factorized_update_v1.json vfe4/validation/h5_update_spec.py tests/unit/test_h5_update_types.py tests/unit/test_h5_dependency_graph.py tests/unit/test_h5_update_spec.py docs/preregistrations/2026-07-21-h5-update-coherence.md
-  git commit -m "test: freeze H5 update coherence contract"
-  ```
+`UpdateRequest` validates the exact rule contract:
+
+```python
+H5_RULE_CONTRACTS = {
+    H5UpdateRule.EXACT_Z0:
+        (UpdateLabel.EXACT_COORDINATE, ("q[z0]",), (), (1.0,)),
+    H5UpdateRule.EXACT_SOURCE_ROW_A2:
+        (UpdateLabel.EXACT_COORDINATE, ("q[source_row_a2]",), (), (1.0,)),
+    H5UpdateRule.EXACT_STATE_TRANSITION_2_M:
+        (UpdateLabel.EXACT_COORDINATE, (), ("theta[state_transition_2]",), (1.0,)),
+    H5UpdateRule.GENERALIZED_EM_EMISSION_1:
+        (UpdateLabel.GENERALIZED_EM, (), ("theta[emission_1]",),
+         (1.0, .5, .25, .125, .0625, .03125, .015625, .0078125,
+          .00390625, .001953125, .0009765625)),
+    H5UpdateRule.NATURAL_GRADIENT_Z1:
+        (UpdateLabel.NATURAL_GRADIENT_PROPOSAL, ("q[z1]",), (), (64.0,)),
+}
+```
+
+Production construction rejects any mismatch between rule, requested label, active blocks, and schedule. `request_sha256` is recomputed from every displayed request field under the update-request domain. A candidate copies the request's rule/hash/active blocks, records the one selected damping, and recomputes its own hash over those provenance fields, its diagnostics, and both snapshots; a candidate can therefore neither migrate between requests nor conceal its line-search step. Only the exact M candidate carries `(("G_condition_number", kappa_2(G)),)`; all other candidates require an empty diagnostics tuple. Test/gate-only fault injection operates before candidate validation so the mislabel control can observe the typed rejection. `valid_mm` never enters this mapping.
+
+`FactorDependencyGraph` has exact tuple fields `factor_universe`, `recognition_coordinate_universe`, `model_block_universe`, `variable_dependencies`, and `parameter_dependencies`. Construction requires every coordinate/block exactly once, exact factor ordering, no unknown factor, and exact equality with the closed graph above. `expected_affected_factors` returns the universe-ordered union.
+
+The fixture has exact top-level fields in this order before canonical sorted-key encoding:
+
+```json
+{
+  "fixture_id": "h5-conditional-update-v1",
+  "fixture_schema_version": 1,
+  "recognition_family": "continuous_mean_field_conditional_categorical",
+  "h1_fixture_id": "h1-v1",
+  "h1_fixture_sha256": "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b",
+  "factor_input_schema_version": "h5-factor-input-v1",
+  "factor_universe": ["initial_joint","model_source[1]","model_transition[1]","state_source[1]","state_transition[1]","emission[1]","model_source[2]","model_transition[2]","state_source[2]","state_transition[2]","emission[2]","recognition_entropy"],
+  "recognition_coordinate_universe": ["q[z0]","q[m0]","q[z1]","q[m1]","q[z2]","q[m2]","q[model_source_b1]","q[state_source_a1_b0]","q[model_source_b2]","q[source_row_a2]","q[state_source_a2_b1]"],
+  "model_block_universe": ["theta[state_transition_2]","theta[emission_1]","theta[shared_decoder_transition]"],
+  "quadrature_orders": [21,17],
+  "continuous_recognition": [
+    ["q[z0]",-0.10,0.65],["q[m0]",0.25,0.78],
+    ["q[z1]",0.05,0.96],["q[m1]",0.175,1.21],
+    ["q[z2]",-0.04,0.90],["q[m2]",0.14,1.40]
+  ],
+  "categorical_recognition": [
+    ["q[model_source_b1]",[0],[],[1.0]],
+    ["q[state_source_a1_b0]",[0],[["b1",0]],[1.0]],
+    ["q[model_source_b2]",[0,1],[],[0.4,0.6]],
+    ["q[source_row_a2]",[0,1],[["b2",0]],[0.75,0.25]],
+    ["q[state_source_a2_b1]",[0,1],[["b2",1]],[0.2,0.8]]
+  ],
+  "model_parameter_blocks": [
+    ["theta[state_transition_2]",[["alpha_0",0.8],["alpha_1",0.64],["B_base",-0.35],["c",0.08],["R",0.48]]],
+    ["theta[emission_1]",[["w_z",[0.2,-0.4,0.1]],["w_m",[0.3,0.2,-0.5]],["bias",[0.05,-0.1,0.15]]]],
+    ["theta[shared_decoder_transition]",[["s",0.0]]]
+  ],
+  "factor_reconstruction": [
+    ["initial_joint",["h1.initial_joint","q[z0]","q[m0]"]],
+    ["model_source[1]",["h1.model_source_priors[1]","q[model_source_b1]"]],
+    ["model_transition[1]",["h1.model_transition[1]","q[m0]","q[m1]","q[model_source_b1]"]],
+    ["state_source[1]",["h1.state_source_priors[1]","q[model_source_b1]","q[state_source_a1_b0]"]],
+    ["state_transition[1]",["h1.state_transition[1]","q[z0]","q[z1]","q[m1]","q[model_source_b1]","q[state_source_a1_b0]"]],
+    ["emission[1]",["theta[emission_1]","theta[shared_decoder_transition]","q[z1]","q[m1]","h1.observation_label[t=1]"]],
+    ["model_source[2]",["h1.model_source_priors[2]","q[model_source_b2]"]],
+    ["model_transition[2]",["h1.model_transition[2]","q[m0]","q[m1]","q[m2]","q[model_source_b2]"]],
+    ["state_source[2]",["h1.state_source_priors[2]","q[model_source_b2]","q[source_row_a2]","q[state_source_a2_b1]"]],
+    ["state_transition[2]",["theta[state_transition_2]","theta[shared_decoder_transition]","q[z0]","q[z1]","q[z2]","q[m2]","q[model_source_b2]","q[source_row_a2]","q[state_source_a2_b1]"]],
+    ["emission[2]",["h1.emission[2]","theta[shared_decoder_transition]","q[z2]","q[m2]","h1.observation_label[t=2]"]],
+    ["recognition_entropy",["recognition_snapshot"]]
+  ],
+  "shared_parameter_groups": [
+    ["shared_decoder_transition","theta[shared_decoder_transition].s",["state_transition[2].B:add","emission[1].w_z[0]:add","emission[2].w_z[0]:add"]]
+  ],
+  "source_row_a2": {"coordinate_id":"q[source_row_a2]","time":2,"condition":["b2",0],"support":[0,1],"initial_probabilities":[0.75,0.25]}
+}
+```
+
+- [ ] **Step 1: Write the preregistration with every Global Constraint, identifier tuple, dependency row, hash domain, fixture value, rule contract, numerical formula, positive case, control, status predicate, and nonclaim in this proposal.**
+
+- [ ] **Step 2: Write strict failing type/hash/parser/schema/graph tests.** Include exact field-order assertions; source-independent reconstruction; exact rule mapping; immutable byte/tensor ownership; signed-zero-distinguishing snapshot/reference/semantic-state hashes; exact `initial_live` four-hash reconstruction; duplicate/extra/missing/alias rejection; raw hash before decode; wrong H1 hash; unnormalized/zero-supported rows; unequal slot offsets/variances; exact schema-hash cores and operation counts; wrong shared consumers; every missing/extra graph edge; singleton update rejection; and proof that the five-member `H5UpdateRule` universe has no `valid_mm` producer. Task 9 configuration tests, not attempt/gate tests, own rejection of a requested `valid_mm` label without a proof artifact.
+
+```python
+def test_conditional_family_reconstructs_source_independent_h1_record():
+    state = build_h5_reference_state(H1_BYTES, H5_BYTES)
+    equivalent = state.specification.as_h1_recognition_record()
+    assert equivalent.initial_joint.covariance[0, 1].item() == 0.0
+    for record in equivalent.model_kernels:
+        assert torch.equal(record.slopes, torch.zeros_like(record.slopes))
+        assert len(set(zip(record.offsets.tolist(), record.variances.tolist(), strict=True))) == 1
+    for record in equivalent.state_kernels:
+        assert torch.equal(record.z_slopes, torch.zeros_like(record.z_slopes))
+        assert torch.equal(record.m_slopes, torch.zeros_like(record.m_slopes))
+        assert len(set(zip(record.offsets.tolist(), record.variances.tolist(), strict=True))) == 1
+    assert tuple(equivalent.state_source_probabilities_given_model_source[1][0].tolist()) == (0.75, 0.25)
+```
+
+- [ ] **Step 3: Run Task 5 RED.**
+
+```powershell
+python -m pytest tests/unit/test_h5_update_types.py tests/unit/test_h5_objective_schema.py tests/unit/test_h5_dependency_graph.py tests/unit/test_h5_update_spec.py -q
+```
+
+Expected: collection fails because the H5 types, graph, and parser do not exist.
+
+- [ ] **Step 4: Author the exact JSON fixture above as UTF-8 without BOM, LF line endings, and one final LF; add the exact `.gitattributes` nonconversion rule before staging, then measure its raw SHA-256.**
+
+```powershell
+Get-FileHash -Algorithm SHA256 vfe4\validation\fixtures\h5_conditional_update_v1.json
+```
+
+Copy the command's complete lowercase 64-hex digest verbatim into `EXPECTED_H5_UPDATE_SPEC_RAW_SHA256` and the parser test. Do not truncate it, derive it at import time, or place a provisional digest in committed code.
+
+- [ ] **Step 5: Implement the records, canonical encoders, raw-byte parser, reference-state builder, exact H1 reconstruction, and closed dependency graph.** Constructors defensively copy bytes and tuple data; `FrozenTensorValue.from_tensor` performs `detach().to(device="cpu",dtype=torch.float64).contiguous().clone()` before row-major extraction.
+
+```python
+def build_h5_reference_state(
+    h1_fixture_bytes: bytes,
+    h5_update_spec_bytes: bytes,
+) -> H5ReferenceState: ...
+
+def parse_h5_update_spec_bytes(data: bytes) -> UpdateSpecification: ...
+
+def canonical_h5_recognition_snapshot_bytes(snapshot: RecognitionSnapshot) -> bytes: ...
+def canonical_h5_model_snapshot_bytes(snapshot: H5ModelSnapshot) -> bytes: ...
+def canonical_h5_live_state_bytes(state: H5LiveState) -> bytes: ...
+def canonical_h5_reference_state_bytes(state: H5ReferenceState) -> bytes: ...
+def canonical_h5_semantic_state_bytes(recognition: RecognitionSnapshot, model: H5ModelSnapshot) -> bytes: ...
+def initial_live(reference: H5ReferenceState) -> H5LiveState: ...
+
+def build_h5_reference_dependency_graph(specification: UpdateSpecification) -> FactorDependencyGraph: ...
+def expected_affected_factors(
+    graph: FactorDependencyGraph,
+    *,
+    variables: tuple[str, ...],
+    parameters: tuple[str, ...],
+) -> tuple[str, ...]: ...
+```
+
+- [ ] **Step 6: Run Task 5 GREEN.**
+
+```powershell
+python -m pytest tests/unit/test_h5_update_types.py tests/unit/test_h5_objective_schema.py tests/unit/test_h5_dependency_graph.py tests/unit/test_h5_update_spec.py -q
+```
+
+Expected: all Task 5 tests pass.
+
+- [ ] **Step 7: Serialize `vfe4/types/__init__.py` export edits after the H4 Task 1 export commit is present, then commit Task 5.**
+
+```powershell
+git add .gitattributes vfe4/types/updates.py vfe4/types/h5_schema.py vfe4/types/__init__.py vfe4/objective/dependency_graph.py vfe4/objective/__init__.py vfe4/validation/fixtures/h5_conditional_update_v1.json vfe4/validation/h5_update_spec.py tests/unit/test_h5_update_types.py tests/unit/test_h5_objective_schema.py tests/unit/test_h5_dependency_graph.py tests/unit/test_h5_update_spec.py docs/preregistrations/2026-07-21-h5-update-coherence.md
+git commit -m "feat: freeze closed H5 update protocol"
+```
 
 ---
 
-### Task 6: Implement One Complete H5 Objective, Factor Trace, Cache Proofs, and Operand-Shaped Delta Budget
+### Task 6: Implement the Complete H5 Objective, Ordered Factor Trace, Cache Proof, and Operand-Shaped Budget
 
 **Files:**
 
 - Create: `vfe4/objective/h5_complete.py`
 - Modify: `vfe4/objective/__init__.py`
-- Create: `verification/h5_budget.py`
+- Create: `vfe4/numerics/h5_budget.py`
+- Modify: `vfe4/numerics/__init__.py`
 - Create: `tests/unit/test_h5_complete_objective.py`
 - Create: `tests/unit/test_h5_budget.py`
 
 **Interfaces:**
 
-- Produce `H5ReferenceState`, `H5LiveState`, `DifferentiableRecognitionState`, `CompleteElboEvaluator`, and `evaluate_h5_complete_elbo(state, *, cache=None) -> CompleteElboEvaluation`.
-- Produce `term_allowance(value_order_21, value_order_17, rounding_inputs)`, `complete_elbo_allowance(term_allowances, signed_terms)`, `subtraction_rounding_allowance`, and `epsilon_delta(before, after) -> H5DeltaAllowance`. Every returned record exposes `convergence_estimate`, `rounding_allowance`, and `total`.
-- Reuse the existing `ElboTerms` partition and its one-place complete scalar. Add factor-level trace metadata around it; do not construct a second scalar objective.
+`vfe4/objective/h5_complete.py` owns factor input/evaluation/cache records, `CompleteElboEvaluation`, the evaluator protocol, and complete-objective implementation. `vfe4/numerics/h5_budget.py` owns the three allowance records, `H5BudgetConfig`, and all allowance functions while importing the already frozen constants/counts from Task 5's `h5_schema`; production inference imports this one-way numerical module, never `verification`.
 
-- [ ] **Step 1: Write complete-objective and budget tests.** Build the bounded H5 state from captured `h1-v1` generative factors plus the preregistered factorized recognition update-spec bytes in CPU float64. Construct the equivalent frozen H1 recognition record only inside the test and compare all 12 ordered factor IDs plus every existing `ElboTerms` field to `evaluate_local_elbo` at that common state. Require the raw expected-log-generative-factor sum plus recognition entropy and the KL-partitioned view to reconstruct exactly the one `ElboTerms.complete_elbo` field; neither view may become a second training objective. For every before/after term, independently compute order-21 and order-17 values and require `convergence_estimate=abs(v21-v17)`; analytic terms still carry explicit zero estimates rather than omitting the field.
+```python
+class CacheDisposition(str, Enum):
+    REEVALUATED = "reevaluated"
+    REUSED = "reused"
 
-  Update each preregistered recognition/model block in isolation. Derive `observed_affected_factor_ids` only by ordered comparison of every factor's canonical before/after input hashes, then assert exact ordered equality with the dependency graph's `expected_affected_factor_ids`. Specifically require child transitions for `q[z0]`, emission for `q[z1]` and emission parameters, and every shared factor for `theta[shared_decoder_transition]`. Record scalar `value_changed_factor_ids` separately as diagnostic evidence that cannot add, remove, or excuse an affected factor. A cache may reuse a factor only when its inputs and frozen-complement hash match; mutate one input behind the cache and require stale-cache rejection.
+@dataclass(frozen=True)
+class FactorInputHashRecord:
+    factor_id: str
+    input_schema_version: Literal["h5-factor-input-v1"]
+    input_schema_sha256: str = field(init=False)
+    canonical_input_bytes: bytes
+    input_sha256: str = field(init=False)
 
-  Test the budget with unequal term scales, unequal deterministic quadrature differences, and condition numbers. Assert each term record contains only its own inputs and `total=convergence_estimate+rounding_allowance`; each complete before/after allowance equals the sum of every signed term total plus one final reduction-rounding term; stochastic contribution is exactly zero; and
+@dataclass(frozen=True)
+class FactorEvaluationRecord:
+    factor_id: str
+    input_hash: FactorInputHashRecord
+    frozen_complement_sha256: str
+    value_order_21: float
+    value_order_17: float
+    absolute_summands_order_21: tuple[float, ...]
+    absolute_summands_order_17: tuple[float, ...]
+    condition_numbers_order_21: tuple[float, ...]
+    condition_numbers_order_17: tuple[float, ...]
+    operation_count_order_21: int
+    operation_count_order_17: int
+    cache_disposition: CacheDisposition
 
-  ```python
-  epsilon_delta = (
-      before_total_allowance
-      + after_total_allowance
-      + subtraction_rounding_allowance(before_elbo, after_elbo)
-  )
-  ```
+@dataclass(frozen=True)
+class H5TermAllowance:
+    term_id: str
+    objective_sign: Literal[-1, 0, 1]
+    value_order_21: float
+    value_order_17: float
+    signed_reported_value: float
+    absolute_summands_order_21: tuple[float, ...]
+    absolute_summands_order_17: tuple[float, ...]
+    condition_numbers_order_21: tuple[float, ...]
+    condition_numbers_order_17: tuple[float, ...]
+    operation_count_order_21: int
+    operation_count_order_17: int
+    convergence_estimate: float
+    rounding_order_21: float
+    rounding_order_17: float
+    comparison_rounding: float
+    total: float
 
-  Reject a global-kappa argument, a missing convergence estimate/term allowance, wrong arity, a nonzero stochastic contribution, or negative/nonfinite scale. Add an emission-touching boundary table for `delta` immediately below, exactly at, and immediately above `epsilon_delta`: only the resolved side allowed by the label is eligible; the unresolved boundary is `INCONCLUSIVE`.
+@dataclass(frozen=True)
+class H5CompleteAllowance:
+    term_allowances: tuple[H5TermAllowance, ...]
+    reduction_rounding: float
+    total: float
+    stochastic_contribution: float  # constructor requires exactly 0.0
 
-- [ ] **Step 2: Run the Task 6 tests for RED.**
+@dataclass(frozen=True)
+class H5DeltaAllowance:
+    before_total: float
+    after_total: float
+    subtraction_rounding: float
+    stochastic_contribution: float  # constructor requires exactly 0.0
+    epsilon_delta: float
 
-  ```powershell
-  python -m pytest tests/unit/test_h5_complete_objective.py tests/unit/test_h5_budget.py -q
-  ```
+@dataclass(frozen=True)
+class H5BudgetConfig:
+    quadrature_orders: tuple[Literal[21], Literal[17]]
+    epsilon: float
+    C: float
+    signed_term_ids: tuple[str, ...]
+    analytic_operation_counts: Mapping[str, int]
+    analytic_factor_operation_counts: Mapping[str, int]
 
-  Expected: collection fails because `vfe4.objective.h5_complete` and `verification.h5_budget` do not exist.
+@dataclass(frozen=True, init=False)
+class CompleteElboEvaluation:
+    terms: ElboTerms
+    factor_records: tuple[FactorEvaluationRecord, ...]
+    term_allowances: tuple[H5TermAllowance, ...]
+    diagnostic_allowances: tuple[H5TermAllowance, ...]
+    complete_allowance: H5CompleteAllowance
+    objective_schema_sha256: str = field(init=False)
+    evaluated_state_sha256: str = field(init=False)
+    frozen_complement_sha256: str
 
-- [ ] **Step 3: Implement the reference live/working states without weakening H2.** Construct H5-specific differentiable leaves from immutable H1 generative values and the canonical factorized H5 recognition specification; do not reuse the H1 fixture's structured recognition law as if it were the conjugate test family. Never place autograd tensors into H1/H2 records or `InformationGaussian`. `H5LiveState` owns immutable accepted recognition/model snapshots plus explicit optimizer/RNG states. `DifferentiableRecognitionState` is ephemeral and cannot be serialized as accepted state.
+    @classmethod
+    def build(cls, *, state: H5LiveState | H5CandidateSnapshot, terms: ElboTerms, factor_records: tuple[FactorEvaluationRecord, ...], term_allowances: tuple[H5TermAllowance, ...], diagnostic_allowances: tuple[H5TermAllowance, ...], complete_allowance: H5CompleteAllowance, frozen_complement_sha256: str) -> Self: ...
 
-- [ ] **Step 4: Implement the complete evaluator and factor trace.** Evaluate every factor in the exact universe order at both frozen quadrature orders on every uncached full comparison. Before evaluation, canonicalize and hash each factor's actual inputs; record the finite order-21/order-17 scalar values, input hash, cache disposition, absolute summands, and convergence estimate. Build `ElboTerms` once from order-21 values and return its complete scalar. A requested cache entry is accepted only when factor schema, exact input hash, quadrature orders, and frozen-complement hash all match; otherwise raise a typed stale-cache error. Defensive-copy factor values/input hashes into universe-ordered `MappingProxyType` mappings.
+@dataclass(frozen=True)
+class FactorCacheKey:
+    factor_id: str
+    input_hash: FactorInputHashRecord
+    quadrature_orders: tuple[Literal[21], Literal[17]]
+    frozen_complement_sha256: str
 
-- [ ] **Step 5: Implement the budget functions literally.** Freeze quadrature orders `21/17`, `eps`, `gamma`, `C=4096`, and operation counts by term shape in the preregistration. Each allowance record names the term, both quadrature values, `convergence_estimate=abs(v21-v17)`, signed reported value, absolute summands, dimensions, actual SPD condition numbers, rounding allowance, and total. Complete before/after totals sum all term totals plus their own final reduction-rounding term. Initial H5 has exactly zero stochastic contribution. `epsilon_delta` is exactly `before_total + after_total + subtraction_rounding` and may not recompute operands using pooled metadata.
+@dataclass(frozen=True)
+class FactorCacheEntry:
+    key: FactorCacheKey
+    record: FactorEvaluationRecord
 
-- [ ] **Step 6: Run the Task 6 tests for GREEN.**
+class CompleteElboEvaluator(Protocol):
+    def evaluate(
+        self,
+        state: H5LiveState | H5CandidateSnapshot,
+        *,
+        frozen_complement_sha256: str,
+        cache: Mapping[FactorCacheKey, FactorCacheEntry] | None = None,
+    ) -> CompleteElboEvaluation: ...
 
-  ```powershell
-  python -m pytest tests/unit/test_h5_complete_objective.py tests/unit/test_h5_budget.py -q
-  ```
+def evaluate_h5_complete_elbo(
+    reference: H5ReferenceState,
+    state: H5LiveState | H5CandidateSnapshot,
+    *,
+    frozen_complement_sha256: str,
+    cache: Mapping[FactorCacheKey, FactorCacheEntry] | None = None,
+) -> CompleteElboEvaluation: ...
+```
 
-  Expected: one complete `ElboTerms` scalar, factor-level dependency changes, cache proofs, and operand-shaped delta budgets all pass; H2 objects remain detached and unchanged.
+`H5BudgetConfig.__post_init__` defensively copies both mappings into sorted `MappingProxyType` instances, requires exact equality with the displayed analytic-term and analytic-factor key sets/counts, rejects nonpositive counts, and requires the exact frozen constants `(21, 17)`, binary64 epsilon, and `C=4096.0`; callers cannot mutate the budget after construction. The two emission terms/factors are intentionally absent from those analytic maps and use `emission_operation_count(order)`.
 
-- [ ] **Step 7: Commit Task 6.**
+`H5DeltaAllowance.__post_init__` requires finite nonnegative components, `stochastic_contribution == 0.0`, and exact recomputation of `epsilon_delta = before_total + after_total + subtraction_rounding`.
 
-  ```powershell
-  git add vfe4/objective/h5_complete.py vfe4/objective/__init__.py verification/h5_budget.py tests/unit/test_h5_complete_objective.py tests/unit/test_h5_budget.py
-  git commit -m "feat: add complete H5 objective accounting"
-  ```
+`factor_records` is exactly `H5_FACTOR_UNIVERSE` order. Its values are raw signed ELBO contributions: expected `log p` for the eleven generative factors and positive recognition entropy for `recognition_entropy`; `math.fsum(record.value_order_21)` equals `terms.complete_elbo` within its reduction allowance. `ElboTerms` is built separately from the same state and must yield the same scalar.
+
+For signed `H5TermAllowance` records, `value_order_21` and `value_order_17` are the ordinary existing `ElboTerms` component values, `objective_sign` is the corresponding `H5_SIGNED_TERM_SIGNS[index]`, and `signed_reported_value = objective_sign * value_order_21`. The diagnostic `joint_recognition_entropy` record has `objective_sign=0` and `signed_reported_value=0.0`; it retains its full operand-shaped allowance but never enters complete reduction. Complete reduction requires exactly the signed records and uses their signed values once.
+
+Each `canonical_input_bytes` value is the factor-input domain followed by canonical JSON with exactly the five ordered fields frozen in the factor-input schema: schema version, factor ID, reconstructed effective normalized factor, observation-or-null, and ordered recognition inputs. It contains the observation/support metadata, categorical weights, and moments needed by that factor expectation and excludes unrelated state and scalar outputs. `input_schema_sha256` is recomputed from the closed schema selected by `h5-factor-input-v1`; it is never trusted from a cache entry. The cache key includes that schema hash and both quadrature orders.
+
+Cache resolution performs one exact full-key lookup. No entry, or only entries sharing a strict subset of key fields, is an ordinary miss and reevaluates both orders. An exact-key entry is reusable only if its embedded record recomputes the same factor ID, schema version/hash, input hash, complement hash, both order values/operands/counts are finite, and the stored record was originally `REEVALUATED`; reuse returns a validated copy marked `REUSED`. An exact-key entry whose embedded record disagrees with any key or payload invariant is `STALE_CACHE` and yields `FailedUpdateAttempt(DEPENDENCY_VALIDATION, STALE_CACHE)`; it is never silently treated as a miss.
+
+`CompleteElboEvaluation.build` derives the evaluated-state and objective-schema hashes from its state/schema constants and is the only constructor. `FactorCacheKey` requires `factor_id == input_hash.factor_id`; its schema/input hashes are therefore derived through the nested immutable record rather than accepted independently.
+
+For a full evaluation:
+
+```python
+available_factor_ids = ordered_union(reevaluated_factor_ids, reused_factor_ids)
+missing_factor_ids = ordered_difference(H5_FACTOR_UNIVERSE, available_factor_ids)
+extra_factor_ids = ordered_difference(available_factor_ids, H5_FACTOR_UNIVERSE)
+```
+
+An expected affected factor must be reevaluated and may never be reused. Unaffected factors may be reused only on an exact key match.
+
+For universe-ordered before/after records, affectedness and the separate value diagnostic are exactly:
+
+```python
+observed_affected_factor_ids = tuple(
+    factor_id for factor_id in H5_FACTOR_UNIVERSE
+    if before_by_id[factor_id].input_hash.input_sha256
+       != after_by_id[factor_id].input_hash.input_sha256
+)
+value_changed_factor_ids = tuple(
+    factor_id for factor_id in H5_FACTOR_UNIVERSE
+    if (
+        before_by_id[factor_id].value_order_21.hex(),
+        before_by_id[factor_id].value_order_17.hex(),
+    ) != (
+        after_by_id[factor_id].value_order_21.hex(),
+        after_by_id[factor_id].value_order_17.hex(),
+    )
+)
+```
+
+No scalar tolerance participates in either set. `expected_affected_factor_ids` is independently the universe-ordered dependency-graph union for the request and must equal `observed_affected_factor_ids`; value-change equality is never an acceptance substitute.
+
+- [ ] **Step 1: Write failing complete-objective, factor-input, cache, and budget tests.** Compare the source-independent H5 state against an equivalent H1 structured record at both quadrature orders; check all raw factor values, all signed/diagnostic/derived term sets, one complete scalar, exact input-hash changes for every dependency row, unchanged-scalar/changed-input behavior, cache hit/miss/stale-key paths, and exact operation counts/formulas/boundaries.
+
+```python
+def test_h5_complete_objective_has_one_scalar_and_complete_factor_trace():
+    reference = build_h5_reference_state(H1_BYTES, H5_BYTES)
+    evaluation = evaluate_h5_complete_elbo(reference, initial_live(reference), frozen_complement_sha256=COMPLEMENT)
+    assert tuple(record.factor_id for record in evaluation.factor_records) == H5_FACTOR_UNIVERSE
+    assert math.fsum(record.value_order_21 for record in evaluation.factor_records) == pytest.approx(evaluation.terms.complete_elbo, abs=evaluation.complete_allowance.total)
+    assert tuple(item.term_id for item in evaluation.term_allowances) == H5_SIGNED_TERM_IDS
+    assert tuple(item.term_id for item in evaluation.diagnostic_allowances) == H5_DIAGNOSTIC_TERM_IDS
+    assert evaluation.complete_allowance.stochastic_contribution == 0.0
+```
+
+- [ ] **Step 2: Run Task 6 RED.**
+
+```powershell
+python -m pytest tests/unit/test_h5_complete_objective.py tests/unit/test_h5_budget.py -q
+```
+
+Expected: collection fails because the complete evaluator and H5 budget do not exist.
+
+- [ ] **Step 3: Implement source-independent H1 reconstruction, factor-specific moment extraction, both-order evaluation, raw trace reconstruction, and the one `ElboTerms` construction.** Emission quadrature is the only order-dependent factor in H5 v1; analytic values are independently returned for both orders with zero convergence.
+
+- [ ] **Step 4: Implement exact cache validation and operand-local allowances.**
+
+```python
+def term_allowance(
+    term_id: str,
+    *,
+    objective_sign: Literal[-1, 0, 1],
+    value_order_21: float,
+    value_order_17: float,
+    absolute_summands_order_21: tuple[float, ...],
+    absolute_summands_order_17: tuple[float, ...],
+    condition_numbers_order_21: tuple[float, ...],
+    condition_numbers_order_17: tuple[float, ...],
+    operation_count_order_21: int,
+    operation_count_order_17: int,
+) -> H5TermAllowance: ...
+
+def complete_elbo_allowance(
+    term_allowances: tuple[H5TermAllowance, ...],
+    signed_terms: tuple[float, ...],
+) -> H5CompleteAllowance: ...
+
+def subtraction_rounding_allowance(before_elbo: float, after_elbo: float) -> float: ...
+
+def epsilon_delta(
+    before: H5CompleteAllowance,
+    after: H5CompleteAllowance,
+    *,
+    before_elbo: float,
+    after_elbo: float,
+) -> H5DeltaAllowance: ...
+```
+
+- [ ] **Step 5: Run Task 6 GREEN.**
+
+```powershell
+python -m pytest tests/unit/test_h5_complete_objective.py tests/unit/test_h5_budget.py -q
+```
+
+Expected: all Task 6 tests pass.
+
+- [ ] **Step 6: Commit Task 6.**
+
+```powershell
+git add vfe4/objective/h5_complete.py vfe4/objective/__init__.py vfe4/numerics/h5_budget.py vfe4/numerics/__init__.py tests/unit/test_h5_complete_objective.py tests/unit/test_h5_budget.py
+git commit -m "feat: add complete H5 objective and budget"
+```
 
 ---
 
-### Task 7: Implement Exact and Proposal Updates, Freeze-Before-Evaluate Acceptance, Rollback, and Independent Oracle
+### Task 7: Implement Exact Coordinates, Proposal Provenance, Freeze-Before-Evaluate Transactions, Rollback, and Independent Oracle
 
 **Files:**
 
 - Create: `vfe4/inference/h5_updates.py`
-- Modify: `vfe4/inference/__init__.py`
+- Modify after H4 Task 2 export serialization: `vfe4/inference/__init__.py`
 - Create: `verification/numpy_oracles/h5_updates.py`
-- Modify: `verification/numpy_oracles/__init__.py`
+- Modify after H4 Task 3 export serialization: `verification/numpy_oracles/__init__.py`
 - Create: `tests/unit/test_h5_updates.py`
 - Create: `tests/oracle/test_h5_update_oracle.py`
 
 **Interfaces:**
 
-- Produce `exact_conjugate_gaussian_e_update`, `exact_source_row_update`, `exact_gaussian_m_update`, `propose_generalized_em`, `propose_natural_gradient`, `freeze_recognition_candidate`, and `execute_update`.
-- Produce NumPy-only `H5OracleUpdate`, `oracle_exact_e_block`, `oracle_exact_source_row`, `oracle_exact_m_block`, and `oracle_complete_delta` from raw H1 fixture bytes plus canonical H5 update-spec bytes.
-- `execute_update` is the only function allowed to replace a live accepted snapshot.
+`vfe4/inference/h5_updates.py` owns the attempt, fault, provenance, working-state, transaction records and all production update/controller functions below. `verification/numpy_oracles/h5_updates.py` owns only `H5OracleUpdate` and the four byte-only independent oracle functions.
 
-- [ ] **Step 1: Write exact-update, proposal, snapshot, and oracle tests.** Require the five positive cases:
+```python
+class AttemptPhase(str, Enum):
+    REQUEST = "request"
+    BEFORE_EVALUATION = "before_evaluation"
+    PROPOSAL = "proposal"
+    FREEZE = "freeze"
+    AFTER_EVALUATION = "after_evaluation"
+    DEPENDENCY_VALIDATION = "dependency_validation"
+    DECISION = "decision"
+    COMMIT_OR_ROLLBACK = "commit_or_rollback"
 
-  1. exact conjugate Gaussian update of the frozen `q[z0]` block includes the initial factor, every source-supported child state transition, and recognition entropy;
-  2. exact normalized categorical `q[source_row_a2]` is the state-source recognition conditional at `t=2` with fixed `b2=0`, ordered support `a2=(0,1)`, and initial row `(0.75,0.25)`; it uses that row's prior plus complete expected state-transition score and sums to one on that fixed positive support;
-  3. exact Gaussian M update of `theta[state_transition_2]` holds a detached, nonaliasing `RecognitionSnapshot` fixed;
-  4. a backtracked gradient proposal with complete resolved `delta > epsilon_delta` is accepted as `generalized_em`;
-  5. a deliberately oversized natural-gradient proposal decreases the complete objective, is rejected, and leaves all live hashes unchanged.
+class AttemptFailureReason(str, Enum):
+    LABEL_PROVENANCE_MISMATCH = "label_provenance_mismatch"
+    FACTOR_COVERAGE_MISMATCH = "factor_coverage_mismatch"
+    AFFECTED_FACTOR_MISMATCH = "affected_factor_mismatch"
+    STALE_CACHE = "stale_cache"
+    NONFINITE_OR_INVALID_CANDIDATE = "nonfinite_or_invalid_candidate"
+    DECISION_POLICY_VIOLATION = "decision_policy_violation"
+    ROLLBACK_HASH_MISMATCH = "rollback_hash_mismatch"
+    DETERMINISTIC_REEVALUATION_MISMATCH = "deterministic_reevaluation_mismatch"
 
-  For every case compare candidate parameters and complete delta to the NumPy oracle. Assert gradient proposals are built in `DifferentiableRecognitionState`, then frozen before `CompleteElboEvaluator` sees them. Monkeypatch the evaluator to inspect `requires_grad=False`, no storage alias, finite CPU float64, and stable hash. For each attempt, independently recompute before/after factor-input hashes, derive `observed_affected_factor_ids`, and require exact ordered equality with the dependency graph even when one affected scalar happens to remain numerically equal. Monkeypatch H2 `InformationGaussian` mutation/autograd paths to raise; H5 still works without changing H2.
+class DecisionReason(str, Enum):
+    EXACT_WITHIN_ALLOWANCE = "exact_within_allowance"
+    RESOLVED_POSITIVE = "resolved_positive"
+    RESOLVED_DECREASE_REJECTED = "resolved_decrease_rejected"
+    UNRESOLVED_DELTA_REJECTED = "unresolved_delta_rejected"
 
-- [ ] **Step 2: Run the Task 7 tests for RED.**
+class H5FaultKind(str, Enum):
+    OMIT_CHILD = "omit_child"
+    OMIT_EMISSION = "omit_emission"
+    FORCE_UNRESOLVED_GEM_ACCEPT = "force_unresolved_gem_accept"
+    MISLABEL_NATURAL_AS_EXACT = "mislabel_natural_as_exact"
+    MUTATE_REJECTED_LIVE_AND_RNG = "mutate_rejected_live_and_rng"
+    CHANGE_INPUT_KEEP_VALUE = "change_input_keep_value"
+    CHANGE_VALUE_KEEP_INPUT = "change_value_keep_input"
 
-  ```powershell
-  python -m pytest tests/unit/test_h5_updates.py tests/oracle/test_h5_update_oracle.py -q
-  ```
+@dataclass(frozen=True)
+class H5FaultInjection:
+    kind: H5FaultKind
+    target_factor_id: str | None
+    scalar_delta: float | None
 
-  Expected: collection fails because the H5 update and oracle modules do not exist.
+@dataclass(frozen=True)
+class UpdateHashRecord:
+    schema_version: Literal["h5-update-hash-record-v1"]
+    request_sha256: str
+    before_live_sha256: str
+    before_recognition_sha256: str
+    before_model_sha256: str
+    before_optimizer_sha256: str
+    before_rng_sha256: str
+    predecision_live_sha256: str | None
+    predecision_optimizer_sha256: str | None
+    predecision_rng_sha256: str | None
+    candidate_sha256: str | None
+    candidate_recognition_sha256: str | None
+    candidate_model_sha256: str | None
+    frozen_complement_sha256: str
+    final_live_sha256: str
+    final_recognition_sha256: str
+    final_model_sha256: str
+    final_optimizer_sha256: str
+    final_rng_sha256: str
 
-- [ ] **Step 3: Implement exact coordinates.** Derive the conjugate Gaussian target from all expected Markov-blanket factors and solve it directly. Compute the categorical source row with support mask plus `logsumexp` normalization. Compute the Gaussian M optimum from sufficient statistics of the immutable recognition snapshot. Exact implementations do not call autograd or generic optimizers.
+@dataclass(frozen=True)
+class PartialFactorEvaluation:
+    observed_records: tuple[FactorEvaluationRecord, ...]
+    expected_factor_ids: tuple[str, ...]
+    missing_factor_ids: tuple[str, ...]
+    extra_factor_ids: tuple[str, ...]
 
-- [ ] **Step 4: Implement gradient proposals in the separate working representation.** Use `torch.autograd.grad` only on declared active leaves. Natural-gradient proposals retain `UpdateLabel.NATURAL_GRADIENT_PROPOSAL`; they never enter the exact-coordinate branch. GEM backtracking proposes finite step sizes in frozen order, freezes each candidate, evaluates the complete objective at quadrature orders 21/17, and accepts only the first `delta > epsilon_delta` candidate. Any emission-touching candidate inside or on the total allowance boundary is rejected as unresolved and surfaced to H5 as `INCONCLUSIVE`, not ordinary successful rollback evidence.
+@dataclass(frozen=True)
+class DeterministicReevaluationRecord:
+    factor_id: str
+    input_sha256: str
+    reported_value_order_21: float
+    reported_value_order_17: float
+    recomputed_value_order_21: float
+    recomputed_value_order_17: float
+    matched: bool
 
-- [ ] **Step 5: Implement transactional acceptance and rollback.** Before proposal, canonical-hash live model, recognition, optimizer, and RNG states. Evaluate `before`; compute the expected dependency set; create/freeze candidate; evaluate `after`; derive `observed_affected_factor_ids` solely from before/after input hashes; compute diagnostic value-change IDs separately; require exact expected/observed affected equality; calculate missing/extra/cache/reuse sets and `epsilon_delta` from the two complete total allowances; then decide by label. On rejection, discard candidate and recompute all live hashes. On acceptance, atomically replace only declared blocks and verify frozen-complement hashes. Return an `UpdateAttempt` for success, rejection, or typed failure; never mutate first and attempt to reverse floating-point operations.
+@dataclass(frozen=True)
+class CompletedUpdateAttempt:
+    schema_version: Literal["h5-completed-attempt-v1"]
+    request: UpdateRequest
+    producer_label: UpdateLabel
+    variables: tuple[str, ...]
+    parameters: tuple[str, ...]
+    expected_factor_ids: tuple[str, ...]
+    expected_affected_factor_ids: tuple[str, ...]
+    reevaluated_factor_ids: tuple[str, ...]
+    reused_factor_ids: tuple[str, ...]
+    observed_affected_factor_ids: tuple[str, ...]
+    value_changed_factor_ids: tuple[str, ...]
+    missing_factor_ids: tuple[str, ...]
+    extra_factor_ids: tuple[str, ...]
+    before: CompleteElboEvaluation
+    after: CompleteElboEvaluation
+    delta_elbo: float
+    allowance: H5DeltaAllowance
+    accepted: bool
+    decision_reason: DecisionReason
+    line_search_step: int | None
+    damping: float
+    autograd_scope: tuple[str, ...]
+    hashes: UpdateHashRecord
 
-- [ ] **Step 6: Implement the independent NumPy oracle.** Parse raw fixture/update-spec bytes independently, compute exact conditional Gaussian/source/M updates from dense moments and normalized scores, and evaluate the full H1-shaped objective. The oracle imports neither PyTorch nor production H5 modules and shares no dependency-graph implementation.
+@dataclass(frozen=True)
+class FailedUpdateAttempt:
+    schema_version: Literal["h5-failed-attempt-v1"]
+    request: UpdateRequest
+    producer_label: UpdateLabel | None
+    phase: AttemptPhase
+    reason: AttemptFailureReason
+    before: CompleteElboEvaluation | None
+    partial_after: PartialFactorEvaluation | None
+    expected_factor_ids: tuple[str, ...]
+    expected_affected_factor_ids: tuple[str, ...]
+    observed_factor_ids: tuple[str, ...]
+    observed_affected_factor_ids: tuple[str, ...]
+    value_changed_factor_ids: tuple[str, ...]
+    missing_factor_ids: tuple[str, ...]
+    extra_factor_ids: tuple[str, ...]
+    decision_delta_elbo: float | None
+    decision_epsilon_delta: float | None
+    attempted_accept: bool | None
+    deterministic_reevaluation: DeterministicReevaluationRecord | None
+    hashes: UpdateHashRecord
+    obligations: tuple[str, ...]
 
-- [ ] **Step 7: Run the Task 7 tests for GREEN.**
+H5AttemptOutcome: TypeAlias = CompletedUpdateAttempt | FailedUpdateAttempt
 
-  ```powershell
-  python -m pytest tests/unit/test_h5_updates.py tests/oracle/test_h5_update_oracle.py -q
-  ```
+@dataclass(frozen=True)
+class H5TransactionResult:
+    schema_version: Literal["h5-transaction-result-v1"]
+    live: H5LiveState
+    outcome: H5AttemptOutcome
 
-  Expected: all five positive cases match the independent oracle; snapshot separation, label rules, resolved GEM acceptance, and mutation-free rejection pass.
+@dataclass
+class DifferentiableRecognitionState:
+    active_coordinate_ids: tuple[str, ...]
+    mean_leaves: Mapping[str, torch.Tensor]
+    log_variance_leaves: Mapping[str, torch.Tensor]
+    categorical_logit_leaves: Mapping[str, torch.Tensor]
 
-- [ ] **Step 8: Commit Task 7.**
+@dataclass
+class DifferentiableModelState:
+    active_block_ids: tuple[str, ...]
+    unconstrained_leaves: Mapping[str, torch.Tensor]
+```
 
-  ```powershell
-  git add vfe4/inference/h5_updates.py vfe4/inference/__init__.py verification/numpy_oracles/h5_updates.py verification/numpy_oracles/__init__.py tests/unit/test_h5_updates.py tests/oracle/test_h5_update_oracle.py
-  git commit -m "feat: add transactional H5 update semantics"
-  ```
+Working-state constructors require exact active keys, CPU float64 scalar/vector leaves, `requires_grad=True` only for declared active leaves, and no storage alias with either live snapshot. Variance leaves use `exp(log_variance)` at freeze; categorical leaves use masked `log_softmax`/`softmax` on the fixed support. `freeze_candidate` takes the unchanged complete `live` base, replaces exactly the active request blocks from detached working leaves, defensively copies every inactive recognition/model block from `live`, and asserts the frozen-complement hash before returning the complete candidate. Working states are never accepted, hashed as live state, or serialized into artifacts.
+
+`UpdateHashRecord.request_sha256` must equal the constructor-recomputed request hash. Before/final live, recognition, model, optimizer, RNG, and frozen-complement hashes are mandatory for every transaction outcome, including early typed failure. Candidate hashes become mandatory at `FREEZE`; predecision hashes become mandatory after freeze and before after-evaluation/decision; phase constructors require the unavailable later hashes to be `None`. A completed outcome requires every hash field.
+
+`CompletedUpdateAttempt` requires complete before/after universes, no missing/extra IDs, exact producer/request label agreement, exact expected/observed affected equality, and exact decision logic. `FailedUpdateAttempt` is the only representation for a missing factor, pre-evaluation label rejection, stale cache, invalid candidate, forced invalid decision, mutation, or deterministic scalar corruption; phase-specific constructors require producer/decision/affectedness/recheck fields exactly when that phase has observed them and require `None`/empty tuples before observation. No failure fabricates an after-`ElboTerms` value.
+
+The transition symbols below are not free: at `t=1`, `(alpha_10,B_1,c_1,R_1)=(1.25,0.45,-0.12,0.37)` from the frozen H1 factor; at `t=2`, `(alpha_20,alpha_21,B_2,c_2,R_2)=(alpha_0,alpha_1,B_base+s,c,R)` from the current live H5 model snapshot. Every formula uses those effective values and the displayed H5 recognition means/variances.
+
+The exact coordinates are:
+
+1. For `q[z0]`, let `(J0,h0)` be the information form of the H1 initial joint, and let
+   \[
+   w_{t0}=P_Q(a_t=0),\quad w_{10}=1,\quad
+   w_{20}=\sum_b\gamma_2(b)\beta_2(0\mid b).
+   \]
+   Then
+   \[
+   J^\star=J_{0,zz}+\sum_{t=1}^{2}w_{t0}\alpha_{t0}^2/R_t,
+   \]
+   \[
+   h^\star=h_{0,z}-J_{0,zm}\mu_{m0}+
+   \sum_{t=1}^{2}w_{t0}\alpha_{t0}
+   (\mu_{z_t}-B_t\mu_{m_t}-c_t)/R_t.
+   \]
+   Return variance `1/J*` and mean `h*/J*`. Recognition entropy supplies the coordinate normalizer; it is not added as an information factor.
+
+2. For `q[source_row_a2]`, for `a in (0,1)` use `alpha_a=(alpha_0,alpha_1)[a]`, `B_2=B_base+s`, and the live `(c,R)`, and define
+   \[
+   \ell_a=-\frac12\left[\log(2\pi R_2)+
+   \frac{V_{z2}+\alpha_a^2V_{za}+B_2^2V_{m2}+
+   (\mu_{z2}-\alpha_a\mu_{za}-B_2\mu_{m2}-c_2)^2}{R_2}\right].
+   \]
+   Return `softmax(log(state_source_prior_2[a]) + ell_a)` in support order `(0,1)`. The positive fixed `gamma_2(0)` multiplier cancels from this row optimum.
+
+3. For the full `theta[state_transition_2]` M block, set
+   \[
+   x_a=(1_{a=0}z_0,1_{a=1}z_1,m_2,1)^T,
+   \qquad w_{ab}=\gamma_2(b)\beta_2(a\mid b).
+   \]
+   With the detached recognition snapshot fixed,
+   \[
+   G=\sum_{a,b}w_{ab}E[x_ax_a^T],\qquad
+   g=\sum_{a,b}w_{ab}E[x_az_2],
+   \]
+   \[
+   (\alpha_0^\star,\alpha_1^\star,B_{effective}^\star,c^\star)^T=G^{-1}g,
+   \]
+   \[
+   R^\star=\sum_{a,b}w_{ab}E[(z_2-\theta^{\star T}x_a)^2].
+   \]
+   Every expectation uses the frozen mean-field moments `E[u^2]=V_u+mu_u^2` and `E[uv]=mu_u*mu_v` for distinct continuous coordinates. Accumulate in support order `b=(0,1)`, then `a=(0,1)`, set `G = 0.5*(G+G.T)`, and solve the displayed system by Cholesky without a pseudoinverse or ridge term. Require successful SPD factorization, finite results, and `R*>0`. Store `B_base*=B_effective*-s` with the shared scalar fixed.
+
+`differentiable_h5_complete_elbo_order_21` reconstructs every inactive value from `live`, substitutes exactly the active leaves, and evaluates the identical Task 6 factor algebra at order 21; its detached scalar must equal the Task 6 order-21 complete scalar within that record's rounding allowance before any gradient is used.
+
+For generalized EM, compute one Euclidean direction at the unchanged live state from the order-21 complete objective,
+`g = grad_(w_z,w_m,bias) L_21(live)`, with recognition, the shared scalar, and every other model block detached. For each damping in the rule's exact schedule, form `(w_z,w_m,bias)_d = (w_z,w_m,bias)_live + d*g` from that same direction, freeze and evaluate it, and select only the first finite candidate with `delta_elbo > epsilon_delta`. No optimizer/RNG state changes, no direction recomputation between damping values, and no order-17-only acceptance are allowed.
+
+The H5 v1 natural-gradient control differentiates the same order-21 complete objective and updates only the `q[z1]` mean with its variance frozen: `mu_new = mu_old + 64.0 * variance * dL_21/dmu`. The fixed multiplier `64.0` is the preregistered oversized proposal; it is not backtracked or relabeled. Its candidate must remain finite and is accepted or rejected only by the complete-delta policy; order 17 remains part of the complete allowance.
+
+```python
+def exact_conjugate_gaussian_e_update(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest) -> H5CandidateSnapshot: ...
+def exact_source_row_update(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest) -> H5CandidateSnapshot: ...
+def exact_gaussian_m_update(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest) -> H5CandidateSnapshot: ...
+def differentiable_h5_complete_elbo_order_21(reference: H5ReferenceState, live: H5LiveState, recognition_working: DifferentiableRecognitionState, model_working: DifferentiableModelState) -> torch.Tensor: ...
+def propose_generalized_em(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest, damping: float) -> H5CandidateSnapshot: ...
+def propose_natural_gradient(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest, step_size: float) -> H5CandidateSnapshot: ...
+def freeze_candidate(live: H5LiveState, recognition_working: DifferentiableRecognitionState, model_working: DifferentiableModelState, *, request: UpdateRequest, producer_label: UpdateLabel, damping: float) -> H5CandidateSnapshot: ...
+def canonical_frozen_complement_bytes(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest) -> bytes: ...
+def execute_update(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest, evaluator: CompleteElboEvaluator, budget: H5BudgetConfig, *, fault_injection: H5FaultInjection | None = None) -> H5TransactionResult: ...
+```
+
+Decision rules are exact: an exact coordinate is eligible iff `delta_elbo >= -epsilon_delta`; generalized-EM and other proposal labels are eligible iff `delta_elbo > epsilon_delta`; `delta_elbo < -epsilon_delta` is a resolved rejection; the closed boundary is rejected as unresolved. Any required emission-touching positive case on that boundary makes the gate inconclusive, not failed. A rejected resolved-decrease natural-gradient positive case passes only with identical final live/recognition/model/optimizer/RNG hashes. `execute_update` returns a new immutable live state on acceptance and the original object on rejection or failure; no caller-visible in-place mutation occurs.
+
+The independent oracle accepts bytes, never production types. It parses its two candidate JSON byte fields into the same closed semantic snapshot schemas and independently computes `semantic_state_sha256`; it neither constructs nor claims equality of the provenance-bearing production `candidate_sha256`. Only `oracle_exact_m_block` records `(("G_condition_number", kappa_2(G)),)`; every other oracle result requires an empty condition-number tuple:
+
+```python
+@dataclass(frozen=True)
+class H5OracleUpdate:
+    schema_version: Literal["h5-oracle-update-v1"]
+    rule: str
+    candidate_recognition_json: bytes
+    candidate_model_json: bytes
+    candidate_condition_numbers: tuple[tuple[str, float], ...]
+    semantic_state_sha256: str = field(init=False)
+    before_elbo: float
+    after_elbo: float
+    delta_elbo: float
+
+def oracle_exact_e_block(h1_fixture_bytes: bytes, update_spec_bytes: bytes, live_state_bytes: bytes) -> H5OracleUpdate: ...
+def oracle_exact_source_row(h1_fixture_bytes: bytes, update_spec_bytes: bytes, live_state_bytes: bytes) -> H5OracleUpdate: ...
+def oracle_exact_m_block(h1_fixture_bytes: bytes, update_spec_bytes: bytes, live_state_bytes: bytes) -> H5OracleUpdate: ...
+def oracle_complete_delta(h1_fixture_bytes: bytes, update_spec_bytes: bytes, before_state_bytes: bytes, after_state_bytes: bytes, *, rule: str) -> H5OracleUpdate: ...
+```
+
+- [ ] **Step 1: Write failing tests for the five positives, every transaction phase, and independent oracle.** Assert exact z0 blanket contributions, the row formula, full five-parameter M solve, fixed detached recognition, fieldwise production/oracle exact-candidate agreement under the frozen operand-shaped allowances while retaining nonbinding semantic hashes, detached equality between differentiable and Task 6 order-21 complete objectives, first resolved GEM damping, oversized natural-gradient rejection, freeze-before-evaluate, no H2 mutation/autograd, input-hash affectedness, valid unaffected reuse, and byte-identical rollback.
+
+- [ ] **Step 2: Run Task 7 RED.**
+
+```powershell
+python -m pytest tests/unit/test_h5_updates.py tests/oracle/test_h5_update_oracle.py -q
+```
+
+Expected: collection fails because H5 updates and oracle do not exist.
+
+- [ ] **Step 3: Implement the three exact coordinates without autograd or generic optimizers.** Use solve/Cholesky operations directly and freeze candidates immediately.
+
+- [ ] **Step 4: Implement differentiable GEM/natural proposals with exact active-leaf scopes and the frozen damping order.** `torch.autograd.grad` may receive only declared active leaves. Candidate freeze must precede evaluator entry.
+
+- [ ] **Step 5: Implement transactional `execute_update`.** Capture before hashes, evaluate before, derive expected dependencies, propose/freeze, prove live state unchanged predecision, evaluate after, derive hash-affected IDs, validate complete/reused sets, compute the exact delta allowance, apply label policy, then atomically replace whole snapshots or retain the original live state. Convert every typed phase failure into `FailedUpdateAttempt`.
+
+- [ ] **Step 6: Implement the NumPy-only oracle with an independent strict parser and dense moment formulas.** It imports neither PyTorch nor `vfe4` production H5 modules and shares no production dependency graph.
+
+- [ ] **Step 7: Run Task 7 GREEN.**
+
+```powershell
+python -m pytest tests/unit/test_h5_updates.py tests/oracle/test_h5_update_oracle.py -q
+```
+
+Expected: all Task 7 tests pass.
+
+- [ ] **Step 8: Serialize export edits after H4 Tasks 2 and 3 exports are merged, then commit Task 7.**
+
+```powershell
+git add vfe4/inference/h5_updates.py vfe4/inference/__init__.py verification/numpy_oracles/h5_updates.py verification/numpy_oracles/__init__.py tests/unit/test_h5_updates.py tests/oracle/test_h5_update_oracle.py
+git commit -m "feat: add transactional H5 updates"
+```
 
 ---
 
-### Task 8: Add the H5 Gate, Mandatory Adversarial Controls, Status Mapping, and Payload
+### Task 8: Add the H5 Gate, Five Positive Results, Seven Independent Controls, Status Mapping, and Byte-Bearing Evaluation
 
 **Files:**
 
@@ -1213,72 +2071,232 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 
 **Interfaces:**
 
-- Produce `H5GateEvaluation(result, fixture_hash, positive_attempts, controls, oracle_results, allowances, validation_payload)`.
-- Produce `evaluate_h5(config: ResolvedConfig, *, h1_fixture_bytes: bytes) -> H5GateEvaluation` and `h5_validation_payload(evaluation) -> dict[str, object]`.
+`verification/h5_gate.py` owns all positive/control/gate records and both gate functions below; no `vfe4` module imports it.
 
-- [ ] **Step 1: Write the promotion test with exact invariant names.** Require this ordered tuple:
+```python
+class H5PositiveCaseId(str, Enum):
+    EXACT_GAUSSIAN_E = "exact_gaussian_e_coordinate"
+    EXACT_SOURCE_ROW = "exact_categorical_source_coordinate"
+    EXACT_GAUSSIAN_M = "exact_gaussian_m_coordinate_fixed_recognition"
+    ACCEPTED_GEM = "accepted_resolved_generalized_em"
+    REJECTED_NATURAL = "rejected_proposal_rollback"
 
-  ```text
-  fixture_and_objective_schema_identity
-  closed_update_taxonomy
-  dependency_graph_complete
-  exact_gaussian_e_coordinate
-  exact_categorical_source_coordinate
-  exact_gaussian_m_coordinate_fixed_recognition
-  accepted_resolved_generalized_em
-  rejected_proposal_rollback
-  child_factor_omission_detected
-  emission_factor_omission_detected
-  unresolved_gem_acceptance_detected
-  natural_gradient_mislabel_detected
-  rejection_mutation_detected
-  changed_input_equal_value_detected
-  changed_value_unchanged_input_not_affected
-  all_delta_allowances_operand_shaped
-  ```
+class H5ControlId(str, Enum):
+    OMIT_CHILD = "child_factor_omission_detected"
+    OMIT_EMISSION = "emission_factor_omission_detected"
+    FORCE_UNRESOLVED_GEM = "unresolved_gem_acceptance_detected"
+    MISLABEL_NATURAL = "natural_gradient_mislabel_detected"
+    MUTATE_REJECTION = "rejection_mutation_detected"
+    CHANGED_INPUT_EQUAL_VALUE = "changed_input_equal_value_detected"
+    CHANGED_VALUE_SAME_INPUT = "changed_value_unchanged_input_not_affected"
 
-  Require a complete `UpdateAttempt` for each positive case and each control, including before/after full `ElboTerms`, order-21/order-17 convergence estimates, before/after factor-input hashes, expected/observed affected IDs, diagnostic value-change IDs, schemas, complement/candidate/live/RNG hashes, delta/total allowance, decision, and label. Assert H5 status is independent of the H4 timing result.
+class H5ControlDetection(str, Enum):
+    CHILD_FACTOR_COVERAGE_FAILURE = "child_factor_coverage_failure"
+    EMISSION_FACTOR_COVERAGE_FAILURE = "emission_factor_coverage_failure"
+    UNRESOLVED_GEM_POLICY_FAILURE = "unresolved_gem_policy_failure"
+    NATURAL_LABEL_PROVENANCE_FAILURE = "natural_label_provenance_failure"
+    REJECTION_ROLLBACK_HASH_FAILURE = "rejection_rollback_hash_failure"
+    INPUT_HASH_CHANGE_WITH_EQUAL_VALUE = "input_hash_change_with_equal_value"
+    VALUE_CHANGE_WITH_SAME_INPUT = "value_change_with_same_input"
 
-- [ ] **Step 2: Run the Task 8 test for RED.**
+H5_CONTROL_DETECTION_BY_ID = MappingProxyType(dict(zip(H5ControlId, H5ControlDetection, strict=True)))
 
-  ```powershell
-  python -m pytest tests/promotion/test_h5_gate.py -q
-  ```
+@dataclass(frozen=True)
+class H5CandidateScalarComparison:
+    field_id: str
+    production_value: float
+    oracle_value: float
+    operation_count: int
+    production_condition_number: float
+    oracle_condition_number: float
+    production_rounding: float
+    oracle_rounding: float
+    comparison_rounding: float
+    allowance: float
+    absolute_error: float
+    passed: bool
 
-  Expected: collection fails because `verification.h5_gate` does not exist.
+@dataclass(frozen=True)
+class H5CandidateComparison:
+    rule: H5UpdateRule
+    scalar_comparisons: tuple[H5CandidateScalarComparison, ...]
+    max_absolute_error: float
+    max_allowance: float
+    passed: bool
 
-- [ ] **Step 3: Implement the seven mandatory controls as targeted fault injection.** Inject each fault behind a test/gate-only evaluator or controller seam:
+@dataclass(frozen=True)
+class H5PositiveCaseResult:
+    schema_version: Literal["h5-positive-case-result-v1"]
+    case_id: H5PositiveCaseId
+    outcome: H5AttemptOutcome
+    production_semantic_state_sha256: str
+    oracle_semantic_state_sha256: str
+    candidate_comparison: H5CandidateComparison | None
+    oracle_delta: float
+    passed: bool
+    detail: str
 
-  - suppress one expected child `state_transition[2]` evaluation while keeping other factors;
-  - suppress `emission[1]` for an emission-touching proposal;
-  - force controller acceptance when `abs(delta) <= epsilon_delta` under `generalized_em`;
-  - submit a natural-gradient proposal with requested label `exact_coordinate`;
-  - mutate one live-state field and advance RNG after a rejected proposal.
-  - change one factor's canonical input bytes while constructing a mathematically equal scalar value, proving input-hash affectedness catches the value-based false negative;
-  - perturb one reported factor scalar while keeping canonical factor inputs byte-identical, proving the factor is absent from `observed_affected_factor_ids` despite appearing in diagnostic `value_changed_factor_ids`; the separate deterministic reevaluation check still detects the corrupted scalar.
+@dataclass(frozen=True)
+class H5ControlResult:
+    schema_version: Literal["h5-control-result-v1"]
+    control_id: H5ControlId
+    expected_detection: H5ControlDetection
+    observed_detection: H5ControlDetection | None
+    outcome: H5AttemptOutcome
+    passed: bool
+    detail: str
 
-  Each control passes only when the intended invariant detects the fault and returns the expected typed reason. Do not catch all faults as one generic exception or alter production behavior globally.
+@dataclass(frozen=True)
+class H5GateResult:
+    schema_version: Literal["h5-gate-result-v1"]
+    gate: Literal["H5"]
+    status: GateStatus
+    h1_fixture_raw_sha256: str
+    update_spec_raw_sha256: str
+    update_spec_canonical_sha256: str
+    objective_schema_sha256: str
+    factor_input_schema_version: Literal["h5-factor-input-v1"]
+    factor_input_schema_sha256: str
+    positive_cases: tuple[H5PositiveCaseResult, ...]
+    controls: tuple[H5ControlResult, ...]
+    invariants: tuple[InvariantResult, ...]
+    obligations: tuple[str, ...]
 
-- [ ] **Step 4: Implement H5 status precedence.** Validate fixture/schema/taxonomy/graph availability first, then complete before/after factor-input hash coverage and exact expected/observed affected equality, positive-case finite/oracle/factor completeness, every term's deterministic convergence estimate and total allowance, label-specific delta decisions, rollback hashes, and controls. A decisive positive-case, affectedness, or control miss is `FAIL`. Missing evidence, nonfinite state, schema mismatch with unknown cause, stale-cache ambiguity, absent MM proof request, nonzero stochastic contribution, or an emission-touching/other required delta that does not clear the complete total allowance is `INCONCLUSIVE`. H5 is `PASS` only when every positive and control invariant passes.
+@dataclass(frozen=True)
+class H5ValidationPayloadRecord:
+    schema_version: Literal[1]
+    result: H5GateResult
+    reference_sha256: str
+    factor_universe: tuple[str, ...]
+    recognition_coordinate_universe: tuple[str, ...]
+    model_block_universe: tuple[str, ...]
+    variable_dependency_rows: tuple[tuple[str, tuple[str, ...]], ...]
+    parameter_dependency_rows: tuple[tuple[str, tuple[str, ...]], ...]
+    positive_attempts: tuple[H5AttemptOutcome, ...]
+    controls: tuple[H5ControlResult, ...]
+    oracle_results: tuple[H5OracleUpdate, ...]
+    nonclaims: tuple[str, ...]
+    canonical_bytes: bytes = field(init=False, repr=False)
+    payload_sha256: str = field(init=False)
 
-- [ ] **Step 5: Emit the complete `validation/h5.json` schema.** Include gate/status/obligations; raw fixture hash; config/objective/update schema hashes; exact taxonomy; dependency graph; factor universe; positive/seven-control specifications; every complete before/after term and factor trace; every factor's before/after input hash; expected/observed reevaluated/observed affected/diagnostic value-changed/missing/extra/cache/reuse IDs; variables/parameters; candidate/complement/live/recognition/optimizer/RNG hashes; exact label/autograd/damping/line-search facts; quadrature orders; every term's two values, deterministic convergence estimate, rounding allowance, and total; complete before/after totals; zero stochastic contribution; subtraction rounding; exact epsilon formula; delta/decision and emission-touching decisiveness; oracle values; ordered invariants; bounded H5 claim; disabled-MM reason; and H6--H8/training nonclaims.
+@dataclass(frozen=True)
+class H5GateEvaluation:
+    schema_version: Literal["h5-gate-evaluation-v1"]
+    result: H5GateResult
+    reference: H5ReferenceState
+    positive_attempts: tuple[H5AttemptOutcome, ...]
+    controls: tuple[H5ControlResult, ...]
+    oracle_results: tuple[H5OracleUpdate, ...]
+    validation_payload: H5ValidationPayloadRecord
 
-- [ ] **Step 6: Run the Task 8 test for GREEN.**
+def compare_h5_exact_candidate(production: H5CandidateSnapshot, oracle: H5OracleUpdate) -> H5CandidateComparison: ...
 
-  ```powershell
-  python -m pytest tests/promotion/test_h5_gate.py -q
-  ```
+def evaluate_h5(
+    config: ResolvedConfig,
+    *,
+    h1_fixture_bytes: bytes,
+    h5_update_spec_bytes: bytes,
+) -> H5GateEvaluation: ...
 
-  Expected: all positive cases pass, each of seven faults is detected/classified by its named control, value-based affectedness false negatives/positives are impossible, every term carries deterministic convergence plus rounding, every attempt contains the complete evidence record, and PASS/FAIL/INCONCLUSIVE precedence matches the preregistration.
+def h5_validation_payload(evaluation: H5GateEvaluation) -> dict[str, object]: ...
+```
+
+The caller must pass the same captured immutable H5 byte object to production and oracle adapters. In Task 8, `evaluate_h5` reads only the already-existing resolved common CPU/float64/determinism fields; all H5 protocol identity comes from Task 5 constants and the captured bytes. It never rereads either fixture path. Task 9 later adds and validates the H5 config section without changing this byte-bearing signature.
+
+`H5ValidationPayloadRecord` requires exact universe/dependency order, raw attempt/control/oracle equality with the result/evaluation, and `nonclaims == H5_NONCLAIM_IDS`. It canonicalizes every nested frozen record under the validation-payload domain and computes its own hash; `h5_validation_payload` is only the deterministic JSON-primitive projection of that closed record, not an independently assembled mapping.
+
+`compare_h5_exact_candidate` compares exactly the active fields listed in `H5_CANDIDATE_COMPARISON_OPERATION_COUNTS`, in that order, using the frozen scalar formula and conditions above. Exact z0/source comparisons record condition `1.0`; the M comparison records each implementation's `G` condition number supplied in its update diagnostics. Exact positive cases require non-`None` passing comparisons. GEM/natural positive cases require `candidate_comparison is None` and independent complete-delta agreement. Production/oracle semantic hashes are always retained but their equality or inequality never determines PASS/FAIL/INCONCLUSIVE.
+
+The exact ordered invariant tuple is:
+
+```text
+fixture_and_objective_schema_identity
+closed_update_taxonomy
+dependency_graph_complete
+exact_gaussian_e_coordinate
+exact_categorical_source_coordinate
+exact_gaussian_m_coordinate_fixed_recognition
+accepted_resolved_generalized_em
+rejected_proposal_rollback
+child_factor_omission_detected
+emission_factor_omission_detected
+unresolved_gem_acceptance_detected
+natural_gradient_mislabel_detected
+rejection_mutation_detected
+changed_input_equal_value_detected
+changed_value_unchanged_input_not_affected
+all_delta_allowances_operand_shaped
+```
+
+The seven fault injections are exact and test/gate-only:
+
+1. During `EXACT_Z0`, the after-evaluator omits expected affected factor `state_transition[2]`; outcome must be `FailedUpdateAttempt(AFTER_EVALUATION, FACTOR_COVERAGE_MISMATCH)` with the other eleven ordered records in `partial_after` and no fabricated after terms.
+2. During `GENERALIZED_EM_EMISSION_1`, the after-evaluator omits its expected affected `emission[1]`; the same typed failure records the other eleven factors.
+3. Starting from the valid GEM request, the proposal seam changes only `emission[1].bias[0]` to `math.nextafter(old, math.inf)`, producing distinct factor-input bytes and a finite complete delta inside the positive allowance. A decision seam then returns accept despite `abs(delta_elbo)<=epsilon_delta`; validation converts it to `FailedUpdateAttempt(DECISION, DECISION_POLICY_VIOLATION)` before commit.
+4. Use the valid `NATURAL_GRADIENT_Z1` request and its normal frozen candidate, preserving its rule, request hash, `q[z1]` active block, snapshots, and damping; mutate only `candidate.producer_label` from `NATURAL_GRADIENT_PROPOSAL` to `EXACT_COORDINATE` and recompute the candidate hash. Producer/request-label validation alone yields `FailedUpdateAttempt(FREEZE, LABEL_PROVENANCE_MISMATCH)` before evaluation or acceptance.
+5. After the resolved-decrease natural candidate is rejected, the rollback seam returns a copied live state with only `q[z1].mean=math.nextafter(old, math.inf)` and RNG payload counter changed from zero to one. Final live/recognition/RNG hashes yield `FailedUpdateAttempt(COMMIT_OR_ROLLBACK, ROLLBACK_HASH_MISMATCH)`; the original caller-owned live object remains unchanged.
+6. For `state_transition[2]`, reflect `alpha_0` about its fixed-complement scalar least-squares optimum
+   `alpha_hat = E[z0*(z2-(B_base+s)*m2-c)] / E[z0**2]`, using `alpha_0' = 2*alpha_hat-alpha_0`. Evaluate both sides through the same completed-square quadratic form; their order-21/order-17 `float.hex()` pairs must be exactly equal while canonical input bytes differ. The factor must appear in `observed_affected_factor_ids` and must be absent from `value_changed_factor_ids`; failure to realize this exact fixture property is `INCONCLUSIVE`, not a relaxed control.
+7. With the `state_transition[2]` canonical input bytes unchanged, the factor-record seam adds exactly `1.0e-6` to its reported order-21 and order-17 values. Before any internally inconsistent `CompleteElboEvaluation` can be constructed, independent deterministic reevaluation of that same input produces the unmodified pair. The resulting `FailedUpdateAttempt(AFTER_EVALUATION, DETERMINISTIC_REEVALUATION_MISMATCH)` retains the corrupted record in `partial_after`, keeps the factor absent from `observed_affected_factor_ids`, includes it in diagnostic `value_changed_factor_ids`, and stores the unequal pair in `deterministic_reevaluation`.
+
+Status construction is fail-closed:
+
+- `PASS` iff the raw fixture/schema/graph are exact, all five positives pass, all seven controls detect their intended fault, every numerical record is finite/complete/operand-shaped, and obligations are empty.
+- `FAIL` iff current finite complete evidence decisively falsifies a required positive, dependency, decision, rollback, oracle, or control invariant. A control is successful when it detects its injected fault; the injected fault itself does not make H5 fail.
+- `INCONCLUSIVE` iff required evidence is missing/nonfinite, a schema/cache cause is unresolved, or a required emission-touching comparison remains inside/on its complete allowance; obligations are nonempty and name each open phase.
+- Unsupported MM is absent from this status mapping. Configuration resolution rejects it before `evaluate_h5`; a normal H5 run has no MM obligation.
+
+- [ ] **Step 1: Write the failing promotion test for exact five-positive/seven-control order, every typed outcome, payload schema, byte identity, and all PASS/FAIL/INCONCLUSIVE contradictions.** Include exact candidate-comparison field/count/order/formulas, both within/outside allowance, permitted unequal semantic hashes, exact boundaries `delta=-epsilon`, `delta=epsilon`, and just outside them; malformed partial/full outcomes; changed-input/equal-value and same-input/changed-value separation; rollback optimizer/RNG hashes; no MM obligation; and a proof that path rereads are not performed.
+
+```python
+def test_h5_gate_consumes_captured_bytes_and_requires_all_cases_and_controls():
+    evaluation = evaluate_h5(CONFIG, h1_fixture_bytes=H1_BYTES, h5_update_spec_bytes=H5_BYTES)
+    assert tuple(case.case_id for case in evaluation.result.positive_cases) == tuple(H5PositiveCaseId)
+    assert tuple(control.control_id for control in evaluation.result.controls) == tuple(H5ControlId)
+    assert evaluation.result.status is GateStatus.PASS
+    assert evaluation.result.obligations == ()
+    assert "valid_mm" not in " ".join(evaluation.result.obligations)
+```
+
+- [ ] **Step 2: Run Task 8 RED.**
+
+```powershell
+python -m pytest tests/promotion/test_h5_gate.py -q
+```
+
+Expected: collection fails because the H5 gate does not exist.
+
+- [ ] **Step 3: Implement test/gate-only fault seams and the seven controls without changing production globals.** Each seam is injected into one evaluator/controller instance and restored by object disposal, not monkeypatch leakage.
+
+- [ ] **Step 4: Implement the five positive cases, gate invariant/status constructor, byte-bearing `evaluate_h5`, and complete payload.** Payload includes raw/canonical/schema hashes; universes/graph; every complete or partial outcome; both-order factor/term values; allowances; dependency/value diagnostics; producer/request labels; line search; all snapshot/live/optimizer/RNG hashes; oracle comparisons; controls; invariants; status/obligations; and H6–H8/training nonclaims. It contains no MM configuration field or obligation; Task 9 owns that later config-only resolution surface.
+
+- [ ] **Step 5: Run Task 8 GREEN.**
+
+```powershell
+python -m pytest tests/promotion/test_h5_gate.py -q
+```
+
+Expected: all Task 8 tests pass.
+
+- [ ] **Step 6: Update the H5 preregistration only to copy the now-implemented exact raw digest and any mechanically generated schema hash; do not change formulas, cases, controls, thresholds, or status rules after observing outcomes.** Rerun the focused Task 8 test if this documentation is imported by the payload test.
 
 - [ ] **Step 7: Commit Task 8.**
 
-  ```powershell
-  git add verification/h5_gate.py tests/promotion/test_h5_gate.py docs/preregistrations/2026-07-21-h5-update-coherence.md
-  git commit -m "test: add the H5 update coherence gate"
-  ```
+```powershell
+git add verification/h5_gate.py tests/promotion/test_h5_gate.py docs/preregistrations/2026-07-21-h5-update-coherence.md
+git commit -m "feat: add fail-closed H5 gate"
+```
+
+## H4/H5 Export-File Serialization
+
+- `vfe4/types/__init__.py`: apply Task 5 exports only after the repaired H4 Task 1 exports are present. Rebase first and append H5 names without replacing H4 names.
+- `vfe4/inference/__init__.py`: H4 Task 2 owns its first edit. Implement `h5_updates.py` and tests independently, then serialize the H5 export patch after H4 Task 2 merges.
+- `verification/numpy_oracles/__init__.py`: H4 Task 3 owns its first edit. Implement the H5 oracle module independently, then serialize exports after H4 Task 3 merges.
+- Do not run H4 and H5 workers concurrently in the same worktree. Never resolve these export collisions by reverting, stashing, or overwriting another task's changes.
+- H5 Tasks 5–8 import only stable H1/H2/H3 types and `GateStatus`/`InvariantResult`; they do not import H4 solver, timing, statistics, or gate modules.
 
 ---
+
 
 ### Task 9: Extend Typed Configuration, One Click-Run, Atomic Artifact Family, and Environment Provenance Through H5
 
@@ -1299,11 +2317,12 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 **Interfaces and compatibility:**
 
 - Extend accepted gate prefixes only to `("H1",)`, `("H1","H2")`, `("H1","H2","H3")`, and `("H1","H2","H3","H4","H5")`. Do not accept H4 without H5, H5 without H4, reordered/duplicate gates, or any H6--H8 prefix in this milestone.
-- Add `h4: H4ValidationConfig | None` and `h5: H5ValidationConfig | None`. Both are absent for shorter prefixes and both are required for the H5 prefix. They remain separately hashed sections and produce separate results. `H5ValidationConfig` copies exactly the Task 5 parser/test literal for `update_spec_fixture_id` and `update_spec_expected_sha256`, plus update-spec schema version, factor-input-hash schema version, and ordered factor-universe IDs; resolution recomputes `SHA256(raw_fixture_bytes)` after the coupled-prefix capture and rejects any mismatch, truncation, or short digest prefix.
+- Add `h4: H4ValidationConfig | None` and `h5: H5ValidationConfig | None`. Both are absent for shorter prefixes and both are required for the H5 prefix. They remain separately hashed sections and produce separate results. `H5ValidationConfig` copies Task 5's exact fixture ID, raw SHA-256, canonical SHA-256, objective-schema SHA-256, factor-input schema version/SHA-256, all three ordered identifier universes, and ordered rule/positive/control IDs. Resolution recomputes `SHA256(raw_fixture_bytes)` after the coupled-prefix capture and rejects any mismatch, truncation, short digest prefix, canonical/schema drift, or ordering change.
+- H5 v1 config contains `enabled_update_rules=tuple(H5UpdateRule)`, `enabled_update_labels=(UpdateLabel.EXACT_COORDINATE, UpdateLabel.GENERALIZED_EM, UpdateLabel.NATURAL_GRADIENT_PROPOSAL)`, and `mm_proof_artifact=None`. Resolution requires those labels to equal the ordered unique producer labels induced by the enabled rule contracts. Adding `UpdateLabel.VALID_MM` is the concrete unsupported-MM request and is rejected before constructing an `UpdateRequest`, before reading update state, and before calling `evaluate_h5`. Absence of an MM artifact or request never creates an H5 attempt, invariant, obligation, or gate status.
 - `H4ValidationConfig` exposes the exact parity expression, warmup/timed pair-index tuples, `warmups_count_toward_balance=False`, the canonical `H4_PRIMARY_TIMED_BALANCE` 20-row tuple `(seed, AB, BA)`, `primary_timed_ab_total=110`, and `primary_timed_ba_total=110`; resolution recomputes these values from independent horizon/seed/kind/pair indices and rejects any disagreement.
 - Extend the explicit result union to include `H4GateResult` and `H5GateResult`; do not merge their measurements or status.
 
-- [ ] **Step 1: Write focused configuration, integration, and artifact tests.** Assert the one editable `CONFIG` resolves to ordered H1--H5 and includes exact H4 horizon/seed/kind traversal with independent zero-based indices, AB exactly when `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`, warmup/timed pair indices, `warmups_count_toward_balance=False`, the exact 20-row `H4_PRIMARY_TIMED_BALANCE`, exactly ten primary `6/5` rows and ten `5/6` rows, exact aggregate timed totals `AB=110` and `BA=110`, seeds/dimensions/protocol/statistics/environment constraints, inclusive condition envelope, `1e-9` solver budget, and strict `1e-4` decisiveness cap; plus exact H5 update-spec fixture ID/digest/schema fields, taxonomy/dependency/input-hash rule/cases/seven controls, quadrature orders `21/17`, deterministic-convergence-plus-rounding budgets, zero stochastic contribution, and epsilon formula. Reject a formula based on flattened `problem_index`, either swapped per-seed count, a per-seed imbalance masked by correct aggregate totals, aggregate totals other than `110/110`, or a true warmup-balance flag. Test every envelope/cap/delta boundary. Resolve every shorter compatibility prefix and prove it contains no H4/H5 config, does not read/hash/capture H4/H5/update-spec inputs, does not run timing/updates, and publishes no H4/H5 payload/provenance keys.
+- [ ] **Step 1: Write focused configuration, integration, and artifact tests.** Assert the one editable `CONFIG` resolves to ordered H1--H5 and includes exact H4 horizon/seed/kind traversal with independent zero-based indices, AB exactly when `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`, warmup/timed pair indices, `warmups_count_toward_balance=False`, the exact 20-row `H4_PRIMARY_TIMED_BALANCE`, exactly ten primary `6/5` rows and ten `5/6` rows, exact aggregate timed totals `AB=110` and `BA=110`, seeds/dimensions/protocol/statistics/environment constraints, inclusive condition envelope, `1e-9` solver budget, and strict `1e-4` decisiveness cap; plus exact H5 conditional update-spec fixture ID, full raw/canonical digests, objective/factor-input schema fields, identifier universes, five rule contracts, producer-label order, five positive cases, seven controls, quadrature orders `21/17`, deterministic-convergence-plus-rounding budgets, zero stochastic contribution, and epsilon formula. Reject a formula based on flattened `problem_index`, either swapped per-seed count, a per-seed imbalance masked by correct aggregate totals, aggregate totals other than `110/110`, or a true warmup-balance flag. Reject `VALID_MM` with `mm_proof_artifact=None` before request/state/evaluator construction, and assert that the supported config creates no missing-MM obligation. Test every envelope/cap/delta boundary. Resolve every shorter compatibility prefix and prove it contains no H4/H5 config, does not read/hash/capture H4/H5/update-spec inputs, does not run timing/updates, and publishes no H4/H5 payload/provenance keys.
 
   One mocked H1--H5 `main()` call evaluates each gate once and publishes exactly one manifest-checked directory containing:
 
@@ -1329,13 +2348,13 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 
   Expected: failures show the resolver/runner currently stop at H3 and no H4/H5 payloads or environment fields exist.
 
-- [ ] **Step 3: Add exact typed H4/H5 sections and fail-closed resolution.** Canonicalize every frozen literal. Derive arm order from independent indices, recompute the primary 20-row timed balance, pattern counts, and aggregate totals, and require exact equality with the configured literals before returning `ResolvedConfig`. Reject changed horizon/seed/kind traversal, seed order/count, size order, primary dimension, warmup/timed pair indices, parity formula, flattened-`problem_index` parity, warmup inclusion, any per-seed primary balance row, pattern-count or `110/110` aggregate mismatch, no-between-repetitions/postflight tag, bootstrap settings, threshold, condition-envelope bound/inclusivity, solver budget, decisiveness cap/strictness, timer boundary tag, solver labels, thread/dtype/device, an H5 update-spec fixture/digest/schema field that differs from Task 5, any digest shorter than the exact 64-hex raw-byte SHA-256 literal, H5 label order, factor/input-hash IDs, positive/seven-control IDs, quadrature orders, deterministic convergence rule, nonzero stochastic contribution, disabled-MM policy, or delta formula. Reject H4/H5 section presence for shorter prefixes and absence of either section for the coupled prefix.
+- [ ] **Step 3: Add exact typed H4/H5 sections and fail-closed resolution.** Canonicalize every frozen literal. Derive arm order from independent indices, recompute the primary 20-row timed balance, pattern counts, and aggregate totals, and require exact equality with the configured literals before returning `ResolvedConfig`. Reject changed horizon/seed/kind traversal, seed order/count, size order, primary dimension, warmup/timed pair indices, parity formula, flattened-`problem_index` parity, warmup inclusion, any per-seed primary balance row, pattern-count or `110/110` aggregate mismatch, no-between-repetitions/postflight tag, bootstrap settings, threshold, condition-envelope bound/inclusivity, solver budget, decisiveness cap/strictness, timer boundary tag, solver labels, thread/dtype/device, an H5 fixture/raw/canonical/objective-schema/factor-input-schema field that differs from Task 5, any raw digest shorter than the exact 64-hex SHA-256 literal, any universe/rule/label/positive/control order change, quadrature-order drift, deterministic-budget drift, nonzero stochastic contribution, or delta-formula drift. Require exact equality between enabled rule producer labels and `enabled_update_labels`. Reject unsupported `VALID_MM` at configuration resolution when `mm_proof_artifact=None`; do not pass that condition into attempt or gate status logic. Reject H4/H5 section presence for shorter prefixes and absence of either section for the coupled prefix.
 
-- [ ] **Step 4: Extend conditional one-time capture and ordered evaluation.** Capture `h1-v1` once for H1/H2/H5, H3 coupled/zero bytes once for H3/H4 only when consumed, and `h5_factorized_update_v1.json` bytes once only for the coupled H1/H2/H3/H4/H5 prefix. Immediately compute and compare its full raw-byte SHA-256 against the exact Task 5/config literal before parser decode; no short digest prefix is accepted or exposed in configuration, gate arguments, provenance, payloads, or artifacts. Pass the same captured H5 byte object to every H5 production evaluator and oracle adapter. Evaluate H1, H2, H3, H4, H5 in order. H4 receives H3 bytes; H5 receives H1 bytes and update-spec bytes. Publish only after both expensive gates return. Shorter prefixes must neither read, hash, capture, nor publish the H5 update-spec. Aggregate status is `fail` if any gate fails, otherwise `inconclusive` if any is inconclusive, otherwise `pass`.
+- [ ] **Step 4: Extend conditional one-time capture and ordered evaluation.** Capture `h1-v1` once for H1/H2/H5, H3 coupled/zero bytes once for H3/H4 only when consumed, and `h5_conditional_update_v1.json` bytes once only for the coupled H1/H2/H3/H4/H5 prefix. Immediately compute and compare its full raw-byte SHA-256 against the exact Task 5/config literal before parser decode; no short digest prefix is accepted or exposed in configuration, gate arguments, provenance, payloads, or artifacts. Pass the same captured H5 byte object by identity to `evaluate_h5` and every production/oracle adapter; H5 receives both `h1_fixture_bytes` and `h5_update_spec_bytes`. Evaluate H1, H2, H3, H4, H5 in order. H4 receives H3 bytes. Publish only after both expensive gates return. Shorter prefixes must neither read, hash, capture, nor publish the H5 update-spec. Aggregate status is `fail` if any gate fails, otherwise `inconclusive` if any is inconclusive, otherwise `pass`.
 
-- [ ] **Step 5: Extend environment and provenance.** Preserve current source/config/dirty-content security fields and expose the canonical `dirty_content_digest` used by milestone preflight/rechecks. Add timing clock implementation/resolution/monotonicity, process CPU affinity, logical/physical CPU counts when available, processor/platform, PyTorch intra/inter-op threads, `torch.__config__.show()` digest/text, NumPy BLAS configuration digest/text, CUDA availability (expected false for H4), and exact values/presence of `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS`, and `VECLIB_MAXIMUM_THREADS`. Record H4 prior/effective/restored intra-op thread values and any restoration error, ordered gate states, distinct H4/H5 config hashes, factor/update/model-snapshot schema hashes, `fixture_hashes["h5-factorized-update-v1"]`, `gate_fixture_consumers["H5"]=("h1-v1","h5-factorized-update-v1")`, H5 raw update-spec digest/schema values, H4 traversal/problem-factor hashes/parity formula/warmup-exclusion flag/expected and observed primary per-seed plus `110/110` aggregate timed balance/envelope/budget/cap, H5 factor-input hash schema/quadrature/allowance rules, and H4/H5 bounded-claim/nonclaim tags. Shorter prefixes contain none of the H5 update-spec fields.
+- [ ] **Step 5: Extend environment and provenance.** Preserve current source/config/dirty-content security fields and expose the canonical `dirty_content_digest` used by milestone preflight/rechecks. Add timing clock implementation/resolution/monotonicity, process CPU affinity, logical/physical CPU counts when available, processor/platform, PyTorch intra/inter-op threads, `torch.__config__.show()` digest/text, NumPy BLAS configuration digest/text, CUDA availability (expected false for H4), and exact values/presence of `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS`, and `VECLIB_MAXIMUM_THREADS`. Record H4 prior/effective/restored intra-op thread values and any restoration error, ordered gate states, distinct H4/H5 config hashes, H5 raw/canonical update-spec, objective-schema, factor-input-schema, recognition/model/reference/transaction/payload hashes, `fixture_hashes["h5-conditional-update-v1"]`, `gate_fixture_consumers["H5"]=("h1-v1","h5-conditional-update-v1")`, H5 universes/rule/control orders/quadrature/allowance rules, H4 traversal/problem-factor hashes/parity formula/warmup-exclusion flag/expected and observed primary per-seed plus `110/110` aggregate timed balance/envelope/budget/cap, and H4/H5 bounded-claim/nonclaim tags. Shorter prefixes contain none of the H5 update-spec fields.
 
-- [ ] **Step 6: Extend the one launcher and bounded documentation.** Keep one `CONFIG`, `main`, and script guard. Print H1--H5 statuses separately and one artifact path. README and the H4 preregistration state the independent-index parity formula, literal primary 20-row timed balance, ten/ten pattern split, exact `110/110` totals, and that warmups are excluded from balance; they do not prestate H4 speed or H5 pass results. Use exact live path case `Manuscripts/...` in every source citation and add a focused documentation assertion that rejects any differently cased variant. Explicitly defer H6--H8 and training.
+- [ ] **Step 6: Extend the one launcher and bounded documentation.** Keep one `CONFIG`, `main`, and script guard. Print H1--H5 statuses separately and one artifact path. README and the H4 preregistration state the independent-index parity formula, literal primary 20-row timed balance, ten/ten pattern split, exact `110/110` totals, and that warmups are excluded from balance; they do not prestate H4 speed or H5 pass results. The H5 preregistration states the exact conditional recognition law, raw/canonical/schema bindings, five rules/positives, seven controls, and config-only unsupported-MM rejection without inventing a missing-MM gate obligation. Use exact live path case `Manuscripts/...` in every source citation and add a focused documentation assertion that rejects any differently cased variant. Explicitly defer H6--H8 and training.
 
 - [ ] **Step 7: Run the Task 9 tests for GREEN.**
 
@@ -1370,30 +2389,33 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
   $candidateHead = (git rev-parse HEAD).Trim()
   if ($candidateHead.Length -ne 40) { throw 'H4/H5 requires a full 40-character HEAD' }
   $requiredTracked = @(
+      '.gitattributes',
       'docs/superpowers/plans/2026-07-21-vfe4-h4-h5-cost-update.md',
        'docs/preregistrations/2026-07-21-h4-information-cost.md',
        'docs/preregistrations/2026-07-21-h5-update-coherence.md',
-       'vfe4/validation/fixtures/h5_factorized_update_v1.json',
+       'vfe4/validation/fixtures/h5_conditional_update_v1.json',
        'vfe4/validation/h5_update_spec.py',
-       'vfe4/types/h4.py', 'vfe4/types/updates.py', 'vfe4/types/__init__.py',
-      'vfe4/generative/reference_h4.py', 'vfe4/generative/__init__.py',
-      'vfe4/inference/h4_instrumentation.py', 'vfe4/inference/h4_solvers.py',
-      'vfe4/inference/h5_updates.py', 'vfe4/inference/__init__.py',
-      'vfe4/objective/dependency_graph.py', 'vfe4/objective/h5_complete.py',
-      'vfe4/objective/__init__.py',
-      'verification/numpy_oracles/h4_gaussian.py',
-      'verification/numpy_oracles/h5_updates.py',
-      'verification/numpy_oracles/__init__.py',
-      'verification/h4_budget.py', 'verification/h4_statistics.py',
-      'verification/h4_gate.py', 'verification/h5_budget.py',
-      'verification/h5_gate.py', 'verification/run_gates.py',
+       'vfe4/types/h4.py', 'vfe4/types/updates.py', 'vfe4/types/h5_schema.py',
+       'vfe4/types/__init__.py',
+       'vfe4/generative/reference_h4.py', 'vfe4/generative/__init__.py',
+       'vfe4/inference/h4_instrumentation.py', 'vfe4/inference/h4_solvers.py',
+       'vfe4/inference/h5_updates.py', 'vfe4/inference/__init__.py',
+       'vfe4/objective/dependency_graph.py', 'vfe4/objective/h5_complete.py',
+       'vfe4/objective/__init__.py',
+       'vfe4/numerics/h5_budget.py', 'vfe4/numerics/__init__.py',
+       'verification/numpy_oracles/h4_gaussian.py',
+       'verification/numpy_oracles/h5_updates.py',
+       'verification/numpy_oracles/__init__.py',
+       'verification/h4_budget.py', 'verification/h4_statistics.py',
+       'verification/h4_gate.py', 'verification/h5_gate.py',
+       'verification/run_gates.py',
       'vfe4/config/schema.py', 'vfe4/config/resolve.py',
       'vfe4/artifacts/provenance.py', 'verify_vfe4.py', 'README.md',
       'tests/unit/test_h4_problem.py', 'tests/unit/test_h4_solvers.py',
       'tests/unit/test_h4_instrumentation.py', 'tests/unit/test_h4_statistics.py',
       'tests/oracle/test_h4_numpy_oracle.py', 'tests/promotion/test_h4_gate.py',
-       'tests/unit/test_h5_update_types.py', 'tests/unit/test_h5_dependency_graph.py',
-       'tests/unit/test_h5_update_spec.py',
+        'tests/unit/test_h5_update_types.py', 'tests/unit/test_h5_objective_schema.py',
+        'tests/unit/test_h5_dependency_graph.py', 'tests/unit/test_h5_update_spec.py',
        'tests/unit/test_h5_complete_objective.py', 'tests/unit/test_h5_budget.py',
       'tests/unit/test_h5_updates.py', 'tests/oracle/test_h5_update_oracle.py',
       'tests/promotion/test_h5_gate.py', 'tests/unit/test_config.py',
@@ -1457,7 +2479,7 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 
   - H4 protocol/statistics reviewer: exact horizon/seed/kind traversal with independent indices, common factors, independent arms, all three warmup pairs before all 11 timed pairs per problem, AB iff `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`, warmups excluded from balance, primary observed rows exactly equal to the literal 20-row balance table, ten `6/5` plus ten `5/6` timed seeds, exact aggregate `110 AB/110 BA`, no conversion/hashing/diagnostics between timed repetitions, fixed batched conversion order, seeds as inferential units, bootstrap implementation, and threshold/status mapping;
   - H4 numerical/runtime reviewer: exact optimum, inclusive scaled conditioning envelope and boundaries, `h/J`/moment/objective equivalence, per-invariant scales, exact solver contribution, strict allowance/scale cap, no unbalanced H2 diagnostic, canonical immutable selected moments, real-operation instrumentation, raw timing/environment/BLAS/affinity provenance;
-  - H5 theory/dependency reviewer: exact-case `Manuscripts/...` Markov blankets, same complete ELBO, dependency prediction versus input-hash-derived observed affected sets, exact/source/M/GEM semantics, MM rejection, factor-universe completeness;
+  - H5 theory/dependency reviewer: exact-case `Manuscripts/...` Markov blankets, the conditional categorical recognition law, source-independent continuous reconstruction, same complete ELBO, dependency prediction versus input-hash-derived observed affected sets, exact/source/M/GEM semantics, factor-universe completeness, and proof that MM is absent from attempt/gate paths;
   - H5 implementation/transaction reviewer: captured update-spec raw bytes/digest/parser/schema, proof that no short fixture-digest prefix is accepted or exposed anywhere in the H5 parser/config/gate/artifact path, immutable recognition and model-snapshot ownership with declared shared storage only, differentiable-working versus immutable-snapshot boundary, fixed recognition M-block, order-21/order-17 convergence estimates for every term, complete total allowances and exact epsilon formula, emission-touching indecision, acceptance/rollback hashes, cache/reuse proofs, seven controls, and value-change diagnostic nonauthority;
   - artifact/compatibility reviewer: required tracked-file list, no unexpected untracked content, stable dirty-content digest, separate H4/H5 statuses/payloads, exact prefix behavior, H5 full raw-digest-only provenance with no accepted/exposed short prefix, atomic manifest, prior-ledger hashes, H6--H8/training nonclaims.
 
@@ -1545,15 +2567,15 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 - Any training launcher, checkpoint, optimizer schedule for training, WikiText-103 run, perplexity result, or predictive experiment.
 - GPU, mixed precision, float32/bfloat16, multi-thread benchmark claims, cross-machine generalization, or energy-use claims.
 - A general theorem that information coordinates are faster, use less memory, or converge better. H4 is bounded to the frozen hardware/protocol and exact primary endpoint.
-- A positive valid-MM implementation without its complete revision-bound proof artifact.
+- Any positive valid-MM implementation in H5 v1; a future revision requires a complete revision-bound proof artifact and a newly verified configuration contract.
 - Stochastic H5 objectives, Monte Carlo error budgets, unrolled/implicit inference, learned frames, or H7-sensitive group updates.
 - Treating natural-gradient, SGD, Adam, or truncated iterations as exact coordinate ascent.
 - Research-vault ingestion. The vault was consulted read-only; any new result is offered for separate user-confirmed ingest only after the coupled milestone exists.
 
 ## Self-Review of Plan Completeness
 
-- **Spec coverage:** H4 and H5 remain separate results/payloads/statuses. H4 freezes one authoritative generic normalized-factor schedule with validated derived partitions, the H3 structural-group anchor mapping, the exact normalized log-evidence sign/constants, exact scaled dimensions, fixed `N(0,I_8)` initial law, PCG64 draw order and distributions, `m_t`-then-`z_t|m_t` factorization, all-zero transition-block control, independent arms, three per-problem warmup pairs followed by 11 timed pairs, independent-index parity, warmup exclusion, the literal primary 20-row balance table, ten/ten per-seed pattern split, exact `110 AB/110 BA` timed aggregate, batch-post-timing conversions, seed-level bootstrap threshold, inclusive scaled conditioning envelope, per-invariant solver budget and strict allowance/scale cap, mean/covariance selected moments, raw times, secondary memory/count nonclaim, set/verify/finally-restore one-thread CPU float64, and provenance. H5 now specifies a tracked parsed raw-byte update fixture, pre-decode full raw SHA-256 check, Task 5 digest pin followed by Task 9 literal copy/equality check, the exact `q[source_row_a2]` row, immutable model-snapshot ownership, and declared shared storage while preserving immutable H2 state, separating differentiable working state from frozen snapshots, closing the update taxonomy, rejecting unsupported MM, deriving affected factors only from before/after input hashes, retaining value changes as diagnostics, including all seven controls, recording order-21/order-17 convergence for every term, summing complete before/after total allowances, freezing zero stochastic contribution, and using the exact subtraction-rounding `epsilon_delta` rule.
-- **Interface consistency:** `H4GaussianSolver`, `H4MaterializedProblem`, and the native diagnostic records live in the inference layer, while `H4NeutralProblem`, solver results, and tuple-ordered selected moments remain dependency-light protocol types. One generated neutral problem is materialized exactly once into raw owned tensors; both independent solver arms receive that same materialized object by identity, while the oracle receives its canonical bytes. No conversion, hash, count, memory, or diagnostic-replay work occurs between timed representations. `CompleteElboEvaluation` is produced only by the complete evaluator and embedded twice in every `UpdateAttempt`; `observed_affected_factor_ids` comes only from its ordered factor-input hashes, and `execute_update` alone accepts or rolls back. H5's parser binds raw update-spec bytes to `H5ReferenceState`, which owns immutable recognition/model snapshots rather than H1/H2 mutation. The runner captures that fixture only for H5 and publishes separate payloads.
+- **Spec coverage:** H4 and H5 remain separate results/payloads/statuses. H4 freezes one authoritative generic normalized-factor schedule with validated derived partitions, the H3 structural-group anchor mapping, the exact normalized log-evidence sign/constants, exact scaled dimensions, fixed `N(0,I_8)` initial law, PCG64 draw order and distributions, `m_t`-then-`z_t|m_t` factorization, all-zero transition-block control, independent arms, three per-problem warmup pairs followed by 11 timed pairs, independent-index parity, warmup exclusion, the literal primary 20-row balance table, ten/ten per-seed pattern split, exact `110 AB/110 BA` timed aggregate, batch-post-timing conversions, seed-level bootstrap threshold, inclusive scaled conditioning envelope, per-invariant solver budget and strict allowance/scale cap, mean/covariance selected moments, raw times, secondary memory/count nonclaim, set/verify/finally-restore one-thread CPU float64, and provenance. H5 specifies the exact conditional categorical law and source-independent continuous reconstruction, a raw-byte-frozen conditional update fixture, full raw/canonical/schema hashes, closed identifier universes and dependency graph, immutable model/recognition/reference/live/candidate ownership, exact E/source/M formulas, complete objective/cache records, the completed/failed attempt union, five positives, seven controls, fieldwise exact-candidate allowances, order-21/order-17 term budgets, exact zero-stochastic delta allowance, byte-bearing gate evaluation, and configuration-only rejection of unsupported MM.
+- **Interface consistency:** `H4GaussianSolver`, `H4MaterializedProblem`, and the native diagnostic records live in the inference layer, while `H4NeutralProblem`, solver results, and tuple-ordered selected moments remain dependency-light protocol types. One generated neutral problem is materialized exactly once into raw owned tensors; both independent solver arms receive that same materialized object by identity, while the oracle receives its canonical bytes. No conversion, hash, count, memory, or diagnostic-replay work occurs between timed representations. `CompleteElboEvaluation` is produced only by the complete evaluator. Completed outcomes embed complete before/after evaluations; failed outcomes carry only phase-valid complete or partial evidence through `H5AttemptOutcome`. `observed_affected_factor_ids` comes only from ordered factor-input hashes, and `execute_update` alone accepts or rolls back. H5's parser binds both raw fixture byte objects to `H5ReferenceState`, while the runner passes those same captured bytes into byte-bearing production and oracle seams and publishes a separate H5 payload.
 - **Evidence discipline:** Focused RED/GREEN commands are noncumulative. The milestone preflight requires every plan, preregistration, source, config, launcher, and test file to be tracked; rejects nonignored untracked content outside `.verification`; records the exact dirty-content digest and prior-ledger hashes; and rechecks them through closure. The only full suite and full timing occur at one shared exact revision. Reviewers inspect rather than rerun. A defect found after ledger activation closes the current revision `INCONCLUSIVE`, preserves it, repairs only after tool-driven retirement, and permits exactly one replacement revision/run/ledger. The coupled ledger separates claims by gate and preserves every earlier ledger.
 - **Placeholder scan:** The plan contains no unspecified H4 canonical factor source, objective sign/constants, generator distributions, control blocks, selected-moment inventory, thread restoration rule, H5 fixture producer/parser, raw-byte digest comparison, source-row identity, model-snapshot owner, short-digest rejection rule, or required-tracked surface. The exact H5 fixture SHA-256 is intentionally not invented: Task 5 authors the tracked bytes and pins `SHA256(raw_fixture_bytes)` in parser/tests before GREEN/commit; Task 9 copies and verifies that literal. H6--H8/training and MM activation remain explicit nonclaims, not hidden implementation gaps.
 - **American English:** Terminology uses American English throughout.
