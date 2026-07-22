@@ -96,11 +96,37 @@ Dependency direction remains `config + types -> generative/numerics -> recogniti
 # vfe4/types/h4.py
 H4SolverArm = Literal["information", "moment"]
 H4ProblemKind = Literal["coupled", "zero_control"]
+H4ProblemSource = Literal["scaled_pcg64", "h3_anchor"]
 H4PairOrder = Literal["information_then_moment", "moment_then_information"]
+H4FactorRole = Literal["initial", "transition", "observation"]
+H4OperationKind = Literal[
+    "cholesky", "triangular_solve", "matrix_multiply",
+    "symmetric_rank_update", "selected_block_extract",
+]
+
+@dataclass(frozen=True)
+class H4RawDraw:
+    draw_index: int
+    name: str
+    shape: tuple[int, ...]
+    values: tuple[float, ...]
+
+@dataclass(frozen=True)
+class H4AffineGaussianFactor:
+    factor_id: str
+    role: H4FactorRole
+    time_index: int
+    normalized_coordinate_indices: tuple[int, ...]
+    parent_coordinate_indices: tuple[int, ...]
+    matrix: tuple[tuple[float, ...], ...]
+    target: tuple[float, ...]
+    covariance: tuple[tuple[float, ...], ...]
+    raw_draws: tuple[H4RawDraw, ...]
 
 @dataclass(frozen=True)
 class H4NeutralProblem:
     problem_id: str
+    source_kind: H4ProblemSource
     seed: int
     kind: H4ProblemKind
     horizon: int
@@ -110,6 +136,15 @@ class H4NeutralProblem:
     coordinate_order: tuple[str, ...]
     factor_schedule: tuple[H4AffineGaussianFactor, ...]
     canonical_sha256: str
+
+@dataclass(frozen=True)
+class H4SolveProtocol:
+    protocol_id: Literal["h4-single-pass-v1"]
+    dtype: Literal["float64"]
+    device: Literal["cpu"]
+    factor_passes: Literal[1]
+    solver_relative_budget: float
+    stopping_rule: Literal["complete_schedule_finite_spd"]
 
 @dataclass(frozen=True)
 class H4SelectedMoment:
@@ -141,6 +176,16 @@ class H4NativeMomentState:
     complete_objective: float
 
 @dataclass(frozen=True)
+class H4SolverResult:
+    problem_id: str
+    problem_sha256: str
+    arm: H4SolverArm
+    protocol_id: Literal["h4-single-pass-v1"]
+    factor_count: int
+    native_information: H4NativeInformationState | None
+    native_moment: H4NativeMomentState | None
+
+@dataclass(frozen=True)
 class H4TimingRecord:
     problem_id: str
     problem_index: int
@@ -155,6 +200,36 @@ class H4TimingRecord:
     order: H4PairOrder
     information_nanoseconds: int
     moment_nanoseconds: int
+
+@dataclass(frozen=True)
+class H4OperationRecord:
+    problem_id: str
+    arm: H4SolverArm
+    operation: H4OperationKind
+    operand_shapes: tuple[tuple[int, ...], ...]
+    result_shape: tuple[int, ...]
+    count: int
+
+@dataclass(frozen=True)
+class H4MemoryRecord:
+    problem_id: str
+    arm: H4SolverArm
+    python_peak_bytes: int | None
+    process_working_set_delta_bytes: int | None
+    unavailable_fields: tuple[
+        Literal["python_peak_bytes", "process_working_set_delta_bytes"], ...
+    ]
+
+@dataclass(frozen=True)
+class H4GateResult:
+    gate: Literal["H4"]
+    status: GateStatus
+    measurements: Mapping[str, float | None]
+    invariants: tuple[InvariantResult, ...]
+    allowances_by_invariant: Mapping[str, object]
+    obligations: tuple[str, ...]
+
+def canonical_h4_problem_bytes(problem: H4NeutralProblem) -> bytes: ...
 
 # vfe4/inference/h4_solvers.py
 class H4GaussianSolver(Protocol):
@@ -181,7 +256,21 @@ def paired_log_bootstrap_interval(
 def decide_h4_interval(interval: H4BootstrapInterval, threshold: float) -> H4IntervalDecision: ...
 ```
 
-`H4NeutralProblem.factor_schedule` is the authoritative ordered generic normalized-factor schedule. Any initial, transition, or observation partition is a validated derived view over that one tuple and is never an independent canonical source of coefficients, offsets, covariances, IDs, or order.
+`H4NeutralProblem.factor_schedule` is the authoritative ordered generic normalized-factor schedule. Any initial, transition, or observation partition is a validated derived view over that one tuple and is never an independent canonical source of coefficients, offsets, covariances, IDs, or order. Availability in this ordered schedule, rather than numeric index order or a factor ID/name, determines the schedule validation.
+
+`H4RawDraw` has a nonnegative zero-based `draw_index` first, a nonempty name, a tuple of nonnegative integer dimensions, row-major finite float64-representable values, and `product(shape) == len(values)` (with scalar shape `()` having product one). Within a factor, raw draws are strictly increasing by draw index and have unique names; over a scaled problem their draw indices are globally unique. H3 anchors have `raw_draws=()`. For each scaled time `t`, the eleven names are exactly `A_m[t]`, `A_z[t]`, `B[t]`, `c_m[t]`, `c_z[t]`, `R_m[t]`, `R_z[t]`, `G[t]`, `observation_offset[t]`, `observation_noise[t]`, `observed_target[t]`, in that order, with `draw_index=11*(t-1)+local_index` for zero-based `local_index`. Each factor's raw-draw tuple remains increasing even though those indices interleave across factors.
+
+`H4AffineGaussianFactor` requires a nonempty unique factor ID, a nonnegative time index, finite tuple-owned values, matrix `A` of exact shape `d x D`, target `b` of shape `d`, and exactly symmetric positive-definite covariance `R` of shape `d x d`; it encodes `A y-b` and stores no normalizer, because the normalizer is derived only from `d` and `R`. Metadata tuples are ordered, unique, disjoint, and in `[0,D)`. Initial and transition normalized-coordinate tuples have length `d`, while observation normalized coordinates are empty. Initial parent metadata is empty; transition and observation parent metadata is explicit. Initial/transition factors require `A[:, normalized_coordinate_indices] = I_d` and support only normalized and parent columns. Observation factors use local latent coordinates as parents and support only parent columns. Initial normalized indices are ascending `z_0` components then ascending `m_0` components. For every scaled `t`, `m_transition[t]` has ascending `m_t` normalized indices and ascending `m_{t-1}` parents; `z_transition[t]` has ascending `z_t` normalized indices and parents `z_{t-1}` then `m_t`, each ascending; `observation[t]` has no normalized indices and parents `z_t` then `m_t`, each ascending. This metadata is schedule-causal even though storage puts `z_t` before `m_t`. For scaled controls, zero every designated transition-parent column, not merely a parent coefficient that happens to be nonzero.
+
+Scaled coordinates are exactly `z[t,i]` for `i=0..3`, then `m[t,i]` for `i=0..3`, for each `t=0..T`, in storage order. Scaled factor IDs are exactly `initial_joint`, then `m_transition[t]`, `z_transition[t]`, and `observation[t]` for each ascending `t`; H3 IDs remain unchanged. A scaled problem ID is exactly `h4-{kind}-T{horizon}-dz4-dm4-seed{seed}-v1`; an H3 anchor ID is exactly `h4-anchor-{fixture.fixture_id}`. `H4NeutralProblem.source_kind` is exact and never inferred from an ID: `scaled_pcg64` validates supported kind, `horizon in {7,15,31}`, `d_z=d_m=4`, `dimension=(horizon+1)*(d_z+d_m)`, the scaled coordinate tuple, and the exact scaled factor-ID schedule; `h3_anchor` retains public `('z0','m0','z1','m1')` spelling, IDs, and H3 dimensions rather than being rewritten as scaled. Both sources require a nonempty schedule with unique IDs and a lowercase 64-hex-character `canonical_sha256`.
+
+`H4SolveProtocol` accepts only `protocol_id="h4-single-pass-v1"`, `dtype="float64"`, `device="cpu"`, `factor_passes=1`, `solver_relative_budget=1e-9`, and `stopping_rule="complete_schedule_finite_spd"`. `H4SolverResult` requires its nonempty problem ID, lowercase 64-hex problem hash, one of the two arms, the frozen protocol ID, and a factor count equal to the consumed schedule count; exactly one native state is non-`None`, and it must be the state matching the declared arm. `H4OperationRecord` admits only the listed operation literal, has a positive count, and has only positive operand/result dimensions; records are aggregates of real shared-facade calls, never estimates. `H4MemoryRecord.unavailable_fields` is an ordered duplicate-free subset of exactly `("python_peak_bytes", "process_working_set_delta_bytes")`; each metric is `None` if and only if named unavailable. Python peak is nonnegative, whereas process working-set delta may be signed.
+
+`H4GateResult` follows the existing fail-closed H3 record semantics: gate is exactly `"H4"`; measurement keys are nonempty strings and values are finite floats or `None`; invariant names are unique; the immutable allowance mapping has exactly the names of allowance-owning invariants; and conclusive `PASS`/`FAIL` versus `INCONCLUSIVE` is checked against complete, decisive invariant evidence and named obligations. Its mapping fields are owned immutable mappings, and obligations are an immutable duplicate-free string tuple.
+
+Canonical problem bytes are exact. Let `core` be the ordered public `H4NeutralProblem` content excluding `canonical_sha256`, recursively represented by compact finite JSON objects/arrays and including every factor field and raw draw. Compute `digest = SHA256(b"vfe4.h4.neutral-problem.v1\\x00" + compact UTF-8 sorted-key finite JSON(core))`. The published bytes returned by `canonical_h4_problem_bytes` are compact UTF-8 sorted-key finite JSON of `{"schema_version":"h4-neutral-problem-v1","canonical_sha256":digest,"problem":core}`. Parsing first requires the exact envelope schema literal, then recomputes the domain-separated core digest before accepting it. Embedded `canonical_sha256` is that core digest, not `SHA256` of full envelope bytes. The envelope is not self-hashed, and reserialization cannot substitute for core-digest validation.
+
+For a matched coupled/control pair with `source_kind="scaled_pcg64"`, allowed differences are only `kind`, `problem_id`, `canonical_sha256`, and designated transition-parent matrix columns. Raw draws, targets, covariances, roles, time indices, normalized metadata, parent metadata, factor IDs/order, seed, horizon, shape, and every other factor field are identical; parent metadata remains identical when its designated coefficient columns are zero. This invariant does not apply to H3 anchors: the independently authored H3 zero fixture changes observation targets. The adapter maps each H3 scalar structurally as `matrix=(row,)`, `target=(target,)`, and `covariance=((variance,),)`. It derives role/time/normalized/parent metadata from the public `initial_factors`, `transition_factors`, and `observation_factors` group and declared position only, never IDs/names. It reproduces derived scalar normalizers as `-.5*log(2*pi*variance)`. For every H4 schedule, assemble `J=sum(A^T R^-1 A)`, `h=sum(A^T R^-1 b)`, and `c=-.5 sum(b^T R^-1 b + d*log(2*pi) + logdet(R))`. The coupled anchor compares its frozen reference log evidence; the zero H3 fixture has no frozen reference log evidence and compares independently derived adapter/oracle `c/logZ` only, never a frozen-reference logZ.
 
 ```python
 # vfe4/types/updates.py
@@ -286,7 +375,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 
 **Interfaces:**
 
-- Produce immutable `H4AffineGaussianFactor`, `H4NeutralProblem`, `H4SolveProtocol`, `H4NativeInformationState`, `H4NativeMomentState`, `H4SelectedMoment`, `H4TerminalLaw`, `H4SolverResult`, `H4TimingRecord`, `H4OperationRecord`, `H4MemoryRecord`, `H4GateResult`, and exact `Literal` aliases from the public interface map. `H4TerminalLaw.selected_moments` is an exact-name tuple in canonical order, never a mutable dictionary. Every `H4SelectedMoment` contains an immutable mean and covariance block.
+- Produce immutable `H4RawDraw`, `H4AffineGaussianFactor`, `H4NeutralProblem`, `H4SolveProtocol`, `H4NativeInformationState`, `H4NativeMomentState`, `H4SelectedMoment`, `H4TerminalLaw`, `H4SolverResult`, `H4TimingRecord`, `H4OperationRecord`, `H4MemoryRecord`, `H4GateResult`, the exact `Literal` aliases, and exported `canonical_h4_problem_bytes` with the explicit schemas and validations in the Public Interface Map. `H4TerminalLaw.selected_moments` is an exact-name tuple in canonical order, never a mutable dictionary. Every `H4SelectedMoment` contains an immutable mean and covariance block.
 - Produce `make_h4_problem(*, seed: int, kind: H4ProblemKind, horizon: Literal[7,15,31], d_z: Literal[4], d_m: Literal[4]) -> H4NeutralProblem` and `h4_anchor_from_h3(fixture: H3Fixture) -> H4NeutralProblem`.
 - The generator returns one fully materialized immutable problem. Neither solver receives a seed or generator callback.
 
@@ -319,11 +408,11 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
   H4_PRIMARY_TIMED_BA_TOTAL = 110
   ```
 
-  Define the scaled problem constructively. Storage remains population-major `[z_0,m_0,z_1,m_1,...,z_T,m_T]`, with `D=(T+1)*(d_z+d_m)`, `d_z=d_m=4`; the initial joint `[z_0,m_0]` is fixed `N(0,I_8)` and consumes no RNG draw. The normalized factor schedule is exactly `initial_joint`, then for every ascending `t=1..T`, the normalized `m_t|m_{t-1}` transition, the normalized `z_t|z_{t-1},m_t` transition, and the normalized local observation factor. Thus `m_t` is generated and consumed before `z_t|m_t`, without changing storage order.
+  Define the scaled problem constructively. Its `source_kind` is exactly `scaled_pcg64`; storage remains population-major `[z_0,m_0,z_1,m_1,...,z_T,m_T]`, with `D=(T+1)*(d_z+d_m)`, `d_z=d_m=4`; the initial joint `[z_0,m_0]` is fixed `N(0,I_8)` and consumes no RNG draw. The normalized factor schedule and IDs are exactly `initial_joint`, then for every ascending `t=1..T`, `m_transition[t]`, `z_transition[t]`, and `observation[t]`. Its metadata is exact: initial normalized indices are `z_0` then `m_0`; `m_transition[t]` normalizes `m_t` and parents `m_{t-1}`; `z_transition[t]` normalizes `z_t` and parents `z_{t-1}` then `m_t`; `observation[t]` has no normalized indices and parents `z_t` then `m_t`; every listed coordinate block is ascending. Thus `m_t` is generated and consumed before `z_t|m_t`, without changing storage order.
 
-  The only generator is `numpy.random.Generator(numpy.random.PCG64(seed))`; neither solver receives it. For each ascending `t`, draw exactly and only in this order: `A_m`, `A_z`, and `B`, each `standard_normal((4,4))`; `c_m` then `c_z`, each `uniform(-0.25,0.25,size=4)`; `R_m` then `R_z`, each `uniform(0.5,1.5,size=4)`; raw `G=standard_normal((8,8))`; observation offset `uniform(-0.25,0.25,size=8)`; observation noise `uniform(0.75,1.25,size=8)`; and observed target `uniform(-1,1,size=8)`. Define `spectral_clip(M)=M*min(1,0.65/||M||_2)`, apply it to `A_m` and to the horizontally concatenated `[A_z B]`, and split the latter back into `A_z` and `B`. Set `H=I_8+0.05*G/max(1,||G||_2)`. The factors are therefore `m_t ~ N(A_m m_{t-1}+c_m,diag(R_m))`, `z_t ~ N(A_z z_{t-1}+B m_t+c_z,diag(R_z))`, and `y_t ~ N(H[z_t,m_t]+offset,diag(observation_noise))` at the drawn target.
+  The only generator is `numpy.random.Generator(numpy.random.PCG64(seed))`; neither solver receives it. For each ascending `t`, draw exactly and only in this order: `A_m`, `A_z`, and `B`, each `standard_normal((4,4))`; `c_m` then `c_z`, each `uniform(-0.25,0.25,size=4)`; `R_m` then `R_z`, each `uniform(0.5,1.5,size=4)`; raw `G=standard_normal((8,8))`; observation offset `uniform(-0.25,0.25,size=8)`; observation noise `uniform(0.75,1.25,size=8)`; and observed target `uniform(-1,1,size=8)`. Their exact raw-draw names are `A_m[t]`, `A_z[t]`, `B[t]`, `c_m[t]`, `c_z[t]`, `R_m[t]`, `R_z[t]`, `G[t]`, `observation_offset[t]`, `observation_noise[t]`, and `observed_target[t]`, with global draw index `11*(t-1)+local_index`. Define `spectral_clip(M)=M*min(1,0.65/||M||_2)`, apply it to `A_m` and to the horizontally concatenated `[A_z B]`, and split the latter back into `A_z` and `B`. Set `H=I_8+0.05*G/max(1,||G||_2)`. The factors are therefore `m_t ~ N(A_m m_{t-1}+c_m,diag(R_m))`, `z_t ~ N(A_z z_{t-1}+B m_t+c_z,diag(R_z))`, and `y_t ~ N(H[z_t,m_t]+offset,diag(observation_noise))` at the drawn target; its normalized residual target is exactly `b=observed_target-offset` while both raw values remain provenance.
 
-  The zero control is derived from the same draws and records: it zeros all active `A_m`, `A_z`, and `B` blocks for every `t`, while retaining every other generated value, raw-draw record, offset, diagonal noise, `H`, target, factor ID/order, seed, shape, and canonical serialization field unchanged. Serialize every generated float and raw-draw provenance into the immutable problem, then hash canonical JSON.
+  The `source_kind="scaled_pcg64"` zero control is derived from the same draws and records: allowed differences from its coupled peer are only kind, problem ID, canonical SHA-256, and designated transition-parent matrix columns. It zeros all designated `A_m`, `A_z`, and `B` parent columns for every `t`, including columns whose coupled values happen already to be zero, while retaining raw draws, targets, covariances, roles, time indices, normalized and parent metadata, factor IDs/order, seed, horizon, shape, and all other factor fields unchanged. This matched-pair invariant never applies to an H3 anchor. Serialize every generated float and raw-draw provenance into immutable `core`; hash exactly `b"vfe4.h4.neutral-problem.v1\\x00" + compact UTF-8 sorted-key finite JSON(core)`; then publish the separately digest-checked schema envelope, whose literal schema version is required before core-digest verification and whose embedded hash is the domain-separated core digest, never a self-referential or full-envelope hash.
 
   Freeze the exact H4 objective, sign, and constants. For every schedule factor `r` with residual dimension `d_r`, use
 
@@ -337,7 +426,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 
   for SPD `J`. Higher is better. This is the unrestricted Gaussian optimum/evidence, not negative VFE and not a second ELBO. The information and moment arms independently compute this same scalar, including all factor constants; `J,h` and selected moments are comparison records, not alternate objectives.
 
-  The H3 anchor adapter maps the explicit structural fixture groups `initial_factors`, `transition_factors`, and `observation_factors`, each in their declared fixture order, into `H4NeutralProblem.factor_schedule`. It preserves their rows, targets, variances, normalizers, IDs, and H3 coordinate order. It must not infer groups or roles from factor IDs/names and must not synthesize a state-space factorization. Both raw H3 fixtures must reproduce their H3 canonical `(J,h,objective)` under H3's own allowances.
+  The H3 anchor adapter maps the explicit structural fixture groups `initial_factors`, `transition_factors`, and `observation_factors`, each in declared order, into `H4NeutralProblem.factor_schedule`. Each scalar becomes `matrix=(row,)`, `target=(target,)`, and `covariance=((variance,),)` with a normalizer derived as `-0.5*log(2*pi*variance)`; role/time/normalized/parent metadata comes only from group and declared position. It preserves IDs and exact H3 coordinate spelling, does not infer groups or roles from IDs/names, and does not synthesize a state-space factorization. The coupled fixture compares its frozen reference log evidence; the zero fixture has no frozen reference log evidence and only compares independently derived `c/logZ` under H3 allowances.
 
   The exact selected-moment labels are `("initial", "terminal", "observation[1]", ..., "observation[T]")`. `initial` and `terminal` are the full joint `[z_t,m_t]` blocks at `t=0` and `t=T`; every `observation[t]` is the full local `[z_t,m_t]` block in ascending time. Keep all labels even when `T=1` makes blocks overlap; do not deduplicate, map, or alias them.
 
@@ -345,7 +434,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 
   Resolve H4 status in this fixed precedence: protocol/environment/thread/fixture/condition/table-completeness/nonfinite ambiguity is `INCONCLUSIVE`; otherwise a finite decisive H3-anchor or terminal-law miss is `FAIL`; otherwise apply the primary interval rule (`PASS` only when upper bound `<=0.80`, `FAIL` only when lower bound `>=0.80`, and `[0.80,0.80]` or a crossing interval `INCONCLUSIVE`). Operation and memory diagnostics are secondary and never rescue or overturn that status.
 
-- [ ] **Step 2: Write strict type/generator tests.** Assert exact field sets, tuple immutability, finite float64-representable values, `factor_schedule` as the sole canonical factor source with only validated derived partitions, exact coordinate order, `D` table `(64,128,256)`, fixed no-RNG initial `N(0,I_8)`, the exact PCG64 draw order/distributions, causal `m_t`-then-`z_t|m_t` parent indices, SPD noises, factor-ID uniqueness, the separate `A_m` and joint `[A_z B]` spectral-clip envelope, exact `H` construction, and a zero control that zeros all and only active `A_m`, `A_z`, and `B` blocks while sharing every other draw/record. Require deterministic canonical bytes/hash for repeat construction, distinct hashes across kind/seed/size, and no H4 field on H1/H2/H3 records. Require each `H4TimingRecord` to carry independent `problem_index`, `horizon_index`, `seed_index`, `kind_index`, timed `repetition_index`, absolute `pair_index`, exact order label, and both positive native-arm durations; reject an order inconsistent with the independent-index parity formula. Require the exact immutable selected-moment labels `("initial","terminal","observation[1]",...,"observation[T]")`, with immutable mean/covariance rows; reject reordered, duplicate, missing, mapping, mutable, or aliased values. Adapt both raw H3 fixtures through the explicit structural-group-to-generic-normalized-affine adapter and require their canonical `(J,h,objective)` to agree with the existing H3 generator/oracle under H3's own allowances.
+- [ ] **Step 2: Write strict type/generator tests.** Assert exact ordered fields and validations for every defined H4 record, including explicit `source_kind` rather than ID inference; `H4RawDraw` global zero-based indices, row-major values, shape product, finite values, factor-local ordering/names, and H3 empty raw draws; the factor residual/no-normalizer, exact `A:d x D`, `b:d`, SPD `R:d x d`, metadata order/disjointness/support/identity-column contracts; immutable tuple/mapping ownership; schedule availability rather than ID/numeric-role inference; and `factor_schedule` as the sole canonical source. Assert exact scaled coordinate strings, factor IDs, causal metadata tuple orders, and `D` table `(64,128,256)`, H3's unchanged coordinate spelling/IDs, fixed no-RNG initial `N(0,I_8)`, the exact PCG64 names/indices/draw order/distributions, separate `A_m` and joint `[A_z B]` spectral-clip envelopes, exact `H`, and scaled observation `b=observed_target-offset` with raw provenance retained. Require that only scaled matched controls have exactly the listed exceptions and that every designated transition-parent column is zeroed; do not apply this invariant to H3 anchors. Require deterministic core digest and published envelope bytes, exact hash domain/schema literal before digest verification, parser recomputation rather than self-reference/full-envelope hash, and distinct hashes across kind/seed/size. Require exact `J`, `h`, and `c` factor assembly including derived normalizers. Require each `H4TimingRecord` to carry independent `problem_index`, `horizon_index`, `seed_index`, `kind_index`, timed `repetition_index`, absolute `pair_index`, exact order label, and both positive native-arm durations; reject an order inconsistent with the independent-index parity formula. Require the exact immutable selected-moment labels `("initial","terminal","observation[1]",...,"observation[T]")`, with immutable mean/covariance rows; reject reordered, duplicate, missing, mapping, mutable, or aliased values. Adapt both raw H3 fixtures through the explicit structural-group adapter; require the coupled canonical `(J,h,c,logZ)` to agree with H3/reference allowances and the zero anchor to compare independently derived adapter/oracle `c/logZ` only, without asserting a nonexistent frozen reference.
 
 - [ ] **Step 3: Run the Task 1 test for RED.**
 
