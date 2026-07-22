@@ -1,5 +1,15 @@
 """Public immutable mathematical types."""
 
+from .h3 import (
+    H3ArmResult,
+    H3DecisionConfig,
+    H3Fixture,
+    H3FixtureHashes,
+    H3GateResult,
+    H3InitializationConfig,
+    H3OptimizationConfig,
+    H3ScalarFactorRecord,
+)
 from .information import MatrixBlock, PrecisionDiagnostics, PrecisionFactor
 from .results import (
     ElboTermAllowances,
@@ -16,6 +26,14 @@ __all__ = [
     "ElboTerms",
     "GateResult",
     "GateStatus",
+    "H3ArmResult",
+    "H3DecisionConfig",
+    "H3Fixture",
+    "H3FixtureHashes",
+    "H3GateResult",
+    "H3InitializationConfig",
+    "H3OptimizationConfig",
+    "H3ScalarFactorRecord",
     "InvariantResult",
     "MatrixBlock",
     "NumericalAllowance",

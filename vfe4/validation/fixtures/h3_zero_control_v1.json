@@ -1,0 +1,82 @@
+{
+  "fixture_schema_version": 1,
+  "fixture_id": "h3-zero-control-v1",
+  "kind": "zero_control",
+  "horizon": 1,
+  "dimensions": {
+    "d_z": 1,
+    "d_m": 1,
+    "joint_dimension": 4
+  },
+  "continuous_order": [
+    "z0",
+    "m0",
+    "z1",
+    "m1"
+  ],
+  "initial": {
+    "factors": [
+      {
+        "factor_id": "z0_prior",
+        "row": [1.0, 0.0, 0.0, 0.0],
+        "target": 0.0,
+        "variance": 1.0
+      },
+      {
+        "factor_id": "m0_prior",
+        "row": [0.0, 1.0, 0.0, 0.0],
+        "target": 0.0,
+        "variance": 1.0
+      }
+    ]
+  },
+  "transitions": {
+    "factors": [
+      {
+        "factor_id": "m1_transition",
+        "row": [0.0, 0.0, 0.0, 1.0],
+        "target": 0.0,
+        "variance": 0.36
+      },
+      {
+        "factor_id": "z1_transition",
+        "row": [0.0, 0.0, 1.0, 0.0],
+        "target": 0.0,
+        "variance": 0.25
+      }
+    ]
+  },
+  "observation": {
+    "map": [
+      [0.0, 0.0, 1.0, 0.0],
+      [0.0, 0.0, 0.0, 1.0]
+    ],
+    "values": [0.4, -0.7],
+    "covariance": [
+      [0.64, 0.0],
+      [0.0, 0.64]
+    ],
+    "factors": [
+      {
+        "factor_id": "z1_observation",
+        "row": [0.0, 0.0, 1.0, 0.0],
+        "target": 0.4,
+        "variance": 0.64
+      },
+      {
+        "factor_id": "m1_observation",
+        "row": [0.0, 0.0, 0.0, 1.0],
+        "target": -0.7,
+        "variance": 0.64
+      }
+    ]
+  },
+  "reference": {
+    "posterior_precision": [
+      [1.0, 0.0, 0.0, 0.0],
+      [0.0, 1.0, 0.0, 0.0],
+      [0.0, 0.0, 5.5625, 0.0],
+      [0.0, 0.0, 0.0, 4.34027777777778]
+    ]
+  }
+}

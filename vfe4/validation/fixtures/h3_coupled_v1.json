@@ -1,0 +1,85 @@
+{
+  "fixture_schema_version": 1,
+  "fixture_id": "h3-coupled-v1",
+  "kind": "coupled",
+  "horizon": 1,
+  "dimensions": {
+    "d_z": 1,
+    "d_m": 1,
+    "joint_dimension": 4
+  },
+  "continuous_order": [
+    "z0",
+    "m0",
+    "z1",
+    "m1"
+  ],
+  "initial": {
+    "factors": [
+      {
+        "factor_id": "z0_prior",
+        "row": [1.0, 0.0, 0.0, 0.0],
+        "target": 0.0,
+        "variance": 1.0
+      },
+      {
+        "factor_id": "m0_prior",
+        "row": [0.0, 1.0, 0.0, 0.0],
+        "target": 0.0,
+        "variance": 1.0
+      }
+    ]
+  },
+  "transitions": {
+    "factors": [
+      {
+        "factor_id": "m1_transition",
+        "row": [0.0, -0.8, 0.0, 1.0],
+        "target": 0.0,
+        "variance": 0.36
+      },
+      {
+        "factor_id": "z1_transition",
+        "row": [-0.7, 0.0, 1.0, -0.6],
+        "target": 0.0,
+        "variance": 0.25
+      }
+    ]
+  },
+  "observation": {
+    "map": [
+      [0.0, 0.0, 1.0, 0.0],
+      [0.0, 0.0, 0.0, 1.0]
+    ],
+    "values": [1.1, 0.2],
+    "covariance": [
+      [0.64, 0.0],
+      [0.0, 0.64]
+    ],
+    "factors": [
+      {
+        "factor_id": "z1_observation",
+        "row": [0.0, 0.0, 1.0, 0.0],
+        "target": 1.1,
+        "variance": 0.64
+      },
+      {
+        "factor_id": "m1_observation",
+        "row": [0.0, 0.0, 0.0, 1.0],
+        "target": 0.2,
+        "variance": 0.64
+      }
+    ]
+  },
+  "reference": {
+    "posterior_precision": [
+      [2.96, 0.0, -2.8, 1.68],
+      [0.0, 2.77777777777778, 0.0, -2.22222222222222],
+      [-2.8, 0.0, 5.5625, -2.4],
+      [1.68, -2.22222222222222, -2.4, 5.78027777777778]
+    ],
+    "posterior_natural": [0.0, 0.0, 1.71875, 0.3125],
+    "log_evidence": -2.6536596233553,
+    "analytic_factorized_reverse_kl": 0.6815463199745935
+  }
+}
