@@ -189,10 +189,11 @@ def test_positive_recognition_mass_outside_generative_support_is_rejected(
         )
 
 
-def test_evidence_record_rejects_inconsistent_probability_log_pair() -> None:
+def test_evidence_record_represents_finite_probability_log_disagreement_for_gate() -> None:
     allowance = IndependentNumericalAllowance(0.0, 0.0)
-    with pytest.raises(ValueError, match="inconsistent"):
-        H1EvidenceRecord((1, 2), 0.25, math.log(0.5), allowance, allowance)
+    record = H1EvidenceRecord((1, 2), 0.25, math.log(0.5), allowance, allowance)
+    assert record.probability == 0.25
+    assert record.log_probability == math.log(0.5)
 
 
 @pytest.mark.parametrize(

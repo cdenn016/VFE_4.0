@@ -286,7 +286,17 @@ def _resolve_run_root(value: object, repo_root: Path) -> Path:
     path = Path(value)
     if not path.is_absolute():
         path = repo_root / path
-    return path.resolve()
+    resolved = path.resolve()
+    repository = repo_root.resolve()
+    if resolved == repository:
+        raise ValueError("artifacts.run_root must not equal or contain the repository")
+    try:
+        repository.relative_to(resolved)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("artifacts.run_root must not equal or contain the repository")
+    return resolved
 
 
 def _canonical_json(

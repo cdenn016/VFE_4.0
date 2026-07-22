@@ -118,6 +118,16 @@ def test_relative_run_root_is_resolved_against_repo_root(tmp_path: Path) -> None
     assert resolved.artifacts.run_root == (tmp_path / "outputs" / "h1").resolve()
 
 
+@pytest.mark.parametrize("run_root", [".", ".."])
+def test_run_root_cannot_equal_or_contain_repository(
+    tmp_path: Path, run_root: str
+) -> None:
+    raw = _raw_config()
+    raw["artifacts"] = {"run_root": run_root}
+    with pytest.raises(ValueError, match="contain the repository"):
+        resolve_config(raw, repo_root=tmp_path)
+
+
 Mutation = Callable[[dict[str, object]], None]
 
 

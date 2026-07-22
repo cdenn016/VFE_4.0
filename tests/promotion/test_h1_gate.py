@@ -167,6 +167,28 @@ def test_mutated_resolved_config_is_inconclusive_and_skips_evaluators(
     assert result.obligations
     assert all(value is None for value in result.measurements.values())
     assert run_dir.exists()
+    published = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    assert published["config_sha256"] != "0" * 64
+
+
+def test_mutated_resolved_field_publishes_derived_identity_without_evaluation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    config = _config(tmp_path)
+    changed_seed = config.run.seed + 1
+    object.__setattr__(config, "run", dataclasses.replace(config.run, seed=changed_seed))
+    monkeypatch.setattr(
+        gate, "evaluate_monolithic_elbo", lambda *a, **k: pytest.fail("called")
+    )
+
+    result, run_dir = run_h1(config)
+
+    assert result.status is GateStatus.INCONCLUSIVE
+    published = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    assert published["run"]["seed"] == changed_seed
+    assert published["config_sha256"] != config.config_sha256
 
 
 def test_mutated_canonical_json_still_publishes_inconclusive_without_evaluation(
@@ -182,6 +204,50 @@ def test_mutated_canonical_json_still_publishes_inconclusive_without_evaluation(
 
     assert result.status is GateStatus.INCONCLUSIVE
     assert run_dir.exists()
+
+
+def test_syntactically_valid_canonical_corruption_publishes_inconclusive_from_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    config = _config(tmp_path)
+    original_hash = config.config_sha256
+    object.__setattr__(config, "canonical_json", "{}")
+    monkeypatch.setattr(
+        gate, "evaluate_monolithic_elbo", lambda *a, **k: pytest.fail("called")
+    )
+
+    result, run_dir = run_h1(config)
+
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert result.obligations and "config" in result.obligations[0].lower()
+    published = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    assert published["config_sha256"] == original_hash
+    assert published["schema_version"] == 1
+
+
+def test_valid_canonical_corruption_cannot_redirect_publication_or_change_seed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    config = _config(tmp_path)
+    corrupt = json.loads(config.canonical_json)
+    corrupt["run"]["seed"] = 9
+    corrupt["artifacts"]["run_root"] = str(tmp_path / "redirected")
+    object.__setattr__(config, "canonical_json", json.dumps(corrupt))
+    monkeypatch.setattr(
+        gate, "evaluate_monolithic_elbo", lambda *a, **k: pytest.fail("called")
+    )
+
+    result, run_dir = run_h1(config)
+
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert run_dir.parent == config.artifacts.run_root
+    assert not (tmp_path / "redirected").exists()
+    published = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    assert published["run"]["seed"] == config.run.seed
 
 
 def test_computation_exception_publishes_manifest_valid_inconclusive(
@@ -256,7 +322,9 @@ def test_convergence_registry_is_flat_and_every_estimate_is_gated(tmp_path: Path
     result, run_dir = run_h1(_config(tmp_path))
     assert result.status is GateStatus.PASS
     registry = _payload(run_dir)["convergence_registry"]
-    assert len(registry) == 49
+    assert len(registry) == 51
+    assert "identity.evidence.probability" in registry
+    assert "identity.evidence.log_probability" in registry
     assert all("." in name or name == "monolithic" for name in registry)
     assert all(0.0 <= value <= 1e-9 for value in registry.values())
 
@@ -266,14 +334,49 @@ def test_negative_controls_are_exactly_three_and_each_is_detected(tmp_path: Path
     assert result.status is GateStatus.PASS
     controls = _payload(run_dir)["negative_controls"]
     assert list(controls) == sorted([
-        "recognition_source_entropy_omission",
+        "categorical_source_omission",
         "selected_raw_logit_substitution",
         "recognition_mixture_for_generative_evidence",
     ])
-    assert controls["recognition_source_entropy_omission"]["domain"] == "log"
+    categorical = controls["categorical_source_omission"]
+    assert categorical["domain"] == "log"
+    assert categorical["wrong_value"] == pytest.approx(
+        _payload(run_dir)["monolithic"]["value"] + 0.19443742459891938,
+        abs=2e-14,
+    )
+    assert categorical["residual"] == pytest.approx(0.19443742459891938, abs=2e-14)
     assert controls["selected_raw_logit_substitution"]["domain"] == "log"
     assert controls["recognition_mixture_for_generative_evidence"]["domain"] == "probability"
     assert all(item["residual"] > item["allowance"] and item["passed"] for item in controls.values())
+
+
+def test_categorical_source_omission_noop_is_detected_from_monolithic_construction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    original = gate.evaluate_monolithic_elbo
+
+    def without_source_contributions(*args: object, **kwargs: object) -> object:
+        record = original(*args, **kwargs)
+        values = tuple(
+            component - source
+            for component, source in zip(
+                record.component_values, record.component_source_log_ratios
+            )
+        )
+        return dataclasses.replace(
+            record,
+            component_values=values,
+            component_source_log_ratios=(0.0, 0.0, 0.0, 0.0),
+        )
+
+    monkeypatch.setattr(gate, "evaluate_monolithic_elbo", without_source_contributions)
+    result, run_dir = run_h1(_config(tmp_path))
+    assert result.status is GateStatus.FAIL
+    control = _payload(run_dir)["negative_controls"]["categorical_source_omission"]
+    assert control["wrong_value"] == control["correct_value"]
+    assert not control["passed"]
 
 
 def test_no_production_module_imports_verification() -> None:
@@ -323,6 +426,84 @@ def test_finite_injected_disagreements_are_fail_not_inconclusive(
     assert any(not invariant.passed and invariant.value is not None for invariant in result.invariants)
 
 
+def test_positive_finite_evidence_log_disagreement_is_fail_not_inconclusive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    original = gate.h1_all_observation_evidences
+
+    def changed(*args: object, **kwargs: object) -> tuple[object, ...]:
+        records = original(*args, **kwargs)
+        return (
+            dataclasses.replace(
+                records[0], log_probability=records[0].log_probability + 0.01
+            ),
+            *records[1:],
+        )
+
+    monkeypatch.setattr(gate, "h1_all_observation_evidences", changed)
+    result, _ = run_h1(_config(tmp_path))
+    assert result.status is GateStatus.FAIL
+    invariant = next(
+        item for item in result.invariants if item.name == "evidence.1.1.log_consistency"
+    )
+    assert not invariant.passed and invariant.value is not None
+
+
+@pytest.mark.parametrize("kind", ["probability", "log_probability"])
+def test_identity_evidence_convergence_over_limit_is_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    import verification.h1_gate as gate
+
+    original = gate.h1_evidence_and_posterior_kl
+
+    def changed(*args: object, **kwargs: object) -> object:
+        identity = original(*args, **kwargs)
+        field = f"{kind}_allowance"
+        allowance = dataclasses.replace(
+            getattr(identity.evidence, field), convergence_estimate=2e-9
+        )
+        evidence = dataclasses.replace(identity.evidence, **{field: allowance})
+        return dataclasses.replace(identity, evidence=evidence)
+
+    monkeypatch.setattr(gate, "h1_evidence_and_posterior_kl", changed)
+    result, run_dir = run_h1(_config(tmp_path))
+    assert result.status is GateStatus.FAIL
+    registry = _payload(run_dir)["convergence_registry"]
+    assert registry[f"identity.evidence.{kind}"] == 2e-9
+
+
+@pytest.mark.parametrize("inventory", ["duplicate", "missing"])
+def test_invalid_finite_evidence_label_inventory_is_fail_without_index_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inventory: str
+) -> None:
+    import verification.h1_gate as gate
+
+    original = gate.h1_all_observation_evidences
+
+    def changed(*args: object, **kwargs: object) -> tuple[object, ...]:
+        records = original(*args, **kwargs)
+        if inventory == "duplicate":
+            return (*records[:-1], dataclasses.replace(records[-1], observation_labels=(1, 1)))
+        return records[:-1]
+
+    monkeypatch.setattr(gate, "h1_all_observation_evidences", changed)
+    result, run_dir = run_h1(_config(tmp_path))
+    assert result.status is GateStatus.FAIL
+    labels = next(item for item in result.invariants if item.name == "evidence.labels")
+    assert not labels.passed
+    if inventory == "missing":
+        payload = _payload(run_dir)
+        assert payload["convergence_registry"]["evidence.3.3.probability"] is None
+        assert next(
+            item
+            for item in result.invariants
+            if item.name == "evidence.3.3.log_consistency"
+        ).value is None
+
+
 def test_nonfinite_injected_computation_is_inconclusive(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -355,7 +536,6 @@ def test_finite_evidence_range_disagreement_is_fail_not_inconclusive(
 @pytest.mark.parametrize(
     "control",
     [
-        "recognition_source_entropy_omission",
         "selected_raw_logit_substitution",
         "recognition_mixture_for_generative_evidence",
     ],
@@ -374,3 +554,81 @@ def test_each_negative_control_noop_independently_fails_gate(
     result, _ = run_h1(_config(tmp_path))
     assert result.status is GateStatus.FAIL
     assert not next(item for item in result.invariants if item.name == f"negative.{control}").passed
+
+
+@pytest.mark.parametrize("fixture_kind", ["missing", "unreadable"])
+def test_physically_unavailable_fixture_publishes_truthful_inconclusive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture_kind: str
+) -> None:
+    import verification.h1_gate as gate
+
+    fixture_path = tmp_path / "fixture"
+    if fixture_kind == "unreadable":
+        fixture_path.mkdir()
+    monkeypatch.setattr(gate, "FIXTURE_PATH", fixture_path)
+
+    result, run_dir = run_h1(_config(tmp_path))
+
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert result.obligations and "fixture" in result.obligations[0].lower()
+    provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance["fixture_expected_sha256"] == "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+    assert provenance["fixture_observed_sha256"] is None
+    assert provenance["fixture_available"] is False
+    for line in (run_dir / "manifest.sha256").read_text(encoding="utf-8").splitlines():
+        digest, name = line.split("  ", 1)
+        assert hashlib.sha256((run_dir / name).read_bytes()).hexdigest() == digest
+
+
+def test_readable_fixture_hash_mismatch_skips_evaluation_and_is_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    fixture_path = tmp_path / "altered-h1.json"
+    fixture_path.write_bytes(FIXTURE_PATH.read_bytes() + b" ")
+    observed = hashlib.sha256(fixture_path.read_bytes()).hexdigest()
+    monkeypatch.setattr(gate, "FIXTURE_PATH", fixture_path)
+    monkeypatch.setattr(
+        gate, "evaluate_monolithic_elbo", lambda *a, **k: pytest.fail("called")
+    )
+
+    result, run_dir = run_h1(_config(tmp_path))
+
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert result.obligations and "SHA-256" in result.obligations[0]
+    provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance["fixture_available"] is True
+    assert provenance["fixture_expected_sha256"] != observed
+    assert provenance["fixture_observed_sha256"] == observed
+    for line in (run_dir / "manifest.sha256").read_text(encoding="utf-8").splitlines():
+        digest, name = line.split("  ", 1)
+        assert hashlib.sha256((run_dir / name).read_bytes()).hexdigest() == digest
+
+
+def test_fixture_changed_during_evaluation_is_inconclusive_and_final_hash_is_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    fixture_path = tmp_path / "h1.json"
+    fixture_path.write_bytes(FIXTURE_PATH.read_bytes())
+    monkeypatch.setattr(gate, "FIXTURE_PATH", fixture_path)
+    original = gate._evaluate
+
+    def change_after_evaluation(config: ResolvedConfig) -> object:
+        evaluation = original(config)
+        fixture_path.write_bytes(fixture_path.read_bytes() + b" ")
+        return evaluation
+
+    monkeypatch.setattr(gate, "_evaluate", change_after_evaluation)
+    result, run_dir = run_h1(_config(tmp_path))
+
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert result.obligations and "fixture" in result.obligations[0].lower()
+    provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance["fixture_available"] is True
+    assert provenance["fixture_observed_sha256"] == hashlib.sha256(
+        fixture_path.read_bytes()
+    ).hexdigest()
+    assert provenance["fixture_observed_sha256"] != provenance["fixture_expected_sha256"]

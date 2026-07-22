@@ -38,6 +38,9 @@ from vfe4.validation import enumerate_source_paths, label_to_index, load_h1_fixt
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = REPO_ROOT / "vfe4" / "validation" / "fixtures" / "h1_v1.json"
+EXPECTED_H1_FIXTURE_SHA256 = (
+    "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+)
 _EPSILON = float(np.finfo(np.float64).eps)
 
 H1_MEASUREMENT_NAMES = (
@@ -102,7 +105,14 @@ def _convergence_names() -> tuple[str, ...]:
     names = ["monolithic"]
     names.extend(f"local.{name}" for name in TERM_NAMES)
     names.extend(f"independent.{name}" for name in TERM_NAMES)
-    names.extend(("identity.posterior_kl", "identity.elbo"))
+    names.extend(
+        (
+            "identity.posterior_kl",
+            "identity.elbo",
+            "identity.evidence.probability",
+            "identity.evidence.log_probability",
+        )
+    )
     for first, second in _EVIDENCE_LABELS:
         names.extend((f"evidence.{first}.{second}.probability", f"evidence.{first}.{second}.log_probability"))
     return tuple(names)
@@ -122,7 +132,7 @@ H1_INVARIANT_NAMES = (
     "identity.decomposition",
     "posterior_kl.nonnegative",
     "elbo.evidence_bound",
-    "negative.recognition_source_entropy_omission",
+    "negative.categorical_source_omission",
     "negative.selected_raw_logit_substitution",
     "negative.recognition_mixture_for_generative_evidence",
 )
@@ -138,7 +148,7 @@ class _Evaluation:
     evidences: tuple[H1EvidenceRecord, ...]
     pairwise: dict[str, Comparison]
     terms: dict[str, Comparison]
-    convergence: dict[str, float]
+    convergence: dict[str, float | None]
     evidence_normalization: dict[str, float | bool]
     negative_controls: dict[str, dict[str, float | bool | str]]
     gate_result: GateResult
@@ -153,19 +163,13 @@ def _run_name(timestamp: str, config_hash: str) -> str:
     return f"verify-h1-{safe}-{config_hash[:12]}"
 
 
-def _canonical_config(config: object) -> ResolvedConfig:
-    if not hasattr(config, "canonical_json"):
-        raise ValueError("config must be an exact ResolvedConfig")
+def _publication_config(config: object) -> ResolvedConfig:
+    """Build trustworthy publication metadata from resolved semantic fields."""
     try:
-        raw = json.loads(getattr(config, "canonical_json"))
-    except (TypeError, json.JSONDecodeError) as exc:
-        try:
-            raw = _raw_from_resolved_fields(config)
-        except (AttributeError, TypeError, ValueError) as fallback_exc:
-            raise ValueError(
-                f"resolved config canonical JSON is invalid and fields cannot be recovered: {exc}; {fallback_exc}"
-            ) from fallback_exc
-    return resolve_config(raw, repo_root=REPO_ROOT)
+        raw = _raw_from_resolved_fields(config)
+        return resolve_config(raw, repo_root=REPO_ROOT)
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError(f"resolved config fields cannot be recovered: {exc}") from exc
 
 
 def _raw_from_resolved_fields(config: object) -> dict[str, object]:
@@ -316,15 +320,6 @@ def _term_allowances(record: object) -> tuple[dict[str, float], dict[str, float]
     return totals, convergence
 
 
-def _source_entropy(recognition: H1RecognitionLaw, fixture: Any) -> float:
-    contributions = []
-    for path in enumerate_source_paths(fixture):
-        weight = float(recognition.source_probability(path))
-        if weight > 0.0:
-            contributions.append(-weight * math.log(weight))
-    return math.fsum(contributions)
-
-
 def _raw_logit_expectation(
     fixture: Any, recognition: H1RecognitionLaw
 ) -> tuple[float, float]:
@@ -352,9 +347,25 @@ def _negative_controls(
     identity: H1IdentityRecord,
     config: ResolvedConfig,
 ) -> dict[str, dict[str, float | bool | str]]:
-    entropy = _source_entropy(recognition, fixture)
-    entropy_rounding = 64.0 * _EPSILON * max(1.0, abs(monolithic.value), abs(entropy))
-    entropy_allowance = math.fsum((monolithic.numerical_allowance.total, entropy_rounding))
+    source_contribution = math.fsum(
+        float(recognition.source_probability(path)) * source_log_ratio
+        for path, source_log_ratio in zip(
+            enumerate_source_paths(fixture), monolithic.component_source_log_ratios
+        )
+    )
+    wrong_source_omission = math.fsum((monolithic.value, -source_contribution))
+    source_rounding = 64.0 * _EPSILON * max(
+        1.0,
+        abs(monolithic.value),
+        abs(wrong_source_omission),
+        abs(source_contribution),
+    )
+    source_comparison = pair_comparison(
+        monolithic.value,
+        wrong_source_omission,
+        monolithic.numerical_allowance.total,
+        math.fsum((monolithic.numerical_allowance.total, source_rounding)),
+    )
     raw = _raw_logit_expectation(fixture, recognition)
     wrong_raw = math.fsum((monolithic.value, -monolithic.expected_log_emission[0], -monolithic.expected_log_emission[1], raw[0], raw[1]))
     raw_residual = abs(wrong_raw - monolithic.value)
@@ -368,9 +379,13 @@ def _negative_controls(
     evidence_rounding = 64.0 * _EPSILON * max(1.0, abs(identity.evidence.probability), abs(wrong_evidence.probability))
     evidence_allowance = math.fsum((identity.evidence.probability_allowance.total, wrong_evidence.probability_allowance.total, evidence_rounding))
     controls = {
-        "recognition_source_entropy_omission": {
-            "domain": "log", "residual": entropy, "allowance": entropy_allowance,
-            "passed": entropy > entropy_allowance,
+        "categorical_source_omission": {
+            "domain": "log",
+            "correct_value": monolithic.value,
+            "wrong_value": wrong_source_omission,
+            "residual": source_comparison.residual,
+            "allowance": source_comparison.allowance,
+            "passed": source_comparison.residual > source_comparison.allowance,
         },
         "selected_raw_logit_substitution": {
             "domain": "log", "residual": raw_residual, "allowance": raw_allowance,
@@ -386,7 +401,13 @@ def _negative_controls(
     return controls
 
 
-def _invariant(name: str, passed: bool, value: float, limit: float, detail: str) -> InvariantResult:
+def _invariant(
+    name: str,
+    passed: bool,
+    value: float | None,
+    limit: float | None,
+    detail: str,
+) -> InvariantResult:
     return InvariantResult(name, passed, value, limit, detail)
 
 
@@ -442,16 +463,39 @@ def _evaluate(config: ResolvedConfig) -> _Evaluation:
         name: pair_comparison(local_values[name], independent_values[name], local_allowance[name], independent_allowance[name])
         for name in TERM_NAMES
     }
-    convergence: dict[str, float] = {"monolithic": monolithic.numerical_allowance.convergence_estimate}
+    convergence: dict[str, float | None] = {
+        "monolithic": monolithic.numerical_allowance.convergence_estimate
+    }
     convergence.update({f"local.{name}": value for name, value in local_convergence.items()})
     convergence.update({f"independent.{name}": value for name, value in independent_convergence.items()})
     convergence["identity.posterior_kl"] = identity.posterior_kl_allowance.convergence_estimate
     convergence["identity.elbo"] = identity.identity_allowance.convergence_estimate
-    evidence_by_label = {record.observation_labels: record for record in evidences}
-    for labels in _EVIDENCE_LABELS:
-        record = evidence_by_label[labels]
-        convergence[f"evidence.{labels[0]}.{labels[1]}.probability"] = record.probability_allowance.convergence_estimate
-        convergence[f"evidence.{labels[0]}.{labels[1]}.log_probability"] = record.log_probability_allowance.convergence_estimate
+    convergence["identity.evidence.probability"] = (
+        identity.evidence.probability_allowance.convergence_estimate
+    )
+    convergence["identity.evidence.log_probability"] = (
+        identity.evidence.log_probability_allowance.convergence_estimate
+    )
+    actual_labels = tuple(record.observation_labels for record in evidences)
+    labels_valid = (
+        actual_labels == _EVIDENCE_LABELS
+        and len(actual_labels) == len(_EVIDENCE_LABELS)
+        and len(set(actual_labels)) == len(_EVIDENCE_LABELS)
+    )
+    evidence_slots: list[H1EvidenceRecord | None] = list(
+        evidences[: len(_EVIDENCE_LABELS)]
+    )
+    while len(evidence_slots) < len(_EVIDENCE_LABELS):
+        evidence_slots.append(None)
+    for labels, record in zip(_EVIDENCE_LABELS, evidence_slots):
+        convergence[f"evidence.{labels[0]}.{labels[1]}.probability"] = (
+            None if record is None else record.probability_allowance.convergence_estimate
+        )
+        convergence[f"evidence.{labels[0]}.{labels[1]}.log_probability"] = (
+            None
+            if record is None
+            else record.log_probability_allowance.convergence_estimate
+        )
     if tuple(convergence) != CONVERGENCE_NAMES:
         raise ValueError("convergence registry inventory mismatch")
 
@@ -475,14 +519,14 @@ def _evaluate(config: ResolvedConfig) -> _Evaluation:
         invariants.append(_invariant(name, comparison.passed, comparison.residual, comparison.allowance, "homologous term residual <= term-local allowance"))
     for name in CONVERGENCE_NAMES:
         value = convergence[name]
-        invariants.append(_invariant(f"convergence.{name}", math.isfinite(value) and 0.0 <= value <= config.validation.maximum_convergence_estimate, value, config.validation.maximum_convergence_estimate, "finite nonnegative convergence estimate <= frozen maximum"))
-    actual_labels = tuple(record.observation_labels for record in evidences)
-    invariants.append(_invariant("evidence.labels", actual_labels == _EVIDENCE_LABELS, float(len(set(actual_labels))), 9.0, "labels must be exact unique lexicographic pairs"))
-    for labels in _EVIDENCE_LABELS:
-        record = evidence_by_label[labels]
-        invariants.append(_invariant(f"evidence.{labels[0]}.{labels[1]}.range", 0.0 < record.probability <= 1.0, record.probability, 1.0, "probability must lie in (0,1]"))
-    for labels in _EVIDENCE_LABELS:
-        record = evidence_by_label[labels]
+        invariants.append(_invariant(f"convergence.{name}", value is not None and math.isfinite(value) and 0.0 <= value <= config.validation.maximum_convergence_estimate, value, config.validation.maximum_convergence_estimate, "finite nonnegative convergence estimate <= frozen maximum"))
+    invariants.append(_invariant("evidence.labels", labels_valid, float(len(set(actual_labels))), 9.0, "labels must be exact unique lexicographic pairs"))
+    for labels, record in zip(_EVIDENCE_LABELS, evidence_slots):
+        invariants.append(_invariant(f"evidence.{labels[0]}.{labels[1]}.range", record is not None and 0.0 < record.probability <= 1.0, None if record is None else record.probability, 1.0, "probability must lie in (0,1]"))
+    for labels, record in zip(_EVIDENCE_LABELS, evidence_slots):
+        if record is None:
+            invariants.append(_invariant(f"evidence.{labels[0]}.{labels[1]}.log_consistency", False, None, None, "evidence record is unavailable"))
+            continue
         if record.probability > 0.0:
             expected_log = math.log(record.probability)
             residual = abs(record.log_probability - expected_log)
@@ -493,7 +537,13 @@ def _evaluate(config: ResolvedConfig) -> _Evaluation:
         allowance = math.fsum((record.log_probability_allowance.total, rounding))
         invariants.append(_invariant(f"evidence.{labels[0]}.{labels[1]}.log_consistency", residual <= allowance, residual, allowance, "log probability must agree with its probability"))
     invariants.append(_invariant("evidence.normalization", bool(evidence_normalization["passed"]), float(evidence_normalization["residual"]), float(evidence_normalization["allowance"]), "probability-domain evidence sum"))
-    selected = evidence_by_label[identity.evidence.observation_labels]
+    selected = (
+        {record.observation_labels: record for record in evidences}.get(
+            identity.evidence.observation_labels, identity.evidence
+        )
+        if labels_valid
+        else identity.evidence
+    )
     prob_cmp = pair_comparison(selected.probability, identity.evidence.probability, selected.probability_allowance.total, identity.evidence.probability_allowance.total)
     log_cmp = pair_comparison(selected.log_probability, identity.evidence.log_probability, selected.log_probability_allowance.total, identity.evidence.log_probability_allowance.total)
     invariants.append(_invariant("identity.evidence_probability", prob_cmp.passed, prob_cmp.residual, prob_cmp.allowance, "identity evidence probability matches nine-evidence table"))
@@ -512,7 +562,7 @@ def _evaluate(config: ResolvedConfig) -> _Evaluation:
     )
     invariants.append(_invariant("elbo.evidence_bound", identity.elbo_from_identity <= elbo_limit, identity.elbo_from_identity, elbo_limit, "ELBO <= log evidence + identity/log allowances"))
     for control_name in (
-        "recognition_source_entropy_omission",
+        "categorical_source_omission",
         "selected_raw_logit_substitution",
         "recognition_mixture_for_generative_evidence",
     ):
@@ -650,21 +700,41 @@ def _config_payload(config: ResolvedConfig) -> dict[str, object]:
     return payload
 
 
+def _fixture_observed_sha256(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
 def run_h1(config: ResolvedConfig) -> tuple[GateResult, Path]:
     """Evaluate H1 and publish a complete run, catching computation only."""
     started = _utc_now()
-    canonical = _canonical_config(config)
+    canonical = _publication_config(config)
+    fixture_observed_sha256 = _fixture_observed_sha256(FIXTURE_PATH)
     evaluation: _Evaluation | None = None
     try:
         _revalidate_config(config, canonical)
-        evaluation = _evaluate(canonical)
-        result = evaluation.gate_result
+        if fixture_observed_sha256 is None:
+            raise ValueError("H1 fixture is unavailable or unreadable")
+        if fixture_observed_sha256 != EXPECTED_H1_FIXTURE_SHA256:
+            raise ValueError("H1 fixture content does not match its preregistered SHA-256")
+        candidate = _evaluate(canonical)
+        fixture_observed_sha256 = _fixture_observed_sha256(FIXTURE_PATH)
+        if fixture_observed_sha256 is None:
+            raise ValueError("H1 fixture became unavailable or unreadable during evaluation")
+        if fixture_observed_sha256 != EXPECTED_H1_FIXTURE_SHA256:
+            raise ValueError("H1 fixture changed during evaluation")
+        evaluation = candidate
+        result = candidate.gate_result
     except Exception as exc:
+        fixture_observed_sha256 = _fixture_observed_sha256(FIXTURE_PATH)
         result = _inconclusive(f"H1 computation requires resolution: {exc}")
     ended = _utc_now()
     provenance = build_provenance(
         repo_root=REPO_ROOT,
-        fixture_path=FIXTURE_PATH,
+        fixture_expected_sha256=EXPECTED_H1_FIXTURE_SHA256,
+        fixture_observed_sha256=fixture_observed_sha256,
         config=canonical,
         started_utc=started,
         ended_utc=ended,

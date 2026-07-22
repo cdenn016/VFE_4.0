@@ -73,11 +73,6 @@ class H1EvidenceRecord:
             raise ValueError("probability_allowance must be independent")
         if not isinstance(self.log_probability_allowance, IndependentNumericalAllowance):
             raise ValueError("log_probability_allowance must be independent")
-        if self.probability > 0.0:
-            expected_log = math.log(self.probability)
-            consistency_allowance = 8.0 * _EPSILON * max(1.0, abs(expected_log))
-            if abs(self.log_probability - expected_log) > consistency_allowance:
-                raise ValueError("probability and log_probability are inconsistent")
 
 
 @dataclass(frozen=True)

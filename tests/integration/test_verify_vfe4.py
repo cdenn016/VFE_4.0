@@ -153,7 +153,8 @@ def test_provenance_schema_is_frozen_and_content_hashes_recompute(tmp_path: Path
     provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
     assert set(provenance) == {
         "git_head", "dirty_digest", "config_sha256", "objective_schema_input",
-        "objective_schema_sha256", "fixture_sha256", "python_version", "pytorch_version",
+        "objective_schema_sha256", "fixture_expected_sha256",
+        "fixture_observed_sha256", "fixture_available", "python_version", "pytorch_version",
         "numpy_version", "device", "dtype", "seed", "deterministic",
         "stochastic_policy", "started_utc", "ended_utc", "gate_state",
     }
@@ -161,7 +162,10 @@ def test_provenance_schema_is_frozen_and_content_hashes_recompute(tmp_path: Path
     assert provenance["config_sha256"] == json.loads((run_dir / "config.json").read_text(encoding="utf-8"))["config_sha256"]
     import hashlib
     fixture = REPO_ROOT / "vfe4" / "validation" / "fixtures" / "h1_v1.json"
-    assert provenance["fixture_sha256"] == hashlib.sha256(fixture.read_bytes()).hexdigest()
+    fixture_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()
+    assert provenance["fixture_expected_sha256"] == fixture_sha
+    assert provenance["fixture_observed_sha256"] == fixture_sha
+    assert provenance["fixture_available"] is True
     assert provenance["objective_schema_sha256"] == hashlib.sha256(provenance["objective_schema_input"].encode("utf-8")).hexdigest()
     assert provenance["device"] == "cpu" and provenance["dtype"] == "float64"
     assert provenance["stochastic_policy"] == "no-stochastic-operations"

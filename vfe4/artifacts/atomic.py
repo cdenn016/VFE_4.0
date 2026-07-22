@@ -11,7 +11,7 @@ import shutil
 import uuid
 from collections.abc import Mapping
 from enum import Enum
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 
@@ -89,18 +89,49 @@ def _payload_path(name: str) -> PurePosixPath:
     return path
 
 
+def _run_component(name: str) -> str:
+    """Return one portable, canonical directory component for a run."""
+    if type(name) is not str or not name:
+        raise ArtifactPublicationError("run_name must be a nonempty canonical component")
+    posix = PurePosixPath(name)
+    windows = PureWindowsPath(name)
+    if (
+        name in (".", "..")
+        or "/" in name
+        or "\\" in name
+        or posix.is_absolute()
+        or windows.is_absolute()
+        or bool(windows.drive)
+        or len(posix.parts) != 1
+        or len(windows.parts) != 1
+        or name.endswith((".", " "))
+        or any(ord(character) < 32 or character in '<>:"|?*' for character in name)
+    ):
+        raise ArtifactPublicationError("run_name must be one portable canonical component")
+    reserved_stems = {"CON", "PRN", "AUX", "NUL"}
+    reserved_stems.update(f"COM{index}" for index in range(1, 10))
+    reserved_stems.update(f"LPT{index}" for index in range(1, 10))
+    if name.split(".", 1)[0].upper() in reserved_stems:
+        raise ArtifactPublicationError("run_name is reserved on Windows")
+    return name
+
+
 def publish_run_directory(
     run_root: Path, run_name: str, payloads: Mapping[str, object]
 ) -> Path:
     """Publish every JSON plus a final manifest by one absent-directory rename."""
-    if not isinstance(run_root, Path) or type(run_name) is not str or not run_name:
+    if not isinstance(run_root, Path):
         raise ArtifactPublicationError("run_root and run_name are required")
     if not isinstance(payloads, Mapping) or not payloads:
         raise ArtifactPublicationError("payloads must be a nonempty mapping")
-    root = run_root.resolve()
-    final = root / run_name
-    staging = root / f".staging-{uuid.uuid4().hex}"
+    safe_run_name = _run_component(run_name)
+    staging: Path | None = None
     try:
+        root = run_root.resolve()
+        final = (root / safe_run_name).resolve()
+        if final.parent != root:
+            raise ArtifactPublicationError("run_name escapes its resolved run_root")
+        staging = root / f".staging-{uuid.uuid4().hex}"
         root.mkdir(parents=True, exist_ok=True)
         if final.exists():
             raise ArtifactPublicationError(f"run directory already exists: {final}")
@@ -121,10 +152,10 @@ def publish_run_directory(
         return final
     except ArtifactPublicationError:
         raise
-    except (OSError, UnicodeError, ValueError, TypeError) as exc:
+    except (OSError, RuntimeError, UnicodeError, ValueError, TypeError) as exc:
         raise ArtifactPublicationError(f"artifact publication failed: {exc}") from exc
     finally:
-        if staging.exists():
+        if staging is not None and staging.exists():
             try:
                 shutil.rmtree(staging)
             except OSError:

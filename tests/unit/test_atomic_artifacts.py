@@ -4,13 +4,15 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
 from vfe4.artifacts import (
     ArtifactPublicationError,
+    build_provenance,
     canonical_json_bytes,
+    dirty_content_digest,
     publish_run_directory,
 )
 
@@ -129,6 +131,151 @@ def test_publish_run_rejects_manifest_path_and_non_json_payload_names(tmp_path: 
     ):
         with pytest.raises(ArtifactPublicationError):
             publish_run_directory(tmp_path / "runs", "verify-h1-frozen", payloads)
+
+
+@pytest.mark.parametrize(
+    "run_name",
+    [
+        ".",
+        "..",
+        "a/b",
+        "a\\b",
+        "/absolute",
+        "C:\\absolute",
+        "C:relative",
+        "\\\\server\\share",
+        "name/../escape",
+        "name.",
+        "name ",
+        "bad:name",
+        "bad?name",
+        "bad*name",
+        "bad|name",
+        "NUL",
+    ],
+)
+def test_publish_run_rejects_noncanonical_or_escaping_run_names(
+    tmp_path: Path, run_name: str
+) -> None:
+    with pytest.raises(ArtifactPublicationError, match="run_name"):
+        publish_run_directory(tmp_path / "runs", run_name, {"config.json": {}})
+
+
+def test_publish_run_wraps_path_resolution_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        Path, "resolve", lambda self: (_ for _ in ()).throw(OSError("resolve failure"))
+    )
+
+    with pytest.raises(ArtifactPublicationError, match="resolve failure"):
+        publish_run_directory(tmp_path / "runs", "verify-h1", {"config.json": {}})
+
+
+def test_dirty_digest_is_content_bound_and_excludes_only_control_and_run_descendant(
+    tmp_path: Path,
+) -> None:
+    import subprocess
+
+    repo = tmp_path / "digest repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    tracked = repo / "tracked.txt"
+    tracked.write_text("first", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=repo, check=True)
+    run_root = repo / "runs"
+
+    baseline = dirty_content_digest(repo, run_root)
+    assert len(baseline) == 64 and baseline != "0" * 64
+    tracked.write_text("second", encoding="utf-8")
+    changed = dirty_content_digest(repo, run_root)
+    assert changed != baseline
+
+    control = repo / ".verification" / "control.json"
+    control.parent.mkdir()
+    control.write_text("ignored control", encoding="utf-8")
+    assert dirty_content_digest(repo, run_root) == changed
+    artifact = run_root / "run" / "result.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("ignored artifact", encoding="utf-8")
+    assert dirty_content_digest(repo, run_root) == changed
+
+    relevant = repo / "relevant.txt"
+    relevant.write_text("included", encoding="utf-8")
+    assert dirty_content_digest(repo, run_root) != changed
+
+
+def test_dirty_digest_rejects_repo_or_ancestor_as_exclusion_root(tmp_path: Path) -> None:
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    for unsafe in (repo, repo.parent):
+        with pytest.raises(ArtifactPublicationError, match="strict descendant"):
+            dirty_content_digest(repo, unsafe)
+
+
+def test_dirty_digest_never_excludes_tracked_source_beneath_run_root(
+    tmp_path: Path,
+) -> None:
+    import subprocess
+
+    repo = tmp_path / "repo"
+    run_root = repo / "vfe4"
+    run_root.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    source = run_root / "source.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "vfe4/source.py"], cwd=repo, check=True)
+
+    baseline = dirty_content_digest(repo, run_root)
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+    changed = dirty_content_digest(repo, run_root)
+    assert changed != baseline
+
+    artifact = run_root / "untracked-run.json"
+    artifact.write_text("publication", encoding="utf-8")
+    assert dirty_content_digest(repo, run_root) == changed
+
+
+@pytest.mark.parametrize(
+    ("gate_state", "observed"),
+    [
+        ("pass", None),
+        ("fail", "b" * 64),
+        ("pass", "not-a-sha"),
+    ],
+)
+def test_provenance_rejects_untruthful_closed_fixture_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    gate_state: str,
+    observed: str | None,
+) -> None:
+    import vfe4.artifacts.provenance as provenance
+
+    monkeypatch.setattr(provenance, "git_head", lambda root: "c" * 40)
+    monkeypatch.setattr(provenance, "dirty_content_digest", lambda root, runs: "d" * 64)
+    config = SimpleNamespace(
+        objective_schema_version="vfe4-state-elbo-v1",
+        config_sha256="e" * 64,
+        artifacts=SimpleNamespace(run_root=tmp_path / "runs"),
+        run=SimpleNamespace(
+            device="cpu", dtype="float64", seed=1, deterministic=True
+        ),
+    )
+
+    with pytest.raises(ArtifactPublicationError, match="fixture"):
+        build_provenance(
+            repo_root=tmp_path,
+            fixture_expected_sha256="a" * 64,
+            fixture_observed_sha256=observed,
+            config=config,
+            started_utc="2026-07-21T00:00:00Z",
+            ended_utc="2026-07-21T00:00:01Z",
+            gate_state=gate_state,
+        )
 
 
 @pytest.mark.parametrize("phase", ["fsync", "final_rename"])
