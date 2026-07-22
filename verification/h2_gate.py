@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import math
 import tempfile
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
@@ -920,28 +920,7 @@ def h2_validation_payload(evaluation: H2GateEvaluation) -> dict[str, object]:
         "comparisons": evaluation.comparisons,
         "negative_controls": evaluation.negative_controls,
     }
-    return _json_safe_payload(payload)  # type: ignore[return-value]
-
-
-def _json_safe_payload(value: object) -> object:
-    if is_dataclass(value) and not isinstance(value, type):
-        return {
-            field.name: _json_safe_payload(getattr(value, field.name))
-            for field in fields(value)
-        }
-    if isinstance(value, Mapping):
-        if any(type(key) is not str for key in value):
-            raise ValueError("H2 payload mapping keys must be strings")
-        return {key: _json_safe_payload(item) for key, item in value.items()}
-    if isinstance(value, (tuple, list)):
-        return tuple(_json_safe_payload(item) for item in value)
-    if isinstance(value, torch.Tensor):
-        return value.detach().cpu().tolist()
-    if isinstance(value, np.ndarray):
-        return value.tolist()
-    if isinstance(value, np.generic):
-        return value.item()
-    return value
+    return payload
 
 
 __all__ = [

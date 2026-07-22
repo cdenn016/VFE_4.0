@@ -15,12 +15,21 @@ from enum import Enum
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
+import numpy as np
+import torch
+
 
 class ArtifactPublicationError(RuntimeError):
     """A run could not be durably published as one complete directory."""
 
 
 def _json_value(value: object) -> Any:
+    if isinstance(value, torch.Tensor):
+        return _json_value(value.detach().cpu().tolist())
+    if isinstance(value, np.ndarray):
+        return _json_value(value.tolist())
+    if isinstance(value, np.generic):
+        return _json_value(value.item())
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return {
             field.name: _json_value(getattr(value, field.name))

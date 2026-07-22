@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
 
+import numpy as np
 import pytest
+import torch
 
 from vfe4.artifacts import (
     ArtifactPublicationError,
@@ -44,6 +46,29 @@ def test_json_adapter_handles_frozen_records_and_mappingproxy_without_asdict() -
     assert encoded == canonical_json_bytes(
         _Payload(value, MappingProxyType({"a": Path("x/y"), "z": (2, 1)}))
     )
+
+
+def test_json_adapter_recursively_handles_scientific_values_and_rejects_nonfinite() -> None:
+    encoded = canonical_json_bytes(
+        {
+            "tensor": torch.tensor([[1.5, 2.0]], dtype=torch.float64),
+            "array": np.array([3.25, 4.5], dtype=np.float32),
+            "scalar": np.int64(7),
+        }
+    )
+
+    assert json.loads(encoded) == {
+        "array": [3.25, 4.5],
+        "scalar": 7,
+        "tensor": [[1.5, 2.0]],
+    }
+    for value in (
+        torch.tensor([float("nan")], dtype=torch.float64),
+        np.array([float("inf")], dtype=np.float64),
+        np.float64(-float("inf")),
+    ):
+        with pytest.raises(ArtifactPublicationError, match="nonfinite"):
+            canonical_json_bytes({"nested": (value,)})
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
