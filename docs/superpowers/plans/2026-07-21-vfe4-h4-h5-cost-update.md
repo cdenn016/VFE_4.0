@@ -938,6 +938,28 @@ A^{candidate}_j=\rho^p_j+\rho^o_j+\rho^{cmp}_j.
 
 For z0 and source-row fields both kappas are `1.0`; for every M-block field both are the recorded condition number of `G`. Exact-candidate agreement requires each `abs(p_j-o_j) <= A_candidate_j`. Proposal cases GEM/natural have no independently generated parameter candidate and therefore no candidate-field comparison; their independent check is the complete before/after delta.
 
+Every positive case also carries an operand-shaped production/oracle complete-delta agreement. For either implementation `x in {production, oracle}`, its `before` and `after` operand records are derived from that implementation's own ordered 12-term order-21/order-17 evaluation, never copied from the other implementation. A complete operand retains that implementation's exact ordered 12-term trace and records the reported order-21 value; the sum of both-order term operation counts plus exactly `13` for complete reduction; the ordered flattening of both-order term-local condition numbers; the ordered flattening of both-order absolute summands followed by the 12 absolute signed reported terms; the sum of the 12 term convergence estimates; the sum of all term order-21, order-17, and cross-order roundings plus the complete reduction rounding; and `allowance=convergence+rounding`. Every aggregate is recomputed from the retained trace. Its `delta` operand has an empty complete-term trace and is derived only from its own two complete operands:
+
+\[
+\Delta_x=after_x-before_x,\qquad N_{\Delta_x}=3,\qquad
+\kappa_{\Delta_x}=(1),\qquad S_{\Delta_x}=(|before_x|,|after_x|),
+\]
+\[
+\rho_{\Delta_x}=4096\,\gamma_3
+\max(1,|before_x|,|after_x|,|\Delta_x|,|before_x|+|after_x|),
+\qquad A_{\Delta_x}=A_{before_x}+A_{after_x}+\rho_{\Delta_x}.
+\]
+
+The independent agreement comparison is
+
+\[
+\rho_{cmp}=4096\,\gamma_3
+\max(1,|\Delta_p|,|\Delta_o|,|\Delta_p|+|\Delta_o|),
+\qquad A_{agreement}=A_{\Delta_p}+A_{\Delta_o}+\rho_{cmp},
+\]
+
+and passes exactly when `abs(delta_p-delta_o) <= A_agreement`. Production `A_delta_p` must equal the transaction's `H5DeltaAllowance.epsilon_delta`; the byte-only oracle independently derives `A_delta_o` from its own term traces and local frozen numerical constants. A missing, nonfinite, incorrectly ordered, formula-inconsistent, or cross-side-copied operand record is not agreement and makes `all_delta_allowances_operand_shaped` false.
+
 No global kappa, run-wide maximum, unrelated term scale, stochastic allowance, or solver contribution may be added.
 
 
@@ -4910,13 +4932,54 @@ def canonical_frozen_complement_bytes(reference: H5ReferenceState, live: H5LiveS
 def execute_update(reference: H5ReferenceState, live: H5LiveState, request: UpdateRequest, evaluator: CompleteElboEvaluator, budget: H5BudgetConfig, *, fault_injection: H5FaultInjection | None = None) -> H5TransactionResult: ...
 ```
 
-After the existing H4 names, `vfe4/inference/__init__.py` appends exactly `H5_CANDIDATE_DRAFT_DOMAIN`, `AttemptPhase`, `AttemptFailureReason`, `DecisionReason`, `H5FaultKind`, `H5FaultInjection`, `H5CandidateDraft`, `UpdateHashRecord`, `PartialFactorEvaluation`, `DeterministicReevaluationRecord`, `CompletedUpdateAttempt`, `FailedUpdateAttempt`, `H5AttemptOutcome`, `H5TransactionResult`, `DifferentiableRecognitionState`, `DifferentiableModelState`, `canonical_h5_candidate_draft_bytes`, `exact_conjugate_gaussian_e_update`, `exact_source_row_update`, `exact_gaussian_m_update`, `differentiable_h5_complete_elbo_order_21`, `propose_generalized_em`, `propose_natural_gradient`, `freeze_candidate`, `canonical_frozen_complement_bytes`, and `execute_update`, in that order. The private draft-rejection carrier is absent from both imports and `__all__`. After the existing H4 oracle names, `verification/numpy_oracles/__init__.py` appends exactly `H5OracleUpdate`, `oracle_exact_e_block`, `oracle_exact_source_row`, `oracle_exact_m_block`, and `oracle_complete_delta`, in that order.
+After the existing H4 names, `vfe4/inference/__init__.py` appends exactly `H5_CANDIDATE_DRAFT_DOMAIN`, `AttemptPhase`, `AttemptFailureReason`, `DecisionReason`, `H5FaultKind`, `H5FaultInjection`, `H5CandidateDraft`, `UpdateHashRecord`, `PartialFactorEvaluation`, `DeterministicReevaluationRecord`, `CompletedUpdateAttempt`, `FailedUpdateAttempt`, `H5AttemptOutcome`, `H5TransactionResult`, `DifferentiableRecognitionState`, `DifferentiableModelState`, `canonical_h5_candidate_draft_bytes`, `exact_conjugate_gaussian_e_update`, `exact_source_row_update`, `exact_gaussian_m_update`, `differentiable_h5_complete_elbo_order_21`, `propose_generalized_em`, `propose_natural_gradient`, `freeze_candidate`, `canonical_frozen_complement_bytes`, and `execute_update`, in that order. The private draft-rejection carrier is absent from both imports and `__all__`. After the existing H4 oracle names, `verification/numpy_oracles/__init__.py` appends exactly `H5OracleTermEvidence`, `H5OracleOperandEvidence`, `H5OracleUpdate`, `oracle_exact_e_block`, `oracle_exact_source_row`, `oracle_exact_m_block`, and `oracle_complete_delta`, in that order.
 
 Decision rules are exact: an exact coordinate is eligible iff `delta_elbo >= -epsilon_delta`; generalized-EM and other proposal labels are eligible iff `delta_elbo > epsilon_delta`; `delta_elbo < -epsilon_delta` is a resolved rejection; the closed boundary is rejected as unresolved. Any required emission-touching positive case on that boundary makes the gate inconclusive, not failed. A rejected resolved-decrease natural-gradient positive case passes only with identical final live/recognition/model/optimizer/RNG hashes. `execute_update` returns a new immutable live state on acceptance and the original object on rejection or failure; no caller-visible in-place mutation occurs.
 
-The independent oracle accepts bytes, never production types. It parses its two candidate JSON byte fields into the same closed semantic snapshot schemas and independently computes `semantic_state_sha256`; it neither constructs nor claims equality of the provenance-bearing production `candidate_sha256`. Only `oracle_exact_m_block` records `(("G_condition_number", kappa_2(G)),)`; every other oracle result requires an empty condition-number tuple:
+The independent oracle accepts bytes, never production types. It parses its two candidate JSON byte fields into the same closed semantic snapshot schemas and independently computes `semantic_state_sha256`; it neither constructs nor claims equality of the provenance-bearing production `candidate_sha256`. Only `oracle_exact_m_block` records `(("G_condition_number", kappa_2(G)),)`; every other oracle result requires an empty candidate-condition-number tuple. It retains an oracle-owned exact complete-term trace for both the before and after evaluations so Task 8 can reproduce every aggregate without borrowing a production allowance. `verification/numpy_oracles/h5_updates.py` owns module-local immutable copies of the exact signed-term IDs/signs, operation-count tables, `epsilon`, `C=4096.0`, and emission count formula; it imports neither PyTorch nor a production H5 module.
+
+`H5OracleTermEvidence` has exactly the displayed field order. Its constructor recomputes and validates `signed_reported_value`, `convergence_estimate`, all three rounding fields, and `total` from that record's own both-order values, absolute summands, condition numbers, and operation counts; analytic records require identical both-order values and zero convergence. `H5OracleOperandEvidence` is `init=False`: callers can construct it only through `from_complete_terms` or `from_delta`. `from_complete_terms` requires `operand in {"before","after"}`, the exact 12 signed-term IDs/order/signs, and independently recomputes `value`, aggregate operation count, ordered condition/absolute-summand traces, convergence, rounding, and allowance. `from_delta` requires validated before/after oracle operands, stores an empty term trace, and independently derives the exact subtraction evidence and allowance. Any caller-supplied or post-copy aggregate perturbation is rejected. `H5OracleUpdate` additionally requires exact `before,after,delta` roles and recomputes the delta record from its two complete operands; it never accepts a production `CompleteElboEvaluation`, `H5CompleteAllowance`, or `H5DeltaAllowance`:
 
 ```python
+@dataclass(frozen=True)
+class H5OracleTermEvidence:
+    schema_version: Literal["h5-oracle-term-evidence-v1"]
+    term_id: str
+    objective_sign: Literal[-1, 1]
+    value_order_21: float
+    value_order_17: float
+    signed_reported_value: float
+    absolute_summands_order_21: tuple[float, ...]
+    absolute_summands_order_17: tuple[float, ...]
+    condition_numbers_order_21: tuple[float, ...]
+    condition_numbers_order_17: tuple[float, ...]
+    operation_count_order_21: int
+    operation_count_order_17: int
+    convergence_estimate: float
+    rounding_order_21: float
+    rounding_order_17: float
+    comparison_rounding: float
+    total: float
+
+@dataclass(frozen=True, init=False)
+class H5OracleOperandEvidence:
+    schema_version: Literal["h5-oracle-operand-evidence-v1"]
+    operand: Literal["before", "after", "delta"]
+    complete_term_trace: tuple[H5OracleTermEvidence, ...]
+    value: float
+    operation_count: int
+    condition_numbers: tuple[float, ...]
+    absolute_summands: tuple[float, ...]
+    convergence: float
+    rounding: float
+    allowance: float
+
+    @classmethod
+    def from_complete_terms(cls, *, operand: Literal["before", "after"], complete_term_trace: tuple[H5OracleTermEvidence, ...]) -> Self: ...
+
+    @classmethod
+    def from_delta(cls, *, before: Self, after: Self) -> Self: ...
+
 @dataclass(frozen=True)
 class H5OracleUpdate:
     schema_version: Literal["h5-oracle-update-v1"]
@@ -4925,9 +4988,9 @@ class H5OracleUpdate:
     candidate_model_json: bytes
     candidate_condition_numbers: tuple[tuple[str, float], ...]
     semantic_state_sha256: str = field(init=False)
-    before_elbo: float
-    after_elbo: float
-    delta_elbo: float
+    before: H5OracleOperandEvidence
+    after: H5OracleOperandEvidence
+    delta: H5OracleOperandEvidence
 
 def oracle_exact_e_block(h1_fixture_bytes: bytes, update_spec_bytes: bytes, live_state_bytes: bytes) -> H5OracleUpdate: ...
 def oracle_exact_source_row(h1_fixture_bytes: bytes, update_spec_bytes: bytes, live_state_bytes: bytes) -> H5OracleUpdate: ...
@@ -4935,7 +4998,7 @@ def oracle_exact_m_block(h1_fixture_bytes: bytes, update_spec_bytes: bytes, live
 def oracle_complete_delta(h1_fixture_bytes: bytes, update_spec_bytes: bytes, before_state_bytes: bytes, after_state_bytes: bytes, *, rule: str) -> H5OracleUpdate: ...
 ```
 
-- [ ] **Step 1: Write failing tests for the five positives, every transaction phase, and independent oracle.** Assert exact z0 blanket contributions, the row formula, full five-parameter M solve, fixed detached recognition, fieldwise production/oracle exact-candidate agreement under the frozen operand-shaped allowances while retaining nonbinding semantic hashes, detached equality between differentiable and Task 6 order-21 complete objectives, first resolved GEM damping, oversized natural-gradient rejection, freeze-before-evaluate, no H2 mutation/autograd, input-hash affectedness, valid unaffected reuse, and byte-identical rollback. Assert the exact `H5CandidateDraft` and revised `UpdateHashRecord` field orders, draft domain/encoder/hash recomputation, defensive nonaliasing ownership, the corrected keyword-only `freeze_candidate` signature, and complement recomputation before draft construction. Prove that a valid freeze records distinct mandatory draft/final hashes, while the mislabel path records its recomputed draft/recognition/model hashes, keeps `candidate_sha256` and every predecision hash `None`, performs no evaluation, and returns the original live object with exact before/final rollback hashes. Assert the exact Task 7 production and oracle export orders and absence of the private rejection carrier.
+- [ ] **Step 1: Write failing tests for the five positives, every transaction phase, and independent oracle.** Assert exact z0 blanket contributions, the row formula, full five-parameter M solve, fixed detached recognition, fieldwise production/oracle exact-candidate agreement under the frozen operand-shaped allowances while retaining nonbinding semantic hashes, detached equality between differentiable and Task 6 order-21 complete objectives, first resolved GEM damping, oversized natural-gradient rejection, freeze-before-evaluate, no H2 mutation/autograd, input-hash affectedness, valid unaffected reuse, and byte-identical rollback. Assert the exact `H5CandidateDraft` and revised `UpdateHashRecord` field orders, draft domain/encoder/hash recomputation, defensive nonaliasing ownership, the corrected keyword-only `freeze_candidate` signature, and complement recomputation before draft construction. Prove that a valid freeze records distinct mandatory draft/final hashes, while the mislabel path records its recomputed draft/recognition/model hashes, keeps `candidate_sha256` and every predecision hash `None`, performs no evaluation, and returns the original live object with exact before/final rollback hashes. Assert the exact `H5OracleTermEvidence` and `H5OracleOperandEvidence` field/export orders, exact local 12-term ID/sign/count tables, exact `before,after,delta` roles, both-order values and all rounding inputs, independent aggregate recomputation, and `delta.allowance == before.allowance + after.allowance + delta.rounding`. Reconstruct every aggregate from the serialized oracle trace, reject each one-field term/aggregate perturbation, prove direct `H5OracleOperandEvidence(...)` construction is unavailable, and prove perturbing a production allowance object cannot change any oracle record. Assert the exact Task 7 production and oracle export orders and absence of the private rejection carrier.
 
 - [ ] **Step 2: Run Task 7 RED.**
 
@@ -5010,6 +5073,118 @@ class H5ControlDetection(str, Enum):
 
 H5_CONTROL_DETECTION_BY_ID = MappingProxyType(dict(zip(H5ControlId, H5ControlDetection, strict=True)))
 
+H5_POSITIVE_RULE_BY_ID = MappingProxyType({
+    H5PositiveCaseId.EXACT_GAUSSIAN_E: H5UpdateRule.EXACT_Z0,
+    H5PositiveCaseId.EXACT_SOURCE_ROW: H5UpdateRule.EXACT_SOURCE_ROW_A2,
+    H5PositiveCaseId.EXACT_GAUSSIAN_M: H5UpdateRule.EXACT_STATE_TRANSITION_2_M,
+    H5PositiveCaseId.ACCEPTED_GEM: H5UpdateRule.GENERALIZED_EM_EMISSION_1,
+    H5PositiveCaseId.REJECTED_NATURAL: H5UpdateRule.NATURAL_GRADIENT_Z1,
+})
+
+H5_CONTROL_BASE_RULE_BY_ID = MappingProxyType({
+    H5ControlId.OMIT_CHILD: H5UpdateRule.EXACT_Z0,
+    H5ControlId.OMIT_EMISSION: H5UpdateRule.GENERALIZED_EM_EMISSION_1,
+    H5ControlId.FORCE_UNRESOLVED_GEM: H5UpdateRule.GENERALIZED_EM_EMISSION_1,
+    H5ControlId.MISLABEL_NATURAL: H5UpdateRule.NATURAL_GRADIENT_Z1,
+    H5ControlId.MUTATE_REJECTION: H5UpdateRule.NATURAL_GRADIENT_Z1,
+    H5ControlId.CHANGED_INPUT_EQUAL_VALUE: H5UpdateRule.EXACT_STATE_TRANSITION_2_M,
+    H5ControlId.CHANGED_VALUE_SAME_INPUT: H5UpdateRule.GENERALIZED_EM_EMISSION_1,
+})
+
+class H5PreflightPhase(str, Enum):
+    H1_FIXTURE_VALIDATION = "h1_fixture_validation"
+    UPDATE_SPEC_VALIDATION = "update_spec_validation"
+    REFERENCE_CONSTRUCTION = "reference_construction"
+    READY = "ready"
+
+class H5PreflightErrorKind(str, Enum):
+    INVALID_H1_FIXTURE = "invalid_h1_fixture"
+    UPDATE_SPEC_RAW_DIGEST_MISMATCH = "update_spec_raw_digest_mismatch"
+    INVALID_UPDATE_SPEC_SCHEMA = "invalid_update_spec_schema"
+    REFERENCE_CONSTRUCTION_FAILED = "reference_construction_failed"
+    OBJECTIVE_SCHEMA_IDENTITY_FAILED = "objective_schema_identity_failed"
+    FACTOR_INPUT_SCHEMA_IDENTITY_FAILED = "factor_input_schema_identity_failed"
+
+H5_PREFLIGHT_ERROR_KINDS_BY_PHASE = MappingProxyType({
+    H5PreflightPhase.H1_FIXTURE_VALIDATION: (
+        H5PreflightErrorKind.INVALID_H1_FIXTURE,
+    ),
+    H5PreflightPhase.UPDATE_SPEC_VALIDATION: (
+        H5PreflightErrorKind.UPDATE_SPEC_RAW_DIGEST_MISMATCH,
+        H5PreflightErrorKind.INVALID_UPDATE_SPEC_SCHEMA,
+    ),
+    H5PreflightPhase.REFERENCE_CONSTRUCTION: (
+        H5PreflightErrorKind.REFERENCE_CONSTRUCTION_FAILED,
+        H5PreflightErrorKind.OBJECTIVE_SCHEMA_IDENTITY_FAILED,
+        H5PreflightErrorKind.FACTOR_INPUT_SCHEMA_IDENTITY_FAILED,
+    ),
+    H5PreflightPhase.READY: (),
+})
+
+class H5UnavailableField(str, Enum):
+    UPDATE_SPEC_CANONICAL_SHA256 = "update_spec_canonical_sha256"
+    OBJECTIVE_SCHEMA_SHA256 = "objective_schema_sha256"
+    FACTOR_INPUT_SCHEMA_VERSION = "factor_input_schema_version"
+    FACTOR_INPUT_SCHEMA_SHA256 = "factor_input_schema_sha256"
+    REFERENCE = "reference"
+    REFERENCE_SHA256 = "reference_sha256"
+    FACTOR_UNIVERSE = "factor_universe"
+    RECOGNITION_COORDINATE_UNIVERSE = "recognition_coordinate_universe"
+    MODEL_BLOCK_UNIVERSE = "model_block_universe"
+    VARIABLE_DEPENDENCY_ROWS = "variable_dependency_rows"
+    PARAMETER_DEPENDENCY_ROWS = "parameter_dependency_rows"
+    POSITIVE_CASES = "positive_cases"
+    POSITIVE_ATTEMPTS = "positive_attempts"
+    CONTROLS = "controls"
+    ORACLE_RESULTS = "oracle_results"
+
+@dataclass(frozen=True)
+class H5PreflightError:
+    phase: H5PreflightPhase
+    kind: H5PreflightErrorKind
+    detail: str
+
+@dataclass(frozen=True)
+class H5PreflightRecord:
+    schema_version: Literal["h5-preflight-record-v1"]
+    phase: H5PreflightPhase
+    h1_fixture_raw_sha256: str
+    update_spec_raw_sha256: str
+    errors: tuple[H5PreflightError, ...]
+    unavailable_fields: tuple[H5UnavailableField, ...]
+    obligation: str | None
+
+@dataclass(frozen=True)
+class H5DeltaOperandEvidence:
+    schema_version: Literal["h5-delta-operand-evidence-v1"]
+    operand: Literal["before", "after", "delta"]
+    value: float
+    operation_count: int
+    condition_numbers: tuple[float, ...]
+    absolute_summands: tuple[float, ...]
+    rounding: float
+    allowance: float
+
+@dataclass(frozen=True)
+class H5DeltaImplementationEvidence:
+    schema_version: Literal["h5-delta-implementation-evidence-v1"]
+    implementation: Literal["production", "oracle"]
+    before: H5DeltaOperandEvidence
+    after: H5DeltaOperandEvidence
+    delta: H5DeltaOperandEvidence
+    operand_shaped: bool
+
+@dataclass(frozen=True)
+class H5DeltaAgreement:
+    schema_version: Literal["h5-delta-agreement-v1"]
+    rule: H5UpdateRule
+    production: H5DeltaImplementationEvidence
+    oracle: H5DeltaImplementationEvidence
+    comparison_rounding: float
+    allowance: float
+    absolute_error: float
+    passed: bool
+
 @dataclass(frozen=True)
 class H5CandidateScalarComparison:
     field_id: str
@@ -5041,7 +5216,7 @@ class H5PositiveCaseResult:
     production_semantic_state_sha256: str
     oracle_semantic_state_sha256: str
     candidate_comparison: H5CandidateComparison | None
-    oracle_delta: float
+    delta_agreement: H5DeltaAgreement
     passed: bool
     detail: str
 
@@ -5060,14 +5235,16 @@ class H5GateResult:
     schema_version: Literal["h5-gate-result-v1"]
     gate: Literal["H5"]
     status: GateStatus
+    preflight: H5PreflightRecord
     h1_fixture_raw_sha256: str
     update_spec_raw_sha256: str
-    update_spec_canonical_sha256: str
-    objective_schema_sha256: str
-    factor_input_schema_version: Literal["h5-factor-input-v1"]
-    factor_input_schema_sha256: str
-    positive_cases: tuple[H5PositiveCaseResult, ...]
-    controls: tuple[H5ControlResult, ...]
+    update_spec_canonical_sha256: str | None
+    objective_schema_sha256: str | None
+    factor_input_schema_version: Literal["h5-factor-input-v1"] | None
+    factor_input_schema_sha256: str | None
+    reference_sha256: str | None
+    positive_cases: tuple[H5PositiveCaseResult, ...] | None
+    controls: tuple[H5ControlResult, ...] | None
     invariants: tuple[InvariantResult, ...]
     obligations: tuple[str, ...]
 
@@ -5075,15 +5252,15 @@ class H5GateResult:
 class H5ValidationPayloadRecord:
     schema_version: Literal[1]
     result: H5GateResult
-    reference_sha256: str
-    factor_universe: tuple[str, ...]
-    recognition_coordinate_universe: tuple[str, ...]
-    model_block_universe: tuple[str, ...]
-    variable_dependency_rows: tuple[tuple[str, tuple[str, ...]], ...]
-    parameter_dependency_rows: tuple[tuple[str, tuple[str, ...]], ...]
-    positive_attempts: tuple[H5AttemptOutcome, ...]
-    controls: tuple[H5ControlResult, ...]
-    oracle_results: tuple[H5OracleUpdate, ...]
+    reference_sha256: str | None
+    factor_universe: tuple[str, ...] | None
+    recognition_coordinate_universe: tuple[str, ...] | None
+    model_block_universe: tuple[str, ...] | None
+    variable_dependency_rows: tuple[tuple[str, tuple[str, ...]], ...] | None
+    parameter_dependency_rows: tuple[tuple[str, tuple[str, ...]], ...] | None
+    positive_attempts: tuple[H5AttemptOutcome, ...] | None
+    controls: tuple[H5ControlResult, ...] | None
+    oracle_results: tuple[H5OracleUpdate, ...] | None
     nonclaims: tuple[str, ...]
     canonical_bytes: bytes = field(init=False, repr=False)
     payload_sha256: str = field(init=False)
@@ -5092,13 +5269,14 @@ class H5ValidationPayloadRecord:
 class H5GateEvaluation:
     schema_version: Literal["h5-gate-evaluation-v1"]
     result: H5GateResult
-    reference: H5ReferenceState
-    positive_attempts: tuple[H5AttemptOutcome, ...]
-    controls: tuple[H5ControlResult, ...]
-    oracle_results: tuple[H5OracleUpdate, ...]
+    reference: H5ReferenceState | None
+    positive_attempts: tuple[H5AttemptOutcome, ...] | None
+    controls: tuple[H5ControlResult, ...] | None
+    oracle_results: tuple[H5OracleUpdate, ...] | None
     validation_payload: H5ValidationPayloadRecord
 
 def compare_h5_exact_candidate(production: H5CandidateSnapshot, oracle: H5OracleUpdate) -> H5CandidateComparison: ...
+def compare_h5_complete_delta(outcome: CompletedUpdateAttempt, oracle: H5OracleUpdate) -> H5DeltaAgreement: ...
 
 def evaluate_h5(
     config: ResolvedConfig,
@@ -5112,9 +5290,15 @@ def h5_validation_payload(evaluation: H5GateEvaluation) -> dict[str, object]: ..
 
 The caller must pass the same captured immutable H5 byte object to production and oracle adapters. In Task 8, `evaluate_h5` reads only the already-existing resolved common CPU/float64/determinism fields; all H5 protocol identity comes from Task 5 constants and the captured bytes. It never rereads either fixture path. Task 9 later adds and validates the H5 config section without changing this byte-bearing signature.
 
-`H5ValidationPayloadRecord` requires exact universe/dependency order, raw attempt/control/oracle equality with the result/evaluation, and `nonclaims == H5_NONCLAIM_IDS`. It canonicalizes every nested frozen record under the validation-payload domain and computes its own hash; `h5_validation_payload` is only the deterministic JSON-primitive projection of that closed record, not an independently assembled mapping.
+Before parsing, `evaluate_h5` computes the two raw SHA-256 digests from the captured byte objects. `H5_PREFLIGHT_ERROR_KINDS_BY_PHASE` is the exact exhaustive phase/error validity map: every error kind appears once, an error is valid only in its mapped phase, and `READY` admits none. A successful preflight has `phase=READY`, no errors, no unavailable fields, and `obligation is None`; every optional result/evaluation/payload field is then non-`None`. Any H1 fixture validation, full update-spec digest/schema validation, objective/factor-schema identity, or reference-construction exception is caught only at this preflight boundary and returned as `GateStatus.INCONCLUSIVE`: `H5PreflightRecord` contains the exact attempted phase, exactly one mapped typed error, the two actually computed raw digests, the full `H5UnavailableField` enum tuple in declaration order, and one nonempty repair obligation. On that branch, every derived schema/reference hash, reference, universe/dependency table, positive case/attempt, control, and oracle field is exactly `None`; `invariants == ()`; `result.obligations == (preflight.obligation,)`; and `validation_payload.nonclaims == H5_NONCLAIM_IDS` exactly, the same frozen tuple used by a completed H5 payload. No zero digest, empty string, dummy reference, empty successful case tuple, shortened preflight-specific nonclaim tuple, or partially trusted derived hash may be fabricated.
 
-`compare_h5_exact_candidate` compares exactly the active fields listed in `H5_CANDIDATE_COMPARISON_OPERATION_COUNTS`, in that order, using the frozen scalar formula and conditions above. Exact z0/source comparisons record condition `1.0`; the M comparison records each implementation's `G` condition number supplied in its update diagnostics. Exact positive cases require non-`None` passing comparisons. GEM/natural positive cases require `candidate_comparison is None` and independent complete-delta agreement. Production/oracle semantic hashes are always retained but their equality or inequality never determines PASS/FAIL/INCONCLUSIVE.
+The displayed field orders are exact. `H5ValidationPayloadRecord` requires exact universe/dependency order, raw attempt/control/oracle equality with the result/evaluation, and `nonclaims == H5_NONCLAIM_IDS` on both completed and preflight-inconclusive branches. On the preflight-inconclusive branch it requires all optional fields to be `None` exactly as named by `preflight.unavailable_fields`. It canonicalizes every nested frozen record under the validation-payload domain, includes unavailable optionals explicitly as JSON `null` rather than omitting keys, and computes its own hash; `h5_validation_payload` is only the deterministic JSON-primitive projection of that closed record, not an independently assembled mapping.
+
+For every positive and control execution, construct a fresh `UpdateRequest` from the mapped base rule contract and set `request_id` exactly to that case/control enum's `.value`; no positive request object or request hash is reused by a control. The two mappings displayed above are exhaustive and exact. In particular, control 6 (`CHANGED_INPUT_EQUAL_VALUE`) uses base rule `EXACT_STATE_TRANSITION_2_M`, and control 7 (`CHANGED_VALUE_SAME_INPUT`) uses base rule `GENERALIZED_EM_EMISSION_1`.
+
+`H5DeltaOperandEvidence`, `H5DeltaImplementationEvidence`, and `H5DeltaAgreement` have exactly the displayed field orders. The production adapter derives its three operand records from the outcome's own complete before/after term traces and `H5DeltaAllowance`; the oracle adapter first reconstructs every `H5OracleTermEvidence` formula and every aggregate from the byte-only oracle's retained complete-term traces, then derives its gate records only from those validated oracle objects. Both adapters enforce the global formulas, exact `before,after,delta` roles, finite local evidence, and `operand_shaped=True`. `compare_h5_complete_delta` then stores the exact comparison rounding, total allowance, absolute error, and closed `<=` result. `all_delta_allowances_operand_shaped` is true if and only if all five positive cases have a finite passing `H5DeltaAgreement`, both implementations' `operand_shaped` flags are true, the production evidence revalidates against its outcome traces, the oracle evidence independently revalidates against its serialized oracle term traces and local constants, every aggregate/formula validates, and no evidence object, term trace, or allowance is shared by identity across implementations. No production value may fill a missing oracle trace field.
+
+`compare_h5_exact_candidate` compares exactly the active fields listed in `H5_CANDIDATE_COMPARISON_OPERATION_COUNTS`, in that order, using the frozen scalar formula and conditions above. Exact z0/source comparisons record condition `1.0`; the M comparison records each implementation's `G` condition number supplied in its update diagnostics. Because `H5TransactionResult` deliberately does not expose a candidate object, Task 8 deterministically reconstructs each positive candidate from the same initial live state, exact `outcome.request`, and exact selected `outcome.damping`, dispatching to the corresponding exact/GEM/natural Task 7 proposal. Before comparison or serialization it requires the reconstructed provenance-bearing `candidate_sha256`, recognition hash, and model hash to equal `outcome.hashes.candidate_sha256`, `candidate_recognition_sha256`, and `candidate_model_sha256`. Separately, it recomputes `canonical_h5_semantic_state_bytes(reconstructed.recognition, reconstructed.model)` and its domain-separated semantic-state hash and requires that semantic hash to equal `outcome.after.evaluated_state_sha256`. A provenance candidate hash is never compared with a semantic evaluated-state hash. Any same-domain mismatch is `INCONCLUSIVE` with a reconstruction obligation. It stores the recomputed production semantic-state hash in `H5PositiveCaseResult`. The reconstructed candidate's canonical semantic bytes, not the final live state on a rejected natural case, are the `after_state_bytes` supplied to the byte-only delta oracle. This does not add a candidate field to any Task 7 result. Exact positive cases require a non-`None` passing candidate comparison; GEM/natural positive cases require `candidate_comparison is None`. All five require a passing independent complete-delta agreement. Production/oracle semantic hashes are always retained, but cross-implementation equality or inequality never determines PASS/FAIL/INCONCLUSIVE.
 
 The exact ordered invariant tuple is:
 
@@ -5144,18 +5328,18 @@ The seven fault injections are exact and test/gate-only:
 3. Starting from the valid GEM request, the proposal seam changes only `emission[1].bias[0]` to `math.nextafter(old, math.inf)`, producing distinct factor-input bytes and a finite complete delta inside the positive allowance. A decision seam then returns accept despite `abs(delta_elbo)<=epsilon_delta`; validation converts it to `FailedUpdateAttempt(DECISION, DECISION_POLICY_VIOLATION)` before commit.
 4. Use the valid `NATURAL_GRADIENT_Z1` request and its normal detached working proposal, preserving its rule, request hash, `q[z1]` active block, snapshots, damping, and expected frozen-complement hash; pass only `producer_label=EXACT_COORDINATE` instead of `NATURAL_GRADIENT_PROPOSAL` into the freeze seam. This constructs an immutable mislabeled `H5CandidateDraft` and recomputes its draft hash, then the unchanged `H5CandidateSnapshot` constructor rejects the provenance mismatch. The result is `FailedUpdateAttempt(FREEZE, LABEL_PROVENANCE_MISMATCH)` before final-candidate construction, predecision capture, evaluation, or acceptance: `candidate_draft_sha256` and candidate recognition/model hashes are present, `candidate_sha256` and all predecision hashes are `None`, and exact before/final live/recognition/model/optimizer/RNG hashes prove rollback.
 5. After the resolved-decrease natural candidate is rejected, the rollback seam returns a copied live state with only `q[z1].mean=math.nextafter(old, math.inf)` and RNG payload counter changed from zero to one. Final live/recognition/RNG hashes yield `FailedUpdateAttempt(COMMIT_OR_ROLLBACK, ROLLBACK_HASH_MISMATCH)`; the original caller-owned live object remains unchanged.
-6. For `state_transition[2]`, reflect `alpha_0` about its fixed-complement scalar least-squares optimum
+6. Starting from a fresh request with `request_id=H5ControlId.CHANGED_INPUT_EQUAL_VALUE.value` and every other field exactly equal to the `EXACT_STATE_TRANSITION_2_M` rule contract, for `state_transition[2]` reflect `alpha_0` about its fixed-complement scalar least-squares optimum
    `alpha_hat = E[z0*(z2-(B_base+s)*m2-c)] / E[z0**2]`, using `alpha_0' = 2*alpha_hat-alpha_0`. Evaluate both sides through the same completed-square quadratic form; their order-21/order-17 `float.hex()` pairs must be exactly equal while canonical input bytes differ. The factor must appear in `observed_affected_factor_ids` and must be absent from `value_changed_factor_ids`; failure to realize this exact fixture property is `INCONCLUSIVE`, not a relaxed control.
-7. With the `state_transition[2]` canonical input bytes unchanged, the factor-record seam adds exactly `1.0e-6` to its reported order-21 and order-17 values. Before any internally inconsistent `CompleteElboEvaluation` can be constructed, independent deterministic reevaluation of that same input produces the unmodified pair. The resulting `FailedUpdateAttempt(AFTER_EVALUATION, DETERMINISTIC_REEVALUATION_MISMATCH)` retains the corrupted record in `partial_after`, keeps the factor absent from `observed_affected_factor_ids`, includes it in diagnostic `value_changed_factor_ids`, and stores the unequal pair in `deterministic_reevaluation`.
+7. Starting from a fresh request with `request_id=H5ControlId.CHANGED_VALUE_SAME_INPUT.value` and every other field exactly equal to the `GENERALIZED_EM_EMISSION_1` rule contract, keep the `state_transition[2]` canonical input bytes unchanged while the factor-record seam adds exactly `1.0e-6` to its reported order-21 and order-17 values. Before any internally inconsistent `CompleteElboEvaluation` can be constructed, independent deterministic reevaluation of that same input produces the unmodified pair. The resulting `FailedUpdateAttempt(AFTER_EVALUATION, DETERMINISTIC_REEVALUATION_MISMATCH)` retains the corrupted record in `partial_after`, keeps the factor absent from `observed_affected_factor_ids`, includes it in diagnostic `value_changed_factor_ids`, and stores the unequal pair in `deterministic_reevaluation`.
 
-Status construction is fail-closed:
+Status construction is fail-closed with exact precedence `INCONCLUSIVE`, then `FAIL`, then `PASS`:
 
-- `PASS` iff the raw fixture/schema/graph are exact, all five positives pass, all seven controls detect their intended fault, every numerical record is finite/complete/operand-shaped, and obligations are empty.
-- `FAIL` iff current finite complete evidence decisively falsifies a required positive, dependency, decision, rollback, oracle, or control invariant. A control is successful when it detects its injected fault; the injected fault itself does not make H5 fail.
-- `INCONCLUSIVE` iff required evidence is missing/nonfinite, a schema/cache cause is unresolved, or a required emission-touching comparison remains inside/on its complete allowance; obligations are nonempty and name each open phase.
+- `INCONCLUSIVE` takes precedence whenever preflight cannot construct the exact fixture/schema/reference (using the typed unavailable branch above), any required evidence is unavailable/missing/nonfinite, deterministic candidate reconstruction disagrees with the completed outcome hashes, a schema/cache cause is unresolved, or a required emission-touching comparison remains inside/on its complete allowance; obligations are nonempty and name each open phase. This remains `INCONCLUSIVE` when some other currently available evidence simultaneously shows a decisive failure. Preflight failures never become `FAIL` by inventing derived evidence.
+- `FAIL` is considered only after all required evidence is available, finite, complete, and decisive, and then applies iff that complete evidence decisively falsifies a required positive, dependency, decision, rollback, oracle, or control invariant. A control is successful when it detects its injected fault; the injected fault itself does not make H5 fail.
+- `PASS` is considered only after the first two predicates are false and requires preflight `READY` with no errors/unavailable fields, exact raw fixture/schema/graph identity, all five positives passing, all seven controls detecting their intended fault, every numerical record finite/complete/operand-shaped, and empty obligations.
 - Unsupported MM is absent from this status mapping. Configuration resolution rejects it before `evaluate_h5`; a normal H5 run has no MM obligation.
 
-- [ ] **Step 1: Write the failing promotion test for exact five-positive/seven-control order, every typed outcome, payload schema, byte identity, and all PASS/FAIL/INCONCLUSIVE contradictions.** Include exact candidate-comparison field/count/order/formulas, both within/outside allowance, permitted unequal semantic hashes, exact boundaries `delta=-epsilon`, `delta=epsilon`, and just outside them; malformed partial/full outcomes; changed-input/equal-value and same-input/changed-value separation; rollback optimizer/RNG hashes; the mislabel control's present draft/recognition/model hashes and absent final-candidate/predecision hashes; no MM obligation; and a proof that path rereads are not performed.
+- [ ] **Step 1: Write the failing promotion test for exact five-positive/seven-control order, every typed outcome, payload schema, byte identity, and all PASS/FAIL/INCONCLUSIVE contradictions.** Assert the exact preflight/error/unavailable/result/payload/evaluation field orders, the exhaustive one-owner `H5_PREFLIGHT_ERROR_KINDS_BY_PHASE` map, and every phase-valid optional. Malformed H1 bytes, wrong full update-spec digest, malformed update schema, and reference/schema construction failure must each return `INCONCLUSIVE` with two real raw digests, one phase-valid typed error/obligation, the full ordered unavailable tuple, the exact unchanged `H5_NONCLAIM_IDS`, JSON `null` for every derived optional, and no fabricated hash/reference/invariant/attempt/control/oracle. Reject every cross-phase error kind and any preflight-specific nonclaim shortening. Test exact status precedence by combining one decisive finite failed invariant with one unavailable required field and requiring `INCONCLUSIVE`, then restoring completeness and requiring `FAIL`. Include exact candidate-comparison field/count/order/formulas, deterministic candidate reconstruction from request+damping, same-domain equality with all recorded outcome hashes, an explicit rejection of candidate-hash versus semantic-hash comparison, permitted unequal cross-implementation semantic hashes, all five exact operand-shaped delta agreements reconstructed from the independent oracle term traces, and within/outside comparison allowance, exact boundaries `delta=-epsilon`, `delta=epsilon`, and just outside them; malformed partial/full outcomes; changed-input/equal-value and same-input/changed-value separation; rollback optimizer/RNG hashes; the mislabel control's present draft/recognition/model hashes and absent final-candidate/predecision hashes; no MM obligation; and a proof that path rereads are not performed. Assert every positive/control `outcome.request.request_id == case_or_control_id.value`, the complete two rule maps, control 6's exact-M base rule, and control 7's GEM base rule.
 
 ```python
 def test_h5_gate_consumes_captured_bytes_and_requires_all_cases_and_controls():
@@ -5165,6 +5349,16 @@ def test_h5_gate_consumes_captured_bytes_and_requires_all_cases_and_controls():
     assert evaluation.result.status is GateStatus.PASS
     assert evaluation.result.obligations == ()
     assert "valid_mm" not in " ".join(evaluation.result.obligations)
+
+def test_h5_preflight_failure_is_typed_inconclusive_without_fabrication():
+    evaluation = evaluate_h5(CONFIG, h1_fixture_bytes=H1_BYTES, h5_update_spec_bytes=b"invalid")
+    assert evaluation.result.status is GateStatus.INCONCLUSIVE
+    assert evaluation.result.preflight.errors[0].kind is H5PreflightErrorKind.UPDATE_SPEC_RAW_DIGEST_MISMATCH
+    assert tuple(evaluation.result.preflight.unavailable_fields) == tuple(H5UnavailableField)
+    assert evaluation.reference is None
+    assert evaluation.positive_attempts is None
+    assert evaluation.controls is None
+    assert evaluation.oracle_results is None
 ```
 
 - [ ] **Step 2: Run Task 8 RED.**
@@ -5177,7 +5371,7 @@ Expected: collection fails because the H5 gate does not exist.
 
 - [ ] **Step 3: Implement test/gate-only fault seams and the seven controls without changing production globals.** Each seam is injected into one evaluator/controller instance and restored by object disposal, not monkeypatch leakage.
 
-- [ ] **Step 4: Implement the five positive cases, gate invariant/status constructor, byte-bearing `evaluate_h5`, and complete payload.** Payload includes raw/canonical/schema hashes; universes/graph; every complete or partial outcome; both-order factor/term values; allowances; dependency/value diagnostics; producer/request labels; line search; all snapshot/live/optimizer/RNG hashes; oracle comparisons; controls; invariants; status/obligations; and H6–H8/training nonclaims. It contains no MM configuration field or obligation; Task 9 owns that later config-only resolution surface.
+- [ ] **Step 4: Implement the typed preflight branch, five positive cases, gate invariant/status constructor, byte-bearing `evaluate_h5`, and complete payload.** Build every fresh request from the exact case/control enum value and mapped base rule. Reconstruct positive candidates deterministically from request plus selected damping and require exact outcome hashes before comparison. Construct both sides of every delta agreement from their independent evidence. Payload includes the preflight carrier; phase-valid optional raw/canonical/schema/reference hashes; universes/graph; every complete or partial outcome; both-order factor/term values; operand-shaped production/oracle delta evidence and agreement; allowances; dependency/value diagnostics; producer/request labels/IDs; line search; all snapshot/live/optimizer/RNG hashes; oracle comparisons; controls; invariants; status/obligations; and H6–H8/training nonclaims. It contains no MM configuration field or obligation; Task 9 owns that later config-only resolution surface.
 
   The payload must also preserve distinct `candidate_draft_sha256` and `candidate_sha256` values, including the exact phase-valid `None` states specified by `UpdateHashRecord`; it never substitutes a draft hash for a final candidate hash.
 
@@ -5419,7 +5613,7 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   python verify_vfe4.py
   ```
 
-  Expected: the launcher prints separate H1, H2, H3, H4, and H5 statuses and one run directory. Independently recompute `manifest.sha256`; verify exact source/config/environment identity; artifact `dirty_content_digest == preflightDirtyDigest`; raw fixture and H4 problem hashes; H4 prior/effective/restored thread fields; exact indexed traversal and parity formula; separate warmup/timed event order with warmups excluded from balance; complete H4 raw timing table; primary observed balance equal to the literal 20-row table, ten `6/5` plus ten `5/6` seeds, and exactly `110 AB/110 BA`; bootstrap/envelope/budget/decisiveness metadata; raw H5 update-spec fixture ID/SHA-256/schema and H5-only fixture-consumer provenance; complete H5 factor-input/affectedness/quadrature/allowance attempts, immutable model-snapshot ownership/no-alias evidence, and seven controls; and separate `validation/h4.json` / `validation/h5.json`. Recheck `HEAD`, both diffs, unexpected-untracked rule, and dirty digest after inspection. This is the only full 20-seed H4 timing execution for the candidate.
+  Expected: the launcher prints separate H1, H2, H3, H4, and H5 statuses and one run directory. Independently recompute `manifest.sha256`; verify exact source/config/environment identity; artifact `dirty_content_digest == preflightDirtyDigest`; raw fixture and H4 problem hashes; H4 prior/effective/restored thread fields; exact indexed traversal and parity formula; separate warmup/timed event order with warmups excluded from balance; complete H4 raw timing table; primary observed balance equal to the literal 20-row table, ten `6/5` plus ten `5/6` seeds, and exactly `110 AB/110 BA`; bootstrap/envelope/budget/decisiveness metadata; raw H5 update-spec fixture ID/SHA-256/schema and H5-only fixture-consumer provenance; successful H5 preflight with exact phase/error map, no unavailable fields, and exact `H5_NONCLAIM_IDS`; complete H5 factor-input/affectedness/quadrature/allowance attempts; five independently derived operand-shaped production/oracle delta agreements whose oracle aggregates reproduce from the serialized both-order 12-term traces; deterministic candidate reconstructions with provenance hashes matched only to outcome provenance hashes and semantic hash matched only to `after.evaluated_state_sha256`; exact case/control request IDs and base-rule mappings; immutable model-snapshot ownership/no-alias evidence; and seven controls; and separate `validation/h4.json` / `validation/h5.json`. Recheck `HEAD`, both diffs, unexpected-untracked rule, and dirty digest after inspection. This is the only full 20-seed H4 timing execution for the candidate.
   For H4 also require the four ordered top-level global condition summaries to
   have counts `120/2640/2120/23320`, their per-problem sums to agree, and the
   oracle/native-diagnostic stream scalar counts to match the frozen formulas.
@@ -5429,7 +5623,7 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   - H4 protocol/statistics reviewer: exact horizon/seed/kind traversal with independent indices, common factors, independent arms, all three warmup pairs before all 11 timed pairs per problem, AB iff `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`, warmups excluded from balance, primary observed rows exactly equal to the literal 20-row balance table, ten `6/5` plus ten `5/6` timed seeds, exact aggregate `110 AB/110 BA`, no conversion/hashing/diagnostics between timed repetitions, fixed batched conversion order, seeds as inferential units, bootstrap implementation, and threshold/status mapping;
   - H4 numerical/runtime reviewer: exact optimum, inclusive scaled conditioning envelope and boundaries, distinct per-problem/global condition-summary counts/digests, exact oracle/native-diagnostic headers/lane counts, `h/J`/moment/objective equivalence, Task 3-owned one-pass six-invariant allowance consumption, explicit anchor/scaled repetition identity, numeric-vector-bound independent headers, operand-local oracle/adapter operation routes and conditions, exact solver contribution, strict allowance/scale cap, no unbalanced H2 diagnostic, canonical immutable selected moments, real-operation instrumentation, raw timing/environment/BLAS/affinity provenance;
   - H5 theory/dependency reviewer: exact-case `Manuscripts/...` Markov blankets, the conditional categorical recognition law, source-independent continuous reconstruction, same complete ELBO, dependency prediction versus input-hash-derived observed affected sets, exact/source/M/GEM semantics, factor-universe completeness, and proof that MM is absent from attempt/gate paths;
-  - H5 implementation/transaction reviewer: captured update-spec raw bytes/digest/parser/schema, proof that no short fixture-digest prefix is accepted or exposed anywhere in the H5 parser/config/gate/artifact path, immutable recognition and model-snapshot ownership with declared shared storage only, differentiable-working versus immutable-snapshot boundary, fixed recognition M-block, order-21/order-17 convergence estimates for every term, complete total allowances and exact epsilon formula, emission-touching indecision, acceptance/rollback hashes, cache/reuse proofs, seven controls, and value-change diagnostic nonauthority;
+  - H5 implementation/transaction reviewer: captured update-spec raw bytes/digest/parser/schema; typed pre-reference `INCONCLUSIVE` with the exact phase/error map, real raw digests, exact unavailable fields/JSON nulls, unchanged `H5_NONCLAIM_IDS`, `INCONCLUSIVE`-before-`FAIL` precedence, and no fabricated reference/schema/case/control/oracle evidence; proof that no short fixture-digest prefix is accepted or exposed anywhere in the H5 parser/config/gate/artifact path; immutable recognition and model-snapshot ownership with declared shared storage only; differentiable-working versus immutable-snapshot boundary; fixed recognition M-block; order-21/order-17 convergence estimates for every term; independently derived production/oracle before/after/delta operand evidence, self-sufficient oracle 12-term traces, and exact comparison allowance; deterministic candidate reconstruction with strict provenance-to-provenance and semantic-to-semantic hash checks; exact case/control request IDs, including exact-M control 6 and GEM control 7; complete total allowances and exact epsilon formula; emission-touching indecision; acceptance/rollback hashes; cache/reuse proofs; seven controls; and value-change diagnostic nonauthority;
   - artifact/compatibility reviewer: required tracked-file list, no unexpected untracked content, stable dirty-content digest, separate H4/H5 statuses/payloads, exact prefix behavior, H5 full raw-digest-only provenance with no accepted/exposed short prefix, atomic manifest, prior-ledger hashes, H6--H8/training nonclaims.
 
   Reviewers cite source lines, focused command outputs, JUnit XML, click artifact fields, and preregistrations. They do not rerun tests or timings. Before ledger activation, resolve every Critical/Important issue by returning to its owning task; any tracked change invalidates the candidate and requires one replacement coupled milestone run at the new revision. Recheck exact `HEAD`, tracked diffs, unexpected-untracked rule, and dirty-content digest after review and before Step 5.
@@ -5459,7 +5653,7 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   & "C:\Python314\python.exe" "C:\Users\chris and christine\.codex\skills\verification\scripts\verification_gate.py" start --cwd . --ledger $ledger --mode closure
   ```
 
-  Populate one claim per check, keeping H4 experiment claims and H5 code/mathematics/evidence claims distinct. H4 claims cover indexed traversal/parity/no-inter-repetition-work identity; warmup exclusion; exact primary per-seed `H4_PRIMARY_TIMED_BALANCE`, ten/ten pattern counts, and `110/110` aggregate timed balance; independent solver reachability; scaled condition-envelope eligibility; terminal equivalence; per-invariant solver budgets and strict allowance decisiveness; canonical immutable selected moments; raw repetition completeness; seed-level statistics; bootstrap interval; threshold decision; thread set/verify/restore environment identity; and secondary count/memory nonclaim. H5 claims cover update-spec fixture full raw SHA-256/parser/schema/provenance, proof that no short fixture-digest prefix is accepted or exposed in the parser/config/gate/artifact path, immutable model-snapshot ownership, taxonomy, graph completeness, complete before/after factor-input hashes, exact expected/observed affected equality, diagnostic-only value changes, each positive case, all seven adversarial controls, every term's deterministic quadrature convergence plus rounding, complete before/after total allowances, exact zero-stochastic epsilon formula, emission-touching decisiveness, full factor/term evaluation, snapshot separation, fixed recognition, label-specific acceptance, rollback hashes, and cache/reuse proof. Add separate required-tracked-scope, exact-case manuscript source, artifact/JUnit, dirty-content-digest, and prior-ledger-preservation claims.
+  Populate one claim per check, keeping H4 experiment claims and H5 code/mathematics/evidence claims distinct. H4 claims cover indexed traversal/parity/no-inter-repetition-work identity; warmup exclusion; exact primary per-seed `H4_PRIMARY_TIMED_BALANCE`, ten/ten pattern counts, and `110/110` aggregate timed balance; independent solver reachability; scaled condition-envelope eligibility; terminal equivalence; per-invariant solver budgets and strict allowance decisiveness; canonical immutable selected moments; raw repetition completeness; seed-level statistics; bootstrap interval; threshold decision; thread set/verify/restore environment identity; and secondary count/memory nonclaim. H5 claims cover typed no-fabrication preflight behavior, exact phase/error validity, unchanged inconclusive nonclaims, and `INCONCLUSIVE` precedence over simultaneous decisive failure; update-spec fixture full raw SHA-256/parser/schema/provenance; proof that no short fixture-digest prefix is accepted or exposed in the parser/config/gate/artifact path; immutable model-snapshot ownership; taxonomy; exact positive/control request IDs and base-rule map; graph completeness; complete before/after factor-input hashes; exact expected/observed affected equality; diagnostic-only value changes; deterministic candidate reconstruction with same-domain provenance/semantic hash comparisons; each positive case; all seven adversarial controls; every term's deterministic quadrature convergence plus rounding; independently derived production/oracle before/after/delta evidence, self-sufficient oracle term traces, and comparison; complete before/after total allowances; exact zero-stochastic epsilon formula; emission-touching decisiveness; full factor/term evaluation; snapshot separation; fixed recognition; label-specific acceptance; rollback hashes; and cache/reuse proof. Add separate required-tracked-scope, exact-case manuscript source, artifact/JUnit, dirty-content-digest, and prior-ledger-preservation claims.
 
   Give every assessed claim at least two unique views and exactly one adjudicator. Escalate to four/eight for recorded triggers; high/critical closure also links a skeptic. H4 experiment/code claims close only with current mechanical or reproduced-output evidence. Mathematical correctness claims close only with a derivation/formal proof, never timing or numerical agreement. Source/general claims require current primary/reproduced source evidence. Missing evidence or unresolved disagreement is `INCONCLUSIVE`, not a vote.
 
