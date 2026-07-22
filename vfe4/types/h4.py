@@ -312,12 +312,12 @@ class H4GateResult:
         if type(self.obligations) is not tuple or len(set(self.obligations)) != len(self.obligations) or not all(type(x) is str and x for x in self.obligations):
             raise ValueError("obligations must be unique nonempty strings")
         anchor = self.invariants[0]
+        if anchor.detail == _UNAVAILABLE_ANCHOR:
+            raise ValueError("anchor-unavailable reserved sentinel is forbidden on invariant zero")
+        anchor_state = _comparison_state(anchor)
         anchor_fail = (
-            self.status is GateStatus.FAIL
-            and not anchor.passed
-            and anchor.value is not None
-            and anchor.limit is not None
-            and anchor.value > anchor.limit
+            anchor_state == "miss"
+            and self.status is GateStatus.FAIL
             and not self.obligations
             and all(
                 (not item.passed and item.value is None and item.limit is None
@@ -325,6 +325,12 @@ class H4GateResult:
                 for item in self.invariants[1:]
             )
         )
+        if anchor_state == "miss" and not anchor_fail:
+            raise ValueError("decisive anchor miss requires exact early FAIL")
+        if anchor_state == "unresolved":
+            _require_unavailable_invariant(
+                anchor, "h3_anchor_identity", self.obligations
+            )
         if anchor_fail:
             if tuple(name for name, value in measurements.items() if value is None) != H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL:
                 raise ValueError("anchor failure measurements are frozen")

@@ -523,6 +523,109 @@ def test_gate_rejects_anchor_unavailable_sentinel_outside_anchor_fail() -> None:
         )
 
 
+def test_gate_rejects_decisive_anchor_miss_supplied_as_inconclusive() -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    invariants = list(_complete_invariants(.70, .79))
+    invariants[0] = InvariantResult("h3_anchor_identity", False, 2.0, 1.0, "anchor_miss")
+    with pytest.raises(ValueError, match="decisive anchor miss requires exact early FAIL"):
+        H4GateResult(
+            "H4", GateStatus.INCONCLUSIVE, _complete_measurements(.70, .79),
+            tuple(invariants), allowances,
+            ("h3_anchor_identity: not_evaluated_after_inconclusive_eligibility",),
+        )
+
+
+@pytest.mark.parametrize(("value", "limit"), ((-1.0, 1.0), (-2.0, -1.0)))
+def test_gate_rejects_negative_anchor_comparison_values(value: float, limit: float) -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    invariants = list(_complete_invariants(.70, .79))
+    invariants[0] = InvariantResult("h3_anchor_identity", True, value, limit, "anchor_pass")
+    with pytest.raises(ValueError, match="residual and limit must be nonnegative"):
+        H4GateResult(
+            "H4", GateStatus.PASS, _complete_measurements(.70, .79),
+            tuple(invariants), allowances, (),
+        )
+
+
+@pytest.mark.parametrize(
+    ("passed", "value", "limit", "status", "obligations"),
+    (
+        (True, 2.0, 1.0, GateStatus.PASS, ()),
+        (
+            False, 1.0, 1.0, GateStatus.INCONCLUSIVE,
+            ("h3_anchor_identity: not_evaluated_after_inconclusive_eligibility",),
+        ),
+    ),
+)
+def test_gate_rejects_anchor_pass_miss_flag_contradictions(
+    passed: bool,
+    value: float,
+    limit: float,
+    status: GateStatus,
+    obligations: tuple[str, ...],
+) -> None:
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    invariants = list(_complete_invariants(.70, .79))
+    invariants[0] = InvariantResult("h3_anchor_identity", passed, value, limit, "anchor")
+    with pytest.raises(ValueError):
+        H4GateResult(
+            "H4", status, _complete_measurements(.70, .79),
+            tuple(invariants), allowances, obligations,
+        )
+
+
+def test_gate_rejects_reserved_anchor_sentinel_on_invariant_zero() -> None:
+    invariants = tuple(
+        InvariantResult(
+            name,
+            False,
+            2.0 if index == 0 else None,
+            1.0 if index == 0 else None,
+            "not_evaluated_after_decisive_h3_anchor_failure",
+        )
+        for index, name in enumerate(EXPECTED_INVARIANTS)
+    )
+    measurements = {name: None for name in EXPECTED_MEASUREMENTS}
+    measurements.update({
+        "primary_effect_threshold": .80,
+        "maximum_solver_stopping_residual": .0,
+        "maximum_allowance_scale_fraction": .0,
+    })
+    allowances = {
+        name: (
+            _numerical_allowance()
+            if name == "h3_anchor_identity"
+            else {
+                "applicable": False,
+                "reason": "not_evaluated_after_decisive_h3_anchor_failure",
+            }
+        )
+        for name in EXPECTED_ALLOWANCES
+    }
+    with pytest.raises(ValueError, match="reserved sentinel is forbidden on invariant zero"):
+        H4GateResult("H4", GateStatus.FAIL, measurements, invariants, allowances, ())
+
+
+def test_gate_preserves_ordinary_unresolved_anchor_as_inconclusive() -> None:
+    invariants = list(_complete_invariants(.70, .79))
+    invariants[0] = InvariantResult(
+        "h3_anchor_identity", False, None, None,
+        "not_evaluated_after_inconclusive_eligibility",
+    )
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances["h3_anchor_identity"] = {
+        "applicable": False,
+        "reason": "not_evaluated_after_inconclusive_eligibility",
+    }
+    obligations = (
+        "h3_anchor_identity: not_evaluated_after_inconclusive_eligibility",
+    )
+    assert H4GateResult(
+        "H4", GateStatus.INCONCLUSIVE, _complete_measurements(.70, .79),
+        tuple(invariants), allowances, obligations,
+    ).status is GateStatus.INCONCLUSIVE
+
+
 def test_every_task_one_record_has_frozen_fields_and_positive_negative_validation() -> None:
     assert tuple(field.name for field in fields(H4RawDraw)) == ("draw_index", "name", "shape", "values")
     assert tuple(field.name for field in fields(H4AffineGaussianFactor)) == ("factor_id", "role", "time_index", "normalized_coordinate_indices", "parent_coordinate_indices", "matrix", "target", "covariance", "raw_draws")

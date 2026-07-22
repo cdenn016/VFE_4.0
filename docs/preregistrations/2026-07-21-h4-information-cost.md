@@ -257,6 +257,7 @@ FAIL requires invariants 0--7 and the three eligibility invariants
 `all_equivalence_allowances_decisive`, `real_operation_instrumentation`, and
 `primary_seed_level_inference` to pass, plus either a finite decisive
 equivalence miss or a bootstrap interval whose lower endpoint is at least the
-threshold and is not the exact boundary point `[threshold,threshold]`. A
-crossing interval, `[threshold,threshold]`, or an eligibility failure remains
-INCONCLUSIVE.
+threshold and is not the exact boundary point `[threshold,threshold]`. When all
+five equivalence comparisons pass, a crossing interval or
+`[threshold,threshold]` remains INCONCLUSIVE; a decisive equivalence miss keeps
+the earlier FAIL precedence. An eligibility failure remains INCONCLUSIVE.
