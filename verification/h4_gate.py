@@ -1987,22 +1987,57 @@ def _numpy_config_text() -> str:
     return value or "numpy configuration unavailable"
 
 
+def _windows_registry_processor_identity() -> str | None:
+    """Read a stable host CPU identity when Windows omits process variables."""
+
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
+        ) as key:
+            values: list[str] = []
+            for name in ("ProcessorNameString", "Identifier", "VendorIdentifier"):
+                try:
+                    value = winreg.QueryValueEx(key, name)[0]
+                except OSError:
+                    continue
+                if type(value) is str and value.strip() and value.strip() not in values:
+                    values.append(value.strip())
+        return " | ".join(values) or None
+    except (ImportError, OSError):
+        return None
+
+
+def _processor_identity(system_raw: str) -> str | None:
+    if system_raw == "Windows":
+        registry_identity = _windows_registry_processor_identity()
+        if registry_identity is not None:
+            return registry_identity
+    for probe in (platform.processor, platform.machine):
+        value = probe()
+        if type(value) is str and value.strip():
+            return value.strip()
+    return None
+
+
 def _capture_environment() -> H4EnvironmentRecord:
     _assert_outside_timed_batch("environment capture")
     unavailable: list[str] = []
     clock = time.get_clock_info("perf_counter")
-    processor = platform.processor() or platform.machine()
-    if not processor:
+    system_raw = platform.system()
+    system: Literal["Windows", "Linux", "Darwin", "Other"] = (
+        system_raw if system_raw in ("Windows", "Linux", "Darwin") else "Other"
+    )  # type: ignore[assignment]
+    processor = _processor_identity(system_raw)
+    if processor is None:
         processor = "unavailable"
         unavailable.append("processor")
     platform_text = platform.platform()
     if not platform_text:
         platform_text = "unavailable"
         unavailable.append("platform")
-    system_raw = platform.system()
-    system: Literal["Windows", "Linux", "Darwin", "Other"] = (
-        system_raw if system_raw in ("Windows", "Linux", "Darwin") else "Other"
-    )  # type: ignore[assignment]
     try:
         affinity: tuple[int, ...] | None = process_cpu_affinity()
     except RuntimeError:
@@ -2946,10 +2981,20 @@ def _compact_oracle(
     _assert_outside_timed_batch("oracle compaction")
     if type(oracle) is not H4OracleEvaluation or type(config) is not H4ValidationConfig:
         raise ValueError("oracle compaction requires exact oracle/config records")
-    if not oracle.route_agreement.eligible or oracle.route_agreement.eligible != (
-        oracle.route_agreement.passed and oracle.route_agreement.decisive
+    agreement = oracle.route_agreement
+    if not agreement.eligible or agreement.eligible != (
+        agreement.passed and agreement.decisive
     ):
-        raise ValueError("oracle route agreement is not eligible")
+        raise ValueError(
+            "oracle route agreement is not eligible: "
+            f"canonical_value={agreement.canonical_operand.value!r}; "
+            f"predictive_value={agreement.predictive_operand.value!r}; "
+            f"residual={agreement.residual!r}; "
+            f"final_allowance={agreement.final_allowance!r}; "
+            f"allowance_scale_ratio={agreement.allowance_scale_ratio!r}; "
+            f"decisive={agreement.decisive!r}; passed={agreement.passed!r}; "
+            f"eligible={agreement.eligible!r}"
+        )
     posterior = _oracle_posterior_condition(oracle, config)
     innovations = _oracle_innovation_conditions(oracle, config)
     condition_accumulator = _ConditionAccumulator(

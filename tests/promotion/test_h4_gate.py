@@ -13,6 +13,7 @@ import torch
 
 import vfe4.artifacts as artifacts
 import verification.h4_gate as gate
+import verification.numpy_oracles.h4_gaussian as h4_gaussian
 from verification.h4_gate import (
     H4AnchorEvaluation,
     H4CanonicalStreamDigest,
@@ -50,6 +51,7 @@ from vfe4.types.h4 import (
     H4AllowanceOperand,
     H4SolveProtocol,
     H4TimingRecord,
+    canonical_h4_problem_bytes,
 )
 
 
@@ -322,6 +324,62 @@ def test_h4_environment_uses_the_shared_live_process_affinity(
     assert h4_environment.affinity_cpu_ids == affinity
     assert artifact_environment["process_cpu_affinity"] == affinity
     assert "affinity_cpu_ids" not in h4_environment.unavailable_fields
+
+
+def test_h4_windows_processor_identity_uses_registry_when_platform_probes_are_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(gate.platform, "processor", lambda: "")
+    monkeypatch.setattr(gate.platform, "machine", lambda: "")
+    monkeypatch.setattr(
+        gate, "_windows_registry_processor_identity",
+        lambda: "AMD Ryzen 9 9900X 12-Core Processor",
+    )
+
+    assert gate._processor_identity("Windows") == "AMD Ryzen 9 9900X 12-Core Processor"
+
+
+def test_h4_processor_identity_remains_fail_closed_when_every_probe_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(gate.platform, "processor", lambda: "")
+    monkeypatch.setattr(gate.platform, "machine", lambda: "")
+    monkeypatch.setattr(gate, "_windows_registry_processor_identity", lambda: None)
+
+    assert gate._processor_identity("Windows") is None
+
+
+def test_h4_ineligible_oracle_route_error_retains_decision_evidence(h4_config) -> None:
+    oracle = h4_gaussian.evaluate_h4_oracle(canonical_h4_problem_bytes(
+        make_h4_problem(seed=104729, kind="coupled", horizon=7),
+    ))
+    predictive_value = oracle.route_agreement.predictive_operand.value + 1.0
+    predictive = replace(
+        oracle.route_agreement.predictive_operand,
+        value=predictive_value, value_norm=abs(predictive_value),
+    )
+    agreement = h4_gaussian._route_agreement(
+        oracle.problem_id, oracle.problem_sha256,
+        oracle.route_agreement.canonical_operand, predictive,
+    )
+    assert not agreement.eligible
+    forged = replace(
+        oracle,
+        predictive_log_normalizer=predictive.value,
+        route_agreement=agreement,
+        operand_evidence=(agreement.canonical_operand, agreement.predictive_operand),
+    )
+
+    with pytest.raises(ValueError) as captured:
+        gate._compact_oracle(forged, h4_config)
+
+    message = str(captured.value)
+    for field in (
+        "canonical_value=", "predictive_value=", "residual=",
+        "final_allowance=", "allowance_scale_ratio=", "decisive=",
+        "passed=", "eligible=",
+    ):
+        assert field in message
 
 
 def test_h4_environment_affinity_availability_is_an_exact_iff() -> None:
