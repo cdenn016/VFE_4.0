@@ -160,8 +160,8 @@ class H2InformationEvaluation:
             "complete_elbo",
         ):
             _finite(getattr(self, name), name)
-        if self.source_entropy < 0.0 or self.weighted_component_entropy < 0.0:
-            raise ValueError("entropy values must be nonnegative")
+        if self.source_entropy < 0.0:
+            raise ValueError("source_entropy must be nonnegative")
         if self.joint_recognition_entropy != math.fsum(
             (self.source_entropy, self.weighted_component_entropy)
         ):
@@ -703,7 +703,7 @@ def _initial_kls(
         _tensor_scalar(q.mean[1], "q initial model mean")
         - _tensor_scalar(p_mean[1], "p initial model mean")
     ) ** 2
-    model_value = _conditional_gaussian_kl(
+    model_kl = _conditional_gaussian_kl(
         _tensor_scalar(q.covariance[1, 1], "q initial model variance"),
         _tensor_scalar(p_covariance[1, 1], "p initial model variance"),
         model_mean_square,
@@ -724,13 +724,13 @@ def _initial_kls(
         slope_difference * slope_difference * q_model_variance
         + (slope_difference * q_model_mean + offset_difference) ** 2
     )
-    state_value = _conditional_gaussian_kl(
+    state_kl = _conditional_gaussian_kl(
         q_variance, p_variance, state_mean_square
     )
     kappa = max(q.spd_kappa2, p_kappa)
     return (
-        _Reduction(model_value, abs(model_value), kappa),
-        _Reduction(state_value, abs(state_value), kappa),
+        _Reduction(model_kl.value, model_kl.absolute_sum, kappa),
+        _Reduction(state_kl.value, state_kl.absolute_sum, kappa),
     )
 
 
@@ -794,7 +794,7 @@ def _weighted_transition_kl(
                 + centered * centered,
                 "state transition mean square",
             )
-            value = _conditional_gaussian_kl(
+            reduction = _conditional_gaussian_kl(
                 _tensor_scalar(q_kernel.variances[slot], "q state variance"),
                 _tensor_scalar(p_kernel.variance, "p state variance"),
                 mean_square,
@@ -818,14 +818,14 @@ def _weighted_transition_kl(
                 slope_difference * slope_difference * parent_variance
                 + (slope_difference * parent_mean + offset_difference) ** 2
             )
-            value = _conditional_gaussian_kl(
+            reduction = _conditional_gaussian_kl(
                 _tensor_scalar(q_kernel.variances[b], "q model variance"),
                 _tensor_scalar(p_kernel.variance, "p model variance"),
                 mean_square,
             )
-        weighted = item.terms.weight * value
+        weighted = item.terms.weight * reduction.value
         contributions.append(weighted)
-        absolute_sums.append(abs(weighted))
+        absolute_sums.append(item.terms.weight * reduction.absolute_sum)
         kappas.append(selected.spd_kappa2)
     return _Reduction(
         math.fsum(contributions),
@@ -836,16 +836,20 @@ def _weighted_transition_kl(
 
 def _conditional_gaussian_kl(
     q_variance: float, p_variance: float, mean_square: float
-) -> float:
+) -> _Reduction:
     q_checked = _positive(q_variance, "q conditional variance")
     p_checked = _positive(p_variance, "p conditional variance")
     square_checked = _nonnegative(mean_square, "conditional mean square")
-    value = 0.5 * (
-        math.log(p_checked / q_checked)
-        + (q_checked + square_checked) / p_checked
-        - 1.0
+    log_ratio = math.log(p_checked / q_checked)
+    variance_ratio = (q_checked + square_checked) / p_checked
+    value = _nonnegative(
+        0.5 * (log_ratio + variance_ratio - 1.0),
+        "conditional Gaussian KL",
     )
-    return _nonnegative(value, "conditional Gaussian KL")
+    return _Reduction(
+        value,
+        0.5 * math.fsum((abs(log_ratio), abs(variance_ratio), 1.0)),
+    )
 
 
 def _categorical_kl(q: Tensor, p: Tensor) -> _Reduction:

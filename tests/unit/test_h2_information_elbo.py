@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import dataclasses
 import math
+from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 
 import vfe4.objective as objective
+import vfe4.objective.h2_information as h2_information
+import verification.numpy_oracles.h1_elbo as independent_oracle
 from vfe4.generative import H1GenerativeModel
+from vfe4.numerics.information import InformationGaussian
 from vfe4.numerics.precision import DenseCholeskyPrecision
 from vfe4.objective import (
     H2ComponentTerms,
@@ -18,6 +23,15 @@ from vfe4.objective import (
 from vfe4.recognition import H1RecognitionLaw
 from vfe4.types import SourcePath
 from vfe4.validation import load_h1_fixture
+
+
+FIXTURE_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "vfe4"
+    / "validation"
+    / "fixtures"
+    / "h1_v1.json"
+)
 
 
 def _inputs() -> tuple[H1GenerativeModel, H1RecognitionLaw]:
@@ -101,6 +115,104 @@ def test_joint_entropy_and_local_partition_reconstruct_independently() -> None:
     assert evaluation.complete_elbo == pytest.approx(local.complete_elbo, abs=1e-12)
 
 
+def _independent_log_normalizer(component: object) -> float:
+    mean = component.mean  # type: ignore[attr-defined]
+    covariance = component.covariance  # type: ignore[attr-defined]
+    precision = np.linalg.solve(covariance, np.eye(6, dtype=np.float64))
+    sign, covariance_logdet = np.linalg.slogdet(covariance)
+    assert sign == 1.0
+    return 0.5 * (
+        float(mean @ precision @ mean)
+        + float(covariance_logdet)
+        + 6.0 * math.log(2.0 * math.pi)
+    )
+
+
+def test_component_and_local_fields_match_independent_numpy_fixture_values() -> None:
+    evaluation = _evaluate()
+    fixture = independent_oracle._load_complete_fixture(FIXTURE_PATH)
+    expected_components: list[tuple[float, ...]] = []
+    for path in independent_oracle._PATHS:
+        q_component = independent_oracle._assemble_recognition_component(
+            fixture.recognition, path
+        )
+        p_component = independent_oracle._assemble_generative_component(
+            fixture.generative, path
+        )
+        q_weight = independent_oracle._recognition_source_weight(
+            fixture.recognition, path
+        )
+        p_weight = independent_oracle._generative_source_weight(
+            fixture.generative, path
+        )
+        emissions = tuple(
+            independent_oracle._expected_log_emission_component(
+                q_component,
+                fixture.generative.emissions[time - 1],
+                time=time,
+                selected_index=time - 1,
+                order=21,
+            ).value
+            for time in (1, 2)
+        )
+        gaussian_log_ratio = -independent_oracle._gaussian_kl(
+            q_component, p_component
+        )
+        source_log_ratio = math.log(p_weight) - math.log(q_weight)
+        expected_components.append(
+            (
+                _independent_log_normalizer(q_component),
+                _independent_log_normalizer(p_component),
+                gaussian_log_ratio,
+                source_log_ratio,
+                emissions[0],
+                emissions[1],
+                math.fsum((gaussian_log_ratio, source_log_ratio, *emissions)),
+            )
+        )
+
+    assert any(abs(values[0] - values[1]) > 1.0e-3 for values in expected_components)
+    assert any(abs(values[4] - values[5]) > 1.0e-3 for values in expected_components)
+    for component, expected in zip(evaluation.components, expected_components):
+        actual = (
+            component.q_log_normalizer,
+            component.p_log_normalizer,
+            component.gaussian_log_ratio,
+            component.source_log_ratio,
+            component.expected_log_emission[0],
+            component.expected_log_emission[1],
+            component.complete_value,
+        )
+        assert actual == pytest.approx(expected, abs=2.0e-13)
+
+    independent_local = independent_oracle._local_order(fixture, 21)
+    local = evaluation.local_terms
+    actual_local = (
+        *local.expected_log_emission,
+        local.initial_model_kl,
+        local.initial_state_kl,
+        *local.model_source_kl,
+        *local.model_transition_kl,
+        *local.state_source_kl,
+        *local.state_transition_kl,
+        local.joint_recognition_entropy,
+        local.complete_elbo,
+    )
+    expected_local = (
+        *(item.value for item in independent_local.expected_log_emission),
+        independent_local.initial_model_kl.value,
+        independent_local.initial_state_kl.value,
+        *(item.value for item in independent_local.model_source_kl),
+        *(item.value for item in independent_local.model_transition_kl),
+        *(item.value for item in independent_local.state_source_kl),
+        *(item.value for item in independent_local.state_transition_kl),
+        independent_local.joint_recognition_entropy.value,
+        independent_local.complete_elbo.value,
+    )
+    assert abs(expected_local[0] - expected_local[1]) > 1.0e-3
+    assert actual_local == pytest.approx(expected_local, abs=2.0e-13)
+
+
 def test_uses_only_factor_surfaces_and_small_selected_moment_blocks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -139,8 +251,12 @@ def test_uses_only_factor_surfaces_and_small_selected_moment_blocks(
     evaluation = evaluate_information_elbo(model, recognition, quadrature_order=21)
 
     assert len(evaluation.components) == 4
-    assert len(requests) == 7 * 4
-    assert all(1 < len(columns) <= 3 for columns in requests)
+    assert requests == [
+        (0, 1), (1, 3), (0, 3, 2), (1, 5), (0, 5, 4), (2, 3), (4, 5),
+        (0, 1), (1, 3), (0, 3, 2), (1, 5), (2, 5, 4), (2, 3), (4, 5),
+        (0, 1), (1, 3), (0, 3, 2), (3, 5), (0, 5, 4), (2, 3), (4, 5),
+        (0, 1), (1, 3), (0, 3, 2), (3, 5), (2, 5, 4), (2, 3), (4, 5),
+    ]
 
 
 def test_result_records_and_rounding_metadata_are_immutable() -> None:
@@ -155,6 +271,56 @@ def test_result_records_and_rounding_metadata_are_immutable() -> None:
         evaluation.complete_elbo = 0.0  # type: ignore[misc]
     with pytest.raises(TypeError):
         evaluation.rounding_inputs["complete_elbo"] = RoundingInputs(0.0, 0.0, 1.0)  # type: ignore[index]
+
+
+def test_conditional_kl_retains_nonzero_absolute_summands_when_q_equals_p() -> None:
+    reduction = h2_information._conditional_gaussian_kl(0.25, 0.25, 0.0)
+
+    assert reduction.value == 0.0
+    assert reduction.absolute_sum == 1.0
+
+
+def test_local_conditional_rounding_uses_pre_reduction_absolute_summands() -> None:
+    evaluation = _evaluate()
+    conditional_fields = {
+        "local.initial_model_kl": evaluation.local_terms.initial_model_kl,
+        "local.initial_state_kl": evaluation.local_terms.initial_state_kl,
+        "local.model_transition_kl[0]": evaluation.local_terms.model_transition_kl[0],
+        "local.model_transition_kl[1]": evaluation.local_terms.model_transition_kl[1],
+        "local.state_transition_kl[0]": evaluation.local_terms.state_transition_kl[0],
+        "local.state_transition_kl[1]": evaluation.local_terms.state_transition_kl[1],
+    }
+
+    for name, value in conditional_fields.items():
+        assert (
+            evaluation.rounding_inputs[name].absolute_summand_accumulation_inf
+            > abs(value)
+        )
+
+
+def test_negative_gaussian_and_joint_differential_entropy_records_are_valid() -> None:
+    evaluation = _evaluate()
+    concentrated = InformationGaussian.from_information(
+        torch.zeros(6, dtype=torch.float64),
+        1.0e4 * torch.eye(6, dtype=torch.float64),
+    )
+    negative_entropy = float(concentrated.entropy().item())
+    assert negative_entropy < 0.0
+    components = tuple(
+        dataclasses.replace(component, q_entropy=negative_entropy)
+        for component in evaluation.components
+    )
+    joint_entropy = math.fsum((evaluation.source_entropy, negative_entropy))
+
+    changed = dataclasses.replace(
+        evaluation,
+        components=components,
+        weighted_component_entropy=negative_entropy,
+        joint_recognition_entropy=joint_entropy,
+    )
+
+    assert changed.weighted_component_entropy < 0.0
+    assert changed.joint_recognition_entropy < 0.0
 
 
 @pytest.mark.parametrize("order", [17, True])
