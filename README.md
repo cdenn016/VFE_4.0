@@ -1,9 +1,9 @@
 # VFE 4.0
 
-This repository implements the bounded H1 foundation and H2 information--moment
-representation gate for a deterministic, evaluation-only VFE 4.0 verification
-run. H1 and H2 are the implemented ordered gate prefix; H3 through H8 remain
-unimplemented.
+This repository implements the bounded H1 foundation, H2 information--moment
+representation gate, and H3 structured-recognition adequacy gate for a
+deterministic VFE 4.0 verification run. The implemented ordered prefixes are
+H1, H1/H2, and H1/H2/H3; H4 through H8 remain unimplemented.
 
 The user-facing surface is `verify_vfe4.py`. Its top-level `CONFIG` dictionary
 is editable, and the file can be run directly from an IDE or file association;
@@ -39,9 +39,26 @@ absolute error budget fixes `eps=np.finfo(np.float64).eps`,
 `gamma(n)=n*eps/(1-n*eps)`, `C=256`, and `N(D)=8*D+32`; at the observed
 `kappa_2 <= 42.35`, the preregistered descriptive pair budget is approximately
 `3.86e-10 * scale`, while every decision uses its own invariant-specific
-allowance. The one editable `CONFIG` requests `H1` then `H2`, and one run
-publishes both validation payloads through a single atomic, manifest-checked
-artifact directory.
+allowance.
+
+H3 uses two separately authored and separately hashed, source-free,
+four-dimensional Gaussian fixtures. The coupled law has a frozen analytic
+factorized reverse-KL gap; the control removes the preregistered couplings and
+has a diagonal exact posterior. Both the structured full-SPD and fine
+factorized diagonal recognition arms start from the same zero mean and identity
+precision. Only H3 recognition parameters enter its reverse-mode autograd
+graph; the frozen generative factors and independent NumPy oracle do not.
+Operand-local absolute allowances and two signed three-way thresholds determine
+PASS, FAIL, or INCONCLUSIVE without relative tolerances or blanket `allclose`.
+This bounded protocol does not establish H4 cost, H5 update coherence, H6
+prediction, H7 frame covariance, or H8 sparse scaling.
+
+The one editable `CONFIG` now requests `H1`, `H2`, then `H3`. One run captures
+only the fixtures required by that prefix and publishes the requested
+validation payloads through a single atomic, manifest-checked artifact
+directory. Removing the H3 section and selecting H1 or H1/H2 preserves the
+legacy evaluate-only/no-autograd configuration and does not read either H3
+fixture.
 
 H2 is verified at implementation revision
 `00de72b93ebcc504ef5652d11ad3012f80852aa0`. The revision-bound JUnit XML
@@ -70,5 +87,9 @@ There is no dataset, language-model training path, optimizer, parameter update,
 or gradient calculation in H1. This bounded evaluation performs no
 backpropagation, but the VFE 4.0 codebase is not claimed to be
 backpropagation-free. H2 establishes only bounded componentwise representation
-verification; it makes no optimizer, gradient, performance, prediction,
-scaling, or later-gate claim. H3 through H8 remain unimplemented.
+verification. H3 uses reverse-mode autograd internally to obtain gradients of
+the direct ELBO with respect to its recognition mean and precision-Cholesky
+parameters; this is ordinary backward differentiation through a forward ELBO
+computation, not a claim of backpropagation-free learning. Neither implemented
+gate makes a general optimizer, performance, prediction, scaling, or
+later-gate claim.

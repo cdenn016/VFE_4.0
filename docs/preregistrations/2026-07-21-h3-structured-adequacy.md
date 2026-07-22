@@ -237,6 +237,15 @@ optimization when either raw fixture digest is wrong. This implementation
 note records the code surface only; it is not promotion evidence and makes no
 test, gate-status, or milestone claim.
 
+The single `verify_vfe4.py` launcher and `verification/run_gates.py` runner
+extend that surface to the exact H1, H1/H2, and H1/H2/H3 prefixes. The runner
+revalidates the full resolved configuration, derives an H1/H2-only projection
+for the unchanged legacy evaluators, conditionally captures each requested raw
+fixture once, and publishes only the requested validation payloads in one
+atomic run directory. H1 and H1/H2 prefixes contain no H3 profile, fixture
+identity, consumer, or payload. This is likewise a pre-promotion implementation
+statement rather than measured evidence.
+
 An H3-prefix click run publishes one atomic `validation/h3.json` beside the
 unchanged H1/H2 payloads. The H3 payload contains:
 
