@@ -1,4 +1,4 @@
-"""Strict, side-effect-free resolution of the frozen H1 configuration."""
+"""Strict, side-effect-free resolution of the frozen H1/H2 configuration."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .schema import (
     ArtifactConfig,
@@ -70,7 +70,7 @@ _PARENT_SETS = ((0,), (0, 1))
 
 
 def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedConfig:
-    """Validate and freeze the only configuration supported by the H1 gate."""
+    """Validate and freeze an ordered implemented H1/H2 gate prefix."""
     root = _require_mapping(raw, "config")
     _validate_keys(root, _ROOT_KEYS, "config")
 
@@ -275,10 +275,12 @@ def _require_parent_sets(value: object, location: str) -> tuple[tuple[int, ...],
     return parent_sets  # type: ignore[return-value]
 
 
-def _require_gates(value: object) -> tuple[str]:
-    if type(value) is not list or value != ["H1"]:
-        raise ValueError("validation.gates must equal ['H1']")
-    return ("H1",)
+def _require_gates(
+    value: object,
+) -> tuple[Literal["H1"]] | tuple[Literal["H1"], Literal["H2"]]:
+    if type(value) is not list or value not in (["H1"], ["H1", "H2"]):
+        raise ValueError("validation.gates must equal ['H1'] or ['H1', 'H2']")
+    return tuple(value)  # type: ignore[return-value]
 
 
 def _resolve_run_root(value: object, repo_root: Path) -> Path:

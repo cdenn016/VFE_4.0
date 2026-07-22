@@ -50,7 +50,7 @@ def _raw_config() -> dict[str, object]:
             "expected_autograd_scope": "none",
         },
         "validation": {
-            "gates": ["H1"],
+            "gates": ["H1", "H2"],
             "fixture_id": "h1-v1",
             "quadrature_order": 21,
             "convergence_check_order": 17,
@@ -68,19 +68,42 @@ def _reordered(value: object) -> object:
     return value
 
 
-def test_resolve_config_builds_the_frozen_h1_record(tmp_path: Path) -> None:
+def test_resolve_config_builds_the_frozen_h1_h2_record(tmp_path: Path) -> None:
     resolved = resolve_config(_raw_config(), repo_root=tmp_path)
 
     assert isinstance(resolved, ResolvedConfig)
     assert resolved.run.mode == "verify"
     assert resolved.run.seed == 20260721
     assert resolved.model.state_parent_sets == ((0,), (0, 1))
-    assert resolved.validation.gates == ("H1",)
+    assert resolved.validation.gates == ("H1", "H2")
     assert resolved.artifacts.run_root == (tmp_path / "runs").resolve()
     assert json.loads(resolved.canonical_json)["artifacts"]["run_root"] == (
         tmp_path / "runs"
     ).resolve().as_posix()
     assert len(resolved.config_sha256) == 64
+
+
+def test_resolve_config_accepts_the_h1_compatibility_prefix(tmp_path: Path) -> None:
+    raw = _raw_config()
+    raw["validation"]["gates"] = ["H1"]  # type: ignore[index]
+
+    resolved = resolve_config(raw, repo_root=tmp_path)
+
+    assert resolved.validation.gates == ("H1",)
+
+
+@pytest.mark.parametrize(
+    "gates",
+    [[], ["H2"], ["H2", "H1"], ["H1", "H1"], ["H1", "H2", "H2"], ["H1", "H3"]],
+)
+def test_resolve_config_rejects_non_prefix_gate_lists(
+    tmp_path: Path, gates: list[str]
+) -> None:
+    raw = _raw_config()
+    raw["validation"]["gates"] = gates  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="validation.gates"):
+        resolve_config(raw, repo_root=tmp_path)
 
 
 def test_resolved_nested_records_are_frozen(tmp_path: Path) -> None:

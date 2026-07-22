@@ -85,6 +85,13 @@ class Comparison:
     passed: bool
 
 
+@dataclass(frozen=True)
+class H1GateEvaluation:
+    result: GateResult
+    validation_payload: dict[str, object]
+    fixture_observed_sha256: str | None
+
+
 def pair_comparison(
     left: float, right: float, left_allowance: float, right_allowance: float
 ) -> Comparison:
@@ -176,6 +183,7 @@ def _publication_config(config: object) -> ResolvedConfig:
 def _raw_from_resolved_fields(config: object) -> dict[str, object]:
     run = getattr(config, "run")
     artifacts = getattr(config, "artifacts")
+    validation = getattr(config, "validation")
     return {
         "schema_version": 1,
         "objective_schema_version": "vfe4-state-elbo-v1",
@@ -206,7 +214,7 @@ def _raw_from_resolved_fields(config: object) -> dict[str, object]:
         "inference": {"operation": "evaluate_only", "estimator": "deterministic_quadrature"},
         "optimization": {"e_like_update": "none", "m_like_update": "none", "expected_autograd_scope": "none"},
         "validation": {
-            "gates": ["H1"],
+            "gates": list(validation.gates),
             "fixture_id": "h1-v1",
             "quadrature_order": 21,
             "convergence_check_order": 17,
@@ -712,57 +720,81 @@ def _capture_fixture(path: Path) -> tuple[bytes | None, str | None]:
     return content, hashlib.sha256(content).hexdigest()
 
 
-def run_h1(config: ResolvedConfig) -> tuple[GateResult, Path]:
-    """Evaluate H1 and publish a complete run, catching computation only."""
-    started = _utc_now()
-    fixture_bytes, fixture_observed_sha256 = _capture_fixture(FIXTURE_PATH)
+def evaluate_h1(
+    config: ResolvedConfig, *, fixture_bytes: bytes | None = None
+) -> H1GateEvaluation:
+    """Evaluate H1 from one immutable fixture snapshot without publishing."""
+
+    if fixture_bytes is None:
+        captured_bytes, fixture_observed_sha256 = _capture_fixture(FIXTURE_PATH)
+    elif type(fixture_bytes) is bytes:
+        captured_bytes = fixture_bytes
+        fixture_observed_sha256 = hashlib.sha256(fixture_bytes).hexdigest()
+    else:
+        captured_bytes = None
+        fixture_observed_sha256 = None
     canonical = _publication_config(config)
     evaluation: _Evaluation | None = None
     try:
         _revalidate_config(config, canonical)
-        if fixture_bytes is None or fixture_observed_sha256 is None:
+        if captured_bytes is None or fixture_observed_sha256 is None:
             raise ValueError("H1 fixture is unavailable or unreadable")
         if fixture_observed_sha256 != EXPECTED_H1_FIXTURE_SHA256:
             raise ValueError("H1 fixture content does not match its preregistered SHA-256")
         with tempfile.TemporaryDirectory(prefix="vfe4-h1-fixture-") as temporary:
             fixture_snapshot = Path(temporary) / "h1_v1.json"
-            fixture_snapshot.write_bytes(fixture_bytes)
+            fixture_snapshot.write_bytes(captured_bytes)
             candidate = _evaluate(canonical, fixture_snapshot)
         evaluation = candidate
         result = candidate.gate_result
     except Exception as exc:
         result = _inconclusive(f"H1 computation requires resolution: {exc}")
+    validation_payload = _validation_payload(evaluation, result)
+    validation_payload["fixture_observed_sha256"] = fixture_observed_sha256
+    return H1GateEvaluation(result, validation_payload, fixture_observed_sha256)
+
+
+def run_h1(config: ResolvedConfig) -> tuple[GateResult, Path]:
+    """Evaluate and publish the backward-compatible single-H1 prefix."""
+
+    started = _utc_now()
+    canonical = _publication_config(config)
+    if canonical.validation.gates != ("H1",):
+        raise ValueError("run_h1 requires validation.gates == ('H1',)")
+    h1 = evaluate_h1(config)
     ended = _utc_now()
     provenance = build_provenance(
         repo_root=REPO_ROOT,
         fixture_expected_sha256=EXPECTED_H1_FIXTURE_SHA256,
-        fixture_observed_sha256=fixture_observed_sha256,
+        fixture_observed_sha256=h1.fixture_observed_sha256,
         config=canonical,
         started_utc=started,
         ended_utc=ended,
-        gate_state=result.status.value,
+        gate_state=h1.result.status.value,
     )
     payloads = {
         "config.json": _config_payload(canonical),
         "provenance.json": provenance,
         "environment.json": build_environment(canonical),
-        "validation/h1.json": _validation_payload(evaluation, result),
+        "validation/h1.json": h1.validation_payload,
     }
     run_dir = publish_run_directory(
         canonical.artifacts.run_root,
         _run_name(started, canonical.config_sha256),
         payloads,
     )
-    return result, run_dir
+    return h1.result, run_dir
 
 
 __all__ = [
     "ArtifactPublicationError",
     "CONVERGENCE_NAMES",
+    "H1GateEvaluation",
     "H1_INVARIANT_NAMES",
     "H1_MEASUREMENT_NAMES",
     "PAIRWISE_NAMES",
     "TERM_NAMES",
+    "evaluate_h1",
     "pair_comparison",
     "run_h1",
 ]

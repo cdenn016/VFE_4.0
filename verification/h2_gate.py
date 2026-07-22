@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import math
-from dataclasses import dataclass
+import tempfile
+from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
@@ -221,17 +222,29 @@ class _InverseAudit:
     injecting: bool = False
 
 
-def evaluate_h2(config: ResolvedConfig) -> H2GateEvaluation:
+def evaluate_h2(
+    config: ResolvedConfig, *, fixture_bytes: bytes | None = None
+) -> H2GateEvaluation:
     """Evaluate H2 without publishing any run artifact."""
 
     observed: str | None = None
+    temporary: tempfile.TemporaryDirectory[str] | None = None
     try:
         _validate_config(config)
-        fixture_bytes = FIXTURE_PATH.read_bytes()
-        observed = hashlib.sha256(fixture_bytes).hexdigest()
+        if fixture_bytes is None:
+            captured_bytes = FIXTURE_PATH.read_bytes()
+            fixture_path = FIXTURE_PATH
+        elif type(fixture_bytes) is bytes:
+            captured_bytes = fixture_bytes
+            temporary = tempfile.TemporaryDirectory(prefix="vfe4-h2-fixture-")
+            fixture_path = Path(temporary.name) / "h1_v1.json"
+            fixture_path.write_bytes(captured_bytes)
+        else:
+            raise _Inconclusive("fixture bytes must be immutable bytes")
+        observed = hashlib.sha256(captured_bytes).hexdigest()
         if observed != EXPECTED_H1_FIXTURE_SHA256:
             raise _Inconclusive("fixture/hash mismatch")
-        fixture = load_h1_fixture(FIXTURE_PATH)
+        fixture = load_h1_fixture(fixture_path)
         model = H1GenerativeModel.from_fixture(fixture)
         recognition = H1RecognitionLaw.from_fixture(fixture)
         audit = _InverseAudit([], [], [])
@@ -270,7 +283,7 @@ def evaluate_h2(config: ResolvedConfig) -> H2GateEvaluation:
             ),
         )
         oracle = evaluate_h2_moment_oracle(
-            FIXTURE_PATH, quadrature_order=config.validation.quadrature_order
+            fixture_path, quadrature_order=config.validation.quadrature_order
         )
         comparisons = _comparisons(information, moment, oracle, q_infos, p_infos)
         if tuple(comparisons) != _COMPARISON_NAMES:
@@ -344,6 +357,9 @@ def evaluate_h2(config: ResolvedConfig) -> H2GateEvaluation:
         return _inconclusive(observed, str(error))
     except Exception as error:
         return _inconclusive(observed, f"H2 computation requires resolution: {error}")
+    finally:
+        if temporary is not None:
+            temporary.cleanup()
 
 
 class _Inconclusive(RuntimeError):
@@ -895,7 +911,7 @@ def h2_validation_payload(evaluation: H2GateEvaluation) -> dict[str, object]:
 
     if not isinstance(evaluation, H2GateEvaluation):
         raise ValueError("evaluation must be an H2GateEvaluation")
-    return {
+    payload = {
         "gate_result": evaluation.result,
         "fixture_observed_sha256": evaluation.fixture_observed_sha256,
         "information": evaluation.information,
@@ -904,6 +920,28 @@ def h2_validation_payload(evaluation: H2GateEvaluation) -> dict[str, object]:
         "comparisons": evaluation.comparisons,
         "negative_controls": evaluation.negative_controls,
     }
+    return _json_safe_payload(payload)  # type: ignore[return-value]
+
+
+def _json_safe_payload(value: object) -> object:
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            field.name: _json_safe_payload(getattr(value, field.name))
+            for field in fields(value)
+        }
+    if isinstance(value, Mapping):
+        if any(type(key) is not str for key in value):
+            raise ValueError("H2 payload mapping keys must be strings")
+        return {key: _json_safe_payload(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return tuple(_json_safe_payload(item) for item in value)
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().tolist()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
 
 
 __all__ = [

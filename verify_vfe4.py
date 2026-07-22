@@ -1,4 +1,4 @@
-"""Click-to-run H1 verifier with one editable configuration mapping."""
+"""Click-to-run H1/H2 verifier with one editable configuration mapping."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-from verification.h1_gate import run_h1
+from verification.run_gates import VerificationRunResult, run_verification
 from vfe4.artifacts import ArtifactPublicationError
 from vfe4.config import resolve_config
-from vfe4.types import GateResult, GateStatus
+from vfe4.types import GateStatus
 
 
 CONFIG: dict[str, object] = {
@@ -49,7 +49,7 @@ CONFIG: dict[str, object] = {
         "expected_autograd_scope": "none",
     },
     "validation": {
-        "gates": ["H1"],
+        "gates": ["H1", "H2"],
         "fixture_id": "h1-v1",
         "quadrature_order": 21,
         "convergence_check_order": 17,
@@ -62,11 +62,12 @@ CONFIG: dict[str, object] = {
 _REPO_ROOT = Path(__file__).resolve().parent
 
 
-def main(config: Mapping[str, object] = CONFIG) -> GateResult:
+def main(config: Mapping[str, object] = CONFIG) -> VerificationRunResult:
     resolved = resolve_config(config, repo_root=_REPO_ROOT)
-    result, artifact = run_h1(resolved)
-    print(f"H1: {result.status.value}")
-    print(f"artifact: {artifact}")
+    result = run_verification(resolved)
+    for gate_result in result.gate_results:
+        print(f"{gate_result.gate}: {gate_result.status.value}")
+    print(f"artifact: {result.run_directory}")
     return result
 
 
@@ -77,9 +78,14 @@ def _script_main() -> int:
         print(f"artifact unavailable: {exc}", file=sys.stderr)
         return 2
     except (TypeError, ValueError) as exc:
-        print(f"H1 configuration invalid: {exc}", file=sys.stderr)
+        print(f"H1/H2 configuration invalid: {exc}", file=sys.stderr)
         return 2
-    return 0 if result.status is GateStatus.PASS else 1
+    return (
+        0
+        if tuple(item.gate for item in result.gate_results) == ("H1", "H2")
+        and all(item.status is GateStatus.PASS for item in result.gate_results)
+        else 1
+    )
 
 
 if __name__ == "__main__":

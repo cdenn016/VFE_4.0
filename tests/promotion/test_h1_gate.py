@@ -104,7 +104,10 @@ def test_gate_result_enforces_generic_status_consistency() -> None:
 
 
 def test_h1_gate_passes_with_exact_inventories_and_complete_artifact(tmp_path: Path) -> None:
-    result, run_dir = run_h1(_config(tmp_path))
+    config = _config(tmp_path)
+    assert config.validation.gates == ("H1",)
+
+    result, run_dir = run_h1(config)
 
     assert result.status is GateStatus.PASS
     assert tuple(result.measurements) == H1_MEASUREMENT_NAMES

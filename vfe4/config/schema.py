@@ -1,4 +1,4 @@
-"""Frozen records that define the supported H1 configuration."""
+"""Frozen records that define the supported H1/H2 configuration."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ class RunConfig:
 
 @dataclass(frozen=True)
 class ValidationConfig:
-    gates: tuple[Literal["H1"]]
+    gates: tuple[Literal["H1"]] | tuple[Literal["H1"], Literal["H2"]]
     fixture_id: Literal["h1-v1"]
     quadrature_order: Literal[21]
     convergence_check_order: Literal[17]

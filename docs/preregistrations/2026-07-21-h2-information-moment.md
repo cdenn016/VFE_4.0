@@ -76,6 +76,25 @@ For each mathematical control, decisiveness is frozen as
 
 Anything smaller is `INCONCLUSIVE`, never a pass.
 
+## Implemented verification surface
+
+The click-run configuration requests the ordered prefix `H1,H2`. One run
+captures the immutable `h1-v1` bytes once, supplies that same snapshot to both
+gates, and publishes `validation/h1.json` and `validation/h2.json` together in
+one atomic, manifest-checked directory. H2 remains componentwise
+representation verification over the unchanged positive-weight source mixture:
+it does not replace that mixture by a global Gaussian. Natural coordinates are
+`(h,-J/2)`, expectation coordinates are `(mu,M)` with
+`M=Sigma+mu mu^T`, and `(mu,Sigma)` is the moment representation rather than
+the expectation-coordinate member of the Fisher-dual pair.
+
+The implementation applies the frozen envelope `D <= 6`,
+`lambda_min(J) >= 1e-4`, `lambda_max(J) <= 1e4`,
+`kappa_2(J) <= 1e6`, and `||mu||_inf <= 4`, together with the literal absolute
+budget above. At the observed `kappa_2 <= 42.35`, `3.86e-10 * scale` remains
+only the preregistered descriptive pair budget; invariant decisions use their
+own computed allowances. H3 through H8 remain unimplemented.
+
 ## Nonclaims
 
 Passing H2 would establish only componentwise and exact source-weighted numerical agreement, on this immutable bounded fixture, among the direct PyTorch information representation, the unchanged PyTorch H1 moment representation, and an independently parsed NumPy dense-moment calculation. It does not establish a global Gaussian representation of the mixture, generalization beyond the frozen envelope, asymptotic stability, performance superiority, optimizer correctness, gradient correctness, predictive validity, scaling behavior, or any later-gate claim.
