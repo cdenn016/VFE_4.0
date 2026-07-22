@@ -1890,7 +1890,15 @@ digest begins with
 `b"vfe4.h4.problem-condition-record-stream.v1\x00" +
 problem_sha256.encode("ascii") + b"\x00" + name.encode("ascii") + b"\x00"`
 and has exact counts `1`, `22`, `T`, and `11*T`. It rejects a record carrying
-another problem identity. Both forms append length-prefixed compact sorted-key
+another problem identity. One exact anchor-only exception makes the Task 4
+compact oracle constructible: problem IDs `h4-anchor-h3-coupled-v1` and
+`h4-anchor-h3-zero-control-v1` accept only `name="oracle_innovation"` with exact
+expected/observed count `2`, one for each frozen H3 observation factor. No
+anchor summary may use the other three names or any scaled count. Anchor
+innovation summaries remain nested in their `H4CompactOracleRecord`; they are
+excluded from the four scaled global accumulators, whose counts remain exactly
+`120`, `2640`, `2120`, and `23320`, and from the scaled coverage-count sums.
+Both forms append length-prefixed compact sorted-key
 JSON with every float encoded as `float.hex()`. Posterior summaries have the
 exact ordered metric witnesses
 minimum eigenvalue, maximum eigenvalue, maximum condition number, minimum
@@ -2944,7 +2952,10 @@ and digest above. `decide_h4_interval` contains no inequality.
   balance, condition limits, compact condition/coverage stream schemas, trace
   cardinalities, coverage-key order, power-policy order, and restoration
   records. Assert distinct per-problem/global condition-summary types and
-  counts, the Task 3-owned allowance group producers and private group
+  counts, including two exact anchor-only oracle-innovation summaries (one per
+  anchor, each with count two) and their exclusion from scaled global totals,
+  the Task 3-owned
+  allowance group producers and private group
   constructors, exact anchor/scaled repetition ownership, numeric-vector-
   bound independent headers, one-pass six-invariant consumption without
   source retention, operand-local oracle/adapter tables, and read-only
@@ -3577,6 +3588,12 @@ the compact oracle identity and its two retained log normalizers. Compacting
 or serializing an oracle without the agreement, or replacing it with a scalar
 residual, is rejected.
 
+`H4CompactOracleRecord.innovation_conditions` has the same problem identity
+as the compact oracle. A scaled oracle requires its exact per-problem
+`oracle_innovation` summary with count `T`; an H3 anchor oracle requires the
+anchor-only `oracle_innovation` summary with count `2`. An anchor summary never
+enters the scaled global condition summaries or coverage sums.
+
 `H4CompactResultRecord` requires `source_kind="scaled_pcg64"` with repetition
 `0..10`, or `source_kind="h3_anchor"` with `repetition_index=None`; no anchor
 is assigned a fake timed repetition. `H4ProblemEvaluation` accepts only the
@@ -4017,7 +4034,9 @@ the digest/witness/status while all expected coverage counts remain exact.
 - [ ] **Step 1: Write exact gate and artifact tests first.** Assert every
   record field/order/type, deep immutability, exact complete nested protocol
   ownership, two H3
-  anchors, 120-problem complete branch, materialization count/identity,
+  anchors with their exact two-record oracle-innovation summaries excluded
+  from scaled global condition totals, 120-problem complete branch,
+  materialization count/identity,
   3/11 traces, guard exclusions, exact 146,720-event postflight schedule
   counts/order/digests, distinct compact per-problem and top-level global
   posterior/innovation condition summaries/counts/digests, exact
