@@ -222,3 +222,20 @@ applicable/numerical; the other allowance records are exactly
 For inconclusive results, `None` is permitted only when its producing phase did
 not complete and the associated invariant/detail plus an obligation name that
 phase; no finite unavailable value is fabricated.
+
+The exact measurement keys are `primary_seed_ratio_geometric_mean`,
+`primary_bootstrap_lower`, `primary_bootstrap_upper`, `primary_effect_threshold`,
+`primary_timed_ab_total`, `primary_timed_ba_total`,
+`maximum_solver_stopping_residual`, and `maximum_allowance_scale_fraction`.
+The exact allowance keys are `h3_anchor_identity`, `exact_posterior_gap_equivalence`,
+`terminal_h_equivalence`, `terminal_J_equivalence`,
+`selected_moment_equivalence`, and `complete_objective_equivalence`. An applicable
+allowance has exactly `applicable`, `dimension`, `operands`, `absolute_summands`,
+`condition_numbers`, `operation_counts`, `solver_contribution`, `invariant_scale`,
+`final_allowance`, and `allowance_scale_ratio`; an inapplicable record is exactly
+the two-key sentinel. Missing primary measurements map respectively to
+`primary_seed_level_inference`, `primary_effect_threshold`,
+`primary_timed_order_balance`, `shared_protocol_identity`, or
+`all_equivalence_allowances_decisive` and use the frozen inconclusive detail.
+The coupled H3 anchor compares its frozen evidence; zero H3 has no frozen
+reference evidence and instead requires independent adapter/oracle `c/logZ` agreement.

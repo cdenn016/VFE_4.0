@@ -46,6 +46,16 @@ H4_ALLOWANCE_INVARIANT_NAMES = (
     "h3_anchor_identity", "exact_posterior_gap_equivalence", "terminal_h_equivalence",
     "terminal_J_equivalence", "selected_moment_equivalence", "complete_objective_equivalence",
 )
+H4_APPLICABLE_ALLOWANCE_FIELDS = (
+    "applicable", "dimension", "operands", "absolute_summands", "condition_numbers",
+    "operation_counts", "solver_contribution", "invariant_scale", "final_allowance",
+    "allowance_scale_ratio",
+)
+H4_PROBLEM_SEEDS = (
+    104729, 130363, 155921, 181081, 206369, 231779, 257053, 282407,
+    307831, 333271, 358747, 384253, 409891, 435437, 461009, 486587,
+    512161, 537793, 563359, 588937,
+)
 
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _UNAVAILABLE_ANCHOR = "not_evaluated_after_decisive_h3_anchor_failure"
@@ -164,11 +174,13 @@ class H4NeutralProblem:
             if tuple(f.factor_id for f in self.factor_schedule) != expected_ids:
                 raise ValueError("scaled factor schedule is frozen")
             all_draws = tuple(draw.draw_index for factor in self.factor_schedule for draw in factor.raw_draws)
-            if len(set(all_draws)) != len(all_draws):
+            if all_draws and tuple(sorted(all_draws)) != tuple(range(11 * self.horizon)):
                 raise ValueError("scaled draw indices must be globally unique")
+            _validate_scaled_schedule(self.factor_schedule, self.horizon, self.dimension)
         else:
             if self.seed != 0 or self.horizon != 1 or (self.d_z, self.d_m, self.dimension) != (1, 1, 4) or self.coordinate_order != ("z0", "m0", "z1", "m1"):
                 raise ValueError("invalid H3 anchor problem")
+            _validate_anchor_schedule(self)
 
 
 @dataclass(frozen=True)
@@ -192,6 +204,7 @@ class H4SelectedMoment:
     def __post_init__(self) -> None:
         _string(self.name, "name")
         mean = _vector(self.mean, len(self.mean) if type(self.mean) is tuple else -1, "mean")
+        if not mean: raise ValueError("mean must be nonempty")
         covariance = _matrix(self.covariance, len(mean), len(mean), "covariance")
         _spd(covariance, "covariance")
         object.__setattr__(self, "mean", mean); object.__setattr__(self, "covariance", covariance)
@@ -202,7 +215,9 @@ class H4TerminalLaw:
     arm: H4SolverArm; h: tuple[float, ...]; J: tuple[tuple[float, ...], ...]; mean: tuple[float, ...]; selected_moments: tuple[H4SelectedMoment, ...]; complete_objective: float; stopping_residual: float
     def __post_init__(self) -> None:
         _law(self.arm, self.h, self.J, self.mean, self.complete_objective, "terminal")
-        if type(self.selected_moments) is not tuple or not self.selected_moments or not all(isinstance(value, H4SelectedMoment) for value in self.selected_moments) or len({value.name for value in self.selected_moments}) != len(self.selected_moments): raise ValueError("selected_moments must be unique immutable moments")
+        if type(self.selected_moments) is not tuple or len(self.selected_moments) < 3 or not all(isinstance(value, H4SelectedMoment) for value in self.selected_moments): raise ValueError("selected_moments must be immutable moments")
+        expected = ("initial", "terminal", *(f"observation[{time}]" for time in range(1, len(self.selected_moments)-1)))
+        if tuple(value.name for value in self.selected_moments) != expected or any(len(value.mean) != len(self.selected_moments[0].mean) for value in self.selected_moments): raise ValueError("selected moments must have exact names and equal blocks")
         _finite(self.stopping_residual, "stopping_residual")
 
 @dataclass(frozen=True)
@@ -223,14 +238,15 @@ class H4SolverResult:
     def __post_init__(self) -> None:
         _string(self.problem_id, "problem_id"); _sha(self.problem_sha256, "problem_sha256")
         if self.arm not in ("information", "moment") or self.protocol_id != "h4-single-pass-v1" or type(self.factor_count) is not int or self.factor_count <= 0: raise ValueError("invalid solver result identity")
-        if (self.arm == "information") != (self.native_information is not None) or (self.arm == "moment") != (self.native_moment is not None): raise ValueError("solver result requires exactly its matching native state")
+        if (self.arm == "information" and (type(self.native_information) is not H4NativeInformationState or self.native_moment is not None)) or (self.arm == "moment" and (type(self.native_moment) is not H4NativeMomentState or self.native_information is not None)): raise ValueError("solver result requires exactly its matching native state")
 
 @dataclass(frozen=True)
 class H4TimingRecord:
     problem_id: str; problem_index: int; horizon_index: int; seed_index: int; kind_index: int; seed: int; kind: H4ProblemKind; horizon: int; repetition_index: int; pair_index: int; order: H4PairOrder; information_nanoseconds: int; moment_nanoseconds: int
     def __post_init__(self) -> None:
         _string(self.problem_id, "problem_id")
-        if any(type(value) is not int or value < 0 for value in (self.problem_index, self.horizon_index, self.seed_index, self.kind_index, self.repetition_index, self.pair_index)) or type(self.seed) is not int or self.seed <= 0 or self.kind not in ("coupled", "zero_control") or self.horizon not in (7, 15, 31): raise ValueError("invalid timing identity")
+        horizons = (7,15,31)
+        if self.horizon_index not in range(3) or self.seed_index not in range(20) or self.kind_index not in (0,1) or self.repetition_index not in range(11) or self.horizon != horizons[self.horizon_index] or self.seed != H4_PROBLEM_SEEDS[self.seed_index] or self.kind != ("coupled" if self.kind_index == 0 else "zero_control") or self.problem_index != ((self.horizon_index * 20 + self.seed_index) * 2 + self.kind_index): raise ValueError("invalid timing identity")
         if self.pair_index != 3 + self.repetition_index or self.order not in ("information_then_moment", "moment_then_information") or self.order != ("information_then_moment" if (self.horizon_index + self.seed_index + self.kind_index + self.pair_index) % 2 == 0 else "moment_then_information") or type(self.information_nanoseconds) is not int or type(self.moment_nanoseconds) is not int or self.information_nanoseconds <= 0 or self.moment_nanoseconds <= 0: raise ValueError("invalid H4 timing record")
 
 @dataclass(frozen=True)
@@ -239,7 +255,7 @@ class H4OperationRecord:
     def __post_init__(self) -> None:
         _string(self.problem_id, "problem_id")
         if self.arm not in ("information", "moment") or self.operation not in ("cholesky", "triangular_solve", "matrix_multiply", "symmetric_rank_update", "selected_block_extract") or type(self.operand_shapes) is not tuple or not self.operand_shapes or type(self.result_shape) is not tuple or not self.result_shape or type(self.count) is not int or self.count <= 0: raise ValueError("invalid operation record")
-        if any(type(dimension) is not int or dimension <= 0 for shape in (*self.operand_shapes, self.result_shape) for dimension in shape): raise ValueError("operation shapes must be positive")
+        if any(type(shape) is not tuple or not shape or any(type(dimension) is not int or dimension <= 0 for dimension in shape) for shape in (*self.operand_shapes, self.result_shape)): raise ValueError("operation shapes must be immutable positive tuples")
 
 @dataclass(frozen=True)
 class H4MemoryRecord:
@@ -279,11 +295,17 @@ class H4GateResult:
         if anchor_fail:
             if tuple(name for name, value in measurements.items() if value is None) != H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL or measurements["primary_effect_threshold"] != .80:
                 raise ValueError("anchor failure measurements are frozen")
-        elif self.status is not GateStatus.INCONCLUSIVE:
-            if any(value is None for value in measurements.values()):
-                raise ValueError("completed pass/fail measurements must be finite")
-        elif any(value is None for value in measurements.values()) and not self.obligations:
-            raise ValueError("inconclusive unavailable measurements require obligations")
+        elif self.status in (GateStatus.PASS, GateStatus.FAIL) and any(value is None for value in measurements.values()): raise ValueError("completed pass/fail measurements must be finite")
+        if self.status is GateStatus.PASS and (self.obligations or not all(item.passed for item in self.invariants)): raise ValueError("PASS requires complete passing evidence")
+        if self.status is GateStatus.FAIL and not anchor_fail:
+            if self.obligations or not all(item.passed for item in self.invariants[:8]) or not any(not item.passed and item.value is not None and item.limit is not None for item in self.invariants[8:]): raise ValueError("post-timing FAIL requires a decisive comparison miss")
+        if self.status is GateStatus.INCONCLUSIVE:
+            if not self.obligations or not any(not item.passed for item in self.invariants): raise ValueError("INCONCLUSIVE requires failed evidence and obligation")
+            producers = {"primary_seed_ratio_geometric_mean":"primary_seed_level_inference","primary_bootstrap_lower":"primary_seed_level_inference","primary_bootstrap_upper":"primary_seed_level_inference","primary_effect_threshold":"primary_effect_threshold","primary_timed_ab_total":"primary_timed_order_balance","primary_timed_ba_total":"primary_timed_order_balance","maximum_solver_stopping_residual":"shared_protocol_identity","maximum_allowance_scale_fraction":"all_equivalence_allowances_decisive"}
+            for measurement, producer in producers.items():
+                if measurements[measurement] is None:
+                    item = self.invariants[H4_INVARIANT_NAMES.index(producer)]
+                    if (item.passed, item.value, item.limit, item.detail) != (False, None, None, _UNAVAILABLE_ELIGIBILITY) or f"{producer}: {_UNAVAILABLE_ELIGIBILITY}" not in self.obligations: raise ValueError("inconclusive unavailable producer evidence is malformed")
         frozen: dict[str, H4JsonMapping] = {}
         for name, record in allowances.items():
             if not isinstance(record, Mapping) or not record:
@@ -296,14 +318,20 @@ class H4GateResult:
                 if tuple(copied) != ("applicable", "reason") or copied["reason"] not in (_UNAVAILABLE_ANCHOR, _UNAVAILABLE_ELIGIBILITY):
                     raise ValueError("inapplicable allowance sentinel is malformed")
             elif applicable is True:
-                if len(copied) < 2:
-                    raise ValueError("applicable allowance requires numerical fields")
+                _validate_applicable_allowance(copied)
             else:
                 raise ValueError("allowance applicable flag is required")
             frozen[name] = copied  # type: ignore[assignment]
         if anchor_fail:
             if frozen["h3_anchor_identity"].get("applicable") is not True or any(frozen[name] != MappingProxyType({"applicable": False, "reason": _UNAVAILABLE_ANCHOR}) for name in H4_ALLOWANCE_INVARIANT_NAMES[1:]):
                 raise ValueError("anchor failure allowance applicability is frozen")
+        elif self.status is GateStatus.PASS or self.status is GateStatus.FAIL:
+            if any(record.get("applicable") is not True for record in frozen.values()): raise ValueError("conclusive post-timing allowances must be applicable")
+        else:
+            for name, record in frozen.items():
+                if record.get("applicable") is False:
+                    item = self.invariants[H4_INVARIANT_NAMES.index(name)]
+                    if (item.passed,item.value,item.limit,item.detail) != (False,None,None,_UNAVAILABLE_ELIGIBILITY): raise ValueError("inapplicable inconclusive allowance requires matching invariant")
         object.__setattr__(self, "measurements", MappingProxyType(measurements))
         object.__setattr__(self, "allowances_by_invariant", MappingProxyType(frozen))
 
@@ -334,6 +362,7 @@ def _json_value(value: object) -> object:
 
 def _freeze_json(value: object, name: str) -> H4JsonValue:
     if isinstance(value, Mapping):
+        if not value: raise ValueError(f"{name} mappings must be nonempty")
         copied: dict[str, H4JsonValue] = {}
         for key, item in value.items():
             _string(key, f"{name}.key")
@@ -386,5 +415,48 @@ def _law(arm: object, h: object, J: object, mean: object, objective: object, nam
     matrix = _matrix(J, len(vector), len(vector), f"{name}.J")
     _spd(matrix, f"{name}.J")
     _vector(mean, len(vector), f"{name}.mean"); _finite(objective, f"{name}.complete_objective")
+
+def _validate_scaled_schedule(schedule: tuple[H4AffineGaussianFactor, ...], horizon: int, dimension: int) -> None:
+    initial = schedule[0]
+    if initial.role != "initial" or initial.time_index != 0 or initial.normalized_coordinate_indices != tuple(range(8)) or initial.parent_coordinate_indices or initial.target != (0.0,) * 8 or initial.covariance != tuple(tuple(1.0 if i == j else 0.0 for j in range(8)) for i in range(8)) or initial.matrix != tuple(tuple(1.0 if i == j else 0.0 for j in range(dimension)) for i in range(8)) or initial.raw_draws:
+        raise ValueError("scaled initial factor is frozen")
+    names = ("A_m", "A_z", "B", "c_m", "c_z", "R_m", "R_z", "G", "observation_offset", "observation_noise", "observed_target")
+    shapes = ((4,4),(4,4),(4,4),(4,),(4,),(4,),(4,),(8,8),(8,),(8,),(8,))
+    for time in range(1, horizon + 1):
+        m_factor, z_factor, observation = schedule[1 + 3 * (time - 1):1 + 3 * time]
+        z_prev = tuple(range((time - 1) * 8, (time - 1) * 8 + 4)); m_prev = tuple(range((time - 1) * 8 + 4, time * 8)); z_now = tuple(range(time * 8, time * 8 + 4)); m_now = tuple(range(time * 8 + 4, (time + 1) * 8))
+        expected = (("transition", time, m_now, m_prev, (0,3,5)), ("transition", time, z_now, (*z_prev,*m_now), (1,2,4,6)), ("observation", time, (), (*z_now,*m_now), (7,8,9,10)))
+        for factor, (role, index, normalized, parents, local_indices) in zip((m_factor,z_factor,observation), expected, strict=True):
+            if (factor.role, factor.time_index, factor.normalized_coordinate_indices, factor.parent_coordinate_indices) != (role,index,normalized,parents): raise ValueError("scaled factor metadata is frozen")
+            if tuple(draw.draw_index for draw in factor.raw_draws) != tuple(11*(time-1)+item for item in local_indices): raise ValueError("scaled draw ownership is frozen")
+            if tuple(draw.name for draw in factor.raw_draws) != tuple(f"{names[item]}[{time}]" for item in local_indices) or tuple(draw.shape for draw in factor.raw_draws) != tuple(shapes[item] for item in local_indices): raise ValueError("scaled draw names/shapes are frozen")
+
+def _validate_anchor_schedule(problem: H4NeutralProblem) -> None:
+    expected_ids = ("z0_prior", "m0_prior", "m1_transition", "z1_transition", "z1_observation", "m1_observation")
+    metadata = (("initial",0,(0,),()), ("initial",0,(1,),()), ("transition",1,(3,),(1,)), ("transition",1,(2,),(0,3)), ("observation",1,(),(2,)), ("observation",1,(),(3,)))
+    expected_problem_id = "h4-anchor-h3-coupled-v1" if problem.kind == "coupled" else "h4-anchor-h3-zero-control-v1"
+    if problem.problem_id != expected_problem_id or tuple(f.factor_id for f in problem.factor_schedule) != expected_ids:
+        raise ValueError("H3 anchor identity/schedule is frozen")
+    for factor, item in zip(problem.factor_schedule, metadata, strict=True):
+        if (factor.role, factor.time_index, factor.normalized_coordinate_indices, factor.parent_coordinate_indices) != item or factor.raw_draws:
+            raise ValueError("H3 anchor metadata/provenance is frozen")
+
+def _validate_applicable_allowance(record: Mapping[str, H4JsonValue]) -> None:
+    if tuple(record) != H4_APPLICABLE_ALLOWANCE_FIELDS or record["applicable"] is not True: raise ValueError("applicable allowance fields/order are frozen")
+    if type(record["dimension"]) is not int or record["dimension"] <= 0: raise ValueError("allowance dimension must be positive")
+    for name in ("operands", "absolute_summands", "condition_numbers", "operation_counts"):
+        value = record[name]
+        if type(value) is not tuple or not value: raise ValueError("allowance operand fields must be nonempty tuples")
+    if any(type(value) not in (int,float) or not math.isfinite(float(value)) for value in record["operands"]): raise ValueError("operands must be finite")
+    if any(type(value) not in (int,float) or not math.isfinite(float(value)) or float(value) < 0 for value in record["absolute_summands"]): raise ValueError("absolute summands must be nonnegative")
+    if any(type(value) not in (int,float) or not math.isfinite(float(value)) or float(value) <= 0 for value in record["condition_numbers"]): raise ValueError("condition numbers must be positive")
+    if any(type(value) is not int or value <= 0 for value in record["operation_counts"]): raise ValueError("operation counts must be positive ints")
+    for name in ("solver_contribution", "final_allowance", "allowance_scale_ratio"):
+        value = record[name]
+        if type(value) not in (int,float) or not math.isfinite(float(value)) or float(value) < 0: raise ValueError("allowance values must be nonnegative finite")
+    scale = record["invariant_scale"]
+    if type(scale) not in (int,float) or not math.isfinite(float(scale)) or float(scale) <= 0: raise ValueError("invariant scale must be positive finite")
+    expected = float(record["final_allowance"]) / float(scale); actual = float(record["allowance_scale_ratio"])
+    if abs(actual - expected) > 64.0 * math.ulp(1.0) * max(1.0, abs(actual), abs(expected)): raise ValueError("allowance ratio is inconsistent")
 
 __all__ = [name for name in globals() if name.startswith("H4")] + ["canonical_h4_problem_bytes", "h4_problem_core", "h4_problem_digest"]

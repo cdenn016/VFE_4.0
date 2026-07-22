@@ -39,6 +39,8 @@ from vfe4.validation.h3_fixture import (
     H3_ZERO_CONTROL_FIXTURE_PATH,
     parse_h3_fixture_bytes,
 )
+from verification.h3_budget import pair_allowance, scalar_allowance
+from verification.numpy_oracles.h3_posterior import evaluate_h3_posterior_oracle
 
 EXPECTED_INVARIANTS = (
     "h3_anchor_identity", "fixed_seed_problem_identity", "coupled_zero_control_contract",
@@ -61,6 +63,11 @@ EXPECTED_ALLOWANCES = (
     "h3_anchor_identity", "exact_posterior_gap_equivalence", "terminal_h_equivalence",
     "terminal_J_equivalence", "selected_moment_equivalence", "complete_objective_equivalence",
 )
+EXPECTED_APPLICABLE_ALLOWANCE_FIELDS = (
+    "applicable", "dimension", "operands", "absolute_summands", "condition_numbers",
+    "operation_counts", "solver_contribution", "invariant_scale", "final_allowance",
+    "allowance_scale_ratio",
+)
 
 
 def _fixture(path, fixture_id):
@@ -82,6 +89,15 @@ def _independent_draws(seed: int):
         rng.uniform(0.75, 1.25, size=8),
         rng.uniform(-1.0, 1.0, size=8),
     )
+
+def _numerical_allowance() -> dict[str, object]:
+    return {
+        "applicable": True, "dimension": 4, "operands": (1.0,),
+        "absolute_summands": (1.0,), "condition_numbers": (1.0,),
+        "operation_counts": (1,), "solver_contribution": 0.0,
+        "invariant_scale": 1.0, "final_allowance": 0.0,
+        "allowance_scale_ratio": 0.0,
+    }
 
 
 def test_scaled_problem_has_exact_schema_coordinate_schedule_and_pcg64_provenance() -> None:
@@ -126,12 +142,12 @@ def test_scaled_problem_has_exact_schema_coordinate_schedule_and_pcg64_provenanc
         assert np.array_equal(np.asarray(draw.values).reshape(draw.shape), values)
     raw_a_m, raw_a_z, raw_b, _, _, _, _, raw_g, offset, _, target = expected
     clip = lambda value: value * min(1.0, 0.65 / np.linalg.norm(value, 2))
-    assert np.allclose(np.asarray(m_factor.matrix)[:, 4:8], -clip(raw_a_m))
+    assert np.array_equal(np.asarray(m_factor.matrix)[:, 4:8], -clip(raw_a_m))
     joined = clip(np.concatenate((raw_a_z, raw_b), axis=1))
-    assert np.allclose(np.asarray(z_factor.matrix)[:, :4], -joined[:, :4])
-    assert np.allclose(np.asarray(z_factor.matrix)[:, 12:16], -joined[:, 4:])
-    assert np.allclose(np.asarray(observation.matrix)[:, 8:16], np.eye(8) + .05 * raw_g / max(1.0, np.linalg.norm(raw_g, 2)))
-    assert np.allclose(np.asarray(observation.target), target - offset)
+    assert np.array_equal(np.asarray(z_factor.matrix)[:, :4], -joined[:, :4])
+    assert np.array_equal(np.asarray(z_factor.matrix)[:, 12:16], -joined[:, 4:])
+    assert np.array_equal(np.asarray(observation.matrix)[:, 8:16], np.eye(8) + .05 * raw_g / max(1.0, np.linalg.norm(raw_g, 2)));
+    assert np.array_equal(np.asarray(observation.target), target - offset)
     with pytest.raises(FrozenInstanceError):
         problem.seed = 1  # type: ignore[misc]
 
@@ -145,6 +161,27 @@ def test_every_scaled_horizon_has_complete_local_schedule_and_global_draw_indice
     assert tuple(factor.factor_id for factor in problem.factor_schedule) == expected_ids
     observed_indices = tuple(sorted(draw.draw_index for factor in problem.factor_schedule for draw in factor.raw_draws))
     assert observed_indices == tuple(range(11 * horizon))
+
+
+def test_full_t31_pcg64_stream_never_restarts_and_pins_every_raw_draw() -> None:
+    seed, horizon = 155921, 31
+    problem = make_h4_problem(seed=seed, kind="coupled", horizon=horizon)
+    rng = np.random.Generator(np.random.PCG64(seed))
+    for time in range(1, horizon + 1):
+        expected = _independent_draws_from_rng(rng)
+        factors = problem.factor_schedule[1 + 3 * (time - 1):1 + 3 * time]
+        draws = tuple(sorted((draw for factor in factors for draw in factor.raw_draws), key=lambda draw: draw.draw_index))
+        assert tuple(draw.draw_index for draw in draws) == tuple(range(11 * (time - 1), 11 * time))
+        for draw, value in zip(draws, expected, strict=True): assert np.array_equal(np.asarray(draw.values).reshape(draw.shape), value)
+
+
+def _independent_draws_from_rng(rng: np.random.Generator):
+    return (
+        rng.standard_normal((4,4)), rng.standard_normal((4,4)), rng.standard_normal((4,4)),
+        rng.uniform(-.25,.25,4), rng.uniform(-.25,.25,4), rng.uniform(.5,1.5,4),
+        rng.uniform(.5,1.5,4), rng.standard_normal((8,8)), rng.uniform(-.25,.25,8),
+        rng.uniform(.75,1.25,8), rng.uniform(-1.,1.,8),
+    )
 
 
 def test_zero_control_and_canonical_bytes_have_only_frozen_differences() -> None:
@@ -186,6 +223,14 @@ def test_zero_control_and_canonical_bytes_have_only_frozen_differences() -> None
     with pytest.raises(ValueError): parse_h4_problem_bytes(json.dumps(malformed_digest).encode())
     malformed_extra = json.loads(bytes_one); malformed_extra["extra"] = 1
     with pytest.raises(ValueError): parse_h4_problem_bytes(json.dumps(malformed_extra).encode())
+    for broken in (
+        bytes_one.replace(b'"schema_version"', b'"schema_version","schema_version"', 1),
+        bytes_one.replace(b'"factor_id"', b'"unknown"', 1),
+        bytes_one.replace(b'"draw_index"', b'"unknown_draw"', 1),
+        b'{"schema_version":"h4-neutral-problem-v1","canonical_sha256":"' + coupled.canonical_sha256.encode() + b'","problem":NaN}',
+        b" " + bytes_one,
+    ):
+        with pytest.raises(ValueError): parse_h4_problem_bytes(broken)
 
 
 def test_h3_structural_adapter_and_independent_canonical_assembly() -> None:
@@ -210,8 +255,13 @@ def test_h3_structural_adapter_and_independent_canonical_assembly() -> None:
         assert np.allclose(J, expected_J) and np.allclose(h, expected_h) and math.isclose(c, expected_c)
         expected_log_z = expected_c + .5 * expected_h @ np.linalg.solve(expected_J, expected_h) - .5 * np.linalg.slogdet(expected_J)[1] + 2.0 * math.log(2.0 * math.pi)
         assert math.isclose(log_z, expected_log_z)
-        if fixture.reference_log_evidence is not None:
-            assert math.isclose(log_z, fixture.reference_log_evidence, rel_tol=0.0, abs_tol=2e-14)
+        oracle = evaluate_h3_posterior_oracle(
+            (H3_COUPLED_FIXTURE_PATH if fixture.kind == "coupled" else H3_ZERO_CONTROL_FIXTURE_PATH).read_bytes(),
+            expected_fixture_id=fixture.fixture_id,
+        )
+        left = scalar_allowance(4, value=log_z, absolute_sum=abs(log_z), kappas=(1.0,), optimized=False)
+        right = scalar_allowance(4, value=oracle.log_evidence, absolute_sum=abs(oracle.log_evidence), kappas=(1.0,), optimized=False)
+        assert abs(log_z - oracle.log_evidence) <= pair_allowance(4, left=log_z, right=oracle.log_evidence, left_allowance=left, right_allowance=right)
 
 
 def test_records_reject_malformed_inputs_and_gate_freezes_exact_early_failure_shape() -> None:
@@ -233,7 +283,7 @@ def test_records_reject_malformed_inputs_and_gate_freezes_exact_early_failure_sh
     )
     measurements = {name: None for name in EXPECTED_MEASUREMENTS}
     measurements.update({"primary_effect_threshold": .80, "maximum_solver_stopping_residual": .0, "maximum_allowance_scale_fraction": .0})
-    numerical = {"applicable": True, "dimension": 4, "operands": (1.0,), "absolute_summands": (1.0,), "condition_numbers": (1.0,), "operation_counts": (1,), "solver_contribution": 0.0, "invariant_scale": 1.0, "final_allowance": 0.0, "ratio": 0.0}
+    numerical = _numerical_allowance()
     allowances = {name: numerical if name == "h3_anchor_identity" else {"applicable": False, "reason": "not_evaluated_after_decisive_h3_anchor_failure"} for name in EXPECTED_ALLOWANCES}
     result = H4GateResult("H4", GateStatus.FAIL, measurements, invariants, allowances, ())
     assert H4_INVARIANT_NAMES == EXPECTED_INVARIANTS and H4_MEASUREMENT_NAMES == EXPECTED_MEASUREMENTS and H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL == EXPECTED_UNAVAILABLE and H4_ALLOWANCE_INVARIANT_NAMES == EXPECTED_ALLOWANCES
@@ -243,6 +293,22 @@ def test_records_reject_malformed_inputs_and_gate_freezes_exact_early_failure_sh
         H4GateResult("H4", GateStatus.FAIL, {name: 0.0 for name in EXPECTED_MEASUREMENTS}, invariants, allowances, ())
     bad_allowances = dict(allowances); bad_allowances["h3_anchor_identity"] = {"applicable": True}
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, invariants, bad_allowances, ())
+
+
+def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes() -> None:
+    passing = tuple(InvariantResult(name, True, 0.0, 1.0, "closed") for name in EXPECTED_INVARIANTS)
+    measurements = {name: 0.0 for name in EXPECTED_MEASUREMENTS}; measurements["primary_effect_threshold"] = .8
+    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    assert tuple(H4GateResult("H4", GateStatus.PASS, measurements, passing, allowances, ()).allowances_by_invariant["h3_anchor_identity"]) == EXPECTED_APPLICABLE_ALLOWANCE_FIELDS
+    failed = list(passing); failed[8] = InvariantResult("exact_posterior_gap_equivalence", False, 2.0, 1.0, "miss")
+    assert H4GateResult("H4", GateStatus.FAIL, measurements, tuple(failed), allowances, ()).status is GateStatus.FAIL
+    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, tuple(failed), allowances, ())
+    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, passing, allowances, ())
+    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.INCONCLUSIVE, measurements, tuple(failed), allowances, ())
+    bad = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}; bad["h3_anchor_identity"] = {"applicable": True, "dimension": 4}
+    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, passing, bad, ())
+    bad_ratio = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}; bad_ratio["h3_anchor_identity"]["allowance_scale_ratio"] = .5
+    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, passing, bad_ratio, ())
 
 
 def test_every_task_one_record_has_frozen_fields_and_positive_negative_validation() -> None:

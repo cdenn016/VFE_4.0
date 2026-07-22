@@ -14,6 +14,7 @@ from vfe4.types.h4 import (
     H4AffineGaussianFactor,
     H4NeutralProblem,
     H4RawDraw,
+    canonical_h4_problem_bytes,
     h4_problem_digest,
 )
 
@@ -84,15 +85,18 @@ def canonical_h4_gaussian(problem: H4NeutralProblem) -> tuple[np.ndarray, np.nda
 
 def parse_h4_problem_bytes(data: bytes) -> H4NeutralProblem:
     if type(data) is not bytes: raise ValueError("data must be bytes")
-    try: envelope = json.loads(data.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc: raise ValueError("invalid H4 canonical JSON") from exc
-    if type(envelope) is not dict or set(envelope) != {"schema_version", "canonical_sha256", "problem"} or envelope["schema_version"] != "h4-neutral-problem-v1": raise ValueError("invalid H4 envelope")
-    core = envelope["problem"]
-    if type(core) is not dict: raise ValueError("invalid H4 core")
-    factors = tuple(_parse_factor(item) for item in core["factor_schedule"])
-    problem = H4NeutralProblem(core["problem_id"], core["source_kind"], core["seed"], core["kind"], core["horizon"], core["d_z"], core["d_m"], core["dimension"], tuple(core["coordinate_order"]), factors, envelope["canonical_sha256"])
-    if h4_problem_digest(problem) != problem.canonical_sha256: raise ValueError("H4 core digest mismatch")
-    return problem
+    try:
+        envelope = json.loads(data.decode("utf-8"), object_pairs_hook=_pairs, parse_constant=_constant)
+        _fields(envelope, ("schema_version","canonical_sha256","problem"))
+        if envelope["schema_version"] != "h4-neutral-problem-v1": raise ValueError("invalid H4 schema")
+        core = envelope["problem"]; _fields(core, ("problem_id","source_kind","seed","kind","horizon","d_z","d_m","dimension","coordinate_order","factor_schedule"))
+        if type(core["coordinate_order"]) is not list or type(core["factor_schedule"]) is not list: raise ValueError("invalid H4 sequences")
+        factors = tuple(_parse_factor(item) for item in core["factor_schedule"])
+        problem = H4NeutralProblem(core["problem_id"], core["source_kind"], core["seed"], core["kind"], core["horizon"], core["d_z"], core["d_m"], core["dimension"], tuple(core["coordinate_order"]), factors, envelope["canonical_sha256"])
+        if h4_problem_digest(problem) != problem.canonical_sha256 or canonical_h4_problem_bytes(problem) != data: raise ValueError("noncanonical H4 bytes")
+        return problem
+    except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid H4 canonical JSON: {exc}") from exc
 
 
 def _initial_factor(dimension: int) -> H4AffineGaussianFactor:
@@ -105,8 +109,23 @@ def _tuple(value: np.ndarray) -> tuple[float, ...]: return tuple(float(x) for x 
 def _tuples(value: np.ndarray) -> tuple[tuple[float, ...], ...]: return tuple(tuple(float(x) for x in row) for row in value)
 def _draw(index: int, name: str, value: np.ndarray) -> H4RawDraw: return H4RawDraw(index, name, tuple(value.shape), _tuple(value))
 def _parse_factor(raw: object) -> H4AffineGaussianFactor:
-    if type(raw) is not dict: raise ValueError("invalid factor")
-    draws = tuple(H4RawDraw(item["draw_index"], item["name"], tuple(item["shape"]), tuple(item["values"])) for item in raw["raw_draws"])
+    _fields(raw, ("factor_id","role","time_index","normalized_coordinate_indices","parent_coordinate_indices","matrix","target","covariance","raw_draws"))
+    if any(type(raw[name]) is not list for name in ("normalized_coordinate_indices","parent_coordinate_indices","matrix","target","covariance","raw_draws")): raise ValueError("invalid factor sequences")
+    draws = tuple(_parse_draw(item) for item in raw["raw_draws"])
     return H4AffineGaussianFactor(raw["factor_id"], raw["role"], raw["time_index"], tuple(raw["normalized_coordinate_indices"]), tuple(raw["parent_coordinate_indices"]), tuple(tuple(row) for row in raw["matrix"]), tuple(raw["target"]), tuple(tuple(row) for row in raw["covariance"]), draws)
+
+def _parse_draw(raw: object) -> H4RawDraw:
+    _fields(raw, ("draw_index","name","shape","values"))
+    if type(raw["shape"]) is not list or type(raw["values"]) is not list: raise ValueError("invalid draw sequences")
+    return H4RawDraw(raw["draw_index"], raw["name"], tuple(raw["shape"]), tuple(raw["values"]))
+def _pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result: raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+def _constant(value): raise ValueError("nonfinite JSON constant")
+def _fields(value, keys):
+    if type(value) is not dict or set(value) != set(keys): raise ValueError("unexpected JSON object fields")
 
 __all__ = ["canonical_h4_gaussian", "h4_anchor_from_h3", "make_h4_problem", "parse_h4_problem_bytes"]
