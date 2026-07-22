@@ -292,13 +292,113 @@ class H4MemoryRecord:
         Literal["python_peak_bytes", "process_working_set_delta_bytes"], ...
     ]
 
+H4AllowanceSentinelReason = Literal[
+    "not_evaluated_after_decisive_h3_anchor_failure",
+    "not_evaluated_after_inconclusive_eligibility",
+]
+
+@dataclass(frozen=True, slots=True)
+class H4AllowanceOperationCount:
+    label: str
+    count: int
+
+@dataclass(frozen=True, slots=True)
+class H4AllowanceOperand:
+    label: str
+    value: float
+    value_norm: float
+    absolute_summand_accumulation: float
+    condition_numbers: tuple[float, ...]
+    operation_counts: tuple[H4AllowanceOperationCount, ...]
+    solver_produced: bool
+    rounding_allowance: float
+    solver_allowance: float
+    total_allowance: float
+
+@dataclass(frozen=True, slots=True)
+class H4AllowanceElement:
+    stream_index: int
+    invariant: H4AllowanceInvariantName
+    problem_id: str
+    comparison_source: Literal[
+        "solver_to_oracle",
+        "adapter_to_h3_reference",
+        "adapter_to_oracle",
+    ]
+    repetition_index: int | None
+    arm: H4SolverArm | None
+    path: str
+    shape: tuple[int, ...]
+    flat_index: int
+    invariant_scale: float
+    left: H4AllowanceOperand
+    right: H4AllowanceOperand
+    comparison_reduction_allowance: float
+    residual: float
+    normalized_residual: float
+    final_allowance: float
+    allowance_scale_ratio: float
+    decisive: bool
+    passed: bool
+
+@dataclass(frozen=True, slots=True)
+class H4ApplicableAllowance:
+    applicable: Literal[True]
+    invariant: H4AllowanceInvariantName
+    element_stream_domain: Literal["vfe4.h4.allowance-element-stream.v1"]
+    expected_element_count: int
+    observed_element_count: int
+    element_stream_sha256: str
+    maximum_normalized_residual: float
+    maximum_normalized_residual_element: H4AllowanceElement
+    maximum_allowance_scale_ratio: float
+    maximum_allowance_scale_ratio_element: H4AllowanceElement
+    first_failed_element: H4AllowanceElement | None
+    first_indecisive_element: H4AllowanceElement | None
+    decisive: bool
+    passed: bool
+
+@dataclass(frozen=True, slots=True)
+class H4InapplicableAllowance:
+    applicable: Literal[False]
+    reason: H4AllowanceSentinelReason
+
+H4AllowanceRecord: TypeAlias = H4ApplicableAllowance | H4InapplicableAllowance
+
+H4_ALLOWANCE_ELEMENT_COUNTS = (
+    ("h3_anchor_identity", 184),
+    ("exact_posterior_gap_equivalence", 2640),
+    ("terminal_h_equivalence", 394240),
+    ("terminal_J_equivalence", 75694080),
+    ("selected_moment_equivalence", 3738240),
+    ("complete_objective_equivalence", 2640),
+)
+
+@dataclass(frozen=True, slots=True)
+class H4IntervalDecision:
+    lower: float
+    upper: float
+    threshold: float
+    classification: H4IntervalClass
+    invariant_passed: bool
+    invariant_value: float
+    invariant_limit: float
+    invariant_detail: Literal[
+        "bootstrap_interval_supports_effect",
+        "bootstrap_interval_excludes_support",
+        "bootstrap_interval_crosses_threshold",
+        "bootstrap_interval_equals_threshold",
+    ]
+    status_if_other_invariants_eligible: GateStatus
+    obligation: str | None
+
 @dataclass(frozen=True)
 class H4GateResult:
     gate: Literal["H4"]
     status: GateStatus
     measurements: Mapping[H4MeasurementName, float | None]
     invariants: tuple[InvariantResult, ...]
-    allowances_by_invariant: Mapping[H4AllowanceInvariantName, H4JsonMapping]
+    allowances_by_invariant: Mapping[H4AllowanceInvariantName, H4AllowanceRecord]
     obligations: tuple[str, ...]
 
 def canonical_h4_problem_bytes(problem: H4NeutralProblem) -> bytes: ...
@@ -401,8 +501,207 @@ def summarize_primary_timed_order(
 def paired_log_bootstrap_interval(
     seed_ratios: tuple[float, ...], *, replicates: int, seed: int
 ) -> H4BootstrapInterval: ...
-def decide_h4_interval(interval: H4BootstrapInterval, threshold: float) -> H4IntervalDecision: ...
+def classify_h4_interval(lower: float, upper: float) -> H4IntervalDecision: ...
+def decide_h4_interval(interval: H4BootstrapInterval) -> H4IntervalDecision: ...
 ```
+
+### Public H4 allowance and interval contract
+
+These records remain dependency-light in `vfe4/types/h4.py` and are re-exported
+from `vfe4/types/__init__.py`. Remove the flat
+`H4_APPLICABLE_ALLOWANCE_FIELDS` schema and make
+`H4GateResult.allowances_by_invariant` contain exact typed records rather than
+arbitrary recursive JSON mappings.
+
+
+
+`H4AllowanceElement` remains the exact nested element-local proof schema, but
+the artifact never retains the roughly 80 million-element stream. Every path
+is nonempty and unique in the canonical stream, every shape is positive, and
+`flat_index` is in row-major range. Each element's local `invariant_scale` is
+defined independently as
+`max(1, abs(left.value), left.value_norm, abs(right.value),
+right.value_norm)`; no global maximum is pooled back into another element's
+budget. Constructors recompute all derived values rather than trusting
+caller-supplied arithmetic.
+
+`comparison_source="solver_to_oracle"` requires a real arm; it requires
+repetition `0..10` for scaled problems and `None` for the two anchor problems.
+`adapter_to_h3_reference` is allowed only for the 22 coupled-anchor paths and
+`adapter_to_oracle` only for the two zero-control `c/logZ` paths; both require
+`arm=None` and `repetition_index=None`. Every other source/arm/repetition
+combination is rejected, so no non-solver anchor path receives a fake arm.
+
+The exact arithmetic is:
+
+```text
+eps = 2.220446049250313e-16
+C = 4096
+gamma(n) = n*eps/(1-n*eps), with integer n >= 0 and n*eps < 1
+n_operand = sum(term.count for term in operation_counts)
+kappa = max((1, *condition_numbers))
+rounding_allowance = C*gamma(n_operand)*kappa
+                     * max(1, value_norm, absolute_summand_accumulation)
+solver_allowance = 1e-9*invariant_scale if solver_produced else 0
+total_allowance = rounding_allowance + solver_allowance
+comparison_reduction_allowance = C*gamma(3)
+    * max(1, abs(left.value), abs(right.value),
+             abs(left.value)+abs(right.value))
+residual = abs(left.value-right.value)
+final_allowance = left.total_allowance + right.total_allowance
+                  + comparison_reduction_allowance
+allowance_scale_ratio = final_allowance/invariant_scale
+decisive = allowance_scale_ratio < 1e-4
+passed = residual <= final_allowance
+normalized_residual = residual/final_allowance
+```
+
+`comparison_reduction_allowance` is strictly positive for finite operands, so
+`final_allowance` is strictly positive and every stored normalized residual is
+finite.
+
+The operation-count table is an ordered tuple of unique labels and exact
+nonnegative scalar-operation counts. The budget module owns the closed count
+formulas:
+
+```text
+dot(k) = max(0, 2*k-1)
+matmul(m,k,n) = m*n*dot(k)
+triangular_solve(n,r) = r*n*n
+cholesky(n) = ceil(n*n*n/3)
+reduction(n) = max(0,n-1)
+log_terms(n) = n
+elementwise(n, operations_per_element) = n*operations_per_element
+selected_extract(...) = 0
+```
+
+Each operand producer records the table for the arithmetic that produced the
+retained comparison value. Native solver arithmetic is covered exactly once by
+the solver term; postflight conversion arithmetic is still listed in the
+rounding table. Oracle operands have `solver_produced=False`. The literal zero
+operand used by the posterior-gap comparison has `value_norm=0`, zero absolute
+accumulation, `condition_numbers=(1.0,)`, an empty operation table, and no
+solver term. Duplicate, omitted, pooled, or oracle-side solver terms are
+rejected.
+
+Composite aggregation never compares `max(residual)` with `max(allowance)`.
+Instead a module-private NumPy producer/accumulator consumes read-only
+float64 operand groups in canonical order, slices them into at most 4,096
+row-major scalar lanes, checks every lane vectorially, updates a
+domain-separated stream digest, and retains only deterministic witnesses:
+
+```text
+maximum_normalized_residual = max(element.normalized_residual)
+maximum_allowance_scale_ratio = max(element.allowance_scale_ratio)
+record.passed = all(element.passed)
+record.decisive = all(element.decisive)
+```
+
+Ties for either maximum choose the lowest `stream_index`. `first_failed_element`
+and `first_indecisive_element` are the lowest-index matching elements and are
+`None` exactly when `passed` or `decisive` is true. The two maximum witnesses
+are always present for a nonempty applicable stream. The accumulator stores
+only four private scalar witness candidates and creates
+`H4AllowanceElement` dataclasses only once, for the final distinct witnesses;
+it never creates a Python object per checked scalar. It rejects the first
+path/order/index mismatch and requires
+`observed_element_count == expected_element_count`; it never converts the
+input iterable or scalar lanes to a tuple or list.
+
+`H4ApplicableAllowance.__post_init__` selects the frozen expected count from
+its invariant, requires observed equality and a lowercase 64-hex digest,
+requires every witness to name that invariant and an in-range stream index,
+requires both maximum fields to equal their witness fields bit-for-bit, and
+requires first-failure/indecisive presence to agree with the conjunction
+booleans. The module-private accumulator factory additionally owns the live
+SHA-256 object and independently generated expected group-header iterator; it
+is the only production construction path. Gate/artifact constructors accept
+only its completed record and cross-check the six literal counts/order.
+
+The expected complete-run counts are frozen and independently recomputed from
+the traversal, repetition, arm, dimension, and selected-block tables:
+
+```text
+h3_anchor_identity = 184
+exact_posterior_gap_equivalence = 120*11*2 = 2,640
+terminal_h_equivalence = 40*11*2*(64+128+256) = 394,240
+terminal_J_equivalence = 40*11*2*(64^2+128^2+256^2) = 75,694,080
+selected_moment_equivalence
+  = 40*11*2*((9+17+33)*8 + (9+17+33)*8^2)
+  = 3,738,240
+complete_objective_equivalence = 120*11*2 = 2,640
+total = 79,832,024
+```
+
+The 184 anchor elements comprise four arm-to-oracle comparisons at
+`D=4,T=1,B=2` (`KL`, four `h`, sixteen `J`, three selected means of two
+scalars, three selected covariances of four scalars, and objective: 40 per
+arm result, 160 total), plus the coupled adapter/reference `J(16),h(4),c,
+logZ` paths and the zero-control adapter/oracle `c,logZ` paths (24 total).
+These paths are an exact frozen tuple, not inferred from record contents.
+
+The stream digest begins with
+`b"vfe4.h4.allowance-element-stream.v1\x00"`. Each comparison group then
+adds an unsigned eight-byte big-endian length and compact sorted-key UTF-8
+header containing invariant,
+problem/hash, comparison source, repetition, optional arm, path prefix, shape,
+element-count, both ordered
+operation tables, condition-number tuples encoded with `float.hex()`, and
+solver flags. Its scalar rows are appended in row-major order as a packed,
+unaligned little-endian structured array with the exact fields
+`left_value,right_value,left_value_norm,right_value_norm,left_absolute_sum,
+right_absolute_sum,left_rounding,left_solver,right_rounding,right_solver,
+comparison_allowance,residual,normalized_residual,final_allowance,
+allowance_scale_ratio` as `<f8`, followed by `decisive,passed` as `u1`.
+The unaligned row itemsize is exactly 122 bytes. Chunks contain at most 4,096
+rows and chunk boundaries do not enter the hash.
+All values are checked finite before packing. This makes the digest independent
+of Python object repr and prevents a compact artifact from hiding unchecked
+scalars.
+
+`H4GateResult` keeps the exact six allowance keys and exact early-failure
+sentinels, but applicable values must be `H4ApplicableAllowance` and
+inapplicable values must be `H4InapplicableAllowance`. Conclusive post-timing
+results require all six applicable records. No mutable mapping or free-form
+allowance field survives construction.
+
+The prerequisite also closes one post-`d0a53b1` restoration seam. A decisive
+anchor miss remains the exact early `FAIL` only when all process-global state
+that was changed has been restored. If the anchor was evaluated but thread or
+GC restoration later fails, `H4GateResult` permits exactly one alternative:
+`INCONCLUSIVE`, the same five unavailable primary measurements, an applicable
+numerical anchor allowance, later allowances using
+`not_evaluated_after_inconclusive_eligibility`, and the exact obligation
+`restore H4 process-global state before closing anchor result`. This branch
+cannot become `PASS` and does not erase the recorded anchor miss. It is the
+only exception to the current "anchor miss implies early FAIL" validator and
+is required by the rule that no conclusive result is finalized before
+successful restoration.
+
+Task 1 also exposes exactly one classifier and one decision record:
+
+
+
+The only inequalities are in this public function:
+
+```text
+if lower == upper == 0.80: boundary / INCONCLUSIVE
+elif upper <= 0.80:        support / PASS
+elif lower >= 0.80:        no_support / FAIL
+else:                      crossing / INCONCLUSIVE
+```
+
+The decision freezes the exact invariant value/limit/detail already required
+by `H4GateResult`; crossing and boundary name the precision obligation and the
+other two use `obligation=None`. `H4GateResult.__post_init__` calls this public
+function. The former private classifier is removed. Task 3's convenience
+`decide_h4_interval(interval)` must only delegate to
+`classify_h4_interval(interval.lower, interval.upper)`.
+
+Finally, Task 1 exports one authoritative `H4_PRIMARY_TIMED_BALANCE` tuple,
+copied exactly from the preregistration, together with totals `110/110`. Config,
+statistics, and the gate import it; none owns another hand-written classifier
+or primary-balance universe.
 
 `H4NeutralProblem.factor_schedule` is the authoritative ordered generic normalized-factor schedule. Any initial, transition, or observation partition is a validated derived view over that one tuple and is never an independent canonical source of coefficients, offsets, covariances, IDs, or order. Availability in this ordered schedule, rather than numeric index order or a factor ID/name, determines the schedule validation.
 
@@ -760,7 +1059,58 @@ The unified runner accepts the explicit H1–H5 result union. H4 and H5 retain s
 
   Resolve H4 status in this fixed precedence: protocol/environment/thread/fixture/condition/table-completeness/nonfinite ambiguity is `INCONCLUSIVE`; otherwise a finite decisive H3-anchor or terminal-law miss is `FAIL`; otherwise apply the primary interval rule (`PASS` only when upper bound `<=0.80`, `FAIL` only when lower bound `>=0.80`, and `[0.80,0.80]` or a crossing interval `INCONCLUSIVE`). Operation and memory diagnostics are secondary and never rescue or overturn that status.
 
+#### Prerequisite C: exact bootstrap preregistration bytes
+
+Before any H4 measurement exists, amend the H4 preregistration to freeze:
+
+```python
+rng = np.random.Generator(np.random.PCG64(20260721))
+indices = rng.integers(
+    0,
+    20,
+    size=(100000,20),
+    endpoint=False,
+    dtype=np.int64,
+)
+seed_log_ratios = np.asarray(tuple(math.log(r) for r in seed_ratios),
+                             dtype=np.float64)
+replicate_mean_log_ratios = np.mean(
+    seed_log_ratios[indices],
+    axis=1,
+    dtype=np.float64,
+)
+log_lower, log_upper = np.percentile(
+    replicate_mean_log_ratios,
+    (2.5,97.5),
+    method="linear",
+)
+lower, upper = math.exp(float(log_lower)), math.exp(float(log_upper))
+```
+
+The exact compact sorted-key UTF-8 digest header is:
+
+```json
+{"dtype":"<i8","endpoint":false,"high":20,"low":0,"seed":20260721,"shape":[100000,20]}
+```
+
+The exact digest is:
+
+```text
+SHA256(
+  b"vfe4.h4.bootstrap-indices.v1\x00"
+  + header
+  + b"\x00"
+  + ascontiguousarray(indices,dtype="<i8").tobytes(order="C")
+)
+= a254e18bccc519a719e9f4b409f45cc9ae4a2a321903531cd8fd73433687cd14
+```
+
+Percentiles are never computed in ratio space and the 220 repetition times
+are never bootstrap units.
+
 - [ ] **Step 2: Write strict type/generator tests.** Assert exact ordered fields and validations for every defined H4 record, including explicit `source_kind` rather than ID inference; scaled positive PCG64 seeds and H3-anchor `seed=0` exactly in IDs/core/digests; `H4RawDraw` global zero-based indices, row-major values, shape product, finite values, factor-local ordering/names, and H3 empty raw draws; the factor residual/no-normalizer, exact `A:d x D`, `b:d`, SPD `R:d x d`, metadata order/disjointness/support/identity-column contracts; immutable tuple/mapping ownership; schedule availability rather than ID/numeric-role inference; and `factor_schedule` as the sole canonical source. Assert exact scaled coordinate strings, factor IDs, causal metadata tuple orders, and `D` table `(64,128,256)`, H3's unchanged coordinate spelling/IDs, fixed no-RNG initial `N(0,I_8)`, the exact PCG64 names/indices/draw order/distributions, separate `A_m` and joint `[A_z B]` spectral-clip envelopes, exact `H`, and scaled observation `b=observed_target-offset` with raw provenance retained. Require that only scaled matched controls have exactly the listed exceptions and that every designated transition-parent column is zeroed; do not apply this invariant to H3 anchors. Require deterministic core digest and published envelope bytes, exact hash domain/schema literal before digest verification, parser recomputation rather than self-reference/full-envelope hash, and distinct hashes across kind/seed/size. Require exact `J`, `h`, and `c` factor assembly including derived normalizers. Require exact `H4_INVARIANT_NAMES`, `H4_MEASUREMENT_NAMES`, `H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL`, and `H4_ALLOWANCE_INVARIANT_NAMES` ordering; test the sole pre-timing decisive H3-anchor failure with its five-and-only-five unavailable measurements, finite threshold/residual/allowance fraction, exact unevaluated-invariant records, and applicable/inapplicable allowance shapes; reject fabricated values, wrong phase/obligation evidence, malformed sentinels, or numeric inapplicable records. Require closed result aliases, finite conclusive measurements, `INCONCLUSIVE` `None` values only with phase obligations, and recursive owned immutable finite allowance records. Require each `H4TimingRecord` to carry independent `problem_index`, `horizon_index`, `seed_index`, `kind_index`, timed `repetition_index`, absolute `pair_index`, exact order label, and both positive native-arm durations; reject an order inconsistent with the independent-index parity formula. Require the exact immutable selected-moment labels `("initial","terminal","observation[1]",...,"observation[T]")`, with immutable mean/covariance rows; reject reordered, duplicate, missing, mapping, mutable, or aliased values. Adapt both raw H3 fixtures through the explicit structural-group adapter; require the coupled canonical `(J,h,c,logZ)` to agree with H3/reference allowances and the zero anchor to compare independently derived adapter/oracle `c/logZ` only, without asserting a nonexistent frozen reference.
+
+  For the Prerequisite A records, assert exact frozen/slotted field order, deep immutable ownership, the six literal allowance counts and their recomputed total of 79,832,024, source/arm/repetition legality, nonempty unique row-major paths, element-local scales, exact operation-count arithmetic, finite positive final allowances, strict decisiveness, residual pass logic, bounded 4,096-lane accumulation, digest and witness consistency, exact inapplicable sentinels, and the restoration-failure anchor branch. Exercise `classify_h4_interval` at support, no-support, crossing, and exact-boundary cases; require `decide_h4_interval` to delegate without owning threshold inequalities; reject the removed flat allowance schema and every free-form allowance mapping.
 
 - [ ] **Step 3: Run the Task 1 test for RED.**
 
@@ -771,6 +1121,8 @@ The unified runner accepts the explicit H1–H5 result union. H4 and H5 retain s
   Expected: collection fails because `vfe4.types.h4` and `vfe4.generative.reference_h4` do not exist.
 
 - [ ] **Step 4: Implement the immutable records and deterministic generator.** Validate all constructor invariants before hashing. Canonical JSON uses UTF-8, sorted keys, compact separators, finite JSON numbers, row-major arrays, and exact seed/kind/shape fields. The H3 adapter reads only public H3 normalized factors, neither changes H3 bytes nor imports an H3 oracle, and never assigns a factor a role by name.
+
+  Implement the Prerequisite A typed allowance constructors, streaming accumulator construction boundary, public interval classifier, delegating interval helper, exact primary balance exports, and restoration-failure anchor semantics in the same Task 1 files; constructors recompute every derived arithmetic field and accept no free-form replacement schema.
 
 - [ ] **Step 5: Run the Task 1 test for GREEN.**
 
@@ -1090,51 +1442,1107 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 
 ### Task 3: Add the Independent H4 Oracle, Operand-Shaped Equivalence Budgets, and Paired Statistics
 
-**Files:**
+##### Task 3 prerequisite and numerical authority
 
+- Modify: `docs/preregistrations/2026-07-21-h4-information-cost.md`
+- Modify: `vfe4/types/h4.py`
+- Modify: `vfe4/types/__init__.py`
+- Modify: `vfe4/config/schema.py`
+- Modify: `vfe4/config/resolve.py`
+- Modify: `vfe4/config/__init__.py`
+- Modify: `tests/unit/test_h4_problem.py`
+- Modify: `tests/unit/test_config.py`
+- Create: `verification/h4_records.py`
 - Create: `verification/numpy_oracles/h4_gaussian.py`
 - Modify: `verification/numpy_oracles/__init__.py`
 - Create: `verification/h4_budget.py`
 - Create: `verification/h4_statistics.py`
+- Create: `tests/unit/test_h4_records.py`
 - Create: `tests/oracle/test_h4_numpy_oracle.py`
+- Create: `tests/unit/test_h4_budget.py`
 - Create: `tests/unit/test_h4_statistics.py`
 
-**Interfaces:**
+#### Prerequisite B: freeze and resolve the H4 section before Task 4
 
-- Produce `H4OracleEvaluation` and `evaluate_h4_oracle(problem_payload: bytes) -> H4OracleEvaluation` from canonical neutral-problem bytes.
-- Produce `scalar_allowance`, `vector_allowance`, `matrix_allowance`, `selected_moment_allowance`, `objective_allowance`, `pair_allowance`, `condition_envelope_eligible`, and `allowance_is_decisive`; each record retains dimensions, operands, absolute summands, condition numbers, operation counts, solver contribution, invariant scale, final allowance, and allowance/scale ratio.
-- Produce `H4TimingSummary`, `H4PrimaryTimedOrderBalance`, `H4BootstrapInterval`, `H4IntervalDecision`, `summarize_seed_ratios`, `summarize_primary_timed_order`, `paired_log_bootstrap_interval`, and `decide_h4_interval`.
+Add these frozen, slotted records in `vfe4/config/schema.py` and re-export them
+from `vfe4/config/__init__.py`:
 
-- [ ] **Step 1: Write oracle, budget, and statistics tests.** Require the NumPy module to import neither `torch` nor `vfe4`; parse only canonical problem bytes; independently assemble the exact posterior; and match the H3 anchor/frozen references. Reject noncanonical schemas, wrong hashes, noncausal factors, non-SPD noise, and nonfinite values. Exercise every scaled conditioning-envelope boundary exactly: equality at each inclusive lower/upper limit is eligible, one representable float outside is ineligible, and any single ineligible problem/oracle/arm produces an H4 `INCONCLUSIVE` obligation rather than repair.
+```python
+@dataclass(frozen=True, slots=True)
+class H4TraversalConfig:
+    horizons: tuple[int, int, int]
+    seeds: tuple[int, ...]
+    kinds: tuple[H4ProblemKind, H4ProblemKind]
+    d_z: Literal[4]
+    d_m: Literal[4]
+    dimensions: tuple[int, int, int]
+    primary_horizon: Literal[31]
+    primary_kind: Literal["coupled"]
+    primary_dimension: Literal[256]
 
-  Use hand-authored timing tables to prove: traversal is exactly horizon/seed/kind with independent zero-based indices; each problem has three warmup pairs followed by 11 timed pairs; AB occurs exactly when `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`; warmups are excluded from timed/inferential balance; no conversion/diagnostic event occurs inside the timed-batch event span; each seed/arm timing group has exactly 11 positive raw nanosecond values; and `summarize_primary_timed_order` reports the primary `D=256` coupled table equal to `H4_PRIMARY_TIMED_BALANCE` row-for-row, with ten `6 AB/5 BA` seeds, ten `5 AB/6 BA` seeds, and totals `AB=110`, `BA=110`. Reject a swapped seed row, a per-seed `7/4` distribution even if aggregate totals remain `110/110`, an aggregate `111/109` distribution, or any attempt to use warmups to repair timed imbalance. Prove per-seed medians are used, the aggregate is the geometric mean, resampling is over exactly 20 seed ratios, fixed seed/replicate count is byte-deterministic, and a table with 220 repetitions treated as independent is rejected. Cover interval entirely below, entirely above, crossing, touching from each side, and degenerate at `0.80`. Test `allowance/invariant_scale` immediately below `1e-4`, exactly `1e-4`, and immediately above; only the first is decisive. Test the solver contribution as exactly `1e-9*scale` once per solver operand and reject duplicate, omitted, oracle-side, or pooled solver contributions.
+@dataclass(frozen=True, slots=True)
+class H4TimingConfig:
+    parity_expression: Literal[
+        "(horizon_index + seed_index + kind_index + pair_index) % 2 == 0"
+    ]
+    warmup_pair_indices: tuple[int, int, int]
+    timed_pair_indices: tuple[int, ...]
+    timed_repetitions_per_problem: Literal[11]
+    warmups_count_toward_balance: Literal[False]
+    primary_timed_balance: tuple[tuple[int, int, int], ...]
+    primary_5_ab_6_ba_rows: Literal[10]
+    primary_6_ab_5_ba_rows: Literal[10]
+    primary_timed_ab_total: Literal[110]
+    primary_timed_ba_total: Literal[110]
+    clock: Literal["time.perf_counter_ns"]
+    timer_boundary: Literal["fresh_native_solver_call_v1"]
+    between_repetitions: Literal["timer_reads_and_preallocated_assignments_only"]
 
-- [ ] **Step 2: Run the Task 3 tests for RED.**
+@dataclass(frozen=True, slots=True)
+class H4BootstrapConfig:
+    seed: Literal[20260721]
+    replicates: Literal[100000]
+    inferential_units: Literal[20]
+    index_low: Literal[0]
+    index_high: Literal[20]
+    endpoint: Literal[False]
+    index_dtype: Literal["<i8"]
+    index_shape: tuple[Literal[100000], Literal[20]]
+    statistic: Literal["mean_log_seed_ratio"]
+    percentiles: tuple[float, float]
+    percentile_method: Literal["linear"]
+    percentile_space: Literal["log_then_exp"]
+    digest_domain: Literal["vfe4.h4.bootstrap-indices.v1"]
+    expected_index_sha256: Literal[
+        "a254e18bccc519a719e9f4b409f45cc9ae4a2a321903531cd8fd73433687cd14"
+    ]
+
+@dataclass(frozen=True, slots=True)
+class H4ConditionEnvelopeConfig:
+    posterior_minimum_eigenvalue: float
+    posterior_maximum_eigenvalue: float
+    posterior_maximum_condition_number: float
+    posterior_minimum_cholesky_pivot: float
+    posterior_maximum_mean_infinity_norm: float
+    innovation_minimum_eigenvalue: float
+    innovation_maximum_eigenvalue: float
+    innovation_maximum_condition_number: float
+    inclusive: Literal[True]
+
+@dataclass(frozen=True, slots=True)
+class H4AllowanceConfig:
+    float64_epsilon: float
+    rounding_constant: Literal[4096]
+    solver_relative_budget: float
+    maximum_allowance_scale_fraction: float
+    decisiveness_comparison: Literal["strict_less_than"]
+    element_stream_domain: Literal["vfe4.h4.allowance-element-stream.v1"]
+    maximum_chunk_rows: Literal[4096]
+
+@dataclass(frozen=True, slots=True)
+class H4EnvironmentConfig:
+    device: Literal["cpu"]
+    dtype: Literal["float64"]
+    intra_op_threads: Literal[1]
+    alter_inter_op_threads: Literal[False]
+    cuda_expected: Literal[False]
+    gc_policy: Literal["restore_exact_prior_enabled_state"]
+    power_policy_field_order: tuple[
+        Literal["active_power_scheme"],
+        Literal["cpu_frequency_governor"],
+        Literal["energy_performance_preference"],
+        Literal["low_power_mode"],
+    ]
+    power_policy_capture: Literal["typed_best_effort_outside_timing"]
+
+@dataclass(frozen=True, slots=True)
+class H4ValidationConfig:
+    schema_version: Literal["h4-validation-config-v1"]
+    solve_protocol: H4SolveProtocol
+    traversal: H4TraversalConfig
+    timing: H4TimingConfig
+    bootstrap: H4BootstrapConfig
+    condition_envelope: H4ConditionEnvelopeConfig
+    allowance: H4AllowanceConfig
+    environment: H4EnvironmentConfig
+    primary_effect_threshold: float
+    maximum_validation_payload_bytes: Literal[67108864]
+    canonical_json: str
+    config_sha256: str
+```
+
+`vfe4/config/schema.py` imports the dependency-light public
+`H4SolveProtocol` from `vfe4.types.h4`. Canonical H4 JSON expands all six
+protocol fields in the dataclass order shown below; it never serializes only
+`protocol_id` and never accepts a mapping in the resolved field.
+
+Exact resolved values are:
+
+```text
+horizons = (7,15,31)
+seeds = H4_PROBLEM_SEEDS
+kinds = ("coupled","zero_control")
+dimensions = (64,128,256)
+warmup_pair_indices = (0,1,2)
+timed_pair_indices = (3,4,5,6,7,8,9,10,11,12,13)
+percentiles = (2.5,97.5)
+posterior limits = (lambda_min >= 1e-6, lambda_max <= 1e6,
+                    kappa_2 <= 1e8, pivot >= 1e-3,
+                    ||mu||_inf <= 16)
+innovation limits = (lambda_min >= 1e-6, lambda_max <= 1e6,
+                     kappa_2 <= 1e8)
+float64_epsilon = 2.220446049250313e-16
+solver_relative_budget = 1e-9
+maximum_allowance_scale_fraction = 1e-4
+allowance stream domain = "vfe4.h4.allowance-element-stream.v1"
+maximum allowance chunk rows = 4096
+power policy field order = ("active_power_scheme",
+                            "cpu_frequency_governor",
+                            "energy_performance_preference",
+                            "low_power_mode")
+maximum_validation_payload_bytes = 67108864 (64 MiB)
+primary_effect_threshold = 0.80
+```
+
+The complete nested solve protocol is exactly:
+
+```text
+solve_protocol.protocol_id = "h4-single-pass-v1"
+solve_protocol.dtype = "float64"
+solve_protocol.device = "cpu"
+solve_protocol.factor_passes = 1
+solve_protocol.solver_relative_budget = 1e-9
+solve_protocol.stopping_rule = "complete_schedule_finite_spd"
+```
+
+`H4ValidationConfig.__post_init__` requires
+`type(solve_protocol) is H4SolveProtocol` and reconstructs
+`H4SolveProtocol(**asdict(solve_protocol))` to exercise its own frozen
+validator. It then proves these cross-field identities rather than merely
+checking each field separately:
+
+```text
+solve_protocol.dtype == environment.dtype == "float64"
+solve_protocol.device == environment.device == "cpu"
+solve_protocol.solver_relative_budget == allowance.solver_relative_budget
+solve_protocol.factor_passes == 1
+len(timing.timed_pair_indices) == timing.timed_repetitions_per_problem == 11
+timing.warmup_pair_indices == (0,1,2)
+timing.timed_pair_indices == tuple(range(3,14))
+bootstrap.inferential_units == bootstrap.index_high == len(traversal.seeds) == 20
+traversal.dimensions
+  == tuple((T+1)*(traversal.d_z+traversal.d_m) for T in traversal.horizons)
+traversal.primary_dimension
+  == (traversal.primary_horizon+1)*(traversal.d_z+traversal.d_m)
+maximum_validation_payload_bytes == 67108864
+```
+
+Task 3 adds
+`resolve_h4_validation_config(raw_h4: Mapping[str, object]) ->
+H4ValidationConfig`. This is a standalone exact H4-section resolver; it does
+not add an accepted runner prefix, alter the root `CONFIG`, or add `h4` to
+`ResolvedConfig`. The accepted runner prefixes remain exactly `("H1",)`,
+`("H1","H2")`, and `("H1","H2","H3")` until Task 9 atomically adds the
+existing coupled `("H1","H2","H3","H4","H5")` milestone. There is never
+an H4-only runner prefix.
+
+The standalone resolver rejects unknown/missing keys, mutable aliases, wrong types,
+reordered or duplicate values, any changed seed/horizon/kind order, flattened
+`problem_index` parity, any changed pair index, a true warmup-balance flag,
+any primary row/pattern/total disagreement, a noninclusive envelope, a changed
+formula tag, digest, threshold, budget, cap, allowance-stream domain/chunk
+bound, ordered power-policy category, payload-size ceiling, an incomplete or
+subclassed solve protocol, and any failed cross-field identity above.
+
+The resolver independently recomputes all 120 problem indices, every warmup
+and timed order from the four independent indices, the exact primary 20-row
+table, ten rows of each pattern, and totals `110/110`. It canonicalizes the H4
+raw section as compact sorted-key finite JSON, computes the section SHA-256,
+stores both in `H4ValidationConfig`, and also includes the same section in the
+future full `ResolvedConfig.canonical_json/config_sha256` when Task 9 invokes
+the same resolver for the coupled milestone. The caller cannot supply either
+derived H4 hash.
+
+Task 4 accepts only:
+
+```python
+def evaluate_h4(
+    config: H4ValidationConfig,
+    *,
+    h3_coupled_bytes: bytes,
+    h3_zero_bytes: bytes,
+) -> H4GateEvaluation: ...
+```
+
+It raises before any H4 work unless `type(config) is H4ValidationConfig`, its
+canonical JSON and SHA-256 revalidate, and both H3 byte objects parse to the
+two frozen anchor identities and full raw hashes. Every Task 2 entry point
+that accepts a protocol argument receives the same `config.solve_protocol`
+object by identity, including materialization and every timed, replay,
+counting, and memory solver call. Converter/diagnostic entry points that do not
+accept a protocol remain bound by the materialized/result protocol ID and are
+checked against all six complete configured fields before and after the call.
+No gate or runner reconstructs `H4SolveProtocol()` or passes a protocol ID in
+place of the complete config object.
+
+---
+
+#### Shared Task 3 verification records
+
+Create `verification/h4_records.py` with stdlib-only frozen, slotted records.
+It must not import `torch`, `vfe4.inference`, or a production solver.
+
+##### Condition and coverage records
+
+```python
+@dataclass(frozen=True, slots=True)
+class H4PosteriorConditionRecord:
+    problem_id: str
+    problem_sha256: str
+    source: Literal["numpy_oracle", "information", "moment"]
+    repetition_index: int | None
+    dimension: int
+    minimum_eigenvalue: float
+    maximum_eigenvalue: float
+    condition_number: float
+    minimum_cholesky_pivot: float
+    mean_infinity_norm: float
+    finite: Literal[True]
+    spd: Literal[True]
+    eligible: bool
+
+@dataclass(frozen=True, slots=True)
+class H4InnovationConditionRecord:
+    problem_id: str
+    problem_sha256: str
+    source: Literal["numpy_oracle", "moment"]
+    repetition_index: int | None
+    factor_id: str
+    time_index: int
+    parent_coordinate_indices: tuple[int, ...]
+    innovation_dimension: int
+    minimum_eigenvalue: float
+    maximum_eigenvalue: float
+    condition_number: float
+    finite: Literal[True]
+    spd: Literal[True]
+    eligible: bool
+
+@dataclass(frozen=True, slots=True)
+class H4ConditionWitness:
+    metric: Literal[
+        "minimum_eigenvalue",
+        "maximum_eigenvalue",
+        "maximum_condition_number",
+        "minimum_cholesky_pivot",
+        "maximum_mean_infinity_norm",
+        "first_ineligible",
+    ]
+    stream_index: int
+    record: H4PosteriorConditionRecord | H4InnovationConditionRecord
+
+@dataclass(frozen=True, slots=True)
+class H4ConditionStreamSummary:
+    name: Literal[
+        "oracle_posterior",
+        "terminal_posterior",
+        "oracle_innovation",
+        "moment_innovation",
+    ]
+    stream_domain: Literal["vfe4.h4.condition-record-stream.v1"]
+    expected_record_count: int
+    observed_record_count: int
+    record_stream_sha256: str
+    eligible_record_count: int
+    ineligible_record_count: int
+    witnesses: tuple[H4ConditionWitness, ...]
+    all_eligible: bool
+
+@dataclass(frozen=True, slots=True)
+class H4CoverageRecord:
+    name: Literal[
+        "oracle_posterior",
+        "terminal_posterior",
+        "oracle_innovation",
+        "moment_innovation",
+        "native_replay",
+        "operation_pass",
+        "memory_pass",
+        "execution_trace",
+        "postflight_schedule",
+    ]
+    key_stream_domain: Literal["vfe4.h4.coverage-key-stream.v1"]
+    expected_key_count: int
+    observed_key_count: int
+    expected_key_stream_sha256: str
+    observed_key_stream_sha256: str
+    missing_key_count: int
+    extra_key_count: int
+    duplicate_key_count: int
+    first_missing_key: str | None
+    first_extra_key: str | None
+    first_duplicate_key: str | None
+    complete: bool
+```
+
+Posterior eligibility applies all five posterior limits. Innovation
+eligibility applies only its declared eigenvalue and condition limits. The
+Task 2 innovation pivot remains in `H4NativeDiagnostics` as positivity/SPD
+evidence but is not silently subjected to the posterior `1e-3` pivot limit;
+innovations have no mean limit.
+
+For the 120 scaled problems, complete coverage is exact:
+
+```text
+oracle posterior records = 120
+retained terminal posterior records = 120*11*2 = 2640
+oracle innovation records = 40*(7+15+31) = 2120
+moment replay innovation records = 11*2120 = 23320
+native replay wrappers = 120*11*2 = 2640
+operation passes = 120*2 = 240
+memory passes = 120*2 = 240
+execution traces = 120
+postflight event keys = 40*(636+1076+1956) = 146720
+```
+
+Canonical coverage keys are generated in traversal order, then repetition
+`0..10`, then arm `("information","moment")`, then factor-schedule order.
+Every retained terminal is checked; there is no cross-repetition shortcut.
+The `postflight_schedule` coverage record instead consumes every
+`H4PostflightEventKey` in the exact per-problem order frozen below and therefore
+has expected key count 146,720; this global record is additional to the 120
+per-problem schedule summaries.
+Expected and observed keys are consumed as streams, never retained as tuples.
+Both SHA-256 values start from
+`b"vfe4.h4.coverage-key-stream.v1\x00" + name.encode("ascii") + b"\x00"`
+and append each UTF-8 key as an unsigned eight-byte big-endian length followed
+by its bytes. For `postflight_schedule`, that UTF-8 key is the compact
+sorted-key JSON mapping of every `H4PostflightEventKey` field, with JSON `null`
+for inapplicable optionals and no timing value. `complete` is true exactly when counts and digests agree and all
+three discrepancy counts are zero. First discrepancy witnesses use canonical
+lowest expected/observed position.
+
+Condition records are likewise consumed once in canonical key order. Their
+stream digest begins with
+`b"vfe4.h4.condition-record-stream.v1\x00" + name.encode("ascii") + b"\x00"`
+and appends length-prefixed compact sorted-key JSON with every float encoded as
+`float.hex()`. Posterior summaries have the exact ordered metric witnesses
+minimum eigenvalue, maximum eigenvalue, maximum condition number, minimum
+Cholesky pivot, maximum mean infinity norm, then optional first ineligible.
+Innovation summaries omit the inapplicable pivot and mean metrics. Extremum
+ties select the lowest stream index. `all_eligible` is equivalent to
+`ineligible_record_count == 0`, never to a sampled witness.
+
+##### Execution and restoration records
+
+```python
+@dataclass(frozen=True, slots=True)
+class H4ArmCallSpan:
+    problem_id: str
+    phase: Literal["warmup", "timed"]
+    pair_index: int
+    repetition_index: int | None
+    order: Literal["information_then_moment", "moment_then_information"]
+    order_position: Literal[0, 1]
+    arm: Literal["information", "moment"]
+    start_nanoseconds: int
+    end_nanoseconds: int
+    duration_nanoseconds: int
+
+@dataclass(frozen=True, slots=True)
+class H4PostflightEventKey:
+    problem_id: str
+    problem_sha256: str
+    event_index: int
+    phase: Literal[
+        "materialized_integrity",
+        "terminal_conversion",
+        "native_diagnostic_replay",
+        "terminal_posterior_condition",
+        "moment_innovation_condition",
+        "oracle_rehydration",
+        "oracle_route_agreement",
+        "equivalence_group",
+        "operation_pass",
+        "memory_pass",
+        "stream_compaction",
+    ]
+    repetition_index: int | None
+    arm: Literal["information", "moment"] | None
+    factor_id: str | None
+    selected_moment_name: str | None
+    equivalence_component: Literal[
+        "kl_to_zero",
+        "h",
+        "J",
+        "selected_mean",
+        "selected_covariance",
+        "objective",
+    ] | None
+    integrity_phase: Literal["after_timed_batch", "after_postflight"] | None
+
+@dataclass(frozen=True, slots=True)
+class H4PostflightTimingWitness:
+    event: H4PostflightEventKey
+    timed_batch_end_nanoseconds: int
+    start_nanoseconds: int
+    end_nanoseconds: int
+
+@dataclass(frozen=True, slots=True)
+class H4PostflightScheduleSummary:
+    stream_domain: Literal["vfe4.h4.postflight-event-key-stream.v1"]
+    expected_event_count: int
+    observed_event_count: int
+    expected_key_stream_sha256: str
+    observed_key_stream_sha256: str
+    first_mismatch_index: int | None
+    first_expected_key: H4PostflightEventKey | None
+    first_observed_key: H4PostflightEventKey | None
+    timing_violation_count: int
+    first_timing_violation: H4PostflightTimingWitness | None
+    complete: bool
+
+@dataclass(frozen=True, slots=True)
+class H4GarbageCollectorRecord:
+    problem_id: str
+    capture_attempted: Literal[True]
+    capture_error: str | None
+    prior_enabled: bool | None
+    disable_required: bool | None
+    disable_attempted: bool
+    disable_error: str | None
+    effective_state_capture_error: str | None
+    disabled_during_batch: bool | None
+    restore_attempted: bool
+    restored_enabled: bool | None
+    restoration_error: str | None
+    restored_exact_prior_state: bool
+
+@dataclass(frozen=True, slots=True)
+class H4ExecutionTrace:
+    problem_id: str
+    problem_index: int
+    horizon_index: int
+    seed_index: int
+    kind_index: int
+    warmup_spans: tuple[H4ArmCallSpan, ...]
+    timed_batch_start_nanoseconds: int
+    timed_spans: tuple[H4ArmCallSpan, ...]
+    timed_batch_end_nanoseconds: int
+    postflight_schedule: H4PostflightScheduleSummary
+    garbage_collector: H4GarbageCollectorRecord
+    warmups_count_toward_balance: Literal[False]
+    timed_guard_violations: tuple[str, ...]
+
+@dataclass(frozen=True, slots=True)
+class H4ThreadStateRecord:
+    capture_error: str | None
+    prior_intra_op_threads: int | None
+    set_attempted: bool
+    set_error: str | None
+    effective_intra_op_threads: int | None
+    verified_one: bool
+    prior_inter_op_threads: int | None
+    final_inter_op_threads: int | None
+    inter_op_unchanged: bool
+    restore_attempted: bool
+    restored_intra_op_threads: int | None
+    restoration_error: str | None
+    restored_exact_prior_state: bool
+```
+
+A completed trace has exactly six warmup spans and 22 timed spans, with exact
+pair/order identities. Each `H4TimingRecord.information_nanoseconds` and
+`moment_nanoseconds` value equals its matching arm span's
+`duration_nanoseconds`. The postflight schedule must be complete and every
+postflight timing witness starts at or after the timed-batch end.
+Trace objects are synthesized only after the batch from preallocated scalar
+slots; constructing a dataclass inside the timer is forbidden.
+
+Every postflight key repeats the enclosing problem ID/full SHA-256 and uses its
+zero-based canonical `event_index`. Integrity keys require only their matching
+`integrity_phase`. Conversion, replay, and terminal-posterior keys require
+repetition `0..10` and a real arm. Moment-innovation keys require repetition,
+`arm="moment"`, and the exact observation factor ID. Oracle-rehydration and
+route-agreement keys have no optional discriminator. Equivalence keys require
+repetition, arm, and component; `selected_moment_name` is present exactly for
+the two selected components. Operation and memory keys require only an arm.
+Compaction has no optional discriminator. Every unmentioned optional is
+`None`; a fake arm, repetition, factor, selected label, or integrity phase is
+rejected.
+
+The gate owns a module-private timed-batch guard. Gate-level materialization,
+terminal conversion, diagnostic replay, hashing, postflight shape/result
+validation, serialization, operation counting, memory measurement, logging,
+and printing all reject entry while the guard is active. Task 2's structural
+protocol/factor-schedule checks and its algorithmically required,
+facade-visible native factorizations remain inside the native timed call;
+materialized-byte hashing and record-constructor `_spd` do not. Focused tests
+patch every excluded gate callable and
+prove the guard, rather than inferring exclusion from the absence of a trace
+event.
+
+Thread restoration is an outer `try/finally` around all post-set H4 work. Each
+timed batch has an inner `try/finally` that restores cyclic GC to the exact
+prior enabled state, including the case where GC was already disabled. GC
+capture is always attempted exactly once. A capture exception gives
+`prior_enabled=None`, suppresses disable and timing, and records the stable
+error. With a captured `True`, disable is required and attempted exactly once;
+with captured `False`, disable is not required and is not called. A disable
+exception or an exception while checking the effective state suppresses
+timing, but restoration is still attempted because the prior state is known.
+All capture/disable/effective-state/restore errors are capped at 512 Unicode
+code points and retained. A solver or GC exception may yield the typed scaled
+incomplete-phase record defined below only after both restoration attempts
+finish; it may not leak process-global state or fabricate timing rows. Thread
+set/verify or restore failure and GC restore failure preclude a conclusive
+result, including the narrowly typed anchor-miss/restoration branch above.
+Inter-op thread count is never changed.
+
+---
+
+#### Corrected Task 3: independent oracle, element-local budgets, traces, and paired statistics
+
+##### Public interfaces
+
+The independent module imports neither `torch` nor `vfe4` and consumes only
+canonical neutral-problem bytes:
+
+```python
+@dataclass(frozen=True, slots=True)
+class H4OracleSelectedMoment:
+    name: str
+    coordinate_indices: tuple[int, ...]
+    mean: tuple[float, ...]
+    covariance: tuple[tuple[float, ...], ...]
+
+H4OracleRouteOperationLabel = Literal[
+    "factor_covariance_cholesky",
+    "factor_triangular_solves",
+    "factor_assembly_matmuls",
+    "factor_quadratics",
+    "factor_logdet_reductions",
+    "posterior_precision_cholesky",
+    "posterior_natural_solve",
+    "posterior_quadratic",
+    "posterior_logdet_reduction",
+    "affine_propagation_matmuls",
+    "innovation_assembly",
+    "innovation_cholesky",
+    "innovation_triangular_solves",
+    "innovation_quadratics",
+    "innovation_logdet_reductions",
+    "kalman_gain_solves",
+    "mean_updates",
+    "covariance_updates",
+    "route_sum_reduction",
+]
+
+@dataclass(frozen=True, slots=True)
+class H4OracleOperandEvidence:
+    path: str
+    value: float
+    value_norm: float
+    absolute_summand_accumulation: float
+    condition_numbers: tuple[float, ...]
+    operation_counts: tuple[tuple[H4OracleRouteOperationLabel, int], ...]
+
+@dataclass(frozen=True, slots=True)
+class H4OraclePosteriorDiagnostic:
+    dimension: int
+    minimum_eigenvalue: float
+    maximum_eigenvalue: float
+    condition_number: float
+    minimum_cholesky_pivot: float
+    mean_infinity_norm: float
+
+@dataclass(frozen=True, slots=True)
+class H4OracleInnovationDiagnostic:
+    factor_id: str
+    time_index: int
+    parent_coordinate_indices: tuple[int, ...]
+    innovation_dimension: int
+    minimum_eigenvalue: float
+    maximum_eigenvalue: float
+    condition_number: float
+
+@dataclass(frozen=True, slots=True)
+class H4OracleRouteAgreement:
+    problem_id: str
+    problem_sha256: str
+    canonical_operand: H4OracleOperandEvidence
+    predictive_operand: H4OracleOperandEvidence
+    float64_epsilon: float
+    rounding_constant: Literal[4096]
+    solver_allowance: Literal[0.0]
+    maximum_allowance_scale_fraction: float
+    invariant_scale: float
+    canonical_rounding_allowance: float
+    predictive_rounding_allowance: float
+    comparison_reduction_allowance: float
+    residual: float
+    normalized_residual: float
+    final_allowance: float
+    allowance_scale_ratio: float
+    decisiveness_rule: Literal["allowance_scale_ratio_strictly_less_than_1e-4"]
+    pass_rule: Literal["residual_less_than_or_equal_to_final_allowance"]
+    decisive: bool
+    passed: bool
+    eligible: bool
+
+@dataclass(frozen=True, slots=True)
+class H4OracleEvaluation:
+    schema_version: Literal["h4-numpy-oracle-v1"]
+    problem_id: str
+    problem_sha256: str
+    source_kind: Literal["scaled_pcg64", "h3_anchor"]
+    seed: int
+    kind: Literal["coupled", "zero_control"]
+    horizon: int
+    d_z: int
+    d_m: int
+    dimension: int
+    coordinate_order: tuple[str, ...]
+    factor_ids: tuple[str, ...]
+    precision: tuple[tuple[float, ...], ...]
+    natural: tuple[float, ...]
+    constant: float
+    mean: tuple[float, ...]
+    covariance: tuple[tuple[float, ...], ...]
+    canonical_log_normalizer: float
+    predictive_log_normalizer: float
+    route_agreement: H4OracleRouteAgreement
+    selected_moments: tuple[H4OracleSelectedMoment, ...]
+    posterior_diagnostic: H4OraclePosteriorDiagnostic
+    innovation_diagnostics: tuple[H4OracleInnovationDiagnostic, ...]
+    operand_evidence: tuple[H4OracleOperandEvidence, ...]
+
+@dataclass(frozen=True, slots=True)
+class H4OracleKLEvaluation:
+    value: float
+    trace_term: float
+    quadratic_mean_term: float
+    minus_dimension_term: float
+    candidate_logdet_precision_term: float
+    minus_oracle_logdet_precision_term: float
+    absolute_summand_accumulation: float
+    candidate_condition_number: float
+    oracle_condition_number: float
+    operation_counts: tuple[tuple[str, int], ...]
+
+def evaluate_h4_oracle(problem_payload: bytes) -> H4OracleEvaluation: ...
+
+def reverse_kl_to_h4_oracle(
+    oracle: H4OracleEvaluation,
+    *,
+    mean: tuple[float, ...],
+    precision: tuple[tuple[float, ...], ...],
+) -> H4OracleKLEvaluation: ...
+```
+
+The parser rejects duplicate/unknown/missing keys, a wrong schema literal,
+wrong core digest, noncausal metadata, unsupported source-specific identity,
+nonfinite values, non-SPD factor covariance, or an invalid schedule. It never
+imports or calls a generator, Task 2 materializer, solver, converter, or
+production factor assembler.
+
+##### Two independent oracle routes
+
+The canonical route assembles directly from normalized factors:
+
+```text
+J = sum(A.T @ solve(R,A))
+h = sum(A.T @ solve(R,b))
+c = -.5*sum(b.T@solve(R,b) + d*log(2*pi) + logdet(R))
+mu_star = solve(J,h)
+Sigma_star = solve(J,I)
+logZ_canonical = c + .5*h.T@mu_star
+                 - sum(log(diag(cholesky(J))))
+                 + D/2*log(2*pi)
+```
+
+The predictive route independently constructs the moment law in declared
+global coordinates, including both H3 initial factors or the scaled joint
+initial factor, scatters every transition into its declared child/parent
+indices, and for each observation before conditioning computes:
+
+```text
+r = b-A_active@mu_active
+C = Sigma_active@A_active.T
+S = R+A_active@C
+L = cholesky(S)
+v = solve(L,r)
+increment = -.5*(sum(v*v)+d*log(2*pi)+2*sum(log(diag(L))))
+K = solve(S,C.T).T
+mu_active = mu_active+K@r
+Sigma_active = symmetrize(Sigma_active-K@S@K.T)
+logZ_predictive += increment
+```
+
+The two scalar routes close through `H4OracleRouteAgreement`; a bare residual
+is not accepted. The canonical operand path is exactly
+`"canonical_log_normalizer"`, the predictive path is exactly
+`"predictive_log_normalizer"`, and their values equal the two enclosing
+log-normalizer fields bit-for-bit. Their ordered operation-count tables and
+condition-number tuples are the actual independently derived route evidence.
+The enclosing `operand_evidence` tuple contains these two route operands
+exactly once in canonical-then-predictive order, and the route agreement must
+reference equal owned records; a duplicate, omitted, reordered, or divergent
+copy is rejected.
+For both scalar operands `value_norm=abs(value)`. Canonical
+`absolute_summand_accumulation` is the sum of the absolute values of `c`,
+`.5*h.T@mu_star`, the negated Cholesky log-diagonal reduction, and
+`D/2*log(2*pi)`; its condition tuple is every factor-covariance condition
+number in schedule order followed by `condition_number(J)`. Predictive
+accumulation is the sum of `abs(increment)` in observation order; its condition
+tuple is every propagated covariance then innovation covariance in the exact
+order used by the route. Neither tuple is pooled with the other route.
+The policy fields must equal the H4 allowance config bit-for-bit:
+`float64_epsilon=2.220446049250313e-16`, `rounding_constant=4096`,
+`solver_allowance=0.0`, and `maximum_allowance_scale_fraction=1e-4`.
+Oracle-to-oracle route comparison never receives a solver term.
+For a scalar route operand `x`, with its own operation count `n_x`, condition
+maximum `kappa_x`, and absolute summand accumulation `a_x`, compute:
+
+```text
+rounding_x = 4096*gamma(n_x)*kappa_x*max(1,abs(x),a_x)
+invariant_scale = max(1,abs(canonical),abs(predictive))
+comparison_reduction_allowance = 4096*gamma(3)
+  * max(1,abs(canonical),abs(predictive),abs(canonical)+abs(predictive))
+residual = abs(canonical-predictive)
+final_allowance = rounding_canonical + rounding_predictive
+                  + comparison_reduction_allowance
+allowance_scale_ratio = final_allowance/invariant_scale
+normalized_residual = residual/final_allowance
+decisive = allowance_scale_ratio < maximum_allowance_scale_fraction
+passed = residual <= final_allowance
+eligible = passed and decisive
+```
+
+The canonical route table is exactly
+`factor_covariance_cholesky`, `factor_triangular_solves`,
+`factor_assembly_matmuls`, `factor_quadratics`,
+`factor_logdet_reductions`, `posterior_precision_cholesky`,
+`posterior_natural_solve`, `posterior_quadratic`,
+`posterior_logdet_reduction`, `route_sum_reduction`. The predictive table is
+exactly `affine_propagation_matmuls`,
+`innovation_assembly`, `innovation_cholesky`,
+`innovation_triangular_solves`, `innovation_quadratics`,
+`innovation_logdet_reductions`, `kalman_gain_solves`, `mean_updates`,
+`covariance_updates`, `route_sum_reduction`; zero counts remain explicit. Each nonnegative count is derived
+from the actual factor dimensions and declared schedule using the closed
+operation formulas below; missing, duplicate, reordered, or extra labels are
+rejected.
+
+All derived fields are recomputed in `__post_init__`. `passed` is only the
+numerical predicate `residual <= final_allowance`; equality at the final
+allowance therefore sets `passed=True` even when the allowance ratio is
+indecisive. Equality at `1e-4` sets `decisive=False`. Overall route
+`eligible` is exactly `passed and decisive`. A record with either predicate
+false is ineligible and makes H4 `INCONCLUSIVE`; neither route is selected
+opportunistically.
+The record is retained once in every compact oracle record and therefore in
+both the gate evaluation and validation artifact.
+
+Selected indices are derived only from factor metadata and exactly match Task
+2: initial normalized-index union, terminal transition-child union at the
+horizon, and each time's observation-parent union, all in global-coordinate
+order. Every block is dimension `d_z+d_m`, labels are exactly
+`("initial","terminal","observation[1]",...,"observation[T]")`, and overlap
+at `T=1` is retained.
+
+For a candidate `q=N(mu_q,J_q^-1)` and oracle posterior
+`p*=N(mu_star,J_star^-1)`, compute without clipping:
+
+```text
+KL(q || p*) = .5*(
+    trace(J_star @ inverse(J_q))
+    + (mu_star-mu_q).T @ J_star @ (mu_star-mu_q)
+    - D
+    + logdet(J_q)
+    - logdet(J_star)
+)
+```
+
+Every retained information and moment result is evaluated independently. The
+candidate covariance and both log determinants are obtained by Cholesky solves
+and diagonal-log reductions; the implementation does not call
+`numpy.linalg.inv`.
+The
+`exact_posterior_gap_equivalence` allowance compares each signed KL result to
+the literal zero operand; a small negative roundoff value is retained, not
+clipped. Arm-to-arm agreement cannot satisfy this invariant.
+
+##### Budget interfaces
+
+```python
+def gamma_n(n: int) -> float: ...
+def dot_operation_count(k: int) -> int: ...
+def matrix_multiply_operation_count(m: int, k: int, n: int) -> int: ...
+def triangular_solve_operation_count(n: int, rhs_columns: int) -> int: ...
+def cholesky_operation_count(n: int) -> int: ...
+def operand_allowance(...) -> H4AllowanceOperand: ...
+def pair_element_allowance(...) -> H4AllowanceElement: ...
+
+@dataclass(frozen=True, slots=True)
+class _H4AllowanceOperandGroup:
+    label: str
+    values: NDArray[np.float64]
+    value_norm: float
+    absolute_summand_accumulations: NDArray[np.float64]
+    condition_numbers: tuple[float, ...]
+    operation_counts: tuple[H4AllowanceOperationCount, ...]
+    solver_produced: bool
+
+@dataclass(frozen=True, slots=True)
+class _H4AllowanceGroupInput:
+    problem_id: str
+    problem_sha256: str
+    comparison_source: Literal[
+        "solver_to_oracle",
+        "adapter_to_h3_reference",
+        "adapter_to_oracle",
+    ]
+    repetition_index: int | None
+    arm: H4SolverArm | None
+    path_prefix: str
+    shape: tuple[int, ...]
+    left: _H4AllowanceOperandGroup
+    right: _H4AllowanceOperandGroup
+
+def aggregate_allowance_groups(
+    invariant: H4AllowanceInvariantName,
+    *,
+    expected_element_count: int,
+    expected_group_headers: Iterable[bytes],
+    groups: Iterable[_H4AllowanceGroupInput],
+) -> H4ApplicableAllowance: ...
+def allowance_is_decisive(record: H4ApplicableAllowance) -> bool: ...
+
+def posterior_condition_record(
+    *,
+    problem_id: str,
+    problem_sha256: str,
+    source: Literal["numpy_oracle", "information", "moment"],
+    repetition_index: int | None,
+    dimension: int,
+    minimum_eigenvalue: float,
+    maximum_eigenvalue: float,
+    condition_number: float,
+    minimum_cholesky_pivot: float,
+    mean_infinity_norm: float,
+    envelope: H4ConditionEnvelopeConfig,
+) -> H4PosteriorConditionRecord: ...
+
+def innovation_condition_record(
+    *,
+    problem_id: str,
+    problem_sha256: str,
+    source: Literal["numpy_oracle", "moment"],
+    repetition_index: int | None,
+    factor_id: str,
+    time_index: int,
+    parent_coordinate_indices: tuple[int, ...],
+    innovation_dimension: int,
+    minimum_eigenvalue: float,
+    maximum_eigenvalue: float,
+    condition_number: float,
+    envelope: H4ConditionEnvelopeConfig,
+) -> H4InnovationConditionRecord: ...
+```
+
+`operand_allowance` and `pair_element_allowance` are scalar reference/witness
+constructors used by focused tests and by final witness materialization. The
+production complete stream uses only `aggregate_allowance_groups`; it may not
+call either function once per scalar.
+
+Provide invariant-specific builders for the six exact allowance keys. They
+stream one scalar lane per canonical path and compare every solver arm to an
+independent oracle/frozen reference. Selected mean and covariance paths include
+the selected label and row/column. Builders operate in chunks of at most 4,096
+row-major scalars and retain only the four possible witness records required by
+`H4ApplicableAllowance`. They reject a missing/duplicate path, shape mismatch,
+global condition maximum, pooled solver flag, count mismatch, or a record whose
+recomputed arithmetic differs by any bit.
+
+Every group array is exact `numpy.float64`, one-dimensional, C-contiguous,
+read-only, finite, and has `prod(shape)` entries; the two value and two
+absolute-summand arrays have identical length. The accumulator compares each
+compact canonical group header to the independently generated expected header,
+then takes read-only slices of at most 4,096 rows. For each slice it applies the
+published arithmetic in the written order using `np.abs`, sequential
+`np.maximum`, `np.multiply`, `np.add`, `np.subtract`, `np.divide`, `np.less`,
+and `np.less_equal`, with no reduction reassociation. `np.argmax` supplies the
+first local maximum and `np.flatnonzero(mask)[0]` the first failure; global
+updates use strict `>` so ties retain the earliest stream index. One packed
+structured scratch array of at most 4,096 rows feeds SHA-256 and is discarded
+before the next slice. Only final witness lanes are converted to Python floats
+and nested records.
+
+Tests patch the `H4AllowanceElement` constructor to count calls and require no
+more than the number of distinct persisted witnesses, feed a synthetic stream
+larger than two chunks, assert every scratch array's `.nbytes` is at most
+`4096 * packed_row_itemsize`, and use `tracemalloc` to prove Python-object
+growth is not linear in total element count. They independently recompute
+group order, all six exact element counts, the canonical digest, maxima, first
+witnesses, pass/decisive conjunctions, and a late final-chunk miss. This is the
+no-per-scalar-object guarantee; instantiating 79,832,024 dataclasses is a test
+failure.
+
+The operand operation tables incorporate the repaired Task 2 return paths,
+not the pre-repair constructor behavior. In information conversion, the
+already-required facade Cholesky of native `J` supplies both the covariance
+solve and the terminal-`J` proof receipt. In moment conversion, the
+already-required facade Cholesky of native covariance supplies the inversion
+path's proof receipt, and the derived terminal precision receives one further
+explicit facade Cholesky. Every selected covariance block receives its own
+explicit untimed facade Cholesky. For `S=T+2` selected blocks, converter
+evidence therefore contains exactly `S+1` Choleskys for information and `S+2`
+for moment. These operations and their scalar counts are included in the
+matching operand rounding tables.
+There is no allowance row for `_spd` or a hidden dataclass-constructor
+factorization; focused tests make `_spd` raise and require the public solver
+and converter paths plus these explicit facade counts to remain valid.
+
+The two condition builders are the only eligibility classifiers. They apply
+the inclusive config comparisons literally, recompute `finite`/`spd`, and
+return immutable records. The oracle emits raw diagnostics and never imports
+configuration or embeds a second copy of the envelope.
+
+##### Statistics interfaces
+
+```python
+@dataclass(frozen=True, slots=True)
+class H4SeedTimingSummary:
+    seed_index: int
+    seed: int
+    information_median_nanoseconds: int
+    moment_median_nanoseconds: int
+    ratio: float
+    log_ratio: float
+
+@dataclass(frozen=True, slots=True)
+class H4TimingSummary:
+    primary_problem_ids: tuple[str, ...]
+    seed_summaries: tuple[H4SeedTimingSummary, ...]
+    geometric_mean_ratio: float
+
+@dataclass(frozen=True, slots=True)
+class H4PrimaryTimedOrderBalance:
+    expected_rows: tuple[tuple[int, int, int], ...]
+    observed_rows: tuple[tuple[int, int, int], ...]
+    expected_pattern_counts: tuple[tuple[int, int, int], ...]
+    observed_pattern_counts: tuple[tuple[int, int, int], ...]
+    expected_ab_total: int
+    expected_ba_total: int
+    observed_ab_total: int
+    observed_ba_total: int
+    warmup_contribution: Literal[0]
+    matches: bool
+
+@dataclass(frozen=True, slots=True)
+class H4BootstrapInterval:
+    bootstrap_seed: int
+    replicate_count: int
+    inferential_seed_indices: tuple[int, ...]
+    resample_index_shape: tuple[int, int]
+    resample_index_dtype: Literal["<i8"]
+    resample_index_sha256: str
+    statistic: Literal["mean_log_seed_ratio"]
+    percentile_method: Literal["linear"]
+    percentile_space: Literal["log_then_exp"]
+    estimate: float
+    lower: float
+    upper: float
+
+def summarize_seed_ratios(records: tuple[H4TimingRecord, ...]) -> H4TimingSummary: ...
+def summarize_primary_timed_order(
+    records: tuple[H4TimingRecord, ...],
+    traces: tuple[H4ExecutionTrace, ...],
+) -> H4PrimaryTimedOrderBalance: ...
+def paired_log_bootstrap_interval(summary: H4TimingSummary) -> H4BootstrapInterval: ...
+def decide_h4_interval(interval: H4BootstrapInterval) -> H4IntervalDecision: ...
+```
+
+The summary requires exactly 11 positive integer times for each of the 20
+primary coupled seeds and rejects any warmup or nonprimary row. Medians use
+`statistics.median` on the exact 11-value integer tuple. The estimate is
+`exp(fsum(log_ratio)/20)`. Bootstrap uses the exact preregistered NumPy route
+and digest above. `decide_h4_interval` contains no inequality.
+
+##### Corrected Task 3 focused steps
+
+- [ ] **Step 1: Amend the preregistration before measurement.** Add the exact
+  bootstrap algorithm/header/digest, element-local allowance aggregation,
+  bounded scalar-stream domains/counts/witnesses, compact payload ceiling,
+  complete solve protocol, typed oracle-route agreement, selected-coordinate
+  retention, typed power-policy category, condition coverage, full-repetition
+  trace rule, exact postflight schedule/count/digest, and exception-safe
+  thread/GC boundaries and incomplete phases above. Do not record an H4
+  result.
+
+- [ ] **Step 2: Write prerequisite type/config/record tests.** Freeze exact
+  dataclass field order, slots/frozen/deep ownership, Task 1 allowance
+  arithmetic, public interval boundary cases, the standalone H4-section
+  resolver and unchanged H1/H2/H3 prefix set, H4 section hashes, the complete
+  nested solve protocol and every cross-field rejection, all config literals
+  including 4,096-row/64 MiB bounds and derived
+  balance, condition limits, compact condition/coverage stream schemas, trace
+  cardinalities, coverage-key order, power-policy order, and restoration
+  records. Reject every old flat/full-element allowance mapping and every
+  duplicate classifier.
+
+- [ ] **Step 3: Run prerequisite tests for RED.**
 
   ```powershell
-  python -m pytest tests/oracle/test_h4_numpy_oracle.py tests/unit/test_h4_statistics.py -q
+  python -m pytest tests/unit/test_h4_problem.py tests/unit/test_config.py tests/unit/test_h4_records.py -q
   ```
 
-  Expected: collection fails because the H4 oracle, budget, and statistics modules do not exist.
+  Expected: failures identify the missing typed allowance/decision records,
+  standalone H4-section resolver, and verification records; no H4 runner
+  prefix is accepted.
 
-- [ ] **Step 3: Implement the independent oracle.** Reconstruct the joint mean/covariance of the generative chain from raw numeric records, condition on observations, then compute exact `J`, `h`, selected moments, normalized objective, eigenvalue/condition diagnostics, and absolute-summand metadata. Do not call either production solver or reuse production factor-assembly helpers.
+- [ ] **Step 4: Implement the prerequisite public types, H4 resolver subset,
+  and shared records.** Preserve all earlier H1-H3 prefixes and Task 2 types.
 
-- [ ] **Step 4: Implement operand-shaped budgets and eligibility literally.** Freeze `eps=np.finfo(np.float64).eps`, `gamma(n)=n*eps/(1-n*eps)`, `C=4096`, `H4_SOLVER_RELATIVE_BUDGET=1e-9`, and `H4_MAXIMUM_ALLOWANCE_SCALE_FRACTION=1e-4`. Every primitive allowance uses only the current operand's `dimension`, actual absolute summands, observed condition numbers, declared operation count, and a one-bit solver-produced flag. A solver-produced operand adds exactly `1e-9*invariant_scale`; an oracle operand adds zero. A pair allowance is exactly the left allowance plus right allowance plus one comparison-reduction term. `allowance_is_decisive` uses strict `<1e-4`; `condition_envelope_eligible` uses the inclusive frozen bounds. Reject empty condition collections, nonfinite/negative inputs, dimension mismatch, duplicate solver contributions, or a request to supply a global maximum condition number.
+- [ ] **Step 5: Run prerequisite tests for GREEN.** Use the Step 3 command.
+  Expected: exact schemas, formulas, prefixes, and record validation pass.
 
-- [ ] **Step 5: Implement statistics literally.** Use `statistics.median` on each 11-value integer sequence, `math.log`/`math.exp` for seed ratios, `numpy.random.Generator(numpy.random.PCG64(20260721))` for exactly 100,000 paired resamples, and NumPy's explicitly preregistered linear percentile interpolation. Retain the bootstrap seed, replicate count, seed indices, and resample-index SHA-256 in the result.
+- [ ] **Step 6: Write independent oracle, budget, and statistics tests.** Test
+  no `torch`/`vfe4` import; byte parsing; both H3 anchors; hand-authored `D=4`;
+  scaled joint initial/global scatter; both logZ routes; exact typed
+  `H4OracleRouteAgreement` operand evidence/allowance/strict boundary/pass
+  arithmetic, including numerical `passed`, independent `decisive`, and
+  `eligible == (passed and decisive)`; selected labels and indices; oriented KL at the exact posterior
+  and a perturbed candidate; all
+  element-local solver-flag controls; exact six stream counts and digest
+  encoding; vectorized multi-chunk arithmetic with only final witness objects;
+  late-chunk failure/indecisive controls; repaired visible converter
+  Cholesky-count tables with no hidden `_spd`; complete condition counts; exact
+  3-warmup/11-timed trace validation; exact balance; bootstrap first/last row,
+  header, digest, log-space percentile; and all interval boundaries.
 
-- [ ] **Step 6: Run the Task 3 tests for GREEN.**
+- [ ] **Step 7: Run numerical-authority tests for RED.**
 
   ```powershell
-  python -m pytest tests/oracle/test_h4_numpy_oracle.py tests/unit/test_h4_statistics.py -q
+  python -m pytest tests/oracle/test_h4_numpy_oracle.py tests/unit/test_h4_budget.py tests/unit/test_h4_statistics.py -q
   ```
 
-  Expected: independent exact laws match the anchors; malformed operands fail closed; paired summaries and all `0.80` boundary decisions match the preregistration exactly.
+  Expected: collection fails because the H4 oracle, budget, and statistics
+  modules do not exist.
 
-- [ ] **Step 7: Commit Task 3.**
+- [ ] **Step 8: Implement the independent oracle, element-local budget, and
+  statistics modules.** No production solver/materializer import is allowed.
+
+- [ ] **Step 9: Run numerical-authority tests for GREEN.** Use the Step 7
+  command. Expected: both independent logZ routes, oracle-zero KL, exact
+  selected blocks, bounded vectorized local budgets and witnesses, full
+  traces, balance, bootstrap bytes, and delegated decisions pass.
+
+- [ ] **Step 10: Commit corrected Task 3 only.**
 
   ```powershell
-  git add verification/numpy_oracles/h4_gaussian.py verification/numpy_oracles/__init__.py verification/h4_budget.py verification/h4_statistics.py tests/oracle/test_h4_numpy_oracle.py tests/unit/test_h4_statistics.py
+  git add docs/preregistrations/2026-07-21-h4-information-cost.md vfe4/types/h4.py vfe4/types/__init__.py vfe4/config/schema.py vfe4/config/resolve.py vfe4/config/__init__.py verification/h4_records.py verification/numpy_oracles/h4_gaussian.py verification/numpy_oracles/__init__.py verification/h4_budget.py verification/h4_statistics.py tests/unit/test_h4_problem.py tests/unit/test_config.py tests/unit/test_h4_records.py tests/oracle/test_h4_numpy_oracle.py tests/unit/test_h4_budget.py tests/unit/test_h4_statistics.py
   git commit -m "test: add H4 oracle budgets and paired statistics"
   ```
 
@@ -1142,22 +2550,960 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 
 ### Task 4: Build the H4 Preflight, Timed Harness, Gate Decision, and Artifact Payload
 
-**Files:**
+##### Task 4 harness and gate
 
 - Create: `verification/h4_gate.py`
 - Create: `tests/promotion/test_h4_gate.py`
-- Modify: `docs/preregistrations/2026-07-21-h4-information-cost.md`
 
-**Interfaces:**
+Task 4 does not reopen the preregistration or H4-section resolver. Task 9 later
+adds H5, attaches the already resolved H4 section to `ResolvedConfig` only for
+the coupled H1-H5 prefix, and adds runner/artifact wiring while consuming the
+H4 records frozen here.
+The prerequisite Task 2 repair owns the private integrity implementation and
+trusted record factories; they are deliberately absent from the Tasks 3-4
+file lists.
 
-- Produce `H4GateEvaluation(result, anchors, problems, oracle_by_problem, solver_results, equivalence, raw_timings, primary_timed_order_balance, timing_summary, operation_counts, memory_records, environment, validation_payload)`.
-- Produce `evaluate_h4(config: ResolvedConfig, *, h3_coupled_bytes: bytes, h3_zero_bytes: bytes) -> H4GateEvaluation` and `h4_validation_payload(evaluation) -> dict[str, object]`.
+#### Corrected Task 4: exact H4 preflight, harness, gate, and artifact
 
-- [ ] **Step 1: Write the promotion test with exact invariant names.** Require `H4_INVARIANT_NAMES` from the public type contract exactly and in order; do not duplicate this literal in Task 4. Require `H4_MEASUREMENT_NAMES` and `H4_ALLOWANCE_INVARIANT_NAMES` from that same contract as the exact ordered outer mapping key sets, and validate their closed aliases and recursive immutable finite allowance-record JSON.
+##### Immutable gate-side records
 
-  Include the early-fail branch: a sole decisive finite `h3_anchor_identity` failure is pre-timing, has exactly `H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL` as `None`, has finite `0.80` threshold/residual/allowance-fraction values as specified by the public contract, marks every later invariant with the exact unevaluated tuple/detail, and has one applicable numerical H3 allowance plus five exact inapplicable sentinels. Reject a timed/statistical fabrication, a different unavailable set, malformed/extra/missing sentinel content, numeric content in an inapplicable record, or an `INCONCLUSIVE` `None` without its producing-phase invariant/detail and named obligation.
+Create these frozen, slotted records in `verification/h4_gate.py`:
 
-  Assert H4 can be `PASS`, `FAIL`, or `INCONCLUSIVE` independently of an H5 result. A decisive terminal-equivalence miss and an interval wholly at/above the no-support region are finite `FAIL` cases. Missing environment facts, wrong traversal/pair formula, incomplete raw timings, any primary per-seed balance mismatch, aggregate primary totals other than exactly `110/110`, warmups counted toward balance, nonfinite solver output, any exact/problem/terminal condition outside the inclusive envelope, allowance/scale ratio at or above `1e-4`, or crossing interval is `INCONCLUSIVE`. Test the exact 20-row primary balance table plus all single-row/aggregate failure controls, every exact envelope boundary, and every decisiveness boundary. No secondary size/control/memory/count value can change `primary_effect_threshold`.
+```python
+H4MaterializedIntegrityPhase = Literal[
+    "after_materialization",
+    "after_anchor_information",
+    "after_anchor_moment",
+    "before_timed_batch",
+    "after_timed_batch",
+    "after_postflight",
+]
+
+H4ScaledMaterializedIntegrityCheckpoint = Literal[
+    "after_materialization",
+    "before_timed_batch",
+    "after_timed_batch",
+    "after_postflight",
+]
+
+@dataclass(frozen=True, slots=True)
+class H4MaterializedIntegrityCheck:
+    phase: H4MaterializedIntegrityPhase
+    expected_tensor_sha256: str
+    observed_tensor_sha256: str
+    exact_match: Literal[True]
+
+@dataclass(frozen=True, slots=True)
+class H4MaterializationIdentity:
+    problem_id: str
+    problem_sha256: str
+    materialization_version: Literal["h4-materialized-problem-v1"]
+    protocol_id: Literal["h4-single-pass-v1"]
+    tensor_sha256: str
+    materialization_count: Literal[1]
+    shared_by_identity: Literal[True]
+    integrity_checks: tuple[H4MaterializedIntegrityCheck, ...]
+
+@dataclass(frozen=True, slots=True)
+class H4CanonicalStreamDigest:
+    domain: Literal[
+        "vfe4.h4.oracle-evaluation-stream.v1",
+        "vfe4.h4.native-result-stream.v1",
+        "vfe4.h4.terminal-law-stream.v1",
+        "vfe4.h4.native-diagnostic-stream.v1",
+    ]
+    record_count: int
+    scalar_count: int
+    byte_count: int
+    sha256: str
+
+@dataclass(frozen=True, slots=True)
+class H4SelectedMomentSummary:
+    name: str
+    coordinate_indices: tuple[int, ...]
+    dimension: int
+    mean_scalar_count: int
+    mean_sha256: str
+    mean_infinity_norm: float
+    covariance_scalar_count: int
+    covariance_sha256: str
+    covariance_trace: float
+    covariance_maximum_absolute_value: float
+
+@dataclass(frozen=True, slots=True)
+class H4CompactKLSummary:
+    value: float
+    trace_term: float
+    quadratic_mean_term: float
+    minus_dimension_term: float
+    candidate_logdet_precision_term: float
+    minus_oracle_logdet_precision_term: float
+    absolute_summand_accumulation: float
+    candidate_condition_number: float
+    oracle_condition_number: float
+    operation_counts: tuple[tuple[str, int], ...]
+
+@dataclass(frozen=True, slots=True)
+class H4CompactResultRecord:
+    problem_id: str
+    problem_sha256: str
+    source_kind: Literal["scaled_pcg64", "h3_anchor"]
+    repetition_index: int | None
+    arm: H4SolverArm
+    native_stream: H4CanonicalStreamDigest
+    terminal_stream: H4CanonicalStreamDigest
+    oracle_kl_q_to_p: H4CompactKLSummary
+    native_complete_objective: float
+    terminal_complete_objective: float
+    stopping_residual: float
+    selected_moments: tuple[H4SelectedMomentSummary, ...]
+
+@dataclass(frozen=True, slots=True)
+class H4CompactOracleRecord:
+    problem_id: str
+    problem_sha256: str
+    source_kind: Literal["scaled_pcg64", "h3_anchor"]
+    dimension: int
+    oracle_stream: H4CanonicalStreamDigest
+    canonical_log_normalizer: float
+    predictive_log_normalizer: float
+    route_agreement: H4OracleRouteAgreement
+    selected_moments: tuple[H4SelectedMomentSummary, ...]
+    posterior_condition: H4PosteriorConditionRecord
+    innovation_conditions: H4ConditionStreamSummary
+
+@dataclass(frozen=True, slots=True)
+class H4NativeReplayRecord:
+    problem_id: str
+    problem_sha256: str
+    repetition_index: int
+    arm: H4SolverArm
+    reference_native_sha256: str
+    replayed_native_sha256: str
+    diagnostic_stream: H4CanonicalStreamDigest
+    innovation_record_count: int
+    exact_result_match: Literal[True]
+
+@dataclass(frozen=True, slots=True)
+class H4CountingPassRecord:
+    problem_id: str
+    problem_sha256: str
+    arm: H4SolverArm
+    reference_repetition_index: Literal[0]
+    reference_native_sha256: str
+    replayed_native_sha256: str
+    reference_terminal_sha256: str
+    replayed_terminal_sha256: str
+    exact_result_match: Literal[True]
+    solver_operations: tuple[H4OperationRecord, ...]
+    terminal_conversion_operations: tuple[H4OperationRecord, ...]
+
+@dataclass(frozen=True, slots=True)
+class H4MemoryPassRecord:
+    problem_id: str
+    problem_sha256: str
+    arm: H4SolverArm
+    reference_repetition_index: Literal[0]
+    reference_native_sha256: str
+    replayed_native_sha256: str
+    exact_result_match: Literal[True]
+    memory: H4MemoryRecord
+
+@dataclass(frozen=True, slots=True)
+class H4ProblemEvaluation:
+    problem_id: str
+    problem_sha256: str
+    problem_index: int
+    horizon_index: int
+    seed_index: int
+    kind_index: int
+    oracle: H4CompactOracleRecord
+    materialization: H4MaterializationIdentity
+    execution_trace: H4ExecutionTrace
+    retained_results: tuple[H4CompactResultRecord, ...]
+    native_replays: tuple[H4NativeReplayRecord, ...]
+    condition_streams: tuple[
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+        H4ConditionStreamSummary,
+    ]
+    counting_passes: tuple[H4CountingPassRecord, H4CountingPassRecord]
+    memory_passes: tuple[H4MemoryPassRecord, H4MemoryPassRecord]
+
+@dataclass(frozen=True, slots=True)
+class H4ScaledIncompletePhaseRecord:
+    problem_id: str
+    problem_sha256: str
+    problem_index: int
+    horizon_index: int
+    seed_index: int
+    kind_index: int
+    phase: Literal[
+        "warmup",
+        "gc_capture",
+        "gc_disable",
+        "timed_batch",
+        "gc_restore",
+        "postflight",
+    ]
+    materialization: H4MaterializationIdentity
+    warmup_spans: tuple[H4ArmCallSpan, ...]
+    partial_timed_spans: tuple[H4ArmCallSpan, ...]
+    garbage_collector: H4GarbageCollectorRecord | None
+    postflight_schedule: H4PostflightScheduleSummary | None
+    stable_error: str
+    obligation: str
+
+@dataclass(frozen=True, slots=True)
+class H4ScaledMaterializedIntegrityFailureRecord:
+    problem_id: str
+    problem_sha256: str
+    problem_index: int
+    horizon_index: int
+    seed_index: int
+    kind_index: int
+    materialization_version: Literal["h4-materialized-problem-v1"]
+    protocol_id: Literal["h4-single-pass-v1"]
+    materialization_count: Literal[1]
+    shared_by_identity: Literal[True]
+    checkpoint: H4ScaledMaterializedIntegrityCheckpoint
+    expected_tensor_sha256: str
+    completed_integrity_checks: tuple[H4MaterializedIntegrityCheck, ...]
+    failure_kind: Literal["seam_exception", "digest_mismatch"]
+    observed_tensor_sha256: str | None
+    seam_error: str | None
+    warmup_spans: tuple[H4ArmCallSpan, ...]
+    timed_spans: tuple[H4ArmCallSpan, ...]
+    garbage_collector: H4GarbageCollectorRecord | None
+    postflight_schedule: H4PostflightScheduleSummary | None
+    obligation: Literal["materialized_integrity"]
+
+@dataclass(frozen=True, slots=True)
+class H4AnchorEvaluation:
+    problem_id: str
+    problem_sha256: str
+    oracle: H4CompactOracleRecord
+    materialization: H4MaterializationIdentity
+    information_result: H4CompactResultRecord
+    information_diagnostic_stream: H4CanonicalStreamDigest
+    moment_result: H4CompactResultRecord
+    moment_diagnostic_stream: H4CanonicalStreamDigest
+
+@dataclass(frozen=True, slots=True)
+class H4UnavailablePhaseRecord:
+    phase: Literal[
+        "anchor_coupled",
+        "anchor_zero_control",
+        "scaled_preflight",
+        "timing",
+        "postflight",
+        "statistics",
+    ]
+    reason: str
+    obligation: str
+
+@dataclass(frozen=True, slots=True)
+class H4PowerPolicyField:
+    name: Literal[
+        "active_power_scheme",
+        "cpu_frequency_governor",
+        "energy_performance_preference",
+        "low_power_mode",
+    ]
+    availability: Literal["available", "not_applicable", "unavailable"]
+    source: Literal["powercfg", "linux_sysfs", "pmset", "none"]
+    value: str | None
+    unavailable_reason: str | None
+
+@dataclass(frozen=True, slots=True)
+class H4EnvironmentRecord:
+    clock_implementation: str
+    clock_resolution_seconds: float
+    clock_monotonic: bool
+    processor: str
+    platform: str
+    platform_system: Literal["Windows", "Linux", "Darwin", "Other"]
+    affinity_cpu_ids: tuple[int, ...]
+    logical_cpu_count: int
+    physical_cpu_count: int | None
+    torch_version: str
+    numpy_version: str
+    torch_config_text: str
+    torch_config_sha256: str
+    numpy_blas_text: str
+    numpy_blas_sha256: str
+    cuda_available: Literal[False]
+    environment_variables: tuple[tuple[str, bool, str | None], ...]
+    power_policy_fields: tuple[
+        H4PowerPolicyField,
+        H4PowerPolicyField,
+        H4PowerPolicyField,
+        H4PowerPolicyField,
+    ]
+    power_policy_category_complete: Literal[True]
+    unavailable_fields: tuple[str, ...]
+    mandatory_facts_complete: bool
+
+@dataclass(frozen=True, slots=True)
+class H4PayloadSizeRecord:
+    encoding: Literal["utf8-compact-sorted-key-json-v1"]
+    observed_bytes: int
+    maximum_bytes: Literal[67108864]
+    fixed_point_iterations: int
+    within_limit: bool
+
+@dataclass(frozen=True, slots=True)
+class H4GateEvaluation:
+    schema_version: Literal["h4-gate-evaluation-v1"]
+    payload_representation: Literal["bounded-stream-summaries-v1"]
+    maximum_payload_bytes: Literal[67108864]
+    result: H4GateResult
+    h4_config_sha256: str
+    anchors: tuple[
+        H4AnchorEvaluation | H4UnavailablePhaseRecord,
+        H4AnchorEvaluation | H4UnavailablePhaseRecord,
+    ]
+    problems: tuple[
+        H4ProblemEvaluation
+        | H4ScaledIncompletePhaseRecord
+        | H4ScaledMaterializedIntegrityFailureRecord,
+        ...,
+    ]
+    allowances: tuple[H4AllowanceRecord, ...]
+    coverage: tuple[H4CoverageRecord, ...]
+    raw_timings: tuple[H4TimingRecord, ...]
+    primary_timed_order_balance: H4PrimaryTimedOrderBalance | None
+    timing_summary: H4TimingSummary | None
+    bootstrap_interval: H4BootstrapInterval | None
+    interval_decision: H4IntervalDecision | None
+    thread_state: H4ThreadStateRecord
+    environment: H4EnvironmentRecord
+    payload_size: H4PayloadSizeRecord
+    bounded_claim: str
+    nonclaims: tuple[str, ...]
+
+@dataclass(frozen=True, slots=True)
+class H4ValidationArtifact:
+    schema_version: Literal["vfe4-validation-h4-v1"]
+    payload_representation: Literal["bounded-stream-summaries-v1"]
+    maximum_payload_bytes: Literal[67108864]
+    gate: Literal["H4"]
+    status: GateStatus
+    h4_config_sha256: str
+    result: H4GateResult
+    anchors: tuple[
+        H4AnchorEvaluation | H4UnavailablePhaseRecord,
+        H4AnchorEvaluation | H4UnavailablePhaseRecord,
+    ]
+    problems: tuple[
+        H4ProblemEvaluation
+        | H4ScaledIncompletePhaseRecord
+        | H4ScaledMaterializedIntegrityFailureRecord,
+        ...,
+    ]
+    allowances: tuple[H4AllowanceRecord, ...]
+    coverage: tuple[H4CoverageRecord, ...]
+    raw_timings: tuple[H4TimingRecord, ...]
+    primary_timed_order_balance: H4PrimaryTimedOrderBalance | None
+    timing_summary: H4TimingSummary | None
+    bootstrap_interval: H4BootstrapInterval | None
+    interval_decision: H4IntervalDecision | None
+    thread_state: H4ThreadStateRecord
+    environment: H4EnvironmentRecord
+    payload_size: H4PayloadSizeRecord
+    bounded_claim: str
+    nonclaims: tuple[str, ...]
+
+def evaluate_h4(
+    config: H4ValidationConfig,
+    *,
+    h3_coupled_bytes: bytes,
+    h3_zero_bytes: bytes,
+) -> H4GateEvaluation: ...
+
+def h4_validation_artifact(evaluation: H4GateEvaluation) -> H4ValidationArtifact: ...
+def h4_validation_payload(evaluation: H4GateEvaluation) -> dict[str, object]: ...
+```
+
+All tuples have fixed canonical order. The two anchor slots are always coupled
+then zero-control and contain either the completed typed evaluation or an
+explicit unavailable-phase record; no placeholder numeric value is fabricated.
+`allowances` has exactly the six public
+invariant names. `coverage` has exactly the nine coverage names above.
+`problems` has exactly 120 scaled evaluations in traversal order when timing
+completes. A complete problem has 22 compact result records, 22 replay digest
+wrappers, one compact oracle, four exact condition-stream summaries, two
+counting passes, and two memory passes. The artifact never owns a full
+`H4SolverResult`, full `H4TerminalLaw`, full `D x D` oracle array, replayed
+duplicate, complete coverage-key tuple, or complete allowance-element tuple.
+The artifact record is the only source for the JSON mapping; serialization
+recursively thaws owned compact records and checks the exact top-level field
+order. Broad untyped containers are forbidden.
+
+If a scaled execution fails during or after its warmups, `problems` contains
+the exact completed traversal prefix followed by one and only one
+`H4ScaledIncompletePhaseRecord`, whose indices are the next canonical problem
+and whose `phase` is the first incomplete boundary. Traversal then stops. The
+record has a strict canonical prefix of zero through six warmup spans and zero
+through 21 timed arm-call spans. The GC record is absent exactly for a warmup
+failure and otherwise present; the postflight summary is present exactly when
+postflight began. Its `stable_error` is nonempty and capped
+at 512 Unicode code points. It contributes no fabricated
+`H4TimingRecord`; only fully closed information/moment pairs from complete
+problems enter `raw_timings`. A warmup exception is phase `warmup`; a GC
+capture failure is phase `gc_capture`; a disable/effective-state failure is
+`gc_disable`; a timed arm exception is `timed_batch`; any inexact GC
+restoration is `gc_restore`; and any later failure is `postflight`. Every
+branch is `INCONCLUSIVE` with the phase-specific repair obligation after every
+applicable thread and GC restoration has been attempted.
+
+The phase-to-obligation mapping is exact:
+
+```text
+warmup -> "complete all six H4 warmup arm calls without exception"
+gc_capture -> "capture cyclic GC state before H4 timing"
+gc_disable -> "disable and verify cyclic GC before H4 timing"
+timed_batch -> "complete all 22 H4 timed arm calls and restore process-global state"
+gc_restore -> "restore exact prior cyclic GC state after H4 timing"
+postflight -> "complete exact H4 postflight schedule and release full problem objects"
+```
+
+The constructor rejects any other obligation for the selected phase.
+
+Scaled gate-owned integrity failures use the separate
+`H4ScaledMaterializedIntegrityFailureRecord`; they never masquerade as a GC,
+timing, postflight, or generic unavailable phase. Its checkpoint fixes the
+exact successful-check prefix and execution evidence:
+
+```text
+after_materialization -> checks (), warmups 0, timed 0, GC None, schedule None
+before_timed_batch -> checks (after_materialization), warmups 6, timed 0,
+                      GC None, schedule None
+after_timed_batch -> checks (after_materialization,before_timed_batch),
+                     warmups 6, timed 22, GC complete, schedule present/incomplete
+after_postflight -> checks (after_materialization,before_timed_batch,
+                            after_timed_batch), warmups 6, timed 22,
+                    GC complete, schedule present/incomplete
+```
+
+The before-timed checkpoint occurs after all warmups and before GC capture.
+The after-timed checkpoint occurs only after the timed guard exits and GC has
+been restored. Every completed check has its exact checkpoint phase and
+matching expected/observed digest. `failure_kind="seam_exception"` requires
+`observed_tensor_sha256=None` and a nonempty, 512-code-point-capped
+`seam_error`; `failure_kind="digest_mismatch"` requires a valid observed
+digest different from the expected digest and `seam_error=None`. Both require
+the one closed obligation `materialized_integrity`.
+
+An `after_materialization` failure during all-problem preflight makes
+`problems` exactly the single failure record for its canonical problem index;
+previously preflighted problems are not fabricated as completed evaluations.
+A later checkpoint failure follows the exact completed-problem traversal
+prefix and is its final record. Either shape stops traversal and statistics,
+is `INCONCLUSIVE`, and serializes through both `H4GateEvaluation` and
+`H4ValidationArtifact` because both problem unions accept the dedicated
+carrier.
+
+Each problem's four condition summaries are in exact order
+`oracle_posterior`, `terminal_posterior`, `oracle_innovation`,
+`moment_innovation`, with expected counts `1`, `22`, `T`, and `11*T`.
+Their concatenated global counts must equal the four condition coverage totals
+before the corresponding global coverage record can be complete.
+
+`H4CanonicalStreamDigest` uses its literal ASCII domain plus `b"\x00"`, then
+unsigned eight-byte big-endian-length-prefixed compact sorted-key UTF-8
+headers and raw canonical scalar lanes. Floating lanes are contiguous
+little-endian `<f8`; integer lanes are
+little-endian `<i8`; strings are UTF-8 with unsigned eight-byte big-endian
+lengths; booleans are `u1`; and `None` is a dedicated zero-byte tag. Record and
+scalar counts and hashed byte count are checked while streaming. Native-result
+order is exact public field order followed by row-major tuple scalars;
+terminal order is `arm,h,J,mean,selected_moments,complete_objective,
+stopping_residual`, with each selected label and coordinate-index tuple in its
+header followed by means/covariances in declared order. The expected native
+scalar counts are `D^2+2D+1` for information and
+`D^2+D+1` for moment; terminal count is
+`D^2+2D+(T+2)*(8+8^2)+2`. The summary constructor rejects any mismatch.
+
+Each `H4SelectedMomentSummary` retains the exact ordered
+`coordinate_indices`, requires them to be unique, strictly increasing,
+in-range, and of length `dimension`, hashes the complete mean and covariance
+arrays, checks counts `8` and `64` for scaled problems (and `2` and `4` for
+anchors), and retains only bounded scalar summaries. Oracle and every arm must
+carry identical indices for a selected label; equal numerical arrays under
+different indices are a protocol mismatch. Per-result native and terminal
+objectives, stopping residual, and every selected label remain directly
+visible. Each result also retains the full signed oriented `KL(q || p*)` term
+summary used by its zero comparison. Exact native/terminal stream hashes prove
+replay/count/memory equality without retaining duplicate matrices.
+
+Selected mean and covariance hashes use domains
+`vfe4.h4.selected-mean.v1` and `vfe4.h4.selected-covariance.v1`, followed by a
+length-prefixed header binding problem hash, repetition/anchor identity, arm,
+label, the complete ordered coordinate-index tuple, parent dimension, selected
+dimension, and scalar count, then contiguous `<f8` row-major values. The
+native/terminal/oracle stream header also includes the index tuple before its
+selected numeric lanes. `H4CanonicalStreamDigest.scalar_count` counts numeric
+float lanes only; the encoded index metadata contributes to `byte_count` and
+SHA-256 but does not change the frozen numeric scalar-count formulas. Mutating
+only an index changes both selected hashes and the enclosing stream digest.
+
+`H4CompactOracleRecord.route_agreement` is the exact typed record constructed
+from the full oracle. Its problem identity and both operand values must match
+the compact oracle identity and its two retained log normalizers. Compacting
+or serializing an oracle without the agreement, or replacing it with a scalar
+residual, is rejected.
+
+`H4CompactResultRecord` requires `source_kind="scaled_pcg64"` with repetition
+`0..10`, or `source_kind="h3_anchor"` with `repetition_index=None`; no anchor
+is assigned a fake timed repetition. `H4ProblemEvaluation` accepts only the
+former exact 22-record order, while `H4AnchorEvaluation` accepts exactly one
+information and one moment record of the latter kind.
+
+Constructors cross-check every repeated identity and value: evaluation and
+artifact status equal `result.status`; allowance tuple values equal the six
+`result.allowances_by_invariant` values in public key order; each nested
+problem/hash/protocol/arm/factor count agrees; each terminal/replay/count/memory
+stream count/hash agrees with its wrapper; trace and raw timing
+identities/durations agree;
+every integrity check's expected and observed digest equals its enclosing
+materialization's `tensor_sha256`; and the H4 config hash equals the supplied
+standalone typed section. Task 9 separately binds that same hash to the full
+coupled config and manifest. A completed scaled materialization has the exact
+phase tuple `("after_materialization", "before_timed_batch",
+"after_timed_batch", "after_postflight")`. A completed anchor has the exact
+phase tuple `("after_materialization", "after_anchor_information",
+"after_anchor_moment")`. No phase is duplicated or reordered. Literal `True`
+proof fields are emitted only by module-private checked factories, never
+accepted as unaudited caller assertions.
+
+Full oracle/native/terminal objects are live only for the current problem's
+postflight. After every scalar comparison, condition, digest, replay equality,
+and witness is closed, the gate constructs the compact records and drops all
+22 result references, replay duplicates, and the rehydrated full oracle before
+advancing. The tests retain weak references or equivalent lifetime sentinels
+to prove this per-problem release; no complete-run list of full numerical
+objects may exist.
+
+Missing memory values remain explicit in `H4MemoryRecord.unavailable_fields`
+and never influence the primary status. A missing/mismatched memory pass
+identity is a protocol incompleteness, but an unavailable platform metric is
+not. Operation-count magnitudes and memory magnitudes are secondary; they do
+not rescue or overturn the primary decision.
+
+`environment_variables` is in the exact order `OMP_NUM_THREADS`,
+`MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS`, and
+`VECLIB_MAXIMUM_THREADS`. `platform_system` is derived from
+`platform.system()` by mapping every value outside Windows/Linux/Darwin to
+`Other`. `power_policy_fields` is always present in the exact
+order `active_power_scheme`, `cpu_frequency_governor`,
+`energy_performance_preference`, `low_power_mode`. On Windows only the first is
+applicable and its source is `powercfg`; on Linux the middle two use sorted
+per-CPU `cpu_id=value` observations from sysfs; on macOS the last uses `pmset`;
+all other OS/field pairs are explicit `not_applicable/source="none"` records.
+An applicable probe either has `available`, a nonempty canonical value, and no
+reason, or `unavailable`, no value, and a nonempty stable reason. No field may
+be omitted, duplicated, reordered, or represented by an empty string. A
+canonical value is capped at 4,096 Unicode code points; a larger observation is
+recorded as unavailable with a bounded reason rather than silently truncated.
+
+All `stable_error`/unavailable-reason strings use
+`module.qualname + ": " + str(error)`, normalize CRLF/CR to LF, replace NUL
+with `U+FFFD`, and retain at most the first 512 Unicode code points. This same
+bounded formatter is used for thread, GC, integrity, power-policy, and
+incomplete-phase errors.
+
+Power-policy capture happens with the other environment probes before the
+first warmup and outside every timer. Platform absence is allowed because the
+global contract says "when available"; it remains visible as `unavailable`
+and does not fabricate a value. Omission/malformed ordering makes
+`power_policy_category_complete` impossible and H4 `INCONCLUSIVE`. The exact
+four records serialize as ordinary ordered typed children of
+`H4EnvironmentRecord`; there is no platform-dependent key set.
+
+Physical CPU count is the only conditionally unavailable hardware-count field;
+clock identity/resolution/monotonicity,
+processor/platform/platform-system category, nonempty affinity, logical count, library versions,
+configuration texts/digests, CUDA state, and every variable presence/value are
+mandatory for `mandatory_facts_complete=True`.
+
+##### Preflight and materialized API boundary
+
+Inside the outer thread-restoration boundary, capture environment facts,
+validate both H3 byte hashes, adapt both anchors once, generate all 120 scaled
+neutral problems once, and emit canonical bytes once. For each neutral problem:
+
+1. pass canonical bytes to `evaluate_h4_oracle`, close both routes and all
+   oracle conditions, compute the full oracle stream digest/compact summary,
+   then release the full oracle arrays;
+2. retain the canonical bytes and compact oracle summary, not the full oracle;
+3. call `materialize_h4_problem(neutral, config.solve_protocol)` exactly once;
+4. call Task 2's private, untimed
+   `_assert_h4_materialized_integrity(materialized)` seam and require its
+   returned digest to equal `materialized.tensor_sha256`;
+5. retain only a `H4MaterializationIdentity` plus its immutable integrity
+   checks in the artifact;
+6. pass the same in-memory `H4MaterializedProblem` object by `is` to every
+   warmup, timed, diagnostic, counting, memory, and conversion operation, and
+   pass the one `config.solve_protocol` object by `is` to every Task 2 entry
+   point whose signature accepts a protocol.
+
+All 120 oracle summaries, condition summaries, materializations, and initial
+integrity checks must close before the first scaled warmup. At each problem's
+postflight, re-evaluate the independent oracle from the retained canonical
+bytes, require its complete `oracle_stream` count/byte-count/SHA-256 to equal
+the preflight summary, require its `H4OracleRouteAgreement` to equal the
+preflight compact agreement field-for-field, use that one full oracle for
+every retained-scalar comparison, and release it with the 22 full results at
+problem completion.
+This performs deterministic untimed oracle work twice but prevents a
+complete-run collection of nested full `D x D` tuple arrays.
+
+The production calls are exactly:
+
+```python
+solve_information_form(materialized, protocol, linalg)
+solve_moment_form(materialized, protocol, linalg)
+to_common_terminal_law(materialized, result, linalg)
+evaluate_h4_native_diagnostics(materialized, result, null_linalg)
+```
+
+The Task 2 seam has the exact private signature:
+
+```python
+def _assert_h4_materialized_integrity(
+    materialized: H4MaterializedProblem,
+) -> str: ...
+```
+
+It validates the exact materialized structure, ownership/nonaliasing rules,
+metadata, and current raw private-tensor bytes, recomputes the domain-separated
+materialized digest, raises on any mismatch, and otherwise returns that
+lowercase digest. The gate still compares the return explicitly with
+`tensor_sha256`; neither a stale stored digest nor a no-op seam can close the
+check.
+
+For each scaled problem, the gate invokes the seam explicitly at exactly four
+artifact checkpoints:
+immediately after materialization; after all three warmup pairs and immediately
+before entering the timed guard; immediately after leaving the guard and
+before constructing timing/trace records; and after the complete fixed-order
+postflight. Thus the pre-batch checkpoint also closes the warmup mutation
+window, the post-batch checkpoint closes all 22 timed arm calls as one batch,
+and the final checkpoint closes conversion, replay, counting, and memory. For
+each anchor, invoke it immediately after materialization and after completing
+the information and moment arm respectively. Every call and digest comparison
+is outside every timer. The solver entry path must not hash, clone, or traverse
+all materialized bytes while the timing guard is active.
+
+Task 2's untimed converter/diagnostic entry validation may also call the same
+seam during postflight. Those internal calls remain outside every timer and do
+not replace, increment, or weaken the four gate-owned artifact checkpoints;
+the native timed solver entry uses only Task 2's metadata-only identity,
+storage-pointer, shape, and tensor-version receipt and never recomputes the
+byte digest.
+
+Any seam exception or digest mismatch stops that branch before statistics.
+An anchor uses its matching typed anchor unavailable record; a scaled problem
+uses `H4ScaledMaterializedIntegrityFailureRecord` at the exact failing
+checkpoint. Both carry the exact closed obligation `materialized_integrity`
+and make the gate `INCONCLUSIVE`; neither is treated as an invariant miss. A
+malicious in-place edit through
+`materialized._factor_matrices`, `_factor_targets`, or
+`_factor_covariances` therefore cannot survive either the timed batch or
+postflight boundary.
+
+Task 4 consumes the public `H4SolverResult`, native-state, selected-moment, and
+`H4TerminalLaw` records exactly as returned. Task 2 owns the exact private
+names/signatures of the proven-SPD factories that construct those public
+records after facade/native proof. Direct public constructors retain their
+full untrusted-input validation, but Task 2's solver and converter return paths
+must not call `_spd`, eigendecomposition, inversion, or another hidden cubic
+SPD proof merely to package already-proven values. The converter's repaired
+algorithm does perform the explicit facade-counted selected-block and
+moment-derived-precision Choleskys frozen above before invoking the private
+factory; those visible operations are not constructor validation. Tasks 3-4
+do not import or invoke the factories; their contract is observable through
+the public return paths and enforced by focused tests that make `_spd` fail if
+it is reached there while still requiring the explicit facade counts.
+
+No gate call supplies `H4NeutralProblem` to a solver or rematerializes per arm,
+repetition, diagnostic, count, or memory pass. The NumPy oracle never receives
+the materialized object.
+
+Warmup and timed solver calls, terminal conversion, native replay, and memory
+passes use a correctly problem/arm-bound `NullOperationRecorder` facade.
+Exactly the two explicit operation passes per problem use a
+`CountingOperationRecorder` facade. A facade is never rebound or reused for a
+different problem or arm.
+
+All 120 oracle posterior records and 2,120 oracle innovation records must be
+eligible before the first warmup. The H3 anchors close before scaled timing;
+a decisive anchor miss follows the already frozen early-FAIL schema. An oracle
+route mismatch, invalid config, incomplete environment, or out-of-envelope
+preflight is `INCONCLUSIVE`, never repaired.
+
+##### Exception-safe execution
+
+The implementation has an outer shape equivalent to:
+
+```python
+prior_threads = torch.get_num_threads()
+prior_interop = torch.get_num_interop_threads()
+try:
+    set_attempted = True
+    torch.set_num_threads(1)
+    effective = torch.get_num_threads()
+    if effective != 1:
+        raise H4EligibilityError("intra-op thread verification failed")
+    # preflight, anchors, all problem batches and postflight work
+finally:
+    restore_attempted = True
+    try:
+        torch.set_num_threads(prior_threads)
+        restored = torch.get_num_threads()
+    except Exception as error:
+        restoration_error = stable_error(error)
+```
+
+The actual guard captures both prior counts inside a protected preliminary
+step. A capture failure populates `capture_error`, suppresses set/timing, and
+returns `INCONCLUSIVE`; restoration is attempted whenever a prior intra-op
+value was obtained, even if the later set or verification step failed.
+
+Each problem's timed section has an inner shape equivalent to:
+
+```python
+gc_capture_attempted = True
+try:
+    prior_gc_enabled = gc.isenabled()
+except Exception as error:
+    prior_gc_enabled = None
+    gc_capture_error = stable_error(error)
+try:
+    if prior_gc_enabled is None:
+        raise H4EligibilityError("cyclic GC state capture failed")
+    gc_disable_required = prior_gc_enabled
+    if gc_disable_required:
+        gc_disable_attempted = True
+        try:
+            gc.disable()
+        except Exception as error:
+            gc_disable_error = stable_error(error)
+            raise H4EligibilityError("cyclic GC disable failed") from error
+    try:
+        gc_disabled_during_batch = not gc.isenabled()
+    except Exception as error:
+        gc_effective_state_capture_error = stable_error(error)
+        raise H4EligibilityError("cyclic GC effective-state capture failed") from error
+    if not gc_disabled_during_batch:
+        raise H4EligibilityError("cyclic GC remained enabled")
+    # enter timed guard; run pair_index 3..13 only
+finally:
+    if prior_gc_enabled is not None:
+        gc_restore_attempted = True
+        try:
+            if prior_gc_enabled:
+                gc.enable()
+            else:
+                gc.disable()
+            gc_restored_enabled = gc.isenabled()
+        except Exception as error:
+            gc_restoration_error = stable_error(error)
+```
+
+All GC record fields are initialized before capture. A complete timed batch
+requires `capture_error`, `disable_error`,
+`effective_state_capture_error`, and `restoration_error` all `None`;
+`prior_enabled` and `restored_enabled` are booleans and equal;
+`disable_required == prior_enabled`; `disable_attempted == prior_enabled`;
+`disabled_during_batch is True`; `restore_attempted is True`; and
+`restored_exact_prior_state is True`. On capture failure, every later observed
+state is `None`, both later attempt fields are false, and the scaled incomplete
+phase is `gc_capture`. On a later failure, fields retain exactly the phase-valid
+prefix above; no false boolean substitutes for an unavailable observation.
+
+Warmup pairs `0,1,2` run before GC setup. Timed pairs are exactly `3..13`.
+Before entering the timed guard, preallocate 22 result-reference slots and 44
+integer start/end slots. Between calls perform only `perf_counter_ns`, result
+reference assignment, and integer slot assignment. Synthesize trace and
+`H4TimingRecord` objects after leaving the guard and restoring GC. No focused
+test lowers the repetition count; real tests select one or two problems while
+keeping all three warmup and eleven timed pairs.
+
+##### Fixed postflight order and coverage
+
+For each completed problem, after the timed batch:
+
+1. record the `after_timed_batch` materialized-integrity event;
+2. convert all retained results in `(repetition 0..10, information, moment)`
+   order using null-bound facades, compute native/terminal stream digests and
+   selected summaries, and retain the full terminal objects only through this
+   problem's postflight;
+3. replay diagnostics in the same repetition/arm order, require the replayed
+   native digest to equal its retained native digest, update the
+   diagnostic/innovation streams, and discard each replayed full result
+   immediately;
+4. compute terminal posterior conditions in repetition/arm order, then moment
+   innovation conditions in repetition order and declared observation-factor
+   order;
+5. re-evaluate the full oracle from canonical bytes and require its stream
+   digest to equal preflight;
+6. construct and validate its typed `H4OracleRouteAgreement`;
+7. for each `(repetition 0..10, information, moment)` result, append allowance
+   groups in the exact order `kl_to_zero`, `h`, `J`, then
+   `(selected_mean,selected_covariance)` for each selected label in declared
+   order, then `objective`;
+8. run one counting pass for information and one for moment, each from the same
+   materialized object; pass the replayed result through terminal conversion on
+   the same counting facade so the repaired converter Choleskys are visible,
+   and require both native and terminal digests to equal retained repetition 0;
+9. run one memory pass in information-then-moment order with the same equality
+   requirement;
+10. record the `after_postflight` materialized-integrity event; and
+11. compact the problem, clear all full oracle/native/terminal/replay
+    references, and only then advance.
+
+The exact event-key count for a problem of horizon `T` is:
+
+```text
+after_timed_batch integrity                         1
+terminal conversion                               22
+native diagnostic replay                          22
+terminal posterior condition                      22
+moment innovation condition                     11*T
+oracle rehydration                                  1
+oracle route agreement                              1
+equivalence groups              22*(4 + 2*(T+2))
+operation passes                                    2
+memory passes                                       2
+after_postflight integrity                          1
+stream compaction                                    1
+total                                      251 + 55*T
+```
+
+Thus each `T=7`, `T=15`, and `T=31` problem requires exactly 636, 1,076, and
+1,956 keys, respectively, and the 120-problem scaled suite requires exactly
+`40*(636+1076+1956) = 146720` keys. A module-private independent expected-key
+iterator generates the order above from only the resolved traversal and factor
+schedule. The observed path streams one key immediately around each actual
+call. Both digests begin with
+`b"vfe4.h4.postflight-event-key-stream.v1\x00"`, the problem SHA-256, and a
+zero byte, then append every compact sorted-key UTF-8 event mapping as an
+unsigned eight-byte big-endian length plus bytes. Event start/end timestamps
+are checked for nonnegative, monotone, nonoverlapping post-timed spans but are
+not part of the identity digest. Chunking is forbidden: one logical call emits
+one key.
+
+`H4PostflightScheduleSummary.complete` is true exactly when expected and
+observed counts and hashes agree, both first-mismatch witnesses are absent,
+and the timing-violation count is zero. On mismatch it retains only the lowest
+event-index expected/observed witness; on timing failure it retains only the
+lowest event-index timing witness. Constructors independently require the
+per-horizon counts above, while the gate/artifact require 120 complete
+summaries, global event count 146,720, and their canonical traversal-order
+digest before statistics. No list or tuple of all event keys survives
+postflight.
+
+Because the approved `measure_untimed_memory` returns only `H4MemoryRecord`,
+its callable stores exactly one solver return in a gate-local one-slot holder;
+the gate rejects zero or multiple writes, hashes that one value, compares it
+to the retained repetition-zero native digest, and drops it after freezing the
+compact `H4MemoryPassRecord`.
+
+Information native diagnostics have the exact empty innovation tuple. Moment
+replay contains every scheduled observation. Counting and memory use their own
+facades/passes and do not add records to diagnostic replay or timed traces.
+The counting recorder is snapshotted immediately after the solver and again
+after conversion; the first snapshot becomes `solver_operations` and the
+strict ordered delta becomes `terminal_conversion_operations`. For `S=T+2`,
+the latter must expose one native-`J` Cholesky plus `S` selected-block
+Choleskys for information, and one native-covariance Cholesky, one
+derived-precision Cholesky, plus `S` selected-block Choleskys for moment,
+together with the converter's other declared facade operations. Thus the exact
+converter totals are `S+1` and `S+2`.
+
+After all problems, finalize the four condition accumulators, all nine
+coverage key streams, all 120 postflight schedule summaries and their
+146,720-event aggregate, the six allowance accumulators, and the exact primary
+timed balance before statistics. Their exact counts and stream digests must
+close even when every retained numerical scalar passed; no witness can replace
+coverage. Only after every condition, schedule, and allowance is eligible may
+the gate compute seed statistics, bootstrap, and the public Task 1 interval
+decision.
+
+##### Status and artifact authority
+
+Status precedence is exact:
+
+1. A sole decisive H3 anchor miss with successful process-global restoration
+   uses the existing finite pre-timing `FAIL` record and five exact unavailable
+   measurements. The typed anchor-miss/restoration exception instead proceeds
+   to item 2.
+2. Any config/protocol/environment/restoration/materialized-integrity/
+   traversal/trace/table/coverage/stream-count/stream-digest/payload-size,
+   oracle-route, condition, finiteness, or allowance-decisiveness ambiguity is
+   `INCONCLUSIVE` with a named obligation.
+3. Any decisive element-local oracle comparison miss is `FAIL`.
+4. Otherwise use `H4IntervalDecision.status_if_other_invariants_eligible`:
+   support is `PASS`, no-support is `FAIL`, crossing/boundary is
+   `INCONCLUSIVE`.
+
+Task 4 never reimplements `0.80` inequalities. It constructs invariant 16 and
+the gate result directly from the same `H4IntervalDecision` record.
+
+`h4_validation_payload` contains only the exact versioned artifact fields
+above and their typed descendants. It thereby publishes exact config hashes,
+anchor/problem/materialization identities, both oracle logZ routes, selected
+indices and per-result summaries, native/terminal/oracle/diagnostic stream
+counts and digests, condition/coverage stream counts and witnesses,
+element-local allowance counts/digests/maxima/witnesses, full traces and raw
+timings, bootstrap parameters and index digest, decision,
+restoration/environment/power policy, replay/count/memory hash equality,
+bounded claim, and H5-H8/training nonclaims. It publishes no complete `D x D`
+repetition matrix or repeated replay payload and cannot invent an unavailable
+finite value.
+
+Before `evaluate_h4` finalizes status, it constructs the exact prospective
+`H4ValidationArtifact` mapping and solves the self-inclusive payload-size field
+by iteration: begin with `observed_bytes=0`, serialize compact sorted-key JSON
+with `allow_nan=False` to UTF-8, replace `observed_bytes` by the new byte
+length, and repeat until the stored value equals the serialized length. The
+digit-length fixed point must converge within four iterations. The resulting
+`H4PayloadSizeRecord` is identical in evaluation and artifact; its constructor
+requires `1 <= fixed_point_iterations <= 4` and
+`within_limit == (observed_bytes <= maximum_bytes)`. A value above
+67,108,864 forces `INCONCLUSIVE` with obligation
+`reduce H4 validation payload below 67108864 bytes without dropping scalar
+coverage`; rebuilding that status is included in the final fixed-point pass.
+`h4_validation_payload` returns the compact mapping only when its independently
+reserialized byte length equals the record and `within_limit=True`; otherwise
+publication is refused. A complete 120-problem synthetic
+max-shape regression must serialize below that ceiling, contain no keys named
+`native_result`, `terminal_law`, `replayed_result`, `precision`, or
+`covariance` except bounded selected-summary scalar fields, and show peak
+construction memory bounded by compact-record count rather than 79,832,024
+comparison elements. A late scalar mutation in the last J chunk must change
+the digest/witness/status while all expected coverage counts remain exact.
+
+##### Corrected Task 4 focused steps
+
+- [ ] **Step 1: Write exact gate and artifact tests first.** Assert every
+  record field/order/type, deep immutability, exact complete nested protocol
+  ownership, two H3
+  anchors, 120-problem complete branch, materialization count/identity,
+  3/11 traces, guard exclusions, exact 146,720-event postflight schedule
+  counts/order/digests, posterior/innovation coverage counts, typed retained
+  oracle-route agreements, replay/count/memory digest equality, exact
+  six allowance group counts/digests/witnesses, compact per-result summaries,
+  persisted selected coordinate indices and index-bound hashes,
+  public decision identity, status precedence, restoration, ordered power
+  policy, payload-size ceiling, no-per-scalar-object behavior, and exact
+  artifact keys. Include GC capture/disable/effective-state/restore exceptions,
+  every typed scaled incomplete phase, and both integrity failure kinds at all
+  four scaled checkpoints with the exact `materialized_integrity` carrier and
+  obligation, without fabricated records.
 
 - [ ] **Step 2: Run the Task 4 test for RED.**
 
@@ -1167,13 +3513,35 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
 
   Expected: collection fails because `verification.h4_gate` does not exist.
 
-- [ ] **Step 3: Implement the common preflight outside timing.** Capture and hash both H3 fixture byte sequences, adapt them once, generate/hash all `20*3*2` scaled problems once in exact horizon/seed/kind traversal, compute NumPy exact results, materialize solver inputs, set/verify one intra-op thread, and record inter-op threads/affinity/BLAS/clock. Check every exact problem against the inclusive condition envelope before warmups. Reject any problem/oracle/protocol/traversal mismatch before timing. Do not run counting/memory diagnostics here and do not call H2 diagnostic eigenvalue functions in the timed callable.
+- [ ] **Step 3: Implement config-bound preflight and anchor closure.** Capture
+  environment, enter the outer thread boundary, verify H3 bytes, generate and
+  hash all problems, run both NumPy routes, require
+  `route_agreement.eligible is True` and
+  `route_agreement.eligible == (route_agreement.passed and
+  route_agreement.decisive)`, retain it in each compact oracle, and
+  compact/release every full oracle. Materialize each problem once with
+  `config.solve_protocol`, record
+  initial integrity, and close every preflight condition before any warmup.
 
-- [ ] **Step 4: Implement whole-problem warmup and timed batches.** Traverse problems only in frozen horizon/seed/kind order while retaining independent zero-based `horizon_index`, `seed_index`, and `kind_index`. For one problem, create fresh solver state inside every arm call, run warmup pairs `0,1,2` using AB exactly when `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`, then preallocate the 22 native-result/timing slots, disable cyclic garbage collection once, and run timed pair indices `3..13` consecutively with the same formula. Around each native solver call, call `perf_counter_ns`; between repetitions perform only timer reads, native-result reference assignment, and preallocated scalar timing assignment. Do not construct timing records, convert terminals, hash outputs, compare equivalence, count operations, measure memory, serialize, log, print, validate shapes, or run diagnostics until all 11 timed pairs for that problem finish. Restore garbage collection once after the timed batch, then materialize `H4TimingRecord` objects from the preallocated indices/orders/durations. Warmup order is recorded in the separate event trace but excluded from every `H4TimingRecord` and timed-balance count. Reject order/table problems only in postflight.
+- [ ] **Step 4: Implement the guarded warmup and timed harness.** Use exact
+  independent-index parity, preallocated slots, nested GC restoration, and
+  post-batch trace/timing construction. Retain every GC capture/disable/error
+  field and construct the exact scaled incomplete-phase union branch after
+  restoration. Construct the dedicated scaled integrity-failure union branch
+  at its exact checkpoint rather than routing it through a generic unavailable
+  phase. Never reduce repetitions.
 
-- [ ] **Step 5: Batch terminal conversion, diagnostics, equivalence, and the H4 decision after timing.** For each completed problem, convert retained native terminals in fixed arm-independent order `(repetition_index 0..10, arm information then moment)`, regardless of timed AB/BA order; only then hash, validate, compare to the exact oracle/paired arm, and append canonical immutable selected moments. After every problem's timing is complete, run separate untimed counting and memory passes in frozen problem/arm order. A solver may not pass because its counterpart shares the same error. Before computing primary statistics, call `summarize_primary_timed_order` on raw records only; require exact row equality with `H4_PRIMARY_TIMED_BALANCE`, ten rows of each `6/5` and `5/6` pattern, exact aggregate totals `110/110`, and zero warmup contribution. Compute primary statistics only after timed-order balance, condition-envelope, and per-invariant allowance-decisiveness eligibility pass. Apply status precedence: protocol/environment/traversal/availability ambiguity, timed-balance mismatch, out-of-envelope value, or nondecisive allowance -> `INCONCLUSIVE`; decisive equivalence miss -> `FAIL`; primary interval crossing -> `INCONCLUSIVE`; lower no-support bound -> `FAIL`; upper support bound -> `PASS`.
+- [ ] **Step 5: Implement fixed-order conversion, replay, condition,
+  equivalence, count, memory, and compaction postflight.** Require exact
+  reference-result stream equality, coordinate-index identity, complete
+  canonical coverage, bounded allowance chunks, the independent exact
+  `251+55*T` event-key stream and 146,720-event global closure, final
+  integrity, and release of full current-problem objects.
 
-- [ ] **Step 6: Emit the complete `validation/h4.json` schema.** Include finite JSON records for gate/status/obligations; exact config hash/profile; both H3 anchor hashes; exact horizon/seed/kind traversal and independent indices; the parity formula; separate warmup and timed AB/BA sequences; an explicit `warmups_count_toward_balance=false`; the expected and observed 20-row primary timed balance tables; expected/observed counts of ten `6/5` rows and ten `5/6` rows; expected/observed aggregate `AB=110`, `BA=110`; the `primary_timed_order_balance` invariant; timer and postflight event spans proving no inter-repetition conversion/diagnostic event; every problem identity/factor hash; environment/clock/thread/BLAS/affinity data; solver implementations and common protocol; warmup counts; every raw timing/order; seed-level medians/ratios; bootstrap indices digest/estimate/interval; threshold decision; frozen condition envelope and each exact/problem/terminal diagnostic; exact/oracle/arm terminal quantities; every invariant's scale, rounding/solver contributions, allowance, allowance/scale ratio, and strict decisiveness result; untimed real-operation counts; untimed memory diagnostics; canonical immutable selected-moment order; ordered invariants; H4 bounded claim; and H5--H8/training nonclaims.
+- [ ] **Step 6: Implement typed decision and artifact construction.** Use only
+  the public Task 1 interval decision and exact status precedence. Deeply thaw
+  only compact versioned records at JSON serialization and enforce the 64 MiB
+  ceiling.
 
 - [ ] **Step 7: Run the Task 4 test for GREEN.**
 
@@ -1181,16 +3549,22 @@ The matrix infinity norm is the maximum absolute row sum, the vector infinity no
   python -m pytest tests/promotion/test_h4_gate.py -q
   ```
 
-  Expected: fixture-sized deterministic/mocked clocks cover every status, exact condition/decisiveness boundary, traversal/order, no-between-repetition-work, batched-conversion, and schema branch; a real reduced repetition fixture proves both solver arms and equivalence without treating its timing as H4 promotion evidence. The full 20-seed/11-repetition protocol is reserved for the click-run milestone.
+  Expected: mocked-clock branches plus a real reduced-problem/full-repetition
+  fixture prove all schemas, boundaries, restoration, guard, coverage,
+  scalar-stream equivalence, route agreement, selected-index retention,
+  postflight schedule, scaled incomplete-phase compaction lifetime, bounded
+  chunks, exact power policy serialization, payload size, and artifact
+  behavior. No test result is H4 promotion evidence.
 
-- [ ] **Step 8: Commit Task 4.**
+- [ ] **Step 8: Commit corrected Task 4 only.**
 
   ```powershell
-  git add verification/h4_gate.py tests/promotion/test_h4_gate.py docs/preregistrations/2026-07-21-h4-information-cost.md
+  git add verification/h4_gate.py tests/promotion/test_h4_gate.py
   git commit -m "test: add the H4 information cost gate"
   ```
 
 ---
+
 ### Task 5: Freeze H5 Types, Raw Specification, Snapshot Ownership, Hashes, and Complete Dependency Graph
 
 **Files:**
@@ -2311,18 +4685,53 @@ git commit -m "feat: add fail-closed H5 gate"
 - Modify: `tests/unit/test_atomic_artifacts.py`
 - Modify: `tests/integration/test_verify_vfe4.py`
 - Modify: `README.md`
-- Modify: `docs/preregistrations/2026-07-21-h4-information-cost.md`
 - Modify: `docs/preregistrations/2026-07-21-h5-update-coherence.md`
 
 **Interfaces and compatibility:**
 
+#### Task 9 H4 integration boundary
+
+Task 9 no longer defines any H4 schema, H4-section resolver formula, numerical
+literal, preregistration correction, classifier, trace, condition, allowance,
+or gate payload shape. It owns only the existing coupled H1-H5 presence rule,
+full-config projection check, and runner/artifact integration.
+
+Its corrected scope is:
+
+- add `H5ValidationConfig`, attach both independently typed `h4` and `h5`
+  sections to `ResolvedConfig`, and accept exactly the existing prefix set
+  `("H1",)`, `("H1","H2")`, `("H1","H2","H3")`, and
+  `("H1","H2","H3","H4","H5")`; H4 and H5 are both present exactly for
+  the last prefix and both absent for every shorter prefix;
+- reuse Task 3's `resolve_h4_validation_config` byte-for-byte inside full
+  resolution, prove its canonical JSON/SHA-256 and complete nested
+  `H4SolveProtocol` are unchanged, and add no second H4 resolver;
+- reject `("H1","H2","H3","H4")`, every H5-without-H4 or H4-without-H5
+  selection, and every reordered, duplicate, or H6-H8 prefix;
+- wire the already implemented `evaluate_h4(config.h4,
+  h3_coupled_bytes=..., h3_zero_bytes=...)` and `h4_validation_payload` into
+  the runner exactly once, after H3 and before H5;
+- publish the preexisting `H4ValidationArtifact`; do not rebuild its payload or
+  recompute H4 status/config/coverage in the runner; the coupled manifest and
+  provenance record both its `h4_config_sha256` and the distinct full
+  resolved-config SHA-256, and require the latter's canonical H4 projection to
+  hash to the former;
+- add H5 configuration, H5 fixture capture, H5 evaluation, coupled manifest,
+  provenance, launcher, integration tests, and documentation only;
+- remove `docs/preregistrations/2026-07-21-h4-information-cost.md` from Task 9's
+  file list and remove all H4 resolver-formula RED/GREEN work from Task 9.
+
+Thus Task 9 shrinks from "define H4/H5 config and H4 payload" to "integrate
+the already resolved and typed H4 section with H5 under the one coupled
+H1-H5 milestone, then wire two already typed gates into one artifact family."
+
 - Extend accepted gate prefixes only to `("H1",)`, `("H1","H2")`, `("H1","H2","H3")`, and `("H1","H2","H3","H4","H5")`. Do not accept H4 without H5, H5 without H4, reordered/duplicate gates, or any H6--H8 prefix in this milestone.
 - Add `h4: H4ValidationConfig | None` and `h5: H5ValidationConfig | None`. Both are absent for shorter prefixes and both are required for the H5 prefix. They remain separately hashed sections and produce separate results. `H5ValidationConfig` copies Task 5's exact fixture ID, raw SHA-256, canonical SHA-256, objective-schema SHA-256, factor-input schema version/SHA-256, all three ordered identifier universes, and ordered rule/positive/control IDs. Resolution recomputes `SHA256(raw_fixture_bytes)` after the coupled-prefix capture and rejects any mismatch, truncation, short digest prefix, canonical/schema drift, or ordering change.
 - H5 v1 config contains `enabled_update_rules=tuple(H5UpdateRule)`, `enabled_update_labels=(UpdateLabel.EXACT_COORDINATE, UpdateLabel.GENERALIZED_EM, UpdateLabel.NATURAL_GRADIENT_PROPOSAL)`, and `mm_proof_artifact=None`. Resolution requires those labels to equal the ordered unique producer labels induced by the enabled rule contracts. Adding `UpdateLabel.VALID_MM` is the concrete unsupported-MM request and is rejected before constructing an `UpdateRequest`, before reading update state, and before calling `evaluate_h5`. Absence of an MM artifact or request never creates an H5 attempt, invariant, obligation, or gate status.
-- `H4ValidationConfig` exposes the exact parity expression, warmup/timed pair-index tuples, `warmups_count_toward_balance=False`, the canonical `H4_PRIMARY_TIMED_BALANCE` 20-row tuple `(seed, AB, BA)`, `primary_timed_ab_total=110`, and `primary_timed_ba_total=110`; resolution recomputes these values from independent horizon/seed/kind/pair indices and rejects any disagreement.
+- Reuse Task 3's `resolve_h4_validation_config` byte-for-byte inside full resolution; require its canonical JSON/SHA-256 and complete nested `H4SolveProtocol` to remain unchanged, require the full resolved configuration's canonical H4 projection to hash to that same H4 digest, and add no second H4 resolver.
 - Extend the explicit result union to include `H4GateResult` and `H5GateResult`; do not merge their measurements or status.
 
-- [ ] **Step 1: Write focused configuration, integration, and artifact tests.** Assert the one editable `CONFIG` resolves to ordered H1--H5 and includes exact H4 horizon/seed/kind traversal with independent zero-based indices, AB exactly when `(horizon_index + seed_index + kind_index + pair_index) % 2 == 0`, warmup/timed pair indices, `warmups_count_toward_balance=False`, the exact 20-row `H4_PRIMARY_TIMED_BALANCE`, exactly ten primary `6/5` rows and ten `5/6` rows, exact aggregate timed totals `AB=110` and `BA=110`, seeds/dimensions/protocol/statistics/environment constraints, inclusive condition envelope, `1e-9` solver budget, and strict `1e-4` decisiveness cap; plus exact H5 conditional update-spec fixture ID, full raw/canonical digests, objective/factor-input schema fields, identifier universes, five rule contracts, producer-label order, five positive cases, seven controls, quadrature orders `21/17`, deterministic-convergence-plus-rounding budgets, zero stochastic contribution, and epsilon formula. Reject a formula based on flattened `problem_index`, either swapped per-seed count, a per-seed imbalance masked by correct aggregate totals, aggregate totals other than `110/110`, or a true warmup-balance flag. Reject `VALID_MM` with `mm_proof_artifact=None` before request/state/evaluator construction, and assert that the supported config creates no missing-MM obligation. Test every envelope/cap/delta boundary. Resolve every shorter compatibility prefix and prove it contains no H4/H5 config, does not read/hash/capture H4/H5/update-spec inputs, does not run timing/updates, and publishes no H4/H5 payload/provenance keys.
+- [ ] **Step 1: Write focused configuration, integration, and artifact tests.** Assert the one editable `CONFIG` resolves to ordered H1--H5, reuses Task 3's exact resolved H4 section without changing its canonical JSON/SHA-256 or nested `H4SolveProtocol`, and projects that section byte-for-byte from the full resolved config; plus exact H5 conditional update-spec fixture ID, full raw/canonical digests, objective/factor-input schema fields, identifier universes, five rule contracts, producer-label order, five positive cases, seven controls, quadrature orders `21/17`, deterministic-convergence-plus-rounding budgets, zero stochastic contribution, and epsilon formula. Reject any second H4 resolver, canonical H4 projection drift, H4-only prefix, H5-without-H4 prefix, or coupled-prefix section absence. Reject `VALID_MM` with `mm_proof_artifact=None` before request/state/evaluator construction, and assert that the supported config creates no missing-MM obligation. Test every H5 delta boundary. Resolve every shorter compatibility prefix and prove it contains no H4/H5 config, does not read/hash/capture H4/H5/update-spec inputs, does not run timing/updates, and publishes no H4/H5 payload/provenance keys.
 
   One mocked H1--H5 `main()` call evaluates each gate once and publishes exactly one manifest-checked directory containing:
 
@@ -2346,15 +4755,15 @@ git commit -m "feat: add fail-closed H5 gate"
   python -m pytest tests/unit/test_config.py tests/unit/test_atomic_artifacts.py tests/integration/test_verify_vfe4.py -q
   ```
 
-  Expected: failures show the resolver/runner currently stop at H3 and no H4/H5 payloads or environment fields exist.
+  Expected: failures show full resolution and the runner do not yet integrate the already resolved H4 section with H5, and no coupled H4/H5 payloads or environment fields exist.
 
-- [ ] **Step 3: Add exact typed H4/H5 sections and fail-closed resolution.** Canonicalize every frozen literal. Derive arm order from independent indices, recompute the primary 20-row timed balance, pattern counts, and aggregate totals, and require exact equality with the configured literals before returning `ResolvedConfig`. Reject changed horizon/seed/kind traversal, seed order/count, size order, primary dimension, warmup/timed pair indices, parity formula, flattened-`problem_index` parity, warmup inclusion, any per-seed primary balance row, pattern-count or `110/110` aggregate mismatch, no-between-repetitions/postflight tag, bootstrap settings, threshold, condition-envelope bound/inclusivity, solver budget, decisiveness cap/strictness, timer boundary tag, solver labels, thread/dtype/device, an H5 fixture/raw/canonical/objective-schema/factor-input-schema field that differs from Task 5, any raw digest shorter than the exact 64-hex SHA-256 literal, any universe/rule/label/positive/control order change, quadrature-order drift, deterministic-budget drift, nonzero stochastic contribution, or delta-formula drift. Require exact equality between enabled rule producer labels and `enabled_update_labels`. Reject unsupported `VALID_MM` at configuration resolution when `mm_proof_artifact=None`; do not pass that condition into attempt or gate status logic. Reject H4/H5 section presence for shorter prefixes and absence of either section for the coupled prefix.
+- [ ] **Step 3: Add H5 configuration and integrate the existing typed H4 section with fail-closed resolution.** Reuse Task 3's `resolve_h4_validation_config` byte-for-byte and prove that the full-config H4 projection has the same canonical JSON/SHA-256 and complete nested `H4SolveProtocol`; do not define or recompute any H4 formula, literal, classifier, condition, allowance, trace, or payload here. Canonicalize every H5 frozen literal. Reject an H5 fixture/raw/canonical/objective-schema/factor-input-schema field that differs from Task 5, any raw digest shorter than the exact 64-hex SHA-256 literal, any universe/rule/label/positive/control order change, quadrature-order drift, deterministic-budget drift, nonzero stochastic contribution, or delta-formula drift. Require exact equality between enabled rule producer labels and `enabled_update_labels`. Reject unsupported `VALID_MM` at configuration resolution when `mm_proof_artifact=None`; do not pass that condition into attempt or gate status logic. Reject H4/H5 section presence for shorter prefixes and absence of either section for the coupled prefix; reject `("H1","H2","H3","H4")`, every reordered or duplicate selection, and every H6--H8 prefix.
 
-- [ ] **Step 4: Extend conditional one-time capture and ordered evaluation.** Capture `h1-v1` once for H1/H2/H5, H3 coupled/zero bytes once for H3/H4 only when consumed, and `h5_conditional_update_v1.json` bytes once only for the coupled H1/H2/H3/H4/H5 prefix. Immediately compute and compare its full raw-byte SHA-256 against the exact Task 5/config literal before parser decode; no short digest prefix is accepted or exposed in configuration, gate arguments, provenance, payloads, or artifacts. Pass the same captured H5 byte object by identity to `evaluate_h5` and every production/oracle adapter; H5 receives both `h1_fixture_bytes` and `h5_update_spec_bytes`. Evaluate H1, H2, H3, H4, H5 in order. H4 receives H3 bytes. Publish only after both expensive gates return. Shorter prefixes must neither read, hash, capture, nor publish the H5 update-spec. Aggregate status is `fail` if any gate fails, otherwise `inconclusive` if any is inconclusive, otherwise `pass`.
+- [ ] **Step 4: Extend conditional one-time capture and ordered evaluation.** Capture `h1-v1` once for H1/H2/H5, H3 coupled/zero bytes once for H3/H4 only when consumed, and `h5_conditional_update_v1.json` bytes once only for the coupled H1/H2/H3/H4/H5 prefix. Immediately compute and compare its full raw-byte SHA-256 against the exact Task 5/config literal before parser decode; no short digest prefix is accepted or exposed in configuration, gate arguments, provenance, payloads, or artifacts. Pass the same captured H5 byte object by identity to `evaluate_h5` and every production/oracle adapter; H5 receives both `h1_fixture_bytes` and `h5_update_spec_bytes`. Evaluate H1, H2, H3, H4, H5 in order. Invoke the already implemented `evaluate_h4(config.h4, h3_coupled_bytes=..., h3_zero_bytes=...)` exactly once after H3 and before H5, then pass its preexisting `H4ValidationArtifact` to `h4_validation_payload`; the runner does not rebuild H4 status, coverage, or payload content. Publish only after both expensive gates return. Shorter prefixes must neither read, hash, capture, nor publish the H5 update-spec. Aggregate status is `fail` if any gate fails, otherwise `inconclusive` if any is inconclusive, otherwise `pass`.
 
-- [ ] **Step 5: Extend environment and provenance.** Preserve current source/config/dirty-content security fields and expose the canonical `dirty_content_digest` used by milestone preflight/rechecks. Add timing clock implementation/resolution/monotonicity, process CPU affinity, logical/physical CPU counts when available, processor/platform, PyTorch intra/inter-op threads, `torch.__config__.show()` digest/text, NumPy BLAS configuration digest/text, CUDA availability (expected false for H4), and exact values/presence of `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS`, and `VECLIB_MAXIMUM_THREADS`. Record H4 prior/effective/restored intra-op thread values and any restoration error, ordered gate states, distinct H4/H5 config hashes, H5 raw/canonical update-spec, objective-schema, factor-input-schema, recognition/model/reference/transaction/payload hashes, `fixture_hashes["h5-conditional-update-v1"]`, `gate_fixture_consumers["H5"]=("h1-v1","h5-conditional-update-v1")`, H5 universes/rule/control orders/quadrature/allowance rules, H4 traversal/problem-factor hashes/parity formula/warmup-exclusion flag/expected and observed primary per-seed plus `110/110` aggregate timed balance/envelope/budget/cap, and H4/H5 bounded-claim/nonclaim tags. Shorter prefixes contain none of the H5 update-spec fields.
+- [ ] **Step 5: Extend environment and provenance.** Preserve current source/config/dirty-content security fields and expose the canonical `dirty_content_digest` used by milestone preflight/rechecks. Add timing clock implementation/resolution/monotonicity, process CPU affinity, logical/physical CPU counts when available, processor/platform, PyTorch intra/inter-op threads, `torch.__config__.show()` digest/text, NumPy BLAS configuration digest/text, CUDA availability (expected false for H4), and exact values/presence of `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS`, and `VECLIB_MAXIMUM_THREADS`. Publish the preexisting `H4ValidationArtifact` without rebuilding it. Record ordered gate states, the Task 3 `h4_config_sha256`, the distinct full resolved-config SHA-256, and proof that the latter's canonical H4 projection hashes to the former. Record the distinct H5 config hash, H5 raw/canonical update-spec, objective-schema, factor-input-schema, recognition/model/reference/transaction/payload hashes, `fixture_hashes["h5-conditional-update-v1"]`, `gate_fixture_consumers["H5"]=("h1-v1","h5-conditional-update-v1")`, H5 universes/rule/control orders/quadrature/allowance rules, and H4/H5 bounded-claim/nonclaim tags. Shorter prefixes contain none of the H5 update-spec fields.
 
-- [ ] **Step 6: Extend the one launcher and bounded documentation.** Keep one `CONFIG`, `main`, and script guard. Print H1--H5 statuses separately and one artifact path. README and the H4 preregistration state the independent-index parity formula, literal primary 20-row timed balance, ten/ten pattern split, exact `110/110` totals, and that warmups are excluded from balance; they do not prestate H4 speed or H5 pass results. The H5 preregistration states the exact conditional recognition law, raw/canonical/schema bindings, five rules/positives, seven controls, and config-only unsupported-MM rejection without inventing a missing-MM gate obligation. Use exact live path case `Manuscripts/...` in every source citation and add a focused documentation assertion that rejects any differently cased variant. Explicitly defer H6--H8 and training.
+- [ ] **Step 6: Extend the one launcher and bounded documentation.** Keep one `CONFIG`, `main`, and script guard. Print H1--H5 statuses separately and one artifact path. README documents only the coupled integration of the already frozen H4 artifact with H5 and does not restate or revise H4 numerical formulas, preregistration, classifier, trace, condition, allowance, or payload shape; it does not prestate H4 speed or H5 pass results. The H5 preregistration states the exact conditional recognition law, raw/canonical/schema bindings, five rules/positives, seven controls, and config-only unsupported-MM rejection without inventing a missing-MM gate obligation. Use exact live path case `Manuscripts/...` in every source citation and add a focused documentation assertion that rejects any differently cased variant. Explicitly defer H6--H8 and training.
 
 - [ ] **Step 7: Run the Task 9 tests for GREEN.**
 
@@ -2367,7 +4776,7 @@ git commit -m "feat: add fail-closed H5 gate"
 - [ ] **Step 8: Commit Task 9.**
 
   ```powershell
-  git add vfe4/config/schema.py vfe4/config/resolve.py verification/run_gates.py vfe4/artifacts/provenance.py verify_vfe4.py tests/unit/test_config.py tests/unit/test_atomic_artifacts.py tests/integration/test_verify_vfe4.py README.md docs/preregistrations/2026-07-21-h4-information-cost.md docs/preregistrations/2026-07-21-h5-update-coherence.md
+  git add vfe4/config/schema.py vfe4/config/resolve.py verification/run_gates.py vfe4/artifacts/provenance.py verify_vfe4.py tests/unit/test_config.py tests/unit/test_atomic_artifacts.py tests/integration/test_verify_vfe4.py README.md docs/preregistrations/2026-07-21-h5-update-coherence.md
   git commit -m "feat: publish separate H4 and H5 verification gates"
   ```
 
@@ -2574,10 +4983,45 @@ git commit -m "feat: add fail-closed H5 gate"
 
 ## Self-Review of Plan Completeness
 
-- **Spec coverage:** H4 and H5 remain separate results/payloads/statuses. H4 freezes one authoritative generic normalized-factor schedule with validated derived partitions, the H3 structural-group anchor mapping, the exact normalized log-evidence sign/constants, exact scaled dimensions, fixed `N(0,I_8)` initial law, PCG64 draw order and distributions, `m_t`-then-`z_t|m_t` factorization, all-zero transition-block control, independent arms, three per-problem warmup pairs followed by 11 timed pairs, independent-index parity, warmup exclusion, the literal primary 20-row balance table, ten/ten per-seed pattern split, exact `110 AB/110 BA` timed aggregate, batch-post-timing conversions, seed-level bootstrap threshold, inclusive scaled conditioning envelope, per-invariant solver budget and strict allowance/scale cap, mean/covariance selected moments, raw times, secondary memory/count nonclaim, set/verify/finally-restore one-thread CPU float64, and provenance. H5 specifies the exact conditional categorical law and source-independent continuous reconstruction, a raw-byte-frozen conditional update fixture, full raw/canonical/schema hashes, closed identifier universes and dependency graph, immutable model/recognition/reference/live/candidate ownership, exact E/source/M formulas, complete objective/cache records, the completed/failed attempt union, five positives, seven controls, fieldwise exact-candidate allowances, order-21/order-17 term budgets, exact zero-stochastic delta allowance, byte-bearing gate evaluation, and configuration-only rejection of unsupported MM.
-- **Interface consistency:** `H4GaussianSolver`, `H4MaterializedProblem`, and the native diagnostic records live in the inference layer, while `H4NeutralProblem`, solver results, and tuple-ordered selected moments remain dependency-light protocol types. One generated neutral problem is materialized exactly once into raw owned tensors; both independent solver arms receive that same materialized object by identity, while the oracle receives its canonical bytes. No conversion, hash, count, memory, or diagnostic-replay work occurs between timed representations. `CompleteElboEvaluation` is produced only by the complete evaluator. Completed outcomes embed complete before/after evaluations; failed outcomes carry only phase-valid complete or partial evidence through `H5AttemptOutcome`. `observed_affected_factor_ids` comes only from ordered factor-input hashes, and `execute_update` alone accepts or rolls back. H5's parser binds both raw fixture byte objects to `H5ReferenceState`, while the runner passes those same captured bytes into byte-bearing production and oracle seams and publishes a separate H5 payload.
+- **Task 2 consistency:** every production call uses the materialized API;
+  neutral bytes are oracle-only; materialization remains raw-only and outside
+  timing; integrity hashes bracket mutation windows; repaired converter
+  Choleskys are facade-visible; replay/count/memory remain distinct untimed
+  passes.
+- **Configuration and milestone closure:** the standalone H4 section owns all
+  six `H4SolveProtocol` fields and validates their cross-field identities. It
+  adds no runner prefix; Task 9 integrates it only with H5 under the existing
+  coupled H1-H5 milestone and rejects H4 alone.
+- **Oracle closure:** canonical and predictive `logZ`, exact selected blocks,
+  typed route operand/allowance/strict-decision evidence, and signed
+  `KL(q || p*)` to zero are explicit. No solver pair can corroborate a shared
+  error.
+- **Allowance closure:** every scalar path has its own operands, flags,
+  operation table, rounding, solver term, comparison term, residual, pass, and
+  strict ratio. Bounded vector chunks check 79,832,024 lanes without
+  per-scalar dataclasses; counts, digest, maxima, and deterministic witnesses
+  cannot mismatch elements.
+- **Execution closure:** exact 3/11 cardinalities, preallocated timing slots,
+  a mechanical guard, GC capture/disable/restore errors, typed incomplete
+  phases, dedicated four-checkpoint materialized-integrity failure carriers,
+  and the exact 146,720-event postflight schedule are all closed.
+- **Condition closure:** posterior and innovation rules and complete counts are
+  distinct and exact; record/key streams retain digests and worst witnesses
+  without unbounded tuples.
+- **Classifier closure:** only Task 1 contains threshold inequalities.
+- **Schema closure:** gate, artifact, replay, operation, memory, environment,
+  restoration, power policy, and coverage data are exact immutable records;
+  selected coordinate indices survive compaction and bind their hashes; full
+  current-problem objects are compacted and released before traversal advances,
+  and canonical payload size is capped at 64 MiB.
+- **Placeholder scan:** no `TBD`, deferred field, reduced repetition, unnamed
+  callable, free-form allowance mapping, or deferred Task 9 H4 definition
+  remains; Task 9 performs integration only.
+
+- **H5 spec coverage:** H5 specifies the exact conditional categorical law and source-independent continuous reconstruction, a raw-byte-frozen conditional update fixture, full raw/canonical/schema hashes, closed identifier universes and dependency graph, immutable model/recognition/reference/live/candidate ownership, exact E/source/M formulas, complete objective/cache records, the completed/failed attempt union, five positives, seven controls, fieldwise exact-candidate allowances, order-21/order-17 term budgets, exact zero-stochastic delta allowance, byte-bearing gate evaluation, and configuration-only rejection of unsupported MM.
+- **H5 interface consistency:** `CompleteElboEvaluation` is produced only by the complete evaluator. Completed outcomes embed complete before/after evaluations; failed outcomes carry only phase-valid complete or partial evidence through `H5AttemptOutcome`. `observed_affected_factor_ids` comes only from ordered factor-input hashes, and `execute_update` alone accepts or rolls back. H5's parser binds both raw fixture byte objects to `H5ReferenceState`, while the runner passes those same captured bytes into byte-bearing production and oracle seams and publishes a separate H5 payload.
 - **Evidence discipline:** Focused RED/GREEN commands are noncumulative. The milestone preflight requires every plan, preregistration, source, config, launcher, and test file to be tracked; rejects nonignored untracked content outside `.verification`; records the exact dirty-content digest and prior-ledger hashes; and rechecks them through closure. The only full suite and full timing occur at one shared exact revision. Reviewers inspect rather than rerun. A defect found after ledger activation closes the current revision `INCONCLUSIVE`, preserves it, repairs only after tool-driven retirement, and permits exactly one replacement revision/run/ledger. The coupled ledger separates claims by gate and preserves every earlier ledger.
-- **Placeholder scan:** The plan contains no unspecified H4 canonical factor source, objective sign/constants, generator distributions, control blocks, selected-moment inventory, thread restoration rule, H5 fixture producer/parser, raw-byte digest comparison, source-row identity, model-snapshot owner, short-digest rejection rule, or required-tracked surface. The exact H5 fixture SHA-256 is intentionally not invented: Task 5 authors the tracked bytes and pins `SHA256(raw_fixture_bytes)` in parser/tests before GREEN/commit; Task 9 copies and verifies that literal. H6--H8/training and MM activation remain explicit nonclaims, not hidden implementation gaps.
+- **H5 placeholder scan:** The plan contains no unspecified H5 fixture producer/parser, raw-byte digest comparison, source-row identity, model-snapshot owner, short-digest rejection rule, or required-tracked surface. The exact H5 fixture SHA-256 is intentionally not invented: Task 5 authors the tracked bytes and pins `SHA256(raw_fixture_bytes)` in parser/tests before GREEN/commit; Task 9 copies and verifies that literal. H6--H8/training and MM activation remain explicit nonclaims, not hidden implementation gaps.
 - **American English:** Terminology uses American English throughout.
 
 Plan implementation must stop after Task 10 with the exact H4 result, exact H5 result, JUnit totals, atomic artifact path, and validated `.verification/h4-h5-<FULL_HEAD>-ledger.json` reported from current evidence.
