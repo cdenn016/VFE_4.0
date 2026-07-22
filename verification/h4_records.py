@@ -223,15 +223,27 @@ class H4ProblemConditionSummary:
     def __post_init__(self) -> None:
         _identity(self.problem_id, self.problem_sha256)
         match = _SCALED_PROBLEM_ID.fullmatch(self.problem_id)
-        if match is None:
-            raise ValueError("problem condition summary requires a scaled problem identity")
-        horizon = int(match.group(1))
-        expected_counts = {
-            "oracle_posterior": 1,
-            "terminal_posterior": 22,
-            "oracle_innovation": horizon,
-            "moment_innovation": 11 * horizon,
-        }
+        anchor = self.problem_id in (
+            "h4-anchor-h3-coupled-v1", "h4-anchor-h3-zero-control-v1",
+        )
+        if anchor:
+            if self.name != "oracle_innovation":
+                raise ValueError(
+                    "anchor problem condition summary accepts only oracle_innovation"
+                )
+            expected_counts = {"oracle_innovation": 2}
+        elif match is not None:
+            horizon = int(match.group(1))
+            expected_counts = {
+                "oracle_posterior": 1,
+                "terminal_posterior": 22,
+                "oracle_innovation": horizon,
+                "moment_innovation": 11 * horizon,
+            }
+        else:
+            raise ValueError(
+                "problem condition summary requires a scaled or exact anchor identity"
+            )
         if (
             self.name not in expected_counts
             or self.stream_domain != "vfe4.h4.problem-condition-record-stream.v1"

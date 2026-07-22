@@ -126,6 +126,68 @@ def test_h4_problem_condition_summary_uses_horizon_local_innovation_counts() -> 
     assert summary.expected_record_count == 15
     with pytest.raises(ValueError, match="identity"):
         replace(summary, problem_sha256="e" * 64)
+
+
+@pytest.mark.parametrize(
+    "problem_id",
+    (
+        "h4-anchor-h3-coupled-v1",
+        "h4-anchor-h3-zero-control-v1",
+    ),
+)
+def test_h4_anchor_problem_condition_summary_is_oracle_innovation_count_two_only(
+    problem_id: str,
+) -> None:
+    record = H4InnovationConditionRecord(
+        problem_id, "f" * 64, "numpy_oracle", None, "z1_observation", 1,
+        (2,), 1, 1.0, 2.0, 2.0, True, True, True,
+    )
+    witnesses = tuple(
+        H4ConditionWitness(metric, 0, record)
+        for metric in (
+            "minimum_eigenvalue", "maximum_eigenvalue", "maximum_condition_number",
+        )
+    )
+    summary = H4ProblemConditionSummary(
+        problem_id, "f" * 64, "oracle_innovation",
+        "vfe4.h4.problem-condition-record-stream.v1", 2, 2, "a" * 64,
+        2, 0, witnesses, True,
+    )
+    assert summary.expected_record_count == summary.observed_record_count == 2
+    with pytest.raises(ValueError, match="anchor|identity|name"):
+        replace(
+            summary, name="terminal_posterior", expected_record_count=22,
+            observed_record_count=22, eligible_record_count=22,
+        )
+    with pytest.raises(ValueError, match="anchor|count"):
+        replace(
+            summary, expected_record_count=1, observed_record_count=1,
+            eligible_record_count=1,
+        )
+    with pytest.raises(ValueError, match="anchor|identity"):
+        replace(summary, problem_id="h4-anchor-h3-other-v1")
+
+
+def test_h4_anchor_condition_exclusion_remains_a_gate_responsibility() -> None:
+    assert "included_in_global" not in {
+        field.name for field in fields(H4ProblemConditionSummary)
+    }
+    scaled_id = "h4-coupled-T7-dz4-dm4-seed104729-v1"
+    record = H4InnovationConditionRecord(
+        scaled_id, "b" * 64, "numpy_oracle", None, "observation[1]", 1,
+        (8, 9), 2, 1.0, 2.0, 2.0, True, True, True,
+    )
+    witnesses = tuple(
+        H4ConditionWitness(metric, 0, record)
+        for metric in (
+            "minimum_eigenvalue", "maximum_eigenvalue", "maximum_condition_number",
+        )
+    )
+    global_summary = H4ConditionStreamSummary(
+        "oracle_innovation", "vfe4.h4.condition-record-stream.v1", 2120,
+        2120, "c" * 64, 2120, 0, witnesses, True,
+    )
+    assert global_summary.expected_record_count == 2120
     with pytest.raises(ValueError):
         H4CoverageRecord(
             "execution_trace", "vfe4.h4.coverage-key-stream.v1", 120, 119,
