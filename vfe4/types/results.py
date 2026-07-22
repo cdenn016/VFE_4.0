@@ -171,13 +171,16 @@ class GateResult:
             raise ValueError("measurements must be a mapping")
         copied_measurements = dict(self.measurements)
         for name, value in copied_measurements.items():
-            if type(name) is not str:
-                raise ValueError("measurement names must be strings")
+            if type(name) is not str or not name:
+                raise ValueError("measurement names must be nonempty strings")
             _require_optional_finite(value, f"measurements[{name!r}]")
         if type(self.invariants) is not tuple or not all(
             isinstance(item, InvariantResult) for item in self.invariants
         ):
             raise ValueError("invariants must be a tuple of InvariantResult")
+        invariant_names = tuple(item.name for item in self.invariants)
+        if len(set(invariant_names)) != len(invariant_names):
+            raise ValueError("invariant names must be unique")
         if type(self.obligations) is not tuple or not all(
             type(item) is str and item for item in self.obligations
         ):
@@ -187,10 +190,25 @@ class GateResult:
             if not self.obligations:
                 raise ValueError("inconclusive results require an obligation")
         else:
+            if not copied_measurements:
+                raise ValueError("pass/fail measurements must be nonempty")
+            if not self.invariants:
+                raise ValueError("pass/fail invariants must be nonempty")
+            if self.obligations:
+                raise ValueError("pass/fail results cannot retain obligations")
             _require_finite(self.residual, "residual")
             _require_finite(self.calibrated_allowance, "calibrated_allowance")
             if any(value is None for value in copied_measurements.values()):
                 raise ValueError("pass/fail results require finite measurements")
+            if self.status is GateStatus.PASS and not all(
+                item.passed for item in self.invariants
+            ):
+                raise ValueError("pass requires every invariant to pass")
+            if self.status is GateStatus.FAIL and not any(
+                not item.passed and item.value is not None and item.limit is not None
+                for item in self.invariants
+            ):
+                raise ValueError("fail requires a finite failed invariant")
         object.__setattr__(self, "measurements", MappingProxyType(copied_measurements))
 
 

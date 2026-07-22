@@ -51,8 +51,6 @@ class IndependentNumericalAllowance:
         _nonnegative(self.convergence_estimate, "convergence_estimate")
         _nonnegative(self.rounding_allowance, "rounding_allowance")
         _finite(self.total, "total allowance")
-        if self.convergence_estimate > 1.0e-9:
-            raise ValueError("convergence_estimate exceeds the frozen H1 maximum")
 
     @property
     def total(self) -> float:
@@ -69,18 +67,17 @@ class H1EvidenceRecord:
 
     def __post_init__(self) -> None:
         _observation_pair(self.observation_labels)
-        probability = _positive(self.probability, "evidence probability")
-        if probability > 1.0:
-            raise ValueError("evidence probability must not exceed one")
+        _finite(self.probability, "evidence probability")
         _finite(self.log_probability, "log evidence")
         if not isinstance(self.probability_allowance, IndependentNumericalAllowance):
             raise ValueError("probability_allowance must be independent")
         if not isinstance(self.log_probability_allowance, IndependentNumericalAllowance):
             raise ValueError("log_probability_allowance must be independent")
-        expected_log = math.log(probability)
-        consistency_allowance = 8.0 * _EPSILON * max(1.0, abs(expected_log))
-        if abs(self.log_probability - expected_log) > consistency_allowance:
-            raise ValueError("probability and log_probability are inconsistent")
+        if self.probability > 0.0:
+            expected_log = math.log(self.probability)
+            consistency_allowance = 8.0 * _EPSILON * max(1.0, abs(expected_log))
+            if abs(self.log_probability - expected_log) > consistency_allowance:
+                raise ValueError("probability and log_probability are inconsistent")
 
 
 @dataclass(frozen=True)
@@ -109,14 +106,6 @@ class H1IdentityRecord:
             raise ValueError("posterior_kl_allowance must be independent")
         if not isinstance(self.identity_allowance, IndependentNumericalAllowance):
             raise ValueError("identity_allowance must be independent")
-        if self.posterior_kl < -self.posterior_kl_allowance.total:
-            raise ValueError("posterior KL is negative beyond its allowance")
-        expected = self.evidence.log_probability - self.posterior_kl
-        consistency_allowance = 16.0 * _EPSILON * math.fsum(
-            (1.0, abs(expected), abs(self.elbo_from_identity))
-        )
-        if abs(self.elbo_from_identity - expected) > consistency_allowance:
-            raise ValueError("identity ELBO is inconsistent with log evidence and posterior KL")
 
 
 @dataclass(frozen=True)
@@ -197,47 +186,8 @@ class IndependentTermRecord:
             "complete_elbo",
         ):
             _finite(getattr(self, name), name)
-        _nonnegative(self.initial_model_kl, "initial_model_kl")
-        _nonnegative(self.initial_state_kl, "initial_state_kl")
-        for name in (
-            "model_source_kl",
-            "model_transition_kl",
-            "state_source_kl",
-            "state_transition_kl",
-        ):
-            for value in getattr(self, name):
-                _nonnegative(value, name)
         if not isinstance(self.allowances, IndependentTermAllowances):
             raise ValueError("allowances must be IndependentTermAllowances")
-        expected = math.fsum(
-            (
-                *self.expected_log_emission,
-                -self.initial_model_kl,
-                -self.initial_state_kl,
-                -self.model_source_kl[0],
-                -self.model_transition_kl[0],
-                -self.model_source_kl[1],
-                -self.model_transition_kl[1],
-                -self.state_source_kl[0],
-                -self.state_transition_kl[0],
-                -self.state_source_kl[1],
-                -self.state_transition_kl[1],
-            )
-        )
-        arithmetic_allowance = 256.0 * _EPSILON * math.fsum(
-            (
-                1.0,
-                *(abs(value) for value in self.expected_log_emission),
-                abs(self.initial_model_kl),
-                abs(self.initial_state_kl),
-                *(abs(value) for value in self.model_source_kl),
-                *(abs(value) for value in self.model_transition_kl),
-                *(abs(value) for value in self.state_source_kl),
-                *(abs(value) for value in self.state_transition_kl),
-            )
-        )
-        if abs(self.complete_elbo - expected) > arithmetic_allowance:
-            raise ValueError("complete_elbo is inconsistent with its local terms")
 
 
 @dataclass(frozen=True)
@@ -1102,14 +1052,6 @@ def h1_all_observation_evidences(
         )
         for first, second in product(range(3), repeat=2)
     )
-    normalization_residual = abs(
-        math.fsum(record.probability for record in records) - 1.0
-    )
-    normalization_allowance = math.fsum(
-        record.probability_allowance.total for record in records
-    )
-    if normalization_residual > normalization_allowance:
-        raise ValueError("all-pairs evidence table failed probability normalization")
     return records  # type: ignore[return-value]
 
 

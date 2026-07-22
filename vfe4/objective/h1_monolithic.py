@@ -27,6 +27,9 @@ class MonolithicElboResult:
     component_values: tuple[float, float, float, float]
     component_gaussian_log_ratios: tuple[float, float, float, float]
     component_source_log_ratios: tuple[float, float, float, float]
+    component_emission_values: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]
+    ]
     expected_log_emission: tuple[float, float]
     quadrature_order: Literal[21]
     convergence_check_order: Literal[17]
@@ -44,6 +47,30 @@ class MonolithicElboResult:
                 raise ValueError(f"{name} must be a tuple of length {size}")
             for index, value in enumerate(values):
                 _finite(value, f"{name}[{index}]")
+        if type(self.component_emission_values) is not tuple or len(
+            self.component_emission_values
+        ) != 4:
+            raise ValueError("component_emission_values must be a tuple of length 4")
+        for index, values in enumerate(self.component_emission_values):
+            if type(values) is not tuple or len(values) != 2:
+                raise ValueError(
+                    f"component_emission_values[{index}] must be a tuple of length 2"
+                )
+            for time, value in enumerate(values):
+                _finite(value, f"component_emission_values[{index}][{time}]")
+            reconstructed = math.fsum(
+                (
+                    self.component_gaussian_log_ratios[index],
+                    self.component_source_log_ratios[index],
+                    values[0],
+                    values[1],
+                )
+            )
+            allowance = 64.0 * _FLOAT64_EPSILON * max(
+                1.0, abs(reconstructed), abs(self.component_values[index])
+            )
+            if abs(self.component_values[index] - reconstructed) > allowance:
+                raise ValueError("component value does not match its path contributions")
         if type(self.quadrature_order) is not int or self.quadrature_order != 21:
             raise ValueError("quadrature_order must equal 21")
         if (
@@ -72,6 +99,9 @@ class _OrderEvaluation:
     component_values: tuple[float, float, float, float]
     gaussian_log_ratios: tuple[float, float, float, float]
     source_log_ratios: tuple[float, float, float, float]
+    emission_values: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]
+    ]
     expected_log_emission: tuple[float, float]
 
 
@@ -95,6 +125,7 @@ def evaluate_monolithic_elbo(
         component_values=reported.component_values,
         component_gaussian_log_ratios=reported.gaussian_log_ratios,
         component_source_log_ratios=reported.source_log_ratios,
+        component_emission_values=reported.emission_values,
         expected_log_emission=reported.expected_log_emission,
         quadrature_order=21,
         convergence_check_order=17,
@@ -173,6 +204,7 @@ def _evaluate_order(
         component_values=_tuple4(path_values, "component values"),
         gaussian_log_ratios=_tuple4(gaussian_ratios, "Gaussian log ratios"),
         source_log_ratios=_tuple4(source_ratios, "source log ratios"),
+        emission_values=tuple(emission_values),  # type: ignore[arg-type]
         expected_log_emission=(
             _finite(expected_emission[0], "expected emission 1"),
             _finite(expected_emission[1], "expected emission 2"),

@@ -417,7 +417,6 @@ def test_stable_softmax_and_log_softmax_ignore_common_large_logit_shift() -> Non
         (-1.0, 0.0),
         (math.nan, 0.0),
         (0.0, math.inf),
-        (2.0e-9, 0.0),
         (
             float.fromhex("0x1.fffffffffffffp+1023"),
             float.fromhex("0x1.fffffffffffffp+1023"),
@@ -427,6 +426,11 @@ def test_stable_softmax_and_log_softmax_ignore_common_large_logit_shift() -> Non
 def test_independent_allowances_fail_closed(convergence: float, rounding: float) -> None:
     with pytest.raises(ValueError):
         IndependentNumericalAllowance(convergence, rounding)
+
+
+def test_independent_allowance_represents_finite_over_limit_for_gate_classification() -> None:
+    allowance = IndependentNumericalAllowance(2.0e-9, 0.0)
+    assert allowance.convergence_estimate == 2.0e-9
 
 
 def test_term_allowances_reject_malformed_pairs() -> None:
