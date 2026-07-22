@@ -1,0 +1,56 @@
+{
+  "fixture_id": "h5-conditional-update-v1",
+  "fixture_schema_version": 1,
+  "recognition_family": "continuous_mean_field_conditional_categorical",
+  "h1_fixture_id": "h1-v1",
+  "h1_fixture_sha256": "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b",
+  "factor_input_schema_version": "h5-factor-input-v1",
+  "factor_universe": ["initial_joint", "model_source[1]", "model_transition[1]", "state_source[1]", "state_transition[1]", "emission[1]", "model_source[2]", "model_transition[2]", "state_source[2]", "state_transition[2]", "emission[2]", "recognition_entropy"],
+  "recognition_coordinate_universe": ["q[z0]", "q[m0]", "q[z1]", "q[m1]", "q[z2]", "q[m2]", "q[model_source_b1]", "q[state_source_a1_b0]", "q[model_source_b2]", "q[source_row_a2]", "q[state_source_a2_b1]"],
+  "model_block_universe": ["theta[state_transition_2]", "theta[emission_1]", "theta[shared_decoder_transition]"],
+  "quadrature_orders": [21, 17],
+  "continuous_recognition": [
+    ["q[z0]", -0.10, 0.65],
+    ["q[m0]", 0.25, 0.78],
+    ["q[z1]", 0.05, 0.96],
+    ["q[m1]", 0.175, 1.21],
+    ["q[z2]", -0.04, 0.90],
+    ["q[m2]", 0.14, 1.40]
+  ],
+  "categorical_recognition": [
+    ["q[model_source_b1]", [0], [], [1.0]],
+    ["q[state_source_a1_b0]", [0], [["b1", 0]], [1.0]],
+    ["q[model_source_b2]", [0, 1], [], [0.4, 0.6]],
+    ["q[source_row_a2]", [0, 1], [["b2", 0]], [0.75, 0.25]],
+    ["q[state_source_a2_b1]", [0, 1], [["b2", 1]], [0.2, 0.8]]
+  ],
+  "model_parameter_blocks": [
+    ["theta[state_transition_2]", [["alpha_0", 0.8], ["alpha_1", 0.64], ["B_base", -0.35], ["c", 0.08], ["R", 0.48]]],
+    ["theta[emission_1]", [["w_z", [0.2, -0.4, 0.1]], ["w_m", [0.3, 0.2, -0.5]], ["bias", [0.05, -0.1, 0.15]]]],
+    ["theta[shared_decoder_transition]", [["s", 0.0]]]
+  ],
+  "factor_reconstruction": [
+    ["initial_joint", ["h1.initial_joint", "q[z0]", "q[m0]"]],
+    ["model_source[1]", ["h1.model_source_priors[1]", "q[model_source_b1]"]],
+    ["model_transition[1]", ["h1.model_transition[1]", "q[m0]", "q[m1]", "q[model_source_b1]"]],
+    ["state_source[1]", ["h1.state_source_priors[1]", "q[model_source_b1]", "q[state_source_a1_b0]"]],
+    ["state_transition[1]", ["h1.state_transition[1]", "q[z0]", "q[z1]", "q[m1]", "q[model_source_b1]", "q[state_source_a1_b0]"]],
+    ["emission[1]", ["theta[emission_1]", "theta[shared_decoder_transition]", "q[z1]", "q[m1]", "h1.observation_label[t=1]"]],
+    ["model_source[2]", ["h1.model_source_priors[2]", "q[model_source_b2]"]],
+    ["model_transition[2]", ["h1.model_transition[2]", "q[m0]", "q[m1]", "q[m2]", "q[model_source_b2]"]],
+    ["state_source[2]", ["h1.state_source_priors[2]", "q[model_source_b2]", "q[source_row_a2]", "q[state_source_a2_b1]"]],
+    ["state_transition[2]", ["theta[state_transition_2]", "theta[shared_decoder_transition]", "q[z0]", "q[z1]", "q[z2]", "q[m2]", "q[model_source_b2]", "q[source_row_a2]", "q[state_source_a2_b1]"]],
+    ["emission[2]", ["h1.emission[2]", "theta[shared_decoder_transition]", "q[z2]", "q[m2]", "h1.observation_label[t=2]"]],
+    ["recognition_entropy", ["recognition_snapshot"]]
+  ],
+  "shared_parameter_groups": [
+    ["shared_decoder_transition", "theta[shared_decoder_transition].s", ["state_transition[2].B:add", "emission[1].w_z[0]:add", "emission[2].w_z[0]:add"]]
+  ],
+  "source_row_a2": {
+    "coordinate_id": "q[source_row_a2]",
+    "time": 2,
+    "condition": ["b2", 0],
+    "support": [0, 1],
+    "initial_probabilities": [0.75, 0.25]
+  }
+}
