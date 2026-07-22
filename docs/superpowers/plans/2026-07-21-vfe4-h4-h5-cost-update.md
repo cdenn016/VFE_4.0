@@ -4,7 +4,7 @@
 
 **Goal:** Add a preregistered empirical H4 comparison of independent information- and moment-form Gaussian solvers and a separate deterministic H5 verification gate that proves every labeled update evaluates the complete affected objective and obeys its label-specific acceptance or rollback contract.
 
-**Architecture:** H4 builds one immutable neutral Gaussian problem per fixed seed, passes the same factors and protocol to two genuinely independent production solvers, verifies terminal-law equivalence outside the timer, and uses seed-level paired timing ratios for inference. H5 keeps H2's detached immutable evaluation seam intact, constructs gradient proposals in a separate differentiable working representation, freezes each candidate before complete-objective evaluation, and records a closed update taxonomy plus factor-dependency and rollback evidence. The unified click-run publishes distinct `validation/h4.json` and `validation/h5.json` payloads and distinct `GateResult` objects, even though one exact revision, one JUnit run, one click artifact, and one revision-specific claim ledger form the coupled H4/H5 milestone.
+**Architecture:** H4 builds one immutable neutral Gaussian problem per fixed seed, materializes its raw factors once into one identity-stable owned tensor object, passes that same materialized object and protocol to two genuinely independent production solvers, verifies terminal-law equivalence outside the timer, and uses seed-level paired timing ratios for inference. H5 keeps H2's detached immutable evaluation seam intact, constructs gradient proposals in a separate differentiable working representation, freezes each candidate before complete-objective evaluation, and records a closed update taxonomy plus factor-dependency and rollback evidence. The unified click-run publishes distinct `validation/h4.json` and `validation/h5.json` payloads and distinct `GateResult` objects, even though one exact revision, one JUnit run, one click artifact, and one revision-specific claim ledger form the coupled H4/H5 milestone.
 
 **Tech Stack:** Python 3.10+, PyTorch float64 on CPU with one intra-op thread, NumPy float64, SciPy-free deterministic statistics, `time.perf_counter_ns`, pytest, JUnit XML, SHA-256 provenance, atomic JSON artifacts.
 
@@ -19,7 +19,7 @@
 - H4 correctness anchor: the frozen H3 coupled and independently authored zero-coupling fixtures, `T=1`, `d_z=d_m=1`, `D=4`. Both H4 solvers must reproduce the same exact optimum and H3 reference quantities before any scaled timing is eligible.
 - H4 scaled suite: `d_z=d_m=4`, `T in {7,15,31}`, hence `D in {64,128,256}` in population-major `[z_t,m_t]` order. `D=256` on the coupled problem family is the sole primary timing endpoint. The smaller dimensions and every zero-control timing are secondary diagnostics.
 - H4 uses exactly 20 fixed shared problem seeds, frozen in the preregistration and typed configuration. Each seed has one independently generated coupled problem and one matched zero-coupling control with the same marginal noise, offsets, observation map, factor order, and seed identity; only the declared transition coupling blocks differ.
-- Both H4 arms consume the same immutable neutral factor object, initial law, objective definition, factor schedule, stopping rule, dtype, CPU device, thread setting, and process environment. Arm order is deterministic AB/BA. An arm must not regenerate, reorder, mutate, or cache a different problem.
+- Both H4 arms consume the same immutable raw-only `H4MaterializedProblem` object by identity, together with the same initial law, objective definition, factor schedule, stopping rule, dtype, CPU device, thread setting, and process environment. The oracle alone consumes canonical neutral-problem bytes. Arm order is deterministic AB/BA. An arm must not regenerate, rematerialize, reorder, mutate, or cache a different problem.
 - The information arm assembles and solves in information coordinates. The moment arm constructs and updates a joint moment law directly through affine-Gaussian propagation and conditioning. The moment arm must not call the information solver, canonical assembler, `InformationGaussian`, or obtain a covariance by inverting the information arm's final precision.
 - H4 performs common validation, tensor materialization, exact-oracle construction, CPU/thread/affinity inspection, factor hashing, and condition diagnostics outside the timer. Do not time H2's diagnostic `eigvalsh`, and do not run an unbalanced diagnostic in only one arm.
 - The timed region begins immediately before construction of fresh arm-native solver state and ends after the arm exhausts the identical one-pass factor schedule, performs its arm-native finite/SPD checks, and evaluates the common objective in its native representation. It includes arm-native factor assembly/propagation, solves/factorizations, and objective evaluation. It excludes problem generation, exact-oracle work, hashing, condition-envelope checks, conversion of either native terminal law into the common H4 comparison record, selected-moment extraction for equivalence, garbage collection setup, artifact serialization, bootstrap statistics, and diagnostic memory passes. The information arm therefore is not rewarded for already storing `J`, and the moment arm is not penalized by timing a comparison-only conversion to `J`.
@@ -68,7 +68,7 @@
 | `vfe4/types/h4.py` | Immutable neutral-problem identity, solver-arm, terminal-law, timing, operation-count, and H4 gate-result records. |
 | `vfe4/generative/reference_h4.py` | Deterministic coupled/control Gaussian problem generator and H3-fixture adapter; no solver or timing logic. |
 | `vfe4/inference/h4_instrumentation.py` | Real-operation facade, null/counting recorders, operation shapes, and untimed memory diagnostics. |
-| `vfe4/inference/h4_solvers.py` | Independent information and direct-moment solver implementations behind one protocol. |
+| `vfe4/inference/h4_solvers.py` | Raw-only materialization, exact inference-layer runtime records, independent information/direct-moment solvers, common conversion, and null-bound native diagnostic replay behind one protocol. |
 | `verification/numpy_oracles/h4_gaussian.py` | NumPy-only exact posterior/objective from immutable neutral factors; no production solver imports. |
 | `verification/h4_budget.py` | Operand-shaped terminal equivalence allowances only. |
 | `verification/h4_statistics.py` | Primary per-seed/aggregate timed-order balance, seed-level medians, geometric mean, fixed paired bootstrap, and three-way threshold decision. |
@@ -290,16 +290,92 @@ class H4GateResult:
 def canonical_h4_problem_bytes(problem: H4NeutralProblem) -> bytes: ...
 
 # vfe4/inference/h4_solvers.py
+@dataclass(frozen=True, slots=True)
+class H4MaterializedProblem:
+    materialization_version: Literal["h4-materialized-problem-v1"]
+    problem_id: str
+    problem_sha256: str
+    protocol_id: Literal["h4-single-pass-v1"]
+    dtype: Literal["float64"]
+    device: Literal["cpu"]
+    source_kind: H4ProblemSource
+    seed: int
+    kind: H4ProblemKind
+    horizon: int
+    d_z: int
+    d_m: int
+    dimension: int
+    coordinate_order: tuple[str, ...]
+    factor_ids: tuple[str, ...]
+    factor_roles: tuple[H4FactorRole, ...]
+    factor_time_indices: tuple[int, ...]
+    factor_normalized_coordinate_indices: tuple[tuple[int, ...], ...]
+    factor_parent_coordinate_indices: tuple[tuple[int, ...], ...]
+    _factor_matrices: tuple[Tensor, ...]
+    _factor_targets: tuple[Tensor, ...]
+    _factor_covariances: tuple[Tensor, ...]
+    tensor_sha256: str
+
+@dataclass(frozen=True, slots=True)
+class H4InnovationDiagnostic:
+    factor_id: str
+    time_index: int
+    parent_coordinate_indices: tuple[int, ...]
+    innovation_dimension: int
+    minimum_eigenvalue: float
+    maximum_eigenvalue: float
+    condition_number: float
+    minimum_cholesky_pivot: float
+
+@dataclass(frozen=True, slots=True)
+class H4NativeDiagnostics:
+    problem_id: str
+    problem_sha256: str
+    protocol_id: Literal["h4-single-pass-v1"]
+    arm: H4SolverArm
+    factor_count: int
+    replayed_result: H4SolverResult
+    innovation_diagnostics: tuple[H4InnovationDiagnostic, ...]
+    finite: Literal[True]
+    spd: Literal[True]
+    replay_matches_result: Literal[True]
+
+def materialize_h4_problem(
+    problem: H4NeutralProblem,
+    protocol: H4SolveProtocol,
+) -> H4MaterializedProblem: ...
+
 class H4GaussianSolver(Protocol):
     def solve(
         self,
-        problem: H4NeutralProblem,
+        materialized: H4MaterializedProblem,
         protocol: H4SolveProtocol,
         linalg: InstrumentedLinearAlgebra,
     ) -> H4SolverResult: ...
 
-def solve_information_form(...) -> H4SolverResult: ...
-def solve_moment_form(...) -> H4SolverResult: ...
+def solve_information_form(
+    materialized: H4MaterializedProblem,
+    protocol: H4SolveProtocol,
+    linalg: InstrumentedLinearAlgebra,
+) -> H4SolverResult: ...
+
+def solve_moment_form(
+    materialized: H4MaterializedProblem,
+    protocol: H4SolveProtocol,
+    linalg: InstrumentedLinearAlgebra,
+) -> H4SolverResult: ...
+
+def to_common_terminal_law(
+    materialized: H4MaterializedProblem,
+    result: H4SolverResult,
+    linalg: InstrumentedLinearAlgebra,
+) -> H4TerminalLaw: ...
+
+def evaluate_h4_native_diagnostics(
+    materialized: H4MaterializedProblem,
+    result: H4SolverResult,
+    linalg: InstrumentedLinearAlgebra,
+) -> H4NativeDiagnostics: ...
 
 # verification/h4_statistics.py
 def summarize_seed_ratios(records: tuple[H4TimingRecord, ...]) -> H4TimingSummary: ...
@@ -537,46 +613,285 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 
 **Interfaces:**
 
-- Consume and re-export the already public `H4OperationKind`, and produce `OperationRecorder`, `NullOperationRecorder`, `CountingOperationRecorder`, `InstrumentedLinearAlgebra`, and `measure_untimed_memory(callable) -> H4MemoryRecord`. A second operation-kind alias or operation universe is forbidden.
-- Produce `H4GaussianSolver`, `InformationFormH4Solver`, `MomentFormH4Solver`, `solve_information_form`, and `solve_moment_form`.
-- `H4GaussianSolver` lives in `vfe4/inference/h4_solvers.py` beside the facade functions; `vfe4/types/h4.py` contains only dependency-light immutable data. Both solvers return the identical `H4SolverResult` envelope with an exactly one-of native information/moment state. The untimed common converter produces `H4TerminalLaw` and the canonical selected-moment tuple named `initial`, `terminal`, and every local observation block.
+- `vfe4.types.h4` remains dependency-light and unchanged by Task 2. `H4MaterializedProblem`, `H4InnovationDiagnostic`, and `H4NativeDiagnostics` are inference-layer runtime records in `vfe4.inference.h4_solvers`; they are not neutral protocol types and are not added to `vfe4/types/h4.py`.
+- Consume and re-export the existing public `H4OperationKind`; no second alias or operation universe is allowed.
+- Produce `H4MaterializedProblem`, `H4InnovationDiagnostic`, `H4NativeDiagnostics`, `H4GaussianSolver`, `InformationFormH4Solver`, `MomentFormH4Solver`, `materialize_h4_problem`, `solve_information_form`, `solve_moment_form`, `to_common_terminal_law`, and `evaluate_h4_native_diagnostics`.
+- Produce `NullOperationRecorder`, `CountingOperationRecorder`, `InstrumentedLinearAlgebra`, and `measure_untimed_memory` in `vfe4.inference.h4_instrumentation`; recorder mutation remains module-private and capability-guarded.
 
-- [ ] **Step 1: Write solver independence and instrumentation tests.** On hand-checkable `D=4` and adapted H3 fixtures, assert both arms match the exact law. Monkeypatch the information solver, canonical factor assembler, `InformationGaussian`, `torch.linalg.inv`, `torch.linalg.pinv`, and `torch.cholesky_inverse` to raise while the moment arm still succeeds. Monkeypatch moment propagation/conditioning entry points to raise while the information arm still succeeds. Assert each arm receives the same problem object identity and never mutates it.
+#### Raw-only materialization and exact runtime records
 
-  Test the facade with counting and null recorders. For every wrapped Cholesky, triangular solve, matrix multiply, rank update, and selected-block extraction, require one real operation and one correctly shaped count under the counting recorder, the same numerical output under the null recorder, and no public `record_only` method. A fake solver that tries to report an operation without executing the facade must have no way to increment counts.
+`H4MaterializedProblem` is an immutable, frozen, slotted inference-layer record with exactly these logical fields in order:
 
-- [ ] **Step 2: Run the Task 2 tests for RED.**
+```text
+materialization_version
+problem_id
+problem_sha256
+protocol_id
+dtype
+device
+source_kind
+seed
+kind
+horizon
+d_z
+d_m
+dimension
+coordinate_order
+factor_ids
+factor_roles
+factor_time_indices
+factor_normalized_coordinate_indices
+factor_parent_coordinate_indices
+_factor_matrices
+_factor_targets
+_factor_covariances
+tensor_sha256
+```
+
+`materialization_version` is exactly `h4-materialized-problem-v1`, `dtype` is exactly `float64`, and `device` is exactly `cpu`. The three private tensor tuples are parallel to the factor metadata and contain only the raw neutral-factor `A`, `b`, and `R` values. Each stored tensor is detached, cloned, contiguous, CPU `torch.float64`, has `requires_grad=False`, owns distinct nonaliasing storage, and cannot alias a protocol tuple or another stored tensor. Materialization stores no Cholesky factor, whitening, solve, inverse, product, log determinant, eigenvalue, condition number, selected block, or other derived numerical value.
+
+The record exposes no public tensor getter, setter, mutable collection, or mutative method. A module-private accessor callable only with a module-private capability held by the solvers and converter returns the owned tensors directly without cloning. Internal reads are clone-free; neither solver may mutate a materialized tensor or its view. `tensor_sha256` is domain-separated by the materialization-version literal and binds problem/protocol identity, complete ordered factor metadata, every tensor's role, shape, dtype, device, and canonical contiguous bytes. Construction recomputes and validates the digest rather than trusting a supplied field. Digest validation is outside every timed call.
+
+Materialization exposes exactly:
+
+```python
+def materialize_h4_problem(
+    problem: H4NeutralProblem,
+    protocol: H4SolveProtocol,
+) -> H4MaterializedProblem: ...
+```
+
+It validates the complete frozen protocol, canonical problem digest and identity, factor order and metadata, tuple/tensor shape agreement, and tensor ownership. It performs no matrix operation and no numerical derivation. The harness invokes it exactly once per neutral problem before any warmup, timed, counting, memory, conversion, or diagnostic pass. Both arms receive that same `H4MaterializedProblem` object by `is` identity for every warmup and timed pair; neither arm accepts a neutral problem, seed, generator, raw-draw record, callback, or separately materialized tensor.
+
+`H4InnovationDiagnostic` is a frozen, slotted record with exactly these ordered fields:
+
+```text
+factor_id
+time_index
+parent_coordinate_indices
+innovation_dimension
+minimum_eigenvalue
+maximum_eigenvalue
+condition_number
+minimum_cholesky_pivot
+```
+
+There is one record per observation factor in factor-schedule order. Identity fields equal the factor's declared metadata. The four numerical diagnostics are finite; dimension is the actual local innovation dimension; minimum/maximum eigenvalues and minimum pivot are positive; and `condition_number` equals `maximum_eigenvalue/minimum_eigenvalue` within an explicit float64 rounding check. Task 3 owns eligibility thresholds.
+
+`H4NativeDiagnostics` is a frozen, slotted record with exactly these ordered fields:
+
+```text
+problem_id
+problem_sha256
+protocol_id
+arm
+factor_count
+replayed_result
+innovation_diagnostics
+finite
+spd
+replay_matches_result
+```
+
+`replayed_result` is independently reconstructed by diagnostic replay. The final three fields are literal `True`; the producer raises rather than constructing a record when replay is nonfinite, non-SPD, or not exactly equal to the supplied result. Information diagnostics have an empty innovation tuple. Moment diagnostics contain every observation factor, including both scalar H3 observation factors and every scaled joint observation factor.
+
+The inference layer exposes exactly:
+
+```python
+def to_common_terminal_law(
+    materialized: H4MaterializedProblem,
+    result: H4SolverResult,
+    linalg: InstrumentedLinearAlgebra,
+) -> H4TerminalLaw: ...
+
+def evaluate_h4_native_diagnostics(
+    materialized: H4MaterializedProblem,
+    result: H4SolverResult,
+    linalg: InstrumentedLinearAlgebra,
+) -> H4NativeDiagnostics: ...
+```
+
+Both functions require exact materialization version/digest, problem ID/hash, protocol ID, arm, factor count, factor IDs/order, metadata, native-state class, and facade-binding agreement. Result factor identity is the exact materialized factor count plus the canonical problem hash that binds the complete ordered schedule; a detached count is insufficient.
+
+#### Identity-bound real-operation instrumentation
+
+The public instrumentation surface is exactly:
+
+```python
+class NullOperationRecorder:
+    def snapshot(self) -> tuple[H4OperationRecord, ...]: ...
+
+class CountingOperationRecorder:
+    def snapshot(self) -> tuple[H4OperationRecord, ...]: ...
+
+class InstrumentedLinearAlgebra:
+    def __init__(
+        self,
+        *,
+        problem_id: str,
+        arm: H4SolverArm,
+        recorder: NullOperationRecorder | CountingOperationRecorder,
+    ) -> None: ...
+
+    def cholesky(self, value: Tensor) -> Tensor: ...
+    def triangular_solve(
+        self,
+        triangular: Tensor,
+        rhs: Tensor,
+        *,
+        upper: bool = False,
+    ) -> Tensor: ...
+    def matrix_multiply(self, left: Tensor, right: Tensor) -> Tensor: ...
+    def symmetric_rank_update(
+        self,
+        covariance: Tensor,
+        gain: Tensor,
+        innovation_covariance: Tensor,
+    ) -> Tensor: ...
+    def selected_block_extract(
+        self,
+        value: Tensor,
+        row_indices: tuple[int, ...],
+        column_indices: tuple[int, ...] | None = None,
+    ) -> Tensor: ...
+
+def measure_untimed_memory(
+    problem_id: str,
+    arm: H4SolverArm,
+    callable: Callable[[], object],
+) -> H4MemoryRecord: ...
+```
+
+The facade binds `problem_id` and `arm` immutably at construction. Numerical methods accept only operands; callers cannot supply or spoof identity per operation. `selected_block_extract` accepts a vector when `column_indices=None` and a matrix otherwise. `symmetric_rank_update` performs the real `covariance - gain @ innovation_covariance @ gain.T` operation and returns its roundoff-symmetrized result.
+
+Recorder mutation is a module-private endpoint guarded by a module-private capability created and held only by `InstrumentedLinearAlgebra`. Public recorders expose only immutable `snapshot()` output; they expose no `record`, `observe`, `increment`, `record_only`, or capability getter. A facade method emits one `H4OperationRecord` only after its underlying operation succeeds. The counting recorder aggregates in first-successful-call order by `(problem_id, arm, operation, operand_shapes, result_shape)` and increments only the matching count. The null recorder returns identical numerical results and an empty snapshot.
+
+Every Cholesky, triangular solve, matrix multiplication, symmetric rank update, and selected extraction in either solver, the common converter, or diagnostic replay goes through the supplied facade. Direct `torch.linalg` calls or `@` for these operations are forbidden. Elementwise arithmetic, accumulation, transpose views, finite checks, symmetrization, `diag`, `log`, norms, and scalar reductions are allowed directly. The only additional diagnostic matrix routine is untimed `eigvalsh` on an innovation covariance after that covariance was constructed through the facade.
+
+`evaluate_h4_native_diagnostics` accepts only a null-recorder facade bound to the supplied result's exact problem and arm. Its replay is outside timing and the counting pass. Counting and memory are separate untimed passes; neither contributes operations to diagnostic replay or the timed result.
+
+#### Frozen solver protocol and native objectives
+
+`H4GaussianSolver.solve(materialized, protocol, linalg) -> H4SolverResult` is the only solver protocol. `InformationFormH4Solver`, `MomentFormH4Solver`, `solve_information_form`, and `solve_moment_form` accept only the same materialized object, protocol, and correctly identity-bound facade. Fresh arm-native state is allocated after the timer starts. Every solver checks the literal materialization version, protocol identity, facade binding, and complete factor schedule before using the private clone-free tensor view.
+
+The information arm initializes fresh `J=zeros(D,D)`, `h=zeros(D)`, and `c=0` inside the timed call. For each raw materialized factor `(A,b,R)` in exact schedule order, it performs through the facade:
+
+```text
+L = cholesky(R)
+A_w = triangular_solve(L, A)
+b_w = triangular_solve(L, b)
+J += matrix_multiply(A_w.T, A_w)
+h += matrix_multiply(A_w.T, b_w)
+c += -0.5 * (
+    sum(b_w*b_w)
+    + d*log(2*pi)
+    + 2*sum(log(diag(L)))
+)
+```
+
+After the complete pass it computes `L_J=cholesky(J)`, solves `J*mu=h` by two facade triangular solves, and returns
+
+```text
+logZ = c + 0.5*sum(h*mu) - sum(log(diag(L_J))) + D/2*log(2*pi)
+```
+
+which is exactly `c + .5*h.T*J^-1*h - .5*logdet(J) + D/2*log(2*pi)`. The native information state contains only `h`, `J`, `mu`, and this complete objective. Native finite/SPD checks occur after the full pass. It never constructs a complete covariance. Whitening, Cholesky, assembly, solve, and objective work all remain inside the timed call; materialization precomputes none of them.
+
+The moment arm initializes `objective=0`, a fresh length-`D` mean buffer, a fresh `D x D` covariance buffer, and an empty active-coordinate set inside the timed call. Whenever a tensor subblock is read, active coordinates are the strictly ascending tuple of their declared global indices; the set is used only for membership and completeness checks.
+
+It consumes every consecutive initial factor exactly once. For each initial factor with declared normalized global indices `C`, it scatters `b` into `mu[C]`, scatters `R` into `Sigma[C,C]`, sets cross-covariance with all previously active coordinates to zero, rejects overlap, and adds `C` to the active set. The scaled case consumes its one joint eight-dimensional initial factor. Each H3 anchor consumes both scalar initial factors in schedule order. Initial factors add no objective increment because their normalized laws are represented by direct construction.
+
+It then consumes every transition and observation factor in the remaining exact schedule order. For a transition with normalized global child indices `C` and declared parent indices `P`, it requires all parents active and all children inactive, obtains `F=-A[:,P]`, `mu_P`, and every covariance subblock through `selected_block_extract`, and computes through the facade:
+
+```text
+mu_C = matrix_multiply(F, mu_P) + b
+Sigma_C_active = matrix_multiply(F, Sigma[P,active])
+Sigma_CC = matrix_multiply(Sigma_C_active[:,P-position], F.T) + R
+```
+
+The last line is algebraically `F*Sigma[P,P]*F.T+R`; parent positions come from the declared global active-coordinate map, never factor names or append order. It scatters `mu_C`, `Sigma_CC`, and the exact child-to-active cross-covariance `F*Sigma[P,active]` plus its transpose into declared global child positions, then marks `C` active. This fixed global scatter handles scaled `m_t` then `z_t|m_t` and H3 `m1` then `z1|m1` without appending or reordering coordinates. Transition factors add no objective increment because their normalized conditional laws are represented by direct construction.
+
+For each observation factor, it obtains `A_active`, `mu_active`, and `Sigma_active` for the currently active declared coordinates through `selected_block_extract` and computes before conditioning:
+
+```text
+r = b - matrix_multiply(A_active, mu_active)
+C = matrix_multiply(Sigma_active, A_active.T)
+S = R + matrix_multiply(A_active, C)
+L_S = cholesky(S)
+v = triangular_solve(L_S, r)
+increment = -0.5 * (
+    sum(v*v)
+    + d*log(2*pi)
+    + 2*sum(log(diag(L_S)))
+)
+K_T = triangular_solve(L_S.T, triangular_solve(L_S, C.T), upper=True)
+K = K_T.T
+mu_active = mu_active + matrix_multiply(K, r)
+Sigma_active = symmetric_rank_update(Sigma_active, K, S)
+mu[active] = mu_active
+Sigma[active,active] = Sigma_active
+objective += increment
+```
+
+The updated active mean and covariance are scattered back into the declared global `mu`/`Sigma` buffers before the next factor is consumed; rebinding only the extracted local tensors is forbidden. Consequently, H3's second scalar observation conditions the posterior produced by its first observation, and each later scaled transition consumes the posterior produced by the preceding joint observation. The two H3 scalar observation factors are conditioned sequentially in declared schedule order; each scaled joint observation is conditioned in its declared position. The sum of sequential observation predictive log densities is the native normalized Gaussian objective. After the complete schedule, every global coordinate must be active and native finite/SPD checks run. The arm returns only full mean, full covariance, and accumulated objective. It never jitters, clips, pseudoinverts, calls an inverse API, calls the information arm or its assembler, instantiates `InformationGaussian`, or reads or mutates information-arm tensors.
+
+#### Common conversion, selected blocks, residual, and replay
+
+Selected coordinate blocks are derived only from declared global indices:
+
+- `initial` is the global-coordinate-ordered union of every initial factor's declared normalized indices.
+- `terminal` is the global-coordinate-ordered union of every transition factor's declared normalized indices at `time_index=horizon`.
+- `observation[t]` is the global-coordinate-ordered union of every observation factor's declared parent indices at that time.
+
+A missing, duplicate, undeclared, or wrongly dimensioned coordinate is rejected. Every block has dimension `d_z+d_m`: two for an H3 anchor and eight for a scaled problem. The two H3 observation factors jointly define the one `observation[1]` block, while each scaled observation factor defines its local eight-dimensional block. Labels are exactly `("initial", "terminal", "observation[1]", ..., "observation[T]")`, retaining overlap when `T=1`.
+
+`to_common_terminal_law(materialized, result, linalg)` validates all identity and factor obligations before conversion. It propagates the native objective verbatim and never recomputes or normalizes it. For the information arm, it solves only the requested columns of `J^-1` through the facade and extracts only requested covariance blocks; it never constructs a complete covariance. For the moment arm, it derives full `J` with a Cholesky of its own covariance and facade triangular solves against the identity, then sets `h=matrix_multiply(J,mu)`; it never calls the information arm or shares its tensors. Both arms extract all selected means/covariance blocks through the facade and convert them into immutable nonaliasing H4 tuples.
+
+For both arms the converter computes exactly:
+
+```text
+numerator = ||J*mu - h||_inf
+scale = max(1, ||J||_inf*||mu||_inf + ||h||_inf)
+stopping_residual = numerator/scale
+```
+
+The matrix infinity norm is the maximum absolute row sum, the vector infinity norm is the maximum absolute component, and `J*mu` goes through the facade. Conversion is outside timing.
+
+`evaluate_h4_native_diagnostics(materialized, result, linalg)` reruns the matching arm from the same raw materialized tensors with a null-recorder facade. During moment replay it captures every already-computed innovation covariance before conditioning and evaluates eigenvalue, condition, and Cholesky-pivot diagnostics. It must reconstruct an `H4SolverResult` exactly equal field-for-field and float-for-float to the supplied result before returning `H4NativeDiagnostics`; mismatch raises and produces no usable diagnostic. Replay never substitutes for, mutates, or rewrites the native result and remains outside timing and counting.
+
+- [ ] **Step 1: Write exact runtime-record and instrumentation tests.** Assert exact ordered fields and public signatures for all three runtime records, materialization, recorders, facade, solvers, converter, diagnostics, and memory helper. Require immutable recorder snapshots, immutable facade identity/arm, no public recorder mutation/capability endpoint, one count only after each successful operation, first-successful-call aggregation, and null/counting numerical equivalence.
+
+- [ ] **Step 2: Prove materialization is raw-only and owned.** Compare every private tensor byte-for-byte to its protocol tuple; require detached cloned contiguous nonaliasing CPU-float64 storage, exact literal version/digest, and identical digest before/after each arm. Patch Cholesky, solve, multiply, inverse, log determinant, eigenvalue, condition, and whitening entry points to raise during materialization. Patch cloning to raise after materialization, require both arms to receive the same materialized object by `is`, and require deliberate private-storage tampering to fail digest validation.
+
+- [ ] **Step 3: Add hand-checkable and H3/scaled solver cases.** Check frozen information `J/h/c/logZ`, both H3 initial factors and sequential scalar observations, the scaled joint initial factor, fixed global transition scatter, observation predictive objective, exact native-objective propagation, and selected-block dimensions two for H3 and eight for scaled problems. Perturb the first H3 observation and require the second observation's innovation/objective to change through the scattered posterior; perturb one scaled observation and require the next transition's propagated law to change. These regressions must fail if an implementation updates only extracted local tensors without scattering them back into global `mu`/`Sigma`.
+
+- [ ] **Step 4: Enforce facade completeness.** Patch direct Cholesky, triangular solve, matrix multiply/`@`, symmetric update, and selected extraction alternatives to raise while facade calls remain available. Require every successful defined operation to produce exactly one count. Permit `eigvalsh` only in explicit null-bound diagnostic replay.
+
+- [ ] **Step 5: Add exact independence seams.** Patch `solve_information_form`, every information assembler, `InformationGaussian`, `torch.linalg.inv`, `torch.linalg.pinv`, and `torch.cholesky_inverse` to raise while the moment arm succeeds. Patch moment growth/conditioning helpers to raise while the information arm succeeds. Assert neither arm reads the other's native state.
+
+- [ ] **Step 6: Test common conversion and residual.** Reject every materialization-version/digest, problem/hash, protocol, arm, factor, native-state, and facade-binding mismatch. Require information conversion to solve only requested inverse columns, moment conversion to use only its own covariance, exact selected labels/blocks, exact residual scaling, and verbatim native objective.
+
+- [ ] **Step 7: Test null-bound diagnostic replay.** Require replay to use a null-bound facade outside counts, return every observation diagnostic in exact schedule order, reconstruct the supplied native result exactly, and reject a one-ulp replayed-result mismatch or a counting/wrong-identity facade.
+
+- [ ] **Step 8: Run the Task 2 tests for RED.**
 
   ```powershell
   python -m pytest tests/unit/test_h4_solvers.py tests/unit/test_h4_instrumentation.py -q
   ```
 
-  Expected: collection fails because the H4 solver and instrumentation modules do not exist.
+  Expected: collection fails because the two new inference modules do not exist.
 
-- [ ] **Step 3: Implement the information arm.** Starting from the neutral initial law, assemble `J` and `h` directly by adding every normalized affine-Gaussian factor in frozen schedule order. Use the facade for Cholesky, solves, quadratics, and log determinants. Never form a complete covariance. Materialize only the native terminal `h`, `J`, mean, and complete normalized Gaussian objective within the timed solver call; selected inverse blocks belong to the common untimed equivalence converter.
+- [ ] **Step 9: Implement instrumentation, raw-only materialization, both independent arms, common conversion, and null-bound diagnostic replay.** Implement the identity-bound capability-guarded facade, raw tensor ownership/digest, untimed memory helper without numerical precomputation, exact information and moment pseudocode, one-pass schedule, native objectives, global-coordinate scatter, finite/SPD checks, independence prohibitions, exact selected blocks and residual, information selected-column solves, moment-owned precision conversion, verbatim objective propagation, innovation diagnostics, and exact replay equality outside timing/counting.
 
-- [ ] **Step 4: Implement the moment arm independently.** Construct the joint mean/covariance directly by affine Gaussian propagation from the initial moment law, then apply each observation factor with the Gaussian conditioning identities
-
-  ```python
-  innovation_covariance = noise + A @ covariance @ A.T
-  gain = covariance @ A.T @ solve(innovation_covariance, I)
-  mean = mean + gain @ (target - A @ mean)
-  covariance = covariance - gain @ A @ covariance
-  ```
-
-  Symmetrize only the roundoff-level result as `0.5*(Sigma+Sigma.T)` after the symmetric rank update; reject a non-SPD result rather than jittering. Return only the native terminal mean, covariance, and common objective within the timed solver call. The untimed common converter derives `J` and `h` with this arm's own Cholesky solve; it does not call the information arm or share canonical tensors.
-
-- [ ] **Step 5: Implement the common one-pass stopping rule, untimed conversion, and memory diagnostics.** Both arms stop only after the same frozen factor schedule is exhausted exactly once, every native finite/SPD check passes, and the common objective is evaluated; neither has a looser convergence loop. After the complete timed batch for a problem, `to_common_terminal_law` computes `h`, `J`, mean, the canonical immutable selected-moment tuple, objective, and `||J*mu-h||_inf/scale` for both arms under the same comparison instrumentation. `measure_untimed_memory` records Python peak bytes and process working-set delta when available, labels unsupported fields as unavailable, and never substitutes them into timing.
-
-- [ ] **Step 6: Run the Task 2 tests for GREEN.**
+- [ ] **Step 10: Run the Task 2 tests for GREEN.**
 
   ```powershell
   python -m pytest tests/unit/test_h4_solvers.py tests/unit/test_h4_instrumentation.py -q
   ```
 
-  Expected: both independent arms close the H3 anchor and hand examples; independence monkeypatches hold; real-operation counts are symmetric in mechanism; no forbidden inverse path is used.
+  Expected: materialization ownership/digest, independent native algorithms/objectives, H3/scaled global scatter and selected blocks, exact residual, identity-bound real-operation accounting, and untimed null-bound replay all pass.
 
-- [ ] **Step 7: Commit Task 2.**
+- [ ] **Step 11: Commit Task 2.**
 
   ```powershell
   git add vfe4/inference/h4_instrumentation.py vfe4/inference/h4_solvers.py vfe4/inference/__init__.py tests/unit/test_h4_solvers.py tests/unit/test_h4_instrumentation.py
@@ -1238,7 +1553,7 @@ The exact field order above is part of canonical JSON and hashing. Add `H4GateRe
 ## Self-Review of Plan Completeness
 
 - **Spec coverage:** H4 and H5 remain separate results/payloads/statuses. H4 freezes one authoritative generic normalized-factor schedule with validated derived partitions, the H3 structural-group anchor mapping, the exact normalized log-evidence sign/constants, exact scaled dimensions, fixed `N(0,I_8)` initial law, PCG64 draw order and distributions, `m_t`-then-`z_t|m_t` factorization, all-zero transition-block control, independent arms, three per-problem warmup pairs followed by 11 timed pairs, independent-index parity, warmup exclusion, the literal primary 20-row balance table, ten/ten per-seed pattern split, exact `110 AB/110 BA` timed aggregate, batch-post-timing conversions, seed-level bootstrap threshold, inclusive scaled conditioning envelope, per-invariant solver budget and strict allowance/scale cap, mean/covariance selected moments, raw times, secondary memory/count nonclaim, set/verify/finally-restore one-thread CPU float64, and provenance. H5 now specifies a tracked parsed raw-byte update fixture, pre-decode full raw SHA-256 check, Task 5 digest pin followed by Task 9 literal copy/equality check, the exact `q[source_row_a2]` row, immutable model-snapshot ownership, and declared shared storage while preserving immutable H2 state, separating differentiable working state from frozen snapshots, closing the update taxonomy, rejecting unsupported MM, deriving affected factors only from before/after input hashes, retaining value changes as diagnostics, including all seven controls, recording order-21/order-17 convergence for every term, summing complete before/after total allowances, freezing zero stochastic contribution, and using the exact subtraction-rounding `epsilon_delta` rule.
-- **Interface consistency:** `H4GaussianSolver` lives in the inference layer while `H4NeutralProblem`, solver results, and tuple-ordered selected moments remain dependency-light protocol types. One generated problem feeds both independent solver arms and the oracle; no conversion, hash, count, or diagnostic work occurs between timed representations. `CompleteElboEvaluation` is produced only by the complete evaluator and embedded twice in every `UpdateAttempt`; `observed_affected_factor_ids` comes only from its ordered factor-input hashes, and `execute_update` alone accepts or rolls back. H5's parser binds raw update-spec bytes to `H5ReferenceState`, which owns immutable recognition/model snapshots rather than H1/H2 mutation. The runner captures that fixture only for H5 and publishes separate payloads.
+- **Interface consistency:** `H4GaussianSolver`, `H4MaterializedProblem`, and the native diagnostic records live in the inference layer, while `H4NeutralProblem`, solver results, and tuple-ordered selected moments remain dependency-light protocol types. One generated neutral problem is materialized exactly once into raw owned tensors; both independent solver arms receive that same materialized object by identity, while the oracle receives its canonical bytes. No conversion, hash, count, memory, or diagnostic-replay work occurs between timed representations. `CompleteElboEvaluation` is produced only by the complete evaluator and embedded twice in every `UpdateAttempt`; `observed_affected_factor_ids` comes only from its ordered factor-input hashes, and `execute_update` alone accepts or rolls back. H5's parser binds raw update-spec bytes to `H5ReferenceState`, which owns immutable recognition/model snapshots rather than H1/H2 mutation. The runner captures that fixture only for H5 and publishes separate payloads.
 - **Evidence discipline:** Focused RED/GREEN commands are noncumulative. The milestone preflight requires every plan, preregistration, source, config, launcher, and test file to be tracked; rejects nonignored untracked content outside `.verification`; records the exact dirty-content digest and prior-ledger hashes; and rechecks them through closure. The only full suite and full timing occur at one shared exact revision. Reviewers inspect rather than rerun. A defect found after ledger activation closes the current revision `INCONCLUSIVE`, preserves it, repairs only after tool-driven retirement, and permits exactly one replacement revision/run/ledger. The coupled ledger separates claims by gate and preserves every earlier ledger.
 - **Placeholder scan:** The plan contains no unspecified H4 canonical factor source, objective sign/constants, generator distributions, control blocks, selected-moment inventory, thread restoration rule, H5 fixture producer/parser, raw-byte digest comparison, source-row identity, model-snapshot owner, short-digest rejection rule, or required-tracked surface. The exact H5 fixture SHA-256 is intentionally not invented: Task 5 authors the tracked bytes and pins `SHA256(raw_fixture_bytes)` in parser/tests before GREEN/commit; Task 9 copies and verifies that literal. H6--H8/training and MM activation remain explicit nonclaims, not hidden implementation gaps.
 - **American English:** Terminology uses American English throughout.
