@@ -43,6 +43,29 @@ allowance. The one editable `CONFIG` requests `H1` then `H2`, and one run
 publishes both validation payloads through a single atomic, manifest-checked
 artifact directory.
 
+H2 is verified at implementation revision
+`00de72b93ebcc504ef5652d11ad3012f80852aa0`. The revision-bound JUnit XML
+contains 414 tests, 0 failures, 0 errors, and 0 skips; its SHA-256 is
+`268902c66ab92955574526cd4bf1fcd7999611a88009d3c6edaa6ba8aa17a7b7`.
+The one final click run published
+`runs/verify-h1-h2-20260722T074944065126Z-cb17f1bb2893`, whose five manifest
+hashes recompute and whose provenance binds the tested Git revision, dirty
+digest, config hash, fixture hash, objective schema, and CPU float64
+environment.
+
+The H2 artifact reports 295/295 invariants and 282/282 per-quantity
+comparisons passing, with zero obligations. Its direct-information, unchanged
+H1-moment, and independent NumPy ELBO values are respectively
+`-3.9115229061747425`, `-3.9115229061747407`, and
+`-3.91152290617474`. The largest comparison residual is
+`3.5527136788005009e-15` under its `5.4870414032774655e-09` allowance; the
+largest residual/allowance ratio is approximately `5.018e-5`. All eight
+precision-condition records remain inside the frozen envelope, and all four
+exact negative controls are decisive, including direct `h`-as-`mu` semantic
+records and an inverse audit with zero production violations and one detected
+injected violation. Independent artifact, numerical, dependency, and
+spec/reachability reviews found no remaining Critical or Important H2 issue.
+
 There is no dataset, language-model training path, optimizer, parameter update,
 or gradient calculation in H1. This bounded evaluation performs no
 backpropagation, but the VFE 4.0 codebase is not claimed to be
