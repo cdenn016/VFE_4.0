@@ -28,9 +28,17 @@ def _resolved_imports(path: Path, node: ast.Import | ast.ImportFrom) -> tuple[st
         )
     else:
         base = node.module or ""
+    qualified_aliases = tuple(f"{base}.{alias.name}" for alias in node.names)
     if node.module is not None:
-        return (base,)
-    return tuple(f"{base}.{alias.name}" for alias in node.names)
+        return (base, *qualified_aliases)
+    return qualified_aliases
+
+
+def test_resolved_imports_qualifies_from_import_aliases() -> None:
+    node = ast.parse("from vfe4 import numerics").body[0]
+
+    assert isinstance(node, ast.ImportFrom)
+    assert "vfe4.numerics" in _resolved_imports(TYPES_ROOT / "synthetic.py", node)
 
 
 def test_type_modules_do_not_import_numerics() -> None:
@@ -50,13 +58,21 @@ def test_type_modules_do_not_import_numerics() -> None:
     )
 
 
-def test_importing_h1_types_does_not_load_numerics() -> None:
-    program = """
+def test_importing_type_modules_does_not_load_numerics() -> None:
+    module_names: set[str] = set()
+    for path in TYPES_ROOT.rglob("*.py"):
+        module_parts = list(path.relative_to(REPOSITORY_ROOT).with_suffix("").parts)
+        if module_parts[-1] == "__init__":
+            module_parts.pop()
+        module_names.add(".".join(module_parts))
+
+    program = f"""
 import importlib
 import json
 import sys
 
-importlib.import_module("vfe4.types.h1")
+for module_name in {sorted(module_names)!r}:
+    importlib.import_module(module_name)
 loaded = sorted(
     name
     for name in sys.modules
