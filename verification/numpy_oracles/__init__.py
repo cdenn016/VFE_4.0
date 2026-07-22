@@ -25,6 +25,11 @@ from verification.numpy_oracles.h2_moment import (
     H2OracleMarginal,
     evaluate_h2_moment_oracle,
 )
+from verification.numpy_oracles.h3_posterior import (
+    H3PosteriorOracleEvaluation,
+    evaluate_h3_posterior_oracle,
+    reverse_kl_to_oracle,
+)
 
 __all__ = [
     "H1EvidenceRecord",
@@ -48,4 +53,7 @@ __all__ = [
     "H2OracleLocalTerms",
     "H2OracleMarginal",
     "evaluate_h2_moment_oracle",
+    "H3PosteriorOracleEvaluation",
+    "evaluate_h3_posterior_oracle",
+    "reverse_kl_to_oracle",
 ]
