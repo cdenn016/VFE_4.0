@@ -269,6 +269,63 @@ def test_stable_elbo_difference_is_zero_at_reference_with_full_elbo_gradient(
         assert bool(torch.any(difference_gradients[-1] != 0.0))
 
 
+def test_asymmetric_structured_difference_matches_every_full_elbo_gradient() -> None:
+    model = _model()
+    module = StructuredH3Parameters(H3InitializationConfig())
+    with torch.no_grad():
+        module.mean.copy_(
+            torch.tensor((0.17, -0.23, 0.31, -0.41), dtype=torch.float64)
+        )
+        module.raw_diagonal.copy_(
+            torch.tensor((0.08, -0.11, 0.14, -0.17), dtype=torch.float64)
+        )
+        module.raw_lower.copy_(
+            torch.tensor((0.19, -0.13, 0.07, 0.16, -0.09, 0.21), dtype=torch.float64)
+        )
+    q = module()
+    reference = H3VariationalGaussian(
+        family="structured_full_spd",
+        mean=torch.tensor((-0.29, 0.37, -0.18, 0.26), dtype=torch.float64),
+        precision_cholesky=torch.tensor(
+            (
+                (1.13, 0.0, 0.0, 0.0),
+                (-0.17, 0.91, 0.0, 0.0),
+                (0.22, -0.08, 1.19, 0.0),
+                (-0.12, 0.24, -0.15, 0.83),
+            ),
+            dtype=torch.float64,
+        ),
+    )
+    parameters = tuple(module.parameters())
+    full = evaluate_h3_elbo(model, q).elbo
+    difference = evaluate_h3_elbo_difference(model, q, reference)
+    full_gradients = torch.autograd.grad(full, parameters, retain_graph=True)
+    difference_gradients = torch.autograd.grad(difference, parameters)
+
+    assert difference.requires_grad
+    assert full_gradients[-1].shape == (6,)
+    assert bool(torch.all(full_gradients[-1] != 0.0))
+    assert bool(torch.all(difference_gradients[-1] != 0.0))
+    # The factored difference deliberately changes float64 operation order;
+    # 64 machine epsilons is a strict rounding-only comparison, not a model tolerance.
+    rounding_tolerance = 64.0 * torch.finfo(torch.float64).eps
+    for block_name, actual, expected in zip(
+        ("mean", "raw_diagonal", "raw_lower"),
+        difference_gradients,
+        full_gradients,
+        strict=True,
+    ):
+        torch.testing.assert_close(
+            actual,
+            expected,
+            rtol=rounding_tolerance,
+            atol=rounding_tolerance,
+            msg=lambda message, block_name=block_name: (
+                f"{block_name} gradient mismatch: {message}"
+            ),
+        )
+
+
 def test_stable_elbo_difference_resolves_zero_control_loss_quantization() -> None:
     fixture = parse_h3_fixture_bytes(
         H3_ZERO_CONTROL_FIXTURE_PATH.read_bytes(),
