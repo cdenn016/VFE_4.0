@@ -7,23 +7,12 @@ import math
 import torch
 from torch import Tensor
 
+from vfe4.types._validation import require_spd as _require_spd
+
 
 def require_spd(matrix: Tensor, *, name: str) -> Tensor:
     """Validate a finite symmetric positive-definite float64 matrix."""
-    if not isinstance(matrix, Tensor):
-        raise ValueError(f"{name} must be a torch.Tensor")
-    if matrix.dtype is not torch.float64:
-        raise ValueError(f"{name} must use float64")
-    if matrix.ndim != 2 or matrix.shape[0] == 0 or matrix.shape[0] != matrix.shape[1]:
-        raise ValueError(f"{name} must be a nonempty square matrix")
-    if not bool(torch.isfinite(matrix).all()):
-        raise ValueError(f"{name} must be finite")
-    if not bool(torch.equal(matrix, matrix.transpose(-1, -2))):
-        raise ValueError(f"{name} must be symmetric")
-    _, info = torch.linalg.cholesky_ex(matrix, check_errors=False)
-    if int(info.item()) != 0:
-        raise ValueError(f"{name} must be symmetric positive definite")
-    return matrix.detach().clone()
+    return _require_spd(matrix, name=name)
 
 
 def gaussian_log_prob(value: Tensor, mean: Tensor, covariance: Tensor) -> Tensor:

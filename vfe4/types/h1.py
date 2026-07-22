@@ -9,7 +9,7 @@ from typing import Literal
 import torch
 from torch import Tensor
 
-from vfe4.numerics import require_probability_vector, require_spd
+from vfe4.types._validation import require_probability_vector, require_spd
 from vfe4.types.structural import PopulationFrames, StructuralData
 
 

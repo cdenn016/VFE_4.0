@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 from torch import Tensor
+
+from vfe4.types._validation import (
+    require_probability_vector as _require_probability_vector,
+)
 
 
 def require_probability_vector(value: Tensor, *, name: str) -> Tensor:
     """Validate and return an owned float64 probability vector."""
-    _require_vector(value, name)
-    if bool(torch.any(value < 0)):
-        raise ValueError(f"{name} must be nonnegative")
-    total = value.sum()
-    rounding_allowance = 64.0 * math.ulp(1.0) * max(1, value.numel())
-    if abs(float(total.item()) - 1.0) > rounding_allowance:
-        raise ValueError(f"{name} must sum to one")
-    return value.detach().clone()
+    return _require_probability_vector(value, name=name)
 
 
 def categorical_kl(q: Tensor, p: Tensor, *, name: str) -> Tensor:
