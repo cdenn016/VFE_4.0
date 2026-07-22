@@ -9,7 +9,11 @@ from vfe4.objective.h2_information import (
 )
 from vfe4.objective.h1_local import evaluate_local_elbo
 from vfe4.objective.h1_monolithic import MonolithicElboResult, evaluate_monolithic_elbo
-from vfe4.objective.h3_gaussian import H3ObjectiveEvaluation, evaluate_h3_elbo
+from vfe4.objective.h3_gaussian import (
+    H3ObjectiveEvaluation,
+    evaluate_h3_elbo,
+    evaluate_h3_elbo_difference,
+)
 
 __all__ = [
     "H2ComponentDiagnostics",
@@ -20,6 +24,7 @@ __all__ = [
     "RoundingInputs",
     "evaluate_information_elbo",
     "evaluate_h3_elbo",
+    "evaluate_h3_elbo_difference",
     "evaluate_local_elbo",
     "evaluate_monolithic_elbo",
 ]

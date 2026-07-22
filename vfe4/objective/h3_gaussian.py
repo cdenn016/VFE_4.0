@@ -94,4 +94,74 @@ def evaluate_h3_elbo(
     return H3ObjectiveEvaluation(frozen_factors, entropy, elbo)
 
 
-__all__ = ["H3ObjectiveEvaluation", "evaluate_h3_elbo"]
+def evaluate_h3_elbo_difference(
+    model: H3GenerativeModel,
+    q: H3VariationalGaussian,
+    reference_q: H3VariationalGaussian,
+) -> Tensor:
+    """Evaluate a stable direct ``ELBO(q) - ELBO(reference_q)``."""
+
+    if not isinstance(model, H3GenerativeModel):
+        raise ValueError("model must be an H3GenerativeModel")
+    if not isinstance(q, H3VariationalGaussian):
+        raise ValueError("variational law must be an H3VariationalGaussian")
+    if not isinstance(reference_q, H3VariationalGaussian):
+        raise ValueError(
+            "reference variational law must be an H3VariationalGaussian"
+        )
+    if q.family != reference_q.family:
+        raise ValueError("variational and reference families must match")
+    if (
+        q.mean.shape != (_DIMENSION,)
+        or reference_q.mean.shape != (_DIMENSION,)
+        or q.mean.shape != reference_q.mean.shape
+    ):
+        raise ValueError("model and variational dimensions must match")
+    if len(model.factors) != _FACTOR_COUNT:
+        raise ValueError("model must contain six factors")
+
+    factor_differences: list[Tensor] = []
+    for factor in model.factors:
+        row = factor.row
+        if row.shape != q.mean.shape:
+            raise ValueError("model and variational dimensions must match")
+        target = factor.target
+        variance = factor.variance
+        mean_residual = row @ q.mean - target
+        reference_mean_residual = row @ reference_q.mean - target
+        solved = torch.linalg.solve_triangular(
+            q.precision_cholesky,
+            row.unsqueeze(-1),
+            upper=False,
+        ).squeeze(-1)
+        reference_solved = torch.linalg.solve_triangular(
+            reference_q.precision_cholesky,
+            row.unsqueeze(-1),
+            upper=False,
+        ).squeeze(-1)
+        variance_difference = torch.dot(
+            solved - reference_solved,
+            solved + reference_solved,
+        )
+        expected_square_difference = (
+            (mean_residual - reference_mean_residual)
+            * (mean_residual + reference_mean_residual)
+            + variance_difference
+        )
+        factor_differences.append(
+            -0.5 * expected_square_difference / variance
+        )
+
+    entropy_difference = -torch.sum(
+        torch.log(torch.diagonal(q.precision_cholesky))
+        - torch.log(torch.diagonal(reference_q.precision_cholesky))
+    )
+    difference = sum(tuple(factor_differences)) + entropy_difference
+    return _live_scalar(difference, "ELBO difference")
+
+
+__all__ = [
+    "H3ObjectiveEvaluation",
+    "evaluate_h3_elbo",
+    "evaluate_h3_elbo_difference",
+]

@@ -295,7 +295,7 @@ def test_h3_configuration_and_arm_records_are_immutable_and_frozen() -> None:
         terminal_mean=(0.0, 0.0, 0.0, 0.0),
         terminal_precision_cholesky=initialization.precision,
         terminal_precision=initialization.precision,
-        accepted_elbos=(-3.0, -2.0),
+        accepted_elbos=(-3.0, -2.5, -2.25, -2.0),
         canonical_trace_sha256="a" * 64,
     )
     assert arm.converged

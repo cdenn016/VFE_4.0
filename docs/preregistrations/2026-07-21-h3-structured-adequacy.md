@@ -99,11 +99,62 @@ torch.optim.LBFGS(
     max_iter=1,
     max_eval=25,
     tolerance_grad=1e-12,
-    tolerance_change=1e-15,
+    tolerance_change=1e-18,
     history_size=20,
     line_search_fn="strong_wolfe",
 )
 ```
+
+### Pre-promotion optimizer-coherence amendment (2026-07-22)
+
+During focused Task 4 implementation, before any H3 promotion run, gate
+decision, or milestone evidence was produced, the installed PyTorch L-BFGS
+implementation was confirmed to interpret `tolerance_change` as a stopping
+bound on the directional derivative as well as on parameter and loss changes.
+The original `1e-15` value could therefore stop a valid strong-Wolfe trajectory
+while its gradient infinity norm remained above the independently frozen
+`1e-8` terminal target. To make the internal optimizer stop coherent with that
+unchanged target, `tolerance_change` is amended to
+`(1e-8)^2 / 100 = 1e-18`. The terminal gradient target, accepted-objective
+change target, optimizer family, line search, iteration and closure budgets,
+and every other setting and decision rule remain unchanged. This is a
+pre-promotion protocol correction, not a post-gate threshold adjustment.
+
+The same focused pre-promotion review also found that, near the factorizing
+zero-control optimum, changes in the full normalized ELBO can be smaller than
+one float64 unit in the last place of that full scalar. Strong-Wolfe would then
+see a quantized zero loss change even though the direct ELBO gradient remained
+above its target. Each outer iteration therefore recenters only its closure
+loss at a detached, immutable reference `q0` captured from that iteration's
+first closure, with no extra objective evaluation. Every closure minimizes the
+negative of the following direct normalized-factor difference:
+
+```text
+a  = row @ q.mean  - target
+a0 = row @ q0.mean - target
+s  = solve_triangular(L_q, row)
+s0 = solve_triangular(L_q0, row)
+variance_delta = dot(s-s0, s+s0)
+expected_square_delta = (a-a0)*(a+a0)
+                        + variance_delta
+factor_delta = -0.5*expected_square_delta/variance
+entropy_delta = -sum(log(diag(L_q)) - log(diag(L_q0)))
+ELBO_delta = sum(factor_delta) + entropy_delta
+```
+
+The reference is reset at every accepted outer step and is independent of the
+optimized tensors. Thus `grad_q ELBO_delta = grad_q ELBO`, and an additive
+constant leaves the strong-Wolfe conditions unchanged while the factored
+mean-square difference avoids subtracting rounded full-loss scalars. The
+solve-vector identity `dot(s-s0,s+s0)` likewise evaluates
+`||s||^2-||s0||^2` without subtracting two rounded order-one variances; this
+completes the same algebraic stabilization for covariance and strict-lower
+precision-Cholesky directions. Accepted
+diagnostics and artifact values remain evaluations of the full direct ELBO.
+No evidence, canonical form, oracle value, normalized constant, inverse,
+repair, tolerance, convergence criterion, or decision threshold enters this
+recentered closure. This seam was adopted before H3 promotion or gate evidence
+and does not loosen any acceptance rule.
 
 The hard caps are 200 accepted outer iterations and 5,000 closure evaluations.
 The closure budget is enforced before every objective evaluation by a dedicated

@@ -176,7 +176,7 @@ class H3OptimizationConfig:
     maximum_iterations_per_step: int = 1
     maximum_evaluations_per_step: int = 25
     tolerance_gradient: float = 1.0e-12
-    tolerance_change: float = 1.0e-15
+    tolerance_change: float = 1.0e-18
     history_size: int = 20
     line_search: str = "strong_wolfe"
     maximum_accepted_iterations: int = 200
@@ -193,7 +193,7 @@ class H3OptimizationConfig:
             type(self.maximum_evaluations_per_step) is int
             and self.maximum_evaluations_per_step == 25,
             self.tolerance_gradient == 1.0e-12,
-            self.tolerance_change == 1.0e-15,
+            self.tolerance_change == 1.0e-18,
             type(self.history_size) is int and self.history_size == 20,
             self.line_search == "strong_wolfe",
             type(self.maximum_accepted_iterations) is int
@@ -270,7 +270,7 @@ class H3ArmResult:
     terminal_precision_cholesky: H3Matrix4 | None
     terminal_precision: H3Matrix4 | None
     accepted_elbos: tuple[float, ...]
-    canonical_trace_sha256: str | None
+    canonical_trace_sha256: str
 
     def __post_init__(self) -> None:
         if self.family not in (
@@ -286,6 +286,10 @@ class H3ArmResult:
             raise ValueError("closure_evaluations must be a nonnegative integer")
         if type(self.accepted_elbos) is not tuple:
             raise ValueError("accepted_elbos must be a tuple")
+        if self.accepted_iterations != len(self.accepted_elbos):
+            raise ValueError(
+                "accepted_iterations must equal the number of accepted_elbos"
+            )
         for index, value in enumerate(self.accepted_elbos):
             _finite(value, f"accepted_elbos[{index}]")
         for name, value in (
@@ -315,8 +319,9 @@ class H3ArmResult:
                 "terminal_precision",
                 _matrix4(self.terminal_precision, "terminal_precision"),
             )
-        if self.canonical_trace_sha256 is not None:
-            _sha256(self.canonical_trace_sha256, "canonical_trace_sha256")
+        if self.canonical_trace_sha256 is None:
+            raise ValueError("canonical_trace_sha256 must be present for every H3 arm")
+        _sha256(self.canonical_trace_sha256, "canonical_trace_sha256")
         if self.converged:
             if self.failure_reason is not None:
                 raise ValueError("converged H3 arms cannot retain a failure reason")

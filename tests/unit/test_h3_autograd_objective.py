@@ -12,7 +12,11 @@ import vfe4.objective.h3_gaussian as objective_module
 import vfe4.recognition.reference_h3 as recognition_module
 from vfe4.generative import H3GenerativeModel
 from vfe4.numerics.information import InformationGaussian
-from vfe4.objective import H3ObjectiveEvaluation, evaluate_h3_elbo
+from vfe4.objective import (
+    H3ObjectiveEvaluation,
+    evaluate_h3_elbo,
+    evaluate_h3_elbo_difference,
+)
 from vfe4.recognition import (
     FactorizedH3Parameters,
     H3RecognitionFamily,
@@ -24,6 +28,7 @@ from vfe4.types.h1 import GaussianLaw
 from vfe4.types.h3 import H3InitializationConfig
 from vfe4.validation.h3_fixture import (
     H3_COUPLED_FIXTURE_PATH,
+    H3_ZERO_CONTROL_FIXTURE_PATH,
     parse_h3_fixture_bytes,
 )
 
@@ -230,6 +235,69 @@ def test_gradcheck_covers_explicit_structured_and_factorized_parameters() -> Non
     )
 
 
+@pytest.mark.parametrize(
+    "family",
+    ("structured_full_spd", "fine_factorized_diagonal"),
+)
+def test_stable_elbo_difference_is_zero_at_reference_with_full_elbo_gradient(
+    family: H3RecognitionFamily,
+) -> None:
+    model = _model()
+    module = make_h3_parameters(family, H3InitializationConfig())
+    q = module()
+    reference = H3VariationalGaussian(
+        family=family,
+        mean=q.mean.detach().clone(),
+        precision_cholesky=q.precision_cholesky.detach().clone(),
+    )
+    full = evaluate_h3_elbo(model, q).elbo
+    difference = evaluate_h3_elbo_difference(model, q, reference)
+    parameters = tuple(module.parameters())
+    full_gradients = torch.autograd.grad(full, parameters, retain_graph=True)
+    difference_gradients = torch.autograd.grad(difference, parameters)
+
+    assert torch.equal(difference, torch.zeros((), dtype=torch.float64))
+    assert difference.requires_grad
+    assert all(
+        torch.equal(actual, expected)
+        for actual, expected in zip(
+            difference_gradients, full_gradients, strict=True
+        )
+    )
+    if family == "structured_full_spd":
+        assert difference_gradients[-1].shape == (6,)
+        assert bool(torch.any(difference_gradients[-1] != 0.0))
+
+
+def test_stable_elbo_difference_resolves_zero_control_loss_quantization() -> None:
+    fixture = parse_h3_fixture_bytes(
+        H3_ZERO_CONTROL_FIXTURE_PATH.read_bytes(),
+        expected_fixture_id="h3-zero-control-v1",
+    )
+    model = H3GenerativeModel.from_fixture(fixture)
+    canonical = model.canonical_joint()
+    precision = canonical.precision
+    mean = torch.linalg.solve(precision, canonical.natural)
+    cholesky = torch.linalg.cholesky(precision)
+    reference = H3VariationalGaussian(
+        "structured_full_spd", mean, cholesky
+    )
+    perturbed_mean = mean.clone()
+    perturbed_mean[0] += 1.0e-8
+    q = H3VariationalGaussian(
+        "structured_full_spd", perturbed_mean, cholesky
+    )
+
+    full_reference = evaluate_h3_elbo(model, reference).elbo
+    full_perturbed = evaluate_h3_elbo(model, q).elbo
+    difference = evaluate_h3_elbo_difference(model, q, reference)
+
+    assert torch.equal(full_perturbed, full_reference)
+    assert bool(torch.isfinite(difference))
+    assert bool(difference < 0.0)
+    assert not torch.equal(difference, torch.zeros((), dtype=torch.float64))
+
+
 def test_h3_objective_avoids_all_graph_breaking_h1_h2_surfaces(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -351,6 +419,13 @@ def test_variational_gaussian_and_objective_reject_bad_runtime_values() -> None:
         evaluate_h3_elbo(object(), q)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="variational"):
         evaluate_h3_elbo(_model(), object())  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="reference variational"):
+        evaluate_h3_elbo_difference(_model(), q, object())  # type: ignore[arg-type]
+    factorized_reference = make_h3_parameters(
+        "fine_factorized_diagonal", H3InitializationConfig()
+    )()
+    with pytest.raises(ValueError, match="families"):
+        evaluate_h3_elbo_difference(_model(), q, factorized_reference)
 
     with pytest.raises(ValueError):
         H3ObjectiveEvaluation(
