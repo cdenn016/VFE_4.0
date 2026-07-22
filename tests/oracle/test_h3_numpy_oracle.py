@@ -4,11 +4,13 @@ import ast
 import json
 import math
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 import pytest
 
 import verification.numpy_oracles.h3_posterior as oracle_module
+import verification.h3_budget as budget_module
 from verification.h3_budget import (
     C,
     EPS,
@@ -133,7 +135,7 @@ def test_coupled_oracle_reconstructs_frozen_canonical_evidence_and_gap() -> None
                 float(COUPLED_PRECISION[row, column]),
                 left_absolute_sum=float(precision_absolute[row][column]),
                 right_absolute_sum=abs(float(COUPLED_PRECISION[row, column])),
-                kappa=kappa,
+                kappa=1.0,
             )
     for index in range(4):
         _assert_pair(
@@ -141,7 +143,7 @@ def test_coupled_oracle_reconstructs_frozen_canonical_evidence_and_gap() -> None
             float(COUPLED_NATURAL[index]),
             left_absolute_sum=float(natural_absolute[index]),
             right_absolute_sum=abs(float(COUPLED_NATURAL[index])),
-            kappa=kappa,
+            kappa=1.0,
         )
     _assert_pair(
         oracle.log_evidence,
@@ -187,7 +189,7 @@ def test_zero_control_oracle_derives_diagonal_posterior_and_zero_gap() -> None:
                 float(ZERO_PRECISION[row, column]),
                 left_absolute_sum=float(precision_absolute[row][column]),
                 right_absolute_sum=abs(float(ZERO_PRECISION[row, column])),
-                kappa=kappa,
+                kappa=1.0,
             )
     zero_allowance = pair_allowance(
         DIMENSION,
@@ -270,6 +272,67 @@ def test_reverse_kl_is_oriented_q_to_p_and_uses_terminal_precision() -> None:
     )
 
 
+def test_reference_agreement_uses_only_operand_local_conditioning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, float]] = []
+    original = oracle_module._require_close
+
+    def recording_require_close(
+        actual: float,
+        expected: float,
+        actual_absolute: float,
+        expected_absolute: float,
+        kappa: float,
+        name: str,
+    ) -> None:
+        observed.append((name, kappa))
+        original(
+            actual,
+            expected,
+            actual_absolute,
+            expected_absolute,
+            kappa,
+            name,
+        )
+
+    monkeypatch.setattr(oracle_module, "_require_close", recording_require_close)
+    oracle = _oracle(H3_COUPLED_FIXTURE_PATH, "h3-coupled-v1")
+    posterior_kappa = float(oracle.diagnostics["kappa_2"])
+    precision_kappas = tuple(
+        kappa for name, kappa in observed if name == "posterior precision reference"
+    )
+    natural_kappas = tuple(
+        kappa for name, kappa in observed if name == "posterior natural reference"
+    )
+    evidence_kappas = tuple(
+        kappa for name, kappa in observed if name == "log evidence reference"
+    )
+    gap_kappas = tuple(
+        kappa for name, kappa in observed if name == "analytic gap reference"
+    )
+
+    assert precision_kappas == (1.0,) * 16
+    assert natural_kappas == (1.0,) * 4
+    assert evidence_kappas == (posterior_kappa,)
+    assert gap_kappas == (posterior_kappa,)
+    assert oracle.diagnostics["canonical_precision_operand_kappas"] == (
+        (1.0, 1.0, 1.0, 1.0),
+    ) * 4
+    assert oracle.diagnostics["canonical_natural_operand_kappas"] == (
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    )
+    assert oracle.diagnostics["log_evidence_operand_kappas"] == (
+        posterior_kappa,
+    )
+    assert oracle.diagnostics[
+        "analytic_factorized_reverse_kl_operand_kappas"
+    ] == (posterior_kappa,)
+
+
 def test_oracle_outputs_are_owned_read_only_and_solve_closes() -> None:
     oracle = _oracle(H3_COUPLED_FIXTURE_PATH, "h3-coupled-v1")
     for array in (
@@ -290,6 +353,99 @@ def test_oracle_outputs_are_owned_read_only_and_solve_closes() -> None:
         float(oracle.diagnostics["kappa_2"]),
     )
     assert float(np.max(np.abs(residual))) <= allowance
+
+
+def _direct_evaluation_kwargs() -> dict[str, object]:
+    return {
+        "fixture_id": "h3-zero-control-v1",
+        "precision": np.eye(4, dtype=np.float64),
+        "natural": np.zeros(4, dtype=np.float64),
+        "mean": np.zeros(4, dtype=np.float64),
+        "covariance": np.eye(4, dtype=np.float64),
+        "log_evidence": -1.0,
+        "analytic_factorized_precision": np.eye(4, dtype=np.float64),
+        "analytic_factorized_mean": np.zeros(4, dtype=np.float64),
+        "analytic_factorized_reverse_kl": 0.0,
+        "diagnostics": {
+            "nested": {"values": [1.0, 2.0]},
+            "array": np.asarray([3.0, 4.0], dtype=np.float64),
+        },
+    }
+
+
+def test_oracle_public_record_owns_arrays_and_recursively_freezes_diagnostics() -> None:
+    kwargs = _direct_evaluation_kwargs()
+    precision = kwargs["precision"]
+    diagnostics = kwargs["diagnostics"]
+    assert isinstance(precision, np.ndarray)
+    assert isinstance(diagnostics, dict)
+    nested = diagnostics["nested"]
+    diagnostic_array = diagnostics["array"]
+    assert isinstance(nested, dict)
+    assert isinstance(diagnostic_array, np.ndarray)
+
+    evaluation = H3PosteriorOracleEvaluation(**kwargs)  # type: ignore[arg-type]
+    precision[0, 0] = 9.0
+    nested["values"][0] = 8.0
+    diagnostics["new"] = "mutated"
+    diagnostic_array[0] = 7.0
+
+    assert evaluation.precision[0, 0] == 1.0
+    assert not evaluation.precision.flags.writeable
+    assert isinstance(evaluation.diagnostics, MappingProxyType)
+    assert isinstance(evaluation.diagnostics["nested"], MappingProxyType)
+    assert evaluation.diagnostics["nested"]["values"] == (1.0, 2.0)
+    assert "new" not in evaluation.diagnostics
+    frozen_array = evaluation.diagnostics["array"]
+    assert isinstance(frozen_array, np.ndarray)
+    assert not frozen_array.flags.writeable
+    assert frozen_array[0] == 3.0
+    with pytest.raises(ValueError):
+        evaluation.precision[0, 0] = 2.0
+    with pytest.raises(ValueError):
+        frozen_array[0] = 2.0
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("fixture_id", "unknown", "fixture_id"),
+        ("precision", np.eye(4, dtype=np.float32), "float64"),
+        ("natural", np.zeros(3, dtype=np.float64), "shape"),
+        (
+            "covariance",
+            np.asarray(
+                (
+                    (1.0, 0.1, 0.0, 0.0),
+                    (0.0, 1.0, 0.0, 0.0),
+                    (0.0, 0.0, 1.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0),
+                ),
+                dtype=np.float64,
+            ),
+            "symmetric",
+        ),
+        (
+            "analytic_factorized_precision",
+            np.diag(np.asarray((1.0, 1.0, 1.0, -1.0), dtype=np.float64)),
+            "positive definite",
+        ),
+        ("log_evidence", float("nan"), "finite"),
+        (
+            "analytic_factorized_reverse_kl",
+            -1.0e-12,
+            "nonnegative",
+        ),
+        ("diagnostics", {"bad": [1.0, float("inf")]}, "finite"),
+    ),
+)
+def test_oracle_public_record_rejects_malformed_direct_construction(
+    field: str, value: object, message: str
+) -> None:
+    kwargs = _direct_evaluation_kwargs()
+    kwargs[field] = value
+    with pytest.raises(ValueError, match=message):
+        H3PosteriorOracleEvaluation(**kwargs)  # type: ignore[arg-type]
 
 
 def test_oracle_rejects_bad_bytes_identity_reference_and_non_spd_laws() -> None:
@@ -376,14 +532,90 @@ def test_h3_budget_implements_exact_operand_local_formulas() -> None:
         operands=(-3.0, 2.0, -4.0),
         operand_allowances=(scalar, optimized, scalar),
     )
-    assert three == math.fsum((scalar, optimized, scalar)) + C * gamma_n(7) * 9.0
+    assert three == sum((scalar, optimized, scalar)) + C * gamma_n(7) * 9.0
 
     four = four_operand_identity_allowance(
         4,
         operands=(-3.0, 2.0, -4.0, 5.0),
         operand_allowances=(scalar, optimized, scalar, optimized),
     )
-    assert four == math.fsum((scalar, optimized, scalar, optimized)) + C * gamma_n(8) * 14.0
+    assert four == sum((scalar, optimized, scalar, optimized)) + C * gamma_n(8) * 14.0
+
+
+def test_h3_identity_budgets_use_literal_python_sum_not_fsum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded_sum_inputs: list[tuple[float, ...]] = []
+
+    def literal_left_fold(values) -> float:
+        result = 0.0
+        for value in values:
+            result += value
+        return result
+
+    def recording_sum(values) -> float:
+        frozen_values = tuple(values)
+        recorded_sum_inputs.append(frozen_values)
+        return literal_left_fold(frozen_values)
+
+    monkeypatch.setattr(budget_module, "sum", recording_sum, raising=False)
+    half_ulp_at_one = math.ldexp(1.0, -53)
+    three_operand_case = (1.0, half_ulp_at_one, half_ulp_at_one)
+    three_allowance_case = (1.0, half_ulp_at_one, half_ulp_at_one)
+    three_from_operands = three_operand_identity_allowance(
+        4,
+        operands=three_operand_case,
+        operand_allowances=(0.0, 0.0, 0.0),
+    )
+    expected_three_operands = C * gamma_n(7) * max(
+        1.0, literal_left_fold(abs(value) for value in three_operand_case)
+    )
+    three_from_allowances = three_operand_identity_allowance(
+        4,
+        operands=(0.0, 0.0, 0.0),
+        operand_allowances=three_allowance_case,
+    )
+    expected_three_allowances = (
+        literal_left_fold(three_allowance_case) + C * gamma_n(7)
+    )
+
+    four_operand_case = (1.0, half_ulp_at_one, half_ulp_at_one, 0.0)
+    four_allowance_case = (1.0, half_ulp_at_one, half_ulp_at_one, 0.0)
+    four_from_operands = four_operand_identity_allowance(
+        4,
+        operands=four_operand_case,
+        operand_allowances=(0.0, 0.0, 0.0, 0.0),
+    )
+    expected_four_operands = C * gamma_n(8) * max(
+        1.0, literal_left_fold(abs(value) for value in four_operand_case)
+    )
+    four_from_allowances = four_operand_identity_allowance(
+        4,
+        operands=(0.0, 0.0, 0.0, 0.0),
+        operand_allowances=four_allowance_case,
+    )
+    expected_four_allowances = (
+        literal_left_fold(four_allowance_case) + C * gamma_n(8)
+    )
+
+    assert literal_left_fold(three_operand_case) != math.fsum(three_operand_case)
+    assert literal_left_fold(three_allowance_case) != math.fsum(three_allowance_case)
+    assert literal_left_fold(four_operand_case) != math.fsum(four_operand_case)
+    assert literal_left_fold(four_allowance_case) != math.fsum(four_allowance_case)
+    assert three_from_operands == expected_three_operands
+    assert three_from_allowances == expected_three_allowances
+    assert four_from_operands == expected_four_operands
+    assert four_from_allowances == expected_four_allowances
+    assert recorded_sum_inputs == [
+        tuple(abs(value) for value in three_operand_case),
+        (0.0, 0.0, 0.0),
+        (0.0, 0.0, 0.0),
+        three_allowance_case,
+        tuple(abs(value) for value in four_operand_case),
+        (0.0, 0.0, 0.0, 0.0),
+        (0.0, 0.0, 0.0, 0.0),
+        four_allowance_case,
+    ]
 
 
 def test_h3_budget_decisiveness_is_strict_at_one_percent_boundary() -> None:

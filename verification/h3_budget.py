@@ -154,10 +154,10 @@ def _identity_allowance(
         for index, value in enumerate(operand_allowances)
     )
     reduction = C * gamma_n(checked_dimension + arity) * max(
-        1.0, math.fsum(abs(value) for value in checked_operands)
+        1.0, sum(abs(value) for value in checked_operands)
     )
     return _nonnegative(
-        math.fsum(checked_allowances) + reduction,
+        sum(checked_allowances) + reduction,
         f"{arity}-operand identity allowance",
     )
 

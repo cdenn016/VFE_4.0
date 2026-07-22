@@ -96,6 +96,62 @@ class H3PosteriorOracleEvaluation:
     analytic_factorized_reverse_kl: float
     diagnostics: Mapping[str, object] = field(compare=False)
 
+    def __post_init__(self) -> None:
+        if self.fixture_id not in (
+            "h3-coupled-v1",
+            "h3-zero-control-v1",
+        ):
+            raise ValueError("fixture_id must name one frozen H3 fixture")
+        precision = _owned_public_spd(
+            self.precision, "precision", diagonal=False
+        )
+        natural = _owned_public_vector(self.natural, "natural")
+        mean = _owned_public_vector(self.mean, "mean")
+        covariance = _owned_public_spd(
+            self.covariance, "covariance", diagonal=False
+        )
+        analytic_precision = _owned_public_spd(
+            self.analytic_factorized_precision,
+            "analytic_factorized_precision",
+            diagonal=True,
+        )
+        analytic_mean = _owned_public_vector(
+            self.analytic_factorized_mean,
+            "analytic_factorized_mean",
+        )
+        log_evidence = _finite(self.log_evidence, "log_evidence")
+        analytic_gap = _finite(
+            self.analytic_factorized_reverse_kl,
+            "analytic_factorized_reverse_kl",
+        )
+        if analytic_gap < 0.0:
+            raise ValueError(
+                "analytic_factorized_reverse_kl must be nonnegative"
+            )
+        if not isinstance(self.diagnostics, Mapping):
+            raise ValueError("diagnostics must be a mapping")
+        frozen_diagnostics = _freeze_diagnostic(
+            self.diagnostics, "diagnostics"
+        )
+        if not isinstance(frozen_diagnostics, Mapping):
+            raise ValueError("diagnostics must freeze to a mapping")
+
+        object.__setattr__(self, "precision", precision)
+        object.__setattr__(self, "natural", natural)
+        object.__setattr__(self, "mean", mean)
+        object.__setattr__(self, "covariance", covariance)
+        object.__setattr__(
+            self, "analytic_factorized_precision", analytic_precision
+        )
+        object.__setattr__(
+            self, "analytic_factorized_mean", analytic_mean
+        )
+        object.__setattr__(self, "log_evidence", log_evidence)
+        object.__setattr__(
+            self, "analytic_factorized_reverse_kl", analytic_gap
+        )
+        object.__setattr__(self, "diagnostics", frozen_diagnostics)
+
 
 @dataclass(frozen=True)
 class _Factor:
@@ -167,11 +223,16 @@ def evaluate_h3_posterior_oracle(
         for value in np.diag(precision_cholesky)
     )
     gap_terms = (*precision_diagonal_logs, *cholesky_log_terms)
-    analytic_gap = _finite(
-        0.5 * math.fsum(gap_terms), "analytic factorized reverse KL"
-    )
     analytic_precision = np.diag(np.diag(precision)).astype(
         np.float64, copy=False
+    )
+    analytic_gap = (
+        0.0
+        if np.array_equal(precision, analytic_precision)
+        else _finite(
+            0.5 * math.fsum(gap_terms),
+            "analytic factorized reverse KL",
+        )
     )
 
     eigenvalues = np.linalg.eigvalsh(precision)
@@ -201,6 +262,13 @@ def evaluate_h3_posterior_oracle(
             "lambda_min": float(eigenvalues[0]),
             "lambda_max": float(eigenvalues[-1]),
             "kappa_2": kappa,
+            "canonical_precision_operand_kappas": (
+                (1.0, 1.0, 1.0, 1.0),
+            )
+            * _DIMENSION,
+            "canonical_natural_operand_kappas": (1.0,) * _DIMENSION,
+            "log_evidence_operand_kappas": (kappa,),
+            "analytic_factorized_reverse_kl_operand_kappas": (kappa,),
             "precision_absolute_summand_accumulation": tuple(
                 tuple(float(value) for value in row)
                 for row in precision_absolute
@@ -309,7 +377,7 @@ def _require_reference_agreement(
                 float(expected_precision[row, column]),
                 float(precision_absolute[row, column]),
                 abs(float(expected_precision[row, column])),
-                kappa,
+                1.0,
                 "posterior precision reference",
             )
     if parsed.reference_natural is not None:
@@ -322,7 +390,7 @@ def _require_reference_agreement(
                 float(expected_natural[index]),
                 float(natural_absolute[index]),
                 abs(float(expected_natural[index])),
-                kappa,
+                1.0,
                 "posterior natural reference",
             )
     if parsed.reference_evidence is not None:
@@ -577,6 +645,24 @@ def _array(value: object, shape: tuple[int, ...], name: str) -> np.ndarray:
     return value
 
 
+def _owned_public_vector(value: object, name: str) -> np.ndarray:
+    return _readonly(_array(value, (_DIMENSION,), name))
+
+
+def _owned_public_spd(
+    value: object, name: str, *, diagonal: bool
+) -> np.ndarray:
+    checked = _array(value, (_DIMENSION, _DIMENSION), name)
+    if not np.array_equal(checked, checked.T):
+        raise ValueError(f"{name} must be exactly symmetric")
+    if diagonal and bool(
+        np.any(checked - np.diag(np.diag(checked)) != 0.0)
+    ):
+        raise ValueError(f"{name} must be exactly diagonal")
+    _cholesky(checked, name)
+    return _readonly(checked)
+
+
 def _cholesky(value: np.ndarray, name: str) -> np.ndarray:
     try:
         result = np.linalg.cholesky(value)
@@ -590,6 +676,33 @@ def _readonly(value: np.ndarray) -> np.ndarray:
     result = np.array(value, dtype=np.float64, copy=True)
     result.setflags(write=False)
     return result
+
+
+def _freeze_diagnostic(value: object, name: str) -> object:
+    if isinstance(value, Mapping):
+        copied: dict[str, object] = {}
+        for key, item in value.items():
+            if type(key) is not str or not key:
+                raise ValueError(f"{name} keys must be nonempty strings")
+            copied[key] = _freeze_diagnostic(item, f"{name}[{key!r}]")
+        return MappingProxyType(copied)
+    if isinstance(value, np.ndarray):
+        if value.dtype != np.float64:
+            raise ValueError(f"{name} arrays must use float64")
+        _require_finite_array(value, name)
+        return _readonly(value)
+    if type(value) in (tuple, list):
+        return tuple(
+            _freeze_diagnostic(item, f"{name}[{index}]")
+            for index, item in enumerate(value)
+        )
+    if value is None or type(value) in (str, bool):
+        return value
+    if type(value) is int or isinstance(value, np.integer):
+        return int(value)
+    if type(value) is float or isinstance(value, np.floating):
+        return _finite(value, name)
+    raise ValueError(f"{name} contains unsupported diagnostic data")
 
 
 def _require_finite_array(value: np.ndarray, name: str) -> None:
