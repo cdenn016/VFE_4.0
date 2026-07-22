@@ -1610,7 +1610,9 @@ _ALLOWANCE_INVARIANT_ORDER: tuple[H4AllowanceInvariantName, ...] = tuple(
 
 
 class H4SixInvariantAllowanceAccumulator:
-    __slots__ = ("_states", "_position", "_failed", "_finalized")
+    __slots__ = (
+        "_states", "_position", "_failed", "_finalized", "_anchor_record",
+    )
 
     def __init__(self) -> None:
         self._states: dict[H4AllowanceInvariantName, _IncrementalAllowanceState] = {
@@ -1620,6 +1622,7 @@ class H4SixInvariantAllowanceAccumulator:
         self._position = 0
         self._failed = False
         self._finalized = False
+        self._anchor_record: H4ApplicableAllowance | None = None
 
     def _consume_group_pairs(
         self,
@@ -1640,6 +1643,7 @@ class H4SixInvariantAllowanceAccumulator:
         source: H4AnchorAllowanceSource | H4AllowanceResultSource,
     ) -> None:
         if self._finalized:
+            self._failed = True
             raise ValueError("six-invariant allowance consumption is closed")
         if self._failed:
             raise ValueError("six-invariant allowance accumulator failed closed")
@@ -1656,6 +1660,10 @@ class H4SixInvariantAllowanceAccumulator:
                     "h3_anchor_identity", expected_groups, observed_groups,
                 )
             else:
+                if self._position == 2 and self._anchor_record is None:
+                    raise ValueError(
+                        "anchor identity snapshot is required before scaled consumption"
+                    )
                 if type(source) is not H4AllowanceResultSource:
                     raise ValueError("scaled allowance source order cannot contain an anchor")
                 scaled_index = self._position - 2
@@ -1710,6 +1718,27 @@ class H4SixInvariantAllowanceAccumulator:
             raise
         self._position += 1
 
+    def anchor_identity_record(self) -> H4ApplicableAllowance:
+        if self._failed:
+            raise ValueError("six-invariant allowance accumulator failed closed")
+        if self._finalized:
+            self._failed = True
+            raise ValueError("anchor identity snapshot is closed after finalize")
+        if self._position != 2:
+            self._failed = True
+            raise ValueError(
+                "anchor identity snapshot requires the exact two-anchor boundary"
+            )
+        if self._anchor_record is None:
+            try:
+                self._anchor_record = self._states[
+                    "h3_anchor_identity"
+                ].finalize()
+            except Exception:
+                self._failed = True
+                raise
+        return self._anchor_record
+
     def finalize(self) -> tuple[
         H4ApplicableAllowance,
         H4ApplicableAllowance,
@@ -1719,13 +1748,28 @@ class H4SixInvariantAllowanceAccumulator:
         H4ApplicableAllowance,
     ]:
         if self._finalized:
+            self._failed = True
             raise ValueError("six-invariant allowance finalize is one-shot")
         if self._failed:
             raise ValueError("six-invariant allowance accumulator failed closed")
         if self._position != 2 + 120 * 11 * 2:
+            self._failed = True
             raise ValueError("six-invariant allowance source stream is incomplete")
+        if self._anchor_record is None:
+            self._failed = True
+            raise ValueError("finalize requires the cached anchor identity snapshot")
+        try:
+            records = (
+                self._anchor_record,
+                *(
+                    self._states[name].finalize()
+                    for name in _ALLOWANCE_INVARIANT_ORDER[1:]
+                ),
+            )
+        except Exception:
+            self._failed = True
+            raise
         self._finalized = True
-        records = tuple(self._states[name].finalize() for name in _ALLOWANCE_INVARIANT_ORDER)
         self._states.clear()
         return records  # type: ignore[return-value]
 

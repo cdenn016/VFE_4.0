@@ -13,6 +13,7 @@ import pytest
 from vfe4.config import H4ConditionEnvelopeConfig
 from vfe4.generative.reference_h4 import h4_anchor_from_h3, make_h4_problem
 from vfe4.types.h4 import (
+    H4_ALLOWANCE_ELEMENT_COUNTS,
     H4AllowanceOperationCount,
     H4NativeInformationState,
     H4NativeMomentState,
@@ -23,6 +24,7 @@ from vfe4.types.h4 import (
 )
 from vfe4.validation.h3_fixture import (
     H3_COUPLED_FIXTURE_PATH,
+    H3_ZERO_CONTROL_FIXTURE_PATH,
     parse_h3_fixture_bytes,
 )
 from verification import h4_budget as h4_budget_module
@@ -159,6 +161,11 @@ def test_h4_task3_allowance_source_and_bundle_public_contract() -> None:
     assert tuple(inspect.signature(h4_result_allowance_group_bundle).parameters) == ("source",)
     assert inspect.signature(h4_result_allowance_group_bundle).parameters["source"].kind is inspect.Parameter.KEYWORD_ONLY
     assert type(new_h4_six_invariant_allowance_accumulator()) is H4SixInvariantAllowanceAccumulator
+    assert tuple(
+        inspect.signature(
+            H4SixInvariantAllowanceAccumulator.anchor_identity_record,
+        ).parameters
+    ) == ("self",)
     assert {
         "H4AllowanceResultSource", "H4AnchorAllowanceSource",
         "H4ResultAllowanceGroupBundle", "H4SixInvariantAllowanceAccumulator",
@@ -319,6 +326,130 @@ def test_h4_anchor_repetition_and_accumulator_order_are_one_shot(
     gc.collect()
     assert result_ref() is None
     assert not hasattr(accumulator, "sources") and not hasattr(accumulator, "_sources")
+
+
+def _anchor_source(kind: str) -> H4AnchorAllowanceSource:
+    if kind == "coupled":
+        path, fixture_id = H3_COUPLED_FIXTURE_PATH, "h3-coupled-v1"
+    else:
+        path, fixture_id = H3_ZERO_CONTROL_FIXTURE_PATH, "h3-zero-control-v1"
+    fixture_bytes = path.read_bytes()
+    fixture = parse_h3_fixture_bytes(
+        fixture_bytes, expected_fixture_id=fixture_id,
+    )
+    payload = canonical_h4_problem_bytes(h4_anchor_from_h3(fixture))
+    return H4AnchorAllowanceSource(
+        fixture_bytes,
+        _result_source(payload=payload, arm="information", repetition_index=None),
+        _result_source(payload=payload, arm="moment", repetition_index=None),
+    )
+
+
+def test_h4_early_anchor_identity_snapshot_is_cached_decisive_and_allows_scaled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accumulator = new_h4_six_invariant_allowance_accumulator()
+    accumulator.consume(_anchor_source("coupled"))
+    accumulator.consume(_anchor_source("zero_control"))
+
+    def forbidden_replay(*args: object, **kwargs: object) -> object:
+        raise AssertionError("anchor source was replayed")
+
+    monkeypatch.setattr(
+        h4_budget_module, "h4_anchor_identity_groups", forbidden_replay,
+    )
+    record = accumulator.anchor_identity_record()
+    assert record.invariant == "h3_anchor_identity"
+    assert record.expected_element_count == record.observed_element_count == 184
+    assert record.decisive
+    assert accumulator.anchor_identity_record() is record
+
+    scaled_payload = canonical_h4_problem_bytes(
+        make_h4_problem(seed=104729, kind="coupled", horizon=7),
+    )
+    scaled = _result_source(
+        payload=scaled_payload, arm="information", repetition_index=0,
+    )
+    accumulator.consume(scaled)
+    with pytest.raises(ValueError, match="anchor|boundary|scaled|closed"):
+        accumulator.anchor_identity_record()
+    with pytest.raises(ValueError, match="failed|closed"):
+        accumulator.consume(scaled)
+    with pytest.raises(ValueError, match="failed|closed"):
+        accumulator.finalize()
+
+
+def test_h4_early_anchor_snapshot_is_required_and_invalid_calls_fail_closed() -> None:
+    coupled = _anchor_source("coupled")
+    zero = _anchor_source("zero_control")
+
+    premature = new_h4_six_invariant_allowance_accumulator()
+    premature.consume(coupled)
+    with pytest.raises(ValueError, match="anchor|boundary|premature"):
+        premature.anchor_identity_record()
+    with pytest.raises(ValueError, match="failed|closed"):
+        premature.consume(zero)
+    with pytest.raises(ValueError, match="failed|closed"):
+        premature.anchor_identity_record()
+    with pytest.raises(ValueError, match="failed|closed"):
+        premature.finalize()
+
+    reordered = new_h4_six_invariant_allowance_accumulator()
+    with pytest.raises(ValueError, match="anchor.*order"):
+        reordered.consume(zero)
+    with pytest.raises(ValueError, match="failed|closed"):
+        reordered.consume(coupled)
+    with pytest.raises(ValueError, match="failed|closed"):
+        reordered.anchor_identity_record()
+    with pytest.raises(ValueError, match="failed|closed"):
+        reordered.finalize()
+
+
+def test_h4_incomplete_finalize_permanently_fail_closes_accumulator() -> None:
+    accumulator = new_h4_six_invariant_allowance_accumulator()
+    coupled = _anchor_source("coupled")
+    with pytest.raises(ValueError, match="incomplete"):
+        accumulator.finalize()
+    with pytest.raises(ValueError, match="failed|closed"):
+        accumulator.consume(coupled)
+    with pytest.raises(ValueError, match="failed|closed"):
+        accumulator.anchor_identity_record()
+    with pytest.raises(ValueError, match="failed|closed"):
+        accumulator.finalize()
+
+
+def test_h4_full_finalize_reuses_cached_anchor_and_post_finalize_fails_closed() -> None:
+    accumulator = new_h4_six_invariant_allowance_accumulator()
+    coupled = _anchor_source("coupled")
+    accumulator.consume(coupled)
+    accumulator.consume(_anchor_source("zero_control"))
+    anchor_record = accumulator.anchor_identity_record()
+
+    class FinalState:
+        def finalize(self) -> object:
+            return anchor_record
+
+    class ForbiddenAnchorState:
+        def finalize(self) -> object:
+            raise AssertionError("cached anchor state was finalized twice")
+
+    accumulator._states = {
+        name: (
+            ForbiddenAnchorState()
+            if name == "h3_anchor_identity"
+            else FinalState()
+        )
+        for name, _ in H4_ALLOWANCE_ELEMENT_COUNTS
+    }
+    accumulator._position = 2 + 120 * 11 * 2
+    records = accumulator.finalize()
+    assert len(records) == 6 and records[0] is anchor_record
+    with pytest.raises(ValueError, match="final|closed"):
+        accumulator.anchor_identity_record()
+    with pytest.raises(ValueError, match="final|closed"):
+        accumulator.consume(coupled)
+    with pytest.raises(ValueError, match="final|closed"):
+        accumulator.finalize()
 
 
 def test_h4_vectorized_allowance_aggregation_uses_read_only_groups() -> None:
