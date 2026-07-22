@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from vfe4.config import ResolvedConfig
-from vfe4.config.control_paths import is_repository_control_path
+from vfe4.config.control_paths import is_repository_control_path, is_same_or_descendant
 
 from .atomic import ArtifactPublicationError
 
@@ -58,23 +58,14 @@ def dirty_content_digest(repo_root: Path, run_root: Path) -> str:
     configured = run_root.resolve()
     if is_repository_control_path(configured, root):
         raise ArtifactPublicationError("run_root must not enter a repository control tree")
-    try:
-        configured_relative = configured.relative_to(root)
-    except ValueError:
-        try:
-            root.relative_to(configured)
-        except ValueError:
-            excluded_root: Path | None = None
-        else:
-            raise ArtifactPublicationError(
-                "run_root must be a strict descendant or external to the repository"
-            )
-    else:
-        if not configured_relative.parts:
-            raise ArtifactPublicationError(
-                "run_root must be a strict descendant or external to the repository"
-            )
+    if is_same_or_descendant(root, configured):
+        raise ArtifactPublicationError(
+            "run_root must be a strict descendant or external to the repository"
+        )
+    if is_same_or_descendant(configured, root):
         excluded_root = configured
+    else:
+        excluded_root = None
     digest = hashlib.sha256()
     for name in sorted(tracked | untracked):
         relative = Path(name)
@@ -84,17 +75,14 @@ def dirty_content_digest(repo_root: Path, run_root: Path) -> str:
         if normalized == ".verification" or normalized.startswith(".verification/"):
             continue
         absolute = (root / relative).resolve()
-        if name not in tracked and excluded_root is not None:
-            try:
-                absolute.relative_to(excluded_root)
-            except ValueError:
-                pass
-            else:
-                continue
-        try:
-            absolute.relative_to(root)
-        except ValueError as exc:
-            raise ArtifactPublicationError(f"provenance path escapes repository: {name}") from exc
+        if (
+            name not in tracked
+            and excluded_root is not None
+            and is_same_or_descendant(absolute, excluded_root)
+        ):
+            continue
+        if not is_same_or_descendant(absolute, root):
+            raise ArtifactPublicationError(f"provenance path escapes repository: {name}")
         try:
             content = absolute.read_bytes()
         except FileNotFoundError:

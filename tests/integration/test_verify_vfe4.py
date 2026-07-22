@@ -66,7 +66,21 @@ def test_invalid_raw_mapping_fails_resolution_and_creates_no_run(tmp_path: Path)
     assert not (tmp_path / "runs").exists()
 
 
-@pytest.mark.parametrize("control", [".verification", ".VeRiFiCaTiOn", ".git", ".GIT"])
+@pytest.mark.parametrize(
+    "control",
+    [
+        ".verification",
+        ".VeRiFiCaTiOn",
+        ".verification...",
+        ".verification....",
+        ".VeRiFiCaTiOn... ",
+        ".git",
+        ".GIT",
+        ".git...",
+        ".git....",
+        ".GiT... ",
+    ],
+)
 def test_launcher_rejects_control_tree_run_root_before_evaluation(
     monkeypatch: pytest.MonkeyPatch, control: str
 ) -> None:
@@ -80,6 +94,35 @@ def test_launcher_rejects_control_tree_run_root_before_evaluation(
     with pytest.raises(ValueError, match="control tree"):
         module.main(raw)
     assert not forbidden.exists()
+
+
+@pytest.mark.parametrize("control", [".verification", ".git"])
+def test_launcher_rejects_explicit_extended_control_path_before_evaluation(
+    monkeypatch: pytest.MonkeyPatch, control: str
+) -> None:
+    module = _load_launcher()
+    raw = copy.deepcopy(module.CONFIG)
+    forbidden = REPO_ROOT / control / "task6-extended-forbidden"
+    raw["artifacts"]["run_root"] = "\\\\?\\" + str(forbidden)
+    monkeypatch.setattr(module, "run_h1", lambda config: pytest.fail("evaluated"))
+
+    assert not forbidden.exists()
+    with pytest.raises(ValueError, match="control tree"):
+        module.main(raw)
+    assert not forbidden.exists()
+
+
+def test_launcher_rejects_extended_repository_and_parent_before_evaluation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_launcher()
+    monkeypatch.setattr(module, "run_h1", lambda config: pytest.fail("evaluated"))
+
+    for unsafe in (REPO_ROOT, REPO_ROOT.parent):
+        raw = copy.deepcopy(module.CONFIG)
+        raw["artifacts"]["run_root"] = "\\\\?\\" + str(unsafe)
+        with pytest.raises(ValueError, match="contain the repository"):
+            module.main(raw)
 
 
 def test_launcher_resolves_repo_paths_from_file_not_cwd_with_spaces(tmp_path: Path) -> None:

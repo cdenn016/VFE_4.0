@@ -19,7 +19,7 @@ from .schema import (
     RunConfig,
     ValidationConfig,
 )
-from .control_paths import is_repository_control_path
+from .control_paths import is_repository_control_path, is_same_or_descendant
 
 
 _ROOT_KEYS = frozenset(
@@ -291,13 +291,7 @@ def _resolve_run_root(value: object, repo_root: Path) -> Path:
     repository = repo_root.resolve()
     if is_repository_control_path(resolved, repository):
         raise ValueError("artifacts.run_root must not enter a repository control tree")
-    if resolved == repository:
-        raise ValueError("artifacts.run_root must not equal or contain the repository")
-    try:
-        repository.relative_to(resolved)
-    except ValueError:
-        pass
-    else:
+    if is_same_or_descendant(repository, resolved):
         raise ValueError("artifacts.run_root must not equal or contain the repository")
     return resolved
 

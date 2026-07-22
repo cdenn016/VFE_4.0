@@ -83,6 +83,8 @@ _INVALID_WINDOWS_CHARACTERS = frozenset('<>:"|?*')
 _RESERVED_WINDOWS_STEMS = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
 _RESERVED_WINDOWS_STEMS.update(f"COM{index}" for index in range(1, 10))
 _RESERVED_WINDOWS_STEMS.update(f"LPT{index}" for index in range(1, 10))
+_RESERVED_WINDOWS_STEMS.update(f"COM{digit}" for digit in ("¹", "²", "³"))
+_RESERVED_WINDOWS_STEMS.update(f"LPT{digit}" for digit in ("¹", "²", "³"))
 
 
 def _portable_component(name: str, *, context: str) -> str:

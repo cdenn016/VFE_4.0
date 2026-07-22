@@ -9,6 +9,7 @@ from typing import Any, Callable
 import pytest
 
 from vfe4.config import ResolvedConfig, resolve_config
+from vfe4.config.control_paths import is_repository_control_path
 
 
 def _raw_config() -> dict[str, object]:
@@ -135,10 +136,16 @@ def test_run_root_cannot_equal_or_contain_repository(
         ".verification/runs",
         ".VeRiFiCaTiOn/RUNS",
         ".verification/../.verification/alias",
+        ".verification.../x",
+        ".verification..../x",
+        ".VeRiFiCaTiOn... /x",
         ".git",
         ".git/objects",
         ".GIT/objects",
         "alias/../.git/worktrees",
+        ".git.../x",
+        ".git..../x",
+        ".GiT... /objects",
     ],
 )
 def test_run_root_cannot_enter_repository_control_trees(
@@ -149,6 +156,32 @@ def test_run_root_cannot_enter_repository_control_trees(
 
     with pytest.raises(ValueError, match="control tree"):
         resolve_config(raw, repo_root=tmp_path)
+
+
+@pytest.mark.parametrize("control", [".verification/x", ".git/objects"])
+def test_extended_prefix_and_ordinary_control_paths_have_same_decision(
+    tmp_path: Path, control: str
+) -> None:
+    ordinary = tmp_path / control
+    extended = Path("\\\\?\\" + str(ordinary))
+
+    assert is_repository_control_path(ordinary, tmp_path)
+    assert is_repository_control_path(extended, tmp_path)
+
+    raw = _raw_config()
+    raw["artifacts"] = {"run_root": str(extended)}
+    with pytest.raises(ValueError, match="control tree"):
+        resolve_config(raw, repo_root=tmp_path)
+
+
+def test_extended_prefix_run_root_cannot_equal_or_contain_repository(
+    tmp_path: Path,
+) -> None:
+    for unsafe in (tmp_path, tmp_path.parent):
+        raw = _raw_config()
+        raw["artifacts"] = {"run_root": "\\\\?\\" + str(unsafe)}
+        with pytest.raises(ValueError, match="contain the repository"):
+            resolve_config(raw, repo_root=tmp_path)
 
 
 def test_external_run_root_remains_valid(tmp_path: Path) -> None:

@@ -183,6 +183,35 @@ def test_publish_run_rejects_nonportable_payload_keys_before_any_write(
     assert not (tmp_path / "escape.json").exists()
 
 
+@pytest.mark.parametrize(
+    "payload_name",
+    [
+        "COM¹.json",
+        "com².payload.json",
+        "LPT³.json",
+        "nested/Com¹.data.json",
+        "COM²/config.json",
+        "nested/lpt³.payload/config.json",
+    ],
+)
+def test_publish_run_rejects_superscript_windows_devices_before_any_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, payload_name: str
+) -> None:
+    import vfe4.artifacts.atomic as atomic
+
+    run_root = tmp_path / "runs"
+    monkeypatch.setattr(
+        atomic,
+        "_atomic_write_bytes",
+        lambda path, content: pytest.fail(f"attempted write to {path}"),
+    )
+
+    with pytest.raises(ArtifactPublicationError, match="reserved"):
+        publish_run_directory(run_root, "verify-h1-frozen", {payload_name: {}})
+
+    assert not run_root.exists()
+
+
 def test_publish_run_rejects_portable_case_collisions_before_any_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
