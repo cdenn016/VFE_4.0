@@ -1676,14 +1676,17 @@ def evaluate_h4(
 
 It raises before any H4 work unless `type(config) is H4ValidationConfig`, its
 canonical JSON and SHA-256 revalidate, and both H3 byte objects parse to the
-two frozen anchor identities and full raw hashes. Every Task 2 entry point
-that accepts a protocol argument receives the same `config.solve_protocol`
-object by identity, including materialization and every timed, replay,
-counting, and memory solver call. Converter/diagnostic entry points that do not
-accept a protocol remain bound by the materialized/result protocol ID and are
-checked against all six complete configured fields before and after the call.
-No gate or runner reconstructs `H4SolveProtocol()` or passes a protocol ID in
-place of the complete config object.
+two frozen anchor identities and full raw hashes. Every gate-originated Task 2
+entry point that accepts a protocol argument receives the same
+`config.solve_protocol` object by identity, including materialization and every
+timed, counting, and memory solver call. Task 2's diagnostic-internal replay is
+the sole object-identity exemption: its private replay protocol need not be
+`config.solve_protocol` by `is`, but it must equal all six configured protocol
+fields exactly. Converter/diagnostic entry points that do not accept a protocol
+remain bound by the materialized/result protocol ID and are checked against all
+six complete configured fields before and after the call. No gate or runner
+reconstructs `H4SolveProtocol()` or passes a protocol ID in place of the
+complete config object.
 
 ---
 
@@ -2317,6 +2320,43 @@ def aggregate_allowance_groups(
     expected_group_headers: Iterable[bytes],
     groups: Iterable[_H4AllowanceGroupInput],
 ) -> H4ApplicableAllowance: ...
+
+def build_h4_anchor_identity_allowance(
+    *,
+    expected_group_headers: Iterable[bytes],
+    groups: Iterable[_H4AllowanceGroupInput],
+) -> H4ApplicableAllowance: ...
+
+def build_h4_exact_posterior_gap_allowance(
+    *,
+    expected_group_headers: Iterable[bytes],
+    groups: Iterable[_H4AllowanceGroupInput],
+) -> H4ApplicableAllowance: ...
+
+def build_h4_terminal_h_allowance(
+    *,
+    expected_group_headers: Iterable[bytes],
+    groups: Iterable[_H4AllowanceGroupInput],
+) -> H4ApplicableAllowance: ...
+
+def build_h4_terminal_j_allowance(
+    *,
+    expected_group_headers: Iterable[bytes],
+    groups: Iterable[_H4AllowanceGroupInput],
+) -> H4ApplicableAllowance: ...
+
+def build_h4_selected_moment_allowance(
+    *,
+    expected_group_headers: Iterable[bytes],
+    groups: Iterable[_H4AllowanceGroupInput],
+) -> H4ApplicableAllowance: ...
+
+def build_h4_complete_objective_allowance(
+    *,
+    expected_group_headers: Iterable[bytes],
+    groups: Iterable[_H4AllowanceGroupInput],
+) -> H4ApplicableAllowance: ...
+
 def allowance_is_decisive(record: H4ApplicableAllowance) -> bool: ...
 
 def posterior_condition_record(
@@ -2356,13 +2396,27 @@ constructors used by focused tests and by final witness materialization. The
 production complete stream uses only `aggregate_allowance_groups`; it may not
 call either function once per scalar.
 
-Provide invariant-specific builders for the six exact allowance keys. They
-stream one scalar lane per canonical path and compare every solver arm to an
-independent oracle/frozen reference. Selected mean and covariance paths include
-the selected label and row/column. Builders operate in chunks of at most 4,096
-row-major scalars and retain only the four possible witness records required by
-`H4ApplicableAllowance`. They reject a missing/duplicate path, shape mismatch,
-global condition maximum, pooled solver flag, count mismatch, or a record whose
+The six public builders above are the only gate-facing allowance aggregation
+entry points. Each delegates to `aggregate_allowance_groups` with the caller's
+two keyword-only iterables and its own frozen literal invariant/count pair; the
+caller cannot supply or override either value:
+
+```text
+build_h4_anchor_identity_allowance -> ("h3_anchor_identity", 184)
+build_h4_exact_posterior_gap_allowance -> ("exact_posterior_gap_equivalence", 2640)
+build_h4_terminal_h_allowance -> ("terminal_h_equivalence", 394240)
+build_h4_terminal_j_allowance -> ("terminal_J_equivalence", 75694080)
+build_h4_selected_moment_allowance -> ("selected_moment_equivalence", 3738240)
+build_h4_complete_objective_allowance -> ("complete_objective_equivalence", 2640)
+```
+
+They stream one scalar lane per canonical path and compare every solver arm to
+an independent oracle/frozen reference. Selected mean and covariance paths
+include the selected label and row/column. Builders operate in chunks of at
+most 4,096 row-major scalars and retain only the four possible witness records
+required by `H4ApplicableAllowance`. They reject a missing/duplicate path,
+shape mismatch, global condition maximum, pooled solver flag, count mismatch,
+or a record whose
 recomputed arithmetic differs by any bit.
 
 Every group array is exact `numpy.float64`, one-dimensional, C-contiguous,
@@ -2796,8 +2850,6 @@ class H4UnavailablePhaseRecord:
         "anchor_coupled",
         "anchor_zero_control",
         "scaled_preflight",
-        "timing",
-        "postflight",
         "statistics",
     ]
     reason: str
@@ -2864,6 +2916,7 @@ class H4GateEvaluation:
         H4AnchorEvaluation | H4UnavailablePhaseRecord,
         H4AnchorEvaluation | H4UnavailablePhaseRecord,
     ]
+    unavailable_phases: tuple[H4UnavailablePhaseRecord, ...]
     problems: tuple[
         H4ProblemEvaluation
         | H4ScaledIncompletePhaseRecord
@@ -2896,6 +2949,7 @@ class H4ValidationArtifact:
         H4AnchorEvaluation | H4UnavailablePhaseRecord,
         H4AnchorEvaluation | H4UnavailablePhaseRecord,
     ]
+    unavailable_phases: tuple[H4UnavailablePhaseRecord, ...]
     problems: tuple[
         H4ProblemEvaluation
         | H4ScaledIncompletePhaseRecord
@@ -2928,8 +2982,17 @@ def h4_validation_payload(evaluation: H4GateEvaluation) -> dict[str, object]: ..
 
 All tuples have fixed canonical order. The two anchor slots are always coupled
 then zero-control and contain either the completed typed evaluation or an
-explicit unavailable-phase record; no placeholder numeric value is fabricated.
-`allowances` has exactly the six public
+explicit unavailable-phase record whose phase is respectively
+`anchor_coupled` or `anchor_zero_control`; no placeholder numeric value is
+fabricated. Anchor-phase records are valid only in their matching anchor slots.
+The top-level `unavailable_phases` is an ordered duplicate-free tuple containing
+at most one `scaled_preflight` record followed by at most one `statistics`
+record. Those two phases are valid only in this top-level field. There is no
+generic `timing` or `postflight` unavailable variant: an execution failure after
+a scaled problem begins is owned by its typed `H4ScaledIncompletePhaseRecord`,
+while scaled materialized-integrity failures retain their dedicated typed
+record. Both `H4GateEvaluation` and `H4ValidationArtifact` independently enforce
+these placement and order rules. `allowances` has exactly the six public
 invariant names. `coverage` has exactly the nine coverage names above.
 `problems` has exactly 120 scaled evaluations in traversal order when timing
 completes. A complete problem has 22 compact result records, 22 replay digest
