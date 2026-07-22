@@ -2624,6 +2624,8 @@ class H4SixInvariantAllowanceAccumulator:
         source: H4AnchorAllowanceSource | H4AllowanceResultSource,
     ) -> None: ...
 
+    def anchor_identity_record(self) -> H4ApplicableAllowance: ...
+
     def finalize(self) -> tuple[
         H4ApplicableAllowance,
         H4ApplicableAllowance,
@@ -2667,6 +2669,23 @@ scaled result sources advance the other five invariants. No source is replayed,
 retains only its digest state, counters, maxima, and bounded witnesses.
 `finalize` refuses missing, duplicate, reordered, or extra sources and returns
 the six records in the frozen `H4AllowanceInvariantName` order.
+
+Immediately after exactly the coupled and zero-control anchor sources have
+been consumed—and before any scaled source—Task 4 calls
+`anchor_identity_record()`. The one-shot boundary freezes and caches the
+complete 184-element `h3_anchor_identity` record without closing the unified
+accumulator or the other five invariant states. Calling it before both anchors,
+after any scaled source, or after a failed/reordered anchor consume is an
+error. Repeated calls return the same immutable cached object only while the
+accumulator remains at the exact two-anchor boundary before its first scaled
+consume. Any premature, post-scaled, post-finalize, or failed/reordered call
+fail-closes the accumulator permanently; no later `consume`, snapshot, or
+`finalize` may recover it. If the anchor is decisive and fails, Task 4 may
+close the preregistered early-FAIL branch
+without consuming scaled sources. If it passes, scaled one-pass consumption
+continues normally; final `finalize()` must return that exact cached anchor
+record as its first tuple member. This snapshot neither replays an anchor
+source nor copies/retains its operand arrays.
 
 The six literal single-invariant builders remain public for focused unit tests
 and direct bounded fixtures. Task 4 must use only the unified accumulator; it
@@ -2958,7 +2977,10 @@ and digest above. `decide_h4_interval` contains no inequality.
   allowance group producers and private group
   constructors, exact anchor/scaled repetition ownership, numeric-vector-
   bound independent headers, one-pass six-invariant consumption without
-  source retention, operand-local oracle/adapter tables, and read-only
+  source retention, the exact two-anchor early identity snapshot that remains
+  identical through full finalization, same-object repeats only at that
+  boundary, and fail-closed premature/post-scaled/failed/post-finalize calls,
+  operand-local oracle/adapter tables, and read-only
   partial-thread-capture semantics. Reject every old flat/full-element
   allowance mapping and every duplicate classifier.
 
@@ -3779,7 +3801,10 @@ different problem or arm.
 
 All 120 oracle posterior records and 2,120 oracle innovation records must be
 eligible before the first warmup. The H3 anchors close before scaled timing;
-a decisive anchor miss follows the already frozen early-FAIL schema. An oracle
+a gate calls the unified accumulator's `anchor_identity_record()` immediately
+after the second anchor and uses that record for the early decision. A decisive
+anchor miss follows the already frozen early-FAIL schema without consuming a
+scaled allowance source. An oracle
 route mismatch, invalid config, incomplete environment, or out-of-envelope
 preflight is `INCONCLUSIVE`, never repaired.
 
@@ -4035,7 +4060,9 @@ the digest/witness/status while all expected coverage counts remain exact.
   record field/order/type, deep immutability, exact complete nested protocol
   ownership, two H3
   anchors with their exact two-record oracle-innovation summaries excluded
-  from scaled global condition totals, 120-problem complete branch,
+  from scaled global condition totals, the exact 184-element early anchor
+  snapshot and no scaled-source consumption on decisive anchor failure,
+  120-problem complete branch,
   materialization count/identity,
   3/11 traces, guard exclusions, exact 146,720-event postflight schedule
   counts/order/digests, distinct compact per-problem and top-level global
