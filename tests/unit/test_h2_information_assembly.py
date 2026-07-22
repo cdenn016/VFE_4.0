@@ -10,7 +10,22 @@ from vfe4.types import SourcePath
 from vfe4.validation import enumerate_source_paths, load_h1_fixture
 
 
-_Y = torch.tensor([0.11, -0.19, 0.27, 0.08, -0.16, 0.23], dtype=torch.float64)
+def _quadratic_probes() -> tuple[torch.Tensor, ...]:
+    probes = [torch.zeros(6, dtype=torch.float64)]
+    basis = torch.eye(6, dtype=torch.float64)
+    for index in range(6):
+        probes.extend((basis[index], -basis[index]))
+    for left in range(6):
+        for right in range(left + 1, 6):
+            probes.append(basis[left] + basis[right])
+    return tuple(probes)
+
+
+_QUADRATIC_PROBES = _quadratic_probes()
+
+
+def test_density_probe_set_is_unisolvent_for_six_dimensional_quadratics() -> None:
+    assert len(_QUADRATIC_PROBES) == 28
 
 
 @pytest.mark.parametrize("path_index", range(4))
@@ -21,10 +36,9 @@ def test_recognition_information_matches_normalized_h1_component(path_index: int
 
     information = assemble_recognition_information(law.factors, path)
 
-    mean = information.mean()
-    torch.testing.assert_close(information.J @ mean - information.h, torch.zeros(6, dtype=torch.float64))
-    expected = law.log_prob(_Y, path) - torch.log(law.source_probability(path))
-    assert information.log_prob(_Y).item() == pytest.approx(expected.item(), abs=1e-12)
+    for value in _QUADRATIC_PROBES:
+        expected = law.log_prob(value, path) - torch.log(law.source_probability(path))
+        assert information.log_prob(value).item() == pytest.approx(expected.item(), abs=1e-12)
 
 
 @pytest.mark.parametrize("path_index", range(4))
@@ -35,14 +49,13 @@ def test_generative_information_matches_normalized_h1_component(path_index: int)
 
     information = assemble_generative_information(model.factors, path)
 
-    mean = information.mean()
-    torch.testing.assert_close(information.J @ mean - information.h, torch.zeros(6, dtype=torch.float64))
-    expected = (
-        model.log_joint(_Y, path)
-        - model.source_log_prob(path)
-        - model.emission_log_prob(_Y, fixture.observation_labels)
-    )
-    assert information.log_prob(_Y).item() == pytest.approx(expected.item(), abs=1e-12)
+    for value in _QUADRATIC_PROBES:
+        expected = (
+            model.log_joint(value, path)
+            - model.source_log_prob(path)
+            - model.emission_log_prob(value, fixture.observation_labels)
+        )
+        assert information.log_prob(value).item() == pytest.approx(expected.item(), abs=1e-12)
 
 
 def test_assemblers_do_not_call_h1_joint_component(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -65,17 +78,28 @@ def test_assemblers_do_not_call_h1_joint_component(monkeypatch: pytest.MonkeyPat
     "parents, message",
     [
         (((0, 0.2), (0, -0.1)), "repeated"),
-        (((0, 0.2), (3, -0.1)), "out of range"),
+        (((0, 0.2), (4, -0.1)), "causally precede"),
     ],
 )
 def test_scalar_conditional_rejects_repeated_or_forward_parent(
     parents: tuple[tuple[int, float], ...], message: str
 ) -> None:
-    h = torch.zeros(3, dtype=torch.float64)
-    J = torch.zeros((3, 3), dtype=torch.float64)
+    h = torch.zeros(6, dtype=torch.float64)
+    J = torch.zeros((6, 6), dtype=torch.float64)
 
     with pytest.raises(ValueError, match=message):
         add_scalar_conditional(h, J, 2, parents, 0.0, 1.0)
+
+
+def test_scalar_conditional_allows_current_model_to_parent_state() -> None:
+    h = torch.zeros(6, dtype=torch.float64)
+    J = torch.zeros((6, 6), dtype=torch.float64)
+    expected_v = torch.tensor([0.0, 0.0, 1.0, -0.5, 0.0, 0.0], dtype=torch.float64)
+
+    add_scalar_conditional(h, J, 2, ((3, 0.5),), 0.25, 2.0)
+
+    assert torch.equal(J, 0.5 * torch.outer(expected_v, expected_v))
+    assert torch.equal(h, 0.125 * expected_v)
 
 
 def test_scalar_conditional_rejects_nonpositive_variance() -> None:

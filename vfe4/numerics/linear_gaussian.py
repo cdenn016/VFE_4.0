@@ -59,7 +59,14 @@ def add_scalar_conditional(
     offset: Scalar,
     variance: Scalar,
 ) -> None:
-    """Add one normalized affine scalar conditional by an exact outer product."""
+    """Add one normalized affine scalar conditional by an exact outer product.
+
+    Coordinates alternate as ``[z0, m0, z1, m1, ...]``, but their causal
+    order within each time step is ``m_t`` before ``z_t``. Every parent must
+    therefore precede the target in ``[m0, z0, m1, z1, ...]`` causal order;
+    in particular, the numerically later ``m_t`` coordinate may parent
+    ``z_t``, while a coordinate from a later time may not.
+    """
 
     dimension = _require_accumulators(h, J)
     if type(target_index) is not int or target_index < 0 or target_index >= dimension:
@@ -78,6 +85,8 @@ def add_scalar_conditional(
             raise ValueError("parent index cannot equal target_index")
         if parent in parents:
             raise ValueError("parent indices must not be repeated")
+        if _causal_rank(parent) >= _causal_rank(target_index):
+            raise ValueError("parent indices must causally precede target_index")
         parents.append(parent)
         checked_coefficients.append(_require_scalar(coefficient, h.device, "coefficient"))
     checked_offset = _require_scalar(offset, h.device, "offset")
@@ -108,6 +117,12 @@ def _require_accumulators(h: object, J: object) -> int:
     if not bool(torch.isfinite(h).all()) or not bool(torch.isfinite(J).all()):
         raise ValueError("h and J must be finite")
     return h.numel()
+
+
+def _causal_rank(index: int) -> int:
+    time = index // 2
+    is_state = index % 2 == 0
+    return 2 * time + int(is_state)
 
 
 def _require_vector(value: object, size: int, device: torch.device, name: str) -> Tensor:
