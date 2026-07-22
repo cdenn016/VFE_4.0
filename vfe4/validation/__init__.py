@@ -1,4 +1,4 @@
-"""Public H1 fixture validation interfaces."""
+"""Public H1 and H3 fixture validation interfaces."""
 
 from .h3_fixture import (
     H3_COUPLED_FIXTURE_PATH,
