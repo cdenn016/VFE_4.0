@@ -25,6 +25,10 @@ H4JsonMapping: TypeAlias = Mapping[str, H4JsonValue]
 H4MeasurementName: TypeAlias = Literal["primary_seed_ratio_geometric_mean", "primary_bootstrap_lower", "primary_bootstrap_upper", "primary_effect_threshold", "primary_timed_ab_total", "primary_timed_ba_total", "maximum_solver_stopping_residual", "maximum_allowance_scale_fraction"]
 H4AllowanceInvariantName: TypeAlias = Literal["h3_anchor_identity", "exact_posterior_gap_equivalence", "terminal_h_equivalence", "terminal_J_equivalence", "selected_moment_equivalence", "complete_objective_equivalence"]
 H4IntervalClass: TypeAlias = Literal["support", "no_support", "crossing", "boundary"]
+H4AllowanceSentinelReason: TypeAlias = Literal[
+    "not_evaluated_after_decisive_h3_anchor_failure",
+    "not_evaluated_after_inconclusive_eligibility",
+]
 
 H4_INVARIANT_NAMES = (
     "h3_anchor_identity", "fixed_seed_problem_identity", "coupled_zero_control_contract",
@@ -47,17 +51,32 @@ H4_ALLOWANCE_INVARIANT_NAMES = (
     "h3_anchor_identity", "exact_posterior_gap_equivalence", "terminal_h_equivalence",
     "terminal_J_equivalence", "selected_moment_equivalence", "complete_objective_equivalence",
 )
-H4_APPLICABLE_ALLOWANCE_FIELDS = (
-    "applicable", "dimension", "operands", "absolute_summands", "condition_numbers",
-    "operation_counts", "solver_contribution", "invariant_scale", "final_allowance",
-    "allowance_scale_ratio",
-)
 H4_PROBLEM_SEEDS = (
     104729, 130363, 155921, 181081, 206369, 231779, 257053, 282407,
     307831, 333271, 358747, 384253, 409891, 435437, 461009, 486587,
     512161, 537793, 563359, 588937,
 )
 H4_PRIMARY_EFFECT_THRESHOLD = 0.80
+H4_PRIMARY_TIMED_BALANCE = tuple(
+    (seed, 5, 6) if index % 2 == 0 else (seed, 6, 5)
+    for index, seed in enumerate(H4_PROBLEM_SEEDS)
+)
+H4_PRIMARY_TIMED_AB_TOTAL = 110
+H4_PRIMARY_TIMED_BA_TOTAL = 110
+H4_ALLOWANCE_ELEMENT_COUNTS = (
+    ("h3_anchor_identity", 184),
+    ("exact_posterior_gap_equivalence", 2_640),
+    ("terminal_h_equivalence", 394_240),
+    ("terminal_J_equivalence", 75_694_080),
+    ("selected_moment_equivalence", 3_738_240),
+    ("complete_objective_equivalence", 2_640),
+)
+H4_ALLOWANCE_TOTAL_ELEMENT_COUNT = 79_832_024
+
+_H4_EPSILON = 2.220446049250313e-16
+_H4_ROUNDING_CONSTANT = 4096
+_H4_SOLVER_RELATIVE_BUDGET = 1.0e-9
+_H4_MAXIMUM_ALLOWANCE_SCALE_FRACTION = 1.0e-4
 
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _UNAVAILABLE_ANCHOR = "not_evaluated_after_decisive_h3_anchor_failure"
@@ -417,13 +436,287 @@ class H4MemoryRecord:
         if (self.python_peak_bytes is None) != ("python_peak_bytes" in self.unavailable_fields) or (self.process_working_set_delta_bytes is None) != ("process_working_set_delta_bytes" in self.unavailable_fields) or (self.python_peak_bytes is not None and (type(self.python_peak_bytes) is not int or self.python_peak_bytes < 0)) or (self.process_working_set_delta_bytes is not None and type(self.process_working_set_delta_bytes) is not int): raise ValueError("invalid memory metrics")
 
 
+@dataclass(frozen=True, slots=True)
+class H4AllowanceOperationCount:
+    label: str
+    count: int
+
+    def __post_init__(self) -> None:
+        _string(self.label, "label")
+        if type(self.count) is not int or self.count < 0:
+            raise ValueError("allowance operation count must be a nonnegative integer")
+
+
+@dataclass(frozen=True, slots=True)
+class H4AllowanceOperand:
+    label: str
+    value: float
+    value_norm: float
+    absolute_summand_accumulation: float
+    condition_numbers: tuple[float, ...]
+    operation_counts: tuple[H4AllowanceOperationCount, ...]
+    solver_produced: bool
+    rounding_allowance: float
+    solver_allowance: float
+    total_allowance: float
+
+    def __post_init__(self) -> None:
+        _string(self.label, "label")
+        for name in (
+            "value", "value_norm", "absolute_summand_accumulation",
+            "rounding_allowance", "solver_allowance", "total_allowance",
+        ):
+            _finite(getattr(self, name), name)
+        if self.value_norm < 0.0 or self.value_norm < abs(self.value):
+            raise ValueError("value_norm must dominate the absolute scalar value")
+        if self.absolute_summand_accumulation < 0.0:
+            raise ValueError("absolute summand accumulation must be nonnegative")
+        if type(self.condition_numbers) is not tuple or not self.condition_numbers:
+            raise ValueError("condition_numbers must be a nonempty tuple")
+        if any(type(item) is not float or not math.isfinite(item) or item <= 0.0 for item in self.condition_numbers):
+            raise ValueError("condition numbers must be positive finite floats")
+        if type(self.operation_counts) is not tuple or not all(
+            type(item) is H4AllowanceOperationCount for item in self.operation_counts
+        ):
+            raise ValueError("operation_counts must contain exact immutable records")
+        labels = tuple(item.label for item in self.operation_counts)
+        if len(labels) != len(set(labels)):
+            raise ValueError("allowance operation labels must be unique and ordered")
+        if type(self.solver_produced) is not bool:
+            raise ValueError("solver_produced must be bool")
+        operation_count = sum(item.count for item in self.operation_counts)
+        expected_rounding = (
+            _H4_ROUNDING_CONSTANT
+            * _h4_gamma(operation_count)
+            * max((1.0, *self.condition_numbers))
+            * max(1.0, self.value_norm, self.absolute_summand_accumulation)
+        )
+        if self.rounding_allowance != expected_rounding:
+            raise ValueError("rounding_allowance does not match operand arithmetic")
+        if self.solver_allowance < 0.0 or (
+            not self.solver_produced and self.solver_allowance != 0.0
+        ):
+            raise ValueError("solver_allowance does not match solver provenance")
+        if self.total_allowance != self.rounding_allowance + self.solver_allowance:
+            raise ValueError("total_allowance does not match operand arithmetic")
+
+
+@dataclass(frozen=True, slots=True)
+class H4AllowanceElement:
+    stream_index: int
+    invariant: H4AllowanceInvariantName
+    problem_id: str
+    comparison_source: Literal[
+        "solver_to_oracle", "adapter_to_h3_reference", "adapter_to_oracle"
+    ]
+    repetition_index: int | None
+    arm: H4SolverArm | None
+    path: str
+    shape: tuple[int, ...]
+    flat_index: int
+    invariant_scale: float
+    left: H4AllowanceOperand
+    right: H4AllowanceOperand
+    comparison_reduction_allowance: float
+    residual: float
+    normalized_residual: float
+    final_allowance: float
+    allowance_scale_ratio: float
+    decisive: bool
+    passed: bool
+
+    def __post_init__(self) -> None:
+        if type(self.stream_index) is not int or self.stream_index < 0:
+            raise ValueError("stream_index must be a nonnegative integer")
+        if self.invariant not in H4_ALLOWANCE_INVARIANT_NAMES:
+            raise ValueError("unknown H4 allowance invariant")
+        _string(self.problem_id, "problem_id")
+        _string(self.path, "path")
+        if type(self.shape) is not tuple or not self.shape or any(
+            type(item) is not int or item <= 0 for item in self.shape
+        ):
+            raise ValueError("shape must be a nonempty positive integer tuple")
+        if type(self.flat_index) is not int or not 0 <= self.flat_index < _product(self.shape):
+            raise ValueError("flat_index must be in the row-major shape")
+        if self.comparison_source == "solver_to_oracle":
+            if self.arm not in ("information", "moment"):
+                raise ValueError("solver_to_oracle requires a real solver arm")
+            if self.problem_id.startswith("h4-anchor-"):
+                if self.repetition_index is not None:
+                    raise ValueError("anchor solver comparisons have no repetition")
+            elif type(self.repetition_index) is not int or self.repetition_index not in range(11):
+                raise ValueError("scaled solver comparisons require repetition 0..10")
+        elif self.comparison_source in ("adapter_to_h3_reference", "adapter_to_oracle"):
+            if self.arm is not None or self.repetition_index is not None:
+                raise ValueError("adapter comparisons cannot carry an arm or repetition")
+            if self.comparison_source == "adapter_to_h3_reference" and "h3-coupled" not in self.problem_id:
+                raise ValueError("adapter_to_h3_reference is coupled-anchor only")
+            if self.comparison_source == "adapter_to_oracle" and "h3-zero-control" not in self.problem_id:
+                raise ValueError("adapter_to_oracle is zero-anchor only")
+        else:
+            raise ValueError("invalid H4 allowance comparison source")
+        if type(self.left) is not H4AllowanceOperand or type(self.right) is not H4AllowanceOperand:
+            raise ValueError("allowance elements own exact operand records")
+        expected_scale = max(
+            1.0, abs(self.left.value), self.left.value_norm,
+            abs(self.right.value), self.right.value_norm,
+        )
+        if self.invariant_scale != expected_scale:
+            raise ValueError("invariant_scale must be element-local")
+        for operand in (self.left, self.right):
+            expected_solver = (
+                _H4_SOLVER_RELATIVE_BUDGET * expected_scale
+                if operand.solver_produced else 0.0
+            )
+            if operand.solver_allowance != expected_solver:
+                raise ValueError("operand solver allowance does not match element scale")
+        expected_comparison = (
+            _H4_ROUNDING_CONSTANT
+            * _h4_gamma(3)
+            * max(
+                1.0, abs(self.left.value), abs(self.right.value),
+                abs(self.left.value) + abs(self.right.value),
+            )
+        )
+        residual = abs(self.left.value - self.right.value)
+        final = self.left.total_allowance + self.right.total_allowance + expected_comparison
+        if final <= 0.0:
+            raise ValueError("final allowance must be positive")
+        expected_normalized = residual / final
+        expected_ratio = final / expected_scale
+        expected_decisive = expected_ratio < _H4_MAXIMUM_ALLOWANCE_SCALE_FRACTION
+        expected_passed = residual <= final
+        expected = (
+            expected_comparison, residual, expected_normalized, final,
+            expected_ratio, expected_decisive, expected_passed,
+        )
+        actual = (
+            self.comparison_reduction_allowance, self.residual,
+            self.normalized_residual, self.final_allowance,
+            self.allowance_scale_ratio, self.decisive, self.passed,
+        )
+        if actual != expected:
+            raise ValueError("allowance element derived arithmetic is inconsistent")
+
+
+@dataclass(frozen=True, slots=True)
+class H4ApplicableAllowance:
+    applicable: Literal[True]
+    invariant: H4AllowanceInvariantName
+    element_stream_domain: Literal["vfe4.h4.allowance-element-stream.v1"]
+    expected_element_count: int
+    observed_element_count: int
+    element_stream_sha256: str
+    maximum_normalized_residual: float
+    maximum_normalized_residual_element: H4AllowanceElement
+    maximum_allowance_scale_ratio: float
+    maximum_allowance_scale_ratio_element: H4AllowanceElement
+    first_failed_element: H4AllowanceElement | None
+    first_indecisive_element: H4AllowanceElement | None
+    decisive: bool
+    passed: bool
+
+    def __post_init__(self) -> None:
+        if self.applicable is not True or self.element_stream_domain != "vfe4.h4.allowance-element-stream.v1":
+            raise ValueError("applicable allowance schema is frozen")
+        expected_counts = dict(H4_ALLOWANCE_ELEMENT_COUNTS)
+        if self.invariant not in expected_counts:
+            raise ValueError("unknown H4 allowance invariant")
+        expected_count = expected_counts[self.invariant]
+        if (
+            type(self.expected_element_count) is not int
+            or type(self.observed_element_count) is not int
+            or self.expected_element_count != expected_count
+            or self.observed_element_count != expected_count
+        ):
+            raise ValueError("allowance stream count is incomplete")
+        _sha(self.element_stream_sha256, "element_stream_sha256")
+        for name in ("maximum_normalized_residual", "maximum_allowance_scale_ratio"):
+            _finite(getattr(self, name), name)
+            if getattr(self, name) < 0.0:
+                raise ValueError("allowance maxima must be nonnegative")
+        witnesses = (
+            self.maximum_normalized_residual_element,
+            self.maximum_allowance_scale_ratio_element,
+            self.first_failed_element,
+            self.first_indecisive_element,
+        )
+        for witness in witnesses:
+            if witness is not None and (
+                type(witness) is not H4AllowanceElement
+                or witness.invariant != self.invariant
+                or witness.stream_index >= expected_count
+            ):
+                raise ValueError("allowance witness does not belong to its stream")
+        if self.maximum_normalized_residual != self.maximum_normalized_residual_element.normalized_residual:
+            raise ValueError("maximum normalized residual witness is inconsistent")
+        if self.maximum_allowance_scale_ratio != self.maximum_allowance_scale_ratio_element.allowance_scale_ratio:
+            raise ValueError("maximum allowance ratio witness is inconsistent")
+        if type(self.decisive) is not bool or type(self.passed) is not bool:
+            raise ValueError("allowance conjunctions must be booleans")
+        if (self.first_failed_element is None) != self.passed:
+            raise ValueError("first failed witness must match passed conjunction")
+        if (self.first_indecisive_element is None) != self.decisive:
+            raise ValueError("first indecisive witness must match decisive conjunction")
+        if self.first_failed_element is not None and self.first_failed_element.passed:
+            raise ValueError("first failed witness must fail")
+        if self.first_indecisive_element is not None and self.first_indecisive_element.decisive:
+            raise ValueError("first indecisive witness must be indecisive")
+
+
+@dataclass(frozen=True, slots=True)
+class H4InapplicableAllowance:
+    applicable: Literal[False]
+    reason: H4AllowanceSentinelReason
+
+    def __post_init__(self) -> None:
+        if self.applicable is not False or self.reason not in (
+            _UNAVAILABLE_ANCHOR, _UNAVAILABLE_ELIGIBILITY,
+        ):
+            raise ValueError("inapplicable allowance sentinel is malformed")
+
+
+H4AllowanceRecord: TypeAlias = H4ApplicableAllowance | H4InapplicableAllowance
+
+
+@dataclass(frozen=True, slots=True)
+class H4IntervalDecision:
+    lower: float
+    upper: float
+    threshold: float
+    classification: H4IntervalClass
+    invariant_passed: bool
+    invariant_value: float
+    invariant_limit: float
+    invariant_detail: Literal[
+        "bootstrap_interval_supports_effect",
+        "bootstrap_interval_excludes_support",
+        "bootstrap_interval_crosses_threshold",
+        "bootstrap_interval_equals_threshold",
+    ]
+    status_if_other_invariants_eligible: GateStatus
+    obligation: str | None
+
+    def __post_init__(self) -> None:
+        if self.threshold != H4_PRIMARY_EFFECT_THRESHOLD:
+            raise ValueError("H4 interval threshold is frozen")
+        expected = _h4_interval_fields(self.lower, self.upper)
+        actual = (
+            self.classification, self.invariant_passed, self.invariant_value,
+            self.invariant_limit, self.invariant_detail,
+            self.status_if_other_invariants_eligible, self.obligation,
+        )
+        if actual != expected:
+            raise ValueError("H4 interval decision is inconsistent")
+
+
 @dataclass(frozen=True)
 class H4GateResult:
     gate: Literal["H4"]
     status: GateStatus
     measurements: Mapping[H4MeasurementName, float | None]
     invariants: tuple[InvariantResult, ...]
-    allowances_by_invariant: Mapping[H4AllowanceInvariantName, H4JsonMapping]
+    allowances_by_invariant: Mapping[H4AllowanceInvariantName, H4AllowanceRecord]
     obligations: tuple[str, ...]
 
     def __post_init__(self) -> None:
@@ -461,13 +754,25 @@ class H4GateResult:
                 for item in self.invariants[1:]
             )
         )
-        if anchor_state == "miss" and not anchor_fail:
+        anchor_restoration_inconclusive = (
+            anchor_state == "miss"
+            and self.status is GateStatus.INCONCLUSIVE
+            and self.obligations == (
+                "restore H4 process-global state before closing anchor result",
+            )
+            and all(
+                (not item.passed and item.value is None and item.limit is None
+                 and item.detail == _UNAVAILABLE_ELIGIBILITY)
+                for item in self.invariants[1:]
+            )
+        )
+        if anchor_state == "miss" and not (anchor_fail or anchor_restoration_inconclusive):
             raise ValueError("decisive anchor miss requires exact early FAIL")
         if anchor_state == "unresolved":
             _require_unavailable_invariant(
                 anchor, "h3_anchor_identity", self.obligations
             )
-        if anchor_fail:
+        if anchor_fail or anchor_restoration_inconclusive:
             if tuple(name for name, value in measurements.items() if value is None) != H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL:
                 raise ValueError("anchor failure measurements are frozen")
         elif any(item.detail == _UNAVAILABLE_ANCHOR for item in self.invariants):
@@ -483,9 +788,9 @@ class H4GateResult:
         if (lower is None) != (upper is None):
             raise ValueError("bootstrap interval endpoints must be jointly available")
         if lower is not None and upper is not None:
-            interval_class = _classify_h4_interval(lower, upper)
+            interval_class = classify_h4_interval(lower, upper).classification
             _validate_interval_invariant(self.invariants[16], interval_class, lower, upper)
-        elif not anchor_fail:
+        elif not (anchor_fail or anchor_restoration_inconclusive):
             _require_unavailable_invariant(
                 self.invariants[15], "primary_seed_level_inference", self.obligations
             )
@@ -531,7 +836,9 @@ class H4GateResult:
         elif self.status is GateStatus.INCONCLUSIVE:
             if not self.obligations or not any(not item.passed for item in self.invariants):
                 raise ValueError("INCONCLUSIVE requires failed evidence and obligation")
-            if not upstream_ambiguity:
+            if anchor_restoration_inconclusive:
+                pass
+            elif not upstream_ambiguity:
                 if has_equivalence_miss or interval_class in ("support", "no_support"):
                     raise ValueError("complete decisive evidence cannot be INCONCLUSIVE")
                 expected_obligation = (
@@ -541,7 +848,7 @@ class H4GateResult:
                 )
                 if self.obligations != (expected_obligation,):
                     raise ValueError("interval precision obligation is frozen")
-            producers = {
+            producers = {} if anchor_restoration_inconclusive else {
                 "primary_seed_ratio_geometric_mean": "primary_seed_level_inference",
                 "primary_bootstrap_lower": "primary_seed_level_inference",
                 "primary_bootstrap_upper": "primary_seed_level_inference",
@@ -559,41 +866,47 @@ class H4GateResult:
                     )
         elif not anchor_fail:
             raise ValueError("invalid H4 gate status")
-        frozen: dict[str, H4JsonMapping] = {}
+        frozen: dict[str, H4AllowanceRecord] = {}
         for name, record in allowances.items():
-            if not isinstance(record, Mapping) or not record:
-                raise ValueError("allowance record must be nonempty mapping")
-            copied = _freeze_json(record, f"allowances[{name}]")
-            if not isinstance(copied, MappingProxyType):
-                raise ValueError("allowance record must be mapping")
-            applicable = copied.get("applicable")
-            if applicable is False:
-                if tuple(copied) != ("applicable", "reason") or copied["reason"] not in (_UNAVAILABLE_ANCHOR, _UNAVAILABLE_ELIGIBILITY):
-                    raise ValueError("inapplicable allowance sentinel is malformed")
-            elif applicable is True:
-                _validate_applicable_allowance(copied)
-            else:
-                raise ValueError("allowance applicable flag is required")
-            frozen[name] = copied  # type: ignore[assignment]
+            if type(record) not in (H4ApplicableAllowance, H4InapplicableAllowance):
+                raise ValueError("allowance record must be an exact typed record")
+            if type(record) is H4ApplicableAllowance and record.invariant != name:
+                raise ValueError("applicable allowance invariant must match its key")
+            frozen[name] = record
         if anchor_fail:
-            if frozen["h3_anchor_identity"].get("applicable") is not True or any(frozen[name] != MappingProxyType({"applicable": False, "reason": _UNAVAILABLE_ANCHOR}) for name in H4_ALLOWANCE_INVARIANT_NAMES[1:]):
+            if type(frozen["h3_anchor_identity"]) is not H4ApplicableAllowance or any(
+                type(frozen[name]) is not H4InapplicableAllowance
+                or frozen[name].reason != _UNAVAILABLE_ANCHOR
+                for name in H4_ALLOWANCE_INVARIANT_NAMES[1:]
+            ):
                 raise ValueError("anchor failure allowance applicability is frozen")
+        elif anchor_restoration_inconclusive:
+            if type(frozen["h3_anchor_identity"]) is not H4ApplicableAllowance or any(
+                type(frozen[name]) is not H4InapplicableAllowance
+                or frozen[name].reason != _UNAVAILABLE_ELIGIBILITY
+                for name in H4_ALLOWANCE_INVARIANT_NAMES[1:]
+            ):
+                raise ValueError("restoration-failure anchor allowances are frozen")
         elif self.status is GateStatus.PASS or self.status is GateStatus.FAIL:
-            if any(record.get("applicable") is not True for record in frozen.values()): raise ValueError("conclusive post-timing allowances must be applicable")
+            if any(type(record) is not H4ApplicableAllowance for record in frozen.values()): raise ValueError("conclusive post-timing allowances must be applicable")
         else:
             for name, record in frozen.items():
-                if record.get("applicable") is False:
+                if type(record) is H4InapplicableAllowance:
                     item = self.invariants[H4_INVARIANT_NAMES.index(name)]
-                    if record.get("reason") != _UNAVAILABLE_ELIGIBILITY or (item.passed,item.value,item.limit,item.detail) != (False,None,None,_UNAVAILABLE_ELIGIBILITY): raise ValueError("inapplicable inconclusive allowance requires matching eligibility sentinel")
+                    if record.reason != _UNAVAILABLE_ELIGIBILITY or (item.passed,item.value,item.limit,item.detail) != (False,None,None,_UNAVAILABLE_ELIGIBILITY): raise ValueError("inapplicable inconclusive allowance requires matching eligibility sentinel")
         object.__setattr__(self, "measurements", MappingProxyType(measurements))
         object.__setattr__(self, "allowances_by_invariant", MappingProxyType(frozen))
 
 
-def _classify_h4_interval(lower: float, upper: float) -> H4IntervalClass:
-    """Classify the frozen positive bootstrap interval without status side effects."""
-
+def _h4_interval_fields(
+    lower: float, upper: float,
+) -> tuple[
+    H4IntervalClass, bool, float, float, str, GateStatus, str | None,
+]:
     if not (
-        math.isfinite(lower)
+        type(lower) is float
+        and type(upper) is float
+        and math.isfinite(lower)
         and math.isfinite(upper)
         and lower > 0.0
         and upper > 0.0
@@ -601,12 +914,45 @@ def _classify_h4_interval(lower: float, upper: float) -> H4IntervalClass:
     ):
         raise ValueError("bootstrap interval must be finite, positive, and ordered")
     if lower == H4_PRIMARY_EFFECT_THRESHOLD and upper == H4_PRIMARY_EFFECT_THRESHOLD:
-        return "boundary"
+        return (
+            "boundary", False, H4_PRIMARY_EFFECT_THRESHOLD,
+            H4_PRIMARY_EFFECT_THRESHOLD, "bootstrap_interval_equals_threshold",
+            GateStatus.INCONCLUSIVE,
+            "primary_effect_threshold: bootstrap_interval_equals_threshold",
+        )
     if upper <= H4_PRIMARY_EFFECT_THRESHOLD:
-        return "support"
+        return (
+            "support", True, upper, H4_PRIMARY_EFFECT_THRESHOLD,
+            "bootstrap_interval_supports_effect", GateStatus.PASS, None,
+        )
     if lower >= H4_PRIMARY_EFFECT_THRESHOLD:
-        return "no_support"
-    return "crossing"
+        return (
+            "no_support", False, lower, H4_PRIMARY_EFFECT_THRESHOLD,
+            "bootstrap_interval_excludes_support", GateStatus.FAIL, None,
+        )
+    return (
+        "crossing", False, lower, H4_PRIMARY_EFFECT_THRESHOLD,
+        "bootstrap_interval_crosses_threshold", GateStatus.INCONCLUSIVE,
+        "primary_effect_threshold: bootstrap_interval_crosses_threshold",
+    )
+
+
+def classify_h4_interval(lower: float, upper: float) -> H4IntervalDecision:
+    """Return the sole public H4 interval classification and status decision."""
+
+    fields = _h4_interval_fields(lower, upper)
+    return H4IntervalDecision(
+        lower=lower,
+        upper=upper,
+        threshold=H4_PRIMARY_EFFECT_THRESHOLD,
+        classification=fields[0],
+        invariant_passed=fields[1],
+        invariant_value=fields[2],
+        invariant_limit=fields[3],
+        invariant_detail=fields[4],  # type: ignore[arg-type]
+        status_if_other_invariants_eligible=fields[5],
+        obligation=fields[6],
+    )
 
 
 def _validate_interval_invariant(
@@ -705,6 +1051,10 @@ def _product(shape: tuple[int, ...]) -> int:
     result = 1
     for value in shape: result *= value
     return result
+def _h4_gamma(n: int) -> float:
+    if type(n) is not int or n < 0 or n * _H4_EPSILON >= 1.0:
+        raise ValueError("operation count is outside the binary64 gamma domain")
+    return (n * _H4_EPSILON) / (1.0 - n * _H4_EPSILON)
 def _string(value: object, name: str) -> None:
     if type(value) is not str or not value: raise ValueError(f"{name} must be a nonempty string")
 def _finite(value: object, name: str) -> None:
@@ -922,22 +1272,7 @@ def _validate_anchor_schedule(problem: H4NeutralProblem) -> None:
         if (factor.role, factor.time_index, factor.normalized_coordinate_indices, factor.parent_coordinate_indices) != item or factor.raw_draws:
             raise ValueError("H3 anchor metadata/provenance is frozen")
 
-def _validate_applicable_allowance(record: Mapping[str, H4JsonValue]) -> None:
-    if tuple(record) != H4_APPLICABLE_ALLOWANCE_FIELDS or record["applicable"] is not True: raise ValueError("applicable allowance fields/order are frozen")
-    if type(record["dimension"]) is not int or record["dimension"] <= 0: raise ValueError("allowance dimension must be positive")
-    for name in ("operands", "absolute_summands", "condition_numbers", "operation_counts"):
-        value = record[name]
-        if type(value) is not tuple or not value: raise ValueError("allowance operand fields must be nonempty tuples")
-    if any(type(value) not in (int,float) or not math.isfinite(float(value)) for value in record["operands"]): raise ValueError("operands must be finite")
-    if any(type(value) not in (int,float) or not math.isfinite(float(value)) or float(value) < 0 for value in record["absolute_summands"]): raise ValueError("absolute summands must be nonnegative")
-    if any(type(value) not in (int,float) or not math.isfinite(float(value)) or float(value) <= 0 for value in record["condition_numbers"]): raise ValueError("condition numbers must be positive")
-    if any(type(value) is not int or value <= 0 for value in record["operation_counts"]): raise ValueError("operation counts must be positive ints")
-    for name in ("solver_contribution", "final_allowance", "allowance_scale_ratio"):
-        value = record[name]
-        if type(value) not in (int,float) or not math.isfinite(float(value)) or float(value) < 0: raise ValueError("allowance values must be nonnegative finite")
-    scale = record["invariant_scale"]
-    if type(scale) not in (int,float) or not math.isfinite(float(scale)) or float(scale) <= 0: raise ValueError("invariant scale must be positive finite")
-    expected = float(record["final_allowance"]) / float(scale); actual = float(record["allowance_scale_ratio"])
-    if abs(actual - expected) > 64.0 * math.ulp(1.0) * max(1.0, abs(actual), abs(expected)): raise ValueError("allowance ratio is inconsistent")
-
-__all__ = [name for name in globals() if name.startswith("H4")] + ["canonical_h4_problem_bytes", "h4_problem_core", "h4_problem_digest"]
+__all__ = [name for name in globals() if name.startswith("H4")] + [
+    "canonical_h4_problem_bytes", "classify_h4_interval", "h4_problem_core",
+    "h4_problem_digest",
+]

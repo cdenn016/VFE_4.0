@@ -9,13 +9,102 @@ from typing import Any, Callable
 
 import pytest
 
-from vfe4.config import H3ValidationConfig, ResolvedConfig, resolve_config
+from vfe4.config import (
+    H3ValidationConfig,
+    H4ValidationConfig,
+    ResolvedConfig,
+    resolve_config,
+    resolve_h4_validation_config,
+)
 from vfe4.config.control_paths import is_repository_control_path
 from vfe4.types.h3 import (
     H3DecisionConfig,
     H3InitializationConfig,
     H3OptimizationConfig,
 )
+from vfe4.types.h4 import H4_PRIMARY_TIMED_BALANCE, H4_PROBLEM_SEEDS, H4SolveProtocol
+
+
+def _raw_h4_section() -> dict[str, object]:
+    return {
+        "schema_version": "h4-validation-config-v1",
+        "solve_protocol": {
+            "protocol_id": "h4-single-pass-v1", "dtype": "float64",
+            "device": "cpu", "factor_passes": 1,
+            "solver_relative_budget": 1.0e-9,
+            "stopping_rule": "complete_schedule_finite_spd",
+        },
+        "traversal": {
+            "horizons": [7, 15, 31], "seeds": list(H4_PROBLEM_SEEDS),
+            "kinds": ["coupled", "zero_control"], "d_z": 4, "d_m": 4,
+            "dimensions": [64, 128, 256], "primary_horizon": 31,
+            "primary_kind": "coupled", "primary_dimension": 256,
+        },
+        "timing": {
+            "parity_expression": "(horizon_index + seed_index + kind_index + pair_index) % 2 == 0",
+            "warmup_pair_indices": [0, 1, 2],
+            "timed_pair_indices": list(range(3, 14)),
+            "timed_repetitions_per_problem": 11,
+            "warmups_count_toward_balance": False,
+            "primary_timed_balance": [list(row) for row in H4_PRIMARY_TIMED_BALANCE],
+            "primary_5_ab_6_ba_rows": 10, "primary_6_ab_5_ba_rows": 10,
+            "primary_timed_ab_total": 110, "primary_timed_ba_total": 110,
+            "clock": "time.perf_counter_ns",
+            "timer_boundary": "fresh_native_solver_call_v1",
+            "between_repetitions": "timer_reads_and_preallocated_assignments_only",
+        },
+        "bootstrap": {
+            "seed": 20260721, "replicates": 100000, "inferential_units": 20,
+            "index_low": 0, "index_high": 20, "endpoint": False,
+            "index_dtype": "<i8", "index_shape": [100000, 20],
+            "statistic": "mean_log_seed_ratio", "percentiles": [2.5, 97.5],
+            "percentile_method": "linear", "percentile_space": "log_then_exp",
+            "digest_domain": "vfe4.h4.bootstrap-indices.v1",
+            "expected_index_sha256": "a254e18bccc519a719e9f4b409f45cc9ae4a2a321903531cd8fd73433687cd14",
+        },
+        "condition_envelope": {
+            "posterior_minimum_eigenvalue": 1.0e-6,
+            "posterior_maximum_eigenvalue": 1.0e6,
+            "posterior_maximum_condition_number": 1.0e8,
+            "posterior_minimum_cholesky_pivot": 1.0e-3,
+            "posterior_maximum_mean_infinity_norm": 16.0,
+            "innovation_minimum_eigenvalue": 1.0e-6,
+            "innovation_maximum_eigenvalue": 1.0e6,
+            "innovation_maximum_condition_number": 1.0e8,
+            "inclusive": True,
+        },
+        "allowance": {
+            "float64_epsilon": 2.220446049250313e-16, "rounding_constant": 4096,
+            "solver_relative_budget": 1.0e-9,
+            "maximum_allowance_scale_fraction": 1.0e-4,
+            "decisiveness_comparison": "strict_less_than",
+            "element_stream_domain": "vfe4.h4.allowance-element-stream.v1",
+            "maximum_chunk_rows": 4096,
+        },
+        "environment": {
+            "device": "cpu", "dtype": "float64", "intra_op_threads": 1,
+            "alter_inter_op_threads": False, "cuda_expected": False,
+            "gc_policy": "restore_exact_prior_enabled_state",
+            "power_policy_field_order": ["active_power_scheme", "cpu_frequency_governor", "energy_performance_preference", "low_power_mode"],
+            "power_policy_capture": "typed_best_effort_outside_timing",
+        },
+        "primary_effect_threshold": 0.80,
+        "maximum_validation_payload_bytes": 67_108_864,
+    }
+
+
+def test_standalone_h4_resolver_freezes_complete_protocol_and_hash() -> None:
+    raw = _raw_h4_section()
+    resolved = resolve_h4_validation_config(raw)
+    assert type(resolved) is H4ValidationConfig
+    assert type(resolved.solve_protocol) is H4SolveProtocol
+    assert resolved.solve_protocol.solver_relative_budget == resolved.allowance.solver_relative_budget
+    assert resolved.timing.primary_timed_balance == H4_PRIMARY_TIMED_BALANCE
+    assert resolved.maximum_validation_payload_bytes == 67_108_864
+    assert hashlib.sha256(resolved.canonical_json.encode("utf-8")).hexdigest() == resolved.config_sha256
+    raw["timing"]["warmup_pair_indices"] = [0, 2, 1]  # type: ignore[index]
+    with pytest.raises(ValueError):
+        resolve_h4_validation_config(raw)
 
 
 def _raw_config() -> dict[str, object]:

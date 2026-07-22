@@ -30,6 +30,17 @@ from verification.numpy_oracles.h3_posterior import (
     evaluate_h3_posterior_oracle,
     reverse_kl_to_oracle,
 )
+from verification.numpy_oracles.h4_gaussian import (
+    H4OracleEvaluation,
+    H4OracleInnovationDiagnostic,
+    H4OracleKLEvaluation,
+    H4OracleOperandEvidence,
+    H4OraclePosteriorDiagnostic,
+    H4OracleRouteAgreement,
+    H4OracleSelectedMoment,
+    evaluate_h4_oracle,
+    reverse_kl_to_h4_oracle,
+)
 
 __all__ = [
     "H1EvidenceRecord",
@@ -56,4 +67,13 @@ __all__ = [
     "H3PosteriorOracleEvaluation",
     "evaluate_h3_posterior_oracle",
     "reverse_kl_to_oracle",
+    "H4OracleEvaluation",
+    "H4OracleInnovationDiagnostic",
+    "H4OracleKLEvaluation",
+    "H4OracleOperandEvidence",
+    "H4OraclePosteriorDiagnostic",
+    "H4OracleRouteAgreement",
+    "H4OracleSelectedMoment",
+    "evaluate_h4_oracle",
+    "reverse_kl_to_h4_oracle",
 ]

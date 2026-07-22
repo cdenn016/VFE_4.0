@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import asdict
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
@@ -13,11 +14,19 @@ from vfe4.types.h3 import (
     H3InitializationConfig,
     H3OptimizationConfig,
 )
+from vfe4.types.h4 import H4_PRIMARY_TIMED_BALANCE, H4_PROBLEM_SEEDS, H4SolveProtocol
 
 from .schema import (
     ArtifactConfig,
     DataConfig,
     H3ValidationConfig,
+    H4AllowanceConfig,
+    H4BootstrapConfig,
+    H4ConditionEnvelopeConfig,
+    H4EnvironmentConfig,
+    H4TimingConfig,
+    H4TraversalConfig,
+    H4ValidationConfig,
     InferenceConfig,
     ModelConfig,
     OptimizationConfig,
@@ -132,6 +141,185 @@ _H3_IDENTITY_PRECISION = (
     (0.0, 0.0, 1.0, 0.0),
     (0.0, 0.0, 0.0, 1.0),
 )
+
+_H4_KEYS = frozenset({
+    "schema_version", "solve_protocol", "traversal", "timing", "bootstrap",
+    "condition_envelope", "allowance", "environment", "primary_effect_threshold",
+    "maximum_validation_payload_bytes",
+})
+_H4_SOLVE_PROTOCOL_KEYS = frozenset({
+    "protocol_id", "dtype", "device", "factor_passes", "solver_relative_budget",
+    "stopping_rule",
+})
+_H4_TRAVERSAL_KEYS = frozenset({
+    "horizons", "seeds", "kinds", "d_z", "d_m", "dimensions",
+    "primary_horizon", "primary_kind", "primary_dimension",
+})
+_H4_TIMING_KEYS = frozenset({
+    "parity_expression", "warmup_pair_indices", "timed_pair_indices",
+    "timed_repetitions_per_problem", "warmups_count_toward_balance",
+    "primary_timed_balance", "primary_5_ab_6_ba_rows", "primary_6_ab_5_ba_rows",
+    "primary_timed_ab_total", "primary_timed_ba_total", "clock", "timer_boundary",
+    "between_repetitions",
+})
+_H4_BOOTSTRAP_KEYS = frozenset({
+    "seed", "replicates", "inferential_units", "index_low", "index_high", "endpoint",
+    "index_dtype", "index_shape", "statistic", "percentiles", "percentile_method",
+    "percentile_space", "digest_domain", "expected_index_sha256",
+})
+_H4_CONDITION_KEYS = frozenset({
+    "posterior_minimum_eigenvalue", "posterior_maximum_eigenvalue",
+    "posterior_maximum_condition_number", "posterior_minimum_cholesky_pivot",
+    "posterior_maximum_mean_infinity_norm", "innovation_minimum_eigenvalue",
+    "innovation_maximum_eigenvalue", "innovation_maximum_condition_number", "inclusive",
+})
+_H4_ALLOWANCE_KEYS = frozenset({
+    "float64_epsilon", "rounding_constant", "solver_relative_budget",
+    "maximum_allowance_scale_fraction", "decisiveness_comparison",
+    "element_stream_domain", "maximum_chunk_rows",
+})
+_H4_ENVIRONMENT_KEYS = frozenset({
+    "device", "dtype", "intra_op_threads", "alter_inter_op_threads", "cuda_expected",
+    "gc_policy", "power_policy_field_order", "power_policy_capture",
+})
+
+
+def resolve_h4_validation_config(raw_h4: Mapping[str, object]) -> H4ValidationConfig:
+    """Strictly resolve the standalone frozen H4 section without changing gate prefixes."""
+
+    root = _require_mapping(raw_h4, "h4")
+    _validate_keys(root, _H4_KEYS, "h4")
+    protocol_raw = _nested_section(root, "solve_protocol", _H4_SOLVE_PROTOCOL_KEYS, "h4.solve_protocol")
+    protocol = H4SolveProtocol(
+        protocol_id=_require_exact(protocol_raw["protocol_id"], "h4-single-pass-v1", "h4.solve_protocol.protocol_id"),
+        dtype=_require_exact(protocol_raw["dtype"], "float64", "h4.solve_protocol.dtype"),
+        device=_require_exact(protocol_raw["device"], "cpu", "h4.solve_protocol.device"),
+        factor_passes=_require_exact(protocol_raw["factor_passes"], 1, "h4.solve_protocol.factor_passes"),
+        solver_relative_budget=_require_exact(protocol_raw["solver_relative_budget"], 1.0e-9, "h4.solve_protocol.solver_relative_budget"),
+        stopping_rule=_require_exact(protocol_raw["stopping_rule"], "complete_schedule_finite_spd", "h4.solve_protocol.stopping_rule"),
+    )
+    traversal_raw = _nested_section(root, "traversal", _H4_TRAVERSAL_KEYS, "h4.traversal")
+    traversal = H4TraversalConfig(
+        horizons=_require_exact_list(traversal_raw["horizons"], (7, 15, 31), "h4.traversal.horizons"),
+        seeds=_require_exact_list(traversal_raw["seeds"], H4_PROBLEM_SEEDS, "h4.traversal.seeds"),
+        kinds=_require_exact_list(traversal_raw["kinds"], ("coupled", "zero_control"), "h4.traversal.kinds"),
+        d_z=_require_exact(traversal_raw["d_z"], 4, "h4.traversal.d_z"),
+        d_m=_require_exact(traversal_raw["d_m"], 4, "h4.traversal.d_m"),
+        dimensions=_require_exact_list(traversal_raw["dimensions"], (64, 128, 256), "h4.traversal.dimensions"),
+        primary_horizon=_require_exact(traversal_raw["primary_horizon"], 31, "h4.traversal.primary_horizon"),
+        primary_kind=_require_exact(traversal_raw["primary_kind"], "coupled", "h4.traversal.primary_kind"),
+        primary_dimension=_require_exact(traversal_raw["primary_dimension"], 256, "h4.traversal.primary_dimension"),
+    )
+    timing_raw = _nested_section(root, "timing", _H4_TIMING_KEYS, "h4.timing")
+    balance_value = timing_raw["primary_timed_balance"]
+    if type(balance_value) is not list or len(balance_value) != 20:
+        raise ValueError("h4.timing.primary_timed_balance must contain 20 rows")
+    balance = tuple(
+        _require_exact_list(row, H4_PRIMARY_TIMED_BALANCE[index], f"h4.timing.primary_timed_balance[{index}]")
+        for index, row in enumerate(balance_value)
+    )
+    timing = H4TimingConfig(
+        parity_expression=_require_exact(timing_raw["parity_expression"], "(horizon_index + seed_index + kind_index + pair_index) % 2 == 0", "h4.timing.parity_expression"),
+        warmup_pair_indices=_require_exact_list(timing_raw["warmup_pair_indices"], (0, 1, 2), "h4.timing.warmup_pair_indices"),
+        timed_pair_indices=_require_exact_list(timing_raw["timed_pair_indices"], tuple(range(3, 14)), "h4.timing.timed_pair_indices"),
+        timed_repetitions_per_problem=_require_exact(timing_raw["timed_repetitions_per_problem"], 11, "h4.timing.timed_repetitions_per_problem"),
+        warmups_count_toward_balance=_require_exact(timing_raw["warmups_count_toward_balance"], False, "h4.timing.warmups_count_toward_balance"),
+        primary_timed_balance=balance,
+        primary_5_ab_6_ba_rows=_require_exact(timing_raw["primary_5_ab_6_ba_rows"], 10, "h4.timing.primary_5_ab_6_ba_rows"),
+        primary_6_ab_5_ba_rows=_require_exact(timing_raw["primary_6_ab_5_ba_rows"], 10, "h4.timing.primary_6_ab_5_ba_rows"),
+        primary_timed_ab_total=_require_exact(timing_raw["primary_timed_ab_total"], 110, "h4.timing.primary_timed_ab_total"),
+        primary_timed_ba_total=_require_exact(timing_raw["primary_timed_ba_total"], 110, "h4.timing.primary_timed_ba_total"),
+        clock=_require_exact(timing_raw["clock"], "time.perf_counter_ns", "h4.timing.clock"),
+        timer_boundary=_require_exact(timing_raw["timer_boundary"], "fresh_native_solver_call_v1", "h4.timing.timer_boundary"),
+        between_repetitions=_require_exact(timing_raw["between_repetitions"], "timer_reads_and_preallocated_assignments_only", "h4.timing.between_repetitions"),
+    )
+    _validate_h4_orders(traversal, timing)
+    bootstrap_raw = _nested_section(root, "bootstrap", _H4_BOOTSTRAP_KEYS, "h4.bootstrap")
+    bootstrap = H4BootstrapConfig(
+        seed=_require_exact(bootstrap_raw["seed"], 20260721, "h4.bootstrap.seed"),
+        replicates=_require_exact(bootstrap_raw["replicates"], 100000, "h4.bootstrap.replicates"),
+        inferential_units=_require_exact(bootstrap_raw["inferential_units"], 20, "h4.bootstrap.inferential_units"),
+        index_low=_require_exact(bootstrap_raw["index_low"], 0, "h4.bootstrap.index_low"),
+        index_high=_require_exact(bootstrap_raw["index_high"], 20, "h4.bootstrap.index_high"),
+        endpoint=_require_exact(bootstrap_raw["endpoint"], False, "h4.bootstrap.endpoint"),
+        index_dtype=_require_exact(bootstrap_raw["index_dtype"], "<i8", "h4.bootstrap.index_dtype"),
+        index_shape=_require_exact_list(bootstrap_raw["index_shape"], (100000, 20), "h4.bootstrap.index_shape"),
+        statistic=_require_exact(bootstrap_raw["statistic"], "mean_log_seed_ratio", "h4.bootstrap.statistic"),
+        percentiles=_require_exact_list(bootstrap_raw["percentiles"], (2.5, 97.5), "h4.bootstrap.percentiles"),
+        percentile_method=_require_exact(bootstrap_raw["percentile_method"], "linear", "h4.bootstrap.percentile_method"),
+        percentile_space=_require_exact(bootstrap_raw["percentile_space"], "log_then_exp", "h4.bootstrap.percentile_space"),
+        digest_domain=_require_exact(bootstrap_raw["digest_domain"], "vfe4.h4.bootstrap-indices.v1", "h4.bootstrap.digest_domain"),
+        expected_index_sha256=_require_exact(bootstrap_raw["expected_index_sha256"], "a254e18bccc519a719e9f4b409f45cc9ae4a2a321903531cd8fd73433687cd14", "h4.bootstrap.expected_index_sha256"),
+    )
+    condition_raw = _nested_section(root, "condition_envelope", _H4_CONDITION_KEYS, "h4.condition_envelope")
+    condition = H4ConditionEnvelopeConfig(**{
+        name: _require_exact(condition_raw[name], expected, f"h4.condition_envelope.{name}")
+        for name, expected in (
+            ("posterior_minimum_eigenvalue", 1.0e-6), ("posterior_maximum_eigenvalue", 1.0e6),
+            ("posterior_maximum_condition_number", 1.0e8), ("posterior_minimum_cholesky_pivot", 1.0e-3),
+            ("posterior_maximum_mean_infinity_norm", 16.0), ("innovation_minimum_eigenvalue", 1.0e-6),
+            ("innovation_maximum_eigenvalue", 1.0e6), ("innovation_maximum_condition_number", 1.0e8),
+            ("inclusive", True),
+        )
+    })
+    allowance_raw = _nested_section(root, "allowance", _H4_ALLOWANCE_KEYS, "h4.allowance")
+    allowance = H4AllowanceConfig(
+        float64_epsilon=_require_exact(allowance_raw["float64_epsilon"], 2.220446049250313e-16, "h4.allowance.float64_epsilon"),
+        rounding_constant=_require_exact(allowance_raw["rounding_constant"], 4096, "h4.allowance.rounding_constant"),
+        solver_relative_budget=_require_exact(allowance_raw["solver_relative_budget"], 1.0e-9, "h4.allowance.solver_relative_budget"),
+        maximum_allowance_scale_fraction=_require_exact(allowance_raw["maximum_allowance_scale_fraction"], 1.0e-4, "h4.allowance.maximum_allowance_scale_fraction"),
+        decisiveness_comparison=_require_exact(allowance_raw["decisiveness_comparison"], "strict_less_than", "h4.allowance.decisiveness_comparison"),
+        element_stream_domain=_require_exact(allowance_raw["element_stream_domain"], "vfe4.h4.allowance-element-stream.v1", "h4.allowance.element_stream_domain"),
+        maximum_chunk_rows=_require_exact(allowance_raw["maximum_chunk_rows"], 4096, "h4.allowance.maximum_chunk_rows"),
+    )
+    environment_raw = _nested_section(root, "environment", _H4_ENVIRONMENT_KEYS, "h4.environment")
+    environment = H4EnvironmentConfig(
+        device=_require_exact(environment_raw["device"], "cpu", "h4.environment.device"),
+        dtype=_require_exact(environment_raw["dtype"], "float64", "h4.environment.dtype"),
+        intra_op_threads=_require_exact(environment_raw["intra_op_threads"], 1, "h4.environment.intra_op_threads"),
+        alter_inter_op_threads=_require_exact(environment_raw["alter_inter_op_threads"], False, "h4.environment.alter_inter_op_threads"),
+        cuda_expected=_require_exact(environment_raw["cuda_expected"], False, "h4.environment.cuda_expected"),
+        gc_policy=_require_exact(environment_raw["gc_policy"], "restore_exact_prior_enabled_state", "h4.environment.gc_policy"),
+        power_policy_field_order=_require_exact_list(environment_raw["power_policy_field_order"], ("active_power_scheme", "cpu_frequency_governor", "energy_performance_preference", "low_power_mode"), "h4.environment.power_policy_field_order"),
+        power_policy_capture=_require_exact(environment_raw["power_policy_capture"], "typed_best_effort_outside_timing", "h4.environment.power_policy_capture"),
+    )
+    primary_effect_threshold = _require_exact(root["primary_effect_threshold"], 0.80, "h4.primary_effect_threshold")
+    payload_limit = _require_exact(root["maximum_validation_payload_bytes"], 67_108_864, "h4.maximum_validation_payload_bytes")
+    payload = {
+        "schema_version": "h4-validation-config-v1", "solve_protocol": asdict(protocol),
+        "traversal": asdict(traversal), "timing": asdict(timing),
+        "bootstrap": asdict(bootstrap), "condition_envelope": asdict(condition),
+        "allowance": asdict(allowance), "environment": asdict(environment),
+        "primary_effect_threshold": primary_effect_threshold,
+        "maximum_validation_payload_bytes": payload_limit,
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return H4ValidationConfig(
+        "h4-validation-config-v1", protocol, traversal, timing, bootstrap, condition,
+        allowance, environment, primary_effect_threshold, payload_limit, canonical,
+        hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    )
+
+
+def _validate_h4_orders(traversal: H4TraversalConfig, timing: H4TimingConfig) -> None:
+    primary_rows: list[tuple[int, int, int]] = []
+    problem_index = 0
+    for horizon_index, horizon in enumerate(traversal.horizons):
+        for seed_index, seed in enumerate(traversal.seeds):
+            for kind_index, _kind in enumerate(traversal.kinds):
+                if problem_index != ((horizon_index * 20 + seed_index) * 2 + kind_index):
+                    raise ValueError("H4 problem traversal index mismatch")
+                for pair_index in (*timing.warmup_pair_indices, *timing.timed_pair_indices):
+                    _ = (horizon_index + seed_index + kind_index + pair_index) % 2 == 0
+                if horizon == 31 and kind_index == 0:
+                    ab = sum(
+                        (horizon_index + seed_index + kind_index + pair_index) % 2 == 0
+                        for pair_index in timing.timed_pair_indices
+                    )
+                    primary_rows.append((seed, ab, 11 - ab))
+                problem_index += 1
+    if problem_index != 120 or tuple(primary_rows) != timing.primary_timed_balance:
+        raise ValueError("H4 timing balance does not follow independent-index parity")
 
 
 def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedConfig:

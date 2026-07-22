@@ -1,10 +1,17 @@
 """Strict configuration types and resolution for VFE 4.0."""
 
-from .resolve import resolve_config
+from .resolve import resolve_config, resolve_h4_validation_config
 from .schema import (
     ArtifactConfig,
     DataConfig,
     H3ValidationConfig,
+    H4AllowanceConfig,
+    H4BootstrapConfig,
+    H4ConditionEnvelopeConfig,
+    H4EnvironmentConfig,
+    H4TimingConfig,
+    H4TraversalConfig,
+    H4ValidationConfig,
     InferenceConfig,
     ModelConfig,
     OptimizationConfig,
@@ -18,6 +25,13 @@ __all__ = [
     "ArtifactConfig",
     "DataConfig",
     "H3ValidationConfig",
+    "H4AllowanceConfig",
+    "H4BootstrapConfig",
+    "H4ConditionEnvelopeConfig",
+    "H4EnvironmentConfig",
+    "H4TimingConfig",
+    "H4TraversalConfig",
+    "H4ValidationConfig",
     "InferenceConfig",
     "ModelConfig",
     "OptimizationConfig",
@@ -26,4 +40,5 @@ __all__ = [
     "RunConfig",
     "ValidationConfig",
     "resolve_config",
+    "resolve_h4_validation_config",
 ]

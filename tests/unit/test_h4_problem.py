@@ -16,10 +16,20 @@ from vfe4.generative.reference_h4 import (
     parse_h4_problem_bytes,
 )
 from vfe4.types.h4 import (
+    H4_ALLOWANCE_ELEMENT_COUNTS,
     H4_ALLOWANCE_INVARIANT_NAMES,
     H4_INVARIANT_NAMES,
     H4_MEASUREMENT_NAMES,
+    H4_PRIMARY_TIMED_AB_TOTAL,
+    H4_PRIMARY_TIMED_BALANCE,
+    H4_PRIMARY_TIMED_BA_TOTAL,
     H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL,
+    H4AllowanceElement,
+    H4AllowanceOperationCount,
+    H4AllowanceOperand,
+    H4ApplicableAllowance,
+    H4InapplicableAllowance,
+    H4IntervalDecision,
     H4AffineGaussianFactor,
     H4GateResult,
     H4MemoryRecord,
@@ -34,6 +44,7 @@ from vfe4.types.h4 import (
     H4TerminalLaw,
     H4TimingRecord,
     canonical_h4_problem_bytes,
+    classify_h4_interval,
 )
 from vfe4.types.results import GateStatus, InvariantResult
 from vfe4.validation.h3_fixture import (
@@ -65,6 +76,43 @@ EXPECTED_ALLOWANCES = (
     "h3_anchor_identity", "exact_posterior_gap_equivalence", "terminal_h_equivalence",
     "terminal_J_equivalence", "selected_moment_equivalence", "complete_objective_equivalence",
 )
+
+
+def test_corrected_allowance_and_interval_public_contract_is_frozen() -> None:
+    assert H4_ALLOWANCE_ELEMENT_COUNTS == (
+        ("h3_anchor_identity", 184),
+        ("exact_posterior_gap_equivalence", 2_640),
+        ("terminal_h_equivalence", 394_240),
+        ("terminal_J_equivalence", 75_694_080),
+        ("selected_moment_equivalence", 3_738_240),
+        ("complete_objective_equivalence", 2_640),
+    )
+    assert sum(count for _, count in H4_ALLOWANCE_ELEMENT_COUNTS) == 79_832_024
+    assert (H4_PRIMARY_TIMED_AB_TOTAL, H4_PRIMARY_TIMED_BA_TOTAL) == (110, 110)
+    assert len(H4_PRIMARY_TIMED_BALANCE) == 20
+    assert tuple(field.name for field in fields(H4AllowanceOperationCount)) == ("label", "count")
+    assert tuple(field.name for field in fields(H4AllowanceOperand)) == (
+        "label", "value", "value_norm", "absolute_summand_accumulation",
+        "condition_numbers", "operation_counts", "solver_produced",
+        "rounding_allowance", "solver_allowance", "total_allowance",
+    )
+    assert tuple(field.name for field in fields(H4AllowanceElement))[-7:] == (
+        "comparison_reduction_allowance", "residual", "normalized_residual",
+        "final_allowance", "allowance_scale_ratio", "decisive", "passed",
+    )
+    assert tuple(field.name for field in fields(H4ApplicableAllowance))[0:4] == (
+        "applicable", "invariant", "element_stream_domain", "expected_element_count",
+    )
+    assert tuple(field.name for field in fields(H4InapplicableAllowance)) == ("applicable", "reason")
+    assert tuple(field.name for field in fields(H4IntervalDecision)) == (
+        "lower", "upper", "threshold", "classification", "invariant_passed",
+        "invariant_value", "invariant_limit", "invariant_detail",
+        "status_if_other_invariants_eligible", "obligation",
+    )
+    assert classify_h4_interval(0.70, 0.80).classification == "support"
+    assert classify_h4_interval(0.80, 0.80).classification == "boundary"
+    assert classify_h4_interval(0.80, 0.90).classification == "no_support"
+    assert classify_h4_interval(0.70, 0.90).classification == "crossing"
 EXPECTED_APPLICABLE_ALLOWANCE_FIELDS = (
     "applicable", "dimension", "operands", "absolute_summands", "condition_numbers",
     "operation_counts", "solver_contribution", "invariant_scale", "final_allowance",
@@ -92,14 +140,30 @@ def _independent_draws(seed: int):
         rng.uniform(-1.0, 1.0, size=8),
     )
 
-def _numerical_allowance() -> dict[str, object]:
-    return {
-        "applicable": True, "dimension": 4, "operands": (1.0,),
-        "absolute_summands": (1.0,), "condition_numbers": (1.0,),
-        "operation_counts": (1,), "solver_contribution": 0.0,
-        "invariant_scale": 1.0, "final_allowance": 0.0,
-        "allowance_scale_ratio": 0.0,
-    }
+def _numerical_allowance(
+    invariant: str = "h3_anchor_identity",
+) -> H4ApplicableAllowance:
+    operand = lambda label: H4AllowanceOperand(
+        label, 0.0, 0.0, 0.0, (1.0,), (), False, 0.0, 0.0, 0.0,
+    )
+    comparison = 4096.0 * (
+        3.0 * 2.220446049250313e-16
+        / (1.0 - 3.0 * 2.220446049250313e-16)
+    )
+    anchor = invariant == "h3_anchor_identity"
+    element = H4AllowanceElement(
+        0, invariant,  # type: ignore[arg-type]
+        "h4-anchor-h3-zero-control-v1" if anchor else "h4-coupled-T7-dz4-dm4-seed104729-v1",
+        "adapter_to_oracle" if anchor else "solver_to_oracle",
+        None if anchor else 0, None if anchor else "information", "value", (1,), 0,
+        1.0, operand("left"), operand("right"), comparison, 0.0, 0.0,
+        comparison, comparison, True, True,
+    )
+    count = dict(H4_ALLOWANCE_ELEMENT_COUNTS)[invariant]
+    return H4ApplicableAllowance(
+        True, invariant, "vfe4.h4.allowance-element-stream.v1", count, count,
+        "a" * 64, 0.0, element, comparison, element, None, None, True, True,
+    )
 
 
 def _complete_measurements(lower: float, upper: float) -> dict[str, float]:
@@ -382,7 +446,7 @@ def test_records_reject_malformed_inputs_and_gate_freezes_exact_early_failure_sh
     measurements = {name: None for name in EXPECTED_MEASUREMENTS}
     measurements.update({"primary_effect_threshold": .80, "maximum_solver_stopping_residual": .0, "maximum_allowance_scale_fraction": .0})
     numerical = _numerical_allowance()
-    allowances = {name: numerical if name == "h3_anchor_identity" else {"applicable": False, "reason": "not_evaluated_after_decisive_h3_anchor_failure"} for name in EXPECTED_ALLOWANCES}
+    allowances = {name: numerical if name == "h3_anchor_identity" else H4InapplicableAllowance(False, "not_evaluated_after_decisive_h3_anchor_failure") for name in EXPECTED_ALLOWANCES}
     result = H4GateResult("H4", GateStatus.FAIL, measurements, invariants, allowances, ())
     assert H4_INVARIANT_NAMES == EXPECTED_INVARIANTS and H4_MEASUREMENT_NAMES == EXPECTED_MEASUREMENTS and H4_PRIMARY_MEASUREMENTS_UNAVAILABLE_AFTER_ANCHOR_FAIL == EXPECTED_UNAVAILABLE and H4_ALLOWANCE_INVARIANT_NAMES == EXPECTED_ALLOWANCES
     assert tuple(result.measurements) == EXPECTED_MEASUREMENTS
@@ -396,8 +460,8 @@ def test_records_reject_malformed_inputs_and_gate_freezes_exact_early_failure_sh
 def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes() -> None:
     measurements = _complete_measurements(.70, .79)
     passing = _complete_invariants(.70, .79)
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
-    assert tuple(H4GateResult("H4", GateStatus.PASS, measurements, passing, allowances, ()).allowances_by_invariant["h3_anchor_identity"]) == EXPECTED_APPLICABLE_ALLOWANCE_FIELDS
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
+    assert type(H4GateResult("H4", GateStatus.PASS, measurements, passing, allowances, ()).allowances_by_invariant["h3_anchor_identity"]) is H4ApplicableAllowance
     failed = list(passing); failed[8] = InvariantResult("exact_posterior_gap_equivalence", False, 2.0, 1.0, "miss")
     assert H4GateResult("H4", GateStatus.FAIL, measurements, tuple(failed), allowances, ()).status is GateStatus.FAIL
     for index in (13, 14, 15):
@@ -415,16 +479,16 @@ def test_gate_rejects_contradictory_pass_fail_inconclusive_and_allowance_shapes(
     ambiguous = list(passing); ambiguous[5] = InvariantResult("scaled_condition_envelope", False, None, None, "not_evaluated_after_inconclusive_eligibility")
     ambiguous[8] = InvariantResult("exact_posterior_gap_equivalence", False, 2.0, 1.0, "miss")
     assert H4GateResult("H4", GateStatus.INCONCLUSIVE, measurements, tuple(ambiguous), allowances, ("scaled_condition_envelope: not_evaluated_after_inconclusive_eligibility",)).status is GateStatus.INCONCLUSIVE
-    inapplicable = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}; inapplicable["exact_posterior_gap_equivalence"] = {"applicable": False, "reason": "not_evaluated_after_decisive_h3_anchor_failure"}
+    inapplicable = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}; inapplicable["exact_posterior_gap_equivalence"] = H4InapplicableAllowance(False, "not_evaluated_after_decisive_h3_anchor_failure")
     inconclusive_equivalence = list(passing); inconclusive_equivalence[8] = InvariantResult("exact_posterior_gap_equivalence", False, None, None, "not_evaluated_after_inconclusive_eligibility")
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.INCONCLUSIVE, measurements, tuple(inconclusive_equivalence), inapplicable, ("exact_posterior_gap_equivalence: not_evaluated_after_inconclusive_eligibility",))
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, tuple(failed), allowances, ())
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.FAIL, measurements, passing, allowances, ())
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.INCONCLUSIVE, measurements, tuple(failed), allowances, ())
-    bad = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}; bad["h3_anchor_identity"] = {"applicable": True, "dimension": 4}
+    bad = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}; bad["h3_anchor_identity"] = {"applicable": True, "dimension": 4}
     with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, passing, bad, ())
-    bad_ratio = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}; bad_ratio["h3_anchor_identity"]["allowance_scale_ratio"] = .5
-    with pytest.raises(ValueError): H4GateResult("H4", GateStatus.PASS, measurements, passing, bad_ratio, ())
+    with pytest.raises(ValueError):
+        replace(_numerical_allowance(), maximum_allowance_scale_ratio=.5)
 
 
 @pytest.mark.parametrize(
@@ -441,7 +505,7 @@ def test_gate_interval_classifier_preserves_point_interval_semantics(
     status: GateStatus,
     obligations: tuple[str, ...],
 ) -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     assert H4GateResult(
         "H4", status, _complete_measurements(lower, upper),
         _complete_invariants(lower, upper), allowances, obligations,
@@ -449,7 +513,7 @@ def test_gate_interval_classifier_preserves_point_interval_semantics(
 
 
 def test_gate_rejects_interval_classifier_and_comparison_contradictions() -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     support_measurements = _complete_measurements(.70, .79)
     support_invariants = list(_complete_invariants(.70, .79))
     for threshold in (None, .79, .81):
@@ -475,7 +539,7 @@ def test_gate_rejects_interval_classifier_and_comparison_contradictions() -> Non
 
 
 def test_gate_requires_exact_nonanchor_missing_interval_sentinels() -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     measurements = _complete_measurements(.70, .79)
     measurements.update({
         "primary_seed_ratio_geometric_mean": None,
@@ -510,7 +574,7 @@ def test_gate_requires_exact_nonanchor_missing_interval_sentinels() -> None:
 
 
 def test_gate_rejects_anchor_unavailable_sentinel_outside_anchor_fail() -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     invariants = list(_complete_invariants(.70, .79))
     invariants[8] = InvariantResult(
         "exact_posterior_gap_equivalence", False, None, None,
@@ -525,7 +589,7 @@ def test_gate_rejects_anchor_unavailable_sentinel_outside_anchor_fail() -> None:
 
 
 def test_gate_rejects_decisive_anchor_miss_supplied_as_inconclusive() -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     invariants = list(_complete_invariants(.70, .79))
     invariants[0] = InvariantResult("h3_anchor_identity", False, 2.0, 1.0, "anchor_miss")
     with pytest.raises(ValueError, match="decisive anchor miss requires exact early FAIL"):
@@ -538,7 +602,7 @@ def test_gate_rejects_decisive_anchor_miss_supplied_as_inconclusive() -> None:
 
 @pytest.mark.parametrize(("value", "limit"), ((-1.0, 1.0), (-2.0, -1.0)))
 def test_gate_rejects_negative_anchor_comparison_values(value: float, limit: float) -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     invariants = list(_complete_invariants(.70, .79))
     invariants[0] = InvariantResult("h3_anchor_identity", True, value, limit, "anchor_pass")
     with pytest.raises(ValueError, match="residual and limit must be nonnegative"):
@@ -565,7 +629,7 @@ def test_gate_rejects_anchor_pass_miss_flag_contradictions(
     status: GateStatus,
     obligations: tuple[str, ...],
 ) -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     invariants = list(_complete_invariants(.70, .79))
     invariants[0] = InvariantResult("h3_anchor_identity", passed, value, limit, "anchor")
     with pytest.raises(ValueError):
@@ -594,12 +658,11 @@ def test_gate_rejects_reserved_anchor_sentinel_on_invariant_zero() -> None:
     })
     allowances = {
         name: (
-            _numerical_allowance()
+            _numerical_allowance(name)
             if name == "h3_anchor_identity"
-            else {
-                "applicable": False,
-                "reason": "not_evaluated_after_decisive_h3_anchor_failure",
-            }
+            else H4InapplicableAllowance(
+                False, "not_evaluated_after_decisive_h3_anchor_failure",
+            )
         )
         for name in EXPECTED_ALLOWANCES
     }
@@ -613,11 +676,10 @@ def test_gate_preserves_ordinary_unresolved_anchor_as_inconclusive() -> None:
         "h3_anchor_identity", False, None, None,
         "not_evaluated_after_inconclusive_eligibility",
     )
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
-    allowances["h3_anchor_identity"] = {
-        "applicable": False,
-        "reason": "not_evaluated_after_inconclusive_eligibility",
-    }
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
+    allowances["h3_anchor_identity"] = H4InapplicableAllowance(
+        False, "not_evaluated_after_inconclusive_eligibility",
+    )
     obligations = (
         "h3_anchor_identity: not_evaluated_after_inconclusive_eligibility",
     )
@@ -705,7 +767,7 @@ def test_public_state_constructors_retain_full_spd_validation() -> None:
 
 
 def test_gate_requires_exact_base_invariant_result_records() -> None:
-    allowances = {name: _numerical_allowance() for name in EXPECTED_ALLOWANCES}
+    allowances = {name: _numerical_allowance(name) for name in EXPECTED_ALLOWANCES}
     invariants = list(_complete_invariants(.70, .79))
 
     class InvariantSubclass(InvariantResult):

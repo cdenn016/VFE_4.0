@@ -169,6 +169,105 @@ records, seed statistics/bootstrap interval, status/obligations, and separate
 secondary operation/memory diagnostics. H4 measurements are not used to amend
 this preregistration.
 
+## Corrected frozen numerical-authority protocol
+
+The complete solver protocol is the immutable six-field record
+`("h4-single-pass-v1", "float64", "cpu", 1, 1e-9,
+"complete_schedule_finite_spd")`. Every materialization, timed solve, replay,
+operation-count pass, and memory pass receives the same protocol object by
+identity. The resolved H4 environment is CPU binary64 with one intra-op thread,
+unchanged inter-op threads, CUDA absent, and cyclic GC restored to its exact
+prior enabled state. Power-policy capture is typed best effort, outside timing,
+in the ordered categories `active_power_scheme`, `cpu_frequency_governor`,
+`energy_performance_preference`, and `low_power_mode`; an unavailable value is
+retained as unavailable rather than guessed.
+
+The paired bootstrap is frozen byte-for-byte as follows:
+
+```python
+rng = np.random.Generator(np.random.PCG64(20260721))
+indices = rng.integers(
+    0, 20, size=(100000, 20), endpoint=False, dtype=np.int64,
+)
+seed_log_ratios = np.asarray(
+    tuple(math.log(ratio) for ratio in seed_ratios), dtype=np.float64,
+)
+replicate_mean_log_ratios = np.mean(
+    seed_log_ratios[indices], axis=1, dtype=np.float64,
+)
+log_lower, log_upper = np.percentile(
+    replicate_mean_log_ratios, (2.5, 97.5), method="linear",
+)
+lower, upper = math.exp(float(log_lower)), math.exp(float(log_upper))
+```
+
+The compact sorted-key UTF-8 header is exactly
+`{"dtype":"<i8","endpoint":false,"high":20,"low":0,"seed":20260721,"shape":[100000,20]}`.
+The resample digest is
+`SHA256(b"vfe4.h4.bootstrap-indices.v1\0" + header + b"\0" +
+ascontiguousarray(indices,dtype="<i8").tobytes(order="C"))`, exactly
+`a254e18bccc519a719e9f4b409f45cc9ae4a2a321903531cd8fd73433687cd14`.
+Percentiles are computed in log space and only the 20 seeds are inferential
+units; the 220 repetitions are never resampled as independent units.
+
+Each equivalence allowance is element-local. For one scalar operand, with
+binary64 epsilon `2.220446049250313e-16`, `C=4096`, operation count `n`,
+operand condition maximum `kappa`, value norm `v`, and absolute-summand
+accumulation `a`, its rounding allowance is
+`C*gamma(n)*kappa*max(1,v,a)`, where `gamma(n)=n*eps/(1-n*eps)`.
+A solver-produced operand adds `1e-9*invariant_scale`; an oracle or frozen
+reference adds zero. The comparison reduction adds
+`C*gamma(3)*max(1,abs(left),abs(right),abs(left)+abs(right))`.
+For every lane, `passed` means residual `<=` final allowance and `decisive`
+means allowance-scale ratio `<1e-4`; equality at either boundary retains the
+published non-strict pass and strict decisiveness rules independently.
+
+The six canonical streams contain, in order, 184, 2,640, 394,240,
+75,694,080, 3,738,240, and 2,640 scalar lanes, totaling 79,832,024. Each
+stream begins with `b"vfe4.h4.allowance-element-stream.v1\0"`, consumes
+canonical group headers and row-major lanes in chunks of at most 4,096, and
+retains only maximum-normalized-residual, maximum-allowance-ratio,
+first-failure, and first-indecisive witnesses. The packed scratch row is the
+frozen unaligned 122-byte schema; chunk boundaries do not enter its digest and
+no per-lane Python record is retained. The compact validation payload ceiling
+is 67,108,864 bytes (64 MiB).
+
+The independent NumPy oracle retains both the canonical factor-assembly log
+normalizer and the predictive moment/innovation log normalizer. Their typed
+route-agreement record owns both operand records, their route-specific ordered
+operation counts and condition tuples, the residual and allowance arithmetic,
+and the separate `passed`, `decisive`, and conjunction `eligible` predicates.
+No route is selected opportunistically. Selected-coordinate records retain
+the initial normalized-index union, terminal transition-child union, and every
+observation-parent union in global-coordinate order, with labels exactly
+`initial`, `terminal`, and `observation[1]` through `observation[T]`.
+
+Condition eligibility is classified only by the configured inclusive
+builders. Oracle and retained terminal posteriors cover all 120 and 2,640
+records respectively. Oracle and moment innovation streams cover 2,120 and
+23,320 records respectively. Posterior checks apply both eigenvalue bounds,
+condition bound, `1e-3` posterior Cholesky-pivot bound, and mean-infinity bound;
+innovation checks apply only their eigenvalue and condition bounds. Coverage
+also requires 2,640 native replays, 240 operation passes, 240 memory passes,
+120 complete execution traces, and the complete 146,720-key postflight stream.
+
+Each problem trace contains exactly six warmup arm spans and 22 timed arm
+spans. Every pair/order identity follows the four independent indices, every
+retained timing value equals its span duration, and all dataclasses are
+synthesized after timing from preallocated scalar slots. Postflight begins no
+earlier than the timed-batch end and follows the exact canonical event schedule;
+the global schedule contains 146,720 keys. Coverage and condition digests use
+their frozen domain prefix followed by eight-byte big-endian lengths and the
+canonical UTF-8 key or float-hex record payload.
+
+Thread restoration encloses all post-set H4 work in `try/finally`. Every timed
+batch has an inner `try/finally` that captures cyclic GC once and restores the
+exact prior state even when capture, disable, effective-state inspection, or a
+solver fails. Stable errors are capped at 512 Unicode code points. No timing
+rows are fabricated after an incomplete phase, and no conclusive result is
+finalized until every process-global state changed by H4 has been restored.
+This section freezes protocol only; it records no H4 result.
+
 ## Frozen record, provenance, and early-failure schema
 
 Every scaled problem has `source_kind="scaled_pcg64"`, a positive PCG64 seed,
@@ -230,10 +329,21 @@ The exact measurement keys are `primary_seed_ratio_geometric_mean`,
 The exact allowance keys are `h3_anchor_identity`, `exact_posterior_gap_equivalence`,
 `terminal_h_equivalence`, `terminal_J_equivalence`,
 `selected_moment_equivalence`, and `complete_objective_equivalence`. An applicable
-allowance has exactly `applicable`, `dimension`, `operands`, `absolute_summands`,
-`condition_numbers`, `operation_counts`, `solver_contribution`, `invariant_scale`,
-`final_allowance`, and `allowance_scale_ratio`; an inapplicable record is exactly
-the two-key sentinel. Missing primary measurements map respectively to
+allowance is the typed `H4ApplicableAllowance` aggregate with exactly
+`applicable`, `invariant`, `element_stream_domain`, `expected_element_count`,
+`observed_element_count`, `element_stream_sha256`,
+`maximum_normalized_residual`, `maximum_normalized_residual_element`,
+`maximum_allowance_scale_ratio`, `maximum_allowance_scale_ratio_element`,
+`first_failed_element`, `first_indecisive_element`, `decisive`, and `passed`.
+Its retained witnesses are typed `H4AllowanceElement` records that own their
+two typed `H4AllowanceOperand` records, exact row-major path/shape/index,
+provenance, element-local scale, comparison allowance, residual, normalized
+residual, final allowance, allowance-scale ratio, and separate decisiveness
+and pass predicates. The six aggregates have exact element counts 184, 2,640,
+394,240, 75,694,080, 3,738,240, and 2,640 in allowance-key order. An
+inapplicable record is the typed `H4InapplicableAllowance` two-field sentinel
+containing only `applicable=False` and its closed literal `reason`; no flat or
+free-form numerical allowance mapping is permitted. Missing primary measurements map respectively to
 `primary_seed_level_inference`, `primary_effect_threshold`,
 `primary_timed_order_balance`, `shared_protocol_identity`, or
 `all_equivalence_allowances_decisive` and use the frozen inconclusive detail.
