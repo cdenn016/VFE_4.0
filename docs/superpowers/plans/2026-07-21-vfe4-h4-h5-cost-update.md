@@ -2141,6 +2141,7 @@ class H4OracleOperandEvidence:
     value_norm: float
     absolute_summand_accumulation: float
     condition_numbers: tuple[float, ...]
+    rounding_depth: int
     operation_counts: tuple[tuple[H4OracleRouteOperationLabel, int], ...]
 
 @dataclass(frozen=True, slots=True)
@@ -2280,7 +2281,8 @@ is not accepted. The canonical operand path is exactly
 `"canonical_log_normalizer"`, the predictive path is exactly
 `"predictive_log_normalizer"`, and their values equal the two enclosing
 log-normalizer fields bit-for-bit. Their ordered operation-count tables and
-condition-number tuples are the actual independently derived route evidence.
+condition-number tuples are independently derived route evidence, while the
+exact positive integer `rounding_depth` is the allowance authority.
 The enclosing `operand_evidence` tuple contains these two route operands
 exactly once in canonical-then-predictive order, and the route agreement must
 reference equal owned records; a duplicate, omitted, reordered, or divergent
@@ -2291,14 +2293,18 @@ For both scalar operands `value_norm=abs(value)`. Canonical
 `D/2*log(2*pi)`; its condition tuple is every factor-covariance condition
 number in schedule order followed by `condition_number(J)`. Predictive
 accumulation is the sum of `abs(increment)` in observation order; its condition
-tuple is every propagated covariance then innovation covariance in the exact
-order used by the route. Neither tuple is pooled with the other route.
+tuple is every initial factor covariance in schedule order, the initial
+precision, and then every propagated covariance and innovation covariance in
+the exact order used by the route. Canonical and predictive accumulations are
+formed with `math.fsum` followed by one outward
+`math.nextafter(..., math.inf)`. Neither tuple is pooled with the other route.
 The policy fields must equal the H4 allowance config bit-for-bit:
 `float64_epsilon=2.220446049250313e-16`, `rounding_constant=4096`,
 `solver_allowance=0.0`, and `maximum_allowance_scale_fraction=1e-4`.
 Oracle-to-oracle route comparison never receives a solver term.
-For a scalar route operand `x`, with its own operation count `n_x`, condition
-maximum `kappa_x`, and absolute summand accumulation `a_x`, compute:
+For a scalar route operand `x`, with its own longest scalar dependency-path
+depth `n_x`, condition maximum `kappa_x`, and absolute summand accumulation
+`a_x`, compute:
 
 ```text
 rounding_x = 4096*gamma(n_x)*kappa_x*max(1,abs(x),a_x)
@@ -2315,6 +2321,79 @@ passed = residual <= final_allowance
 eligible = passed and decisive
 ```
 
+##### Post-INCONCLUSIVE rounding-depth correction (2026-07-22)
+
+The prior implementation used the sum of the labeled operation counts as
+`n_x`. That sum is exact total-work telemetry for the stages covered by those
+labels, but it is not the length of a dependent scalar rounding chain. The
+ordered canonical and predictive tables remain unchanged work receipts. The
+predictive table is explicitly not a complete total-work inventory: initial
+factor/precision solves and all transition/observation scalar stages are not
+each assigned a telemetry label. Omitted telemetry stages are nevertheless
+included in `rounding_depth` whenever they lie on the longest dependency path.
+
+Depth zero denotes an exact input. The source-level primitive recurrences are:
+
+```text
+ADD(left,right) = max(left,right)+1
+SCALE(value) = value+1
+DOT(left,right,k) = max(left,right)+2*k-1
+CHOL(value,n) = value+n*n
+SOLVE(matrix,rhs,n) = max(matrix,rhs)+3*n*n
+TWO_SOLVE(matrix,rhs,n) = max(matrix,rhs)+6*n*n
+LOGDET2(lower,n) = lower+n+1
+SYM(value) = value+2
+```
+
+`SOLVE` conservatively models each current general `numpy.linalg.solve` call,
+including calls whose coefficient happens to be triangular; the depth is
+independent of the number of right-hand-side columns. For each canonical
+factor with `r` rows, set `L=CHOL(0,r)`,
+`solved=TWO_SOLVE(L,0,r)`, and each `Jterm`, `hterm`, and `quad` to
+`DOT(0,solved,r)`. Set `logdet=LOGDET2(L,r)` and
+`cterm=SCALE(ADD(ADD(quad,1),logdet))`, then update the running `J`, `h`, and
+`c` depths with `ADD`. After all factors, apply `SYM` to `J`; set
+`Lp=CHOL(J,D)`, `mean=TWO_SOLVE(Lp,h,D)`,
+`postquad=SCALE(DOT(h,mean,D))`, `postld=LOGDET2(Lp,D)`, and compute the final
+depth as `ADD(ADD(ADD(c,postquad),postld),2)`.
+
+Predictive initial `J0/h0` use the same per-factor `Jterm/hterm` recurrence.
+For initial dimension `p`, set `Lp0=CHOL(J0,p)`,
+`mean=TWO_SOLVE(Lp0,h0,p)`, `cov=TWO_SOLVE(Lp0,0,p)`, and `logZ=0`. At a
+transition with active dimension `a`, use `affine=1`,
+`childMean=ADD(0,DOT(affine,mean,a))`,
+`cross=DOT(affine,cov,a)`,
+`childCov=ADD(0,DOT(cross,affine,a))`, then
+`mean=max(mean,childMean)` and `cov=SYM(max(cov,cross,childCov))`. At an
+observation with active dimension `a` and `r` rows, follow the current source
+exactly:
+
+```text
+prediction=DOT(0,mean,a); residual=ADD(0,prediction)
+cross=DOT(cov,0,a); innovation=ADD(0,DOT(0,cross,a))
+L=CHOL(innovation,r); white=SOLVE(L,residual,r)
+quad=white+r; logdet=LOGDET2(L,r)
+increment=SCALE(ADD(ADD(quad,1),logdet)); logZ=ADD(logZ,increment)
+gain=TWO_SOLVE(L,cross,r); meanDelta=DOT(gain,residual,r)
+mean=ADD(mean,meanDelta); tmp=DOT(gain,innovation,r)
+correction=DOT(tmp,gain,r); cov=SYM(ADD(cov,correction))
+```
+
+The route depth is the final `logZ` depth. Frozen scaled
+canonical/predictive depths are `29290/7097` for `T=7`, `115458/20169` for
+`T=15`, and `459826/64745` for `T=31`; the H3 anchors derive to `139/111`.
+`C=4096`, the comparison reduction `gamma(3)`, and strict decisiveness
+`allowance_scale_ratio < 1e-4` remain unchanged.
+
+`H4OracleEvaluation.__post_init__` provides an independent ownership-boundary
+check that does not consult `operation_counts` or trust the operand constructor.
+For `scaled_pcg64`, it requires `T in {7,15,31}`, `d_z=d_m=4`, and
+`D=(T+1)*8`, then compares the owned depths against
+`448*T*T+915*T+933` and `48*T*T+578*T+699`. For `h3_anchor`, it requires
+`T=1`, `d_z=d_m=1`, and `D=4`, then compares against `139/111`. A mismatch is
+rejected even when a positive off-by-one operand has been used to rebuild a
+locally valid route agreement and the evaluation's operand-ownership tuple.
+
 The canonical route table is exactly
 `factor_covariance_cholesky`, `factor_triangular_solves`,
 `factor_assembly_matmuls`, `factor_quadratics`,
@@ -2329,9 +2408,10 @@ exactly `affine_propagation_matmuls`,
 `innovation_triangular_solves`, `innovation_quadratics`,
 `innovation_logdet_reductions`, `kalman_gain_solves`, `mean_updates`,
 `covariance_updates`, `route_sum_reduction`; zero counts remain explicit. Each nonnegative count is derived
-from the actual factor dimensions and declared schedule using the closed
-operation formulas below; missing, duplicate, reordered, or extra labels are
-rejected.
+from the actual factor dimensions and declared schedule for its labeled stage;
+missing, duplicate, reordered, or extra labels are rejected. These labeled
+counts are telemetry and do not replace the full source-level dependency
+recurrence above.
 
 For `F` normalized factors and posterior dimension `D`, the canonical counts
 introduced for the executable accumulations are exact:

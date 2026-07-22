@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import json
 import math
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -147,6 +148,121 @@ def test_h4_canonical_route_counts_executable_accumulations_exactly() -> None:
         "innovation_quadratics", "innovation_logdet_reductions",
         "kalman_gain_solves", "mean_updates", "covariance_updates",
         "route_sum_reduction",
+    )
+
+
+@pytest.mark.parametrize(
+    ("horizon", "expected_canonical_depth", "expected_predictive_depth"),
+    (
+        (7, 29_290, 7_097),
+        (15, 115_458, 20_169),
+        (31, 459_826, 64_745),
+    ),
+)
+def test_h4_scaled_route_allowances_use_longest_scalar_dependency_depth(
+    horizon: int,
+    expected_canonical_depth: int,
+    expected_predictive_depth: int,
+) -> None:
+    oracle = evaluate_h4_oracle(canonical_h4_problem_bytes(
+        make_h4_problem(seed=104729, kind="coupled", horizon=horizon),
+    ))
+    canonical = oracle.route_agreement.canonical_operand
+    predictive = oracle.route_agreement.predictive_operand
+    assert (canonical.rounding_depth, predictive.rounding_depth) == (
+        expected_canonical_depth, expected_predictive_depth,
+    )
+    assert sum(count for _, count in canonical.operation_counts) > canonical.rounding_depth
+    assert sum(count for _, count in predictive.operation_counts) > predictive.rounding_depth
+    assert predictive.condition_numbers[:2] == (1.0, 1.0)
+    assert oracle.route_agreement.eligible
+
+
+def test_h4_anchor_route_depths_follow_the_same_source_level_recurrences() -> None:
+    for path, fixture_id in (
+        (H3_COUPLED_FIXTURE_PATH, "h3-coupled-v1"),
+        (H3_ZERO_CONTROL_FIXTURE_PATH, "h3-zero-control-v1"),
+    ):
+        fixture = parse_h3_fixture_bytes(path.read_bytes(), expected_fixture_id=fixture_id)
+        oracle = evaluate_h4_oracle(canonical_h4_problem_bytes(h4_anchor_from_h3(fixture)))
+        assert (
+            oracle.route_agreement.canonical_operand.rounding_depth,
+            oracle.route_agreement.predictive_operand.rounding_depth,
+        ) == (139, 111)
+        assert oracle.route_agreement.predictive_operand.condition_numbers[:3] == (
+            1.0, 1.0, 1.0,
+        )
+
+
+@pytest.mark.parametrize("malformed_depth", (0, -1, True, 1.0))
+def test_h4_operand_rejects_malformed_rounding_depth(malformed_depth: object) -> None:
+    oracle = evaluate_h4_oracle(canonical_h4_problem_bytes(
+        make_h4_problem(seed=104729, kind="coupled", horizon=7),
+    ))
+    with pytest.raises(ValueError, match="rounding depth"):
+        replace(
+            oracle.route_agreement.canonical_operand,
+            rounding_depth=malformed_depth,
+        )
+
+
+@pytest.mark.parametrize(
+    ("source_kind", "operand_path"),
+    (
+        ("scaled_pcg64", "canonical"),
+        ("scaled_pcg64", "predictive"),
+        ("h3_anchor", "canonical"),
+        ("h3_anchor", "predictive"),
+    ),
+)
+def test_h4_evaluation_rejects_positive_off_by_one_route_depth(
+    source_kind: str,
+    operand_path: str,
+) -> None:
+    if source_kind == "scaled_pcg64":
+        payload = canonical_h4_problem_bytes(
+            make_h4_problem(seed=104729, kind="coupled", horizon=15),
+        )
+    else:
+        fixture = parse_h3_fixture_bytes(
+            H3_COUPLED_FIXTURE_PATH.read_bytes(),
+            expected_fixture_id="h3-coupled-v1",
+        )
+        payload = canonical_h4_problem_bytes(h4_anchor_from_h3(fixture))
+    oracle = evaluate_h4_oracle(payload)
+    canonical = oracle.route_agreement.canonical_operand
+    predictive = oracle.route_agreement.predictive_operand
+    if operand_path == "canonical":
+        canonical = replace(canonical, rounding_depth=canonical.rounding_depth + 1)
+    else:
+        predictive = replace(predictive, rounding_depth=predictive.rounding_depth + 1)
+    forged_agreement = h4_gaussian._route_agreement(
+        oracle.problem_id, oracle.problem_sha256, canonical, predictive,
+    )
+    with pytest.raises(ValueError, match="rounding depth"):
+        replace(
+            oracle,
+            route_agreement=forged_agreement,
+            operand_evidence=(canonical, predictive),
+        )
+
+
+def test_h4_canonical_absolute_accumulation_is_outward_rounded_fsum() -> None:
+    oracle = evaluate_h4_oracle(canonical_h4_problem_bytes(
+        make_h4_problem(seed=104729, kind="coupled", horizon=7),
+    ))
+    precision = np.asarray(oracle.precision, dtype=np.float64)
+    natural = np.asarray(oracle.natural, dtype=np.float64)
+    mean = np.asarray(oracle.mean, dtype=np.float64)
+    lower = np.linalg.cholesky(precision)
+    components = (
+        abs(oracle.constant),
+        abs(0.5 * float(natural @ mean)),
+        abs(-float(np.sum(np.log(np.diag(lower)), dtype=np.float64))),
+        abs(0.5 * oracle.dimension * math.log(2.0 * math.pi)),
+    )
+    assert oracle.route_agreement.canonical_operand.absolute_summand_accumulation == (
+        math.nextafter(math.fsum(components), math.inf)
     )
 
 

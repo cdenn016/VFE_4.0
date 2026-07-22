@@ -375,7 +375,8 @@ def test_h4_ineligible_oracle_route_error_retains_decision_evidence(h4_config) -
 
     message = str(captured.value)
     for field in (
-        "canonical_value=", "predictive_value=", "residual=",
+        "problem_id=", "canonical_value=", "canonical_rounding_depth=",
+        "predictive_value=", "predictive_rounding_depth=", "residual=",
         "final_allowance=", "allowance_scale_ratio=", "decisive=",
         "passed=", "eligible=",
     ):
@@ -1504,6 +1505,59 @@ def test_evaluate_h4_preserves_anchor_slots_when_scaled_preflight_fails(
         "scaled_preflight", "statistics",
     )
     assert core.result.status is gate.GateStatus.INCONCLUSIVE
+
+
+def test_evaluate_h4_preserves_anchors_on_plain_scaled_preflight_error(
+    monkeypatch: pytest.MonkeyPatch, h4_config,
+) -> None:
+    captured = _install_top_level_harness(monkeypatch)
+    coupled = SimpleNamespace(
+        information_result=SimpleNamespace(stopping_residual=0.0),
+        moment_result=SimpleNamespace(stopping_residual=0.0),
+    )
+    zero = SimpleNamespace(
+        information_result=SimpleNamespace(stopping_residual=0.0),
+        moment_result=SimpleNamespace(stopping_residual=0.0),
+    )
+
+    def evaluate_anchor(_fixture, *, expected_fixture_id, config):
+        assert config is h4_config
+        evaluation = coupled if expected_fixture_id == "h3-coupled-v1" else zero
+        return gate._AnchorWork(evaluation, object())
+
+    class _AnchorAccumulator:
+        def consume(self, _source) -> None:
+            return None
+
+        def anchor_identity_record(self):
+            return _typed_allowance("h3_anchor_identity")
+
+    def fail_preflight(*_args, **_kwargs):
+        raise ValueError("scaled problem h4-coupled-T15 route is ineligible")
+
+    monkeypatch.setattr(gate, "_evaluate_anchor", evaluate_anchor)
+    monkeypatch.setattr(
+        gate, "new_h4_six_invariant_allowance_accumulator",
+        lambda: _AnchorAccumulator(),
+    )
+    monkeypatch.setattr(gate, "_generate_scaled_problems", lambda _config: (object(),) * 120)
+    monkeypatch.setattr(gate, "_ConditionAccumulator", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(gate, "_CoverageAccumulator", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(gate, "_preflight_scaled", fail_preflight)
+
+    gate.evaluate_h4(
+        h4_config, h3_coupled_bytes=b"coupled", h3_zero_bytes=b"zero",
+    )
+    core = captured["core"]
+    assert core.anchors == (coupled, zero)
+    assert core.problems == ()
+    assert tuple(item.phase for item in core.unavailable_phases) == (
+        "scaled_preflight", "statistics",
+    )
+    assert any(
+        "scaled problem h4-coupled-T15 route is ineligible" in item
+        for item in core.result.obligations
+    )
 
 
 @pytest.mark.parametrize(

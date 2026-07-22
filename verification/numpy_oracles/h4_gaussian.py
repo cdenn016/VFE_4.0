@@ -54,7 +54,7 @@ def _finite(value: object, name: str) -> None:
 
 def _gamma(n: int) -> float:
     if type(n) is not int or n < 0 or n * _EPSILON >= 1.0:
-        raise ValueError("route operation count is outside the gamma domain")
+        raise ValueError("rounding depth is outside the gamma domain")
     return (n * _EPSILON) / (1.0 - n * _EPSILON)
 
 
@@ -72,6 +72,73 @@ def _triangular(n: int, rhs: int) -> int:
 
 def _cholesky(n: int) -> int:
     return math.ceil(n * n * n / 3)
+
+
+def _depth_add(left: int, right: int) -> int:
+    return max(left, right) + 1
+
+
+def _depth_scale(value: int) -> int:
+    return value + 1
+
+
+def _depth_dot(left: int, right: int, length: int) -> int:
+    return max(left, right) + _dot(length)
+
+
+def _depth_cholesky(value: int, dimension: int) -> int:
+    return value + dimension * dimension
+
+
+def _depth_solve(matrix: int, rhs: int, dimension: int) -> int:
+    return max(matrix, rhs) + 3 * dimension * dimension
+
+
+def _depth_two_solve(matrix: int, rhs: int, dimension: int) -> int:
+    return max(matrix, rhs) + 6 * dimension * dimension
+
+
+def _depth_logdet2(lower: int, dimension: int) -> int:
+    return lower + dimension + 1
+
+
+def _depth_symmetrize(value: int) -> int:
+    return value + 2
+
+
+def _outward_fsum(values: tuple[float, ...]) -> float:
+    return math.nextafter(math.fsum(values), math.inf)
+
+
+def _expected_route_rounding_depths(
+    source_kind: str,
+    horizon: int,
+    d_z: int,
+    d_m: int,
+    dimension: int,
+) -> tuple[int, int]:
+    if source_kind == "scaled_pcg64":
+        if (
+            type(horizon) is not int or horizon not in (7, 15, 31)
+            or type(d_z) is not int or d_z != 4
+            or type(d_m) is not int or d_m != 4
+            or type(dimension) is not int or dimension != (horizon + 1) * 8
+        ):
+            raise ValueError("scaled oracle rounding depth structure is invalid")
+        return (
+            448 * horizon * horizon + 915 * horizon + 933,
+            48 * horizon * horizon + 578 * horizon + 699,
+        )
+    if source_kind == "h3_anchor":
+        if (
+            type(horizon) is not int or horizon != 1
+            or type(d_z) is not int or d_z != 1
+            or type(d_m) is not int or d_m != 1
+            or type(dimension) is not int or dimension != 4
+        ):
+            raise ValueError("H3 anchor oracle rounding depth structure is invalid")
+        return 139, 111
+    raise ValueError("oracle rounding depth source family is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +165,7 @@ class H4OracleOperandEvidence:
     value_norm: float
     absolute_summand_accumulation: float
     condition_numbers: tuple[float, ...]
+    rounding_depth: int
     operation_counts: tuple[tuple[H4OracleRouteOperationLabel, int], ...]
 
     def __post_init__(self) -> None:
@@ -109,6 +177,8 @@ class H4OracleOperandEvidence:
             raise ValueError("oracle route scalar norm/accumulation is inconsistent")
         if type(self.condition_numbers) is not tuple or not self.condition_numbers or any(type(item) is not float or not math.isfinite(item) or item <= 0.0 for item in self.condition_numbers):
             raise ValueError("oracle route condition tuple is invalid")
+        if type(self.rounding_depth) is not int or self.rounding_depth <= 0:
+            raise ValueError("oracle route rounding depth must be an exact positive integer")
         if type(self.operation_counts) is not tuple or any(type(item) is not tuple or len(item) != 2 or type(item[0]) is not str or type(item[1]) is not int or item[1] < 0 for item in self.operation_counts):
             raise ValueError("oracle route operation table is invalid")
         labels = tuple(item[0] for item in self.operation_counts)
@@ -185,11 +255,9 @@ class H4OracleRouteAgreement:
             raise ValueError("oracle route agreement must own the two ordered operands")
         if (self.float64_epsilon, self.rounding_constant, self.solver_allowance, self.maximum_allowance_scale_fraction) != (_EPSILON, 4096, 0.0, 1.0e-4):
             raise ValueError("oracle route allowance policy is frozen")
-        canonical_count = sum(item[1] for item in self.canonical_operand.operation_counts)
-        predictive_count = sum(item[1] for item in self.predictive_operand.operation_counts)
         invariant_scale = max(1.0, abs(self.canonical_operand.value), abs(self.predictive_operand.value))
-        canonical_rounding = 4096.0 * _gamma(canonical_count) * max((1.0, *self.canonical_operand.condition_numbers)) * max(1.0, abs(self.canonical_operand.value), self.canonical_operand.absolute_summand_accumulation)
-        predictive_rounding = 4096.0 * _gamma(predictive_count) * max((1.0, *self.predictive_operand.condition_numbers)) * max(1.0, abs(self.predictive_operand.value), self.predictive_operand.absolute_summand_accumulation)
+        canonical_rounding = 4096.0 * _gamma(self.canonical_operand.rounding_depth) * max((1.0, *self.canonical_operand.condition_numbers)) * max(1.0, abs(self.canonical_operand.value), self.canonical_operand.absolute_summand_accumulation)
+        predictive_rounding = 4096.0 * _gamma(self.predictive_operand.rounding_depth) * max((1.0, *self.predictive_operand.condition_numbers)) * max(1.0, abs(self.predictive_operand.value), self.predictive_operand.absolute_summand_accumulation)
         comparison = 4096.0 * _gamma(3) * max(1.0, abs(self.canonical_operand.value), abs(self.predictive_operand.value), abs(self.canonical_operand.value) + abs(self.predictive_operand.value))
         residual = abs(self.canonical_operand.value - self.predictive_operand.value)
         final = canonical_rounding + predictive_rounding + comparison
@@ -235,6 +303,15 @@ class H4OracleEvaluation:
             raise ValueError("oracle evaluation schema/source is invalid")
         if type(self.route_agreement) is not H4OracleRouteAgreement or self.route_agreement.problem_id != self.problem_id or self.route_agreement.problem_sha256 != self.problem_sha256:
             raise ValueError("oracle route agreement provenance mismatch")
+        expected_depths = _expected_route_rounding_depths(
+            self.source_kind, self.horizon, self.d_z, self.d_m, self.dimension,
+        )
+        actual_depths = (
+            self.route_agreement.canonical_operand.rounding_depth,
+            self.route_agreement.predictive_operand.rounding_depth,
+        )
+        if actual_depths != expected_depths:
+            raise ValueError("oracle evaluation rounding depths do not match its source family")
         if self.canonical_log_normalizer != self.route_agreement.canonical_operand.value or self.predictive_log_normalizer != self.route_agreement.predictive_operand.value or self.operand_evidence != (self.route_agreement.canonical_operand, self.route_agreement.predictive_operand):
             raise ValueError("oracle operands must be owned exactly once in route order")
         if type(self.selected_moments) is not tuple or not all(type(item) is H4OracleSelectedMoment for item in self.selected_moments) or type(self.posterior_diagnostic) is not H4OraclePosteriorDiagnostic or type(self.innovation_diagnostics) is not tuple or not all(type(item) is H4OracleInnovationDiagnostic for item in self.innovation_diagnostics):
@@ -640,6 +717,9 @@ def _canonical_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDAr
     constant = 0.0
     conditions: list[float] = []
     counts = {label: 0 for label in _CANONICAL_LABELS}
+    precision_depth = 0
+    natural_depth = 0
+    constant_depth = 0
     for factor in factors:
         rows = factor.target.size
         solved_matrix, lower = _solve_spd(factor.covariance, factor.matrix)
@@ -655,6 +735,17 @@ def _canonical_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDAr
         counts["factor_assembly_matmuls"] += _matmul(dimension, rows, dimension) + _matmul(dimension, rows, 1)
         counts["factor_quadratics"] += _dot(rows)
         counts["factor_logdet_reductions"] += rows + max(0, rows - 1)
+        lower_depth = _depth_cholesky(0, rows)
+        solved_depth = _depth_two_solve(lower_depth, 0, rows)
+        term_depth = _depth_dot(0, solved_depth, rows)
+        quadratic_depth = _depth_dot(0, solved_depth, rows)
+        logdet_depth = _depth_logdet2(lower_depth, rows)
+        constant_term_depth = _depth_scale(_depth_add(
+            _depth_add(quadratic_depth, 1), logdet_depth,
+        ))
+        precision_depth = _depth_add(precision_depth, term_depth)
+        natural_depth = _depth_add(natural_depth, term_depth)
+        constant_depth = _depth_add(constant_depth, constant_term_depth)
     factor_count = len(factors)
     counts["factor_J_sum_reduction"] = factor_count * dimension * dimension
     counts["factor_h_sum_reduction"] = factor_count * dimension
@@ -662,6 +753,7 @@ def _canonical_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDAr
     counts["factor_c_sum_reduction"] = factor_count
     counts["posterior_precision_symmetrization"] = 2 * dimension * dimension
     precision = 0.5 * (precision + precision.T)
+    precision_depth = _depth_symmetrize(precision_depth)
     mean, lower_precision = _solve_spd(precision, natural)
     covariance = np.linalg.solve(lower_precision.T, np.linalg.solve(lower_precision, np.eye(dimension, dtype=np.float64)))
     quadratic_component = 0.5 * float(natural @ mean)
@@ -674,10 +766,29 @@ def _canonical_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDAr
     counts["posterior_quadratic"] = _dot(dimension)
     counts["posterior_logdet_reduction"] = dimension + max(0, dimension - 1)
     counts["route_sum_reduction"] = 3
+    lower_precision_depth = _depth_cholesky(precision_depth, dimension)
+    mean_depth = _depth_two_solve(
+        lower_precision_depth, natural_depth, dimension,
+    )
+    quadratic_component_depth = _depth_scale(_depth_dot(
+        natural_depth, mean_depth, dimension,
+    ))
+    logdet_component_depth = _depth_logdet2(lower_precision_depth, dimension)
+    rounding_depth = _depth_add(
+        _depth_add(
+            _depth_add(constant_depth, quadratic_component_depth),
+            logdet_component_depth,
+        ),
+        2,
+    )
+    absolute_summand_accumulation = _outward_fsum((
+        abs(constant), abs(quadratic_component), abs(logdet_component),
+        abs(dimension_component),
+    ))
     operand = H4OracleOperandEvidence(
         "canonical_log_normalizer", log_normalizer, abs(log_normalizer),
-        abs(constant) + abs(quadratic_component) + abs(logdet_component) + abs(dimension_component),
-        tuple(conditions), tuple((label, counts[label]) for label in _CANONICAL_LABELS),
+        absolute_summand_accumulation, tuple(conditions), rounding_depth,
+        tuple((label, counts[label]) for label in _CANONICAL_LABELS),
     )
     return precision, natural, constant, mean, covariance, log_normalizer, operand
 
@@ -688,23 +799,43 @@ def _predictive_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDA
     local = {global_index: local_index for local_index, global_index in enumerate(initial_indices)}
     initial_precision = np.zeros((len(initial_indices), len(initial_indices)), dtype=np.float64)
     initial_natural = np.zeros(len(initial_indices), dtype=np.float64)
+    conditions: list[float] = []
+    initial_precision_depth = 0
+    initial_natural_depth = 0
     for factor in initial:
+        rows = factor.target.size
         matrix = factor.matrix[:, initial_indices]
         solved_matrix, lower = _solve_spd(factor.covariance, matrix)
         solved_target = np.linalg.solve(lower.T, np.linalg.solve(lower, factor.target))
         initial_precision += matrix.T @ solved_matrix
         initial_natural += matrix.T @ solved_target
+        conditions.append(float(np.linalg.cond(factor.covariance)))
+        lower_depth = _depth_cholesky(0, rows)
+        solved_depth = _depth_two_solve(lower_depth, 0, rows)
+        term_depth = _depth_dot(0, solved_depth, rows)
+        initial_precision_depth = _depth_add(
+            initial_precision_depth, term_depth,
+        )
+        initial_natural_depth = _depth_add(initial_natural_depth, term_depth)
     mean, lower = _solve_spd(initial_precision, initial_natural)
     covariance = np.linalg.solve(lower.T, np.linalg.solve(lower, np.eye(len(initial_indices), dtype=np.float64)))
+    conditions.append(float(np.linalg.cond(initial_precision)))
+    initial_dimension = len(initial_indices)
+    lower_depth = _depth_cholesky(initial_precision_depth, initial_dimension)
+    mean_depth = _depth_two_solve(
+        lower_depth, initial_natural_depth, initial_dimension,
+    )
+    covariance_depth = _depth_two_solve(lower_depth, 0, initial_dimension)
     active = list(initial_indices)
     log_normalizer = 0.0
-    absolute_increment_sum = 0.0
-    conditions: list[float] = []
+    log_normalizer_depth = 0
+    absolute_increments: list[float] = []
     innovations: list[H4OracleInnovationDiagnostic] = []
     counts = {label: 0 for label in _PREDICTIVE_LABELS}
     observation_count = 0
     for factor in factors[len(initial):]:
         if factor.role == "transition":
+            active_size = len(active)
             active_map = {global_index: local_index for local_index, global_index in enumerate(active)}
             if any(index not in active_map for index in factor.parents):
                 raise ValueError("transition references an unavailable parent")
@@ -724,6 +855,20 @@ def _predictive_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDA
             child = len(factor.normalized)
             old = covariance.shape[0] - child
             counts["affine_propagation_matmuls"] += _matmul(child, old, 1) + _matmul(child, old, old) + _matmul(child, old, child)
+            affine_depth = 1
+            child_mean_depth = _depth_add(
+                0, _depth_dot(affine_depth, mean_depth, active_size),
+            )
+            cross_depth = _depth_dot(
+                affine_depth, covariance_depth, active_size,
+            )
+            child_covariance_depth = _depth_add(
+                0, _depth_dot(cross_depth, affine_depth, active_size),
+            )
+            mean_depth = max(mean_depth, child_mean_depth)
+            covariance_depth = _depth_symmetrize(max(
+                covariance_depth, cross_depth, child_covariance_depth,
+            ))
         elif factor.role == "observation":
             if any(index not in active for index in factor.parents):
                 raise ValueError("observation references an unavailable parent")
@@ -745,7 +890,7 @@ def _predictive_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDA
             updated_covariance = covariance - covariance_correction
             covariance = 0.5 * (updated_covariance + updated_covariance.T)
             log_normalizer += increment
-            absolute_increment_sum += abs(increment)
+            absolute_increments.append(abs(increment))
             eigenvalues = np.linalg.eigvalsh(innovation)
             innovations.append(H4OracleInnovationDiagnostic(
                 factor.factor_id, factor.time_index, factor.parents, factor.target.size,
@@ -762,6 +907,30 @@ def _predictive_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDA
             counts["mean_updates"] += _matmul(active_size, rows, 1) + active_size
             counts["covariance_updates"] += _matmul(active_size, rows, rows) + _matmul(active_size, rows, active_size) + active_size * active_size
             observation_count += 1
+            prediction_depth = _depth_dot(0, mean_depth, active_size)
+            residual_depth = _depth_add(0, prediction_depth)
+            cross_depth = _depth_dot(covariance_depth, 0, active_size)
+            innovation_depth = _depth_add(
+                0, _depth_dot(0, cross_depth, active_size),
+            )
+            lower_depth = _depth_cholesky(innovation_depth, rows)
+            whitened_depth = _depth_solve(lower_depth, residual_depth, rows)
+            quadratic_depth = whitened_depth + rows
+            logdet_depth = _depth_logdet2(lower_depth, rows)
+            increment_depth = _depth_scale(_depth_add(
+                _depth_add(quadratic_depth, 1), logdet_depth,
+            ))
+            log_normalizer_depth = _depth_add(
+                log_normalizer_depth, increment_depth,
+            )
+            gain_depth = _depth_two_solve(lower_depth, cross_depth, rows)
+            mean_delta_depth = _depth_dot(gain_depth, residual_depth, rows)
+            mean_depth = _depth_add(mean_depth, mean_delta_depth)
+            temporary_depth = _depth_dot(gain_depth, innovation_depth, rows)
+            correction_depth = _depth_dot(temporary_depth, gain_depth, rows)
+            covariance_depth = _depth_symmetrize(_depth_add(
+                covariance_depth, correction_depth,
+            ))
         else:
             raise ValueError("initial factors must be the leading predictive block")
     if sorted(active) != list(range(dimension)):
@@ -770,20 +939,20 @@ def _predictive_route(factors: tuple[_Factor, ...], dimension: int) -> tuple[NDA
     global_mean = mean[permutation]
     global_covariance = covariance[np.ix_(permutation, permutation)]
     counts["route_sum_reduction"] = max(0, observation_count - 1)
+    absolute_increment_sum = _outward_fsum(tuple(absolute_increments))
     operand = H4OracleOperandEvidence(
         "predictive_log_normalizer", log_normalizer, abs(log_normalizer),
         absolute_increment_sum, tuple(conditions or (1.0,)),
+        log_normalizer_depth,
         tuple((label, counts[label]) for label in _PREDICTIVE_LABELS),
     )
     return global_mean, global_covariance, log_normalizer, tuple(innovations), operand
 
 
 def _route_agreement(problem_id: str, digest: str, canonical: H4OracleOperandEvidence, predictive: H4OracleOperandEvidence) -> H4OracleRouteAgreement:
-    n_canonical = sum(item[1] for item in canonical.operation_counts)
-    n_predictive = sum(item[1] for item in predictive.operation_counts)
     scale = max(1.0, abs(canonical.value), abs(predictive.value))
-    canonical_rounding = 4096.0 * _gamma(n_canonical) * max((1.0, *canonical.condition_numbers)) * max(1.0, abs(canonical.value), canonical.absolute_summand_accumulation)
-    predictive_rounding = 4096.0 * _gamma(n_predictive) * max((1.0, *predictive.condition_numbers)) * max(1.0, abs(predictive.value), predictive.absolute_summand_accumulation)
+    canonical_rounding = 4096.0 * _gamma(canonical.rounding_depth) * max((1.0, *canonical.condition_numbers)) * max(1.0, abs(canonical.value), canonical.absolute_summand_accumulation)
+    predictive_rounding = 4096.0 * _gamma(predictive.rounding_depth) * max((1.0, *predictive.condition_numbers)) * max(1.0, abs(predictive.value), predictive.absolute_summand_accumulation)
     comparison = 4096.0 * _gamma(3) * max(1.0, abs(canonical.value), abs(predictive.value), abs(canonical.value) + abs(predictive.value))
     residual = abs(canonical.value - predictive.value)
     final = canonical_rounding + predictive_rounding + comparison

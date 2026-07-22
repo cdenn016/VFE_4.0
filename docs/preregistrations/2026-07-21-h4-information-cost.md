@@ -219,9 +219,9 @@ Percentiles are computed in log space and only the 20 seeds are inferential
 units; the 220 repetitions are never resampled as independent units.
 
 Each equivalence allowance is element-local. For one scalar operand, with
-binary64 epsilon `2.220446049250313e-16`, `C=4096`, operation count `n`,
-operand condition maximum `kappa`, value norm `v`, and absolute-summand
-accumulation `a`, its rounding allowance is
+binary64 epsilon `2.220446049250313e-16`, `C=4096`, positive integer longest
+scalar dependency-path depth `n`, operand condition maximum `kappa`, value
+norm `v`, and absolute-summand accumulation `a`, its rounding allowance is
 `C*gamma(n)*kappa*max(1,v,a)`, where `gamma(n)=n*eps/(1-n*eps)`.
 A solver-produced operand adds `1e-9*invariant_scale`; an oracle or frozen
 reference adds zero. The comparison reduction adds
@@ -243,12 +243,55 @@ is 67,108,864 bytes (64 MiB).
 The independent NumPy oracle retains both the canonical factor-assembly log
 normalizer and the predictive moment/innovation log normalizer. Their typed
 route-agreement record owns both operand records, their route-specific ordered
-operation counts and condition tuples, the residual and allowance arithmetic,
-and the separate `passed`, `decisive`, and conjunction `eligible` predicates.
+operation-count telemetry, exact positive `rounding_depth` values, condition
+tuples, residual and allowance arithmetic, and the separate `passed`,
+`decisive`, and conjunction `eligible` predicates.
 No route is selected opportunistically. Selected-coordinate records retain
 the initial normalized-index union, terminal transition-child union, and every
 observation-parent union in global-coordinate order, with labels exactly
 `initial`, `terminal`, and `observation[1]` through `observation[T]`.
+
+### Post-INCONCLUSIVE route-allowance correction (2026-07-22)
+
+The earlier route allowance incorrectly substituted the sum of labeled scalar
+operation counts for `n` in `gamma(n)`. Those nonnegative totals remain exact
+work receipts for the stages their frozen labels cover, and remain secondary
+telemetry; they are not a scalar dependency depth. In particular, the current
+predictive label table does not claim to be a complete total-work inventory:
+initial factor/precision solves and scalar dependencies through every
+transition and observation are not all represented by separate labels.
+
+The allowance authority is now the longest scalar dependency path through the
+current NumPy source. Depths use `ADD=max(left,right)+1`, `SCALE=value+1`,
+`DOT=max(left,right)+2*k-1`, `CHOL=value+n*n`,
+`SOLVE=max(matrix,rhs)+3*n*n`,
+`TWO_SOLVE=max(matrix,rhs)+6*n*n`,
+`LOGDET2=lower+n+1`, and `SYM=value+2`. The canonical recurrence follows every
+factor covariance Cholesky, pair of general `numpy.linalg.solve` calls,
+factor dot, ordered `J/h/c` accumulation, posterior symmetrization,
+posterior Cholesky/solves, quadratic, log determinant, and final scalar adds.
+The predictive recurrence follows initial factor assembly and initial
+precision solves, every transition mean/covariance dependency, and every
+observation prediction, innovation, Cholesky, general solve, gain, update, and
+ordered `logZ` accumulation. The frozen scaled canonical/predictive depths are
+`29290/7097` at `T=7`, `115458/20169` at `T=15`, and `459826/64745` at `T=31`;
+the two H3 anchors derive to `139/111` from the same recurrences.
+
+The immutable evaluation boundary validates these depths independently of the
+route constructors and operation-count telemetry. For `scaled_pcg64`, it
+requires `T in {7,15,31}`, `d_z=d_m=4`, `D=(T+1)*8`, and recomputes
+`rounding_depth_canonical=448*T*T+915*T+933` and
+`rounding_depth_predictive=48*T*T+578*T+699`. For `h3_anchor`, it requires
+`T=1`, `d_z=d_m=1`, `D=4`, and recomputes `139/111`. It rejects either depth
+when unequal, including a positive off-by-one operand embedded in a rebuilt,
+arithmetically self-consistent route agreement and evaluation ownership tuple.
+
+Canonical and predictive absolute-summand accumulations use `math.fsum` and
+then one outward `math.nextafter(..., +infinity)`. The predictive condition
+tuple begins with every initial factor-covariance condition in schedule order
+and the initial-precision condition, followed by propagated-covariance and
+innovation conditions in execution order. This correction changes neither
+the frozen `C=4096` nor the strict allowance-scale ratio `<1e-4`.
 
 Condition eligibility is classified only by the configured inclusive
 builders. Oracle and retained terminal posteriors cover all 120 and 2,640

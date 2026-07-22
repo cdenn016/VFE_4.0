@@ -2987,8 +2987,13 @@ def _compact_oracle(
     ):
         raise ValueError(
             "oracle route agreement is not eligible: "
+            f"problem_id={agreement.problem_id!r}; "
             f"canonical_value={agreement.canonical_operand.value!r}; "
+            f"canonical_rounding_depth="
+            f"{agreement.canonical_operand.rounding_depth!r}; "
             f"predictive_value={agreement.predictive_operand.value!r}; "
+            f"predictive_rounding_depth="
+            f"{agreement.predictive_operand.rounding_depth!r}; "
             f"residual={agreement.residual!r}; "
             f"final_allowance={agreement.final_allowance!r}; "
             f"allowance_scale_ratio={agreement.allowance_scale_ratio!r}; "
@@ -4620,6 +4625,10 @@ def _evaluate_complete_core(
         return _empty_core(
             f"materialized_integrity: {failure.stable_error}", anchors=anchors,
             problems=(failure.record,),
+        )
+    except Exception as error:
+        return _empty_core(
+            f"scaled_preflight: {_stable_error(error)}", anchors=anchors,
         )
     completed: list[H4ProblemEvaluation] = []
     timings: list[H4TimingRecord] = []
