@@ -71,6 +71,7 @@ class H2OracleLocalTerms:
     joint_recognition_entropy: float
     complete_elbo: float
     absolute_summand_accumulation: Mapping[str, float] = field(compare=False)
+    spd_operand_kappas: Mapping[str, tuple[float, ...]] = field(compare=False)
 
 
 @dataclass(frozen=True)
@@ -539,6 +540,92 @@ def _local_terms(
         "joint_recognition_entropy": abs(joint_entropy),
         "complete_elbo": math.fsum(abs(value) for value in signed),
     }
+    initial_kappas = (_spd_kappa(q_cov), _spd_kappa(p_cov))
+    emission_kappas = tuple(
+        tuple(_spd_kappa(component.emission_marginals[time].covariance) for component in components)
+        for time in range(2)
+    )
+    model_transition_kappas = tuple(
+        tuple(
+            kappa
+            for component in components
+            for kappa in (
+                _spd_kappa(
+                    component.q.covariance[
+                        np.ix_(
+                            (2 * component.path[1][time - 1] + 1, 2 * time + 1),
+                            (2 * component.path[1][time - 1] + 1, 2 * time + 1),
+                        )
+                    ]
+                ),
+                1.0,
+                1.0,
+            )
+        )
+        for time in (1, 2)
+    )
+    state_transition_kappas = tuple(
+        tuple(
+            kappa
+            for component in components
+            for kappa in (
+                _spd_kappa(
+                    component.q.covariance[
+                        np.ix_(
+                            (
+                                2 * component.path[0][time - 1],
+                                2 * time + 1,
+                                2 * time,
+                            ),
+                            (
+                                2 * component.path[0][time - 1],
+                                2 * time + 1,
+                                2 * time,
+                            ),
+                        )
+                    ]
+                ),
+                1.0,
+                1.0,
+            )
+        )
+        for time in (1, 2)
+    )
+    spd_kappas: dict[str, tuple[float, ...]] = {
+        "expected_log_emission[0]": emission_kappas[0],
+        "expected_log_emission[1]": emission_kappas[1],
+        "initial_model_kl": initial_kappas,
+        "initial_state_kl": initial_kappas,
+        "model_source_kl[0]": (1.0,),
+        "model_transition_kl[0]": model_transition_kappas[0],
+        "model_source_kl[1]": (1.0,),
+        "model_transition_kl[1]": model_transition_kappas[1],
+        "state_source_kl[0]": (1.0,),
+        "state_transition_kl[0]": state_transition_kappas[0],
+        "state_source_kl[1]": (1.0,),
+        "state_transition_kl[1]": state_transition_kappas[1],
+        "joint_recognition_entropy": tuple(
+            component.q.kappa_2 for component in components
+        ),
+    }
+    spd_kappas["complete_elbo"] = tuple(
+        kappa
+        for name in (
+            "expected_log_emission[0]",
+            "expected_log_emission[1]",
+            "initial_model_kl",
+            "initial_state_kl",
+            "model_source_kl[0]",
+            "model_transition_kl[0]",
+            "model_source_kl[1]",
+            "model_transition_kl[1]",
+            "state_source_kl[0]",
+            "state_transition_kl[0]",
+            "state_source_kl[1]",
+            "state_transition_kl[1]",
+        )
+        for kappa in spd_kappas[name]
+    )
     return (
         H2OracleLocalTerms(
             expected_log_emission=(emissions[0].value, emissions[1].value),
@@ -551,6 +638,7 @@ def _local_terms(
             joint_recognition_entropy=joint_entropy,
             complete_elbo=math.fsum(signed),
             absolute_summand_accumulation=MappingProxyType(absolute),
+            spd_operand_kappas=MappingProxyType(spd_kappas),
         ),
         signed,
     )
@@ -724,6 +812,14 @@ def _spd(value: np.ndarray, name: str) -> np.ndarray:
     except np.linalg.LinAlgError as error:
         raise ValueError(f"{name} must be positive definite") from error
     return value
+
+
+def _spd_kappa(value: np.ndarray) -> float:
+    checked = _spd(value, "SPD operand")
+    eigenvalues = np.linalg.eigvalsh(checked)
+    return _positive(
+        float(eigenvalues[-1] / eigenvalues[0]), "SPD operand condition number"
+    )
 
 
 def _positive(value: object, name: str) -> float:

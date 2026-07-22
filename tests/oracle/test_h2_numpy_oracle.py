@@ -186,6 +186,31 @@ def test_h2_oracle_reconstructs_h1_component_local_and_complete_elbo() -> None:
     assert oracle.joint_recognition_entropy == math.fsum(
         (oracle.source_entropy, oracle.weighted_component_entropy)
     )
+    expected_metadata_names = {
+        "expected_log_emission[0]",
+        "expected_log_emission[1]",
+        "initial_model_kl",
+        "initial_state_kl",
+        "model_source_kl[0]",
+        "model_transition_kl[0]",
+        "model_source_kl[1]",
+        "model_transition_kl[1]",
+        "state_source_kl[0]",
+        "state_transition_kl[0]",
+        "state_source_kl[1]",
+        "state_transition_kl[1]",
+        "joint_recognition_entropy",
+        "complete_elbo",
+    }
+    assert set(oracle.local_terms.spd_operand_kappas) == expected_metadata_names
+    assert len(oracle.local_terms.spd_operand_kappas["expected_log_emission[0]"]) == 4
+    assert len(oracle.local_terms.spd_operand_kappas["expected_log_emission[1]"]) == 4
+    assert len(oracle.local_terms.spd_operand_kappas["joint_recognition_entropy"]) == 4
+    assert all(
+        math.isfinite(kappa) and kappa >= 1.0
+        for kappas in oracle.local_terms.spd_operand_kappas.values()
+        for kappa in kappas
+    )
 
 
 def test_h2_oracle_rejects_nonfrozen_order_and_non_json_bytes(tmp_path: Path) -> None:

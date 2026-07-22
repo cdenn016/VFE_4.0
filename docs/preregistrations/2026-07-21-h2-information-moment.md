@@ -19,7 +19,7 @@ This document was frozen before the H2 promotion calculation. The fixture data w
 
 The broader rejection envelope, fixed before promotion, is `D <= 6`, `lambda_min(J) >= 1e-4`, `lambda_max(J) <= 1e4`, `kappa_2(J) <= 1e6`, and `||mu||_inf <= 4`. Every component record includes minimum Cholesky pivot, both extreme eigenvalues, condition number, and mean infinity norm.
 
-The eight already observed Task 3 records are:
+Post-freeze platform observation (not part of the frozen thresholds): the eight Task 3 records were:
 
 | path `(b1,a1)` | law | minimum pivot | `lambda_min` | `lambda_max` | `kappa_2` | `||mu||_inf` |
 |---|---:|---:|---:|---:|---:|---:|
@@ -32,7 +32,7 @@ The eight already observed Task 3 records are:
 | `(1,1)` | q | 0.7921430105782449 | 0.26758127265870907 | 6.053485971289834 | 22.622980715884598 | 0.24999999999999997 |
 | `(1,1)` | p | 0.8981907036954554 | 0.22580664749462606 | 9.478533815515279 | 41.976327626673864 | 0.20000000000000007 |
 
-The preregistered calibration statement remains the plan-frozen conservative summary: `lambda_min >= 0.22580664749462973`, `lambda_max <= 10.189172671632396`, `kappa_2 <= 42.348335716414404`, and `||mu||_inf <= 0.29950000000000004`. The component table reports the platform evaluation that motivated those already frozen bounds; the gate applies the broader envelope, not rounded calibration extrema.
+The preregistered calibration statement remains the plan-frozen summary: `lambda_min >= 0.22580664749462973`, `lambda_max <= 10.189172671632396`, `kappa_2 <= 42.348335716414404`, and `||mu||_inf <= 0.29950000000000004`. The component table is a post-freeze platform observation; the gate applies the broader envelope, not rounded calibration extrema.
 
 ## Frozen absolute budgets
 

@@ -71,17 +71,31 @@ class H2Comparison:
 
 
 @dataclass(frozen=True)
+class H2ControlResidual:
+    label: str
+    correct_value: object
+    wrong_value: object
+    residual: float
+    scale: float
+    decisiveness_limit: float
+    margin: float
+    passed: bool
+
+
+@dataclass(frozen=True)
 class H2NegativeControl:
     passed: bool
     detected: bool
     residual: float
     decisiveness_limit: float
-    correct_value: float
-    wrong_value: float
+    correct_value: object
+    wrong_value: object
     forbidden_attempts: int = 0
     injected_attempts: int = 0
     solve_rhs_widths: tuple[int, ...] = ()
     selected_column_sets: tuple[tuple[int, ...], ...] = ()
+    weakest_margin: float = 0.0
+    residual_records: tuple[H2ControlResidual, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -264,9 +278,6 @@ def evaluate_h2(config: ResolvedConfig) -> H2GateEvaluation:
         controls = _negative_controls(q_infos, p_infos, oracle, inverse_control)
         if tuple(controls) != H2_NEGATIVE_CONTROL_NAMES:
             raise ValueError("H2 negative-control inventory mismatch")
-        indecisive = tuple(
-            name for name, control in controls.items() if not control.passed
-        )
         conditions = _conditions(information)
 
         invariants: list[InvariantResult] = [
@@ -298,22 +309,7 @@ def evaluate_h2(config: ResolvedConfig) -> H2GateEvaluation:
         if tuple(item.name for item in invariants) != H2_INVARIANT_NAMES:
             raise ValueError("H2 invariant inventory mismatch")
 
-        exceeded = tuple(
-            item
-            for item in invariants
-            if not item.passed and item.value is not None and item.limit is not None
-        )
-        if indecisive:
-            status = GateStatus.INCONCLUSIVE
-            obligations = tuple(
-                f"negative control {name} is indecisive" for name in indecisive
-            )
-        elif exceeded:
-            status = GateStatus.FAIL
-            obligations = ()
-        else:
-            status = GateStatus.PASS
-            obligations = ()
+        status, obligations = _status_and_obligations(tuple(invariants), controls)
         largest = max(comparisons.values(), key=lambda item: item.residual)
         result = GateResult(
             gate="H2",
@@ -700,7 +696,7 @@ def _local_allowances_oracle(oracle: H2MomentOracleEvaluation) -> dict[str, floa
     result = {
         name: path_allowance(
             _DIMENSION,
-            (max(component.q.kappa_2 for component in oracle.components),),
+            oracle.local_terms.spd_operand_kappas[name],
             values[name],
             oracle.local_terms.absolute_summand_accumulation[name],
         )
@@ -753,15 +749,16 @@ def _negative_controls(
     oracle: H2MomentOracleEvaluation,
     inverse: H2NegativeControl,
 ) -> dict[str, H2NegativeControl]:
-    misread_values: list[tuple[float, float, float]] = []
-    determinant_values: list[tuple[float, float, float]] = []
-    marginal_values: list[tuple[float, float, float]] = []
+    misread_values: list[tuple[str, object, object]] = []
+    determinant_values: list[tuple[str, object, object]] = []
+    marginal_values: list[tuple[str, object, object]] = []
     for index, (q_info, p_info, component) in enumerate(zip(q_infos, p_infos, oracle.components)):
-        correct_mean = q_info.mean().numpy()
-        wrong_mean = q_info.factor.solve(q_info.mean()).numpy()
-        residual = infinity_norm(wrong_mean - correct_mean)
-        scale = max(1.0, infinity_norm(correct_mean), infinity_norm(wrong_mean))
-        misread_values.append((residual, scale, infinity_norm(wrong_mean)))
+        for law_name, info_law in (("q", q_info), ("p", p_info)):
+            correct_mean = info_law.mean().numpy()
+            wrong_mean = info_law.factor.solve(info_law.mean()).numpy()
+            misread_values.append(
+                (f"component.{index}.{law_name}", correct_mean, wrong_mean)
+            )
 
         q, p = component.q, component.p
         delta = p.mean - q.mean
@@ -771,18 +768,16 @@ def _negative_controls(
         p_logdet = float(np.linalg.slogdet(p.precision)[1])
         wrong = 0.5 * math.fsum((trace, quadratic, -_DIMENSION, p_logdet, -q_logdet))
         correct = component.gaussian_kl
-        residual = abs(wrong - correct)
-        determinant_values.append((residual, max(1.0, abs(correct), abs(wrong)), wrong))
+        determinant_values.append((f"component.{index}", correct, wrong))
 
         for marginal in component.emission_marginals:
             indices = list(marginal.indices)
             wrong_covariance = np.diag(1.0 / np.diag(q_info.J.numpy())[indices])
-            residual = infinity_norm(wrong_covariance - marginal.covariance)
             marginal_values.append(
                 (
-                    residual,
-                    max(1.0, infinity_norm(marginal.covariance), infinity_norm(wrong_covariance)),
-                    infinity_norm(wrong_covariance),
+                    f"component.{index}.emission[{len(marginal_values) % 2}]",
+                    marginal.covariance,
+                    wrong_covariance,
                 )
             )
     controls = {
@@ -794,20 +789,93 @@ def _negative_controls(
     return controls
 
 
-def _decisive_control(values: list[tuple[float, float, float]]) -> H2NegativeControl:
+def _decisive_control(
+    values: tuple[tuple[str, object, object], ...]
+    | list[tuple[str, object, object]],
+) -> H2NegativeControl:
     if not math.isfinite(CONTROL_DECISIVENESS) or CONTROL_DECISIVENESS < 0.0:
         raise _Inconclusive("negative control decisiveness threshold is indecisive")
-    residual, scale, wrong = max(values, key=lambda item: item[0] / item[1])
-    limit = CONTROL_DECISIVENESS * scale
-    detected = math.isfinite(residual) and math.isfinite(limit) and residual >= limit
+    if not values:
+        raise _Inconclusive("negative control has no affected residuals")
+    records: list[H2ControlResidual] = []
+    for label, correct, wrong in values:
+        if type(label) is not str or not label:
+            raise _Inconclusive("negative control residual label is unavailable")
+        correct_array = np.asarray(correct, dtype=np.float64)
+        wrong_array = np.asarray(wrong, dtype=np.float64)
+        if correct_array.shape != wrong_array.shape:
+            raise _Inconclusive("negative control operands have different shapes")
+        residual = infinity_norm(wrong_array - correct_array)
+        scale = max(1.0, infinity_norm(correct_array), infinity_norm(wrong_array))
+        limit = CONTROL_DECISIVENESS * scale
+        margin = residual - limit
+        passed = (
+            math.isfinite(residual)
+            and math.isfinite(limit)
+            and math.isfinite(margin)
+            and residual >= limit
+        )
+        records.append(
+            H2ControlResidual(
+                label=label,
+                correct_value=_control_value(correct_array),
+                wrong_value=_control_value(wrong_array),
+                residual=residual,
+                scale=scale,
+                decisiveness_limit=limit,
+                margin=margin,
+                passed=passed,
+            )
+        )
+    weakest = min(records, key=lambda record: record.margin)
+    detected = all(record.passed for record in records)
     return H2NegativeControl(
         passed=detected,
         detected=detected,
-        residual=residual,
-        decisiveness_limit=limit,
-        correct_value=0.0,
-        wrong_value=wrong,
+        residual=weakest.residual,
+        decisiveness_limit=weakest.decisiveness_limit,
+        correct_value=weakest.correct_value,
+        wrong_value=weakest.wrong_value,
+        weakest_margin=weakest.margin,
+        residual_records=tuple(records),
     )
+
+
+def _control_value(value: np.ndarray) -> object:
+    if value.ndim == 0:
+        return float(value)
+    return tuple(_control_value(item) for item in value)
+
+
+def _status_and_obligations(
+    invariants: tuple[InvariantResult, ...],
+    controls: Mapping[str, H2NegativeControl],
+) -> tuple[GateStatus, tuple[str, ...]]:
+    finite_failures = tuple(
+        invariant.name
+        for invariant in invariants
+        if (
+            not invariant.name.startswith("negative.")
+            and not invariant.passed
+            and invariant.value is not None
+            and invariant.limit is not None
+        )
+    )
+    if finite_failures:
+        return GateStatus.FAIL, ()
+    unavailable = tuple(
+        invariant.name
+        for invariant in invariants
+        if not invariant.passed and not invariant.name.startswith("negative.")
+    )
+    indecisive = tuple(name for name, control in controls.items() if not control.passed)
+    obligations = tuple(
+        [f"invariant {name} lacks closure evidence" for name in unavailable]
+        + [f"negative control {name} is indecisive" for name in indecisive]
+    )
+    if obligations:
+        return GateStatus.INCONCLUSIVE, obligations
+    return GateStatus.PASS, ()
 
 
 def _validate_config(config: object) -> None:
@@ -842,6 +910,7 @@ __all__ = [
     "CONTROL_DECISIVENESS",
     "EXPECTED_H1_FIXTURE_SHA256",
     "H2Comparison",
+    "H2ControlResidual",
     "H2GateEvaluation",
     "H2NegativeControl",
     "H2MomentEvaluation",
