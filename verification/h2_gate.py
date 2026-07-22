@@ -771,7 +771,7 @@ def _negative_controls(
     for index, (q_info, p_info, component) in enumerate(zip(q_infos, p_infos, oracle.components)):
         for law_name, info_law in (("q", q_info), ("p", p_info)):
             correct_mean = info_law.mean().numpy()
-            wrong_mean = info_law.factor.solve(info_law.mean()).numpy()
+            wrong_mean = info_law.h.numpy()
             misread_values.append(
                 (f"component.{index}.{law_name}", correct_mean, wrong_mean)
             )

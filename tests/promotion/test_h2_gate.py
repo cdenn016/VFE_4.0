@@ -13,7 +13,10 @@ from verification.h2_gate import (
     h2_validation_payload,
 )
 from vfe4.config import resolve_config
+from vfe4.generative import H1GenerativeModel, assemble_generative_information
+from vfe4.recognition import H1RecognitionLaw, assemble_recognition_information
 from vfe4.types import GateResult, GateStatus, InvariantResult
+from vfe4.validation import enumerate_source_paths, load_h1_fixture
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -225,6 +228,38 @@ def test_h2_gate_has_exact_inventory_and_passes_all_three_paths(tmp_path: Path) 
     )
     assert tuple(payload["comparisons"]) == tuple(evaluation.comparisons)
     assert tuple(payload["negative_controls"]) == H2_NEGATIVE_CONTROL_NAMES
+
+
+def test_misread_h_as_mu_control_uses_canonical_coordinate_as_wrong_mean(
+    tmp_path: Path,
+) -> None:
+    fixture = load_h1_fixture(REPO_ROOT / "vfe4" / "validation" / "fixtures" / "h1_v1.json")
+    recognition = H1RecognitionLaw.from_fixture(fixture)
+    generative = H1GenerativeModel.from_fixture(fixture)
+    expected: list[tuple[str, object]] = []
+    for index, path in enumerate(enumerate_source_paths(fixture)):
+        expected.extend(
+            (
+                (
+                    f"component.{index}.q",
+                    assemble_recognition_information(recognition.factors, path),
+                ),
+                (
+                    f"component.{index}.p",
+                    assemble_generative_information(generative.factors, path),
+                ),
+            )
+        )
+
+    evaluation = evaluate_h2(_resolved_config(tmp_path))
+    records = evaluation.negative_controls["misread_h_as_mu"].residual_records
+
+    assert tuple(record.label for record in records) == tuple(
+        label for label, _ in expected
+    )
+    for record, (_, information) in zip(records, expected):
+        np.testing.assert_array_equal(record.correct_value, information.mean().numpy())
+        np.testing.assert_array_equal(record.wrong_value, information.h.numpy())
 
 
 def test_every_mathematical_control_residual_must_be_decisive() -> None:
