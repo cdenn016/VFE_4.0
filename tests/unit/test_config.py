@@ -128,6 +128,40 @@ def test_run_root_cannot_equal_or_contain_repository(
         resolve_config(raw, repo_root=tmp_path)
 
 
+@pytest.mark.parametrize(
+    "run_root",
+    [
+        ".verification",
+        ".verification/runs",
+        ".VeRiFiCaTiOn/RUNS",
+        ".verification/../.verification/alias",
+        ".git",
+        ".git/objects",
+        ".GIT/objects",
+        "alias/../.git/worktrees",
+    ],
+)
+def test_run_root_cannot_enter_repository_control_trees(
+    tmp_path: Path, run_root: str
+) -> None:
+    raw = _raw_config()
+    raw["artifacts"] = {"run_root": run_root}
+
+    with pytest.raises(ValueError, match="control tree"):
+        resolve_config(raw, repo_root=tmp_path)
+
+
+def test_external_run_root_remains_valid(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    external = tmp_path / "external runs"
+    raw = _raw_config()
+    raw["artifacts"] = {"run_root": str(external)}
+
+    resolved = resolve_config(raw, repo_root=repo)
+
+    assert resolved.artifacts.run_root == external.resolve()
+
+
 Mutation = Callable[[dict[str, object]], None]
 
 

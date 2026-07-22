@@ -66,6 +66,22 @@ def test_invalid_raw_mapping_fails_resolution_and_creates_no_run(tmp_path: Path)
     assert not (tmp_path / "runs").exists()
 
 
+@pytest.mark.parametrize("control", [".verification", ".VeRiFiCaTiOn", ".git", ".GIT"])
+def test_launcher_rejects_control_tree_run_root_before_evaluation(
+    monkeypatch: pytest.MonkeyPatch, control: str
+) -> None:
+    module = _load_launcher()
+    raw = copy.deepcopy(module.CONFIG)
+    forbidden = REPO_ROOT / control / "task6-forbidden-publication"
+    raw["artifacts"]["run_root"] = str(forbidden)
+    monkeypatch.setattr(module, "run_h1", lambda config: pytest.fail("evaluated"))
+
+    assert not forbidden.exists()
+    with pytest.raises(ValueError, match="control tree"):
+        module.main(raw)
+    assert not forbidden.exists()
+
+
 def test_launcher_resolves_repo_paths_from_file_not_cwd_with_spaces(tmp_path: Path) -> None:
     working = tmp_path / "cwd with spaces"
     working.mkdir()

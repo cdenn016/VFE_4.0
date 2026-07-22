@@ -8,6 +8,7 @@ import json
 import math
 import os
 import shutil
+import unicodedata
 import uuid
 from collections.abc import Mapping
 from enum import Enum
@@ -78,21 +79,17 @@ def _atomic_write_bytes(path: Path, content: bytes) -> None:
             pass
 
 
-def _payload_path(name: str) -> PurePosixPath:
-    if type(name) is not str or not name or "\\" in name:
-        raise ArtifactPublicationError("artifact names must be nonempty POSIX paths")
-    path = PurePosixPath(name)
-    if path.is_absolute() or ".." in path.parts or path.name == "manifest.sha256":
-        raise ArtifactPublicationError("artifact path is reserved or escapes the run")
-    if path.suffix != ".json":
-        raise ArtifactPublicationError("artifact payloads must be JSON files")
-    return path
+_INVALID_WINDOWS_CHARACTERS = frozenset('<>:"|?*')
+_RESERVED_WINDOWS_STEMS = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+_RESERVED_WINDOWS_STEMS.update(f"COM{index}" for index in range(1, 10))
+_RESERVED_WINDOWS_STEMS.update(f"LPT{index}" for index in range(1, 10))
 
 
-def _run_component(name: str) -> str:
-    """Return one portable, canonical directory component for a run."""
+def _portable_component(name: str, *, context: str) -> str:
     if type(name) is not str or not name:
-        raise ArtifactPublicationError("run_name must be a nonempty canonical component")
+        raise ArtifactPublicationError(f"{context} must be a nonempty component")
+    if unicodedata.normalize("NFC", name) != name:
+        raise ArtifactPublicationError(f"{context} must use canonical Unicode spelling")
     posix = PurePosixPath(name)
     windows = PureWindowsPath(name)
     if (
@@ -102,18 +99,72 @@ def _run_component(name: str) -> str:
         or posix.is_absolute()
         or windows.is_absolute()
         or bool(windows.drive)
+        or bool(windows.root)
         or len(posix.parts) != 1
         or len(windows.parts) != 1
         or name.endswith((".", " "))
-        or any(ord(character) < 32 or character in '<>:"|?*' for character in name)
+        or any(
+            ord(character) < 32 or character in _INVALID_WINDOWS_CHARACTERS
+            for character in name
+        )
     ):
-        raise ArtifactPublicationError("run_name must be one portable canonical component")
-    reserved_stems = {"CON", "PRN", "AUX", "NUL"}
-    reserved_stems.update(f"COM{index}" for index in range(1, 10))
-    reserved_stems.update(f"LPT{index}" for index in range(1, 10))
-    if name.split(".", 1)[0].upper() in reserved_stems:
-        raise ArtifactPublicationError("run_name is reserved on Windows")
+        raise ArtifactPublicationError(f"{context} is not a portable canonical component")
+    if name.split(".", 1)[0].upper() in _RESERVED_WINDOWS_STEMS:
+        raise ArtifactPublicationError(f"{context} is reserved on Windows")
     return name
+
+
+def _payload_path(name: str) -> PurePosixPath:
+    if type(name) is not str or not name or "\\" in name:
+        raise ArtifactPublicationError("artifact names must be nonempty canonical POSIX paths")
+    if unicodedata.normalize("NFC", name) != name:
+        raise ArtifactPublicationError("artifact paths must use canonical Unicode spelling")
+    path = PurePosixPath(name)
+    windows = PureWindowsPath(name)
+    if (
+        path.is_absolute()
+        or windows.is_absolute()
+        or bool(windows.drive)
+        or bool(windows.root)
+        or path.as_posix() != name
+        or not path.parts
+        or any(part in (".", "..") for part in path.parts)
+    ):
+        raise ArtifactPublicationError("artifact path is noncanonical or escapes the run")
+    for component in path.parts:
+        _portable_component(component, context="artifact path component")
+    if path.name.casefold() == "manifest.sha256":
+        raise ArtifactPublicationError("artifact manifest path is reserved")
+    if path.suffix != ".json":
+        raise ArtifactPublicationError("artifact payloads must be JSON files")
+    return path
+
+
+def _validated_payloads(
+    payloads: Mapping[str, object],
+) -> list[tuple[PurePosixPath, object]]:
+    paths: list[tuple[PurePosixPath, object]] = []
+    aliases: dict[tuple[str, ...], str] = {}
+    for name, value in payloads.items():
+        relative = _payload_path(name)
+        alias = tuple(component.casefold() for component in relative.parts)
+        if alias in aliases:
+            raise ArtifactPublicationError(
+                f"artifact payload paths collide portably: {aliases[alias]!r} and {name!r}"
+            )
+        aliases[alias] = name
+        paths.append((relative, value))
+    return sorted(paths, key=lambda item: item[0].as_posix())
+
+
+def _run_component(name: str) -> str:
+    """Return one portable, canonical directory component for a run."""
+    try:
+        return _portable_component(name, context="run_name")
+    except ArtifactPublicationError as exc:
+        if "run_name" in str(exc):
+            raise
+        raise ArtifactPublicationError(f"run_name is invalid: {exc}") from exc
 
 
 def publish_run_directory(
@@ -125,6 +176,7 @@ def publish_run_directory(
     if not isinstance(payloads, Mapping) or not payloads:
         raise ArtifactPublicationError("payloads must be a nonempty mapping")
     safe_run_name = _run_component(run_name)
+    paths = _validated_payloads(payloads)
     staging: Path | None = None
     try:
         root = run_root.resolve()
@@ -132,16 +184,33 @@ def publish_run_directory(
         if final.parent != root:
             raise ArtifactPublicationError("run_name escapes its resolved run_root")
         staging = root / f".staging-{uuid.uuid4().hex}"
+        resolved_staging = staging.resolve()
+        targets: list[tuple[PurePosixPath, Path, object]] = []
+        target_aliases: set[tuple[str, ...]] = set()
+        for relative, value in paths:
+            target = (staging / Path(*relative.parts)).resolve()
+            try:
+                target_relative = target.relative_to(resolved_staging)
+            except ValueError as exc:
+                raise ArtifactPublicationError(
+                    "artifact payload path escapes staging"
+                ) from exc
+            if not target_relative.parts:
+                raise ArtifactPublicationError("artifact payload path must be under staging")
+            target_alias = tuple(part.casefold() for part in target.parts)
+            if target_alias in target_aliases:
+                raise ArtifactPublicationError("resolved artifact payload paths collide")
+            target_aliases.add(target_alias)
+            targets.append((relative, target, value))
         root.mkdir(parents=True, exist_ok=True)
         if final.exists():
             raise ArtifactPublicationError(f"run directory already exists: {final}")
         staging.mkdir()
-        paths = sorted((_payload_path(name), value) for name, value in payloads.items())
-        for relative, value in paths:
-            _atomic_write_bytes(staging / Path(*relative.parts), canonical_json_bytes(value))
+        for _, target, value in targets:
+            _atomic_write_bytes(target, canonical_json_bytes(value))
         manifest_lines = []
-        for relative, _ in paths:
-            data = (staging / Path(*relative.parts)).read_bytes()
+        for relative, target, _ in targets:
+            data = target.read_bytes()
             manifest_lines.append(f"{hashlib.sha256(data).hexdigest()}  {relative.as_posix()}\n")
         _atomic_write_bytes(
             staging / "manifest.sha256", "".join(manifest_lines).encode("utf-8")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -346,6 +347,7 @@ def _negative_controls(
     monolithic: MonolithicElboResult,
     identity: H1IdentityRecord,
     config: ResolvedConfig,
+    fixture_path: Path,
 ) -> dict[str, dict[str, float | bool | str]]:
     source_contribution = math.fsum(
         float(recognition.source_probability(path)) * source_log_ratio
@@ -371,7 +373,7 @@ def _negative_controls(
     raw_residual = abs(wrong_raw - monolithic.value)
     raw_allowance = math.fsum((monolithic.numerical_allowance.total, 64.0 * _EPSILON * max(1.0, abs(wrong_raw), abs(monolithic.value))))
     wrong_evidence = h1_wrong_recognition_mixture_evidence(
-        FIXTURE_PATH,
+        fixture_path,
         fixture.observation_labels,
         quadrature_order=config.validation.quadrature_order,
         convergence_check_order=config.validation.convergence_check_order,
@@ -411,9 +413,9 @@ def _invariant(
     return InvariantResult(name, passed, value, limit, detail)
 
 
-def _evaluate(config: ResolvedConfig) -> _Evaluation:
+def _evaluate(config: ResolvedConfig, fixture_path: Path) -> _Evaluation:
     with torch.no_grad():
-        fixture = load_h1_fixture(FIXTURE_PATH)
+        fixture = load_h1_fixture(fixture_path)
         _validate_fixture(config, fixture)
         model = H1GenerativeModel.from_fixture(fixture)
         recognition = H1RecognitionLaw.from_fixture(fixture)
@@ -430,17 +432,17 @@ def _evaluate(config: ResolvedConfig) -> _Evaluation:
             convergence_check_order=config.validation.convergence_check_order,
         )
     independent = h1_local_diagnostics(
-        FIXTURE_PATH,
+        fixture_path,
         quadrature_order=config.validation.quadrature_order,
         convergence_check_order=config.validation.convergence_check_order,
     )
     identity = h1_evidence_and_posterior_kl(
-        FIXTURE_PATH,
+        fixture_path,
         quadrature_order=config.validation.quadrature_order,
         convergence_check_order=config.validation.convergence_check_order,
     )
     evidences = h1_all_observation_evidences(
-        FIXTURE_PATH,
+        fixture_path,
         quadrature_order=config.validation.quadrature_order,
         convergence_check_order=config.validation.convergence_check_order,
     )
@@ -509,7 +511,9 @@ def _evaluate(config: ResolvedConfig) -> _Evaluation:
         "allowance": sum_allowance,
         "passed": abs(probability_sum - 1.0) <= sum_allowance,
     }
-    controls = _negative_controls(fixture, recognition, monolithic, identity, config)
+    controls = _negative_controls(
+        fixture, recognition, monolithic, identity, config, fixture_path
+    )
     invariants: list[InvariantResult] = []
     for name in PAIRWISE_NAMES:
         comparison = pairwise[name]
@@ -700,35 +704,33 @@ def _config_payload(config: ResolvedConfig) -> dict[str, object]:
     return payload
 
 
-def _fixture_observed_sha256(path: Path) -> str | None:
+def _capture_fixture(path: Path) -> tuple[bytes | None, str | None]:
     try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        content = path.read_bytes()
     except OSError:
-        return None
+        return None, None
+    return content, hashlib.sha256(content).hexdigest()
 
 
 def run_h1(config: ResolvedConfig) -> tuple[GateResult, Path]:
     """Evaluate H1 and publish a complete run, catching computation only."""
     started = _utc_now()
+    fixture_bytes, fixture_observed_sha256 = _capture_fixture(FIXTURE_PATH)
     canonical = _publication_config(config)
-    fixture_observed_sha256 = _fixture_observed_sha256(FIXTURE_PATH)
     evaluation: _Evaluation | None = None
     try:
         _revalidate_config(config, canonical)
-        if fixture_observed_sha256 is None:
+        if fixture_bytes is None or fixture_observed_sha256 is None:
             raise ValueError("H1 fixture is unavailable or unreadable")
         if fixture_observed_sha256 != EXPECTED_H1_FIXTURE_SHA256:
             raise ValueError("H1 fixture content does not match its preregistered SHA-256")
-        candidate = _evaluate(canonical)
-        fixture_observed_sha256 = _fixture_observed_sha256(FIXTURE_PATH)
-        if fixture_observed_sha256 is None:
-            raise ValueError("H1 fixture became unavailable or unreadable during evaluation")
-        if fixture_observed_sha256 != EXPECTED_H1_FIXTURE_SHA256:
-            raise ValueError("H1 fixture changed during evaluation")
+        with tempfile.TemporaryDirectory(prefix="vfe4-h1-fixture-") as temporary:
+            fixture_snapshot = Path(temporary) / "h1_v1.json"
+            fixture_snapshot.write_bytes(fixture_bytes)
+            candidate = _evaluate(canonical, fixture_snapshot)
         evaluation = candidate
         result = candidate.gate_result
     except Exception as exc:
-        fixture_observed_sha256 = _fixture_observed_sha256(FIXTURE_PATH)
         result = _inconclusive(f"H1 computation requires resolution: {exc}")
     ended = _utc_now()
     provenance = build_provenance(

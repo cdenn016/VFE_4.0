@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 from vfe4.config import ResolvedConfig
+from vfe4.config.control_paths import is_repository_control_path
 
 from .atomic import ArtifactPublicationError
 
@@ -55,6 +56,8 @@ def dirty_content_digest(repo_root: Path, run_root: Path) -> str:
         raise ArtifactPublicationError(f"Git path decoding failed: {exc}") from exc
     root = repo_root.resolve()
     configured = run_root.resolve()
+    if is_repository_control_path(configured, root):
+        raise ArtifactPublicationError("run_root must not enter a repository control tree")
     try:
         configured_relative = configured.relative_to(root)
     except ValueError:

@@ -280,6 +280,32 @@ def test_unexpected_evaluator_exception_still_publishes_inconclusive(
     assert run_dir.exists()
 
 
+def test_private_fixture_snapshot_is_cleaned_after_evaluator_exception(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    snapshots: list[Path] = []
+    original_load = gate.load_h1_fixture
+
+    def record_snapshot(path: Path) -> object:
+        snapshots.append(path)
+        return original_load(path)
+
+    monkeypatch.setattr(gate, "load_h1_fixture", record_snapshot)
+    monkeypatch.setattr(
+        gate,
+        "evaluate_monolithic_elbo",
+        lambda *a, **k: (_ for _ in ()).throw(ValueError("snapshot failure")),
+    )
+
+    result, _ = run_h1(_config(tmp_path))
+
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert snapshots and snapshots[0] != FIXTURE_PATH
+    assert all(not path.exists() for path in snapshots)
+
+
 def test_pair_roundoff_is_local_not_global_and_boundary_is_inclusive() -> None:
     from verification.h1_gate import pair_comparison
 
@@ -606,7 +632,7 @@ def test_readable_fixture_hash_mismatch_skips_evaluation_and_is_recorded(
         assert hashlib.sha256((run_dir / name).read_bytes()).hexdigest() == digest
 
 
-def test_fixture_changed_during_evaluation_is_inconclusive_and_final_hash_is_recorded(
+def test_fixture_changed_during_evaluation_remains_bound_to_captured_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import verification.h1_gate as gate
@@ -616,19 +642,85 @@ def test_fixture_changed_during_evaluation_is_inconclusive_and_final_hash_is_rec
     monkeypatch.setattr(gate, "FIXTURE_PATH", fixture_path)
     original = gate._evaluate
 
-    def change_after_evaluation(config: ResolvedConfig) -> object:
-        evaluation = original(config)
+    original_bytes = FIXTURE_PATH.read_bytes()
+
+    def change_after_evaluation(*args: object, **kwargs: object) -> object:
+        evaluation = original(*args, **kwargs)
         fixture_path.write_bytes(fixture_path.read_bytes() + b" ")
         return evaluation
 
     monkeypatch.setattr(gate, "_evaluate", change_after_evaluation)
     result, run_dir = run_h1(_config(tmp_path))
 
-    assert result.status is GateStatus.INCONCLUSIVE
-    assert result.obligations and "fixture" in result.obligations[0].lower()
+    assert result.status is GateStatus.PASS
     provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
     assert provenance["fixture_available"] is True
-    assert provenance["fixture_observed_sha256"] == hashlib.sha256(
+    assert provenance["fixture_observed_sha256"] == hashlib.sha256(original_bytes).hexdigest()
+    assert provenance["fixture_observed_sha256"] == provenance["fixture_expected_sha256"]
+    assert provenance["fixture_observed_sha256"] != hashlib.sha256(
         fixture_path.read_bytes()
     ).hexdigest()
-    assert provenance["fixture_observed_sha256"] != provenance["fixture_expected_sha256"]
+
+
+def test_changed_then_restored_source_is_read_once_and_all_phases_use_one_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import verification.h1_gate as gate
+
+    original_bytes = FIXTURE_PATH.read_bytes()
+    fixture_path = tmp_path / "h1.json"
+    fixture_path.write_bytes(original_bytes)
+    monkeypatch.setattr(gate, "FIXTURE_PATH", fixture_path)
+
+    source_reads = 0
+    original_read_bytes = Path.read_bytes
+
+    def count_source_reads(path: Path) -> bytes:
+        nonlocal source_reads
+        if path == fixture_path:
+            source_reads += 1
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", count_source_reads)
+    observed_paths: list[Path] = []
+    for name in (
+        "load_h1_fixture",
+        "h1_local_diagnostics",
+        "h1_evidence_and_posterior_kl",
+        "h1_all_observation_evidences",
+        "h1_wrong_recognition_mixture_evidence",
+    ):
+        original = getattr(gate, name)
+
+        def record_path(
+            path: Path,
+            *args: object,
+            _original: object = original,
+            **kwargs: object,
+        ) -> object:
+            observed_paths.append(path)
+            assert original_read_bytes(path) == original_bytes
+            return _original(path, *args, **kwargs)  # type: ignore[operator]
+
+        monkeypatch.setattr(gate, name, record_path)
+
+    original_local = gate.evaluate_local_elbo
+
+    def change_and_restore(*args: object, **kwargs: object) -> object:
+        fixture_path.write_bytes(b"{}")
+        try:
+            return original_local(*args, **kwargs)
+        finally:
+            fixture_path.write_bytes(original_bytes)
+
+    monkeypatch.setattr(gate, "evaluate_local_elbo", change_and_restore)
+    result, run_dir = run_h1(_config(tmp_path))
+
+    assert result.status is GateStatus.PASS
+    assert source_reads == 1
+    assert len(observed_paths) == 5
+    assert len(set(observed_paths)) == 1
+    assert observed_paths[0] != fixture_path
+    assert not observed_paths[0].exists()
+    provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance["fixture_observed_sha256"] == hashlib.sha256(original_bytes).hexdigest()

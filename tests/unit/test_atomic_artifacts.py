@@ -134,6 +134,101 @@ def test_publish_run_rejects_manifest_path_and_non_json_payload_names(tmp_path: 
 
 
 @pytest.mark.parametrize(
+    "payload_name",
+    [
+        "D:escape.json",
+        "D:/escape.json",
+        "D:\\escape.json",
+        "\\\\server\\share\\escape.json",
+        "//server/share/escape.json",
+        "config.json:stream.json",
+        "validation\\h1.json",
+        "./config.json",
+        "validation//h1.json",
+        "validation/./h1.json",
+        "validation/../config.json",
+        "CON.json",
+        "validation/AUX.json",
+        "LPT1.payload.json",
+        "folder./config.json",
+        "folder /config.json",
+        "config.json.",
+        "config.json ",
+        "bad<name.json",
+        "bad>name.json",
+        'bad"name.json',
+        "bad|name.json",
+        "bad?name.json",
+        "bad*name.json",
+        "bad\x01name.json",
+        "cafe\u0301.json",
+    ],
+)
+def test_publish_run_rejects_nonportable_payload_keys_before_any_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, payload_name: str
+) -> None:
+    import vfe4.artifacts.atomic as atomic
+
+    run_root = tmp_path / "runs"
+    monkeypatch.setattr(
+        atomic,
+        "_atomic_write_bytes",
+        lambda path, content: pytest.fail(f"attempted write to {path}"),
+    )
+
+    with pytest.raises(ArtifactPublicationError, match="artifact"):
+        publish_run_directory(run_root, "verify-h1-frozen", {payload_name: {}})
+
+    assert not run_root.exists()
+    assert not (tmp_path / "escape.json").exists()
+
+
+def test_publish_run_rejects_portable_case_collisions_before_any_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import vfe4.artifacts.atomic as atomic
+
+    run_root = tmp_path / "runs"
+    monkeypatch.setattr(
+        atomic,
+        "_atomic_write_bytes",
+        lambda path, content: pytest.fail(f"attempted write to {path}"),
+    )
+
+    with pytest.raises(ArtifactPublicationError, match="collid"):
+        publish_run_directory(
+            run_root,
+            "verify-h1-frozen",
+            {"Config.json": {"case": 1}, "config.json": {"case": 2}},
+        )
+
+    assert not run_root.exists()
+
+
+def test_publish_run_rejects_resolved_payload_escape_before_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_resolve = Path.resolve
+    outside = tmp_path / "outside.json"
+
+    def redirect_payload(path: Path, *args: object, **kwargs: object) -> Path:
+        if path.name == "config.json" and path.parent.name.startswith(".staging-"):
+            return outside
+        return real_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", redirect_payload)
+    run_root = tmp_path / "runs"
+
+    with pytest.raises(ArtifactPublicationError, match="staging"):
+        publish_run_directory(
+            run_root, "verify-h1-frozen", {"config.json": {"safe": True}}
+        )
+
+    assert not outside.exists()
+    assert not run_root.exists()
+
+
+@pytest.mark.parametrize(
     "run_name",
     [
         ".",
@@ -214,6 +309,23 @@ def test_dirty_digest_rejects_repo_or_ancestor_as_exclusion_root(tmp_path: Path)
     for unsafe in (repo, repo.parent):
         with pytest.raises(ArtifactPublicationError, match="strict descendant"):
             dirty_content_digest(repo, unsafe)
+
+
+@pytest.mark.parametrize(
+    "control",
+    [".verification", ".verification/runs", ".VeRiFiCaTiOn/runs", ".git", ".git/objects", ".GIT/objects"],
+)
+def test_dirty_digest_rejects_repository_control_tree_as_run_root(
+    tmp_path: Path, control: str
+) -> None:
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+
+    with pytest.raises(ArtifactPublicationError, match="control tree"):
+        dirty_content_digest(repo, repo / control)
 
 
 def test_dirty_digest_never_excludes_tracked_source_beneath_run_root(
