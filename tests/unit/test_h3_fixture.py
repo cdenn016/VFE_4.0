@@ -462,7 +462,7 @@ def test_h3_gate_result_rejects_failed_eligibility_as_fail_decision() -> None:
         )
 
 
-def test_fixture_hash_record_requires_distinct_well_formed_domains() -> None:
+def test_fixture_hash_record_requires_distinct_expected_domains() -> None:
     hashes = H3FixtureHashes(
         coupled_expected_sha256="a" * 64,
         coupled_observed_sha256="a" * 64,
@@ -470,10 +470,20 @@ def test_fixture_hash_record_requires_distinct_well_formed_domains() -> None:
         zero_control_observed_sha256="b" * 64,
     )
     assert hashes.coupled_matches and hashes.zero_control_matches
+
+    corrupted = H3FixtureHashes(
+        coupled_expected_sha256="a" * 64,
+        coupled_observed_sha256="c" * 64,
+        zero_control_expected_sha256="b" * 64,
+        zero_control_observed_sha256="c" * 64,
+    )
+    assert not corrupted.coupled_matches
+    assert not corrupted.zero_control_matches
+
     with pytest.raises(ValueError):
         H3FixtureHashes(
             coupled_expected_sha256="a" * 64,
             coupled_observed_sha256="a" * 64,
             zero_control_expected_sha256="a" * 64,
-            zero_control_observed_sha256="a" * 64,
+            zero_control_observed_sha256="b" * 64,
         )

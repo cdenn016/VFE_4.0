@@ -357,8 +357,6 @@ class H3FixtureHashes:
             _sha256(value, name)
         if self.coupled_expected_sha256 == self.zero_control_expected_sha256:
             raise ValueError("the two expected raw fixture hashes must differ")
-        if self.coupled_observed_sha256 == self.zero_control_observed_sha256:
-            raise ValueError("the two observed raw fixture hashes must differ")
 
     @property
     def coupled_matches(self) -> bool:

@@ -665,9 +665,10 @@ def _cholesky(value: np.ndarray, name: str) -> np.ndarray:
 
 
 def _readonly(value: np.ndarray) -> np.ndarray:
-    result = np.array(value, dtype=np.float64, copy=True)
-    result.setflags(write=False)
-    return result
+    snapshot = np.array(value, dtype=np.float64, order="C", copy=True)
+    return np.frombuffer(
+        snapshot.tobytes(order="C"), dtype=np.float64
+    ).reshape(snapshot.shape)
 
 
 def _freeze_diagnostic(value: object, name: str) -> object:

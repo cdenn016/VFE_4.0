@@ -226,6 +226,17 @@ more explicit obligations and cannot be promoted by agent consensus.
 
 ## Frozen artifact schema
 
+### Implemented verification surface (pre-promotion)
+
+The fail-closed H3 evaluator lives in `verification/h3_gate.py`, with its
+focused promotion contract in `tests/promotion/test_h3_gate.py`. The evaluator
+implements the frozen 19-invariant order, records all 14 allowance-bearing
+comparisons by operand, applies the signed three-way threshold rule, and stops
+before downstream parsing, oracle evaluation, model construction, or
+optimization when either raw fixture digest is wrong. This implementation
+note records the code surface only; it is not promotion evidence and makes no
+test, gate-status, or milestone claim.
+
 An H3-prefix click run publishes one atomic `validation/h3.json` beside the
 unchanged H1/H2 payloads. The H3 payload contains:
 
