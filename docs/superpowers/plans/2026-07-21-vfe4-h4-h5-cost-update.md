@@ -3319,7 +3319,7 @@ class H4EnvironmentRecord:
     processor: str
     platform: str
     platform_system: Literal["Windows", "Linux", "Darwin", "Other"]
-    affinity_cpu_ids: tuple[int, ...]
+    affinity_cpu_ids: tuple[int, ...] | None
     logical_cpu_count: int
     physical_cpu_count: int | None
     torch_version: str
@@ -3693,11 +3693,21 @@ and does not fabricate a value. Omission/malformed ordering makes
 four records serialize as ordinary ordered typed children of
 `H4EnvironmentRecord`; there is no platform-dependent key set.
 
-Physical CPU count is the only conditionally unavailable hardware-count field;
-clock identity/resolution/monotonicity,
-processor/platform/platform-system category, nonempty affinity, logical count, library versions,
-configuration texts/digests, CUDA state, and every variable presence/value are
-mandatory for `mandatory_facts_complete=True`.
+Process affinity is captured by the one shared `process_cpu_affinity()`
+provider: `os.sched_getaffinity(0)` where present, Win32
+`GetProcessAffinityMask` through `ctypes` on Windows, and optional `psutil` only
+as the last fallback. A successful provider result is a sorted, unique,
+nonempty tuple of real CPU IDs. The provider never substitutes
+`range(os.cpu_count())`. If every provider is unavailable, the serialized
+`affinity_cpu_ids` is JSON null and `unavailable_fields` contains
+`"affinity_cpu_ids"`; the tuple/null value and unavailable marker must agree in
+both directions. Because affinity is mandatory, that state makes
+`mandatory_facts_complete=False` and H4 is `INCONCLUSIVE` before any problem or
+timing record is produced. Physical CPU count remains conditionally unavailable
+without itself invalidating completeness. Clock identity/resolution/monotonicity,
+processor/platform/platform-system category, process affinity, logical count,
+library versions, configuration texts/digests, CUDA state, and every variable
+presence/value are mandatory for `mandatory_facts_complete=True`.
 
 ##### Preflight and materialized API boundary
 
@@ -5516,7 +5526,7 @@ the already resolved and typed H4 section with H5 under the one coupled
 H1-H5 milestone, then wire two already typed gates into one artifact family."
 
 - Extend accepted gate prefixes only to `("H1",)`, `("H1","H2")`, `("H1","H2","H3")`, and `("H1","H2","H3","H4","H5")`. Do not accept H4 without H5, H5 without H4, reordered/duplicate gates, or any H6--H8 prefix in this milestone.
-- Add `h4: H4ValidationConfig | None` and `h5: H5ValidationConfig | None`. Both are absent for shorter prefixes and both are required for the H5 prefix. They remain separately hashed sections and produce separate results. `H5ValidationConfig` copies Task 5's exact fixture ID, raw SHA-256, canonical SHA-256, objective-schema SHA-256, factor-input schema version/SHA-256, all three ordered identifier universes, and ordered rule/positive/control IDs. Resolution validates the declared full 64-hex raw digest against the frozen Task 5 constant and rejects any mismatch, truncation, short digest prefix, canonical/schema drift, or ordering change. `resolve_config` never reads, captures, hashes, parses, or receives update-spec bytes. After resolution, the runner is the sole capture owner: it reads the fixture exactly once, immediately recomputes `SHA256(captured_bytes)`, compares it to the resolved full digest before decode, and passes that same bytes object by identity to H5.
+- Add `h4: H4ValidationConfig | None` and `h5: H5ValidationConfig | None`. Both are absent for shorter prefixes and both are required for the H5 prefix. They remain separately hashed sections and produce separate results. `H5ValidationConfig` copies Task 5's exact fixture ID, raw SHA-256, canonical SHA-256, objective-schema SHA-256, factor-input schema version/SHA-256, all three ordered identifier universes, and ordered rule/positive/control IDs. Resolution validates the declared full 64-hex raw digest against the frozen Task 5 constant and rejects any mismatch, truncation, short digest prefix, canonical/schema drift, or ordering change. `resolve_config` never reads, captures, hashes, parses, or receives update-spec bytes. After resolution, the runner is the sole capture owner: it reads the fixture exactly once, immediately recomputes `SHA256(captured_bytes)`, compares it to the resolved full digest before any H1--H5 gate evaluation or parser decode, and passes that same bytes object by identity to H5. The comparison is retained as runner preflight evidence, not converted into a global artifact exception. On a mismatch, ordered evaluation still reaches H5, whose typed preflight publishes `INCONCLUSIVE` atomically with the real observed digest, unavailable derived fields as JSON null, empty update-hash records, and unchanged `H5_NONCLAIM_IDS`; H1--H4 payloads remain publishable. A completed/`READY` H5 result must still agree exactly with the configured digest.
 - H5 v1 config contains `enabled_update_rules=tuple(H5UpdateRule)`, `enabled_update_labels=(UpdateLabel.EXACT_COORDINATE, UpdateLabel.GENERALIZED_EM, UpdateLabel.NATURAL_GRADIENT_PROPOSAL)`, and `mm_proof_artifact=None`. Resolution requires those labels to equal the ordered unique producer labels induced by the enabled rule contracts. Adding `UpdateLabel.VALID_MM` is the concrete unsupported-MM request and is rejected before constructing an `UpdateRequest`, before reading update state, and before calling `evaluate_h5`. Absence of an MM artifact or request never creates an H5 attempt, invariant, obligation, or gate status.
 - Reuse Task 3's `resolve_h4_validation_config` byte-for-byte inside full resolution; require its canonical JSON/SHA-256 and complete nested `H4SolveProtocol` to remain unchanged, require the full resolved configuration's canonical H4 projection to hash to that same H4 digest, and add no second H4 resolver.
 - Extend the explicit result union to include `H4GateResult` and `H5GateResult`; do not merge their measurements or status.
@@ -5558,7 +5568,7 @@ H1-H5 milestone, then wire two already typed gates into one artifact family."
   computation. Focused tests patch the fixture reader to fail if resolution
   attempts any capture.
 
-- [ ] **Step 4: Extend conditional one-time capture and ordered evaluation.** Capture `h1-v1` once for H1/H2/H5, H3 coupled/zero bytes once for H3/H4 only when consumed, and `h5_conditional_update_v1.json` bytes once only for the coupled H1/H2/H3/H4/H5 prefix. Immediately compute and compare its full raw-byte SHA-256 against the exact Task 5/config literal before parser decode; no short digest prefix is accepted or exposed in configuration, gate arguments, provenance, payloads, or artifacts. Pass the same captured H5 byte object by identity to `evaluate_h5` and every production/oracle adapter; H5 receives both `h1_fixture_bytes` and `h5_update_spec_bytes`. Evaluate H1, H2, H3, H4, H5 in order. Invoke the already implemented `evaluate_h4(config.h4, h3_coupled_bytes=..., h3_zero_bytes=...)` exactly once after H3 and before H5, then pass its preexisting `H4ValidationArtifact` to `h4_validation_payload`; the runner does not rebuild H4 status, coverage, or payload content. Publish only after both expensive gates return. Shorter prefixes must neither read, hash, capture, nor publish the H5 update-spec. Aggregate status is `fail` if any gate fails, otherwise `inconclusive` if any is inconclusive, otherwise `pass`.
+- [ ] **Step 4: Extend conditional one-time capture and ordered evaluation.** Capture `h1-v1` once for H1/H2/H5, H3 coupled/zero bytes once for H3/H4 only when consumed, and `h5_conditional_update_v1.json` bytes once only for the coupled H1/H2/H3/H4/H5 prefix. Immediately compute and compare its full raw-byte SHA-256 against the exact Task 5/config literal before any gate evaluation or parser decode; no short digest prefix is accepted or exposed in configuration, gate arguments, provenance, payloads, or artifacts. Retain that comparison without raising a global publication error. Pass the same captured H5 byte object by identity to `evaluate_h5` and every production/oracle adapter; H5 receives both `h1_fixture_bytes` and `h5_update_spec_bytes`. Evaluate H1, H2, H3, H4, H5 in order. A raw-digest mismatch is owned by H5's typed preflight and produces an atomic H5 `INCONCLUSIVE` payload with the real observed digest, exact unavailable/null fields, empty positive/control update-hash records, and unchanged nonclaims while preserving the H1--H4 payloads; a `READY` H5 result must match the configured digest. Invoke the already implemented `evaluate_h4(config.h4, h3_coupled_bytes=..., h3_zero_bytes=...)` exactly once after H3 and before H5, then pass its preexisting `H4ValidationArtifact` to `h4_validation_payload`; the runner does not rebuild H4 status, coverage, or payload content. Publish only after both expensive gates return. Shorter prefixes must neither read, hash, capture, nor publish the H5 update-spec. Aggregate status is `fail` if any gate fails, otherwise `inconclusive` if any is inconclusive, otherwise `pass`.
 
 - [ ] **Step 5: Extend environment and provenance.** Preserve current source/config/dirty-content security fields and expose the canonical `dirty_content_digest` used by milestone preflight/rechecks. Add timing clock implementation/resolution/monotonicity, process CPU affinity, logical/physical CPU counts when available, processor/platform, PyTorch intra/inter-op threads, `torch.__config__.show()` digest/text, NumPy BLAS configuration digest/text, CUDA availability (expected false for H4), and exact values/presence of `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS`, and `VECLIB_MAXIMUM_THREADS`. Publish the preexisting `H4ValidationArtifact` without rebuilding it. Record ordered gate states, the Task 3 `h4_config_sha256`, the distinct full resolved-config SHA-256, and proof that the latter's canonical H4 projection hashes to the former. Record the distinct H5 config hash, H5 raw/canonical update-spec, objective-schema, factor-input-schema, recognition/model/reference/payload hashes, and the ordered per-positive/per-control `UpdateHashRecord` payloads as transaction evidence; Task 9 does not invent an aggregate transaction SHA-256 absent from the frozen Task 7 API. Also record `fixture_hashes["h5-conditional-update-v1"]`, `gate_fixture_consumers["H5"]=("h1-v1","h5-conditional-update-v1")`, H5 universes/rule/control orders/quadrature/allowance rules, and H4/H5 bounded-claim/nonclaim tags. Shorter prefixes contain none of the H5 update-spec fields.
 
@@ -5625,7 +5635,8 @@ Run every Task 10 code block in one PowerShell 5.1 session from the repository r
        'verification/run_gates.py',
       'vfe4/config/__init__.py', 'vfe4/config/schema.py',
       'vfe4/config/resolve.py',
-      'vfe4/artifacts/provenance.py', 'verify_vfe4.py', 'README.md',
+      'vfe4/artifacts/__init__.py', 'vfe4/artifacts/provenance.py',
+      'verify_vfe4.py', 'README.md',
       'tests/unit/test_h4_problem.py', 'tests/unit/test_h4_solvers.py',
       'tests/unit/test_h4_instrumentation.py', 'tests/unit/test_h4_records.py',
       'tests/unit/test_h4_budget.py', 'tests/unit/test_h4_statistics.py',

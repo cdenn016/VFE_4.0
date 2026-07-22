@@ -5,7 +5,13 @@ from .atomic import (
     canonical_json_bytes,
     publish_run_directory,
 )
-from .provenance import build_environment, build_provenance, dirty_content_digest, git_head
+from .provenance import (
+    build_environment,
+    build_provenance,
+    dirty_content_digest,
+    git_head,
+    process_cpu_affinity,
+)
 
 __all__ = [
     "ArtifactPublicationError",
@@ -15,4 +21,5 @@ __all__ = [
     "build_provenance",
     "dirty_content_digest",
     "git_head",
+    "process_cpu_affinity",
 ]

@@ -244,6 +244,11 @@ def test_coupled_click_run_captures_once_orders_five_gates_and_publishes_eight_j
     h3_result = forged(H3GateResult, "H3", GateStatus.PASS)
     h4_result = forged(H4GateResult, "H4", GateStatus.INCONCLUSIVE)
     h5_result = forged(H5GateResult, "H5", GateStatus.PASS)
+    object.__setattr__(
+        h5_result,
+        "update_spec_raw_sha256",
+        raw["h5"]["update_spec_raw_sha256"],
+    )
     order: list[str] = []
     captures: dict[str, tuple[bytes, ...]] = {}
 
@@ -316,31 +321,318 @@ def test_coupled_click_run_captures_once_orders_five_gates_and_publishes_eight_j
     ]
 
 
-def test_coupled_runner_checks_full_h5_digest_before_any_gate_decode_or_evaluation(
+def test_coupled_runner_prechecks_h5_digest_then_publishes_typed_inconclusive(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import verification.h5_gate as h5_gate
     import verification.run_gates as gates
+    from verification.h5_gate import (
+        H5PreflightErrorKind,
+        H5PreflightPhase,
+        H5UnavailableField,
+    )
+    from vfe4.types import H3GateResult, H4GateResult, H5_NONCLAIM_IDS
 
     module = _load_launcher()
     raw = copy.deepcopy(module.CONFIG)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
+    wrong_bytes = bytes(bytearray(b'{"wrong":"must-not-decode"}\n'))
+    original_sha256 = hashlib.sha256
+    wrong_digest = original_sha256(wrong_bytes).hexdigest()
+    expected_digest = raw["h5"]["update_spec_raw_sha256"]
+    assert wrong_digest != expected_digest
+
+    reads = 0
 
     class WrongBytes:
         def read_bytes(self) -> bytes:
-            return b"{}\n"
+            nonlocal reads
+            reads += 1
+            return wrong_bytes
+
+    order: list[str] = []
+    wrong_hash_orders: list[tuple[str, ...]] = []
+    comparison_orders: list[tuple[str, ...]] = []
+
+    class ObservedDigest(str):
+        def __eq__(self, other: object) -> bool:
+            comparison_orders.append(tuple(order))
+            return super().__eq__(other)
+
+        def __ne__(self, other: object) -> bool:
+            comparison_orders.append(tuple(order))
+            return super().__ne__(other)
+
+    class DigestProbe:
+        def __init__(self, digest: str) -> None:
+            self.digest = digest
+
+        def hexdigest(self) -> str:
+            return ObservedDigest(self.digest)
+
+    def recording_sha256(value: bytes = b""):
+        if value is wrong_bytes:
+            wrong_hash_orders.append(tuple(order))
+            digest = original_sha256(value)
+            if len(wrong_hash_orders) == 1:
+                return DigestProbe(digest.hexdigest())
+            return digest
+        return original_sha256(value)
+
+    def begin_evaluation(name: str) -> None:
+        assert wrong_hash_orders[0] == ()
+        assert comparison_orders[0] == ()
+        order.append(name)
+
+    def forged(cls: type, gate: str):
+        value = object.__new__(cls)
+        object.__setattr__(value, "gate", gate)
+        object.__setattr__(value, "status", GateStatus.PASS)
+        return value
+
+    passed_invariant = (InvariantResult("mock", True, 0.0, 0.0, "mock"),)
+    h1_result = GateResult(
+        "H1", GateStatus.PASS, "h1-v1", 0.0, 0.0,
+        {"x": 0.0}, passed_invariant, (),
+    )
+    h2_result = GateResult(
+        "H2", GateStatus.PASS, "h1-v1", 0.0, 0.0,
+        {"x": 0.0}, passed_invariant, (),
+    )
+    h3_result = forged(H3GateResult, "H3")
+    h4_result = forged(H4GateResult, "H4")
+    h1_capture: list[bytes] = []
+    h5_capture: list[bytes] = []
+
+    def evaluate_h1(_config: object, *, fixture_bytes: bytes):
+        begin_evaluation("H1")
+        h1_capture.append(fixture_bytes)
+        return SimpleNamespace(
+            result=h1_result,
+            validation_payload={"gate": "H1", "status": "pass"},
+            fixture_observed_sha256=original_sha256(fixture_bytes).hexdigest(),
+        )
+
+    def evaluate_h2(_config: object, *, fixture_bytes: bytes):
+        begin_evaluation("H2")
+        assert fixture_bytes is h1_capture[0]
+        return SimpleNamespace(
+            result=h2_result,
+            validation_payload={"gate": "H2", "status": "pass"},
+            fixture_observed_sha256=original_sha256(fixture_bytes).hexdigest(),
+        )
+
+    def evaluate_h3(
+        _config: object,
+        *,
+        coupled_fixture_bytes: bytes,
+        zero_control_fixture_bytes: bytes,
+    ):
+        begin_evaluation("H3")
+        return SimpleNamespace(
+            result=h3_result,
+            validation_payload={"gate": "H3", "status": "pass"},
+            fixture_hashes=SimpleNamespace(
+                coupled_expected_sha256=raw["h3"]["coupled_expected_sha256"],
+                coupled_observed_sha256=original_sha256(
+                    coupled_fixture_bytes
+                ).hexdigest(),
+                zero_control_expected_sha256=raw["h3"][
+                    "zero_control_expected_sha256"
+                ],
+                zero_control_observed_sha256=original_sha256(
+                    zero_control_fixture_bytes
+                ).hexdigest(),
+            ),
+        )
+
+    def evaluate_h4(
+        config: object,
+        *,
+        h3_coupled_bytes: bytes,
+        h3_zero_bytes: bytes,
+    ):
+        begin_evaluation("H4")
+        assert type(h3_coupled_bytes) is bytes
+        assert type(h3_zero_bytes) is bytes
+        return SimpleNamespace(
+            result=h4_result,
+            validation_payload={"gate": "H4", "status": "pass"},
+            h4_config_sha256=config.config_sha256,
+            bounded_claim="mock H4 bounded claim",
+            nonclaims=("mock H4 nonclaim",),
+        )
+
+    original_evaluate_h5 = gates.evaluate_h5
+
+    def evaluate_h5(
+        config: object,
+        *,
+        h1_fixture_bytes: bytes,
+        h5_update_spec_bytes: bytes,
+    ):
+        begin_evaluation("H5")
+        assert h1_fixture_bytes is h1_capture[0]
+        assert h5_update_spec_bytes is wrong_bytes
+        h5_capture.append(h5_update_spec_bytes)
+        return original_evaluate_h5(
+            config,
+            h1_fixture_bytes=h1_fixture_bytes,
+            h5_update_spec_bytes=h5_update_spec_bytes,
+        )
 
     monkeypatch.setattr(gates, "H5_UPDATE_SPEC_FIXTURE_PATH", WrongBytes())
+    monkeypatch.setattr(gates.hashlib, "sha256", recording_sha256)
     monkeypatch.setattr(
-        gates, "evaluate_h1",
-        lambda *_args, **_kwargs: pytest.fail("evaluation began before H5 digest check"),
+        h5_gate,
+        "parse_h5_update_spec_bytes",
+        lambda _value: pytest.fail("digest-mismatched H5 bytes were decoded"),
+    )
+    monkeypatch.setattr(gates, "evaluate_h1", evaluate_h1)
+    monkeypatch.setattr(gates, "evaluate_h2", evaluate_h2)
+    monkeypatch.setattr(gates, "evaluate_h3", evaluate_h3)
+    monkeypatch.setattr(gates, "evaluate_h4", evaluate_h4)
+    monkeypatch.setattr(gates, "evaluate_h5", evaluate_h5)
+    monkeypatch.setattr(
+        gates, "h2_validation_payload", lambda value: value.validation_payload
     )
     monkeypatch.setattr(
-        gates, "evaluate_h5",
-        lambda *_args, **_kwargs: pytest.fail("mismatched H5 bytes reached decoder"),
+        gates, "h3_validation_payload", lambda value: value.validation_payload
     )
-    with pytest.raises(ArtifactPublicationError, match="H5 update-spec raw SHA-256"):
-        module.main(raw)
-    assert not (tmp_path / "runs").exists()
+    monkeypatch.setattr(gates, "h4_validation_artifact", lambda value: value)
+    monkeypatch.setattr(
+        gates, "h4_validation_payload", lambda value: value.validation_payload
+    )
+
+    result = module.main(raw)
+
+    assert reads == 1
+    assert h5_capture == [wrong_bytes]
+    assert h5_capture[0] is wrong_bytes
+    assert wrong_hash_orders == [(), ("H1", "H2", "H3", "H4", "H5")]
+    assert comparison_orders[0] == ()
+    assert order == ["H1", "H2", "H3", "H4", "H5"]
+    assert tuple(item.gate for item in result.gate_results) == (
+        "H1", "H2", "H3", "H4", "H5",
+    )
+    assert tuple(item.status for item in result.gate_results) == (
+        GateStatus.PASS,
+        GateStatus.PASS,
+        GateStatus.PASS,
+        GateStatus.PASS,
+        GateStatus.INCONCLUSIVE,
+    )
+
+    runs = list((tmp_path / "runs").iterdir())
+    assert runs == [result.run_directory]
+    manifest_paths = [
+        line.split("  ", 1)[1]
+        for line in (result.run_directory / "manifest.sha256")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert manifest_paths == [
+        "config.json", "environment.json", "provenance.json",
+        "validation/h1.json", "validation/h2.json", "validation/h3.json",
+        "validation/h4.json", "validation/h5.json",
+    ]
+    assert len(manifest_paths) == 8
+    assert all(name.endswith(".json") for name in manifest_paths)
+    for name in manifest_paths:
+        json.loads((result.run_directory / name).read_text(encoding="utf-8"))
+
+    h5_payload = json.loads(
+        (result.run_directory / "validation" / "h5.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    h5_result = h5_payload["result"]
+    preflight = h5_result["preflight"]
+    assert h5_result["status"] == "inconclusive"
+    assert h5_result["update_spec_raw_sha256"] == wrong_digest
+    assert preflight["phase"] == H5PreflightPhase.UPDATE_SPEC_VALIDATION.value
+    assert preflight["update_spec_raw_sha256"] == wrong_digest
+    assert preflight["errors"][0]["kind"] == (
+        H5PreflightErrorKind.UPDATE_SPEC_RAW_DIGEST_MISMATCH.value
+    )
+    assert expected_digest in preflight["errors"][0]["detail"]
+    assert wrong_digest in preflight["errors"][0]["detail"]
+    assert preflight["unavailable_fields"] == [
+        item.value for item in H5UnavailableField
+    ]
+    for name in (
+        "update_spec_canonical_sha256",
+        "objective_schema_sha256",
+        "factor_input_schema_version",
+        "factor_input_schema_sha256",
+        "reference_sha256",
+        "positive_cases",
+        "controls",
+    ):
+        assert h5_result[name] is None
+    for name in (
+        "reference_sha256",
+        "factor_universe",
+        "recognition_coordinate_universe",
+        "model_block_universe",
+        "variable_dependency_rows",
+        "parameter_dependency_rows",
+        "positive_attempts",
+        "controls",
+        "oracle_results",
+    ):
+        assert h5_payload[name] is None
+    assert h5_payload["nonclaims"] == list(H5_NONCLAIM_IDS)
+
+    provenance = json.loads(
+        (result.run_directory / "provenance.json").read_text(encoding="utf-8")
+    )
+    assert provenance["gate_state"] == "inconclusive"
+    assert provenance["gate_states"] == {
+        "H1": "pass",
+        "H2": "pass",
+        "H3": "pass",
+        "H4": "pass",
+        "H5": "inconclusive",
+    }
+    assert provenance["fixture_hashes"]["h5-conditional-update-v1"] == {
+        "expected_sha256": expected_digest,
+        "observed_sha256": wrong_digest,
+        "hash_domain": "raw_fixture_bytes",
+    }
+    assert provenance["h5_config"]["update_spec_raw_sha256"] == expected_digest
+    for name in (
+        "update_spec_canonical_sha256",
+        "objective_schema_sha256",
+        "factor_input_schema_version",
+        "factor_input_schema_sha256",
+    ):
+        assert provenance["h5_config"][name] is None
+    assert provenance["h5_state_hashes"] == {
+        "reference_sha256": None,
+        "recognition_sha256": None,
+        "model_sha256": None,
+        "validation_payload_sha256": h5_payload["payload_sha256"],
+    }
+    assert provenance["h5_update_hash_records"] == {
+        "positive": [],
+        "controls": [],
+    }
+    assert provenance["h5_nonclaims"] == list(H5_NONCLAIM_IDS)
+
+    def assert_full_sha256_fields(value: object) -> None:
+        if isinstance(value, dict):
+            for name, item in value.items():
+                if name.endswith("sha256") and item is not None:
+                    assert type(item) is str
+                    assert len(item) == 64
+                assert_full_sha256_fields(item)
+        elif isinstance(value, list):
+            for item in value:
+                assert_full_sha256_fields(item)
+
+    assert_full_sha256_fields(h5_payload)
+    assert_full_sha256_fields(provenance)
 
 
 @pytest.mark.parametrize("gates", (("H1",), ("H1", "H2")))

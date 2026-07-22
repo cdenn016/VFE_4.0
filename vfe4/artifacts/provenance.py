@@ -21,6 +21,68 @@ from vfe4.config.control_paths import is_repository_control_path, is_same_or_des
 from .atomic import ArtifactPublicationError
 
 
+def _canonical_cpu_affinity(cpu_ids: object) -> tuple[int, ...]:
+    try:
+        observed = tuple(cpu_ids)  # type: ignore[arg-type]
+    except TypeError as exc:
+        raise RuntimeError("process CPU affinity provider returned a non-iterable") from exc
+    if not observed or any(type(cpu_id) is not int or cpu_id < 0 for cpu_id in observed):
+        raise RuntimeError("process CPU affinity provider returned invalid CPU IDs")
+    return tuple(sorted(set(observed)))
+
+
+def process_cpu_affinity() -> tuple[int, ...]:
+    """Return the process's real, canonical CPU-affinity IDs or raise."""
+    failures: list[str] = []
+    sched_getaffinity = getattr(os, "sched_getaffinity", None)
+    if sched_getaffinity is not None:
+        try:
+            return _canonical_cpu_affinity(sched_getaffinity(0))
+        except Exception as exc:
+            failures.append(f"os.sched_getaffinity: {type(exc).__name__}: {exc}")
+
+    if os.name == "nt":
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            get_current_process = kernel32.GetCurrentProcess
+            get_current_process.argtypes = ()
+            get_current_process.restype = wintypes.HANDLE
+            get_process_affinity_mask = kernel32.GetProcessAffinityMask
+            get_process_affinity_mask.argtypes = (
+                wintypes.HANDLE,
+                ctypes.POINTER(ctypes.c_size_t),
+                ctypes.POINTER(ctypes.c_size_t),
+            )
+            get_process_affinity_mask.restype = wintypes.BOOL
+            process_mask = ctypes.c_size_t()
+            system_mask = ctypes.c_size_t()
+            if not get_process_affinity_mask(
+                get_current_process(), ctypes.byref(process_mask), ctypes.byref(system_mask),
+            ):
+                error_code = ctypes.get_last_error()
+                raise OSError(error_code, "GetProcessAffinityMask failed")
+            return _canonical_cpu_affinity(
+                cpu_id
+                for cpu_id in range(process_mask.value.bit_length())
+                if process_mask.value & (1 << cpu_id)
+            )
+        except Exception as exc:
+            failures.append(f"GetProcessAffinityMask: {type(exc).__name__}: {exc}")
+
+    try:
+        import psutil  # type: ignore[import-not-found]
+
+        return _canonical_cpu_affinity(psutil.Process().cpu_affinity())
+    except Exception as exc:
+        failures.append(f"psutil.Process.cpu_affinity: {type(exc).__name__}: {exc}")
+
+    detail = "; ".join(failures) or "no affinity provider is available"
+    raise RuntimeError(f"process CPU affinity is unavailable: {detail}")
+
+
 def _git(repo_root: Path, *arguments: str) -> bytes:
     try:
         completed = subprocess.run(
@@ -171,14 +233,9 @@ def build_environment(config: ResolvedConfig) -> dict[str, object]:
         np.show_config()
     numpy_blas_text = numpy_buffer.getvalue()
     try:
-        affinity: tuple[int, ...] | None = tuple(sorted(os.sched_getaffinity(0)))
-    except (AttributeError, OSError):
-        try:
-            import psutil  # type: ignore[import-not-found]
-
-            affinity = tuple(sorted(psutil.Process().cpu_affinity()))
-        except (ImportError, AttributeError, OSError):
-            affinity = None
+        affinity: tuple[int, ...] | None = process_cpu_affinity()
+    except RuntimeError:
+        affinity = None
     try:
         import psutil  # type: ignore[import-not-found]
 

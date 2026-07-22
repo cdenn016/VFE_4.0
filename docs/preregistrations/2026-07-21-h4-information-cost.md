@@ -114,6 +114,14 @@ restoration-error values. Set/verify failure suppresses timed records and is
 `INCONCLUSIVE`; restoration failure prevents `PASS`. CPU/float64, affinity,
 clock, processor/OS, thread environment, BLAS configuration, and relevant
 power-policy facts are recorded; missing mandatory facts are `INCONCLUSIVE`.
+Affinity uses the shared `process_cpu_affinity()` provider:
+`os.sched_getaffinity(0)` where present, Win32 `GetProcessAffinityMask` through
+`ctypes` on Windows, and optional `psutil` only as the last fallback. Success is
+a sorted, unique, nonempty tuple of observed CPU IDs. No CPU-count range is
+guessed. Provider unavailability is recorded only as JSON null together with
+`"affinity_cpu_ids"` in `unavailable_fields`; tuple/null availability and that
+marker agree in both directions. This mandatory-fact miss makes H4
+`INCONCLUSIVE` before any problem or timing record is produced.
 
 For each problem run three untimed warmup pairs (`pair_index=0,1,2`), followed
 by eleven timed pairs with `pair_index=3+repetition_index`. AB means

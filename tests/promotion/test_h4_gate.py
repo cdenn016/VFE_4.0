@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 import torch
 
+import vfe4.artifacts as artifacts
 import verification.h4_gate as gate
 from verification.h4_gate import (
     H4AnchorEvaluation,
@@ -294,6 +295,94 @@ def _complete_environment() -> H4EnvironmentRecord:
         ),
         True, (), True,
     )  # type: ignore[arg-type]
+
+
+def _not_applicable_power_policy_fields() -> tuple[H4PowerPolicyField, ...]:
+    return tuple(
+        H4PowerPolicyField(name, "not_applicable", "none", None, None)
+        for name in gate._POWER_NAMES
+    )
+
+
+def test_h4_environment_uses_the_shared_live_process_affinity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = getattr(artifacts, "process_cpu_affinity", None)
+    assert callable(provider)
+    monkeypatch.setattr(
+        gate, "_capture_power_policy_fields", _not_applicable_power_policy_fields,
+    )
+
+    affinity = provider()
+    h4_environment = gate._capture_environment()
+    artifact_environment = artifacts.build_environment(SimpleNamespace(run=SimpleNamespace(
+        device="cpu", dtype="float64", seed=20260721, deterministic=True,
+    )))
+
+    assert h4_environment.affinity_cpu_ids == affinity
+    assert artifact_environment["process_cpu_affinity"] == affinity
+    assert "affinity_cpu_ids" not in h4_environment.unavailable_fields
+
+
+def test_h4_environment_affinity_availability_is_an_exact_iff() -> None:
+    unavailable = replace(
+        _complete_environment(), affinity_cpu_ids=None,
+        unavailable_fields=("affinity_cpu_ids",), mandatory_facts_complete=False,
+    )
+    assert unavailable.affinity_cpu_ids is None
+
+    with pytest.raises(ValueError, match="affinity_cpu_ids"):
+        replace(
+            _complete_environment(), unavailable_fields=("affinity_cpu_ids",),
+            mandatory_facts_complete=False,
+        )
+    with pytest.raises(ValueError, match="affinity_cpu_ids"):
+        replace(_complete_environment(), affinity_cpu_ids=None)
+
+
+def test_affinity_unavailability_stops_h4_before_problems_or_timings(
+    monkeypatch: pytest.MonkeyPatch, h4_config,
+) -> None:
+    def unavailable() -> tuple[int, ...]:
+        raise RuntimeError("injected process-affinity unavailability")
+
+    monkeypatch.setattr(gate, "process_cpu_affinity", unavailable, raising=False)
+    monkeypatch.setattr(
+        gate, "_capture_power_policy_fields", _not_applicable_power_policy_fields,
+    )
+    environment = gate._capture_environment()
+    assert environment.affinity_cpu_ids is None
+    assert "affinity_cpu_ids" in environment.unavailable_fields
+    assert environment.mandatory_facts_complete is False
+
+    captured: dict[str, object] = {}
+    state = _valid_thread_state()
+
+    def guard(work):
+        return gate._H4ThreadGuardOutcome(work(), None, state)
+
+    def assemble(core, **kwargs):
+        captured["core"] = core
+        captured["environment"] = kwargs["environment"]
+        return core
+
+    monkeypatch.setattr(gate, "_capture_environment", lambda: environment)
+    monkeypatch.setattr(gate, "_run_thread_guard", guard)
+    monkeypatch.setattr(gate, "_assemble_evaluation", assemble)
+
+    returned = gate.evaluate_h4(
+        h4_config, h3_coupled_bytes=b"coupled", h3_zero_bytes=b"zero",
+    )
+    core = captured["core"]
+    assert returned is core
+    assert captured["environment"] is environment
+    assert core.result.status is gate.GateStatus.INCONCLUSIVE
+    assert core.problems == ()
+    assert core.raw_timings == ()
+    assert (
+        "capture complete mandatory H4 environment facts before timing"
+        in core.result.obligations
+    )
 
 
 def _valid_thread_state() -> H4ThreadStateRecord:

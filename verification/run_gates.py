@@ -26,11 +26,11 @@ from verification.h4_gate import (
 from verification.h5_gate import (
     H5GateEvaluation,
     H5GateResult,
+    H5PreflightPhase,
     evaluate_h5,
     h5_validation_payload,
 )
 from vfe4.artifacts import build_environment, build_provenance, publish_run_directory
-from vfe4.artifacts.atomic import ArtifactPublicationError
 from vfe4.config import ResolvedConfig, resolve_config
 from vfe4.types import GateResult, GateStatus, H3GateResult, H4GateResult
 from vfe4.validation import (
@@ -211,7 +211,10 @@ def _combined_provenance(
         ):
             raise ValueError("full resolved config H4 projection drifted")
         h5_raw = h5.result.update_spec_raw_sha256
-        if h5_raw != config.h5.update_spec_raw_sha256:
+        if (
+            h5.result.preflight.phase is H5PreflightPhase.READY
+            and h5_raw != config.h5.update_spec_raw_sha256
+        ):
             raise ValueError("H5 evaluation/config raw fixture identity differs")
         provenance["fixture_hashes"]["h5-conditional-update-v1"] = {
             "expected_sha256": config.h5.update_spec_raw_sha256,
@@ -301,6 +304,9 @@ def run_verification(config: ResolvedConfig) -> VerificationRunResult:
     coupled_bytes: bytes | None = None
     zero_control_bytes: bytes | None = None
     h5_update_spec_bytes: bytes | None = None
+    observed_h5_sha256: str | None = None
+    expected_h5_sha256: str | None = None
+    h5_update_spec_digest_matches: bool | None = None
     if "H3" in gates:
         coupled_bytes = H3_COUPLED_FIXTURE_PATH.read_bytes()
         zero_control_bytes = H3_ZERO_CONTROL_FIXTURE_PATH.read_bytes()
@@ -309,10 +315,8 @@ def run_verification(config: ResolvedConfig) -> VerificationRunResult:
             raise ValueError("coupled prefix lacks its typed H5 config")
         h5_update_spec_bytes = H5_UPDATE_SPEC_FIXTURE_PATH.read_bytes()
         observed_h5_sha256 = hashlib.sha256(h5_update_spec_bytes).hexdigest()
-        if observed_h5_sha256 != canonical.h5.update_spec_raw_sha256:
-            raise ArtifactPublicationError(
-                "captured H5 update-spec raw SHA-256 does not match configuration"
-            )
+        expected_h5_sha256 = canonical.h5.update_spec_raw_sha256
+        h5_update_spec_digest_matches = observed_h5_sha256 == expected_h5_sha256
 
     h1 = evaluate_h1(legacy, fixture_bytes=h1_bytes)
     h2: H2GateEvaluation | None = None
@@ -351,13 +355,25 @@ def run_verification(config: ResolvedConfig) -> VerificationRunResult:
         results.append(h4.result)
         validation_payloads["validation/h4.json"] = h4_validation_payload(h4_artifact)
     if "H5" in gates:
-        if h5_update_spec_bytes is None:
-            raise RuntimeError("H5 update-spec capture is unavailable")
+        if (
+            h5_update_spec_bytes is None
+            or observed_h5_sha256 is None
+            or expected_h5_sha256 is None
+            or h5_update_spec_digest_matches is None
+        ):
+            raise RuntimeError("H5 update-spec preflight capture is unavailable")
         h5 = evaluate_h5(
             canonical,
             h1_fixture_bytes=h1_bytes,
             h5_update_spec_bytes=h5_update_spec_bytes,
         )
+        if (
+            h5.result.update_spec_raw_sha256 != observed_h5_sha256
+            or (
+                h5.result.update_spec_raw_sha256 == expected_h5_sha256
+            ) is not h5_update_spec_digest_matches
+        ):
+            raise RuntimeError("H5 typed result differs from runner raw digest preflight")
         results.append(h5.result)
         validation_payloads["validation/h5.json"] = h5_validation_payload(h5)
 

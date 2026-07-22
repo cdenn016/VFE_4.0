@@ -27,6 +27,7 @@ from typing import Literal, Protocol, TypeAlias
 import numpy as np
 import torch
 
+from vfe4.artifacts.provenance import process_cpu_affinity
 from verification.h4_budget import (
     H4AllowanceResultSource,
     H4AnchorAllowanceSource,
@@ -931,7 +932,7 @@ class H4EnvironmentRecord:
     processor: str
     platform: str
     platform_system: Literal["Windows", "Linux", "Darwin", "Other"]
-    affinity_cpu_ids: tuple[int, ...]
+    affinity_cpu_ids: tuple[int, ...] | None
     logical_cpu_count: int
     physical_cpu_count: int | None
     torch_version: str
@@ -955,11 +956,22 @@ class H4EnvironmentRecord:
             raise ValueError("clock facts are malformed")
         if self.platform_system not in ("Windows", "Linux", "Darwin", "Other"):
             raise ValueError("platform system category is closed")
+        if type(self.unavailable_fields) is not tuple or len(set(self.unavailable_fields)) != len(self.unavailable_fields) or any(type(item) is not str or not item for item in self.unavailable_fields):
+            raise ValueError("environment unavailable fields must be unique strings")
+        affinity_unavailable = "affinity_cpu_ids" in self.unavailable_fields
+        if (self.affinity_cpu_ids is None) != affinity_unavailable:
+            raise ValueError("affinity_cpu_ids availability is inconsistent")
         if (
-            type(self.affinity_cpu_ids) is not tuple or not self.affinity_cpu_ids
-            or any(type(item) is not int or item < 0 for item in self.affinity_cpu_ids)
-            or tuple(sorted(set(self.affinity_cpu_ids))) != self.affinity_cpu_ids
-            or type(self.logical_cpu_count) is not int or self.logical_cpu_count <= 0
+            self.affinity_cpu_ids is not None
+            and (
+                type(self.affinity_cpu_ids) is not tuple or not self.affinity_cpu_ids
+                or any(type(item) is not int or item < 0 for item in self.affinity_cpu_ids)
+                or tuple(sorted(set(self.affinity_cpu_ids))) != self.affinity_cpu_ids
+            )
+        ):
+            raise ValueError("affinity_cpu_ids must be a sorted unique nonempty tuple")
+        if (
+            type(self.logical_cpu_count) is not int or self.logical_cpu_count <= 0
             or (self.physical_cpu_count is not None and (type(self.physical_cpu_count) is not int or self.physical_cpu_count <= 0))
         ):
             raise ValueError("CPU facts are malformed")
@@ -981,8 +993,6 @@ class H4EnvironmentRecord:
         policy = _strict_tuple(self.power_policy_fields, H4PowerPolicyField, "power_policy_fields")
         if tuple(item.name for item in policy) != _POWER_NAMES or self.power_policy_category_complete is not True:
             raise ValueError("power-policy category/order must be complete")
-        if type(self.unavailable_fields) is not tuple or len(set(self.unavailable_fields)) != len(self.unavailable_fields) or any(type(item) is not str or not item for item in self.unavailable_fields):
-            raise ValueError("environment unavailable fields must be unique strings")
         expected_complete = not any(
             name in self.unavailable_fields for name in (
                 "clock", "processor", "platform", "affinity_cpu_ids", "logical_cpu_count",
@@ -1959,17 +1969,6 @@ def _capture_power_policy_fields() -> tuple[
     return records  # type: ignore[return-value]
 
 
-def _cpu_affinity() -> tuple[int, ...]:
-    if hasattr(os, "sched_getaffinity"):
-        return tuple(sorted(os.sched_getaffinity(0)))  # type: ignore[attr-defined]
-    try:
-        import psutil  # type: ignore[import-not-found]
-
-        return tuple(sorted(psutil.Process().cpu_affinity()))
-    except Exception as error:
-        raise RuntimeError("process CPU affinity is unavailable") from error
-
-
 def _physical_cpu_count() -> int | None:
     try:
         import psutil  # type: ignore[import-not-found]
@@ -2005,15 +2004,13 @@ def _capture_environment() -> H4EnvironmentRecord:
         system_raw if system_raw in ("Windows", "Linux", "Darwin") else "Other"
     )  # type: ignore[assignment]
     try:
-        affinity = _cpu_affinity()
-        if not affinity:
-            raise RuntimeError("process affinity was empty")
-    except Exception:
-        affinity = tuple(range(max(1, os.cpu_count() or 1)))
+        affinity: tuple[int, ...] | None = process_cpu_affinity()
+    except RuntimeError:
+        affinity = None
         unavailable.append("affinity_cpu_ids")
     logical = os.cpu_count()
     if type(logical) is not int or logical <= 0:
-        logical = len(affinity)
+        logical = len(affinity) if affinity is not None else 1
         unavailable.append("logical_cpu_count")
     physical = _physical_cpu_count()
     if physical is None:

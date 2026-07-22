@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 import torch
 
+import vfe4.artifacts as artifacts
 from vfe4.artifacts import (
     ArtifactPublicationError,
     build_environment,
@@ -154,6 +155,44 @@ def test_environment_records_timing_cpu_backend_and_thread_environment() -> None
     assert len(environment["torch_config_sha256"]) == 64
     assert len(environment["numpy_blas_config_sha256"]) == 64
     assert environment["cuda_available"] is bool(torch.cuda.is_available())
+
+
+def test_process_cpu_affinity_is_live_sorted_nonempty_and_used_by_environment() -> None:
+    provider = getattr(artifacts, "process_cpu_affinity", None)
+    assert callable(provider)
+
+    affinity = provider()
+    assert type(affinity) is tuple
+    assert affinity
+    assert affinity == tuple(sorted(set(affinity)))
+    assert all(type(cpu_id) is int and cpu_id >= 0 for cpu_id in affinity)
+
+    config = SimpleNamespace(
+        run=SimpleNamespace(
+            device="cpu", dtype="float64", seed=20260721, deterministic=True
+        )
+    )
+    assert build_environment(config)["process_cpu_affinity"] == affinity
+
+
+def test_environment_records_null_when_shared_affinity_provider_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import vfe4.artifacts.provenance as provenance
+
+    def unavailable() -> tuple[int, ...]:
+        raise RuntimeError("injected process-affinity unavailability")
+
+    monkeypatch.setattr(
+        provenance, "process_cpu_affinity", unavailable, raising=False,
+    )
+    config = SimpleNamespace(
+        run=SimpleNamespace(
+            device="cpu", dtype="float64", seed=20260721, deterministic=True
+        )
+    )
+
+    assert provenance.build_environment(config)["process_cpu_affinity"] is None
 
 
 def test_publish_run_cleans_staging_and_temporary_files_after_injected_failure(
