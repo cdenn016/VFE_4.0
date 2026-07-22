@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -14,6 +15,7 @@ from torch import Tensor
 from vfe4.inference.h4_instrumentation import (
     InstrumentedLinearAlgebra,
     _facade_binding,
+    _facade_proven_spd_tuple,
     _facade_uses_null_recorder,
 )
 from vfe4.types.h4 import (
@@ -28,16 +30,44 @@ from vfe4.types.h4 import (
     H4SolverArm,
     H4SolverResult,
     H4TerminalLaw,
+    _h4_native_information_from_proven_spd,
+    _h4_native_moment_from_proven_spd,
+    _h4_selected_moment_from_proven_spd,
+    _h4_terminal_law_from_proven_spd,
     h4_problem_digest,
 )
 
 _MATERIALIZATION_VERSION = "h4-materialized-problem-v1"
 _MATERIALIZATION_DOMAIN = b"vfe4.h4.materialized-problem.v1\x00"
 _ACCESS_CAPABILITY = object()
+_MATERIALIZATION_FACTORY_CAPABILITY = object()
+_MATERIALIZATION_FACTORY_CONTEXT: ContextVar[object | None] = ContextVar(
+    "h4_materialization_factory_context",
+    default=None,
+)
+_DIAGNOSTICS_FACTORY_CAPABILITY = object()
+_DIAGNOSTICS_FACTORY_CONTEXT: ContextVar[object | None] = ContextVar(
+    "h4_diagnostics_factory_context",
+    default=None,
+)
 
 
-@dataclass(frozen=True, slots=True)
-class H4MaterializedProblem:
+@dataclass(frozen=True, slots=True, eq=False)
+class _MaterializedIntegrityReceipt:
+    tensors: tuple[Tensor, ...]
+    storage_pointers: tuple[int, ...]
+    shapes: tuple[tuple[int, ...], ...]
+    versions: tuple[int, ...]
+    problem_sha256: str
+    tensor_sha256: str
+
+
+class _MaterializedIntegrityOwner:
+    __slots__ = ("_integrity_receipt",)
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class H4MaterializedProblem(_MaterializedIntegrityOwner):
     materialization_version: Literal["h4-materialized-problem-v1"]
     problem_id: str
     problem_sha256: str
@@ -63,10 +93,10 @@ class H4MaterializedProblem:
     tensor_sha256: str
 
     def __post_init__(self) -> None:
+        if _MATERIALIZATION_FACTORY_CONTEXT.get() is not _MATERIALIZATION_FACTORY_CAPABILITY:
+            raise ValueError("H4MaterializedProblem construction requires its factory")
         _validate_materialized_structure(self)
-        observed = _materialized_digest(self)
-        if self.tensor_sha256 != observed:
-            raise ValueError("tensor_sha256 does not match the owned raw tensors")
+        _attach_materialized_receipt(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +157,8 @@ class H4NativeDiagnostics:
     replay_matches_result: Literal[True]
 
     def __post_init__(self) -> None:
+        if _DIAGNOSTICS_FACTORY_CONTEXT.get() is not _DIAGNOSTICS_FACTORY_CAPABILITY:
+            raise ValueError("H4NativeDiagnostics construction requires its factory")
         if type(self.problem_id) is not str or not self.problem_id:
             raise ValueError("problem_id must be a nonempty string")
         _sha256(self.problem_sha256, "problem_sha256")
@@ -150,6 +182,19 @@ class H4NativeDiagnostics:
             raise ValueError("innovation_diagnostics must be exact immutable records")
         if self.arm == "information" and self.innovation_diagnostics:
             raise ValueError("information diagnostics must not contain innovations")
+        if self.arm == "moment" and not self.innovation_diagnostics:
+            raise ValueError("moment diagnostics require nonempty innovation coverage")
+        identities = tuple(
+            (
+                item.factor_id,
+                item.time_index,
+                item.parent_coordinate_indices,
+                item.innovation_dimension,
+            )
+            for item in self.innovation_diagnostics
+        )
+        if len(set(identities)) != len(identities):
+            raise ValueError("innovation diagnostic identities must be unique")
         if self.finite is not True or self.spd is not True or self.replay_matches_result is not True:
             raise ValueError("native diagnostics are emitted only after successful closure")
 
@@ -190,6 +235,109 @@ class _InnovationReplay:
     parent_coordinate_indices: tuple[int, ...]
     covariance: Tensor
     cholesky: Tensor
+
+
+def _make_h4_native_diagnostics(
+    materialized: H4MaterializedProblem,
+    result: H4SolverResult,
+    replayed_result: H4SolverResult,
+    innovation_diagnostics: tuple[H4InnovationDiagnostic, ...],
+) -> H4NativeDiagnostics:
+    _assert_h4_materialized_integrity(materialized)
+    if type(result) is not H4SolverResult or type(replayed_result) is not H4SolverResult:
+        raise ValueError("diagnostic mint requires exact H4SolverResult records")
+    if (
+        result.problem_id != materialized.problem_id
+        or result.problem_sha256 != materialized.problem_sha256
+        or result.protocol_id != materialized.protocol_id
+        or result.factor_count != len(materialized.factor_ids)
+    ):
+        raise ValueError("diagnostic result identity does not match materialized problem")
+    if replayed_result != result:
+        raise ValueError("diagnostic replay does not exactly match the supplied result")
+    _assert_h4_innovation_diagnostic_coverage(
+        materialized,
+        result.arm,
+        innovation_diagnostics,
+    )
+    token = _DIAGNOSTICS_FACTORY_CONTEXT.set(_DIAGNOSTICS_FACTORY_CAPABILITY)
+    try:
+        return H4NativeDiagnostics(
+            materialized.problem_id,
+            materialized.problem_sha256,
+            materialized.protocol_id,
+            result.arm,
+            len(materialized.factor_ids),
+            replayed_result,
+            innovation_diagnostics,
+            True,
+            True,
+            True,
+        )
+    finally:
+        _DIAGNOSTICS_FACTORY_CONTEXT.reset(token)
+
+
+def _expected_h4_innovation_coverage(
+    materialized: H4MaterializedProblem,
+) -> tuple[tuple[str, int, tuple[int, ...], int], ...]:
+    return tuple(
+        (
+            materialized.factor_ids[index],
+            materialized.factor_time_indices[index],
+            materialized.factor_parent_coordinate_indices[index],
+            int(materialized._factor_targets[index].shape[0]),
+        )
+        for index, role in enumerate(materialized.factor_roles)
+        if role == "observation"
+    )
+
+
+def _assert_h4_innovation_coverage(
+    materialized: H4MaterializedProblem,
+    captured: tuple[_InnovationReplay, ...],
+) -> None:
+    if type(captured) is not tuple or not all(type(item) is _InnovationReplay for item in captured):
+        raise ValueError("innovation coverage must be an exact replay tuple")
+    expected = _expected_h4_innovation_coverage(materialized)
+    observed = tuple(
+        (
+            item.factor_id,
+            item.time_index,
+            item.parent_coordinate_indices,
+            int(item.covariance.shape[0])
+            if item.covariance.ndim == 2
+            and item.covariance.shape[0] == item.covariance.shape[1]
+            and item.cholesky.shape == item.covariance.shape
+            else -1,
+        )
+        for item in captured
+    )
+    if observed != expected:
+        raise ValueError("innovation coverage does not exactly match observation schedule")
+
+
+def _assert_h4_innovation_diagnostic_coverage(
+    materialized: H4MaterializedProblem,
+    arm: H4SolverArm,
+    diagnostics: tuple[H4InnovationDiagnostic, ...],
+) -> None:
+    if type(diagnostics) is not tuple or not all(
+        type(item) is H4InnovationDiagnostic for item in diagnostics
+    ):
+        raise ValueError("innovation diagnostic coverage requires exact immutable records")
+    expected = () if arm == "information" else _expected_h4_innovation_coverage(materialized)
+    observed = tuple(
+        (
+            item.factor_id,
+            item.time_index,
+            item.parent_coordinate_indices,
+            item.innovation_dimension,
+        )
+        for item in diagnostics
+    )
+    if observed != expected:
+        raise ValueError("innovation diagnostic coverage does not exactly match observation schedule")
 
 
 def materialize_h4_problem(
@@ -235,7 +383,11 @@ def materialize_h4_problem(
         "_factor_covariances": covariances,
     }
     digest = _materialized_digest_parts(values)
-    return H4MaterializedProblem(**values, tensor_sha256=digest)  # type: ignore[arg-type]
+    token = _MATERIALIZATION_FACTORY_CONTEXT.set(_MATERIALIZATION_FACTORY_CAPABILITY)
+    try:
+        return H4MaterializedProblem(**values, tensor_sha256=digest)  # type: ignore[arg-type]
+    finally:
+        _MATERIALIZATION_FACTORY_CONTEXT.reset(token)
 
 
 def solve_information_form(
@@ -288,11 +440,17 @@ def solve_information_form(
         (precision, natural, mean, complete_objective),
         "information native state",
     )
-    native = H4NativeInformationState(
+    precision_tuple, precision_proof = _facade_proven_spd_tuple(
+        linalg,
+        precision,
+        precision_cholesky,
+    )
+    native = _h4_native_information_from_proven_spd(
         _vector_tuple(natural),
-        _matrix_tuple(precision),
+        precision_tuple,
         _vector_tuple(mean),
         float(complete_objective.item()),
+        J_proof=precision_proof,
     )
     return H4SolverResult(
         materialized.problem_id,
@@ -329,6 +487,11 @@ def to_common_terminal_law(
         natural = _owned_from_tuple(native.h)
         mean = _owned_from_tuple(native.mean)
         precision_cholesky = linalg.cholesky(precision)
+        precision_tuple, precision_proof = _facade_proven_spd_tuple(
+            linalg,
+            precision,
+            precision_cholesky,
+        )
         selected: list[H4SelectedMoment] = []
         for name, indices in blocks:
             columns = torch.zeros((dimension, len(indices)), dtype=torch.float64)
@@ -346,12 +509,20 @@ def to_common_terminal_law(
                 indices,
                 tuple(range(len(indices))),
             )
+            covariance_block = _symmetrize(covariance_block)
+            covariance_block_cholesky = linalg.cholesky(covariance_block)
+            covariance_tuple, covariance_proof = _facade_proven_spd_tuple(
+                linalg,
+                covariance_block,
+                covariance_block_cholesky,
+            )
             mean_block = linalg.selected_block_extract(mean, indices)
             selected.append(
-                H4SelectedMoment(
+                _h4_selected_moment_from_proven_spd(
                     name,
                     _vector_tuple(mean_block),
-                    _matrix_tuple(_symmetrize(covariance_block)),
+                    covariance_tuple,
+                    covariance_proof=covariance_proof,
                 )
             )
         objective = native.complete_objective
@@ -369,6 +540,12 @@ def to_common_terminal_law(
             upper=True,
         )
         precision = _symmetrize(precision)
+        precision_cholesky = linalg.cholesky(precision)
+        precision_tuple, precision_proof = _facade_proven_spd_tuple(
+            linalg,
+            precision,
+            precision_cholesky,
+        )
         natural = linalg.matrix_multiply(precision, mean)
         selected = []
         for name, indices in blocks:
@@ -378,11 +555,19 @@ def to_common_terminal_law(
                 indices,
                 indices,
             )
+            covariance_block = _symmetrize(covariance_block)
+            covariance_block_cholesky = linalg.cholesky(covariance_block)
+            covariance_tuple, covariance_proof = _facade_proven_spd_tuple(
+                linalg,
+                covariance_block,
+                covariance_block_cholesky,
+            )
             selected.append(
-                H4SelectedMoment(
+                _h4_selected_moment_from_proven_spd(
                     name,
                     _vector_tuple(mean_block),
-                    _matrix_tuple(_symmetrize(covariance_block)),
+                    covariance_tuple,
+                    covariance_proof=covariance_proof,
                 )
             )
         objective = native.complete_objective
@@ -397,14 +582,15 @@ def to_common_terminal_law(
     )
     residual = numerator / scale
     _require_finite((precision, natural, mean, residual), "common terminal law")
-    return H4TerminalLaw(
+    return _h4_terminal_law_from_proven_spd(
         result.arm,
         _vector_tuple(natural),
-        _matrix_tuple(_symmetrize(precision)),
+        precision_tuple,
         _vector_tuple(mean),
         tuple(selected),
         objective,
         float(residual.item()),
+        J_proof=precision_proof,
     )
 
 
@@ -430,6 +616,7 @@ def evaluate_h4_native_diagnostics(
             linalg,
             capture=True,
         )
+        _assert_h4_innovation_coverage(materialized, captured)
         innovation_records: list[H4InnovationDiagnostic] = []
         for item in captured:
             eigenvalues = torch.linalg.eigvalsh(item.covariance)
@@ -449,19 +636,11 @@ def evaluate_h4_native_diagnostics(
                 )
             )
         innovations = tuple(innovation_records)
-    if replayed != result:
-        raise ValueError("diagnostic replay does not exactly match the supplied result")
-    return H4NativeDiagnostics(
-        materialized.problem_id,
-        materialized.problem_sha256,
-        materialized.protocol_id,
-        result.arm,
-        len(materialized.factor_ids),
+    return _make_h4_native_diagnostics(
+        materialized,
+        result,
         replayed,
         innovations,
-        True,
-        True,
-        True,
     )
 
 
@@ -599,12 +778,18 @@ def _solve_moment_native(
     if active_set != set(range(dimension)):
         raise ValueError("moment schedule did not activate every global coordinate")
     covariance = _symmetrize(covariance)
-    linalg.cholesky(covariance)
+    covariance_cholesky = linalg.cholesky(covariance)
     _require_finite((mean, covariance, objective), "moment native state")
-    native = H4NativeMomentState(
+    covariance_tuple, covariance_proof = _facade_proven_spd_tuple(
+        linalg,
+        covariance,
+        covariance_cholesky,
+    )
+    native = _h4_native_moment_from_proven_spd(
         _vector_tuple(mean),
-        _matrix_tuple(covariance),
+        covariance_tuple,
         float(objective.item()),
+        covariance_proof=covariance_proof,
     )
     result = H4SolverResult(
         materialized.problem_id,
@@ -618,6 +803,73 @@ def _solve_moment_native(
     return result, tuple(innovations)
 
 
+def _materialized_tensor_tuple(
+    materialized: H4MaterializedProblem,
+) -> tuple[Tensor, ...]:
+    return (
+        *materialized._factor_matrices,
+        *materialized._factor_targets,
+        *materialized._factor_covariances,
+    )
+
+
+def _attach_materialized_receipt(materialized: H4MaterializedProblem) -> None:
+    if _MATERIALIZATION_FACTORY_CONTEXT.get() is not _MATERIALIZATION_FACTORY_CAPABILITY:
+        raise ValueError("materialized receipt issuance requires the active factory context")
+    if type(materialized) is not H4MaterializedProblem:
+        raise ValueError("materialized receipt issuance requires an exact H4MaterializedProblem")
+    if hasattr(materialized, "_integrity_receipt"):
+        raise ValueError("materialized integrity receipt is already issued")
+    observed = _materialized_digest(materialized)
+    if observed != materialized.tensor_sha256:
+        raise ValueError("materialized tensor digest changed before receipt issuance")
+    tensors = _materialized_tensor_tuple(materialized)
+    object.__setattr__(
+        materialized,
+        "_integrity_receipt",
+        _MaterializedIntegrityReceipt(
+            tensors,
+            tuple(int(tensor.untyped_storage().data_ptr()) for tensor in tensors),
+            tuple(tuple(int(size) for size in tensor.shape) for tensor in tensors),
+            tuple(int(tensor._version) for tensor in tensors),
+            materialized.problem_sha256,
+            materialized.tensor_sha256,
+        ),
+    )
+
+
+def _require_h4_materialized_receipt(materialized: H4MaterializedProblem) -> None:
+    receipt = getattr(materialized, "_integrity_receipt", None)
+    tensors = _materialized_tensor_tuple(materialized)
+    if (
+        type(receipt) is not _MaterializedIntegrityReceipt
+        or receipt.problem_sha256 != materialized.problem_sha256
+        or receipt.tensor_sha256 != materialized.tensor_sha256
+        or len(tensors) != len(receipt.tensors)
+        or any(current is not original for current, original in zip(tensors, receipt.tensors, strict=True))
+        or tuple(int(tensor.untyped_storage().data_ptr()) for tensor in tensors)
+        != receipt.storage_pointers
+        or tuple(tuple(int(size) for size in tensor.shape) for tensor in tensors)
+        != receipt.shapes
+        or tuple(int(tensor._version) for tensor in tensors) != receipt.versions
+    ):
+        raise ValueError("materialized integrity receipt is missing, stale, or changed")
+
+
+def _assert_h4_materialized_integrity(materialized: H4MaterializedProblem) -> str:
+    if type(materialized) is not H4MaterializedProblem:
+        raise ValueError("materialized integrity requires an exact H4MaterializedProblem")
+    try:
+        _require_h4_materialized_receipt(materialized)
+        _validate_materialized_structure(materialized)
+        observed = _materialized_digest(materialized)
+        if observed != materialized.tensor_sha256:
+            raise ValueError("materialized tensor digest is invalid")
+    except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+        raise ValueError("materialized integrity validation failed") from exc
+    return observed
+
+
 def _validate_solver_context(
     materialized: H4MaterializedProblem,
     protocol: H4SolveProtocol,
@@ -626,6 +878,7 @@ def _validate_solver_context(
 ) -> None:
     if type(materialized) is not H4MaterializedProblem:
         raise ValueError("materialized must be an exact H4MaterializedProblem")
+    _require_h4_materialized_receipt(materialized)
     _validate_protocol(protocol)
     if (
         materialized.materialization_version != _MATERIALIZATION_VERSION
@@ -643,11 +896,7 @@ def _validate_external_context(
     result: H4SolverResult,
     linalg: InstrumentedLinearAlgebra,
 ) -> None:
-    if type(materialized) is not H4MaterializedProblem:
-        raise ValueError("materialized must be an exact H4MaterializedProblem")
-    _validate_materialized_structure(materialized)
-    if _materialized_digest(materialized) != materialized.tensor_sha256:
-        raise ValueError("materialized tensor digest is invalid")
+    _assert_h4_materialized_integrity(materialized)
     if type(result) is not H4SolverResult:
         raise ValueError("result must be an exact H4SolverResult")
     if (
@@ -677,7 +926,7 @@ def _validate_facade(
     try:
         problem_id, observed_arm = _facade_binding(linalg)
     except ValueError as exc:
-        raise ValueError("invalid H4 facade") from exc
+        raise ValueError("invalid H4 facade: exact InstrumentedLinearAlgebra required") from exc
     if problem_id != materialized.problem_id or observed_arm != arm:
         raise ValueError("facade binding does not match problem and arm")
 
@@ -731,13 +980,7 @@ def _validate_materialized_structure(value: H4MaterializedProblem) -> None:
     ):
         raise ValueError("coordinate_order is invalid")
     _validate_factor_metadata(value)
-    tensors = (
-        *value._factor_matrices,
-        *value._factor_targets,
-        *value._factor_covariances,
-    )
-    if len({tensor.untyped_storage().data_ptr() for tensor in tensors}) != len(tensors):
-        raise ValueError("materialized tensors must own nonaliasing storage")
+    tensors = _materialized_tensor_tuple(value)
     for tensor in tensors:
         if (
             type(tensor) is not Tensor
@@ -749,12 +992,16 @@ def _validate_materialized_structure(value: H4MaterializedProblem) -> None:
             or tensor._base is not None
         ):
             raise ValueError("materialized tensors must be owned contiguous CPU float64")
-    for matrix, target, covariance in zip(
+        if not bool(torch.all(torch.isfinite(tensor)).item()):
+            raise ValueError("materialized raw tensors must be finite")
+    if len({tensor.untyped_storage().data_ptr() for tensor in tensors}) != len(tensors):
+        raise ValueError("materialized tensors must own nonaliasing storage")
+    for index, (matrix, target, covariance) in enumerate(zip(
         value._factor_matrices,
         value._factor_targets,
         value._factor_covariances,
         strict=True,
-    ):
+    )):
         rows = int(target.shape[0]) if target.ndim == 1 else -1
         if (
             matrix.ndim != 2
@@ -764,6 +1011,23 @@ def _validate_materialized_structure(value: H4MaterializedProblem) -> None:
             or rows <= 0
         ):
             raise ValueError("materialized tensor shapes do not match factor metadata")
+        if not torch.equal(covariance, covariance.T):
+            raise ValueError("materialized factor covariance must be exactly symmetric")
+        role = value.factor_roles[index]
+        normalized = value.factor_normalized_coordinate_indices[index]
+        parents = value.factor_parent_coordinate_indices[index]
+        if role in ("initial", "transition"):
+            if len(normalized) != rows:
+                raise ValueError("materialized normalized indices must match residual rows")
+            for row, coordinate in enumerate(normalized):
+                for normalized_coordinate in normalized:
+                    expected = 1.0 if normalized_coordinate == coordinate else 0.0
+                    if float(matrix[row, normalized_coordinate].item()) != expected:
+                        raise ValueError("materialized normalized columns must be identity")
+        allowed = set(normalized) | set(parents)
+        for column in range(value.dimension):
+            if column not in allowed and bool(torch.any(matrix[:, column] != 0.0).item()):
+                raise ValueError("materialized matrix has support outside declared coordinates")
 
 
 def _validate_factor_metadata(value: H4MaterializedProblem) -> None:

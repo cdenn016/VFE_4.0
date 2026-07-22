@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tracemalloc
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TypeAlias
 
 import torch
@@ -15,11 +15,15 @@ from vfe4.types.h4 import (
     H4OperationKind,
     H4OperationRecord,
     H4SolverArm,
+    _H4_SPD_PROOF_ISSUER,
+    _H4SpdProof,
+    _issue_h4_spd_proof,
 )
 
 _CHOLESKY = torch.linalg.cholesky
 _SOLVE_TRIANGULAR = torch.linalg.solve_triangular
 _MATRIX_MULTIPLY = torch.matmul
+_RECORDER_CAPABILITY_ISSUER = object()
 
 _OperationKey: TypeAlias = tuple[
     str,
@@ -37,6 +41,8 @@ class _RecorderBase:
         self._capability_id: int | None = None
 
     def _bind(self, capability: _RecorderCapability) -> None:
+        if type(capability) is not _RecorderCapability:
+            raise PermissionError("operation recorder binding requires a private capability")
         if self._capability_id is not None:
             raise ValueError("operation recorder is already bound to a facade")
         self._capability_id = id(capability)
@@ -46,11 +52,19 @@ class _RecorderBase:
         capability: _RecorderCapability,
         record: H4OperationRecord,
     ) -> None:
-        if id(capability) != self._capability_id:
-            raise PermissionError("operation recorder mutation requires its facade capability")
-        self._accept_authorized(record)
+        self._require_capability(capability)
+        self._accept_authorized(capability, record)
 
-    def _accept_authorized(self, record: H4OperationRecord) -> None:
+    def _require_capability(self, capability: object) -> None:
+        if type(capability) is not _RecorderCapability or id(capability) != self._capability_id:
+            raise PermissionError("operation recorder mutation requires its facade capability")
+
+    def _accept_authorized(
+        self,
+        capability: _RecorderCapability,
+        record: H4OperationRecord,
+    ) -> None:
+        self._require_capability(capability)
         raise NotImplementedError
 
 
@@ -62,7 +76,12 @@ class NullOperationRecorder(_RecorderBase):
     def snapshot(self) -> tuple[H4OperationRecord, ...]:
         return ()
 
-    def _accept_authorized(self, record: H4OperationRecord) -> None:
+    def _accept_authorized(
+        self,
+        capability: _RecorderCapability,
+        record: H4OperationRecord,
+    ) -> None:
+        self._require_capability(capability)
         del record
 
 
@@ -79,7 +98,12 @@ class CountingOperationRecorder(_RecorderBase):
     def snapshot(self) -> tuple[H4OperationRecord, ...]:
         return tuple(self._records)
 
-    def _accept_authorized(self, record: H4OperationRecord) -> None:
+    def _accept_authorized(
+        self,
+        capability: _RecorderCapability,
+        record: H4OperationRecord,
+    ) -> None:
+        self._require_capability(capability)
         key: _OperationKey = (
             record.problem_id,
             record.arm,
@@ -101,7 +125,9 @@ class CountingOperationRecorder(_RecorderBase):
 class _RecorderCapability:
     __slots__ = ("_recorder",)
 
-    def __init__(self, recorder: _RecorderBase) -> None:
+    def __init__(self, recorder: _RecorderBase, issuer: object) -> None:
+        if issuer is not _RECORDER_CAPABILITY_ISSUER:
+            raise PermissionError("recorder capability requires its private issuer")
         self._recorder = recorder
         recorder._bind(self)
 
@@ -109,10 +135,31 @@ class _RecorderCapability:
         self._recorder._accept(self, record)
 
 
+@dataclass(frozen=True, slots=True, eq=False)
+class _SuccessfulCholesky:
+    value: Tensor
+    factor: Tensor
+    value_shape: tuple[int, ...]
+    factor_shape: tuple[int, ...]
+    value_storage_pointer: int
+    factor_storage_pointer: int
+    value_version: int
+    factor_version: int
+    problem_id: str
+    arm: H4SolverArm
+
+
 class InstrumentedLinearAlgebra:
     """Immutable identity-bound facade over the five counted matrix operations."""
 
-    __slots__ = ("_problem_id", "_arm", "_recorder", "__capability", "_locked")
+    __slots__ = (
+        "_problem_id",
+        "_arm",
+        "_recorder",
+        "_cholesky_receipt",
+        "__capability",
+        "_locked",
+    )
 
     def __init__(
         self,
@@ -130,7 +177,12 @@ class InstrumentedLinearAlgebra:
         object.__setattr__(self, "_problem_id", problem_id)
         object.__setattr__(self, "_arm", arm)
         object.__setattr__(self, "_recorder", recorder)
-        object.__setattr__(self, "_InstrumentedLinearAlgebra__capability", _RecorderCapability(recorder))
+        object.__setattr__(self, "_cholesky_receipt", None)
+        object.__setattr__(
+            self,
+            "_InstrumentedLinearAlgebra__capability",
+            _RecorderCapability(recorder, _RECORDER_CAPABILITY_ISSUER),
+        )
         object.__setattr__(self, "_locked", True)
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -147,9 +199,26 @@ class InstrumentedLinearAlgebra:
         return self._arm
 
     def cholesky(self, value: Tensor) -> Tensor:
+        object.__setattr__(self, "_cholesky_receipt", None)
         _tensor(value, "value")
         result = _CHOLESKY(value)
         self._emit("cholesky", (value,), result)
+        object.__setattr__(
+            self,
+            "_cholesky_receipt",
+            _SuccessfulCholesky(
+                value,
+                result,
+                _shape(value),
+                _shape(result),
+                int(value.untyped_storage().data_ptr()),
+                int(result.untyped_storage().data_ptr()),
+                int(value._version),
+                int(result._version),
+                self._problem_id,
+                self._arm,
+            ),
+        )
         return result
 
     def triangular_solve(
@@ -255,20 +324,30 @@ def measure_untimed_memory(
 ) -> H4MemoryRecord:
     """Run one untimed call and return its separately measured Python peak."""
 
+    if type(problem_id) is not str or not problem_id:
+        raise ValueError("problem_id must be a nonempty string")
+    if arm not in ("information", "moment"):
+        raise ValueError("arm must be an H4 solver arm")
     if not isinstance(callable, Callable):
         raise ValueError("callable must be callable")
     already_tracing = tracemalloc.is_tracing()
     if already_tracing:
-        baseline, _ = tracemalloc.get_traced_memory()
-        tracemalloc.reset_peak()
-    else:
-        tracemalloc.start()
-        baseline = 0
+        callable()
+        return H4MemoryRecord(
+            problem_id,
+            arm,
+            None,
+            None,
+            ("python_peak_bytes", "process_working_set_delta_bytes"),
+        )
+
+    tracemalloc.start()
+    baseline = tracemalloc.get_traced_memory()[0]
     try:
         callable()
-        _, peak = tracemalloc.get_traced_memory()
+        peak = tracemalloc.get_traced_memory()[1]
     finally:
-        if not already_tracing and tracemalloc.is_tracing():
+        if tracemalloc.is_tracing():
             tracemalloc.stop()
     return H4MemoryRecord(
         problem_id,
@@ -280,15 +359,47 @@ def measure_untimed_memory(
 
 
 def _facade_binding(linalg: InstrumentedLinearAlgebra) -> tuple[str, H4SolverArm]:
-    if not isinstance(linalg, InstrumentedLinearAlgebra):
-        raise ValueError("linalg must be an InstrumentedLinearAlgebra facade")
-    return linalg.problem_id, linalg.arm
+    if type(linalg) is not InstrumentedLinearAlgebra:
+        raise ValueError("linalg must be an exact InstrumentedLinearAlgebra facade")
+    return linalg._problem_id, linalg._arm
 
 
 def _facade_uses_null_recorder(linalg: InstrumentedLinearAlgebra) -> bool:
-    if not isinstance(linalg, InstrumentedLinearAlgebra):
+    if type(linalg) is not InstrumentedLinearAlgebra:
         return False
     return type(linalg._recorder) is NullOperationRecorder
+
+
+def _facade_proven_spd_tuple(
+    linalg: InstrumentedLinearAlgebra,
+    value: Tensor,
+    factor: Tensor,
+) -> tuple[tuple[tuple[float, ...], ...], _H4SpdProof]:
+    if type(linalg) is not InstrumentedLinearAlgebra:
+        raise ValueError("SPD proof requires an exact InstrumentedLinearAlgebra facade")
+    matching = linalg._cholesky_receipt
+    object.__setattr__(linalg, "_cholesky_receipt", None)
+    if (
+        type(matching) is not _SuccessfulCholesky
+        or matching.value is not value
+        or matching.factor is not factor
+    ):
+        raise ValueError("SPD proof requires a successful facade Cholesky receipt")
+    if (
+        matching.problem_id != linalg._problem_id
+        or matching.arm != linalg._arm
+        or _shape(value) != matching.value_shape
+        or _shape(factor) != matching.factor_shape
+        or int(value.untyped_storage().data_ptr()) != matching.value_storage_pointer
+        or int(factor.untyped_storage().data_ptr()) != matching.factor_storage_pointer
+        or int(value._version) != matching.value_version
+        or int(factor._version) != matching.factor_version
+    ):
+        raise ValueError("SPD proof tensors changed after facade Cholesky")
+    if value.ndim != 2 or value.shape[0] != value.shape[1]:
+        raise ValueError("SPD proof value must be a square matrix")
+    raw = tuple(tuple(float(item) for item in row) for row in value.tolist())
+    return _issue_h4_spd_proof(raw, _H4_SPD_PROOF_ISSUER)
 
 
 def _tensor(value: object, name: str) -> None:

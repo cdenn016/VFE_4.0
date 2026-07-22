@@ -62,6 +62,27 @@ H4_PRIMARY_EFFECT_THRESHOLD = 0.80
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _UNAVAILABLE_ANCHOR = "not_evaluated_after_decisive_h3_anchor_failure"
 _UNAVAILABLE_ELIGIBILITY = "not_evaluated_after_inconclusive_eligibility"
+_H4_SPD_PROOF_ISSUER = object()
+
+
+@dataclass(frozen=True, slots=True, eq=False, init=False)
+class _H4SpdProof:
+    """Sealed evidence that an exact immutable matrix passed facade Cholesky."""
+
+    _matrix: tuple[tuple[float, ...], ...]
+    _issuer: object
+    _source: Literal["facade_cholesky"]
+
+    def __init__(
+        self,
+        matrix: tuple[tuple[float, ...], ...],
+        issuer: object,
+    ) -> None:
+        if issuer is not _H4_SPD_PROOF_ISSUER:
+            raise PermissionError("H4 SPD proof requires the private issuer")
+        object.__setattr__(self, "_matrix", matrix)
+        object.__setattr__(self, "_issuer", issuer)
+        object.__setattr__(self, "_source", "facade_cholesky")
 
 
 @dataclass(frozen=True)
@@ -207,11 +228,12 @@ class H4SelectedMoment:
     mean: tuple[float, ...]
     covariance: tuple[tuple[float, ...], ...]
     def __post_init__(self) -> None:
-        _string(self.name, "name")
-        mean = _vector(self.mean, len(self.mean) if type(self.mean) is tuple else -1, "mean")
-        if not mean: raise ValueError("mean must be nonempty")
-        covariance = _matrix(self.covariance, len(mean), len(mean), "covariance")
-        _spd(covariance, "covariance")
+        mean, covariance = _selected_moment_values(
+            self.name,
+            self.mean,
+            self.covariance,
+            proof=None,
+        )
         object.__setattr__(self, "mean", mean); object.__setattr__(self, "covariance", covariance)
 
 
@@ -219,11 +241,16 @@ class H4SelectedMoment:
 class H4TerminalLaw:
     arm: H4SolverArm; h: tuple[float, ...]; J: tuple[tuple[float, ...], ...]; mean: tuple[float, ...]; selected_moments: tuple[H4SelectedMoment, ...]; complete_objective: float; stopping_residual: float
     def __post_init__(self) -> None:
-        _law(self.arm, self.h, self.J, self.mean, self.complete_objective, "terminal")
-        if type(self.selected_moments) is not tuple or len(self.selected_moments) < 3 or not all(isinstance(value, H4SelectedMoment) for value in self.selected_moments): raise ValueError("selected_moments must be immutable moments")
-        expected = ("initial", "terminal", *(f"observation[{time}]" for time in range(1, len(self.selected_moments)-1)))
-        if tuple(value.name for value in self.selected_moments) != expected or any(len(value.mean) != len(self.selected_moments[0].mean) for value in self.selected_moments): raise ValueError("selected moments must have exact names and equal blocks")
-        _finite(self.stopping_residual, "stopping_residual")
+        _terminal_law_values(
+            self.arm,
+            self.h,
+            self.J,
+            self.mean,
+            self.selected_moments,
+            self.complete_objective,
+            self.stopping_residual,
+            proof=None,
+        )
 
 @dataclass(frozen=True)
 class H4NativeInformationState:
@@ -234,7 +261,12 @@ class H4NativeInformationState:
 class H4NativeMomentState:
     mean: tuple[float, ...]; covariance: tuple[tuple[float, ...], ...]; complete_objective: float
     def __post_init__(self) -> None:
-        mean = _vector(self.mean, len(self.mean) if type(self.mean) is tuple else -1, "mean"); covariance = _matrix(self.covariance, len(mean), len(mean), "covariance"); _spd(covariance, "covariance"); _finite(self.complete_objective, "complete_objective")
+        mean, covariance, _ = _native_moment_values(
+            self.mean,
+            self.covariance,
+            self.complete_objective,
+            proof=None,
+        )
         object.__setattr__(self, "mean", mean); object.__setattr__(self, "covariance", covariance)
 
 @dataclass(frozen=True)
@@ -244,6 +276,110 @@ class H4SolverResult:
         _string(self.problem_id, "problem_id"); _sha(self.problem_sha256, "problem_sha256")
         if self.arm not in ("information", "moment") or self.protocol_id != "h4-single-pass-v1" or type(self.factor_count) is not int or self.factor_count <= 0: raise ValueError("invalid solver result identity")
         if (self.arm == "information" and (type(self.native_information) is not H4NativeInformationState or self.native_moment is not None)) or (self.arm == "moment" and (type(self.native_moment) is not H4NativeMomentState or self.native_information is not None)): raise ValueError("solver result requires exactly its matching native state")
+
+
+def _h4_native_information_from_proven_spd(
+    h: tuple[float, ...],
+    J: tuple[tuple[float, ...], ...],
+    mean: tuple[float, ...],
+    complete_objective: float,
+    *,
+    J_proof: _H4SpdProof,
+) -> H4NativeInformationState:
+    vector, matrix, normalized_mean, objective = _law_values(
+        "information",
+        h,
+        J,
+        mean,
+        complete_objective,
+        "native_information",
+        proof=J_proof,
+    )
+    result = object.__new__(H4NativeInformationState)
+    object.__setattr__(result, "h", vector)
+    object.__setattr__(result, "J", matrix)
+    object.__setattr__(result, "mean", normalized_mean)
+    object.__setattr__(result, "complete_objective", objective)
+    return result
+
+
+def _h4_native_moment_from_proven_spd(
+    mean: tuple[float, ...],
+    covariance: tuple[tuple[float, ...], ...],
+    complete_objective: float,
+    *,
+    covariance_proof: _H4SpdProof,
+) -> H4NativeMomentState:
+    normalized_mean, normalized_covariance, objective = _native_moment_values(
+        mean,
+        covariance,
+        complete_objective,
+        proof=covariance_proof,
+    )
+    result = object.__new__(H4NativeMomentState)
+    object.__setattr__(result, "mean", normalized_mean)
+    object.__setattr__(result, "covariance", normalized_covariance)
+    object.__setattr__(result, "complete_objective", objective)
+    return result
+
+
+def _h4_selected_moment_from_proven_spd(
+    name: str,
+    mean: tuple[float, ...],
+    covariance: tuple[tuple[float, ...], ...],
+    *,
+    covariance_proof: _H4SpdProof,
+) -> H4SelectedMoment:
+    normalized_mean, normalized_covariance = _selected_moment_values(
+        name,
+        mean,
+        covariance,
+        proof=covariance_proof,
+    )
+    result = object.__new__(H4SelectedMoment)
+    object.__setattr__(result, "name", name)
+    object.__setattr__(result, "mean", normalized_mean)
+    object.__setattr__(result, "covariance", normalized_covariance)
+    return result
+
+
+def _h4_terminal_law_from_proven_spd(
+    arm: H4SolverArm,
+    h: tuple[float, ...],
+    J: tuple[tuple[float, ...], ...],
+    mean: tuple[float, ...],
+    selected_moments: tuple[H4SelectedMoment, ...],
+    complete_objective: float,
+    stopping_residual: float,
+    *,
+    J_proof: _H4SpdProof,
+) -> H4TerminalLaw:
+    (
+        normalized_h,
+        normalized_J,
+        normalized_mean,
+        normalized_selected,
+        objective,
+        residual,
+    ) = _terminal_law_values(
+        arm,
+        h,
+        J,
+        mean,
+        selected_moments,
+        complete_objective,
+        stopping_residual,
+        proof=J_proof,
+    )
+    result = object.__new__(H4TerminalLaw)
+    object.__setattr__(result, "arm", arm)
+    object.__setattr__(result, "h", normalized_h)
+    object.__setattr__(result, "J", normalized_J)
+    object.__setattr__(result, "mean", normalized_mean)
+    object.__setattr__(result, "selected_moments", normalized_selected)
+    object.__setattr__(result, "complete_objective", objective)
+    object.__setattr__(result, "stopping_residual", residual)
+    return result
 
 @dataclass(frozen=True)
 class H4TimingRecord:
@@ -587,9 +723,13 @@ def _matrix(value: object, rows: int, columns: int, name: str) -> tuple[tuple[fl
 def _indices(value: object, dimension: int, name: str) -> tuple[int, ...]:
     if type(value) is not tuple or any(type(item) is not int or item < 0 or item >= dimension for item in value) or len(set(value)) != len(value) or any(left >= right for left, right in zip(value, value[1:], strict=False)): raise ValueError(f"{name} must be strictly ascending unique indices in range")
     return value
+def _symmetric(matrix: tuple[tuple[float, ...], ...], name: str) -> None:
+    size = len(matrix)
+    if any(matrix[i][j] != matrix[j][i] for i in range(size) for j in range(size)):
+        raise ValueError(f"{name} must be symmetric")
 def _spd(matrix: tuple[tuple[float, ...], ...], name: str) -> None:
     size = len(matrix)
-    if any(matrix[i][j] != matrix[j][i] for i in range(size) for j in range(size)): raise ValueError(f"{name} must be symmetric")
+    _symmetric(matrix, name)
     lower = [[0.0] * size for _ in range(size)]
     for i in range(size):
         for j in range(i + 1):
@@ -599,12 +739,161 @@ def _spd(matrix: tuple[tuple[float, ...], ...], name: str) -> None:
                 lower[i][j] = math.sqrt(value)
             else: lower[i][j] = value / lower[j][j]
 
-def _law(arm: object, h: object, J: object, mean: object, objective: object, name: str) -> None:
-    if arm not in ("information", "moment"): raise ValueError(f"{name} arm is invalid")
+def _issue_h4_spd_proof(
+    matrix: tuple[tuple[float, ...], ...],
+    issuer: object,
+) -> tuple[tuple[tuple[float, ...], ...], _H4SpdProof]:
+    if issuer is not _H4_SPD_PROOF_ISSUER:
+        raise PermissionError("H4 SPD proof requires the private issuer")
+    size = len(matrix) if type(matrix) is tuple else -1
+    if size <= 0:
+        raise ValueError("proven SPD matrix must be nonempty")
+    normalized = _matrix(matrix, size, size, "proven_spd")
+    _symmetric(normalized, "proven_spd")
+    return normalized, _H4SpdProof(normalized, issuer)
+
+def _require_h4_spd_proof(
+    matrix: tuple[tuple[float, ...], ...],
+    proof: object,
+    name: str,
+) -> None:
+    if (
+        type(proof) is not _H4SpdProof
+        or proof._issuer is not _H4_SPD_PROOF_ISSUER
+        or proof._source != "facade_cholesky"
+        or proof._matrix != matrix
+    ):
+        raise PermissionError(f"{name} requires matching facade SPD proof")
+
+def _validated_spd_matrix(
+    value: object,
+    size: int,
+    name: str,
+    *,
+    proof: _H4SpdProof | None,
+) -> tuple[tuple[float, ...], ...]:
+    matrix = _matrix(value, size, size, name)
+    if proof is None:
+        _spd(matrix, name)
+    else:
+        _symmetric(matrix, name)
+        _require_h4_spd_proof(matrix, proof, name)
+    return matrix
+
+def _selected_moment_values(
+    name: object,
+    mean: object,
+    covariance: object,
+    *,
+    proof: _H4SpdProof | None,
+) -> tuple[tuple[float, ...], tuple[tuple[float, ...], ...]]:
+    _string(name, "name")
+    normalized_mean = _vector(mean, len(mean) if type(mean) is tuple else -1, "mean")
+    if not normalized_mean:
+        raise ValueError("mean must be nonempty")
+    normalized_covariance = _validated_spd_matrix(
+        covariance,
+        len(normalized_mean),
+        "covariance",
+        proof=proof,
+    )
+    return normalized_mean, normalized_covariance
+
+def _native_moment_values(
+    mean: object,
+    covariance: object,
+    objective: object,
+    *,
+    proof: _H4SpdProof | None,
+) -> tuple[tuple[float, ...], tuple[tuple[float, ...], ...], float]:
+    normalized_mean = _vector(mean, len(mean) if type(mean) is tuple else -1, "mean")
+    normalized_covariance = _validated_spd_matrix(
+        covariance,
+        len(normalized_mean),
+        "covariance",
+        proof=proof,
+    )
+    _finite(objective, "complete_objective")
+    return normalized_mean, normalized_covariance, float(objective)
+
+def _law_values(
+    arm: object,
+    h: object,
+    J: object,
+    mean: object,
+    objective: object,
+    name: str,
+    *,
+    proof: _H4SpdProof | None,
+) -> tuple[
+    tuple[float, ...],
+    tuple[tuple[float, ...], ...],
+    tuple[float, ...],
+    float,
+]:
+    if arm not in ("information", "moment"):
+        raise ValueError(f"{name} arm is invalid")
     vector = _vector(h, len(h) if type(h) is tuple else -1, f"{name}.h")
-    matrix = _matrix(J, len(vector), len(vector), f"{name}.J")
-    _spd(matrix, f"{name}.J")
-    _vector(mean, len(vector), f"{name}.mean"); _finite(objective, f"{name}.complete_objective")
+    matrix = _validated_spd_matrix(J, len(vector), f"{name}.J", proof=proof)
+    normalized_mean = _vector(mean, len(vector), f"{name}.mean")
+    _finite(objective, f"{name}.complete_objective")
+    return vector, matrix, normalized_mean, float(objective)
+
+def _terminal_law_values(
+    arm: object,
+    h: object,
+    J: object,
+    mean: object,
+    selected_moments: object,
+    complete_objective: object,
+    stopping_residual: object,
+    *,
+    proof: _H4SpdProof | None,
+) -> tuple[
+    tuple[float, ...],
+    tuple[tuple[float, ...], ...],
+    tuple[float, ...],
+    tuple[H4SelectedMoment, ...],
+    float,
+    float,
+]:
+    normalized_h, normalized_J, normalized_mean, objective = _law_values(
+        arm,
+        h,
+        J,
+        mean,
+        complete_objective,
+        "terminal",
+        proof=proof,
+    )
+    if (
+        type(selected_moments) is not tuple
+        or len(selected_moments) < 3
+        or not all(isinstance(value, H4SelectedMoment) for value in selected_moments)
+    ):
+        raise ValueError("selected_moments must be immutable moments")
+    expected = (
+        "initial",
+        "terminal",
+        *(f"observation[{time}]" for time in range(1, len(selected_moments) - 1)),
+    )
+    if (
+        tuple(value.name for value in selected_moments) != expected
+        or any(len(value.mean) != len(selected_moments[0].mean) for value in selected_moments)
+    ):
+        raise ValueError("selected moments must have exact names and equal blocks")
+    _finite(stopping_residual, "stopping_residual")
+    return (
+        normalized_h,
+        normalized_J,
+        normalized_mean,
+        selected_moments,
+        objective,
+        float(stopping_residual),
+    )
+
+def _law(arm: object, h: object, J: object, mean: object, objective: object, name: str) -> None:
+    _law_values(arm, h, J, mean, objective, name, proof=None)
 
 def _validate_scaled_schedule(schedule: tuple[H4AffineGaussianFactor, ...], kind: H4ProblemKind, horizon: int, dimension: int) -> None:
     initial = schedule[0]

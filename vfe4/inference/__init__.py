@@ -3,6 +3,7 @@
 from .h3_optimize import optimize_h3_arm
 from .h4_instrumentation import (
     CountingOperationRecorder,
+    H4OperationKind,
     InstrumentedLinearAlgebra,
     NullOperationRecorder,
     measure_untimed_memory,
@@ -25,6 +26,7 @@ __all__ = [
     "optimize_h3_arm",
     "NullOperationRecorder",
     "CountingOperationRecorder",
+    "H4OperationKind",
     "InstrumentedLinearAlgebra",
     "measure_untimed_memory",
     "H4MaterializedProblem",

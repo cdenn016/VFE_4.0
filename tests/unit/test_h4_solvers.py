@@ -12,6 +12,7 @@ import pytest
 import torch
 
 import vfe4.inference.h4_solvers as solver_module
+import vfe4.types.h4 as h4_types_module
 from vfe4.generative.reference_h4 import (
     canonical_h4_gaussian,
     h4_anchor_from_h3,
@@ -294,8 +295,135 @@ def test_materialization_is_raw_only_owned_and_digest_bound(monkeypatch: pytest.
 
     changed_targets = list(materialized._factor_targets)
     changed_targets[0] = changed_targets[0] + 1.0
-    with pytest.raises(ValueError, match="tensor_sha256"):
+    with pytest.raises(ValueError, match="factory"):
         replace(materialized, _factor_targets=tuple(changed_targets))
+
+
+def test_materialized_problem_has_identity_equality_and_factory_only_construction() -> None:
+    problem = _h3_problem()
+    protocol = H4SolveProtocol()
+    first = materialize_h4_problem(problem, protocol)
+    second = materialize_h4_problem(problem, protocol)
+
+    assert first is not second
+    assert type(first == first) is bool and first == first
+    assert type(first == second) is bool and first != second
+    assert not hasattr(solver_module, "_MATERIALIZED_RECEIPTS")
+    assert "_integrity_receipt" not in tuple(
+        field.name for field in fields(H4MaterializedProblem)
+    )
+    assert solver_module._assert_h4_materialized_integrity(first) == first.tensor_sha256
+    with pytest.raises(ValueError, match="factory"):
+        replace(first)
+
+
+def test_materialized_integrity_receipt_cannot_be_reissued_or_refreshed() -> None:
+    materialized = materialize_h4_problem(_h3_problem(), H4SolveProtocol())
+    with pytest.raises(ValueError, match="factory"):
+        solver_module._attach_materialized_receipt(materialized)
+
+    materialized._factor_targets[0].data.add_(1.0)
+    token = solver_module._MATERIALIZATION_FACTORY_CONTEXT.set(
+        solver_module._MATERIALIZATION_FACTORY_CAPABILITY
+    )
+    try:
+        with pytest.raises(ValueError, match="already"):
+            solver_module._attach_materialized_receipt(materialized)
+    finally:
+        solver_module._MATERIALIZATION_FACTORY_CONTEXT.reset(token)
+
+    object.__delattr__(materialized, "_integrity_receipt")
+    token = solver_module._MATERIALIZATION_FACTORY_CONTEXT.set(
+        solver_module._MATERIALIZATION_FACTORY_CAPABILITY
+    )
+    try:
+        with pytest.raises(ValueError, match="digest"):
+            solver_module._attach_materialized_receipt(materialized)
+    finally:
+        solver_module._MATERIALIZATION_FACTORY_CONTEXT.reset(token)
+    with pytest.raises(ValueError, match="integrity"):
+        solver_module._assert_h4_materialized_integrity(materialized)
+
+
+def test_materialized_integrity_rejects_in_place_tamper_before_solver_operations() -> None:
+    protocol = H4SolveProtocol()
+    materialized = materialize_h4_problem(_h3_problem(), protocol)
+    recorder = CountingOperationRecorder()
+    linalg = InstrumentedLinearAlgebra(
+        problem_id=materialized.problem_id,
+        arm="information",
+        recorder=recorder,
+    )
+
+    materialized._factor_targets[0].add_(1.0)
+    with pytest.raises(ValueError, match="integrity"):
+        solve_information_form(materialized, protocol, linalg)
+    assert recorder.snapshot() == ()
+    with pytest.raises(ValueError, match="integrity"):
+        solver_module._assert_h4_materialized_integrity(materialized)
+
+    raw_tamper = materialize_h4_problem(_h3_problem(), protocol)
+    original_version = int(raw_tamper._factor_targets[0]._version)
+    raw_tamper._factor_targets[0].data.add_(1.0)
+    assert int(raw_tamper._factor_targets[0]._version) == original_version
+    with pytest.raises(ValueError, match="integrity"):
+        solver_module._assert_h4_materialized_integrity(raw_tamper)
+
+
+def test_materialization_factory_rejects_nonfinite_owned_raw_tensor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = solver_module._owned_tensor
+    corrupted = False
+
+    def corrupt_first_covariance(value: object) -> torch.Tensor:
+        nonlocal corrupted
+        tensor = original(value)
+        if not corrupted and tensor.ndim == 2 and tensor.shape[0] == tensor.shape[1]:
+            tensor[0, 0] = math.nan
+            corrupted = True
+        return tensor
+
+    monkeypatch.setattr(solver_module, "_owned_tensor", corrupt_first_covariance)
+    with pytest.raises(ValueError, match="finite"):
+        materialize_h4_problem(_h3_problem(), H4SolveProtocol())
+
+
+def test_materialization_factory_rejects_asymmetric_and_undeclared_raw_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = solver_module._owned_tensor
+
+    def corrupt_first_matrix_support(value: object) -> torch.Tensor:
+        tensor = original(value)
+        if corrupt_first_matrix_support.calls == 0:
+            tensor[0, -1] = 0.25
+        corrupt_first_matrix_support.calls += 1
+        return tensor
+
+    corrupt_first_matrix_support.calls = 0  # type: ignore[attr-defined]
+    with monkeypatch.context() as context:
+        context.setattr(solver_module, "_owned_tensor", corrupt_first_matrix_support)
+        with pytest.raises(ValueError, match="support"):
+            materialize_h4_problem(_h3_problem(), H4SolveProtocol())
+
+    corrupted = False
+
+    def corrupt_first_scaled_covariance(value: object) -> torch.Tensor:
+        nonlocal corrupted
+        tensor = original(value)
+        if not corrupted and tensor.ndim == 2 and tensor.shape == (8, 8):
+            tensor[0, 1] = 0.25
+            corrupted = True
+        return tensor
+
+    with monkeypatch.context() as context:
+        context.setattr(solver_module, "_owned_tensor", corrupt_first_scaled_covariance)
+        with pytest.raises(ValueError, match="symmetric"):
+            materialize_h4_problem(
+                make_h4_problem(seed=104729, kind="coupled", horizon=7),
+                H4SolveProtocol(),
+            )
 
 
 def test_both_native_arms_are_clone_free_and_do_not_mutate_shared_materialization(
@@ -389,56 +517,36 @@ def test_h3_information_and_moment_arms_match_exact_gaussian_and_selected_blocks
         np.testing.assert_allclose(_tuple_array(left.covariance), _tuple_array(right.covariance), rtol=0.0, atol=5.0e-14)
 
 
-class _ResidualTrace(InstrumentedLinearAlgebra):
-    def __init__(self, *, problem_id: str) -> None:
-        object.__setattr__(self, "vector_rhs", [])
-        super().__init__(problem_id=problem_id, arm="moment", recorder=NullOperationRecorder())
-
-    def triangular_solve(
-        self,
-        triangular: torch.Tensor,
-        rhs: torch.Tensor,
-        *,
-        upper: bool = False,
-    ) -> torch.Tensor:
-        if rhs.ndim == 1:
-            self.vector_rhs.append(tuple(float(value) for value in rhs.tolist()))
-        return super().triangular_solve(triangular, rhs, upper=upper)
-
-
-class _SelectedVectorTrace(InstrumentedLinearAlgebra):
-    def __init__(self, *, problem_id: str, watched: tuple[int, ...]) -> None:
-        object.__setattr__(self, "watched", watched)
-        object.__setattr__(self, "vectors", [])
-        super().__init__(problem_id=problem_id, arm="moment", recorder=NullOperationRecorder())
-
-    def selected_block_extract(
-        self,
-        value: torch.Tensor,
-        row_indices: tuple[int, ...],
-        column_indices: tuple[int, ...] | None = None,
-    ) -> torch.Tensor:
-        result = super().selected_block_extract(value, row_indices, column_indices)
-        if value.ndim == 1 and row_indices == self.watched:
-            self.vectors.append(tuple(float(item) for item in result.tolist()))
-        return result
-
-
 def test_h3_second_observation_consumes_the_first_observation_posterior() -> None:
     base = _h3_problem()
     changed = _shift_observation(base, "z1_observation", (0.5,))
     protocol = H4SolveProtocol()
     base_materialized = materialize_h4_problem(base, protocol)
     changed_materialized = materialize_h4_problem(changed, protocol)
-    base_trace = _ResidualTrace(problem_id=base.problem_id)
-    changed_trace = _ResidualTrace(problem_id=changed.problem_id)
-
-    base_result = solve_moment_form(base_materialized, protocol, base_trace)
-    changed_result = solve_moment_form(changed_materialized, protocol, changed_trace)
-    assert len(base_trace.vector_rhs) == len(changed_trace.vector_rhs) == 2
-    assert base_trace.vector_rhs[1] != changed_trace.vector_rhs[1]
+    base_recorder = CountingOperationRecorder()
+    changed_recorder = CountingOperationRecorder()
+    base_result = solve_moment_form(
+        base_materialized,
+        protocol,
+        InstrumentedLinearAlgebra(
+            problem_id=base.problem_id,
+            arm="moment",
+            recorder=base_recorder,
+        ),
+    )
+    changed_result = solve_moment_form(
+        changed_materialized,
+        protocol,
+        InstrumentedLinearAlgebra(
+            problem_id=changed.problem_id,
+            arm="moment",
+            recorder=changed_recorder,
+        ),
+    )
     assert base_result.native_moment is not None and changed_result.native_moment is not None
+    assert base_result.native_moment.mean[3] != changed_result.native_moment.mean[3]
     assert base_result.native_moment.complete_objective != changed_result.native_moment.complete_objective
+    assert base_recorder.snapshot() and changed_recorder.snapshot()
 
 
 def test_scaled_next_transition_consumes_the_preceding_observation_posterior() -> None:
@@ -447,14 +555,29 @@ def test_scaled_next_transition_consumes_the_preceding_observation_posterior() -
     protocol = H4SolveProtocol()
     base_materialized = materialize_h4_problem(base, protocol)
     changed_materialized = materialize_h4_problem(changed, protocol)
-    watched_m1 = tuple(range(12, 16))
-    base_trace = _SelectedVectorTrace(problem_id=base.problem_id, watched=watched_m1)
-    changed_trace = _SelectedVectorTrace(problem_id=changed.problem_id, watched=watched_m1)
-
-    solve_moment_form(base_materialized, protocol, base_trace)
-    solve_moment_form(changed_materialized, protocol, changed_trace)
-    assert len(base_trace.vectors) == len(changed_trace.vectors) == 1
-    assert base_trace.vectors[0] != changed_trace.vectors[0]
+    base_recorder = CountingOperationRecorder()
+    changed_recorder = CountingOperationRecorder()
+    base_result = solve_moment_form(
+        base_materialized,
+        protocol,
+        InstrumentedLinearAlgebra(
+            problem_id=base.problem_id,
+            arm="moment",
+            recorder=base_recorder,
+        ),
+    )
+    changed_result = solve_moment_form(
+        changed_materialized,
+        protocol,
+        InstrumentedLinearAlgebra(
+            problem_id=changed.problem_id,
+            arm="moment",
+            recorder=changed_recorder,
+        ),
+    )
+    assert base_result.native_moment is not None and changed_result.native_moment is not None
+    assert base_result.native_moment.mean[16:24] != changed_result.native_moment.mean[16:24]
+    assert base_recorder.snapshot() and changed_recorder.snapshot()
 
 
 def test_scaled_selected_blocks_are_eight_dimensional() -> None:
@@ -471,34 +594,28 @@ def test_scaled_selected_blocks_are_eight_dimensional() -> None:
     assert all(len(item.mean) == 8 and len(item.covariance) == 8 for item in law.selected_moments)
 
 
-class _SolveShapeTrace(InstrumentedLinearAlgebra):
-    def __init__(self, *, problem_id: str, arm: str) -> None:
-        object.__setattr__(self, "rhs_shapes", [])
-        super().__init__(
-            problem_id=problem_id,
-            arm=arm,  # type: ignore[arg-type]
-            recorder=NullOperationRecorder(),
-        )
-
-    def triangular_solve(
-        self,
-        triangular: torch.Tensor,
-        rhs: torch.Tensor,
-        *,
-        upper: bool = False,
-    ) -> torch.Tensor:
-        self.rhs_shapes.append(tuple(rhs.shape))
-        return super().triangular_solve(triangular, rhs, upper=upper)
-
-
 def test_information_conversion_solves_only_selected_inverse_columns_and_residual_is_exact() -> None:
     protocol = H4SolveProtocol()
     materialized = materialize_h4_problem(_h3_problem(), protocol)
     result = solve_information_form(materialized, protocol, _null(materialized, "information"))
-    trace = _SolveShapeTrace(problem_id=materialized.problem_id, arm="information")
-    law = to_common_terminal_law(materialized, result, trace)
-    assert trace.rhs_shapes
-    assert all(shape == (4, 2) for shape in trace.rhs_shapes)
+    recorder = CountingOperationRecorder()
+    law = to_common_terminal_law(
+        materialized,
+        result,
+        InstrumentedLinearAlgebra(
+            problem_id=materialized.problem_id,
+            arm="information",
+            recorder=recorder,
+        ),
+    )
+    rhs_shapes = tuple(
+        record.operand_shapes[1]
+        for record in recorder.snapshot()
+        if record.operation == "triangular_solve"
+    )
+    assert rhs_shapes
+    assert all(shape == (4, 2) for shape in rhs_shapes)
+    assert (4, 4) not in rhs_shapes
 
     J = _tuple_array(law.J)
     h = _tuple_array(law.h)
@@ -506,6 +623,105 @@ def test_information_conversion_solves_only_selected_inverse_columns_and_residua
     numerator = np.max(np.abs(J @ mean - h))
     scale = max(1.0, np.max(np.sum(np.abs(J), axis=1)) * np.max(np.abs(mean)) + np.max(np.abs(h)))
     assert law.stopping_residual == numerator / scale
+
+
+def test_native_and_converter_paths_have_no_hidden_type_layer_spd_factorization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    protocol = H4SolveProtocol()
+    materialized = materialize_h4_problem(_h3_problem(), protocol)
+
+    def hidden_spd(*args, **kwargs):
+        raise AssertionError("hidden type-layer SPD factorization")
+
+    monkeypatch.setattr(h4_types_module, "_spd", hidden_spd)
+
+    information_recorder = CountingOperationRecorder()
+    information = solve_information_form(
+        materialized,
+        protocol,
+        InstrumentedLinearAlgebra(
+            problem_id=materialized.problem_id,
+            arm="information",
+            recorder=information_recorder,
+        ),
+    )
+    moment_recorder = CountingOperationRecorder()
+    moment = solve_moment_form(
+        materialized,
+        protocol,
+        InstrumentedLinearAlgebra(
+            problem_id=materialized.problem_id,
+            arm="moment",
+            recorder=moment_recorder,
+        ),
+    )
+
+    information_converter_recorder = CountingOperationRecorder()
+    to_common_terminal_law(
+        materialized,
+        information,
+        InstrumentedLinearAlgebra(
+            problem_id=materialized.problem_id,
+            arm="information",
+            recorder=information_converter_recorder,
+        ),
+    )
+    moment_converter_recorder = CountingOperationRecorder()
+    to_common_terminal_law(
+        materialized,
+        moment,
+        InstrumentedLinearAlgebra(
+            problem_id=materialized.problem_id,
+            arm="moment",
+            recorder=moment_converter_recorder,
+        ),
+    )
+    evaluate_h4_native_diagnostics(
+        materialized,
+        moment,
+        _null(materialized, "moment"),
+    )
+
+    def count(recorder: CountingOperationRecorder, operation: str) -> int:
+        return sum(
+            record.count
+            for record in recorder.snapshot()
+            if record.operation == operation
+        )
+
+    assert count(information_recorder, "cholesky") == len(materialized.factor_ids) + 1
+    assert count(moment_recorder, "cholesky") == 3
+    assert count(information_converter_recorder, "cholesky") == 4
+    assert count(moment_converter_recorder, "cholesky") == 5
+
+
+def test_solver_converter_and_diagnostics_reject_facade_subclasses_before_operations() -> None:
+    class FacadeSubclass(InstrumentedLinearAlgebra):
+        pass
+
+    protocol = H4SolveProtocol()
+    materialized = materialize_h4_problem(_h3_problem(), protocol)
+    result = solve_information_form(
+        materialized,
+        protocol,
+        _null(materialized, "information"),
+    )
+
+    for operation in (
+        lambda facade: solve_information_form(materialized, protocol, facade),
+        lambda facade: to_common_terminal_law(materialized, result, facade),
+        lambda facade: evaluate_h4_native_diagnostics(materialized, result, facade),
+    ):
+        recorder = CountingOperationRecorder()
+        facade = FacadeSubclass(
+            problem_id=materialized.problem_id,
+            arm="information",
+            recorder=recorder,
+        )
+        with pytest.raises(ValueError, match="exact"):
+            operation(facade)
+        assert recorder.snapshot() == ()
 
 
 def test_native_diagnostics_replay_exactly_and_require_null_identity_binding() -> None:
@@ -525,6 +741,32 @@ def test_native_diagnostics_replay_exactly_and_require_null_identity_binding() -
         "m1_observation",
     )
     assert all(item.innovation_dimension == 1 for item in diagnostics.innovation_diagnostics)
+
+    valid_innovations = diagnostics.innovation_diagnostics
+    reminted = solver_module._make_h4_native_diagnostics(
+        materialized,
+        moment,
+        moment,
+        valid_innovations,
+    )
+    assert reminted == diagnostics
+    invalid_innovations = (
+        valid_innovations[:-1],
+        valid_innovations + (valid_innovations[-1],),
+        tuple(reversed(valid_innovations)),
+        (
+            replace(valid_innovations[0], innovation_dimension=2),
+            *valid_innovations[1:],
+        ),
+    )
+    for records in invalid_innovations:
+        with pytest.raises(ValueError, match="coverage"):
+            solver_module._make_h4_native_diagnostics(
+                materialized,
+                moment,
+                moment,
+                records,
+            )
 
     with pytest.raises(ValueError, match="null-recorder"):
         evaluate_h4_native_diagnostics(
@@ -570,6 +812,52 @@ def test_native_diagnostics_replay_exactly_and_require_null_identity_binding() -
         _null(materialized, "information"),
     )
     assert information_diagnostics.innovation_diagnostics == ()
+    with pytest.raises(ValueError, match="factory"):
+        replace(diagnostics)
+
+
+def test_moment_diagnostic_coverage_is_exact_and_complete() -> None:
+    protocol = H4SolveProtocol()
+    materialized = materialize_h4_problem(_h3_problem(), protocol)
+    _, captured = solver_module._solve_moment_native(
+        materialized,
+        protocol,
+        _null(materialized, "moment"),
+        capture=True,
+    )
+    solver_module._assert_h4_innovation_coverage(materialized, captured)
+
+    malformed = (
+        captured[:-1],
+        captured + (captured[-1],),
+        tuple(reversed(captured)),
+        (replace(captured[0], parent_coordinate_indices=(0,)), *captured[1:]),
+        (
+            replace(
+                captured[0],
+                covariance=torch.eye(2, dtype=torch.float64),
+                cholesky=torch.eye(2, dtype=torch.float64),
+            ),
+            *captured[1:],
+        ),
+    )
+    for items in malformed:
+        with pytest.raises(ValueError, match="coverage"):
+            solver_module._assert_h4_innovation_coverage(materialized, items)
+
+    scaled = materialize_h4_problem(
+        make_h4_problem(seed=104729, kind="coupled", horizon=7),
+        protocol,
+    )
+    scaled_result = solve_moment_form(scaled, protocol, _null(scaled, "moment"))
+    scaled_diagnostics = evaluate_h4_native_diagnostics(
+        scaled,
+        scaled_result,
+        _null(scaled, "moment"),
+    )
+    assert tuple(
+        item.factor_id for item in scaled_diagnostics.innovation_diagnostics
+    ) == tuple(f"observation[{time}]" for time in range(1, 8))
 
 
 def test_common_conversion_rejects_result_and_facade_identity_mismatches() -> None:

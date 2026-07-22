@@ -8,6 +8,7 @@ from dataclasses import FrozenInstanceError, fields, replace
 import numpy as np
 import pytest
 
+import vfe4.types.h4 as h4_types_module
 from vfe4.generative.reference_h4 import (
     canonical_h4_gaussian,
     h4_anchor_from_h3,
@@ -673,6 +674,34 @@ def test_every_task_one_record_has_frozen_fields_and_positive_negative_validatio
     memory = H4MemoryRecord("p", "moment", None, -5, ("python_peak_bytes",))
     assert memory.process_working_set_delta_bytes == -5
     with pytest.raises(ValueError): H4MemoryRecord("p", "moment", None, -5, ())
+
+
+def test_public_state_constructors_retain_full_spd_validation() -> None:
+    indefinite = ((1.0, 2.0), (2.0, 1.0))
+    mean = (0.0, 0.0)
+    with pytest.raises(ValueError, match="positive definite"):
+        H4SelectedMoment("initial", mean, indefinite)
+    with pytest.raises(ValueError, match="positive definite"):
+        H4NativeMomentState(mean, indefinite, 0.0)
+    with pytest.raises(ValueError, match="positive definite"):
+        H4NativeInformationState(mean, indefinite, mean, 0.0)
+
+    selected = (
+        H4SelectedMoment("initial", mean, ((1.0, 0.0), (0.0, 1.0))),
+        H4SelectedMoment("terminal", mean, ((1.0, 0.0), (0.0, 1.0))),
+        H4SelectedMoment("observation[1]", mean, ((1.0, 0.0), (0.0, 1.0))),
+    )
+    with pytest.raises(ValueError, match="positive definite"):
+        H4TerminalLaw("information", mean, indefinite, mean, selected, 0.0, 0.0)
+
+    for name in (
+        "_H4SpdProof",
+        "_h4_native_information_from_proven_spd",
+        "_h4_native_moment_from_proven_spd",
+        "_h4_selected_moment_from_proven_spd",
+        "_h4_terminal_law_from_proven_spd",
+    ):
+        assert name not in h4_types_module.__all__
 
 
 def test_gate_requires_exact_base_invariant_result_records() -> None:
