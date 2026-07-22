@@ -233,6 +233,13 @@ unknown/missing fields, nonfinite values, wrong sequence types/order, aliases,
 and schema drift. The canonical update-spec hash excludes raw bytes and all
 derived hashes.
 
+The implemented canonical update-spec SHA-256 is
+`0e4e870dd725aeaec77ffd128ba85dbf619df5b0261b2178e6a115a8970715d6`.
+The implemented factor-input-schema SHA-256 is
+`2ae8a66776760dc5b3e1e73d4e41f1c0fdc137ed9a972fe31d4187adc5a94642`,
+and the implemented objective-schema SHA-256 is
+`b6af943b135b5acc01f9950502fb4a68554eab10005e44e43a7e7f213e4357ac`.
+
 The factor-input schema core is `(factor_universe,
 ("schema_version","factor_id","normalized_factor","observation",
 "recognition_inputs"), reconstruction_records)`. The objective-schema core adds
