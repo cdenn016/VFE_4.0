@@ -149,7 +149,7 @@ class GateStatus(str, Enum):
 
 @dataclass(frozen=True)
 class GateResult:
-    gate: Literal["H1"]
+    gate: Literal["H1", "H2"]
     status: GateStatus
     fixture_id: Literal["h1-v1"]
     residual: float | None
@@ -159,8 +159,8 @@ class GateResult:
     obligations: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if self.gate != "H1":
-            raise ValueError("gate must be H1")
+        if self.gate not in ("H1", "H2"):
+            raise ValueError("gate must be H1 or H2")
         if self.fixture_id != "h1-v1":
             raise ValueError("fixture_id must be h1-v1")
         if not isinstance(self.status, GateStatus):

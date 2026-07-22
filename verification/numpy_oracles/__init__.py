@@ -17,6 +17,14 @@ from verification.numpy_oracles.h1_elbo import (
     h1_q_weights_p_components_evidence,
     h1_wrong_recognition_mixture_evidence,
 )
+from verification.numpy_oracles.h2_moment import (
+    H2MomentOracleComponent,
+    H2MomentOracleEvaluation,
+    H2OracleGaussian,
+    H2OracleLocalTerms,
+    H2OracleMarginal,
+    evaluate_h2_moment_oracle,
+)
 
 __all__ = [
     "H1EvidenceRecord",
@@ -34,4 +42,10 @@ __all__ = [
     "h1_permuted_zm_evidence",
     "h1_q_weights_p_components_evidence",
     "h1_wrong_recognition_mixture_evidence",
+    "H2MomentOracleComponent",
+    "H2MomentOracleEvaluation",
+    "H2OracleGaussian",
+    "H2OracleLocalTerms",
+    "H2OracleMarginal",
+    "evaluate_h2_moment_oracle",
 ]
