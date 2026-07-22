@@ -4,6 +4,7 @@ from .resolve import resolve_config
 from .schema import (
     ArtifactConfig,
     DataConfig,
+    H3ValidationConfig,
     InferenceConfig,
     ModelConfig,
     OptimizationConfig,
@@ -16,6 +17,7 @@ from .schema import (
 __all__ = [
     "ArtifactConfig",
     "DataConfig",
+    "H3ValidationConfig",
     "InferenceConfig",
     "ModelConfig",
     "OptimizationConfig",
