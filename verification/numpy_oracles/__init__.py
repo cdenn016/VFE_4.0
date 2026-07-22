@@ -41,6 +41,15 @@ from verification.numpy_oracles.h4_gaussian import (
     evaluate_h4_oracle,
     reverse_kl_to_h4_oracle,
 )
+from verification.numpy_oracles.h5_updates import (
+    H5OracleTermEvidence,
+    H5OracleOperandEvidence,
+    H5OracleUpdate,
+    oracle_exact_e_block,
+    oracle_exact_source_row,
+    oracle_exact_m_block,
+    oracle_complete_delta,
+)
 
 __all__ = [
     "H1EvidenceRecord",
@@ -76,4 +85,11 @@ __all__ = [
     "H4OracleSelectedMoment",
     "evaluate_h4_oracle",
     "reverse_kl_to_h4_oracle",
+    "H5OracleTermEvidence",
+    "H5OracleOperandEvidence",
+    "H5OracleUpdate",
+    "oracle_exact_e_block",
+    "oracle_exact_source_row",
+    "oracle_exact_m_block",
+    "oracle_complete_delta",
 ]
