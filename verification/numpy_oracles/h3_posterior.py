@@ -124,10 +124,6 @@ class H3PosteriorOracleEvaluation:
             self.analytic_factorized_reverse_kl,
             "analytic_factorized_reverse_kl",
         )
-        if analytic_gap < 0.0:
-            raise ValueError(
-                "analytic_factorized_reverse_kl must be nonnegative"
-            )
         if not isinstance(self.diagnostics, Mapping):
             raise ValueError("diagnostics must be a mapping")
         frozen_diagnostics = _freeze_diagnostic(
@@ -226,13 +222,9 @@ def evaluate_h3_posterior_oracle(
     analytic_precision = np.diag(np.diag(precision)).astype(
         np.float64, copy=False
     )
-    analytic_gap = (
-        0.0
-        if np.array_equal(precision, analytic_precision)
-        else _finite(
-            0.5 * math.fsum(gap_terms),
-            "analytic factorized reverse KL",
-        )
+    analytic_gap = _finite(
+        0.5 * math.fsum(gap_terms),
+        "analytic factorized reverse KL",
     )
 
     eigenvalues = np.linalg.eigvalsh(precision)

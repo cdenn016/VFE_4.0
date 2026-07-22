@@ -431,11 +431,6 @@ def test_oracle_public_record_owns_arrays_and_recursively_freezes_diagnostics() 
             "positive definite",
         ),
         ("log_evidence", float("nan"), "finite"),
-        (
-            "analytic_factorized_reverse_kl",
-            -1.0e-12,
-            "nonnegative",
-        ),
         ("diagnostics", {"bad": [1.0, float("inf")]}, "finite"),
     ),
 )
@@ -446,6 +441,15 @@ def test_oracle_public_record_rejects_malformed_direct_construction(
     kwargs[field] = value
     with pytest.raises(ValueError, match=message):
         H3PosteriorOracleEvaluation(**kwargs)  # type: ignore[arg-type]
+
+
+def test_oracle_public_record_preserves_finite_signed_roundoff_gap() -> None:
+    kwargs = _direct_evaluation_kwargs()
+    kwargs["analytic_factorized_reverse_kl"] = -1.0e-12
+
+    evaluation = H3PosteriorOracleEvaluation(**kwargs)  # type: ignore[arg-type]
+
+    assert evaluation.analytic_factorized_reverse_kl == -1.0e-12
 
 
 def test_oracle_rejects_bad_bytes_identity_reference_and_non_spd_laws() -> None:
