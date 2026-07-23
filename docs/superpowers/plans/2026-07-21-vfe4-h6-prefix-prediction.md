@@ -21,11 +21,13 @@
 - Prefix-conditioned-prior variants consume a separate current-candidate H1 rerun artifact keyed to the exact prefix-prior generative-factor/config schema. The bounded SMC recursion gate likewise has a separate current-candidate artifact. These full evidence artifacts are produced only by the deferred Prediction-evidence operation, never by source buildout. The H1 variant does not replace or mutate ordinary H1/H2/H3/H5 correctness evidence, and fixed-prior variants do not require it.
 - H6 owns the complete immutable `H6TrainingSchedule`, including AdamW class, optimizer policy, and phase names/order. H5 recognizes only `exact_coordinate`, `generalized_em`, and `natural_gradient_proposal`; those labels and the exact H5 producer fields are correctness provenance for Prediction readiness, never names or certifications of H6 Adam/AdamW phases, schedule composition, repetition count, optimizer behavior, or monotonicity.
 - H6 uses separate artifacts. An H6-Prefix artifact contains no predecessor reference and publishes only H6 identities, validation, certificates, and manifest. Deferred Prediction readiness references exact current H1/H2/H3/H5, H1-prefix-prior, finite-SMC, and H6-Prefix evidence without copying payloads. No unified H1--H6 validation payload is created.
-- The bounded corpus is the official WikiText-2 raw archive at exactly `https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-raw-v1.zip`. The exact downloaded archive bytes, the three extracted raw member bytes, tokenizer specification, encoded streams, and window manifests are SHA-256 bound. Training never silently substitutes WikiText-103, a prepared vocabulary, synthetic text, or another mirror.
+- The bounded corpus is the official WikiText-2 raw archive at exactly `https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-raw-v1.zip`. Public configuration cannot select another URL or opener. Synthetic tests inject a byte-stream opener only through the non-exported internal `_acquire_wikitext2_blinded(config, opener)` seam; public `acquire_wikitext2_blinded(config)` always uses the exact URL. The exact downloaded archive bytes, three streamed raw members, tokenizer specification, encoded streams, and window manifests are SHA-256 bound. Training never substitutes WikiText-103, a prepared vocabulary, synthetic text, or another mirror.
 - Archive preparation accepts at most `16,777,216` compressed bytes; exactly one directory entry and the three files `wikitext-2-raw/wiki.train.raw`, `wikitext-2-raw/wiki.valid.raw`, and `wikitext-2-raw/wiki.test.raw`; compression methods ZIP_STORED (`0`) or ZIP_DEFLATED (`8`) only; positive per-member compressed/uncompressed sizes at most `16,777,216`; total uncompressed bytes at most `33,554,432`; and compression ratio at most `100`. It rejects encryption, links, duplicate/case-colliding paths, extra files, path traversal, CRC mismatch, size mismatch, and decompression beyond a bound. The observed archive/member byte sizes, compression methods, CRC32 values, and SHA-256 values are copied into config/preregistration before evidence and must match during streaming extraction.
-- Data access has one capability boundary. Before Prediction readiness, the acquisition path may download, bounded-stream-validate, hash, and seal all three raw members and may materialize only the frozen validation safety fixture. It returns hashes/metadata and opaque sealed train/validation/test handles, never train tensors/windows, ordinary validation tensors/windows, or model-facing test bytes. After readiness PASS, `materialize_prediction_train` may decode/materialize train tokens, train windows, batch schedules, and ordinary validation data from the sealed train/validation handles. Only after the durable `O_EXCL` test-opening reservation may `open_test_for_scoring` map/decode the sealed test token bytes for a model. Training, tuning, and analysis modules cannot import or call the unsealing primitive; static call-graph/capability tests prove preprocessing cannot expose test targets to them.
-- The H6 tokenizer is fixed: raw UTF-8 bytes map to IDs `0..255`, `BOS=256`, `EOS=257`, vocabulary size `258`, and ignored target padding `-100`. Each split is encoded independently as `[BOS] + exact_raw_member_bytes + [EOS]`; bytes and newline sequences are not normalized. No learned state crosses splits.
+- Data access has one capability boundary. Before Prediction readiness, acquisition may bounded-stream-validate, hash, and seal all three raw members and materialize only the frozen validation safety fixture. It returns hashes/metadata and opaque sealed handles, never train tensors/windows, ordinary validation tensors/windows, or model-facing test bytes. After readiness PASS, `materialize_prediction_train` may decode/materialize train/validation data. Only after the durable `O_EXCL` reservation may `open_test_for_scoring` map/decode test bytes. `DurableTestOpeningCapability` is opaque and privately constructed only by the sole reservation issuer after the reservation bytes are durable. Its canonical proof binds readiness, experiment, data, sealed test, access policy, reservation path/state, and proof digest. The store's private validator independently retains the exact registered proof/identities and re-reads the immutable reservation bytes; forged strings or proof bytes fail before mapping. Training, tuning, and analysis cannot import the private unsealer or issuer.
+- The H6 tokenizer is fixed: raw UTF-8 bytes map to IDs `0..255`, `BOS=256`, `EOS=257`, vocabulary size `258`, and ignored target padding `-100`. Each split is encoded independently as `[BOS] + exact_raw_member_bytes + [EOS]`; bytes and newline sequences are not normalized. Encoded-token identity is `SHA256(b"VFE4-H6-U16LE-TOKENS-V1\x00" || uint64_le(token_count) || concat(uint16_le(token_id)))`; every ID is range-checked `0..257`, and the exact preimage bytes are streamed in that order. Native-endian tensor/storage bytes are never serialized or hashed. No learned state crosses splits.
 - Sequence length and stride are both exactly `32`. A window uses `inputs=tokens[start:start+32]` and `targets=tokens[start+1:start+33]`; the last partial window is included once, fills unused inputs with `BOS`, and fills unused targets with `-100`. Token counts always count targets not equal to `-100`.
+- `validation_safety_fixture.bin` contains exactly 4,096 distinct validation-only stride-32 windows and fails closed if fewer exist. Rank zero-based candidate window index `i` by ascending bytes of `SHA256(b"VFE4-H6-VALIDATION-SAFETY-RANK-V1\x00" || validation_token_sha256_raw32 || uint64_le(i))`, breaking a digest tie by ascending `i`; select the first 4,096. Serialize `b"VFE4-H6-VALIDATION-SAFETY-FIXTURE-V1\x00" || validation_token_sha256_raw32 || uint32_le(4096)` followed in rank order by `uint64_le(start) || uint16_le(real_target_count) || 33*uint16_le(encoded_id)`. Each 33-ID row is the exact causal token slice padded with `BOS`; `real_target_count` deterministically restores target `-100` masking. The fixture digest depends only on validation token content/identity and this policy, never train, test, archive, or aggregate-data identity. It is the sole pre-readiness validation material; Task 9 derives perturbations from it with seed `2026072197`.
+- Blinded binary publication uses a narrow whole-directory writer, not JSON-only `publish_run_directory`. The caller supplies exactly five payloads in this canonical order: `sealed/wiki.train.raw`, `sealed/wiki.valid.raw`, `sealed/wiki.test.raw`, `validation_safety_fixture.bin`, `data_identity.json`. `data_identity.json` contains no enclosing `manifest_sha256`, manifest path, or directory-manifest identity. After bounded streaming, the publisher itself computes each raw payload length/hash and generates `manifest.sha256`; callers cannot supply it. Its digest is `SHA256(b"VFE4-H6-BINARY-DIRECTORY-MANIFEST-V1\x00" || uint32_le(5) || concat(uint16_le(path_utf8_length) || path_utf8 || uint64_le(raw_length) || raw_content_sha256_raw32))` over that exact order; `manifest.sha256` contains the 64 lowercase ASCII hex digest plus LF and is excluded from its own preimage. Use a same-volume owned stage, create-new/O_EXCL files, flush/fsync where supported, close every handle, and install with an OS no-replace primitive. Existing destinations and unsupported no-replace platforms fail closed; never call `ZipFile.extract`/`extractall`, and clean up only the owned stage.
 - WikiText-103 and the GPT-2 tokenizer are reserved until after H8. They do not appear as supported H6 configuration values, fallback paths, tests presented as H6 evidence, or secondary experiment arms.
 - Training uses smoothing recognition as the primary regime and filtering recognition as a required ablation. Held-out validation/test scoring uses only the causal generative prior predictor. Recognition may consume the current target or complete observed window during training, but no recognition object, activation, parameter, target, or suffix may enter the prior predictor.
 - The public bound call is exactly `next_token_log_probs(prefix_tokens, estimator_rng, cache=None)`. Its bound signature contains those three parameters in that order and has no target, suffix, full-window, recognition, posterior, or reconstruction parameter. `PriorPrediction.log_probs` has shape `(V,)`, where `V` comes from an immutable `VocabularyIdentity` included in the predictor, cache, prefix key, and artifact. WikiText-2 uses `V=258`; no generic interface hardcodes 258.
@@ -46,7 +48,7 @@
 - Before empirical scoring, freeze and validate the weighted bootstrap filter/SMC estimator specified below: 256 particles for the bounded finite gate, carried normalized float64 log weights, systematic resampling after observation only when ESS is below `0.5 * particle_count`, `logsumexp` normalization, and counter-based streams. The proposal is exactly the causal generative source/transition law, so no omitted proposal correction exists. An unweighted emission average is forbidden whenever carried weights are nonuniform. The finite `V=3,T=6` gate validates recursion only; it cannot close actual WikiText-2 checkpoint estimator error.
 - Tuning is the equal grid `learning_rate in {1e-4, 3e-4, 1e-3}` by `weight_decay in {0, 1e-2}` for every arm, using exactly two quarter-pass runs per cell. The specified tuning/train seed is `2026072199`; because the source protocol fixed two tuning seeds but named only one, freeze the adjacent independent companion `2026072200` in the preregistration before any tuning. This explicit resolution is not evidence from outcomes.
 - Confirmatory initialization/run seeds are exactly `2026072101..2026072108`. The shared data-order seed is `2026072199`. Actual test scoring uses the frozen 64-entry common paired stream registry derived from root `2026072198`, never one selected estimator stream. No replacement seed or adaptive replicate is permitted.
-- A quarter pass is the first `ceil(number_of_training_batches / 4)` batches of the frozen pass permutation. A full pass is every training window exactly once. Confirmatory runs execute exactly two full passes and never early-stop or select a best-validation checkpoint.
+- Batch size is exactly `8`, with no drop-last. Training order for zero-based pass index `p` is a versioned Fisher-Yates permutation of window indices keyed by shared seed `2026072199`, independent of Python/NumPy/Torch RNGs. For draw-block counter `c=0,1,...`, compute `SHA256(b"VFE4-H6-BATCH-PERMUTATION-DRAW-V1\x00" || uint64_le(2026072199) || uint64_le(p) || uint64_le(c))`, consume its four unsigned little-endian 64-bit words in byte-offset order `0,8,16,24`, then advance `c`. For Fisher-Yates `i=n-1,...,1`, let `m=i+1`, `limit=2^64-(2^64 mod m)`, reject words `x>=limit`, otherwise set `j=x mod m` and swap positions `i,j`. The schedule preimage is `b"VFE4-H6-FROZEN-BATCH-SCHEDULE-V1\x00" || uint64_le(seed) || uint64_le(p) || uint64_le(n) || uint16_le(8) || uint8(0) || concat(uint64_le(permuted_window_index))`; its SHA-256 is the schedule digest. Consecutive groups of eight form batches and the final short batch is retained. A full pass visits every window exactly once; a quarter pass is the first `ceil(number_of_batches/4)` complete-or-final-short batches. Evaluation order is sequential window index `0..n-1`, batched by eight with the final short batch retained.
 - The phrase “validation every twentieth pass” is operationalized as validation at every twentieth of a corpus pass: boundaries `ceil(k * batches_per_pass / 20)` for `k=1..20`, deduplicated while preserving order, on each of two passes. This is the only reading compatible with both “two full passes” and periodic validation; it is frozen before outcomes.
 - The test split is opened once, globally, after tuning choices, all eight-seed terminal checkpoints, prefix certificates, analysis code hashes, and the complete actual-endpoint SMC protocol are frozen. Blinded acquisition/hash and sealed storage are not a model-facing opening. The irreversible opening begins only after the durable `O_EXCL` reservation and unsealing capability are recorded; that one transaction scores every endpoint/checkpoint across the complete 64-stream, four-particle-count assessment or scores none. Validation does not choose early checkpoints.
 - An infrastructure failure may receive one exact retry only when the attempt artifact proves no optimizer/checkpoint state advanced or proves an exact checkpoint restore. Numerical divergence, nonfinite loss, estimator failure, model failure, prefix failure, capacity mismatch, or a missing pair is not infrastructure and receives no replacement run. Any incomplete paired seed set makes the affected decision INCONCLUSIVE.
@@ -361,12 +363,87 @@ def run_projected_current_candidate(
 ) -> CandidateArtifactReference: ...
 
 @dataclass(frozen=True)
+class EncodedTokenStorageIdentity:
+    storage_schema: Literal["vfe4-h6-u16le-tokens-v1"]
+    token_count: int
+    byte_length: int
+    encoded_token_sha256: str
+
+@dataclass(frozen=True)
+class ValidationSafetyFixture:
+    policy: Literal["vfe4-h6-validation-safety-fixture-v1"]
+    validation_token_sha256: str
+    starts: tuple[int, ...]                 # exactly 4,096
+    real_target_counts: tuple[int, ...]     # exactly 4,096
+    fixture_sha256: str
+
+@dataclass(frozen=True)
+class FrozenBatchSchedule:
+    schedule_schema: Literal["vfe4-h6-frozen-batch-schedule-v1"]
+    shared_seed: Literal[2026072199]
+    zero_based_pass_index: int
+    window_count: int
+    batch_size: Literal[8]
+    drop_last: Literal[False]
+    permutation: tuple[int, ...]
+    schedule_sha256: str
+
+class _OpeningProofValidator:
+    __registered_proof_canonical_bytes: bytes | None
+    __registered_identities: tuple[str, ...] | None
+
+@dataclass(frozen=True)
+class ExperimentIdentity:
+    checkpoint_set_sha256: str
+    current_candidate_sha256: str
+    sealed_data_sha256: str
+    access_policy_sha256: str
+    analysis_sha256: str
+    stream_protocol_sha256: str
+    experiment_identity_sha256: str
+
+class DurableTestOpeningCapability(Protocol):
+    @property
+    def proof_identity_sha256(self) -> str: ...
+
+class ValidatedTestOpening(Protocol):
+    @property
+    def proof_identity_sha256(self) -> str: ...
+
+@dataclass(frozen=True)
 class BlindedCorpusStore:
     data_identity_sha256: str
     sealed_train_handle: SealedSplitHandle
     sealed_validation_handle: SealedSplitHandle
     frozen_validation_fixture: ValidationSafetyFixture
     sealed_test_handle: SealedSplitHandle
+    _opening_validator: _OpeningProofValidator = field(repr=False, compare=False)
+
+def acquire_wikitext2_blinded(config: H6DataConfig) -> BlindedCorpusStore: ...
+
+def publish_blinded_binary_directory(
+    destination: Path,
+    payloads: Mapping[Literal[
+        "sealed/wiki.train.raw",
+        "sealed/wiki.valid.raw",
+        "sealed/wiki.test.raw",
+        "validation_safety_fixture.bin",
+        "data_identity.json",
+    ], BoundedBinarySource],
+) -> BinaryDirectoryReference: ...
+
+def reserve_and_issue_durable_test_opening_capability(
+    *,
+    store: BlindedCorpusStore,
+    readiness: H6PredictionReadinessToken,
+    experiment_identity: ExperimentIdentity,
+    reservation_path: Path,
+) -> DurableTestOpeningCapability: ...
+
+def validate_durable_test_opening_capability(
+    store: BlindedCorpusStore,
+    opening: DurableTestOpeningCapability,
+) -> ValidatedTestOpening: ...
 
 def materialize_prediction_train(
     store: BlindedCorpusStore,
@@ -399,6 +476,12 @@ Digest roles are explicit. Each record has at most one **owned integrity digest*
 `FrozenTensorSnapshot.capture` privately owns a contiguous clone without detaching it from the autograd graph, records dtype/shape/device/contiguity/`requires_grad`/tensor storage-version/raw-byte SHA metadata, and exposes tensor values only as fresh clones that preserve the autograd path. Construction, every public access, canonical serialization, hashing, metrics, and checkpoint publication call `assert_intact`; any in-place mutation or metadata/raw-byte/version mismatch is rejected. `H6FactorTerm`, `H6LanguageElboTerms`, `EmissionOnlyAblationTerms`, and `PriorPrediction` hash immutable snapshot metadata and bytes, never a caller-owned mutable tensor, so their canonical identity cannot diverge after mutation.
 
 `PrefixCertificate` binds the complete `PrefixCaseKey`, including `data_safety_sha256`, plus immutable canonical validation bytes, their independently checked hash, status, obligations, and its own domain-separated certificate hash. PASS is fail-closed: it requires an exact PASS validation payload for the same complete key, empty obligations, all required dynamic/static checks present and passing, matching payload bytes/hash, and a valid certificate hash; otherwise construction returns/requires FAIL or INCONCLUSIVE and `require_prefix_pass` rejects it.
+
+`EncodedTokenStorageIdentity` hashes only the exact unsigned-16-bit little-endian preimage frozen in Global Constraints; `byte_length` is the ASCII domain-header length plus `8 + 2*token_count`. `ValidationSafetyFixture` validates exactly 4,096 unique starts and its binary file reproduces every stored input/target without consulting train/test data. `FrozenBatchSchedule` validates a complete permutation of `range(window_count)` and derives batches only by contiguous groups of eight with no drop-last.
+
+`publish_blinded_binary_directory` accepts exactly the five caller payload names above and rejects missing, extra, duplicate, or caller-supplied `manifest.sha256` entries. Regardless of mapping insertion order, it stages and manifest-hashes them in the one frozen path order. It streams/hash-counts those payloads, then creates the manifest file itself from the frozen ordered `(path, uint64 length, raw content SHA-256)` preimage; the manifest excludes itself. `data_identity.json` is independently canonicalized and must not contain the enclosing manifest identity. Publication retains the same-volume/O_EXCL/no-replace/closed-handle/owned-cleanup rules and never delegates to `publish_run_directory`, `ZipFile.extract`, or `extractall`. The public acquisition function has no URL/opener argument; only synthetic unit tests call the non-exported internal opener seam.
+
+Define `reservation_path_utf8` as UTF-8 of `unicodedata.normalize("NFC", str(reservation_path.resolve(strict=False))).replace("\\", "/")`. The reservation file contains exactly `b"VFE4-H6-DURABLE-TEST-OPENING-PROOF-V1\x00" || uint32_le(len(reservation_path_utf8)) || reservation_path_utf8 || readiness_sha256_raw32 || experiment_identity_sha256_raw32 || data_identity_sha256_raw32 || sealed_test_sha256_raw32 || access_policy_sha256_raw32 || b"RESERVED\x00"`; its SHA-256 is the reservation/proof identity. The public capability/validated-opening names are non-instantiable Protocols; their concrete classes, proof bytes, constructor token, and `_OpeningProofValidator` are module-private and accepted only by exact concrete type plus module-private issuer token identity. `reserve_and_issue_durable_test_opening_capability` is the sole constructor path: it validates `ExperimentIdentity`, derives fields from exact readiness/experiment/store objects, writes these bytes with durable O_EXCL semantics, fsyncs file/directory, registers an immutable copy plus decoded identities in the store's private one-shot validator, and only then constructs the private capability. The sole validator compares exact concrete type, capability, independently retained registry, and re-read immutable file bytes/hashes/fields before returning the private `ValidatedTestOpening` implementation. `open_test_for_scoring` accepts no strings, structural impostors, or alternate proof path; any forged/reconstructed capability or mismatch fails before mapping.
 
 `TrainingPhase` is a closed H6 enum with exactly `MODEL_CE_ADAMW`, `RECOGNITION_ADAMW`, `IMMUTABLE_DETACHED_SNAPSHOT`, and `MODEL_ADAMW`. An endpoint with `latent_enabled=false` has phases `(MODEL_CE_ADAMW,)` and zero recognition updates. A latent endpoint has phases `(RECOGNITION_ADAMW, IMMUTABLE_DETACHED_SNAPSHOT, MODEL_ADAMW)` and one recognition update. These are H6 schedule labels, not H5 labels. Any other tuple, phase reordering, dummy phase, recognition object on a no-latent endpoint, or mismatch between the phase schedule and endpoint config is rejected during resolution.
 
@@ -546,28 +629,28 @@ git commit -m "feat: freeze H6 prefix and prediction protocol"
 - Create: `tests/unit/test_h6_wikitext2.py`
 - Create: `tests/unit/test_h6_data_access.py`
 - Create: `tests/unit/test_h6_windows.py`
-- Modify: `docs/preregistrations/2026-07-21-h6-prefix-prediction.md`
+- Read only: `vfe4/config/schema.py`, `vfe4/config/resolve.py`, and `docs/preregistrations/2026-07-21-h6-prefix-prediction.md` (Task 1-owned surfaces).
 
 **Interfaces:**
-- Produces: `ByteTokenizerV1`, `acquire_wikitext2_blinded(config) -> BlindedCorpusStore`, `materialize_validation_safety_fixture`, `materialize_prediction_train(store, readiness)`, `open_test_for_scoring(store, opening)`, `CausalWindows`, and `FrozenBatchSchedule`.
+- Produces: `ByteTokenizerV1`, `EncodedTokenStorageIdentity`, public `acquire_wikitext2_blinded(config) -> BlindedCorpusStore`, non-exported `_acquire_wikitext2_blinded(config, opener)`, five-payload/self-manifesting `publish_blinded_binary_directory`, `materialize_validation_safety_fixture`, `materialize_prediction_train(store, readiness)`, opaque `DurableTestOpeningCapability`, sole `reserve_and_issue_durable_test_opening_capability`, sole `validate_durable_test_opening_capability`, `open_test_for_scoring(store, opening)`, `CausalWindows`, and `FrozenBatchSchedule`.
 - Consumes: `DataIdentity` and the canonical data config from Task 1.
 
-- [ ] **Step 1: Write failing archive, capability, and exposure tests with a synthetic fixture.** Assert exact URL, archive/member/count/size/method/ratio/encryption/path/CRC limits, exact byte mapping, one BOS/EOS per split, no UTF-8 decoding or newline normalization, changed-byte/hash rejection, bounded streaming extraction, split-independent hashes, exact final padding, stride/length, counted targets, and stable identities. Before readiness, require only opaque sealed train/test handles plus the frozen validation-safety fixture; attempts to request train tensors/windows or test bytes/tensors fail before opening a file. A forged/wrong-revision readiness token cannot materialize train. A forged/non-durable/wrong-experiment opening capability cannot unseal test. Include a test proving the validation fixture is unchanged when train bytes change and AST/import tests proving training/tuning/analysis cannot import the private unsealer.
+- [ ] **Step 1: Write failing synthetic archive/storage/fixture/schedule/capability tests.** Retain the exact URL/opener, archive, uint16-le token, 4,096-window fixture, batch/permutation, and no-download tests. For publication, supply exactly five payloads in multiple mapping orders and require identical staging/manifest order; reject missing/extra/duplicate/caller-manifest inputs. Verify the exact manifest preimage/file bytes, raw lengths/content hashes, self-exclusion, and that `data_identity.json` rejects any enclosing manifest identity. Retain same-volume/O_EXCL/no-replace/closed-handle/owned-cleanup mutants. Prove direct/deserialized construction of `DurableTestOpeningCapability` is unavailable; only the issuer after durable O_EXCL proof bytes succeeds. Mutate every readiness/experiment/data/test/access/path/state/proof byte, registry copy, and on-disk reservation byte and require the sole validator/open path to fail before mapping.
 
 - [ ] **Step 2: Run focused RED.** Run `python -m pytest tests/unit/test_h6_byte_tokenizer.py tests/unit/test_h6_wikitext2.py tests/unit/test_h6_data_access.py tests/unit/test_h6_windows.py -q`. Expected: FAIL on missing data/capability modules.
 
-- [ ] **Step 3: Implement blinded acquisition and sealed publication.** Allow only the exact `wikitext-2-raw/` entries and bounds in Global Constraints; reject traversal, duplicate/case-colliding members, links, encryption, unsupported methods, central-directory/streamed size or CRC disagreement, and missing/extra files. Hash archive/raw/encoded-token identities in bounded streaming mode, but return no raw/token content. Atomically publish sealed train, validation, and test members, `validation_safety_fixture.bin`, `data_identity.json`, an access-policy hash, and `manifest.sha256`. Do not publish model-readable `train.tokens.bin`, ordinary-validation token/window files, or `test.tokens.bin` in this phase.
+- [ ] **Step 3: Implement exact acquisition, token bytes, validation fixture, and self-manifesting binary publication.** Public acquisition uses the official URL/private test seam; stream/close members, encode uint16-le IDs, and serialize the fixture exactly. Accept/stage exactly five caller payloads, canonicalize their fixed order, forbid enclosing-manifest fields in `data_identity.json`, compute raw lengths/hashes, and generate `manifest.sha256` internally from the frozen self-excluding preimage. Do not use `publish_run_directory`, `extract`, or `extractall`, and do not publish model-readable token files.
 
-- [ ] **Step 4: Implement capability-gated materialization, windows, and schedules.** `materialize_prediction_train` verifies the exact readiness `git_head`, `dirty_digest`, data identity, and manifest before decoding train/validation and creating any train tensor/window. `open_test_for_scoring` accepts only the durable reservation-derived capability and maps the sealed test stream read-only; it is the sole model-facing test path. Hash each window manifest from `(split_token_sha256, seq_len, stride, starts, real_target_counts, padding_policy)`. `FrozenBatchSchedule` takes the shared data-order seed and pass index; its digest is embedded in every training attempt/checkpoint. Evaluation order is sequential and complete.
+- [ ] **Step 4: Implement capability-gated materialization, schedules, and opaque opening proof.** Retain readiness-gated materialization and exact schedules. Give each store a private one-shot proof validator. The sole issuer derives canonical proof bytes from independently supplied readiness/experiment plus store identities, durably writes them with O_EXCL, registers an immutable proof/decoded identity copy, then privately constructs the capability. The sole validator compares capability, registry, and re-read file bytes/hashes/fields. `open_test_for_scoring` must obtain `ValidatedTestOpening` from that validator before its only read-only mapping path; it accepts no loose identity strings or alternate constructor.
 
-- [ ] **Step 5: Freeze the acquisition protocol without fetching corpus data.** Record the official URL, bounds, member allowlist, tokenizer/access-policy schemas, and measured-value slots in typed config/preregistration. Source buildout uses only synthetic archive fixtures. Actual download, measured archive/member/token hashes, and sealed official handles are produced only by the separately authorized Task 13 evidence operation; no substitute dataset is allowed.
+- [ ] **Step 5: Review Task 1-owned measured-value slots without editing them.** Source buildout uses only synthetic fixtures; actual download remains deferred. If `schema.py`, `resolve.py`, or the preregistration lacks a required measured-value slot, stop Task 2 and record a reviewed omission proof for the Task 1 owner; Task 2 may modify/add those paths only after that review explicitly revises its file and commit lists. Otherwise they remain read-only and absent from the Task 2 commit.
 
 - [ ] **Step 6: Run focused GREEN.** Run the Step 2 command. Expected: PASS on synthetic identity fixtures only; do not access an official/local corpus cache.
 
 - [ ] **Step 7: Commit.**
 
 ```text
-git add vfe4/data vfe4/config/schema.py vfe4/config/resolve.py tests/unit/test_h6_byte_tokenizer.py tests/unit/test_h6_wikitext2.py tests/unit/test_h6_data_access.py tests/unit/test_h6_windows.py docs/preregistrations/2026-07-21-h6-prefix-prediction.md
+git add vfe4/data tests/unit/test_h6_byte_tokenizer.py tests/unit/test_h6_wikitext2.py tests/unit/test_h6_data_access.py tests/unit/test_h6_windows.py
 git commit -m "feat: add identity-bound WikiText-2 byte data"
 ```
 
@@ -817,7 +900,7 @@ git commit -m "test: add exhaustive H6 prefix oracle"
 
 - [ ] **Step 2: Run focused RED.** Run `python -m pytest tests/unit/test_h6_static_audit.py tests/unit/test_h6_taint_audit.py tests/unit/test_h6_mask_audit.py -q`. Expected: FAIL because the auditor is absent.
 
-- [ ] **Step 3: Implement the import/signature/normalization/access audit.** Parse ASTs without importing launchers, build the in-repo import/call graph, enforce forbidden dependency edges, resolve the six explicit factories/matrix configs, and inspect the bound predictor signature. Prove every state/model fixed/prefix source row reaches the one shared pre-softmax parent-mask helper, every declared parent is `<receiver_t`, and no post-softmax/alternate normalization is reachable. Prove only `vfe4.data.access` reaches the private unsealer, train materialization requires readiness, model-facing test mapping requires `DurableTestOpeningCapability`, and blinded preprocessing returns no raw/token tensor. Hash every audited source file, exact `T_mask` manifest/count, access-policy graph, and audit rule set; unresolved dispatch is INCONCLUSIVE.
+- [ ] **Step 3: Implement the import/signature/normalization/access audit.** Preserve the generative/import checks. Prove only `vfe4.data.access` reaches the private unsealer, issuer, capability constructor, and proof validator; train materialization requires readiness; `open_test_for_scoring` requires the sole validator's `ValidatedTestOpening`; and blinded preprocessing returns no raw/token tensor. Hash audited source/rules; unresolved dispatch is INCONCLUSIVE.
 
 - [ ] **Step 4: Implement the taint, cache, and split-capability audit.** Sources are target tensors, suffix tensors, complete windows beyond the slicing boundary, recognition objects/activations/parameters, posterior reconstructions, and sealed train/test contents. Sinks are source-prior logits, transition parameters, emission logits, estimator proposals/weights before observation, predictor outputs, cache keys/values, training/tuning/analysis inputs, and any public preprocessing return. Follow assignments, calls, returns, attributes, containers, capabilities, and explicit factory calls; unresolved reflection/eval/import makes the report INCONCLUSIVE. Cache keys require source/config/model-state/estimator/prefix identities; cache payload schema permits only causal filter state/counter positions. Test data may reach scoring only after the durable opening capability; it may never reach training/tuning.
 
@@ -867,7 +950,7 @@ git commit -m "test: audit H6 causal dataflow"
 
 - [ ] **Step 5: Implement Prediction readiness before experiment access.** `validate_h6_prediction_readiness` first revalidates the exact deferred-evidence H1/H2/H3/H5 artifacts at one `git_head`/`dirty_digest`, then the separate same-candidate H1-prefix-prior and finite-SMC artifacts/ledgers and independent H6-Prefix certificate set. It validates H5's actual fields/labels as correctness provenance while taking AdamW class/policy/phases solely from the common/typed H6 schedule. It also validates critical-value and actual-endpoint protocol hashes, the literal matrix, every prefix key, and the blinded-data access policy; then it reconstructs all endpoints without corpus access and mechanically reproduces/freeze-hashes every match report. It never requests H4 or launches an H4 benchmark. It publishes separate `h6_prediction_readiness.json` and returns an opaque PASS token. Only that token can materialize train data or start empirical operations; matching is a Prediction-readiness phase, not a Prefix claim.
 
-- [ ] **Step 6: Implement atomic experiment/opening surfaces and the two launchers.** Keep probability, capability/data, training, uncertainty, and artifact logic in package modules. The readiness token and every attempt reference, rather than copy, Prediction prerequisite/Prefix artifacts. Each launcher has exactly one editable root `CONFIG`, one `main`, one guard, no required CLI or environment variable, and no auto-run on import; `train_vfe4.py` prints resolved operation/status/artifact paths and returns structured results. Implement the exclusive durable reservation that issues the only `DurableTestOpeningCapability`, plus immutable raw endpoint-MC/result schemas from Task 14. No argparse, Typer, or Hydra.
+- [ ] **Step 6: Implement atomic experiment/opening surfaces and the two launchers.** Keep package boundaries and launcher constraints. Construct an immutable `ExperimentIdentity` binding checkpoint/current-candidate/sealed-data/access-policy/analysis/stream identities, then use only Task 2's `reserve_and_issue_durable_test_opening_capability` and validator; no launcher constructs or decodes the opaque capability. Implement endpoint-MC/result schemas from Task 14. No argparse, Typer, or Hydra.
 
 - [ ] **Step 7: Run focused GREEN.** Run the Step 3 command. Expected: PASS.
 
@@ -936,7 +1019,7 @@ Expected: PASS on shrunken fixtures. This is focused source verification only, n
 
 - [ ] **Step 1: Preflight one-opening eligibility for the complete frozen matrix.** Require the exact PASS readiness token and its H1/H2/H3/H5, H1-prefix-prior, finite-SMC, and independent Prefix parents; exact H5 producer binding; H6-owned schedules; critical-value/access-policy/endpoint protocol; matrix/matching/sealed-data hashes; all 96 terminal checkpoints; unchanged revision/config/analysis hashes; the exact stream registry/particle ladder; no prior reservation; and no active marker. H4 is absent. Prove train/tuning never mapped the sealed test handle. If any condition fails, publish Prediction INCONCLUSIVE without model-facing test access.
 
-- [ ] **Step 2: Durably reserve exactly one opening and issue the sole test capability.** Before model-facing mapping/unsealing, create the canonical immutable reservation with `os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)`. Write canonical JSON containing experiment/readiness/checkpoint-set/current-candidate/sealed-data/access-policy/analysis hashes, all 96 checkpoints, replicate IDs `0..63`, particle counts `(128,256,512,1024)`, and `state="RESERVED"`; flush and `os.fsync` the file, close it, then fsync the containing directory (or documented durable equivalent). `FileExistsError` blocks without model-facing test access. Never reopen, truncate, replace, rename over, or delete the reservation. A crash/exception after reservation is terminal Prediction INCONCLUSIVE and never retryable. Derive `DurableTestOpeningCapability` from the exact durable record, then and only then call `open_test_for_scoring`; blinded sealed storage before this point is not an opening.
+- [ ] **Step 2: Durably reserve exactly one opening through the sole issuer.** Freeze `ExperimentIdentity` over the complete checkpoint/current-candidate/sealed-data/access-policy/analysis/stream protocol, then call `reserve_and_issue_durable_test_opening_capability(store=store, readiness=readiness, experiment_identity=experiment_identity, reservation_path=reservation_path)` exactly once. That function alone writes/fsyncs the frozen canonical O_EXCL proof bytes, registers the independently retained proof, and privately constructs the opaque capability. `FileExistsError` or any post-reservation crash is terminal Prediction INCONCLUSIVE. Never truncate, replace, rename over, delete, reconstruct, or deserialize a capability. `open_test_for_scoring` must first obtain the sole validator's `ValidatedTestOpening`; blinded storage before that validation is not an opening.
 
 - [ ] **Step 3: Run the complete fixed actual-endpoint assessment in that transaction.** Score every checkpoint at all four particle counts for all 64 common stream IDs using target-blind weighted prior prediction, sequential cold-then-warm cache audit, and corpus-summed token totals. Publish every `log Z_hat`, counted-target total, `Y[c,r,N]`, counter-consumption record, cache audit, checkpoint/stream/particle identity, and failure. The transaction is complete only with exactly `96*64*4=24,576` corpus records. A missing/duplicate/nonfinite record or scorer defect makes Prediction INCONCLUSIVE/FAIL as specified; never reopen or add replicates.
 
