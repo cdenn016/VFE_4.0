@@ -531,6 +531,43 @@ class H6SourceIdentity:
 
 
 @dataclass(frozen=True)
+class H6ArchiveMemberExpectation:
+    path: Literal[
+        "wikitext-2-raw/wiki.train.raw",
+        "wikitext-2-raw/wiki.valid.raw",
+        "wikitext-2-raw/wiki.test.raw",
+    ]
+    compressed_size: int
+    uncompressed_size: int
+    compression_method: Literal[0, 8]
+    crc32: int
+    raw_sha256: str
+
+
+@dataclass(frozen=True)
+class H6ObservedArchive:
+    archive_byte_length: int
+    archive_sha256: str
+    members: tuple[H6ArchiveMemberExpectation, ...]
+
+
+@dataclass(frozen=True)
+class H6DataConfig:
+    schema_version: Literal["h6-data-config-v1"]
+    source_url: Literal[
+        "https://s3.amazonaws.com/research.metamind.io/wikitext/"
+        "wikitext-2-raw-v1.zip"
+    ]
+    max_archive_bytes: Literal[16777216]
+    member_paths: tuple[str, ...]
+    allowed_compression_methods: tuple[Literal[0, 8], ...]
+    max_member_bytes: Literal[16777216]
+    max_total_uncompressed_bytes: Literal[33554432]
+    max_compression_ratio: Literal[100]
+    observed_archive: H6ObservedArchive | None
+
+
+@dataclass(frozen=True)
 class H6PrefixResolvedConfig:
     schema_version: Literal["h6-prefix-config-v1"]
     operation: Literal["H6-Prefix"]
@@ -550,6 +587,7 @@ class H6PredictionResolvedConfig:
     schema_version: Literal["h6-prediction-config-v1"]
     operation: Literal["H6-Prediction"]
     source: H6SourceIdentity
+    data: H6DataConfig
     correctness_manifests: tuple[tuple[str, str], ...]
     h1_prefix_prior_manifest_sha256: str
     smc_validation_manifest_sha256: str

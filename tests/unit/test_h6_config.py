@@ -65,6 +65,25 @@ def _prediction_config() -> dict[str, object]:
         "schema_version": "h6-prediction-config-v1",
         "operation": "H6-Prediction",
         "source": _source(),
+        "data": {
+            "schema_version": "h6-data-config-v1",
+            "source_url": (
+                "https://s3.amazonaws.com/research.metamind.io/"
+                "wikitext/wikitext-2-raw-v1.zip"
+            ),
+            "max_archive_bytes": 16_777_216,
+            "member_paths": [
+                "wikitext-2-raw/",
+                "wikitext-2-raw/wiki.train.raw",
+                "wikitext-2-raw/wiki.valid.raw",
+                "wikitext-2-raw/wiki.test.raw",
+            ],
+            "allowed_compression_methods": [0, 8],
+            "max_member_bytes": 16_777_216,
+            "max_total_uncompressed_bytes": 33_554_432,
+            "max_compression_ratio": 100,
+            "observed_archive": None,
+        },
         "prerequisites": {
             "correctness_manifests": {
                 "H1": _sha("1"),
@@ -220,7 +239,43 @@ def test_prediction_config_requires_exact_non_h4_prerequisites(tmp_path: Path) -
     assert resolved.prefix_certificate_set_sha256 == _sha("9")
     assert resolved.training_schedule.endpoint_phases[0].latent_enabled is False
     assert resolved.training_schedule.endpoint_phases[1].latent_enabled is True
+    assert resolved.data.observed_archive is None
+    assert resolved.data.max_archive_bytes == 16_777_216
     assert "H4" not in resolved.canonical_json
+
+
+def test_prediction_data_config_accepts_bound_observations_and_rejects_mirrors(
+    tmp_path: Path,
+) -> None:
+    raw = _prediction_config()
+    raw["data"]["observed_archive"] = {  # type: ignore[index]
+        "archive_byte_length": 1234,
+        "archive_sha256": _sha("a"),
+        "members": [
+            {
+                "path": path,
+                "compressed_size": 10 + index,
+                "uncompressed_size": 20 + index,
+                "compression_method": 8,
+                "crc32": 100 + index,
+                "raw_sha256": _sha(character),
+            }
+            for index, (path, character) in enumerate(
+                (
+                    ("wikitext-2-raw/wiki.train.raw", "b"),
+                    ("wikitext-2-raw/wiki.valid.raw", "c"),
+                    ("wikitext-2-raw/wiki.test.raw", "d"),
+                )
+            )
+        ],
+    }
+    resolved = resolve_config(raw, repo_root=tmp_path)
+    assert resolved.data.observed_archive is not None
+    assert resolved.data.observed_archive.members[1].crc32 == 101
+
+    raw["data"]["source_url"] = "https://example.invalid/mirror.zip"  # type: ignore[index]
+    with pytest.raises(ValueError, match="source_url"):
+        resolve_config(raw, repo_root=tmp_path)
 
 
 def test_prediction_config_is_blocked_without_exact_prefix_set(tmp_path: Path) -> None:

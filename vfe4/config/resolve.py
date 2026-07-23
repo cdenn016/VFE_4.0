@@ -59,6 +59,9 @@ from .schema import (
     InferenceConfig,
     H6PredictionResolvedConfig,
     H6PrefixResolvedConfig,
+    H6ArchiveMemberExpectation,
+    H6DataConfig,
+    H6ObservedArchive,
     H6SourceIdentity,
     ModelConfig,
     OptimizationConfig,
@@ -404,6 +407,150 @@ def _h6_json(payload: Mapping[str, object]) -> tuple[str, str]:
     return canonical, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+_H6_WIKITEXT2_URL = (
+    "https://s3.amazonaws.com/research.metamind.io/wikitext/"
+    "wikitext-2-raw-v1.zip"
+)
+_H6_WIKITEXT2_ENTRIES = (
+    "wikitext-2-raw/",
+    "wikitext-2-raw/wiki.train.raw",
+    "wikitext-2-raw/wiki.valid.raw",
+    "wikitext-2-raw/wiki.test.raw",
+)
+_H6_WIKITEXT2_FILES = _H6_WIKITEXT2_ENTRIES[1:]
+
+
+def _resolve_h6_data(raw: object) -> H6DataConfig:
+    data = _require_mapping(raw, "h6_prediction.data")
+    _validate_keys(
+        data,
+        frozenset(
+            {
+                "schema_version", "source_url", "max_archive_bytes", "member_paths",
+                "allowed_compression_methods", "max_member_bytes",
+                "max_total_uncompressed_bytes", "max_compression_ratio",
+                "observed_archive",
+            }
+        ),
+        "h6_prediction.data",
+    )
+    schema_version = _require_exact(
+        data["schema_version"], "h6-data-config-v1", "h6_prediction.data.schema_version"
+    )
+    source_url = _require_exact(
+        data["source_url"], _H6_WIKITEXT2_URL, "h6_prediction.data.source_url"
+    )
+    max_archive_bytes = _require_exact(
+        data["max_archive_bytes"], 16_777_216, "h6_prediction.data.max_archive_bytes"
+    )
+    member_paths = tuple(
+        _require_exact_list(
+            data["member_paths"], _H6_WIKITEXT2_ENTRIES,
+            "h6_prediction.data.member_paths",
+        )
+    )
+    allowed_methods = tuple(
+        _require_exact_list(
+            data["allowed_compression_methods"], (0, 8),
+            "h6_prediction.data.allowed_compression_methods",
+        )
+    )
+    max_member_bytes = _require_exact(
+        data["max_member_bytes"], 16_777_216, "h6_prediction.data.max_member_bytes"
+    )
+    max_total = _require_exact(
+        data["max_total_uncompressed_bytes"], 33_554_432,
+        "h6_prediction.data.max_total_uncompressed_bytes",
+    )
+    max_ratio = _require_exact(
+        data["max_compression_ratio"], 100,
+        "h6_prediction.data.max_compression_ratio",
+    )
+    observed_raw = data["observed_archive"]
+    if observed_raw is None:
+        observed = None
+    else:
+        archive = _require_mapping(observed_raw, "h6_prediction.data.observed_archive")
+        _validate_keys(
+            archive,
+            frozenset({"archive_byte_length", "archive_sha256", "members"}),
+            "h6_prediction.data.observed_archive",
+        )
+        archive_length = _require_int(
+            archive["archive_byte_length"], "observed_archive.archive_byte_length"
+        )
+        if archive_length <= 0 or archive_length > max_archive_bytes:
+            raise ValueError("observed archive byte length exceeds the frozen bound")
+        archive_sha = _require_h6_sha256(
+            archive["archive_sha256"], "observed_archive.archive_sha256"
+        )
+        members_raw = archive["members"]
+        if type(members_raw) is not list or len(members_raw) != 3:
+            raise ValueError("observed archive members must contain the exact three files")
+        members: list[H6ArchiveMemberExpectation] = []
+        for index, expected_path in enumerate(_H6_WIKITEXT2_FILES):
+            member = _require_mapping(
+                members_raw[index], f"observed_archive.members[{index}]"
+            )
+            _validate_keys(
+                member,
+                frozenset(
+                    {
+                        "path", "compressed_size", "uncompressed_size",
+                        "compression_method", "crc32", "raw_sha256",
+                    }
+                ),
+                f"observed_archive.members[{index}]",
+            )
+            path = _require_exact(
+                member["path"], expected_path, f"observed_archive.members[{index}].path"
+            )
+            compressed = _require_int(
+                member["compressed_size"], f"observed_archive.members[{index}].compressed_size"
+            )
+            uncompressed = _require_int(
+                member["uncompressed_size"], f"observed_archive.members[{index}].uncompressed_size"
+            )
+            if not (0 < compressed <= max_member_bytes and 0 < uncompressed <= max_member_bytes):
+                raise ValueError("observed archive member sizes exceed the frozen bounds")
+            if uncompressed > max_ratio * compressed:
+                raise ValueError("observed archive member exceeds the compression-ratio bound")
+            method = _require_int(
+                member["compression_method"], f"observed_archive.members[{index}].compression_method"
+            )
+            if method not in allowed_methods:
+                raise ValueError("observed archive member has an unsupported compression method")
+            crc32 = _require_int(member["crc32"], f"observed_archive.members[{index}].crc32")
+            if not 0 <= crc32 <= 0xFFFFFFFF:
+                raise ValueError("observed archive member CRC32 is out of range")
+            members.append(
+                H6ArchiveMemberExpectation(
+                    path,
+                    compressed,
+                    uncompressed,
+                    method,
+                    crc32,
+                    _require_h6_sha256(
+                        member["raw_sha256"], f"observed_archive.members[{index}].raw_sha256"
+                    ),
+                )
+            )
+        if sum(member.uncompressed_size for member in members) > max_total:
+            raise ValueError("observed archive total uncompressed bytes exceed the frozen bound")
+        observed = H6ObservedArchive(archive_length, archive_sha, tuple(members))
+    return H6DataConfig(
+        schema_version,
+        source_url,
+        max_archive_bytes,
+        member_paths,
+        allowed_methods,
+        max_member_bytes,
+        max_total,
+        max_ratio,
+        observed,
+    )
+
+
 def _resolve_h6_prefix_config(
     raw: Mapping[str, object], *, repo_root: Path
 ) -> H6PrefixResolvedConfig:
@@ -568,7 +715,7 @@ def _resolve_h6_prediction_config(
         root,
         frozenset(
             {
-                "schema_version", "operation", "source", "prerequisites",
+                "schema_version", "operation", "source", "data", "prerequisites",
                 "h5_update_binding_sha256", "training_schedule",
                 "critical_values_sha256", "endpoint_smc_protocol",
                 "attribution_matrix_sha256", "matching_set_sha256",
@@ -585,6 +732,7 @@ def _resolve_h6_prediction_config(
         root["operation"], "H6-Prediction", "h6_prediction.operation"
     )
     source = _resolve_h6_source(root["source"])
+    data_config = _resolve_h6_data(root["data"])
     prerequisites = _require_mapping(root["prerequisites"], "h6_prediction.prerequisites")
     _validate_keys(
         prerequisites,
@@ -746,6 +894,7 @@ def _resolve_h6_prediction_config(
             "dirty_digest": source.dirty_digest,
             "source_sha256": source.source_sha256,
         },
+        "data": asdict(data_config),
         "prerequisites": {
             "correctness_manifests": dict(correctness_manifests),
             "h1_prefix_prior_manifest_sha256": h1_prefix_prior_manifest_sha256,
@@ -772,6 +921,7 @@ def _resolve_h6_prediction_config(
         schema_version,
         operation,
         source,
+        data_config,
         correctness_manifests,
         h1_prefix_prior_manifest_sha256,
         smc_validation_manifest_sha256,
