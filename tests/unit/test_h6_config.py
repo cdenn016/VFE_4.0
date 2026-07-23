@@ -1,17 +1,47 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
-from vfe4.config import resolve_config, resolve_h6_prediction_config, resolve_h6_prefix_config
-from vfe4.types.h6 import TrainingPhase
+from vfe4.config import (
+    resolve_config,
+    resolve_h6_prediction_config,
+    resolve_h6_prefix_config,
+)
+from vfe4.training.arms import build_arm
+from vfe4.types.h6 import (
+    ArmConfig,
+    ArmId,
+    CapacityAllocation,
+    CausalDag,
+    CausalDagRow,
+    EstimatorSpec,
+    H6LanguageStructure,
+    H6PrefixProfilePair,
+    TrainingPhase,
+    VocabularyIdentity,
+    ZeroDimensionalBase,
+    canonical_json_bytes,
+)
 
 
 def _sha(character: str) -> str:
     return character * 64
+
+
+FULL_PREFIX_AUTHORIZATION_SHA256 = hashlib.sha256(
+    b"AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1"
+).hexdigest()
+
+
+def _data_safety_sha256() -> str:
+    return hashlib.sha256(
+        b"VFE4-H6-TARGET-FREE-PREDICTIVE-BOUNDARY-V1"
+    ).hexdigest()
 
 
 def _source() -> dict[str, object]:
@@ -22,40 +52,145 @@ def _source() -> dict[str, object]:
     }
 
 
-def _prefix_config() -> dict[str, object]:
+def _structure(horizon: int) -> dict[str, object]:
+    return {
+        "base": {"base_id": "C0", "points": ["*"], "dimension": 0},
+        "dag": {
+            "labeling": "zero_based",
+            "node_labels": list(range(horizon + 1)),
+            "rows": [
+                {"receiver_t": receiver, "parents": list(range(receiver))}
+                for receiver in range(1, horizon + 1)
+            ],
+        },
+        "receiver_labels": list(range(1, horizon + 1)),
+    }
+
+
+def _typed_structure(horizon: int) -> H6LanguageStructure:
+    return H6LanguageStructure.create(
+        base=ZeroDimensionalBase.create(),
+        dag=CausalDag.create(
+            node_labels=tuple(range(horizon + 1)),
+            rows=tuple(
+                CausalDagRow(receiver, tuple(range(receiver)))
+                for receiver in range(1, horizon + 1)
+            ),
+        ),
+        receiver_labels=tuple(range(1, horizon + 1)),
+    )
+
+
+def _arm_config(*, vocabulary_size: int, horizon: int) -> ArmConfig:
+    vocabulary = VocabularyIdentity(
+        "h6-prefix-small-v1"
+        if vocabulary_size == 3
+        else "wikitext-2-byte-v1",
+        vocabulary_size,
+        _sha("5"),
+    )
+    return ArmConfig.create(
+        arm=ArmId.A0,
+        config_id="h6-a0-ar-v1",
+        vocabulary=vocabulary,
+        horizon=horizon,
+        latent_enabled=False,
+        state_channel_enabled=False,
+        model_channel_enabled=False,
+        source_mode="absent",
+        map_mode="absent",
+        recognition_family="absent",
+        recognition_conditioning="absent",
+        prior_variant="absent",
+        mixture_mode="absent",
+        objective_kind="cross_entropy",
+        capacity_allocation=CapacityAllocation.create(
+            emission_width=48 if vocabulary_size == 3 else 64,
+            latent_width=None,
+            recognition_width=None,
+        ),
+    )
+
+
+def _raw_arm_config(config: ArmConfig) -> dict[str, object]:
+    payload = config.canonical_payload()
+    payload.pop("capacity_allocation_sha256")
+    return payload
+
+
+def _profile(particle_count: int) -> dict[str, object]:
+    small = _arm_config(vocabulary_size=3, horizon=4)
+    production = _arm_config(vocabulary_size=258, horizon=32)
+    estimator = EstimatorSpec.create(
+        kind="weighted_smc",
+        particle_count=particle_count,
+        resampling="systematic_ess_half",
+    )
+    small_model_family_sha256 = hashlib.sha256(
+        b"vfe4.h6.arm-model-family.v1\x00"
+        + canonical_json_bytes(
+            {
+                "config_sha256": small.config_sha256,
+                "factory": "build_a0@h6-arm-v1",
+            }
+        )
+    ).hexdigest()
+    production_model_family_sha256 = hashlib.sha256(
+        b"vfe4.h6.arm-model-family.v1\x00"
+        + canonical_json_bytes(
+            {
+                "config_sha256": production.config_sha256,
+                "factory": "build_a0@h6-arm-v1",
+            }
+        )
+    ).hexdigest()
+    pair = H6PrefixProfilePair.create(
+        profile_id=f"h6-a0-smc-{particle_count}-v1",
+        small_arm_config=small,
+        production_arm_config=production,
+        estimator=estimator,
+        small_structure=_typed_structure(4),
+        production_structure=_typed_structure(32),
+        data_safety_sha256=_data_safety_sha256(),
+        small_model_family_sha256=small_model_family_sha256,
+        production_model_family_sha256=production_model_family_sha256,
+    )
+    return {
+        "profile_id": pair.profile_id,
+        "small_arm_config": _raw_arm_config(small),
+        "production_arm_config": _raw_arm_config(production),
+        "estimator": {
+            "schema_version": estimator.schema_version,
+            "kind": estimator.kind,
+            "particle_count": estimator.particle_count,
+            "resampling": estimator.resampling,
+            "dtype": estimator.dtype,
+            "device": estimator.device,
+        },
+        "small_structure": _structure(4),
+        "production_structure": _structure(32),
+        "data_safety_sha256": pair.data_safety_sha256,
+        "small_model_family_sha256": pair.small_model_family_sha256,
+        "production_model_family_sha256": (
+            pair.production_model_family_sha256
+        ),
+        "profile_pair_sha256": pair.profile_pair_sha256,
+    }
+
+
+def _prefix_config(
+    *,
+    execution_mode: str = "focused_subset",
+    particle_counts: tuple[int, ...] = (4,),
+    authorization_sha256: str | None = None,
+) -> dict[str, object]:
     return {
         "schema_version": "h6-prefix-config-v1",
         "operation": "H6-Prefix",
         "source": _source(),
-        "structure": {
-            "base": {"base_id": "C0", "points": ["*"], "dimension": 0},
-            "dag": {
-                "labeling": "zero_based",
-                "node_labels": [0, 1, 2, 3, 4],
-                "rows": [
-                    {"receiver_t": 1, "parents": [0]},
-                    {"receiver_t": 2, "parents": [0, 1]},
-                    {"receiver_t": 3, "parents": [0, 1, 2]},
-                    {"receiver_t": 4, "parents": [0, 1, 2, 3]},
-                ],
-            },
-            "receiver_labels": [1, 2, 3, 4],
-        },
-        "model_family_sha256": _sha("4"),
-        "vocabulary": {
-            "vocabulary_id": "h6-prefix-small-v1",
-            "size": 3,
-            "tokenizer_spec_sha256": _sha("5"),
-        },
-        "estimator": {
-            "schema_version": "h6-estimator-v1",
-            "kind": "deterministic_exact",
-            "particle_count": None,
-            "resampling": "none",
-            "dtype": "float64",
-            "device": "cpu",
-        },
-        "data_safety_sha256": _sha("6"),
+        "execution_mode": execution_mode,
+        "profiles": [_profile(count) for count in particle_counts],
+        "authorization_sha256": authorization_sha256,
         "artifact_root": "runs/h6-prefix",
     }
 
@@ -151,7 +286,10 @@ def _prediction_config() -> dict[str, object]:
 
 def _reverse_mappings(value: object) -> object:
     if isinstance(value, dict):
-        return {key: _reverse_mappings(item) for key, item in reversed(tuple(value.items()))}
+        return {
+            key: _reverse_mappings(item)
+            for key, item in reversed(tuple(value.items()))
+        }
     if isinstance(value, list):
         return [_reverse_mappings(item) for item in value]
     return value
@@ -166,19 +304,92 @@ def test_prefix_config_is_independent_strict_and_does_not_mutate_input(
 
     assert raw == before
     assert resolved.operation == "H6-Prefix"
-    assert resolved.structure.base.dimension == 0
-    assert resolved.structure.receiver_labels == (1, 2, 3, 4)
-    assert resolved.estimator.kind == "deterministic_exact"
+    assert resolved.source.git_head == "1" * 40
+    assert resolved.source.dirty_digest == _sha("2")
+    assert resolved.source.source_sha256 == _sha("3")
+    assert resolved.execution_mode == "focused_subset"
+    assert resolved.authorization_sha256 is None
+    assert len(resolved.profiles) == 1
+    assert resolved.profiles[0].small_structure.receiver_labels == (1, 2, 3, 4)
+    assert resolved.profiles[0].production_structure.receiver_labels == tuple(
+        range(1, 33)
+    )
+    assert resolved.profiles[0].estimator.kind == "weighted_smc"
+    assert resolved.profiles[0].estimator.particle_count == 4
     assert resolved.artifact_root == (tmp_path / "runs/h6-prefix").resolve()
     assert "prerequisite" not in resolved.canonical_json
     assert "H1" not in resolved.canonical_json
     assert json.loads(resolved.canonical_json)["operation"] == "H6-Prefix"
+    assert json.loads(resolved.canonical_json)["source"] == _source()
 
     reordered = resolve_h6_prefix_config(
         _reverse_mappings(raw), repo_root=tmp_path  # type: ignore[arg-type]
     )
     assert reordered.canonical_json == resolved.canonical_json
     assert reordered.config_sha256 == resolved.config_sha256
+
+    explicit = EstimatorSpec.create(
+        kind="weighted_smc",
+        particle_count=128,
+        resampling="systematic_ess_half",
+    )
+    built = build_arm(ArmId.A0, resolved.profiles[0].small_arm_config)
+    assert built.predictor.estimator_spec.particle_count == 4
+    _, rebuilt = built.rebuild_predictive_boundary(explicit)
+    assert rebuilt.estimator_spec == explicit
+
+    deterministic = _prefix_config()
+    deterministic["profiles"][0]["estimator"] = {  # type: ignore[index]
+        "schema_version": "h6-estimator-v1",
+        "kind": "deterministic_exact",
+        "particle_count": None,
+        "resampling": "none",
+        "dtype": "float64",
+        "device": "cpu",
+    }
+    with pytest.raises(ValueError, match="weighted_smc"):
+        resolve_h6_prefix_config(deterministic, repo_root=tmp_path)
+
+    with pytest.raises(ValueError, match="authorization"):
+        resolve_h6_prefix_config(
+            _prefix_config(authorization_sha256=_sha("a")),
+            repo_root=tmp_path,
+        )
+    with pytest.raises(ValueError, match="128.*256.*512.*1024|ladder"):
+        resolve_h6_prefix_config(
+            _prefix_config(
+                execution_mode="authorized_full",
+                particle_counts=(128, 256, 512),
+                authorization_sha256=FULL_PREFIX_AUTHORIZATION_SHA256,
+            ),
+            repo_root=tmp_path,
+        )
+
+    authorized = resolve_h6_prefix_config(
+        _prefix_config(
+            execution_mode="authorized_full",
+            particle_counts=(128, 256, 512, 1024),
+            authorization_sha256=FULL_PREFIX_AUTHORIZATION_SHA256,
+        ),
+        repo_root=tmp_path,
+    )
+    assert tuple(
+        profile.estimator.particle_count for profile in authorized.profiles
+    ) == (128, 256, 512, 1024)
+    assert (
+        authorized.authorization_sha256
+        == FULL_PREFIX_AUTHORIZATION_SHA256
+    )
+
+    stale = _prefix_config()
+    stale["profiles"][0]["small_model_family_sha256"] = _sha("f")  # type: ignore[index]
+    with pytest.raises(ValueError, match="model.family|profile"):
+        resolve_h6_prefix_config(stale, repo_root=tmp_path)
+
+    wrong_safety = _prefix_config()
+    wrong_safety["profiles"][0]["data_safety_sha256"] = _sha("6")  # type: ignore[index]
+    with pytest.raises(ValueError, match="implemented.*safety"):
+        resolve_h6_prefix_config(wrong_safety, repo_root=tmp_path)
 
 
 def test_h6_helpers_delegate_to_the_single_public_resolver(tmp_path: Path) -> None:
@@ -190,29 +401,6 @@ def test_h6_helpers_delegate_to_the_single_public_resolver(tmp_path: Path) -> No
     )
     assert prefix_from_public == prefix_from_helper
     assert prediction_from_public == prediction_from_helper
-
-
-def test_prefix_resolver_accepts_only_frozen_small_and_production_vocabularies(
-    tmp_path: Path,
-) -> None:
-    production = _prefix_config()
-    production["vocabulary"] = {
-        "vocabulary_id": "wikitext-2-byte-v1",
-        "size": 258,
-        "tokenizer_spec_sha256": _sha("5"),
-    }
-    resolved = resolve_config(production, repo_root=tmp_path)
-    assert resolved.vocabulary.size == 258
-    assert resolved.vocabulary.vocabulary_id == "wikitext-2-byte-v1"
-
-    invalid = _prefix_config()
-    invalid["vocabulary"] = {
-        "vocabulary_id": "h6-prefix-small-v1",
-        "size": 258,
-        "tokenizer_spec_sha256": _sha("5"),
-    }
-    with pytest.raises(ValueError, match="vocabulary"):
-        resolve_config(invalid, repo_root=tmp_path)
 
 
 def test_prefix_config_rejects_predecessor_or_h1_h5_fields(tmp_path: Path) -> None:

@@ -38,6 +38,7 @@ from vfe4.types.h6 import (
     H6ArmPhaseSchedule,
     H6LanguageStructure,
     H6OuterSchedule,
+    H6PrefixProfilePair,
     H6TrainingSchedule,
     TrainingPhase,
     VocabularyIdentity,
@@ -754,158 +755,528 @@ def _resolve_h6_data(raw: object) -> H6DataConfig:
     )
 
 
+def _resolve_h6_prefix_structure(
+    value: object, *, location: str
+) -> H6LanguageStructure:
+    structure_raw = _require_mapping(value, location)
+    _validate_keys(
+        structure_raw,
+        frozenset({"base", "dag", "receiver_labels"}),
+        location,
+    )
+    base_raw = _require_mapping(structure_raw["base"], f"{location}.base")
+    _validate_keys(
+        base_raw,
+        frozenset({"base_id", "points", "dimension"}),
+        f"{location}.base",
+    )
+    _require_exact(base_raw["base_id"], "C0", f"{location}.base.base_id")
+    _require_exact(base_raw["points"], ["*"], f"{location}.base.points")
+    _require_exact(base_raw["dimension"], 0, f"{location}.base.dimension")
+    base = ZeroDimensionalBase.create()
+
+    dag_raw = _require_mapping(structure_raw["dag"], f"{location}.dag")
+    _validate_keys(
+        dag_raw,
+        frozenset({"labeling", "node_labels", "rows"}),
+        f"{location}.dag",
+    )
+    _require_exact(
+        dag_raw["labeling"], "zero_based", f"{location}.dag.labeling"
+    )
+    node_labels_raw = dag_raw["node_labels"]
+    if type(node_labels_raw) is not list or any(
+        type(item) is not int for item in node_labels_raw
+    ):
+        raise ValueError(f"{location}.dag.node_labels must be an integer list")
+    rows_raw = dag_raw["rows"]
+    if type(rows_raw) is not list:
+        raise ValueError(f"{location}.dag.rows must be a list")
+    rows: list[CausalDagRow] = []
+    for index, value in enumerate(rows_raw):
+        row_location = f"{location}.dag.rows[{index}]"
+        row = _require_mapping(value, row_location)
+        _validate_keys(
+            row,
+            frozenset({"receiver_t", "parents"}),
+            row_location,
+        )
+        parents = row["parents"]
+        if type(parents) is not list or any(
+            type(item) is not int for item in parents
+        ):
+            raise ValueError(f"{row_location}.parents must be integers")
+        rows.append(
+            CausalDagRow(
+                _require_int(row["receiver_t"], f"{row_location}.receiver_t"),
+                tuple(parents),
+            )
+        )
+    dag = CausalDag.create(
+        node_labels=tuple(node_labels_raw),
+        rows=tuple(rows),
+    )
+    receivers_raw = structure_raw["receiver_labels"]
+    if type(receivers_raw) is not list or any(
+        type(item) is not int for item in receivers_raw
+    ):
+        raise ValueError(f"{location}.receiver_labels must be an integer list")
+    return H6LanguageStructure.create(
+        base=base,
+        dag=dag,
+        receiver_labels=tuple(receivers_raw),
+    )
+
+
+def _resolve_h6_prefix_vocabulary(
+    value: object, *, location: str
+) -> VocabularyIdentity:
+    raw = _require_mapping(value, location)
+    _validate_keys(
+        raw,
+        frozenset({"vocabulary_id", "size", "tokenizer_spec_sha256"}),
+        location,
+    )
+    vocabulary_id = raw["vocabulary_id"]
+    size = _require_int(raw["size"], f"{location}.size")
+    if type(vocabulary_id) is not str or (vocabulary_id, size) not in {
+        ("h6-prefix-small-v1", 3),
+        ("wikitext-2-byte-v1", 258),
+    }:
+        raise ValueError(
+            f"{location} must be the frozen small or production vocabulary"
+        )
+    return VocabularyIdentity(
+        vocabulary_id,
+        size,
+        _require_h6_sha256(
+            raw["tokenizer_spec_sha256"],
+            f"{location}.tokenizer_spec_sha256",
+        ),
+    )
+
+
+def _resolve_h6_prefix_arm_config(
+    value: object, *, location: str
+) -> ArmConfig:
+    raw = _require_mapping(value, location)
+    semantic_fields = frozenset(
+        {
+            "latent_enabled",
+            "state_channel_enabled",
+            "model_channel_enabled",
+            "source_mode",
+            "map_mode",
+            "recognition_family",
+            "recognition_conditioning",
+            "prior_variant",
+            "mixture_mode",
+            "objective_kind",
+        }
+    )
+    _validate_keys(
+        raw,
+        frozenset(
+            {
+                "arm",
+                "config_id",
+                "vocabulary",
+                "horizon",
+                "capacity_allocation",
+            }
+        )
+        | semantic_fields,
+        location,
+    )
+    arm_raw = raw["arm"]
+    if type(arm_raw) is not str:
+        raise ValueError(f"{location}.arm must identify A0 through A5")
+    try:
+        arm = ArmId(arm_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{location}.arm must identify A0 through A5") from exc
+    config_id = raw["config_id"]
+    if type(config_id) is not str or not config_id:
+        raise ValueError(f"{location}.config_id must be a nonempty string")
+    allocation_raw = _require_mapping(
+        raw["capacity_allocation"], f"{location}.capacity_allocation"
+    )
+    _validate_keys(
+        allocation_raw,
+        frozenset({"emission_width", "latent_width", "recognition_width"}),
+        f"{location}.capacity_allocation",
+    )
+    emission_width = _require_int(
+        allocation_raw["emission_width"],
+        f"{location}.capacity_allocation.emission_width",
+    )
+    latent_width = allocation_raw["latent_width"]
+    recognition_width = allocation_raw["recognition_width"]
+    if latent_width is not None:
+        latent_width = _require_int(
+            latent_width, f"{location}.capacity_allocation.latent_width"
+        )
+    if recognition_width is not None:
+        recognition_width = _require_int(
+            recognition_width,
+            f"{location}.capacity_allocation.recognition_width",
+        )
+    booleans: dict[str, bool] = {}
+    for name in (
+        "latent_enabled",
+        "state_channel_enabled",
+        "model_channel_enabled",
+    ):
+        candidate = raw[name]
+        if type(candidate) is not bool:
+            raise ValueError(f"{location}.{name} must be a bool")
+        booleans[name] = candidate
+    string_values: dict[str, str] = {}
+    for name in semantic_fields - frozenset(booleans):
+        candidate = raw[name]
+        if type(candidate) is not str:
+            raise ValueError(f"{location}.{name} must be a string")
+        string_values[name] = candidate
+    return ArmConfig.create(
+        arm=arm,
+        config_id=config_id,
+        vocabulary=_resolve_h6_prefix_vocabulary(
+            raw["vocabulary"], location=f"{location}.vocabulary"
+        ),
+        horizon=_require_int(raw["horizon"], f"{location}.horizon"),
+        capacity_allocation=CapacityAllocation.create(
+            emission_width=emission_width,
+            latent_width=latent_width,
+            recognition_width=recognition_width,
+        ),
+        **booleans,
+        **string_values,
+    )
+
+
+def _resolve_h6_prefix_estimator(
+    value: object, *, location: str
+) -> EstimatorSpec:
+    raw = _require_mapping(value, location)
+    _validate_keys(
+        raw,
+        frozenset(
+            {
+                "schema_version",
+                "kind",
+                "particle_count",
+                "resampling",
+                "dtype",
+                "device",
+            }
+        ),
+        location,
+    )
+    _require_exact(
+        raw["schema_version"], "h6-estimator-v1", f"{location}.schema_version"
+    )
+    return EstimatorSpec.create(
+        kind=_require_exact(
+            raw["kind"], "weighted_smc", f"{location}.kind"
+        ),
+        particle_count=_require_int(
+            raw["particle_count"], f"{location}.particle_count"
+        ),
+        resampling=_require_exact(
+            raw["resampling"],
+            "systematic_ess_half",
+            f"{location}.resampling",
+        ),
+        dtype=_require_exact(raw["dtype"], "float64", f"{location}.dtype"),
+        device=_require_exact(raw["device"], "cpu", f"{location}.device"),
+    )
+
+
+def _h6_prefix_structure_payload(
+    structure: H6LanguageStructure,
+) -> dict[str, object]:
+    return {
+        "base_sha256": structure.base.canonical_sha256,
+        "dag_sha256": structure.dag.canonical_sha256,
+        "receiver_labels": structure.receiver_labels,
+        "structure_sha256": structure.structure_sha256,
+    }
+
+
+def _h6_prefix_estimator_payload(
+    estimator: EstimatorSpec,
+) -> dict[str, object]:
+    return {
+        "schema_version": estimator.schema_version,
+        "kind": estimator.kind,
+        "particle_count": estimator.particle_count,
+        "resampling": estimator.resampling,
+        "dtype": estimator.dtype,
+        "device": estimator.device,
+        "estimator_sha256": estimator.estimator_sha256,
+    }
+
+
+def _h6_prefix_profile_payload(
+    profile: H6PrefixProfilePair,
+) -> dict[str, object]:
+    return {
+        "profile_id": profile.profile_id,
+        "small_arm_config": {
+            **profile.small_arm_config.canonical_payload(),
+            "config_sha256": profile.small_arm_config.config_sha256,
+        },
+        "production_arm_config": {
+            **profile.production_arm_config.canonical_payload(),
+            "config_sha256": profile.production_arm_config.config_sha256,
+        },
+        "estimator": _h6_prefix_estimator_payload(profile.estimator),
+        "small_structure": _h6_prefix_structure_payload(
+            profile.small_structure
+        ),
+        "production_structure": _h6_prefix_structure_payload(
+            profile.production_structure
+        ),
+        "data_safety_sha256": profile.data_safety_sha256,
+        "small_model_family_sha256": profile.small_model_family_sha256,
+        "production_model_family_sha256": (
+            profile.production_model_family_sha256
+        ),
+        "profile_pair_sha256": profile.profile_pair_sha256,
+    }
+
+
+def _h6_prefix_semantic_key(profile: H6PrefixProfilePair) -> str:
+    return _h6_json(
+        {
+            "small": {
+                "arm": profile.small_arm_config.arm.value,
+                "config_id": profile.small_arm_config.config_id,
+                **profile.small_arm_config.semantic_payload(),
+            },
+            "production": {
+                "arm": profile.production_arm_config.arm.value,
+                "config_id": profile.production_arm_config.config_id,
+                **profile.production_arm_config.semantic_payload(),
+            },
+            "data_safety_sha256": profile.data_safety_sha256,
+        }
+    )[0]
+
+
+def _resolve_h6_prefix_profile(
+    value: object, *, location: str
+) -> H6PrefixProfilePair:
+    raw = _require_mapping(value, location)
+    _validate_keys(
+        raw,
+        frozenset(
+            {
+                "profile_id",
+                "small_arm_config",
+                "production_arm_config",
+                "estimator",
+                "small_structure",
+                "production_structure",
+                "data_safety_sha256",
+                "small_model_family_sha256",
+                "production_model_family_sha256",
+                "profile_pair_sha256",
+            }
+        ),
+        location,
+    )
+    profile_id = raw["profile_id"]
+    if type(profile_id) is not str or not profile_id:
+        raise ValueError(f"{location}.profile_id must be a nonempty string")
+    small_model_family_sha256 = _require_h6_sha256(
+        raw["small_model_family_sha256"],
+        f"{location}.small_model_family_sha256",
+    )
+    production_model_family_sha256 = _require_h6_sha256(
+        raw["production_model_family_sha256"],
+        f"{location}.production_model_family_sha256",
+    )
+    data_safety_sha256 = _require_h6_sha256(
+        raw["data_safety_sha256"],
+        f"{location}.data_safety_sha256",
+    )
+    # Prefix configuration must bind the exact safety boundary implemented by
+    # the arm predictor.  Keep this import local so ordinary H1--H5 resolution
+    # does not import the H6 model factory.
+    from vfe4.training import arms as h6_arms
+
+    implemented_data_safety_sha256 = _require_h6_sha256(
+        h6_arms.H6_TARGET_FREE_DATA_SAFETY_SHA256,
+        "implemented H6 predictor data_safety_sha256",
+    )
+    if data_safety_sha256 != implemented_data_safety_sha256:
+        raise ValueError(
+            f"{location}.data_safety_sha256 does not match the implemented "
+            "H6 predictor safety boundary"
+        )
+    pair = H6PrefixProfilePair.create(
+        profile_id=profile_id,
+        small_arm_config=_resolve_h6_prefix_arm_config(
+            raw["small_arm_config"],
+            location=f"{location}.small_arm_config",
+        ),
+        production_arm_config=_resolve_h6_prefix_arm_config(
+            raw["production_arm_config"],
+            location=f"{location}.production_arm_config",
+        ),
+        estimator=_resolve_h6_prefix_estimator(
+            raw["estimator"], location=f"{location}.estimator"
+        ),
+        small_structure=_resolve_h6_prefix_structure(
+            raw["small_structure"],
+            location=f"{location}.small_structure",
+        ),
+        production_structure=_resolve_h6_prefix_structure(
+            raw["production_structure"],
+            location=f"{location}.production_structure",
+        ),
+        data_safety_sha256=data_safety_sha256,
+        small_model_family_sha256=small_model_family_sha256,
+        production_model_family_sha256=production_model_family_sha256,
+    )
+    expected = {
+        "profile_pair_sha256": pair.profile_pair_sha256,
+    }
+    for name, observed in expected.items():
+        supplied = _require_h6_sha256(raw[name], f"{location}.{name}")
+        if supplied != observed:
+            raise ValueError(f"{location}.{name} does not match the profile")
+    return pair
+
+
+def _require_h6_prefix_execution_mode(
+    execution_mode: object,
+    profiles: tuple[H6PrefixProfilePair, ...],
+    authorization_sha256: object,
+) -> tuple[Literal["focused_subset", "authorized_full"], str | None]:
+    if type(execution_mode) is not str:
+        raise ValueError("h6_prefix.execution_mode must be a string")
+    if execution_mode not in ("focused_subset", "authorized_full"):
+        raise ValueError(
+            "h6_prefix.execution_mode must be focused_subset or authorized_full"
+        )
+    observed = tuple(
+        (_h6_prefix_semantic_key(profile), profile.estimator.particle_count)
+        for profile in profiles
+    )
+    ordered_semantics = tuple(dict.fromkeys(key for key, _ in observed))
+    if execution_mode == "focused_subset":
+        if authorization_sha256 is not None:
+            raise ValueError(
+                "focused H6-Prefix configuration cannot carry authorization"
+            )
+        expected = tuple((key, 4) for key in ordered_semantics)
+        if observed != expected:
+            raise ValueError(
+                "focused H6-Prefix requires exactly one four-particle "
+                "profile per semantic profile"
+            )
+        return "focused_subset", None
+
+    authorization = _require_h6_sha256(
+        authorization_sha256, "h6_prefix.authorization_sha256"
+    )
+    expected_authorization = hashlib.sha256(
+        b"AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1"
+    ).hexdigest()
+    if authorization != expected_authorization:
+        raise ValueError(
+            "h6_prefix.authorization_sha256 must bind the exact full-inventory "
+            "authorization phrase"
+        )
+    ladder = (128, 256, 512, 1024)
+    expected = tuple(
+        (key, particle_count)
+        for key in ordered_semantics
+        for particle_count in ladder
+    )
+    if observed != expected:
+        raise ValueError(
+            "authorized H6-Prefix requires the complete ordered "
+            "128, 256, 512, 1024 ladder per semantic profile"
+        )
+    return "authorized_full", authorization
+
+
 def _resolve_h6_prefix_config(
     raw: Mapping[str, object], *, repo_root: Path
 ) -> H6PrefixResolvedConfig:
     """Resolve the independent predecessor-free H6 Prefix configuration."""
+
     root = _require_mapping(raw, "h6_prefix")
     _validate_keys(
         root,
         frozenset(
             {
-                "schema_version", "operation", "source", "structure",
-                "model_family_sha256", "vocabulary", "estimator",
-                "data_safety_sha256", "artifact_root",
+                "schema_version",
+                "operation",
+                "source",
+                "execution_mode",
+                "profiles",
+                "authorization_sha256",
+                "artifact_root",
             }
         ),
         "h6_prefix",
     )
     schema_version = _require_exact(
-        root["schema_version"], "h6-prefix-config-v1", "h6_prefix.schema_version"
+        root["schema_version"],
+        "h6-prefix-config-v1",
+        "h6_prefix.schema_version",
     )
-    operation = _require_exact(root["operation"], "H6-Prefix", "h6_prefix.operation")
+    operation = _require_exact(
+        root["operation"], "H6-Prefix", "h6_prefix.operation"
+    )
     source = _resolve_h6_source(root["source"])
-
-    structure_raw = _require_mapping(root["structure"], "h6_prefix.structure")
-    _validate_keys(
-        structure_raw, frozenset({"base", "dag", "receiver_labels"}),
-        "h6_prefix.structure",
-    )
-    base_raw = _require_mapping(structure_raw["base"], "h6_prefix.structure.base")
-    _validate_keys(
-        base_raw, frozenset({"base_id", "points", "dimension"}),
-        "h6_prefix.structure.base",
-    )
-    _require_exact(base_raw["base_id"], "C0", "h6_prefix.structure.base.base_id")
-    _require_exact(base_raw["points"], ["*"], "h6_prefix.structure.base.points")
-    _require_exact(base_raw["dimension"], 0, "h6_prefix.structure.base.dimension")
-    base = ZeroDimensionalBase.create()
-
-    dag_raw = _require_mapping(structure_raw["dag"], "h6_prefix.structure.dag")
-    _validate_keys(
-        dag_raw, frozenset({"labeling", "node_labels", "rows"}),
-        "h6_prefix.structure.dag",
-    )
-    _require_exact(dag_raw["labeling"], "zero_based", "h6_prefix.structure.dag.labeling")
-    node_labels_raw = dag_raw["node_labels"]
-    if type(node_labels_raw) is not list or any(type(item) is not int for item in node_labels_raw):
-        raise ValueError("h6_prefix.structure.dag.node_labels must be an integer list")
-    rows_raw = dag_raw["rows"]
-    if type(rows_raw) is not list:
-        raise ValueError("h6_prefix.structure.dag.rows must be a list")
-    rows: list[CausalDagRow] = []
-    for index, value in enumerate(rows_raw):
-        row = _require_mapping(value, f"h6_prefix.structure.dag.rows[{index}]")
-        _validate_keys(
-            row, frozenset({"receiver_t", "parents"}),
-            f"h6_prefix.structure.dag.rows[{index}]",
+    raw_profiles = root["profiles"]
+    if type(raw_profiles) is not list or not raw_profiles:
+        raise ValueError("h6_prefix.profiles must be a nonempty list")
+    profiles = tuple(
+        _resolve_h6_prefix_profile(
+            value, location=f"h6_prefix.profiles[{index}]"
         )
-        parents = row["parents"]
-        if type(parents) is not list or any(type(item) is not int for item in parents):
-            raise ValueError(f"h6_prefix.structure.dag.rows[{index}].parents must be integers")
-        rows.append(CausalDagRow(_require_int(row["receiver_t"], "receiver_t"), tuple(parents)))
-    dag = CausalDag.create(node_labels=tuple(node_labels_raw), rows=tuple(rows))
-    receivers_raw = structure_raw["receiver_labels"]
-    if type(receivers_raw) is not list or any(type(item) is not int for item in receivers_raw):
-        raise ValueError("h6_prefix.structure.receiver_labels must be an integer list")
-    structure = H6LanguageStructure.create(
-        base=base, dag=dag, receiver_labels=tuple(receivers_raw)
+        for index, value in enumerate(raw_profiles)
     )
-
-    model_family_sha256 = _require_h6_sha256(
-        root["model_family_sha256"], "h6_prefix.model_family_sha256"
-    )
-    vocabulary_raw = _require_mapping(root["vocabulary"], "h6_prefix.vocabulary")
-    _validate_keys(
-        vocabulary_raw, frozenset({"vocabulary_id", "size", "tokenizer_spec_sha256"}),
-        "h6_prefix.vocabulary",
-    )
-    vocabulary_id = vocabulary_raw["vocabulary_id"]
-    vocabulary_size = _require_int(
-        vocabulary_raw["size"], "h6_prefix.vocabulary.size"
-    )
-    if type(vocabulary_id) is not str or (vocabulary_id, vocabulary_size) not in {
-        ("h6-prefix-small-v1", 3),
-        ("wikitext-2-byte-v1", 258),
-    }:
-        raise ValueError(
-            "h6_prefix.vocabulary must equal either "
-            "('h6-prefix-small-v1', 3) or ('wikitext-2-byte-v1', 258)"
-        )
-    vocabulary = VocabularyIdentity(
-        vocabulary_id,
-        vocabulary_size,
-        _require_h6_sha256(
-            vocabulary_raw["tokenizer_spec_sha256"],
-            "h6_prefix.vocabulary.tokenizer_spec_sha256",
-        ),
-    )
-
-    estimator_raw = _require_mapping(root["estimator"], "h6_prefix.estimator")
-    _validate_keys(
-        estimator_raw,
-        frozenset({"schema_version", "kind", "particle_count", "resampling", "dtype", "device"}),
-        "h6_prefix.estimator",
-    )
-    _require_exact(estimator_raw["schema_version"], "h6-estimator-v1", "estimator.schema_version")
-    estimator = EstimatorSpec.create(
-        kind=_require_exact(estimator_raw["kind"], "deterministic_exact", "estimator.kind"),
-        particle_count=_require_exact(estimator_raw["particle_count"], None, "estimator.particle_count"),
-        resampling=_require_exact(estimator_raw["resampling"], "none", "estimator.resampling"),
-        dtype=_require_exact(estimator_raw["dtype"], "float64", "estimator.dtype"),
-        device=_require_exact(estimator_raw["device"], "cpu", "estimator.device"),
-    )
-    data_safety_sha256 = _require_h6_sha256(
-        root["data_safety_sha256"], "h6_prefix.data_safety_sha256"
+    if len({profile.profile_id for profile in profiles}) != len(profiles):
+        raise ValueError("h6_prefix profile_id values must be unique")
+    if len({profile.profile_pair_sha256 for profile in profiles}) != len(
+        profiles
+    ):
+        raise ValueError("h6_prefix profile-pair identities must be unique")
+    execution_mode, authorization = _require_h6_prefix_execution_mode(
+        root["execution_mode"],
+        profiles,
+        root["authorization_sha256"],
     )
     artifact_root = _resolve_run_root(root["artifact_root"], repo_root)
     payload = {
         "schema_version": schema_version,
         "operation": operation,
-        "source": {
-            "git_head": source.git_head,
-            "dirty_digest": source.dirty_digest,
-            "source_sha256": source.source_sha256,
-        },
-        "structure": {
-            "base_sha256": base.canonical_sha256,
-            "dag_sha256": dag.canonical_sha256,
-            "receiver_labels": structure.receiver_labels,
-            "structure_sha256": structure.structure_sha256,
-        },
-        "model_family_sha256": model_family_sha256,
-        "vocabulary": {
-            "vocabulary_id": vocabulary.vocabulary_id,
-            "size": vocabulary.size,
-            "tokenizer_spec_sha256": vocabulary.tokenizer_spec_sha256,
-        },
-        "estimator": {
-            "schema_version": estimator.schema_version,
-            "kind": estimator.kind,
-            "particle_count": estimator.particle_count,
-            "resampling": estimator.resampling,
-            "dtype": estimator.dtype,
-            "device": estimator.device,
-            "estimator_sha256": estimator.estimator_sha256,
-        },
-        "data_safety_sha256": data_safety_sha256,
+        "source": asdict(source),
+        "execution_mode": execution_mode,
+        "profiles": tuple(
+            _h6_prefix_profile_payload(profile) for profile in profiles
+        ),
+        "authorization_sha256": authorization,
         "artifact_root": artifact_root.as_posix(),
     }
     canonical_json, config_sha256 = _h6_json(payload)
     return H6PrefixResolvedConfig(
-        schema_version, operation, source, structure, model_family_sha256,
-        vocabulary, estimator, data_safety_sha256, artifact_root,
-        canonical_json, config_sha256,
+        schema_version,
+        operation,
+        source,
+        execution_mode,
+        profiles,
+        authorization,
+        artifact_root,
+        canonical_json,
+        config_sha256,
     )
 
 

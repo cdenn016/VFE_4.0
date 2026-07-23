@@ -1,15 +1,12 @@
-"""Click-to-run H1--H5 verifier with one editable configuration mapping."""
+"""Click-to-run VFE4 verifier with one editable configuration mapping."""
 
 from __future__ import annotations
 
+import hmac
 import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-from verification.run_gates import VerificationRunResult, run_verification
-from vfe4.artifacts import ArtifactPublicationError
-from vfe4.config import resolve_config
-from vfe4.types import GateStatus
 from vfe4.types.h4 import H4_PRIMARY_TIMED_BALANCE, H4_PROBLEM_SEEDS
 from vfe4.types.h5_schema import (
     H5_FACTOR_INPUT_SCHEMA_SHA256,
@@ -22,6 +19,12 @@ from vfe4.types.updates import H5UpdateRule, UpdateLabel
 
 
 CONFIG: dict[str, object] = {
+    "launcher_schema": "vfe4-verify-click-run-v1",
+    "operations": {
+        "h1_h5": {
+            "enabled": False,
+            "authorization": None,
+            "config": {
     "schema_version": 1,
     "objective_schema_version": "vfe4-state-elbo-v1",
     "run": {
@@ -267,32 +270,137 @@ CONFIG: dict[str, object] = {
         "mm_proof_artifact": None,
     },
     "artifacts": {"run_root": "runs"},
+            },
+        },
+        "h1_prefix_prior": {
+            "enabled": False,
+            "authorization": None,
+            "config": {},
+        },
+        "h6_prefix": {
+            "enabled": False,
+            "authorization": None,
+            "config": {},
+        },
+    },
 }
 
 
 _REPO_ROOT = Path(__file__).resolve().parent
+_VERIFY_AUTHORIZATIONS = {
+    "h1_h5": "AUTHORIZE_VFE4_H1_H5_VERIFICATION_V1",
+    "h1_prefix_prior": "AUTHORIZE_VFE4_H1_PREFIX_PRIOR_V1",
+    "h6_prefix": "AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1",
+}
+_VERIFY_OPERATION_NAMES = tuple(_VERIFY_AUTHORIZATIONS)
 
 
-def main(config: Mapping[str, object] = CONFIG) -> VerificationRunResult:
-    resolved = resolve_config(config, repo_root=_REPO_ROOT)
-    result = run_verification(resolved)
+def _mapping(value: object, location: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping) or any(
+        type(key) is not str for key in value
+    ):
+        raise ValueError(f"{location} must be a string-keyed mapping")
+    return value
+
+
+def _selected_operation(
+    config: Mapping[str, object],
+) -> tuple[str, Mapping[str, object]] | None:
+    if set(config) != {"launcher_schema", "operations"}:
+        raise ValueError("verify CONFIG has unknown or missing root keys")
+    if config["launcher_schema"] != "vfe4-verify-click-run-v1":
+        raise ValueError("verify CONFIG launcher_schema is unsupported")
+    operations = _mapping(config["operations"], "operations")
+    if tuple(operations) != _VERIFY_OPERATION_NAMES:
+        raise ValueError("verify CONFIG operations are incomplete or reordered")
+    enabled: list[tuple[str, Mapping[str, object]]] = []
+    for name in _VERIFY_OPERATION_NAMES:
+        entry = _mapping(operations[name], f"operations.{name}")
+        if set(entry) != {"enabled", "authorization", "config"}:
+            raise ValueError(f"operations.{name} has unknown or missing keys")
+        if type(entry["enabled"]) is not bool:
+            raise ValueError(f"operations.{name}.enabled must be boolean")
+        scientific = _mapping(entry["config"], f"operations.{name}.config")
+        if entry["enabled"]:
+            enabled.append((name, entry))
+    if not enabled:
+        return None
+    if len(enabled) != 1:
+        raise ValueError("enable exactly one verify operation")
+    name, entry = enabled[0]
+    authorization = entry["authorization"]
+    if type(authorization) is not str or not hmac.compare_digest(
+        authorization,
+        _VERIFY_AUTHORIZATIONS[name],
+    ):
+        raise PermissionError(
+            f"operations.{name}.authorization does not equal its explicit phrase"
+        )
+    return name, _mapping(entry["config"], f"operations.{name}.config")
+
+
+def _run_h1_h5(scientific: Mapping[str, object]) -> object:
+    from verification.run_gates import run_verification
+    from vfe4.config import resolve_config
+
+    resolved = resolve_config(scientific, repo_root=_REPO_ROOT)
+    result = run_verification(resolved)  # type: ignore[arg-type]
     for gate_result in result.gate_results:
         print(f"{gate_result.gate}: {gate_result.status.value}")
     print(f"artifact: {result.run_directory}")
     return result
 
 
+def _run_projected(
+    operation: str,
+    scientific: Mapping[str, object],
+) -> object:
+    from vfe4.artifacts.h6 import (
+        project_h1_prefix_prior_config,
+        project_h6_prefix_config,
+        run_projected_current_candidate,
+    )
+
+    projected = (
+        project_h1_prefix_prior_config(scientific)
+        if operation == "h1_prefix_prior"
+        else project_h6_prefix_config(scientific)
+    )
+    result = run_projected_current_candidate(
+        config=projected,
+        junit_sha256=None,
+        predecessor_refs={},
+    )
+    print(f"artifact: {result.artifact_path}")
+    return result
+
+
+def main(config: Mapping[str, object] = CONFIG) -> object | None:
+    selected = _selected_operation(_mapping(config, "CONFIG"))
+    if selected is None:
+        return None
+    operation, scientific = selected
+    return (
+        _run_h1_h5(scientific)
+        if operation == "h1_h5"
+        else _run_projected(operation, scientific)
+    )
+
+
 def _script_main() -> int:
     try:
         result = main()
-    except ArtifactPublicationError as exc:
-        print(f"artifact unavailable: {exc}", file=sys.stderr)
+    except (OSError, PermissionError, RuntimeError, TypeError, ValueError) as exc:
+        print(f"VFE4 verification configuration invalid: {exc}", file=sys.stderr)
         return 2
-    except (TypeError, ValueError) as exc:
-        print(f"H1--H5 configuration invalid: {exc}", file=sys.stderr)
-        return 2
+    if result is None:
+        print("VFE4 verify launcher is idle; enable exactly one CONFIG operation.")
+        return 0
+    gate_results = getattr(result, "gate_results", None)
+    if gate_results is None:
+        return 0
     return 0 if all(
-        item.status is GateStatus.PASS for item in result.gate_results
+        getattr(item.status, "value", None) == "pass" for item in gate_results
     ) else 1
 
 

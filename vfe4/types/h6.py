@@ -2083,6 +2083,260 @@ class EmissionOnlyAblationTerms:
         )
 
 
+def _arm_model_family_sha256(config: ArmConfig) -> str:
+    """Reproduce the exact H6 arm-factory family identity without building a model."""
+
+    if type(config) is not ArmConfig:
+        raise ValueError("config must be an exact ArmConfig")
+    config.__post_init__()
+    return _owned_hash(
+        "vfe4.h6.arm-model-family.v1",
+        {
+            "config_sha256": config.config_sha256,
+            "factory": f"build_{config.arm.value.lower()}@h6-arm-v1",
+        },
+    )
+
+
+@dataclass(frozen=True)
+class H6PrefixProfilePair:
+    """Hash-bound small/production pair for one exact Prefix estimator profile."""
+
+    profile_id: str
+    small_arm_config: ArmConfig
+    production_arm_config: ArmConfig
+    estimator: EstimatorSpec
+    small_structure: H6LanguageStructure
+    production_structure: H6LanguageStructure
+    data_safety_sha256: str
+    small_model_family_sha256: str
+    production_model_family_sha256: str
+    profile_pair_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_nonempty(self.profile_id, "profile_id")
+        if type(self.small_arm_config) is not ArmConfig:
+            raise ValueError("small_arm_config must be an exact ArmConfig")
+        if type(self.production_arm_config) is not ArmConfig:
+            raise ValueError("production_arm_config must be an exact ArmConfig")
+        if type(self.estimator) is not EstimatorSpec:
+            raise ValueError("estimator must be an exact EstimatorSpec")
+        if type(self.small_structure) is not H6LanguageStructure:
+            raise ValueError(
+                "small_structure must be an exact H6LanguageStructure"
+            )
+        if type(self.production_structure) is not H6LanguageStructure:
+            raise ValueError(
+                "production_structure must be an exact H6LanguageStructure"
+            )
+        self.small_arm_config.__post_init__()
+        self.production_arm_config.__post_init__()
+        self.estimator.__post_init__()
+        self.small_structure.__post_init__()
+        self.production_structure.__post_init__()
+        for name in (
+            "data_safety_sha256",
+            "small_model_family_sha256",
+            "production_model_family_sha256",
+            "profile_pair_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+
+        small = self.small_arm_config
+        production = self.production_arm_config
+        if (
+            small.arm is not production.arm
+            or small.config_id != production.config_id
+            or small.semantic_payload() != production.semantic_payload()
+        ):
+            raise ValueError(
+                "small and production configs must retain one exact semantic arm profile"
+            )
+        if (
+            small.vocabulary.vocabulary_id != "h6-prefix-small-v1"
+            or small.vocabulary.size != 3
+            or small.horizon != 4
+        ):
+            raise ValueError("small Prefix profile must be exactly V=3,T=4")
+        if (
+            production.vocabulary.vocabulary_id != "wikitext-2-byte-v1"
+            or production.vocabulary.size != 258
+            or production.horizon != 32
+        ):
+            raise ValueError(
+                "production Prefix profile must be exactly V=258,T=32"
+            )
+        for label, structure, horizon in (
+            ("small", self.small_structure, 4),
+            ("production", self.production_structure, 32),
+        ):
+            if (
+                structure.dag.node_labels != tuple(range(horizon + 1))
+                or structure.receiver_labels != tuple(range(1, horizon + 1))
+            ):
+                raise ValueError(
+                    f"{label} Prefix structure does not match its frozen horizon"
+                )
+        if (
+            self.estimator.kind != "weighted_smc"
+            or self.estimator.resampling != "systematic_ess_half"
+            or self.estimator.particle_count not in (4, 128, 256, 512, 1024)
+        ):
+            raise ValueError(
+                "Prefix profiles require weighted SMC at 4, 128, 256, 512, or 1024 particles"
+            )
+        if self.small_model_family_sha256 != _arm_model_family_sha256(small):
+            raise ValueError(
+                "small_model_family_sha256 does not match its exact arm factory"
+            )
+        if self.production_model_family_sha256 != (
+            _arm_model_family_sha256(production)
+        ):
+            raise ValueError(
+                "production_model_family_sha256 does not match its exact arm factory"
+            )
+        expected = _owned_hash(
+            "vfe4.h6.prefix-profile-pair.v1",
+            self.canonical_payload(),
+        )
+        if self.profile_pair_sha256 != expected:
+            raise ValueError(
+                "profile_pair_sha256 does not match the Prefix profile pair"
+            )
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "profile_id": self.profile_id,
+            "small_arm_config_sha256": self.small_arm_config.config_sha256,
+            "production_arm_config_sha256": (
+                self.production_arm_config.config_sha256
+            ),
+            "estimator_sha256": self.estimator.estimator_sha256,
+            "small_structure_sha256": self.small_structure.structure_sha256,
+            "production_structure_sha256": (
+                self.production_structure.structure_sha256
+            ),
+            "data_safety_sha256": self.data_safety_sha256,
+            "small_model_family_sha256": self.small_model_family_sha256,
+            "production_model_family_sha256": (
+                self.production_model_family_sha256
+            ),
+        }
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        profile_id: str,
+        small_arm_config: ArmConfig,
+        production_arm_config: ArmConfig,
+        estimator: EstimatorSpec,
+        small_structure: H6LanguageStructure,
+        production_structure: H6LanguageStructure,
+        data_safety_sha256: str,
+        small_model_family_sha256: str,
+        production_model_family_sha256: str,
+    ) -> "H6PrefixProfilePair":
+        values = {
+            "profile_id": profile_id,
+            "small_arm_config": small_arm_config,
+            "production_arm_config": production_arm_config,
+            "estimator": estimator,
+            "small_structure": small_structure,
+            "production_structure": production_structure,
+            "data_safety_sha256": data_safety_sha256,
+            "small_model_family_sha256": small_model_family_sha256,
+            "production_model_family_sha256": (
+                production_model_family_sha256
+            ),
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        return cls(
+            **values,
+            profile_pair_sha256=_owned_hash(
+                "vfe4.h6.prefix-profile-pair.v1",
+                provisional.canonical_payload(),
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class PrefixReportBinding:
+    """Owned digest joining the dynamic and static reports used by a certificate."""
+
+    small_report_sha256: str
+    small_case_manifest_sha256: str
+    validation_report_sha256: str
+    validation_case_manifest_sha256: str
+    static_report_sha256: str
+    static_source_manifest_sha256: str
+    static_rules_sha256: str
+    static_case_key_manifest_sha256: str
+    binding_sha256: str
+
+    def __post_init__(self) -> None:
+        for name in tuple(self.__dataclass_fields__):
+            _require_sha256(getattr(self, name), name)
+        expected = _owned_hash(
+            "vfe4.h6.prefix-report-binding.v1",
+            self.canonical_payload(include_binding=False),
+        )
+        if self.binding_sha256 != expected:
+            raise ValueError(
+                "binding_sha256 does not match the Prefix report binding"
+            )
+
+    def canonical_payload(
+        self, *, include_binding: bool = True
+    ) -> dict[str, object]:
+        payload = {
+            name: getattr(self, name)
+            for name in tuple(self.__dataclass_fields__)
+            if name != "binding_sha256"
+        }
+        if include_binding:
+            payload["binding_sha256"] = self.binding_sha256
+        return payload
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        small_report_sha256: str,
+        small_case_manifest_sha256: str,
+        validation_report_sha256: str,
+        validation_case_manifest_sha256: str,
+        static_report_sha256: str,
+        static_source_manifest_sha256: str,
+        static_rules_sha256: str,
+        static_case_key_manifest_sha256: str,
+    ) -> "PrefixReportBinding":
+        values = {
+            "small_report_sha256": small_report_sha256,
+            "small_case_manifest_sha256": small_case_manifest_sha256,
+            "validation_report_sha256": validation_report_sha256,
+            "validation_case_manifest_sha256": (
+                validation_case_manifest_sha256
+            ),
+            "static_report_sha256": static_report_sha256,
+            "static_source_manifest_sha256": (
+                static_source_manifest_sha256
+            ),
+            "static_rules_sha256": static_rules_sha256,
+            "static_case_key_manifest_sha256": (
+                static_case_key_manifest_sha256
+            ),
+        }
+        return cls(
+            **values,
+            binding_sha256=_owned_hash(
+                "vfe4.h6.prefix-report-binding.v1", values
+            ),
+        )
+
+
 @dataclass(frozen=True)
 class PrefixCaseKey:
     arm: ArmId
@@ -3299,9 +3553,11 @@ __all__ = [
     "EvidenceStatus", "ExperimentIdentity", "FrozenBatchSchedule", "FrozenTensorSnapshot",
     "H1PrefixPriorArtifactRef", "H5UpdateBinding", "H6ArmPhaseSchedule",
     "H6FactorTerm", "H6LanguageElboTerms", "H6LanguageStructure", "H6OuterSchedule",
+    "H6PrefixProfilePair",
     "H6PredictionReadinessToken", "H6TrainingSchedule", "H6_PREFIX_REQUIRED_CHECKS",
     "H6_PREDICTION_DELTA", "NllTotals", "PredictionCorrectnessArtifactRef",
-    "PredictionDecision", "PrefixCaseKey", "PrefixCertificate", "SealedSplitHandle",
+    "PredictionDecision", "PrefixCaseKey", "PrefixCertificate",
+    "PrefixReportBinding", "SealedSplitHandle",
     "SmcAccuracyArtifactRef", "TrainingPhase", "ValidatedTestOpening",
     "ValidationSafetyFixture", "VocabularyIdentity", "ZeroDimensionalBase",
     "canonical_json_bytes", "issue_prediction_readiness", "require_prefix_pass",

@@ -39,10 +39,8 @@ from vfe4.types.h6 import (
     ArmId,
     CapacityAllocation,
     EndpointSmcProtocol,
-    EstimatorSpec,
-    H6LanguageStructure,
+    H6PrefixProfilePair,
     H6TrainingSchedule,
-    VocabularyIdentity,
 )
 from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
@@ -601,11 +599,9 @@ class H6PrefixResolvedConfig:
     schema_version: Literal["h6-prefix-config-v1"]
     operation: Literal["H6-Prefix"]
     source: H6SourceIdentity
-    structure: H6LanguageStructure
-    model_family_sha256: str
-    vocabulary: VocabularyIdentity
-    estimator: EstimatorSpec
-    data_safety_sha256: str
+    execution_mode: Literal["focused_subset", "authorized_full"]
+    profiles: tuple[H6PrefixProfilePair, ...]
+    authorization_sha256: str | None
     artifact_root: Path
     canonical_json: str
     config_sha256: str

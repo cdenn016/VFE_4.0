@@ -104,6 +104,51 @@ def git_head(repo_root: Path) -> str:
     return value
 
 
+def source_candidate_sha256(
+    *, git_head_value: str, dirty_digest_value: str
+) -> str:
+    """Bind the exact revision and dirty-content digest as one source identity."""
+
+    if (
+        type(git_head_value) is not str
+        or len(git_head_value) != 40
+        or any(character not in "0123456789abcdef" for character in git_head_value)
+    ):
+        raise ArtifactPublicationError("source candidate Git head is invalid")
+    if (
+        type(dirty_digest_value) is not str
+        or len(dirty_digest_value) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in dirty_digest_value
+        )
+    ):
+        raise ArtifactPublicationError("source candidate dirty digest is invalid")
+    return hashlib.sha256(
+        b"VFE4-H6-SOURCE-CANDIDATE-V1\x00"
+        + bytes.fromhex(git_head_value)
+        + bytes.fromhex(dirty_digest_value)
+    ).hexdigest()
+
+
+def current_source_identity(
+    repo_root: Path,
+    run_root: Path,
+) -> tuple[str, str, str]:
+    """Capture the current Git, dirty-content, and bound source identities."""
+
+    head = git_head(repo_root)
+    dirty = dirty_content_digest(repo_root, run_root)
+    return (
+        head,
+        dirty,
+        source_candidate_sha256(
+            git_head_value=head,
+            dirty_digest_value=dirty,
+        ),
+    )
+
+
 def dirty_content_digest(repo_root: Path, run_root: Path) -> str:
     """Hash tracked and nonignored untracked bytes, excluding publication state."""
     tracked_names = _git(repo_root, "ls-files", "--cached", "-z")

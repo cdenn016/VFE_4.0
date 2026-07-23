@@ -62,7 +62,7 @@ ElboPartition = Literal[
     "entropy",
 ]
 
-_DATA_SAFETY_SHA256 = hashlib.sha256(
+H6_TARGET_FREE_DATA_SAFETY_SHA256 = hashlib.sha256(
     b"VFE4-H6-TARGET-FREE-PREDICTIVE-BOUNDARY-V1"
 ).hexdigest()
 
@@ -1052,22 +1052,27 @@ def _predictive_boundary(
     config: ArmConfig,
     model: ArmModel,
     model_family_sha256: str,
+    estimator_spec: EstimatorSpec | None = None,
 ) -> tuple[ArmTargetFreeProposalAdapter, BootstrapSmcPredictor]:
     proposal = ArmTargetFreeProposalAdapter(
         model=model, model_family_sha256=model_family_sha256
     )
-    estimator_spec = EstimatorSpec.create(
-        kind="weighted_smc",
-        particle_count=4,
-        resampling="systematic_ess_half",
-    )
+    if estimator_spec is None:
+        estimator_spec = EstimatorSpec.create(
+            kind="weighted_smc",
+            particle_count=4,
+            resampling="systematic_ess_half",
+        )
+    elif type(estimator_spec) is not EstimatorSpec:
+        raise ValueError("estimator_spec must be an exact EstimatorSpec")
+    estimator_spec.__post_init__()
     estimator_identity = EstimatorIdentity.from_spec(estimator_spec)
     predictor = BootstrapSmcPredictor(
         proposal=proposal,
         estimator_spec=estimator_spec,
         estimator_identity=estimator_identity,
         predictor_config_sha256=config.config_sha256,
-        data_safety_sha256=_DATA_SAFETY_SHA256,
+        data_safety_sha256=H6_TARGET_FREE_DATA_SAFETY_SHA256,
     )
     return proposal, predictor
 
@@ -1090,6 +1095,7 @@ class BuiltArm:
 
     def rebuild_predictive_boundary(
         self,
+        estimator_spec: EstimatorSpec | None = None,
     ) -> tuple[ArmTargetFreeProposalAdapter, BootstrapSmcPredictor]:
         """Freeze a fresh adapter/predictor identity around current parameters."""
 
@@ -1097,6 +1103,7 @@ class BuiltArm:
             config=self.config,
             model=self.model,
             model_family_sha256=self.model_family_sha256,
+            estimator_spec=estimator_spec,
         )
 
 
@@ -1430,6 +1437,7 @@ __all__ = [
     "BuiltArm",
     "CapacityAllocation",
     "CausalAutoregressiveModel",
+    "H6_TARGET_FREE_DATA_SAFETY_SHA256",
     "LatentLanguageArmModel",
     "MatchingReport",
     "arm_matrix_sha256",

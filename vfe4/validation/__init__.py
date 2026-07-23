@@ -10,21 +10,34 @@ from .h3_fixture import (
     validate_independent_control,
 )
 from .h1_fixture import enumerate_source_paths, label_to_index, load_h1_fixture
-from .h6_prefix import (
-    AllInvalidSourceObservation,
-    DynamicCheckResult,
-    DynamicExecutionPlan,
-    DynamicPrefixCase,
-    DynamicPrefixReport,
-    FrozenValidationPerturbations,
-    MAX_FOCUSED_CASES,
-    PairSideHarness,
-    SourceMaskObservation,
-    ValidationPerturbationRecord,
-    load_frozen_validation_perturbations,
-    observe_all_invalid_source_rejection,
-    run_dynamic_prefix_checks,
+
+_H6_PREFIX_EXPORTS = frozenset(
+    {
+        "AllInvalidSourceObservation",
+        "DynamicCheckResult",
+        "DynamicExecutionPlan",
+        "DynamicPrefixCase",
+        "DynamicPrefixReport",
+        "FrozenValidationPerturbations",
+        "MAX_FOCUSED_CASES",
+        "PairSideHarness",
+        "SourceMaskObservation",
+        "ValidationPerturbationRecord",
+        "load_frozen_validation_perturbations",
+        "observe_all_invalid_source_rejection",
+        "run_dynamic_prefix_checks",
+    }
 )
+
+
+def __getattr__(name: str) -> object:
+    """Load H6 validation surfaces lazily to keep config imports acyclic."""
+
+    if name in _H6_PREFIX_EXPORTS:
+        from . import h6_prefix
+
+        return getattr(h6_prefix, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "AllInvalidSourceObservation",
