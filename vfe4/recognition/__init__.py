@@ -1,5 +1,11 @@
 """Public normalized recognition interfaces."""
 
+from .language import (
+    FactorizedLanguageRecognition,
+    RecognitionConditioning,
+    RecognitionMode,
+    StructuredLanguageRecognition,
+)
 from .reference_h1 import H1RecognitionLaw
 from .reference_h2 import assemble_recognition_information
 from .reference_h3 import (
@@ -13,9 +19,13 @@ from .reference_h3 import (
 __all__ = [
     "assemble_recognition_information",
     "FactorizedH3Parameters",
+    "FactorizedLanguageRecognition",
     "H1RecognitionLaw",
     "H3RecognitionFamily",
     "H3VariationalGaussian",
+    "RecognitionConditioning",
+    "RecognitionMode",
     "StructuredH3Parameters",
+    "StructuredLanguageRecognition",
     "make_h3_parameters",
 ]
