@@ -404,7 +404,7 @@ def _h6_json(payload: Mapping[str, object]) -> tuple[str, str]:
     return canonical, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def resolve_h6_prefix_config(
+def _resolve_h6_prefix_config(
     raw: Mapping[str, object], *, repo_root: Path
 ) -> H6PrefixResolvedConfig:
     """Resolve the independent predecessor-free H6 Prefix configuration."""
@@ -480,19 +480,26 @@ def resolve_h6_prefix_config(
         vocabulary_raw, frozenset({"vocabulary_id", "size", "tokenizer_spec_sha256"}),
         "h6_prefix.vocabulary",
     )
+    vocabulary_id = vocabulary_raw["vocabulary_id"]
+    vocabulary_size = _require_int(
+        vocabulary_raw["size"], "h6_prefix.vocabulary.size"
+    )
+    if type(vocabulary_id) is not str or (vocabulary_id, vocabulary_size) not in {
+        ("h6-prefix-small-v1", 3),
+        ("wikitext-2-byte-v1", 258),
+    }:
+        raise ValueError(
+            "h6_prefix.vocabulary must equal either "
+            "('h6-prefix-small-v1', 3) or ('wikitext-2-byte-v1', 258)"
+        )
     vocabulary = VocabularyIdentity(
-        _require_exact(
-            vocabulary_raw["vocabulary_id"], "h6-prefix-small-v1",
-            "h6_prefix.vocabulary.vocabulary_id",
-        ),
-        _require_int(vocabulary_raw["size"], "h6_prefix.vocabulary.size"),
+        vocabulary_id,
+        vocabulary_size,
         _require_h6_sha256(
             vocabulary_raw["tokenizer_spec_sha256"],
             "h6_prefix.vocabulary.tokenizer_spec_sha256",
         ),
     )
-    if vocabulary.size != 3:
-        raise ValueError("H6 Prefix small vocabulary size must equal 3")
 
     estimator_raw = _require_mapping(root["estimator"], "h6_prefix.estimator")
     _validate_keys(
@@ -552,7 +559,7 @@ def resolve_h6_prefix_config(
     )
 
 
-def resolve_h6_prediction_config(
+def _resolve_h6_prediction_config(
     raw: Mapping[str, object], *, repo_root: Path
 ) -> H6PredictionResolvedConfig:
     """Resolve H6 Prediction without admitting H4 as a prerequisite."""
@@ -783,7 +790,50 @@ def resolve_h6_prediction_config(
     )
 
 
-def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedConfig:
+def resolve_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> ResolvedConfig | H6PrefixResolvedConfig | H6PredictionResolvedConfig:
+    """Resolve one frozen H1--H5, H6 Prefix, or H6 Prediction configuration."""
+
+    root = _require_mapping(raw, "config")
+    discriminator = (root.get("schema_version"), root.get("operation"))
+    if discriminator == ("h6-prefix-config-v1", "H6-Prefix"):
+        return _resolve_h6_prefix_config(root, repo_root=repo_root)
+    if discriminator == ("h6-prediction-config-v1", "H6-Prediction"):
+        return _resolve_h6_prediction_config(root, repo_root=repo_root)
+    if type(root.get("schema_version")) is str or "operation" in root:
+        raise ValueError(
+            "config schema_version and operation must identify a supported "
+            "H6 Prefix or H6 Prediction configuration"
+        )
+    return _resolve_h1_h5_config(root, repo_root=repo_root)
+
+
+def resolve_h6_prefix_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> H6PrefixResolvedConfig:
+    """Resolve H6 Prefix through the single public configuration resolver."""
+
+    resolved = resolve_config(raw, repo_root=repo_root)
+    if not isinstance(resolved, H6PrefixResolvedConfig):
+        raise ValueError("configuration is not an H6 Prefix configuration")
+    return resolved
+
+
+def resolve_h6_prediction_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> H6PredictionResolvedConfig:
+    """Resolve H6 Prediction through the single public configuration resolver."""
+
+    resolved = resolve_config(raw, repo_root=repo_root)
+    if not isinstance(resolved, H6PredictionResolvedConfig):
+        raise ValueError("configuration is not an H6 Prediction configuration")
+    return resolved
+
+
+def _resolve_h1_h5_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> ResolvedConfig:
     """Validate and freeze one implemented ordered H1--H5 gate prefix."""
     root = _require_mapping(raw, "config")
     if "h4" in root or "h5" in root:

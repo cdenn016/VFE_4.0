@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from vfe4.config import resolve_h6_prediction_config, resolve_h6_prefix_config
+from vfe4.config import resolve_config, resolve_h6_prediction_config, resolve_h6_prefix_config
 from vfe4.types.h6 import TrainingPhase
 
 
@@ -162,6 +162,40 @@ def test_prefix_config_is_independent_strict_and_does_not_mutate_input(
     assert reordered.config_sha256 == resolved.config_sha256
 
 
+def test_h6_helpers_delegate_to_the_single_public_resolver(tmp_path: Path) -> None:
+    prefix_from_public = resolve_config(_prefix_config(), repo_root=tmp_path)
+    prefix_from_helper = resolve_h6_prefix_config(_prefix_config(), repo_root=tmp_path)
+    prediction_from_public = resolve_config(_prediction_config(), repo_root=tmp_path)
+    prediction_from_helper = resolve_h6_prediction_config(
+        _prediction_config(), repo_root=tmp_path
+    )
+    assert prefix_from_public == prefix_from_helper
+    assert prediction_from_public == prediction_from_helper
+
+
+def test_prefix_resolver_accepts_only_frozen_small_and_production_vocabularies(
+    tmp_path: Path,
+) -> None:
+    production = _prefix_config()
+    production["vocabulary"] = {
+        "vocabulary_id": "wikitext-2-byte-v1",
+        "size": 258,
+        "tokenizer_spec_sha256": _sha("5"),
+    }
+    resolved = resolve_config(production, repo_root=tmp_path)
+    assert resolved.vocabulary.size == 258
+    assert resolved.vocabulary.vocabulary_id == "wikitext-2-byte-v1"
+
+    invalid = _prefix_config()
+    invalid["vocabulary"] = {
+        "vocabulary_id": "h6-prefix-small-v1",
+        "size": 258,
+        "tokenizer_spec_sha256": _sha("5"),
+    }
+    with pytest.raises(ValueError, match="vocabulary"):
+        resolve_config(invalid, repo_root=tmp_path)
+
+
 def test_prefix_config_rejects_predecessor_or_h1_h5_fields(tmp_path: Path) -> None:
     raw = _prefix_config()
     raw["predecessor_refs"] = {}
@@ -217,4 +251,3 @@ def test_prediction_config_hash_is_order_independent_and_input_is_immutable(
     assert raw == before
     assert reordered.canonical_json == resolved.canonical_json
     assert reordered.config_sha256 == resolved.config_sha256
-

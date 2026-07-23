@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
 from typing import Literal
@@ -212,7 +214,7 @@ class GateResult:
         object.__setattr__(self, "measurements", MappingProxyType(copied_measurements))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class H6PrefixGateResult:
     """Result of the independent H6 Prefix safety gate."""
 
@@ -221,6 +223,7 @@ class H6PrefixGateResult:
     validation_payload_sha256: str
     prefix_certificate_set_sha256: str
     obligations: tuple[str, ...]
+    _certificates: tuple[object, ...] = field(repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.gate != "H6-Prefix":
@@ -238,9 +241,84 @@ class H6PrefixGateResult:
                 raise ValueError("inconclusive H6-Prefix requires an obligation")
         elif self.obligations:
             raise ValueError("conclusive H6-Prefix cannot retain obligations")
+        from .h6 import (
+            EvidenceStatus,
+            PrefixCertificate,
+            _owned_hash,
+            _prefix_certificate_set_sha256,
+        )
+
+        if not self._certificates or any(
+            type(item) is not PrefixCertificate for item in self._certificates
+        ):
+            raise ValueError("H6-Prefix result requires typed certificates")
+        certificates = tuple(self._certificates)
+        for certificate in certificates:
+            certificate.__post_init__()
+        if any(item.status is EvidenceStatus.FAIL for item in certificates):
+            expected_status = GateStatus.FAIL
+            expected_obligations: tuple[str, ...] = ()
+        elif any(item.status is EvidenceStatus.INCONCLUSIVE for item in certificates):
+            expected_status = GateStatus.INCONCLUSIVE
+            expected_obligations = tuple(
+                sorted({value for item in certificates for value in item.obligations})
+            )
+        else:
+            expected_status = GateStatus.PASS
+            expected_obligations = ()
+        expected_payload = _owned_hash(
+            "vfe4.h6.prefix-validation-payload-set.v1",
+            tuple(sorted(item.validation_payload_sha256 for item in certificates)),
+        )
+        if (
+            self.status is not expected_status
+            or self.obligations != expected_obligations
+            or self.validation_payload_sha256 != expected_payload
+            or self.prefix_certificate_set_sha256
+            != _prefix_certificate_set_sha256(certificates)
+        ):
+            raise ValueError("H6-Prefix result does not match its certificate set")
+
+    @classmethod
+    def from_certificates(cls, certificates: Mapping[object, object]) -> "H6PrefixGateResult":
+        from .h6 import EvidenceStatus, PrefixCertificate, _owned_hash, _prefix_certificate_set_sha256
+
+        frozen = tuple(
+            item
+            for _, item in sorted(
+                certificates.items(), key=lambda pair: repr(pair[0])
+            )
+        )
+        if not frozen or any(type(item) is not PrefixCertificate for item in frozen):
+            raise ValueError("typed Prefix certificates are required")
+        if any(item.status is EvidenceStatus.FAIL for item in frozen):
+            status = GateStatus.FAIL
+            obligations: tuple[str, ...] = ()
+        elif any(item.status is EvidenceStatus.INCONCLUSIVE for item in frozen):
+            status = GateStatus.INCONCLUSIVE
+            obligations = tuple(sorted({value for item in frozen for value in item.obligations}))
+        else:
+            status = GateStatus.PASS
+            obligations = ()
+        instance = object.__new__(cls)
+        values = {
+            "gate": "H6-Prefix",
+            "status": status,
+            "validation_payload_sha256": _owned_hash(
+                "vfe4.h6.prefix-validation-payload-set.v1",
+                tuple(sorted(item.validation_payload_sha256 for item in frozen)),
+            ),
+            "prefix_certificate_set_sha256": _prefix_certificate_set_sha256(frozen),
+            "obligations": obligations,
+            "_certificates": frozen,
+        }
+        for name, value in values.items():
+            object.__setattr__(instance, name, value)
+        instance.__post_init__()
+        return instance
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class H6PredictionResult:
     """Result of the separately authorized H6 Prediction evidence stage."""
 
@@ -249,6 +327,9 @@ class H6PredictionResult:
     readiness_sha256: str
     metrics_sha256: str | None
     obligations: tuple[str, ...]
+    _readiness: object = field(repr=False, compare=False)
+    _decision: object = field(repr=False, compare=False)
+    _metrics_bytes: bytes | None = field(repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.gate != "H6-Prediction":
@@ -267,6 +348,105 @@ class H6PredictionResult:
                 raise ValueError("conclusive H6-Prediction cannot retain obligations")
             if self.metrics_sha256 is None:
                 raise ValueError("conclusive H6-Prediction requires metrics")
+        from .h6 import EvidenceStatus, H6PredictionReadinessToken, PredictionDecision
+
+        if type(self._readiness) is not H6PredictionReadinessToken:
+            raise ValueError("typed H6 Prediction readiness is required")
+        if type(self._decision) is not PredictionDecision:
+            raise ValueError("typed PredictionDecision is required")
+        self._readiness.__post_init__()
+        self._decision.__post_init__()
+        if self.readiness_sha256 != self._readiness.readiness_sha256:
+            raise ValueError("readiness_sha256 does not match readiness token")
+        expected_status = GateStatus[self._decision.status.name]
+        if self.status is not expected_status or self.obligations != self._decision.obligations:
+            raise ValueError("prediction result does not match its decision")
+        if self._metrics_bytes is None:
+            if self.metrics_sha256 is not None:
+                raise ValueError("metrics_sha256 cannot exist without metrics bytes")
+        elif (
+            type(self._metrics_bytes) is not bytes
+            or self.metrics_sha256 != hashlib.sha256(self._metrics_bytes).hexdigest()
+        ):
+            raise ValueError("metrics_sha256 does not match metrics bytes")
+        if self._decision.status in (EvidenceStatus.PASS, EvidenceStatus.FAIL) and self._metrics_bytes is None:
+            raise ValueError("conclusive prediction decisions require metrics bytes")
+        if self._metrics_bytes is None:
+            raise ValueError("H6 Prediction result requires a metrics artifact")
+        derived_decision = _prediction_decision_from_metrics(self._metrics_bytes)
+        if derived_decision != self._decision:
+            raise ValueError("PredictionDecision does not match metrics bytes")
+
+    @classmethod
+    def from_metrics(
+        cls,
+        *,
+        readiness: object,
+        metrics_bytes: bytes,
+    ) -> "H6PredictionResult":
+        from .h6 import H6PredictionReadinessToken
+
+        if type(readiness) is not H6PredictionReadinessToken:
+            raise ValueError("typed H6 Prediction readiness is required")
+        if type(metrics_bytes) is not bytes:
+            raise ValueError("metrics_bytes must be immutable bytes")
+        decision = _prediction_decision_from_metrics(metrics_bytes)
+        instance = object.__new__(cls)
+        values = {
+            "gate": "H6-Prediction",
+            "status": GateStatus[decision.status.name],
+            "readiness_sha256": readiness.readiness_sha256,
+            "metrics_sha256": hashlib.sha256(metrics_bytes).hexdigest(),
+            "obligations": decision.obligations,
+            "_readiness": readiness,
+            "_decision": decision,
+            "_metrics_bytes": bytes(metrics_bytes),
+        }
+        for name, value in values.items():
+            object.__setattr__(instance, name, value)
+        instance.__post_init__()
+        return instance
+
+
+def _prediction_decision_from_metrics(metrics_bytes: bytes) -> object:
+    from .h6 import PredictionDecision
+
+    try:
+        payload = json.loads(metrics_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("metrics bytes must be canonical JSON") from exc
+    if type(payload) is not dict:
+        raise ValueError("metrics bytes must encode an object")
+    try:
+        canonical = json.dumps(
+            payload,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("metrics bytes contain unsupported values") from exc
+    if canonical != metrics_bytes or payload.get("schema") != "h6-prediction-metrics-v1":
+        raise ValueError("metrics bytes do not match the canonical H6 schema")
+    estimator_complete = payload.get("estimator_complete")
+    if type(estimator_complete) is not bool:
+        raise ValueError("metrics estimator_complete must be boolean")
+    interval_payload = payload.get("primary_interval")
+    if interval_payload is None:
+        interval = None
+    elif (
+        type(interval_payload) is not dict
+        or set(interval_payload) != {"lower", "upper"}
+        or any(type(interval_payload[name]) is not float for name in ("lower", "upper"))
+    ):
+        raise ValueError("metrics primary_interval must be an exact finite float pair")
+    else:
+        interval = (interval_payload["lower"], interval_payload["upper"])
+    return PredictionDecision.classify(
+        primary_interval=interval,
+        estimator_complete=estimator_complete,
+    )
 
 
 def _require_allowance_pair(value: object, name: str) -> None:
