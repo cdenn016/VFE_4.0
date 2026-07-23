@@ -16,6 +16,7 @@
 - `H6-Prefix` and `H6-Prediction` have different schemas, artifact roots, evidence revision identifiers, claim ledgers, and closure decisions. Prefix runs and publishes solely from its own exact source/config/model-family/vocabulary/estimator/data-safety identities. H1--H5 status, predecessor publication, estimator-accuracy evidence, the H6 training schedule, arm matching, tuning, checkpoints, and predictive outcomes are not Prefix inputs, preflight conditions, status terms, publication conditions, or ledger claims.
 - Prediction cannot be reported, launched, resumed, or scored unless every exact arm/config/estimator/model-family/vocabulary tuple it consumes has a PASS prefix certificate. A missing, stale, FAIL, or INCONCLUSIVE certificate blocks that tuple and makes the aggregate prediction result INCONCLUSIVE. Checkpoint hashes are bound separately in empirical provenance and may not alter the certified predictor safety contract.
 - Task 11 completes the tracked H6 source surface with focused RED/GREEN commands only. Task 12 performs a source-build closeout using focused deterministic fixtures and records the deferred evidence operations; it does not run a broad suite, H4 timing benchmark, large estimator grid, corpus training, test opening, or `.verification/` lifecycle. The full Prefix and Prediction evidence revisions are later, separately authorized operations at a frozen `(git_head, dirty_digest)` produced by `vfe4.artifacts.provenance.dirty_content_digest`.
+- Development has a hard resource boundary. Every focused RED or GREEN command uses synthetic, deterministic, no-download, no-training fixtures and must finish in less than 10 seconds on CPU; a command that reaches 10 seconds is stopped and narrowed before any retry. Do not start background workers, corpus acquisition, training, a broad/full suite, the H4 timing benchmark, the 9,720/4,096 Prefix inventories, the 76-cell/512-replicate SMC grid, or endpoint scoring during Tasks 1--12. The large H4/H6 operations exist only behind editable click-to-run dictionaries in `verify_vfe4.py` or `train_vfe4.py`, are `False` by default, execute only inside `main(CONFIG)` after an explicit operation-specific authorization field is present, and are unreachable from package imports, launcher imports, and ordinary pytest collection/execution. No CLI is added.
 - H6-Prefix publication preflight validates only the exact H6 source/config/model-family/vocabulary/estimator/data-safety identities and complete Prefix case/static-audit inventory for that evidence revision. It neither reads nor references an H1--H5 artifact, and it cannot be blocked by any H1--H5 status or publication state.
 - Before any empirical Prediction split materialization/access, tuning, training, validation scoring, checkpointing, or test scoring, Prediction readiness may require exact current H1, H2, H3, and H5 correctness artifacts plus the exact H1-prefix-prior, finite-SMC, and H6-Prefix inputs used by the selected Prediction matrix. H4 correctness/timing/cost evidence is not a Prediction prerequisite; the frozen green H4 correctness provenance (`911` tests, zero failures/errors/skips) may be referenced as nonblocking history, while its deferred timing benchmark must never be triggered by H6.
 - Prefix-conditioned-prior variants consume a separate current-candidate H1 rerun artifact keyed to the exact prefix-prior generative-factor/config schema. The bounded SMC recursion gate likewise has a separate current-candidate artifact. These full evidence artifacts are produced only by the deferred Prediction-evidence operation, never by source buildout. The H1 variant does not replace or mutate ordinary H1/H2/H3/H5 correctness evidence, and fixed-prior variants do not require it.
@@ -30,7 +31,7 @@
 - Blinded binary publication uses a narrow whole-directory writer, not JSON-only `publish_run_directory`. The caller supplies exactly five payloads in this canonical order: `sealed/wiki.train.raw`, `sealed/wiki.valid.raw`, `sealed/wiki.test.raw`, `validation_safety_fixture.bin`, `data_identity.json`. `data_identity.json` contains no enclosing `manifest_sha256`, manifest path, or directory-manifest identity. After bounded streaming, the publisher itself computes each raw payload length/hash and generates `manifest.sha256`; callers cannot supply it. Its digest is `SHA256(b"VFE4-H6-BINARY-DIRECTORY-MANIFEST-V1\x00" || uint32_le(5) || concat(uint16_le(path_utf8_length) || path_utf8 || uint64_le(raw_length) || raw_content_sha256_raw32))` over that exact order; `manifest.sha256` contains the 64 lowercase ASCII hex digest plus LF and is excluded from its own preimage. Use a same-volume owned stage, create-new/O_EXCL files, flush/fsync where supported, close every handle, and install with an OS no-replace primitive. Existing destinations and unsupported no-replace platforms fail closed; never call `ZipFile.extract`/`extractall`, and clean up only the owned stage.
 - WikiText-103 and the GPT-2 tokenizer are reserved until after H8. They do not appear as supported H6 configuration values, fallback paths, tests presented as H6 evidence, or secondary experiment arms.
 - Training uses smoothing recognition as the primary regime and filtering recognition as a required ablation. Held-out validation/test scoring uses only the causal generative prior predictor. Recognition may consume the current target or complete observed window during training, but no recognition object, activation, parameter, target, or suffix may enter the prior predictor.
-- The public bound call is exactly `next_token_log_probs(prefix_tokens, estimator_rng, cache=None)`. Its bound signature contains those three parameters in that order and has no target, suffix, full-window, recognition, posterior, or reconstruction parameter. `PriorPrediction.log_probs` has shape `(V,)`, where `V` comes from an immutable `VocabularyIdentity` included in the predictor, cache, prefix key, and artifact. WikiText-2 uses `V=258`; no generic interface hardcodes 258.
+- The public bound call is exactly `next_token_log_probs(prefix_tokens: CausalPrefix, estimator_rng: EstimatorStream, cache: PrefixCache | None = None) -> PriorPrediction`. Its bound signature contains those three parameters in that order and rejects raw tensors. It has no target, suffix, full-window, recognition, posterior, or reconstruction parameter. `PriorPrediction.log_probs` has shape `(V,)`, where `V` comes from an immutable `VocabularyIdentity` included in the prefix, predictor, cache, prefix key, and artifact. WikiText-2 uses `V=258`; no generic interface hardcodes 258.
 - Every source normalization in both state and model banks calls the single shared `masked_log_softmax_from_parents(logits, declared_parents, receiver_t)`. It derives the Boolean mask only from declared parents satisfying `j<t`, writes exact `-inf` before normalization, rejects an empty/all-invalid row with `AllInvalidSourceRowError`, and returns exact zero mass outside support. Post-softmax masking, renormalization in another helper, direct `softmax`/`log_softmax` in a source-prior module, or unresolved/dynamic dispatch is respectively FAIL or INCONCLUSIVE; no alternate normalization path exists.
 - `T_mask` identities are sorted `MaskCaseKey(fixture_sha256, vocabulary_sha256, predictor_config_sha256, model_family_sha256, prior_variant, bank, receiver_t, context_sha256)`. The separate production-path `h6-prefix-small-v1` fixture has vocabulary 3, horizon 4, and parent rows `((0,), (0,1), (0,1,2), (0,1,2,3))` for both banks. Its fixed-prior manifest has exactly 4 contexts per bank; its prefix-conditioned manifest has exactly `2*(1+3+9+27)=80` contexts per bank (all token prefixes times the two frozen latent-history contexts `zero` and `seeded`). Across both banks/variants the small base inventory is `4+4+80+80=168` mask cases.
 - The WikiText-2 property manifest has exactly 4,096 contexts for each active `(prior_variant, bank)` cell: fixed/state 4,096, fixed/model 4,096, prefix/state 4,096, prefix/model 4,096, for a two-bank/two-variant base inventory of 16,384. A model family with no bank has no fake mask row; A4 contributes only its state bank; A0/A3 contribute none. The gate records exact per-configuration counts and the sorted manifest SHA.
@@ -42,7 +43,9 @@
 - H6-Prefix status is PASS only when every exact case, source-mask check, cache check, signature/import rule, taint obligation, and artifact identity passes. A witnessed violation is FAIL. Missing fixtures, unsupported dynamic dispatch, incomplete taint coverage, absent hashes, or an unauditable cache is INCONCLUSIVE.
 - Prediction arms are fixed: A0 conventional autoregressive baseline; A1 ordinary latent sequence model without the typed internal-map sector; A2 capacity-matched generic non-equivariant maps; A3 fixed immediate-predecessor/source-free model; A4 model-channel-free model; A5 full VFE 4.0 H6 model.
 - All six arms consume identical encoded tokens, batch/window order, pass count, model-update opportunities, validation boundaries, checkpoint boundaries, and test-opening transaction. Their trainable parameter counts are within `1%` of the A5 reference, their counted whole-schedule training FLOPs are within `5%`, every active trainable parameter is present exactly once in its declared optimizer, and no arm uses dormant/no-op/filler parameters or phases.
-- `H6TrainingSchedule` is one hashed common outer schedule plus a hashed typed phase schedule for every exact endpoint. The H6 record itself fixes AdamW class, betas, epsilon, clipping/decay policy, batches, passes, model-update opportunities, validation/checkpoint boundaries, and failure semantics. A0 and every `latent_enabled=false` endpoint use only `model_ce_adamw`; they construct no recognition object/optimizer and receive no fake recognition step. Every latent endpoint uses exactly `recognition_adamw -> immutable_detached_snapshot -> model_adamw` once per batch. FLOP matching counts the actual active phases, so extra latent inference/update work is matched structurally rather than hidden by no-ops. H5's enabled labels remain exactly `exact_coordinate`, `generalized_em`, and `natural_gradient_proposal`; none is renamed to Adam or used to certify the H6 schedule or its monotonicity.
+- `H6TrainingSchedule` is one hashed common outer schedule plus a hashed typed phase schedule for every exact endpoint. Its `AdamWPolicyRecord` fixes `betas=(0.9,0.999)`, `eps=1e-8`, `amsgrad=False`, `maximize=False`, `foreach=False`, `capturable=False`, `differentiable=False`, `fused=False`, `zero_grad(set_to_none=True)`, all-active-parameter decay, and an always-evaluated L2 global-gradient scale with `max_norm=1.0`; only learning rate and weight decay vary over the frozen tuning grid. A0 and every `latent_enabled=false` endpoint use only `model_ce_adamw`; they construct no recognition parameter store, law, optimizer, or fake recognition step. Every latent endpoint owns a trainable recognition parameter store and uses exactly `recognition_adamw -> immutable_detached_snapshot -> model_adamw` once per batch. Ephemeral `StructuredLanguageRecognition`/`FactorizedLanguageRecognition` records are normalized laws emitted from that store, never parameter owners. FLOP matching counts the actual active phases, so extra latent inference/update work is matched structurally rather than hidden by no-ops. H5's enabled labels remain exactly `exact_coordinate`, `generalized_em`, and `natural_gradient_proposal`; none is renamed to Adam or used to certify the H6 schedule or its monotonicity.
+- A5's frozen reference capacity is `(token_width=64, latent_width=16, recognition_width=64, map_rank=8)`. Every other endpoint searches, in field order `(token_width, latent_width, recognition_width, map_rank)`, only the applicable Cartesian product of the literal values `token_width=(48,64,80,96)`, `latent_width=(8,16,24,32)`, `recognition_width=(32,64,96)`, and `map_rank=(4,8,16)`; inapplicable fields are `None` and are absent rather than dormant. This gives at most 144 formula-only candidates per endpoint. The first lexicographically eligible allocation is frozen without reading data, loss, gradients, or metrics.
+- Capacity allocation is a declared outcome-blind nuisance adjustment. For a component row, the resolved semantic configs after deleting only `capacity_allocation` must differ in exactly the row's named factor; the raw configs may additionally differ in the mechanically selected allocation. Any other difference invalidates the row. Matching therefore does not turn PRIOR, MIXTURE, OBJECTIVE, LATENT, or other descriptive rows into causal claims, and a row with no eligible literal allocation is INCONCLUSIVE rather than granted a tolerance or filler exception.
 - Required factorial reports are structured versus population-factorized recognition, fixed versus prefix-conditioned generative source prior, exact source mixture versus the declared projection, complete-ELBO versus emission-only training, latent enabled versus disabled, and smoothing versus filtering training. Each comparison changes only its named factor on the same arm factory/config family.
 - Prefix-conditioned source priors are a new normalized generative model. Prediction readiness requires the separate exact H1 rerun PASS artifact for those variants. That prerequisite is not part of Prefix safety closure. Emission-only is labeled an ablation, not another ELBO. Projection is labeled approximation and records projection error; it is never called exact mixture marginalization.
 - Before empirical scoring, freeze and validate the weighted bootstrap filter/SMC estimator specified below: 256 particles for the bounded finite gate, carried normalized float64 log weights, systematic resampling after observation only when ESS is below `0.5 * particle_count`, `logsumexp` normalization, and counter-based streams. The proposal is exactly the causal generative source/transition law, so no omitted proposal correction exists. An unweighted emission average is forbidden whenever carried weights are nonuniform. The finite `V=3,T=6` gate validates recursion only; it cannot close actual WikiText-2 checkpoint estimator error.
@@ -82,6 +85,7 @@
 | `vfe4/predictive/cache.py` | Immutable prefix cache and exact cache identity/key validation. |
 | `vfe4/predictive/smc.py` | Frozen weighted bootstrap filter/SMC recursion, normalizing-constant estimator, cache state, and counter-based stream. |
 | `vfe4/predictive/prior.py` | `PriorPredictor` and the only public target-blind `next_token_log_probs` boundary. |
+| `vfe4/recognition/parameter_store.py` | Trainable structured/factorized recognition parameter stores that emit normalized Task 4 recognition laws; predictor code cannot import them. |
 | `vfe4/training/arms.py` | Six explicit arm factories; no registry/signature dispatch. |
 | `vfe4/training/matching.py` | Active parameter, optimizer-access, and counted-FLOP audits with hard 1%/5% gates. |
 | `vfe4/training/checkpoint.py` | Atomic exact-resume checkpoint schema including horizon-indexed ELBO terms, RNG/data cursor, prefix certificate references, and checkpoint hashes. |
@@ -203,8 +207,8 @@ class EmissionOnlyAblationTerms:
 class PriorPredictor(Protocol):
     def next_token_log_probs(
         self,
-        prefix_tokens: torch.Tensor,
-        estimator_rng: EstimatorRng,
+        prefix_tokens: CausalPrefix,
+        estimator_rng: EstimatorStream,
         cache: PrefixCache | None = None,
     ) -> PriorPrediction: ...
 
@@ -214,6 +218,102 @@ class PriorPrediction:
     log_probs: FrozenTensorSnapshot  # shape (vocabulary.size,)
     cache: PrefixCache
     estimator_record: EstimatorRecord
+
+class LanguageRecognitionParameterStore(nn.Module):
+    """Owns trainable parameters and emits an ephemeral normalized law."""
+    def recognition_law(
+        self,
+        conditioning: RecognitionConditioning,
+    ) -> StructuredLanguageRecognition | FactorizedLanguageRecognition: ...
+
+@dataclass(frozen=True)
+class CapacityAllocation:
+    token_width: Literal[48, 64, 80, 96]
+    latent_width: Literal[8, 16, 24, 32] | None
+    recognition_width: Literal[32, 64, 96] | None
+    map_rank: Literal[4, 8, 16] | None
+    allocation_sha256: str
+
+@dataclass(frozen=True)
+class ArmConfig:
+    arm: ArmId
+    config_id: str
+    latent_enabled: bool
+    state_channel_enabled: bool
+    model_channel_enabled: bool
+    source_mode: Literal["absent", "immediate_predecessor", "categorical"]
+    map_mode: Literal["absent", "ordinary_latent", "generic", "typed_same_point"]
+    recognition_family: Literal["absent", "structured", "factorized"]
+    recognition_conditioning: Literal["absent", "filtering", "smoothing"]
+    prior_variant: Literal["absent", "fixed", "prefix_conditioned"]
+    mixture_mode: Literal["absent", "exact", "moment_projection"]
+    objective_kind: Literal["cross_entropy", "complete_elbo", "emission_only_ablation"]
+    capacity_allocation: CapacityAllocation
+    config_sha256: str
+
+@dataclass(frozen=True)
+class ParameterRoleRecord:
+    qualified_name: str
+    parameter_id: int
+    role: str
+    phase: Literal["model_ce_adamw", "recognition_adamw", "model_adamw"]
+    scalar_count: int
+    trainable: Literal[True]
+    record_sha256: str
+
+@dataclass(frozen=True)
+class OptimizerBinding:
+    phase: Literal["model_ce_adamw", "recognition_adamw", "model_adamw"]
+    optimizer_class: Literal["AdamW"]
+    optimizer_policy_sha256: str
+    parameter_ids: tuple[int, ...]
+    binding_sha256: str
+
+@dataclass(frozen=True)
+class FlopTerm:
+    phase: Literal["model_ce_adamw", "recognition_adamw", "immutable_detached_snapshot", "model_adamw"]
+    operation: str
+    repetitions: int
+    arithmetic_flops_per_repetition: int
+    bytes_copied_per_repetition: int
+    total_arithmetic_flops: int
+    term_sha256: str
+
+@dataclass(frozen=True)
+class MatchingReport:
+    endpoint_config_sha256: str
+    reference_config_sha256: str
+    parameter_roles: tuple[ParameterRoleRecord, ...]
+    optimizer_bindings: tuple[OptimizerBinding, ...]
+    flop_terms: tuple[FlopTerm, ...]
+    parameter_relative_difference: float
+    flop_relative_difference: float
+    eligible: bool
+    obligations: tuple[str, ...]
+    report_sha256: str
+
+@dataclass(frozen=True)
+class ArmMatrixRow:
+    row_id: Literal["PRIMARY", "MAP", "STRUCTURE", "PRIOR", "MIXTURE", "OBJECTIVE", "LATENT", "RECOGNITION"]
+    left_config_sha256: str
+    right_config_sha256: str
+    named_factor: str
+    nuisance_capacity_fields: tuple[str, ...]
+    tuning_estimand: Literal["equal_grid", "shared_a5"]
+    interpretation: Literal["primary", "conditional", "descriptive"]
+    row_sha256: str
+
+@dataclass(frozen=True)
+class BuiltArm:
+    config: ArmConfig
+    model: nn.Module
+    recognition_store: LanguageRecognitionParameterStore | None
+    proposal: TargetFreeProposalAdapter
+    predictor: PriorPredictor
+    parameter_roles: tuple[ParameterRoleRecord, ...]
+    optimizer_bindings: tuple[OptimizerBinding, ...]
+    flop_terms: tuple[FlopTerm, ...]
+    model_family_sha256: str
 
 @dataclass(frozen=True)
 class PrefixCaseKey:
@@ -743,7 +843,7 @@ git commit -m "feat: add H6 language recognition and ELBO"
 
 - [ ] **Step 4: Implement the exact weighted bootstrap recursion.** Implement the equations in “Frozen Weighted SMC Recursion and Accuracy Gate” literally: propagate each history from the generative proposal while carrying its normalized parent weight; return `logsumexp(log_weight + emission_log_prob)` for each vocabulary item; store pending particles/emission rows/weights; assimilate only the newly appended formerly scored token; add the incremental log normalizer; normalize; compute ESS; then resample ancestors and reset weights only below `N/2` (128 for the finite gate's `N=256`). Use counter keys `(stream_seed, prefix_digest, position, purpose, particle_index)` so paired arms/cases share streams without global RNG dependence. Reject proposal modes other than the declared generative bootstrap.
 
-- [ ] **Step 5: Implement frozen constants and the estimator gate.** Store the five literal critical constants in `vfe4/numerics/critical_values.py`; load no quantile package at runtime. Implement the exact joint Bonferroni t bias and chi-square variance calculations over 76 cells with `a=0.01/304`, but exercise them during buildout only on shrunken deterministic fixtures. The separately authorized Task 13 evidence run requires every upper absolute-bias bound `<=0.001005033585350145`, every upper SD bound `<=0.0025125839633753625`, exact identities, and the complete 512-replicate inventory before publishing `validation/h6_smc.json`. Focused Task 5 output is not that evidence.
+- [ ] **Step 5: Implement frozen constants and the estimator gate.** Store the five literal critical constants in `vfe4/numerics/critical_values.py`; load no quantile package at runtime. Implement the exact joint Bonferroni t bias and chi-square variance calculations over 76 cells with `a=0.01/304`, but exercise them during buildout only on shrunken deterministic fixtures. The separately authorized Task 13 evidence run requires every upper absolute-bias bound `<=0.001005033585350145`, every upper SD bound `<=0.0025125839633753625`, exact identities, and the complete 512-replicate inventory before publishing `validation/h6_smc_accuracy.json`. Focused Task 5 output is not that evidence.
 
 - [ ] **Step 6: Run focused GREEN.** Run the Step 3 command. Expected: PASS.
 
@@ -788,30 +888,37 @@ git commit -m "test: verify prefix-conditioned source priors"
 - Create: `vfe4/training/__init__.py`
 - Create: `vfe4/training/arms.py`
 - Create: `vfe4/training/matching.py`
+- Create: `vfe4/recognition/parameter_store.py`
+- Modify: `vfe4/recognition/__init__.py`
+- Modify: `vfe4/config/schema.py`
+- Modify: `vfe4/config/resolve.py`
+- Modify: `vfe4/config/__init__.py`
 - Create: `tests/unit/test_h6_arms.py`
 - Create: `tests/unit/test_h6_matching.py`
 - Modify: `docs/preregistrations/2026-07-21-h6-prefix-prediction.md`
 
 **Interfaces:**
-- Produces: `build_a0` through `build_a5`, `build_arm(ArmId, ArmConfig)`, the eight exact matrix row records/config identities above, `audit_arm_matching(...) -> MatchingReport`, and exact `arm_matrix_sha256` / per-row hashes.
-- Consumes: Tasks 3--5 model/recognition/predictor interfaces.
+- Produces: immutable `ArmConfig`, `CapacityAllocation`, `BuiltArm`, `ParameterRoleRecord`, `OptimizerBinding`, `FlopTerm`, `MatchingReport`, and `ArmMatrixRow`; trainable `LanguageRecognitionParameterStore` implementations; `build_a0` through `build_a5`; `build_arm(ArmId, ArmConfig) -> BuiltArm`; the eight exact matrix rows; `audit_arm_matching(...) -> MatchingReport`; and exact `arm_matrix_sha256` / per-row hashes.
+- Consumes: Task 3 normalized model factors, Task 4 immutable recognition-law value records, and Task 5 `CausalPrefix`, `PriorPredictor`, `EstimatorStream`, and arm-agnostic `TargetFreeProposalAdapter`. `LanguageGenerativeProposalAdapter` is one Task 3 adapter, not the required concrete type for every arm; each arm factory supplies a target-free adapter matching its own semantics.
 
-- [ ] **Step 1: Write failing semantic arm/matrix tests.** Assert A0 has normalized AR logits, only the conventional CE/model phase, and no latent/recognition object/optimizer; A1 has latents but no typed-map sector; A2 has unconstrained generic maps; A3 has fixed predecessor and no source categorical variables; A4 has no model channel; A5 has both channels, sources, and typed same-point maps. The no-latent component endpoint must likewise have only its model phase and the canonical `nolatent-norecognition` identity; its recognition section is structurally absent when `latent_enabled=false`, never retained as an inactive smoothing/filler setting. Require every literal matrix config/factory identity, exactly one named intervention per component row after conditional resolution, PRIMARY/MAP equal tuning, remaining rows' shared-A5 estimand, all eight seeds/checkpoints/certificate keys, all-or-none opening, and exact descriptive/nonclaim labels. Assert each predictor retains the exact public signature and vocabulary identity.
+- [ ] **Step 1: Write one bounded failing semantic test file.** Use only `V=3`, `T=2`, one deterministic forward call, and constructor/static checks; do not train. Assert A0 has normalized AR logits, only conventional CE/model parameters, and no latent/source/recognition store/law/optimizer; A1 has latents and a trainable recognition store but no typed-map sector; A2 has unconstrained generic maps; A3 uses only the fixed immediate predecessor and constructs no source categorical variables; A4 has no model channel; A5 has both channels, both source banks, and typed same-point maps. The no-latent component endpoint likewise has only its model phase and canonical `nolatent-norecognition` identity. Each latent store must own every recognition `nn.Parameter` and emit the appropriate normalized Task 4 law; the law owns no parameters. Require every `BuiltArm.proposal` to satisfy `TargetFreeProposalAdapter`, and require the exact predictor signature `next_token_log_probs(prefix_tokens: CausalPrefix, estimator_rng: EstimatorStream, cache: PrefixCache | None = None) -> PriorPrediction`; raw tensors fail. Require all eight literal matrix identities, one semantic intervention after deleting only `capacity_allocation`, declared nuisance allocation fields, tuning estimands, seeds/checkpoint/certificate templates, opening group, and descriptive/nonclaim labels.
 
-- [ ] **Step 2: Write failing matcher tests.** Count active trainable parameters by named role and typed phase, require every active ID exactly once in its declared AdamW optimizer, reject dormant/frozen filler and dummy/no-op recognition phases, and compute whole-outer-schedule FLOPs from each endpoint's actual active phases. Require identical passes, batch/model-update opportunities, data/validation/checkpoint access, and optimizer policy; do not require a nonexistent recognition phase for A0/no-latent endpoints. Enforce `abs(P_endpoint/P_A5-1)<=0.01` and `abs(F_endpoint/F_A5-1)<=0.05` for all six arms and every matrix endpoint. Test violations make the exact arm/row ineligible; they never relax bounds. Assert irreducibly changed-joint/approximation/latent-capacity rows remain descriptive despite matching.
+- [ ] **Step 2: Write one bounded failing matcher test file.** Reconstruct only the literal formula records; do not load data, execute a training step, or enumerate outcomes. Freeze A5 at `(64,16,64,8)` and the exact applicable candidate products `token_width=(48,64,80,96)`, `latent_width=(8,16,24,32)`, `recognition_width=(32,64,96)`, `map_rank=(4,8,16)`, in that field/lexicographic order, with `None` for structurally absent fields and at most 144 candidates per endpoint. Count active trainable parameters by named role/phase, require every active object ID exactly once in its declared AdamW binding, and reject an unbound/duplicate/dormant/filler parameter or dummy/no-op phase.
 
-- [ ] **Step 3: Run focused RED.** Run `python -m pytest tests/unit/test_h6_arms.py tests/unit/test_h6_matching.py -q`. Expected: FAIL on missing factories/matcher.
+  Freeze the arithmetic ledger rather than using a profiler: dense matmul `(m,n)@(n,k)` costs `2mnk`; dense matvec costs `2mn`; every scalar add, subtract, multiply, divide, exp, log, sqrt, comparison, or select costs one; length-`n` `log_softmax` costs `5n-1`; backward costs exactly `2 * differentiable_forward_flops`; the always-evaluated L2 clip/scale costs `3P+3` for `P` active gradient scalars; AdamW costs `18P` per update; and an immutable detached snapshot costs zero arithmetic FLOPs while recording exact bytes copied. A `FlopTerm` records phase, operation, repetitions, arithmetic FLOPs per repetition, copied bytes, total, and digest. Whole-schedule training FLOPs include only actual active training phases over the common batches/passes and exclude data I/O, validation, checkpoint serialization, and test scoring. Require identical passes, batches/model-update opportunities, data/validation/checkpoint boundaries, and the exact AdamW policy; do not require a nonexistent recognition phase for A0/no-latent endpoints. Enforce `abs(P_endpoint/P_A5-1)<=0.01` and `abs(F_endpoint/F_A5-1)<=0.05`. Verify that capacity changes are labeled outcome-blind nuisance reallocations, never a second semantic intervention, and that unmatched or otherwise different endpoints are ineligible/INCONCLUSIVE.
 
-- [ ] **Step 4: Implement explicit factories, matrix records, and deterministic capacity search.** Search only a preregistered finite tuple of width/rank/hidden-dimension candidates, order lexicographically, and choose the first candidate satisfying both tolerances and active-parameter rules. Do not inspect loss/NLL. Use explicit function calls, not registry signature inspection. Hash each endpoint's full config, factory identity, sole-change diff, match report, tuning estimand, seeds, certificate-key template, and opening group.
+- [ ] **Step 3: Run one focused RED.** Run `python -m pytest tests/unit/test_h6_arms.py tests/unit/test_h6_matching.py -q`. Expected: FAIL on missing factories/matcher in less than 10 seconds. If the command reaches 10 seconds, stop it, statically locate the slow collector/case, shrink the fixture, and rerun only that exact test node once.
 
-- [ ] **Step 5: Freeze candidate arm profiles before tuning.** Run only the no-corpus matcher/config preparation operation, record exact dimensions, parameter-role tables, optimizer IDs, FLOP term tables, margins, and hashes in the preregistration/config, and commit them. These are source-frozen candidates, not Prefix or closed Prediction evidence; deferred Prediction readiness mechanically reconstructs every endpoint after exact H1/H2/H3/H5 validation. If any arm cannot match, H6-Prediction remains INCONCLUSIVE until the architecture plan is revised; do not loosen tolerances.
+- [ ] **Step 4: Implement explicit factories and the trainable recognition boundary.** `build_a0` through `build_a5` each construct only their declared semantic modules, a matching concrete `TargetFreeProposalAdapter`, and a `PriorPredictor`; `build_arm` uses an explicit `if arm is ArmId.A0` through `A5` chain and exact config-arm equality, never registry/signature dispatch. Latent builders construct one recognition parameter store whose named `nn.Parameter`s appear in the recognition AdamW binding exactly once; each batch call emits an ephemeral normalized structured/factorized law connected to those parameters. Predictive/generative modules never import the store or emitted law. Hash every exact semantic config and built model/proposal/predictor identity.
 
-- [ ] **Step 6: Run focused GREEN.** Run the Step 3 command. Expected: PASS for the frozen arm profiles and negative controls.
+- [ ] **Step 5: Implement deterministic matching, matrix records, and config resolution.** Resolve A5 to the frozen reference allocation. For each other endpoint, enumerate only applicable literal candidates in the frozen order and select the first report passing both tolerances and all active-parameter/optimizer rules; never inspect corpus bytes, loss, gradients, validation, or test values. For a component row, compare semantic canonical payloads after deleting only `capacity_allocation`; require the remaining difference to equal the named factor and record any allocation differences in `nuisance_capacity_fields`. Hash each endpoint's full config, explicit factory identity, semantic diff, nuisance allocation diff, match report, tuning estimand, seeds, certificate-key template, and opening group. Add the closed candidate/policy/matrix records to `schema.py`, canonical resolution to `resolve.py`, and exports to `config/__init__.py`.
+
+- [ ] **Step 6: Freeze eligible source profiles, then run one focused GREEN.** The no-corpus config/matcher resolver records exact dimensions, parameter-role tables, optimizer bindings, FLOP terms, copied-byte terms, margins, and hashes in config/preregistration before tuning. These are source-frozen candidates, not Prefix or Prediction evidence. If any arm or row has no eligible allocation, retain INCONCLUSIVE and do not loosen tolerances. Run the Step 3 command once; expected PASS in less than 10 seconds. Do not run another H6 test file or a broad suite.
 
 - [ ] **Step 7: Commit.**
 
 ```text
-git add vfe4/training/__init__.py vfe4/training/arms.py vfe4/training/matching.py tests/unit/test_h6_arms.py tests/unit/test_h6_matching.py vfe4/config/schema.py vfe4/config/resolve.py docs/preregistrations/2026-07-21-h6-prefix-prediction.md
+git add vfe4/training/__init__.py vfe4/training/arms.py vfe4/training/matching.py vfe4/recognition/parameter_store.py vfe4/recognition/__init__.py tests/unit/test_h6_arms.py tests/unit/test_h6_matching.py vfe4/config/schema.py vfe4/config/resolve.py vfe4/config/__init__.py docs/preregistrations/2026-07-21-h6-prefix-prediction.md
 git commit -m "feat: add matched H6 arm factories"
 ```
 

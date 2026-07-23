@@ -31,6 +31,17 @@ the 512-replicate SMC grid, corpus training, 96-checkpoint assessment, or the
 one-time test opening. Those are separately authorized evidence operations at
 one frozen `(git_head, dirty_digest)`.
 
+Every development RED/GREEN check is synthetic, deterministic, no-download,
+no-training, CPU-safe, and must finish in less than 10 seconds; at 10 seconds it
+is stopped and narrowed before one retry. Tasks 1-12 never start a background
+worker, broad/full suite, H4 timing benchmark, production Prefix inventory,
+full SMC grid, corpus operation, or endpoint assessment. Large H4/H6 evidence
+jobs are exposed only through editable dictionaries in `verify_vfe4.py` and
+`train_vfe4.py`, default to disabled, and require an explicit
+operation-specific authorization field inside `main(CONFIG)`. Package import,
+launcher import, and ordinary pytest collection/execution cannot reach them.
+There is no required CLI.
+
 ## Theory and structural types
 
 The normative sources are the VFE 4.0 whitepaper sections on the generative
@@ -66,17 +77,65 @@ digest but excludes the owned digest itself. Tokenizer, fixture, payload,
 manifest, H5-producer, and other referenced/content digests are independently
 verified against their named bytes or producer preimages.
 
+## Separate H1 prefix-prior prerequisite
+
+The source-build fixture `h1-prefix-prior-v1` is bounded to `T=2`,
+`d_z=d_m=1`, and `V=3`, with state and model parent rows
+`((0,), (0,1))`. Its raw SHA-256 is
+`b6638ea3b64c7fd68882cbaced914e4d17d2cd03c8b6b8a939fd575a1b9f43f1`;
+it binds the unchanged raw H1 fixture SHA-256
+`388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b`.
+The prefix-prior parameters are recorded as canonical hexadecimal float
+strings. Both latent projections and the bounded latent history are exact zero.
+The two frozen prior histories are zero-based token prefixes `(0,)` and `(2,)`;
+both state and model source rows must be normalized and must differ between
+those histories.
+
+The canonical generative-factor schema SHA-256 is
+`f38a83b80e046e1d4115a9eca2ccc3afe080fd6b0352fcef399afaf30bea6816`.
+It admits only prior token IDs and earlier latents, explicitly forbids the
+current target, future tokens, and recognition state, applies the declared
+support mask before normalization, and uses the shared masked log-softmax.
+The dedicated H1 gate compares production monolithic and local objectives with
+an independent NumPy evidence-minus-posterior-KL calculation under the existing
+calibrated H1 allowance composition. A negative control substitutes the
+zero-based current target `(1,)` as the prior history and must change the
+objective by more than its composed allowance.
+
+The source fixture and focused test are not evidence. A separately authorized
+exact-candidate operation may publish only the three canonical payload members
+
+```text
+config.json
+schemas/generative_factor.json
+validation/h1_prefix_prior.json
+```
+
+plus their sorted LF `manifest.sha256`. The validation payload binds
+`gate="H1-Prefix-Prior"`, status and obligations, exact `git_head` and
+`dirty_digest`, config SHA-256, raw fixture SHA-256, base-fixture SHA-256, and
+generative-factor-schema SHA-256. It never overwrites `validation/h1.json`.
+
 ## Predictor and Prefix certificate
 
 The only public prediction call is:
 
 ```python
-next_token_log_probs(prefix_tokens, estimator_rng, cache=None)
+next_token_log_probs(
+    prefix_tokens: CausalPrefix,
+    estimator_rng: EstimatorStream,
+    cache: PrefixCache | None = None,
+) -> PriorPrediction
 ```
 
-It has no target, suffix, full-window, recognition, posterior, or reconstruction
-argument. It returns one `(V,)` log-probability vector bound to an immutable
-`VocabularyIdentity`. The target is read only after that vector is returned.
+It rejects raw tensors and has no target, suffix, full-window, recognition,
+posterior, or reconstruction argument. It returns one `(V,)` log-probability
+vector bound to the immutable `VocabularyIdentity` shared by the
+`CausalPrefix`, predictor, cache, and artifact. The target is read only after
+that vector is returned. The weighted SMC implementation consumes the
+arm-agnostic `TargetFreeProposalAdapter`; the Task 3
+`LanguageGenerativeProposalAdapter` is one concrete adapter, not a required
+type for all six arms.
 
 Every source row uses the sole shared
 `masked_log_softmax_from_parents(logits, declared_parents, receiver_t)`. Invalid
@@ -105,18 +164,91 @@ H5 contributes only the exact producer labels `exact_coordinate`,
 `generalized_em`, and `natural_gradient_proposal` and its producer hashes. It
 does not certify AdamW or an H6 phase.
 
-The H6 outer schedule uses AdamW, one model update opportunity per batch, two
-full passes, and validation boundaries at
+The H6 outer schedule uses AdamW with `betas=(0.9,0.999)`, `eps=1e-8`,
+`amsgrad=False`, `maximize=False`, `foreach=False`, `capturable=False`,
+`differentiable=False`, `fused=False`, `zero_grad(set_to_none=True)`,
+all-active-parameter decay, and an always-evaluated L2 global-gradient scale
+with `max_norm=1.0`. Only learning rate and weight decay vary over the frozen
+tuning grid. It has one model update opportunity per batch, two full passes,
+and validation boundaries at
 `ceil(k*batches_per_pass/20), k=1..20`, deduplicated in order for each pass.
 No-latent endpoints use only `model_ce_adamw` and construct no recognition
-optimizer. Latent endpoints use exactly
+parameter store, law, or optimizer. Latent endpoints own a trainable
+recognition parameter store and use exactly
 `recognition_adamw -> immutable_detached_snapshot -> model_adamw` once per
-batch. No-op phases or dormant parameters are prohibited.
+batch. `StructuredLanguageRecognition` and `FactorizedLanguageRecognition` are
+ephemeral normalized laws emitted from that store and own no parameters. No-op
+phases or dormant parameters are prohibited.
 
 The shared training batch size is eight with no drop-last. A versioned
 SHA-256-counter, rejection-sampled Fisher-Yates permutation keyed by seed
 `2026072199` and zero-based pass index fixes training order independently of
 Python, NumPy, and Torch RNG implementations. Evaluation order is sequential.
+
+## Frozen arm-construction and matching contract
+
+`ArmConfig`, `CapacityAllocation`, `BuiltArm`, `ParameterRoleRecord`,
+`OptimizerBinding`, `FlopTerm`, `MatchingReport`, and `ArmMatrixRow` are
+immutable, canonical-hashed records. Factories are explicit `build_a0` through
+`build_a5`; `build_arm` uses a closed `ArmId` branch and exact arm/config
+equality, never registry or signature dispatch. Each `BuiltArm` contains its
+semantic model, optional trainable recognition store, an arm-specific
+`TargetFreeProposalAdapter`, target-blind `PriorPredictor`, parameter-role
+table, optimizer bindings, FLOP terms, and model-family identity.
+
+Arm semantics are literal. A0 is normalized autoregressive CE with no latent,
+source, or recognition sector. A1 is an ordinary latent sequence model without
+typed maps. A2 uses unconstrained generic maps. A3 has fixed
+immediate-predecessor transitions and no source categorical variables. A4 has
+no model channel. A5 has state and model channels, both causal source banks,
+and typed same-point maps. Every latent arm's recognition `nn.Parameter` is
+owned by exactly one parameter store and bound exactly once to
+`recognition_adamw`; emitted recognition laws remain connected to those
+parameters but do not own them. Predictive and generative modules never import
+the store or a recognition law.
+
+A5's reference allocation is exactly
+`(token_width=64, latent_width=16, recognition_width=64, map_rank=8)`. Other
+endpoints search, in field order
+`(token_width, latent_width, recognition_width, map_rank)`, only the applicable
+Cartesian product of these literal tuples:
+
+```text
+token_width       = (48, 64, 80, 96)
+latent_width      = (8, 16, 24, 32)
+recognition_width = (32, 64, 96)
+map_rank          = (4, 8, 16)
+```
+
+Structurally absent fields are `None`, not dormant parameters. The maximum is
+144 formula-only candidates per endpoint. Selection is the first
+lexicographically eligible allocation and cannot inspect corpus bytes, loss,
+gradients, validation, test data, or any predictive metric.
+
+Parameter matching counts active trainable scalars by named role and phase.
+Every active object ID appears in exactly one declared AdamW binding;
+unbound, duplicate, frozen filler, dormant, and no-op parameters are forbidden.
+The arithmetic ledger uses these exact conventions: dense matrix multiply
+`(m,n)@(n,k)` costs `2mnk`; dense matrix-vector multiply costs `2mn`; each
+scalar add, subtract, multiply, divide, exp, log, sqrt, comparison, or select
+costs one; length-`n` `log_softmax` costs `5n-1`; backward costs
+`2 * differentiable_forward_flops`; always-evaluated L2 clip/scale costs
+`3P+3` for `P` active gradient scalars; and AdamW costs `18P` per update.
+Immutable detached snapshots cost zero arithmetic FLOPs and record exact bytes
+copied. Whole-schedule training FLOPs contain only active training phases over
+the common batches/passes; data I/O, validation, checkpoint serialization, and
+test scoring are excluded. Every term records phase, operation, repetitions,
+arithmetic FLOPs, copied bytes, total, and digest.
+
+Eligibility requires parameter difference at most 1% and whole-schedule FLOP
+difference at most 5% from A5, with common passes, batches, model-update
+opportunities, validation/checkpoint boundaries, and AdamW policy. Capacity
+allocation is an outcome-blind nuisance adjustment: after deleting only
+`capacity_allocation`, a component row's semantic configs must differ in
+exactly its named factor; raw configs may additionally differ in the recorded
+allocation. Any other difference or absence of an eligible literal candidate
+makes the row INCONCLUSIVE. Matching does not convert a descriptive row into a
+causal claim.
 
 ## Frozen tuning protocol
 
