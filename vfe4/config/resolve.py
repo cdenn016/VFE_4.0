@@ -56,6 +56,7 @@ from .schema import (
     H5_CONTROL_IDS,
     H5_POSITIVE_CASE_IDS,
     H5_UPDATE_SPEC_CANONICAL_SHA256,
+    H1PrefixPriorResolvedConfig,
     InferenceConfig,
     H6PredictionResolvedConfig,
     H6PrefixResolvedConfig,
@@ -405,6 +406,203 @@ def _h6_json(payload: Mapping[str, object]) -> tuple[str, str]:
         allow_nan=False,
     )
     return canonical, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+_H1_PREFIX_PRIOR_FIXTURE_SHA256 = (
+    "b6638ea3b64c7fd68882cbaced914e4d17d2cd03c8b6b8a939fd575a1b9f43f1"
+)
+_H1_PREFIX_PRIOR_BASE_FIXTURE_SHA256 = (
+    "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+)
+_H1_PREFIX_PRIOR_GENERATIVE_SCHEMA_SHA256 = (
+    "f38a83b80e046e1d4115a9eca2ccc3afe080fd6b0352fcef399afaf30bea6816"
+)
+
+
+def _resolve_h1_prefix_prior_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> H1PrefixPriorResolvedConfig:
+    """Resolve the separate current-candidate H1 prefix-prior operation."""
+
+    root = _require_mapping(raw, "h1_prefix_prior")
+    _validate_keys(
+        root,
+        frozenset(
+            {
+                "schema_version",
+                "operation",
+                "source",
+                "fixture",
+                "generative_factor_schema_sha256",
+                "model",
+                "quadrature",
+                "artifact_root",
+            }
+        ),
+        "h1_prefix_prior",
+    )
+    schema_version = _require_exact(
+        root["schema_version"],
+        "h1-prefix-prior-config-v1",
+        "h1_prefix_prior.schema_version",
+    )
+    operation = _require_exact(
+        root["operation"],
+        "H1-Prefix-Prior",
+        "h1_prefix_prior.operation",
+    )
+    source = _resolve_h6_source(root["source"])
+
+    fixture_raw = _require_mapping(root["fixture"], "h1_prefix_prior.fixture")
+    _validate_keys(
+        fixture_raw,
+        frozenset({"fixture_id", "fixture_sha256", "base_fixture_sha256"}),
+        "h1_prefix_prior.fixture",
+    )
+    fixture_id = _require_exact(
+        fixture_raw["fixture_id"],
+        "h1-prefix-prior-v1",
+        "h1_prefix_prior.fixture.fixture_id",
+    )
+    fixture_sha256 = _require_exact(
+        fixture_raw["fixture_sha256"],
+        _H1_PREFIX_PRIOR_FIXTURE_SHA256,
+        "h1_prefix_prior.fixture.fixture_sha256",
+    )
+    base_fixture_sha256 = _require_exact(
+        fixture_raw["base_fixture_sha256"],
+        _H1_PREFIX_PRIOR_BASE_FIXTURE_SHA256,
+        "h1_prefix_prior.fixture.base_fixture_sha256",
+    )
+    generative_factor_schema_sha256 = _require_exact(
+        root["generative_factor_schema_sha256"],
+        _H1_PREFIX_PRIOR_GENERATIVE_SCHEMA_SHA256,
+        "h1_prefix_prior.generative_factor_schema_sha256",
+    )
+
+    model_raw = _require_mapping(root["model"], "h1_prefix_prior.model")
+    _validate_keys(
+        model_raw,
+        frozenset(
+            {
+                "horizon",
+                "d_z",
+                "d_m",
+                "vocabulary_size",
+                "state_parent_sets",
+                "model_parent_sets",
+                "latent_projection_policy",
+                "prefix_policy",
+            }
+        ),
+        "h1_prefix_prior.model",
+    )
+    horizon = _require_exact(model_raw["horizon"], 2, "h1_prefix_prior.model.horizon")
+    d_z = _require_exact(model_raw["d_z"], 1, "h1_prefix_prior.model.d_z")
+    d_m = _require_exact(model_raw["d_m"], 1, "h1_prefix_prior.model.d_m")
+    vocabulary_size = _require_exact(
+        model_raw["vocabulary_size"], 3, "h1_prefix_prior.model.vocabulary_size"
+    )
+    state_parent_sets = _require_exact_matrix(
+        model_raw["state_parent_sets"],
+        ((0,), (0, 1)),
+        "h1_prefix_prior.model.state_parent_sets",
+    )
+    model_parent_sets = _require_exact_matrix(
+        model_raw["model_parent_sets"],
+        ((0,), (0, 1)),
+        "h1_prefix_prior.model.model_parent_sets",
+    )
+    latent_projection_policy = _require_exact(
+        model_raw["latent_projection_policy"],
+        "exact_zero",
+        "h1_prefix_prior.model.latent_projection_policy",
+    )
+    prefix_policy = _require_exact(
+        model_raw["prefix_policy"],
+        "strictly_prior_tokens",
+        "h1_prefix_prior.model.prefix_policy",
+    )
+
+    quadrature_raw = _require_mapping(
+        root["quadrature"], "h1_prefix_prior.quadrature"
+    )
+    _validate_keys(
+        quadrature_raw,
+        frozenset(
+            {"order", "convergence_check_order", "maximum_convergence_estimate"}
+        ),
+        "h1_prefix_prior.quadrature",
+    )
+    quadrature_order = _require_exact(
+        quadrature_raw["order"], 21, "h1_prefix_prior.quadrature.order"
+    )
+    convergence_check_order = _require_exact(
+        quadrature_raw["convergence_check_order"],
+        17,
+        "h1_prefix_prior.quadrature.convergence_check_order",
+    )
+    maximum_convergence_estimate = _require_exact(
+        quadrature_raw["maximum_convergence_estimate"],
+        1e-9,
+        "h1_prefix_prior.quadrature.maximum_convergence_estimate",
+    )
+    artifact_root = _resolve_run_root(root["artifact_root"], repo_root)
+    payload = {
+        "schema_version": schema_version,
+        "operation": operation,
+        "source": {
+            "git_head": source.git_head,
+            "dirty_digest": source.dirty_digest,
+            "source_sha256": source.source_sha256,
+        },
+        "fixture": {
+            "fixture_id": fixture_id,
+            "fixture_sha256": fixture_sha256,
+            "base_fixture_sha256": base_fixture_sha256,
+        },
+        "generative_factor_schema_sha256": generative_factor_schema_sha256,
+        "model": {
+            "horizon": horizon,
+            "d_z": d_z,
+            "d_m": d_m,
+            "vocabulary_size": vocabulary_size,
+            "state_parent_sets": state_parent_sets,
+            "model_parent_sets": model_parent_sets,
+            "latent_projection_policy": latent_projection_policy,
+            "prefix_policy": prefix_policy,
+        },
+        "quadrature": {
+            "order": quadrature_order,
+            "convergence_check_order": convergence_check_order,
+            "maximum_convergence_estimate": maximum_convergence_estimate,
+        },
+        "artifact_root": artifact_root.as_posix(),
+    }
+    canonical_json, config_sha256 = _h6_json(payload)
+    return H1PrefixPriorResolvedConfig(
+        schema_version,
+        operation,
+        source,
+        fixture_id,
+        fixture_sha256,
+        base_fixture_sha256,
+        generative_factor_schema_sha256,
+        horizon,
+        d_z,
+        d_m,
+        vocabulary_size,
+        state_parent_sets,  # type: ignore[arg-type]
+        model_parent_sets,  # type: ignore[arg-type]
+        latent_projection_policy,
+        prefix_policy,
+        quadrature_order,
+        convergence_check_order,
+        maximum_convergence_estimate,
+        artifact_root,
+        canonical_json,
+        config_sha256,
+    )
 
 
 _H6_WIKITEXT2_URL = (
@@ -942,11 +1140,21 @@ def _resolve_h6_prediction_config(
 
 def resolve_config(
     raw: Mapping[str, object], *, repo_root: Path
-) -> ResolvedConfig | H6PrefixResolvedConfig | H6PredictionResolvedConfig:
-    """Resolve one frozen H1--H5, H6 Prefix, or H6 Prediction configuration."""
+) -> (
+    ResolvedConfig
+    | H1PrefixPriorResolvedConfig
+    | H6PrefixResolvedConfig
+    | H6PredictionResolvedConfig
+):
+    """Resolve one frozen H1--H5 or separately discriminated H6 operation."""
 
     root = _require_mapping(raw, "config")
     discriminator = (root.get("schema_version"), root.get("operation"))
+    if discriminator == (
+        "h1-prefix-prior-config-v1",
+        "H1-Prefix-Prior",
+    ):
+        return _resolve_h1_prefix_prior_config(root, repo_root=repo_root)
     if discriminator == ("h6-prefix-config-v1", "H6-Prefix"):
         return _resolve_h6_prefix_config(root, repo_root=repo_root)
     if discriminator == ("h6-prediction-config-v1", "H6-Prediction"):
@@ -954,9 +1162,20 @@ def resolve_config(
     if type(root.get("schema_version")) is str or "operation" in root:
         raise ValueError(
             "config schema_version and operation must identify a supported "
-            "H6 Prefix or H6 Prediction configuration"
+            "H1 Prefix Prior, H6 Prefix, or H6 Prediction configuration"
         )
     return _resolve_h1_h5_config(root, repo_root=repo_root)
+
+
+def resolve_h1_prefix_prior_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> H1PrefixPriorResolvedConfig:
+    """Resolve H1 Prefix Prior through the single public resolver."""
+
+    resolved = resolve_config(raw, repo_root=repo_root)
+    if not isinstance(resolved, H1PrefixPriorResolvedConfig):
+        raise ValueError("configuration is not an H1 Prefix Prior configuration")
+    return resolved
 
 
 def resolve_h6_prefix_config(

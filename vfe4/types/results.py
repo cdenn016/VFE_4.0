@@ -214,6 +214,78 @@ class GateResult:
         object.__setattr__(self, "measurements", MappingProxyType(copied_measurements))
 
 
+@dataclass(frozen=True)
+class H1PrefixPriorGateResult:
+    """Result of the separate H1 prefix-conditioned-prior prerequisite."""
+
+    gate: Literal["H1-Prefix-Prior"]
+    status: GateStatus
+    fixture_id: Literal["h1-prefix-prior-v1"]
+    residual: float | None
+    calibrated_allowance: float | None
+    measurements: Mapping[str, float | None]
+    invariants: tuple[InvariantResult, ...]
+    obligations: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.gate != "H1-Prefix-Prior":
+            raise ValueError("gate must be H1-Prefix-Prior")
+        if self.fixture_id != "h1-prefix-prior-v1":
+            raise ValueError("fixture_id must be h1-prefix-prior-v1")
+        if not isinstance(self.status, GateStatus):
+            raise ValueError("status must be a GateStatus")
+        _require_optional_finite(self.residual, "residual")
+        _require_optional_finite(
+            self.calibrated_allowance, "calibrated_allowance"
+        )
+        if not isinstance(self.measurements, Mapping):
+            raise ValueError("measurements must be a mapping")
+        copied_measurements = dict(self.measurements)
+        if tuple(copied_measurements) != (
+            "monolithic_elbo",
+            "local_elbo",
+            "evidence_minus_posterior_kl",
+        ):
+            raise ValueError("H1 prefix-prior measurement inventory is incomplete")
+        for name, value in copied_measurements.items():
+            _require_optional_finite(value, f"measurements[{name!r}]")
+        if type(self.invariants) is not tuple or not all(
+            isinstance(item, InvariantResult) for item in self.invariants
+        ):
+            raise ValueError("invariants must be a tuple of InvariantResult")
+        invariant_names = tuple(item.name for item in self.invariants)
+        if not invariant_names or len(set(invariant_names)) != len(invariant_names):
+            raise ValueError("H1 prefix-prior invariant names must be nonempty and unique")
+        _require_obligations(self.obligations)
+
+        if self.status is GateStatus.INCONCLUSIVE:
+            if not self.obligations:
+                raise ValueError("inconclusive H1 prefix-prior requires an obligation")
+        else:
+            if self.obligations:
+                raise ValueError("conclusive H1 prefix-prior cannot retain obligations")
+            _require_finite(self.residual, "residual")
+            _require_finite(self.calibrated_allowance, "calibrated_allowance")
+            if any(value is None for value in copied_measurements.values()):
+                raise ValueError(
+                    "conclusive H1 prefix-prior requires finite measurements"
+                )
+            if self.status is GateStatus.PASS and not all(
+                item.passed for item in self.invariants
+            ):
+                raise ValueError("H1 prefix-prior PASS requires every invariant")
+            if self.status is GateStatus.FAIL and not any(
+                not item.passed and item.value is not None and item.limit is not None
+                for item in self.invariants
+            ):
+                raise ValueError(
+                    "H1 prefix-prior FAIL requires a finite failed invariant"
+                )
+        object.__setattr__(
+            self, "measurements", MappingProxyType(copied_measurements)
+        )
+
+
 @dataclass(frozen=True, init=False)
 class H6PrefixGateResult:
     """Result of the independent H6 Prefix safety gate."""

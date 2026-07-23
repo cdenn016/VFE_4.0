@@ -3,6 +3,7 @@
 from .resolve import (
     resolve_config,
     resolve_h4_validation_config,
+    resolve_h1_prefix_prior_config,
     resolve_h6_prediction_config,
     resolve_h6_prefix_config,
 )
@@ -18,6 +19,7 @@ from .schema import (
     H4TraversalConfig,
     H4ValidationConfig,
     H5ValidationConfig,
+    H1PrefixPriorResolvedConfig,
     H6ArchiveMemberExpectation,
     H6DataConfig,
     H6ObservedArchive,
@@ -45,6 +47,7 @@ __all__ = [
     "H4TraversalConfig",
     "H4ValidationConfig",
     "H5ValidationConfig",
+    "H1PrefixPriorResolvedConfig",
     "H6ArchiveMemberExpectation",
     "H6DataConfig",
     "H6ObservedArchive",
@@ -60,6 +63,7 @@ __all__ = [
     "ValidationConfig",
     "resolve_config",
     "resolve_h4_validation_config",
+    "resolve_h1_prefix_prior_config",
     "resolve_h6_prediction_config",
     "resolve_h6_prefix_config",
 ]

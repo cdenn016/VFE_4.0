@@ -568,6 +568,31 @@ class H6DataConfig:
 
 
 @dataclass(frozen=True)
+class H1PrefixPriorResolvedConfig:
+    schema_version: Literal["h1-prefix-prior-config-v1"]
+    operation: Literal["H1-Prefix-Prior"]
+    source: H6SourceIdentity
+    fixture_id: Literal["h1-prefix-prior-v1"]
+    fixture_sha256: str
+    base_fixture_sha256: str
+    generative_factor_schema_sha256: str
+    horizon: Literal[2]
+    d_z: Literal[1]
+    d_m: Literal[1]
+    vocabulary_size: Literal[3]
+    state_parent_sets: tuple[tuple[int, ...], tuple[int, ...]]
+    model_parent_sets: tuple[tuple[int, ...], tuple[int, ...]]
+    latent_projection_policy: Literal["exact_zero"]
+    prefix_policy: Literal["strictly_prior_tokens"]
+    quadrature_order: Literal[21]
+    convergence_check_order: Literal[17]
+    maximum_convergence_estimate: Literal[1e-9]
+    artifact_root: Path
+    canonical_json: str
+    config_sha256: str
+
+
+@dataclass(frozen=True)
 class H6PrefixResolvedConfig:
     schema_version: Literal["h6-prefix-config-v1"]
     operation: Literal["H6-Prefix"]

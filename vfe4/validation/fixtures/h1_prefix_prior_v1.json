@@ -1,0 +1,77 @@
+{
+  "fixture_schema_version": "h1-prefix-prior-fixture-v1",
+  "fixture_id": "h1-prefix-prior-v1",
+  "base_h1_fixture": {
+    "relative_path": "vfe4/validation/fixtures/h1_v1.json",
+    "raw_sha256": "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+  },
+  "structure": {
+    "horizon": 2,
+    "d_z": 1,
+    "d_m": 1,
+    "vocabulary_size": 3,
+    "state_parent_sets": [[0], [0, 1]],
+    "model_parent_sets": [[0], [0, 1]]
+  },
+  "active_case_id": "prefix-token-0",
+  "prefix_cases": [
+    {
+      "case_id": "prefix-token-0",
+      "prefix_token_ids": [0]
+    },
+    {
+      "case_id": "prefix-token-2",
+      "prefix_token_ids": [2]
+    }
+  ],
+  "current_target_token_id": 1,
+  "earlier_latents": [
+    ["0x0.0p+0"],
+    ["0x0.0p+0"]
+  ],
+  "prefix_prior_parameters": {
+    "context_dim": 1,
+    "token_embedding": [
+      ["-0x1.0000000000000p+0"],
+      ["0x1.0000000000000p-1"],
+      ["0x1.8000000000000p+0"]
+    ],
+    "state_latent_projection": [["0x0.0p+0"]],
+    "model_latent_projection": [["0x0.0p+0"]],
+    "state_parent_keys_t2": [
+      ["0x1.999999999999ap-1"],
+      ["-0x1.999999999999ap-2"]
+    ],
+    "model_parent_keys_t2": [
+      ["-0x1.3333333333333p-2"],
+      ["0x1.6666666666666p-1"]
+    ],
+    "state_biases_t2": [
+      "0x1.999999999999ap-4",
+      "-0x1.999999999999ap-3"
+    ],
+    "model_biases_t2": [
+      "0x1.0000000000000p-2",
+      "-0x1.3333333333333p-3"
+    ]
+  },
+  "generative_factor_schema": {
+    "schema_version": "h1-prefix-prior-generative-factor-v1",
+    "prior_variant": "prefix_conditioned",
+    "conditioning_inputs": ["prior_token_ids", "earlier_latents"],
+    "forbidden_inputs": ["current_target", "future_tokens", "recognition_state"],
+    "target_blind": true,
+    "receiver_t": 2,
+    "source_banks": ["state", "model"],
+    "context_dim": 1,
+    "token_pooling": "mean",
+    "latent_projection_policy": "exact_zero",
+    "support_mask_application": "before_normalization",
+    "normalization": "masked_log_softmax_from_parents"
+  },
+  "quadrature": {
+    "order": 21,
+    "convergence_check_order": 17,
+    "maximum_convergence_estimate": 1e-9
+  }
+}
