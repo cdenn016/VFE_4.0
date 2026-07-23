@@ -185,6 +185,82 @@ SHA-256-counter, rejection-sampled Fisher-Yates permutation keyed by seed
 `2026072199` and zero-based pass index fixes training order independently of
 Python, NumPy, and Torch RNG implementations. Evaluation order is sequential.
 
+## Frozen Task 8 objective, attempt, checkpoint, and development contract
+
+Training objectives are family-specific. Every endpoint binds an immutable
+`ArmObjectiveInventory` and an `ArmTrainingObjectiveAdapter`; the adapter emits
+only factors that exist in that family and rejects an absent, extra, reordered,
+duplicated, wrong-horizon, or stale-identity factor. The inventories are:
+
+```text
+A0: emission CE only
+A1: initial, state transition, emission, recognition entropy
+A2: initial, state source, model source, state transition,
+    model transition, emission, recognition entropy
+A3: initial, state transition, model transition, emission,
+    recognition entropy
+A4: initial, state source, state transition, emission,
+    recognition entropy
+A5: initial, state source, model source, state transition,
+    model transition, emission, recognition entropy
+```
+
+Initial occurs once; every other listed latent factor is receiver-indexed over
+the declared horizon. A0 and the no-latent A5 endpoint use the typed CE
+objective and no recognition inventory. The complete A2/A5 objective may use
+the Task 4 `H6LanguageElboTerms`; reduced A1/A3/A4 objectives use their own
+typed records and never insert zero-valued placeholders into A5's `1+6T`
+decomposition. The emission-only endpoint accepts only
+`emission_only_ablation_non_elbo`.
+
+Task 4 `FrozenTensorSnapshot` remains immutable and autograd-preserving. It is
+not changed into a phase-transfer object. After an eligible recognition update,
+the model phase instead receives a distinct
+`DetachedRecognitionLawSnapshot`: detached, clone-only, `requires_grad=False`
+mean and precision-Cholesky bytes bound to recognition family, conditioning,
+parameter-store state, dtype, shape, device, raw-byte hashes, and its own
+digest. The detached snapshot cannot carry a recognition graph edge; source or
+returned-clone mutation cannot alter it.
+
+`H6AttemptSpec`, `H6AttemptCursor`, `H6ObjectiveManifest`, and
+`H6CheckpointManifest` are immutable canonical-hashed records. The attempt spec
+binds exact source revision/digest, readiness, endpoint config/factory/model
+family, matching/FLOP proof, objective inventory/adapter, H5 producer binding,
+H6 schedule/AdamW policy/tuning cell, seed, data/window/batch schedule,
+estimator, and Prefix certificate. The cursor binds zero-based pass and batch,
+the next phase, model and recognition update counts, validation/checkpoint
+boundary counts, permutation/data cursor, and RNG/counter state. The objective
+manifest binds the exact ordered family terms, totals/equality record,
+objective kind, and detached-recognition snapshot when applicable. The
+checkpoint manifest binds those records, exact raw bytes, and only the active
+model, recognition, and optimizer states.
+
+Resume is exact or refused. Atomic load revalidates every manifest, byte hash,
+config, source, schedule, data, objective, optimizer, and cursor identity, then
+continues at the recorded next phase. It cannot replay or skip a phase,
+duplicate an update, substitute an endpoint, or accept a caller override. An
+infrastructure retry uses the same attempt spec and cursor; numerical/model
+failures do not receive replacement seeds or altered state.
+
+No training entry point may access corpus data, construct an optimizer,
+evaluate a gradient, or mutate a parameter unless its current exact
+`MatchingReport` has `status="ELIGIBLE"`, `eligible=True`, complete
+operator-level whole-schedule FLOP accounting, empty FLOP obligations, exact
+parameter ownership, and the common schedule/policy identities. Task 7 is
+currently FLOP-incomplete/INCONCLUSIVE, so Task 8 source work is limited to
+phase planning, manifest/checkpoint mechanics with one tiny fake checkpoint,
+decision arithmetic, and proof that training is refused. It authorizes no
+optimizer step or corpus access.
+
+Task 8 development checks are synthetic, no-corpus, no-optimizer-step, and
+must finish in less than 10 seconds. They use exactly one tiny fake checkpoint,
+one arithmetic-only `64 x 4` stream/particle table, eight paired scalar values,
+and the 256 scalar corner vectors. They never build a 96-checkpoint table,
+materialize 352 production intervals, or score 24,576 corpus records. Full
+training, checkpoint inventories, and endpoint evidence remain disabled
+click-run operations behind editable root dictionaries and separate
+authorization.
+
 ## Frozen arm-construction and matching contract
 
 `ArmConfig`, `CapacityAllocation`, `BuiltArm`, `ParameterRoleRecord`,
