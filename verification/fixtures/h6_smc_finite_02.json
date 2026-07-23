@@ -1,0 +1,78 @@
+{
+  "constraints": {
+    "max_emission_likelihood_ratio": 1.25,
+    "min_exact_token_probability": 0.1
+  },
+  "emission_probabilities": [
+    [
+      0.34,
+      0.33,
+      0.33
+    ],
+    [
+      0.32,
+      0.35,
+      0.33
+    ]
+  ],
+  "enumeration": "all_hidden_and_source_histories",
+  "fixture_id": "h6-smc-finite-02",
+  "horizon": 6,
+  "initial_probabilities": [
+    0.48,
+    0.52
+  ],
+  "initial_source_probabilities": [
+    0.52,
+    0.48
+  ],
+  "observed_tokens": [
+    2,
+    0,
+    1,
+    2,
+    1,
+    0
+  ],
+  "prefix_source_probabilities": [
+    [
+      0.62,
+      0.38
+    ],
+    [
+      0.44,
+      0.56
+    ],
+    [
+      0.51,
+      0.49
+    ]
+  ],
+  "schema_version": "h6-smc-finite-v1",
+  "source_bank": "state",
+  "source_variant": "prefix_conditioned",
+  "transition_kernels": [
+    [
+      [
+        0.67,
+        0.33
+      ],
+      [
+        0.28,
+        0.72
+      ]
+    ],
+    [
+      [
+        0.54,
+        0.46
+      ],
+      [
+        0.37,
+        0.63
+      ]
+    ]
+  ],
+  "vocab_size": 3,
+  "vocabulary_id": "h6-smc-finite-v3"
+}

@@ -1,0 +1,49 @@
+{
+  "cdf_certificates": {
+    "chi2_lower_df511": {
+      "cdf_residual": "1.08527400604477216098846678035929729361564647723756505016396e-21",
+      "probability": "0.01/304"
+    },
+    "chi2_upper_df511": {
+      "cdf_residual": "1.20861585126611154074249684296170219828668659218492858114947e-17",
+      "probability": "1-0.01/304"
+    },
+    "endpoint_t_df63": {
+      "cdf_residual": "1.29267629464274988347295831238762558259468986200191736428768e-17",
+      "probability": "1-0.01/(2*352)"
+    },
+    "finite_t_df511": {
+      "cdf_residual": "1.24176671458621693347812537347637770393737491132171743525764e-17",
+      "probability": "1-0.01/304"
+    },
+    "training_t_df7": {
+      "cdf_residual": "-4.93389381803939738374040201015906744333395153357079279778955e-17",
+      "probability": "0.975"
+    }
+  },
+  "constants": {
+    "chi2_lower_df511": "393.23185025997486",
+    "chi2_upper_df511": "648.65591595794933",
+    "endpoint_t_df63": "4.5144904535377144",
+    "finite_t_df511": "4.0243186150882195",
+    "training_t_df7": "2.364624251592784"
+  },
+  "conventions": {
+    "endpoint_family_cells": 352,
+    "finite_bias_cells": 76,
+    "finite_replicates": 512,
+    "finite_tail_probability": "0.01/304",
+    "finite_variance_denominator": 511,
+    "familywise_alpha": "0.01",
+    "two_sided": true
+  },
+  "provenance": {
+    "cdf_check_decimal_digits": 80,
+    "cdf_check_library": "mpmath incomplete beta and incomplete gamma",
+    "independent_quantile_commands": [
+      "R::qt",
+      "R::qchisq"
+    ]
+  },
+  "schema_version": "h6-critical-values-v1"
+}
