@@ -19,10 +19,6 @@ def test_prediction_readiness_roots_exclude_h4_and_current_gate_payload_blocks(
     tmp_path: Path,
 ) -> None:
     assert PREDICTION_READINESS_SOURCE_BLOCKERS == (
-        "separate manifest-linked H1/H2/H3/H5 correctness producers are absent",
-        "finite-SMC lacks a manifest-linked config/estimator/fixture publisher",
-        "H5 does not publish the ten exact update-binding preimages",
-        "blinded data does not publish retained typed DataIdentity preimages",
         "arm matching lacks an immutable manifest-linked matching-set publisher",
     )
     with pytest.raises(ProducerCompatibilityError) as unavailable:

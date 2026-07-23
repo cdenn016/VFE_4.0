@@ -368,6 +368,259 @@ def publish_blinded_binary_directory(
                 pass
 
 
+def _read_blinded_payload(
+    directory: Path, relative_path: str, *, maximum_bytes: int
+) -> bytes:
+    target = directory.joinpath(*PurePosixPath(relative_path).parts)
+    if target.is_symlink() or (
+        hasattr(target, "is_junction") and target.is_junction()
+    ):
+        raise BlindedDataError("blinded artifact cannot contain redirected payloads")
+    try:
+        parent_metadata = target.parent.stat()
+        metadata = target.lstat()
+    except OSError as exc:
+        raise BlindedDataError(
+            f"blinded artifact payload is unavailable: {relative_path}"
+        ) from exc
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum_bytes:
+        raise BlindedDataError(
+            f"blinded artifact payload violates its bound: {relative_path}"
+        )
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(target, flags)
+    except OSError as exc:
+        raise BlindedDataError(
+            f"blinded artifact payload cannot be opened: {relative_path}"
+        ) from exc
+    chunks: list[bytes] = []
+    total = 0
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino)
+            != (metadata.st_dev, metadata.st_ino)
+            or opened.st_size != metadata.st_size
+        ):
+            raise BlindedDataError(
+                f"blinded artifact payload changed before opening: {relative_path}"
+            )
+        while True:
+            chunk = os.read(descriptor, min(65536, maximum_bytes + 1 - total))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > maximum_bytes:
+                raise BlindedDataError(
+                    f"blinded artifact payload exceeds its bound: {relative_path}"
+                )
+            chunks.append(chunk)
+        closed_snapshot = os.fstat(descriptor)
+        try:
+            current_parent = target.parent.stat()
+            current_target = target.lstat()
+        except OSError as exc:
+            raise BlindedDataError(
+                f"blinded artifact payload changed while reading: {relative_path}"
+            ) from exc
+        if (
+            (closed_snapshot.st_dev, closed_snapshot.st_ino, closed_snapshot.st_size)
+            != (opened.st_dev, opened.st_ino, opened.st_size)
+            or (current_target.st_dev, current_target.st_ino, current_target.st_size)
+            != (opened.st_dev, opened.st_ino, opened.st_size)
+            or (current_parent.st_dev, current_parent.st_ino)
+            != (parent_metadata.st_dev, parent_metadata.st_ino)
+        ):
+            raise BlindedDataError(
+                f"blinded artifact payload changed while reading: {relative_path}"
+            )
+    except BlindedDataError:
+        raise
+    except OSError as exc:
+        raise BlindedDataError(
+            f"blinded artifact payload cannot be read: {relative_path}"
+        ) from exc
+    finally:
+        os.close(descriptor)
+    content = b"".join(chunks)
+    if len(content) != metadata.st_size:
+        raise BlindedDataError(
+            f"blinded artifact payload changed while reading: {relative_path}"
+        )
+    return content
+
+
+def _rehydrate_blinded_data_identity(
+    directory: Path,
+    *,
+    expected_archive_sha256: str,
+    expected_data_identity_sha256: str,
+    expected_access_policy_sha256: str,
+) -> DataIdentity:
+    """Privately reconstruct a typed identity without exposing model-facing data."""
+
+    if not isinstance(directory, Path):
+        raise BlindedDataError("blinded artifact root must be a pathlib.Path")
+    for name, digest in (
+        ("expected_archive_sha256", expected_archive_sha256),
+        ("expected_data_identity_sha256", expected_data_identity_sha256),
+        ("expected_access_policy_sha256", expected_access_policy_sha256),
+    ):
+        if (
+            type(digest) is not str
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise BlindedDataError(f"{name} must be lowercase SHA-256 hex")
+    if expected_access_policy_sha256 != ACCESS_POLICY_SHA256:
+        raise BlindedDataError("blinded artifact access policy is not frozen")
+    if directory.is_symlink() or (
+        hasattr(directory, "is_junction") and directory.is_junction()
+    ):
+        raise BlindedDataError("blinded artifact root cannot be redirected")
+    try:
+        root = directory.resolve(strict=True)
+    except OSError as exc:
+        raise BlindedDataError("blinded artifact root is unavailable") from exc
+    if root.is_symlink() or not root.is_dir():
+        raise BlindedDataError("blinded artifact root must be a non-redirected directory")
+    observed_files: set[str] = set()
+    for path in root.rglob("*"):
+        if path.is_symlink() or (
+            hasattr(path, "is_junction") and path.is_junction()
+        ):
+            raise BlindedDataError("blinded artifact cannot contain a redirect")
+        if path.is_file():
+            observed_files.add(path.relative_to(root).as_posix())
+        elif not path.is_dir():
+            raise BlindedDataError("blinded artifact contains a non-file entry")
+    expected_files = {*BINARY_PAYLOAD_ORDER, "manifest.sha256"}
+    if observed_files != expected_files:
+        raise BlindedDataError("blinded artifact inventory is not the exact six files")
+
+    content_by_name = {
+        name: _read_blinded_payload(
+            root,
+            name,
+            maximum_bytes=(
+                16_777_216 if name.startswith("sealed/") else 33_554_432
+            ),
+        )
+        for name in BINARY_PAYLOAD_ORDER
+    }
+    manifest_bytes = _read_blinded_payload(
+        root, "manifest.sha256", maximum_bytes=65
+    )
+    manifest_preimage = bytearray(
+        _MANIFEST_DOMAIN + len(BINARY_PAYLOAD_ORDER).to_bytes(4, "little")
+    )
+    for name in BINARY_PAYLOAD_ORDER:
+        name_bytes = name.encode("utf-8")
+        content = content_by_name[name]
+        manifest_preimage += len(name_bytes).to_bytes(2, "little")
+        manifest_preimage += name_bytes
+        manifest_preimage += len(content).to_bytes(8, "little")
+        manifest_preimage += hashlib.sha256(content).digest()
+    expected_manifest = hashlib.sha256(manifest_preimage).hexdigest()
+    if manifest_bytes != (expected_manifest + "\n").encode("ascii"):
+        raise BlindedDataError("blinded artifact manifest does not bind its payloads")
+
+    identity_bytes = content_by_name["data_identity.json"]
+    try:
+        summary = json.loads(identity_bytes.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise BlindedDataError("blinded data identity JSON is invalid") from exc
+    if type(summary) is not dict or canonical_json_bytes(summary) != identity_bytes:
+        raise BlindedDataError("blinded data identity JSON is not canonical")
+    if set(summary) != {
+        "access_policy_sha256",
+        "archive_sha256",
+        "data_identity_sha256",
+        "data_schema",
+        "splits",
+        "validation_fixture_sha256",
+    }:
+        raise BlindedDataError("blinded data identity summary schema is not exact")
+    if (
+        summary["data_schema"] != "vfe4-h6-data-identity-v1"
+        or summary["archive_sha256"] != expected_archive_sha256
+        or summary["data_identity_sha256"] != expected_data_identity_sha256
+        or summary["access_policy_sha256"] != expected_access_policy_sha256
+    ):
+        raise BlindedDataError("blinded data identity summary is stale")
+    splits = summary["splits"]
+    if type(splits) is not dict or set(splits) != {
+        "train",
+        "validation",
+        "test",
+    }:
+        raise BlindedDataError("blinded split identity inventory is not exact")
+
+    raw_by_split = {
+        "train": content_by_name["sealed/wiki.train.raw"],
+        "validation": content_by_name["sealed/wiki.valid.raw"],
+        "test": content_by_name["sealed/wiki.test.raw"],
+    }
+    tokenizer = ByteTokenizerV1()
+    tokens_by_split = {
+        split: tokenizer.encode(raw) for split, raw in raw_by_split.items()
+    }
+    identities = {
+        split: tokenizer.storage_identity(tokens)
+        for split, tokens in tokens_by_split.items()
+    }
+    for split in ("train", "validation", "test"):
+        split_summary = splits[split]
+        if type(split_summary) is not dict or set(split_summary) != {
+            "raw_sha256",
+            "token_count",
+            "token_sha256",
+        }:
+            raise BlindedDataError(f"blinded {split} summary schema is not exact")
+        if (
+            split_summary["raw_sha256"]
+            != hashlib.sha256(raw_by_split[split]).hexdigest()
+            or split_summary["token_count"] != identities[split].token_count
+            or split_summary["token_sha256"]
+            != identities[split].encoded_token_sha256
+        ):
+            raise BlindedDataError(f"blinded {split} identity is stale")
+
+    validation_fixture = materialize_validation_safety_fixture(
+        validation_tokens=tokens_by_split["validation"],
+        validation_storage_identity=identities["validation"],
+    )
+    fixture_bytes = content_by_name["validation_safety_fixture.bin"]
+    try:
+        validation_fixture.verify_fixture_bytes(fixture_bytes)
+    except ValueError as exc:
+        raise BlindedDataError("blinded validation fixture is stale") from exc
+    if summary["validation_fixture_sha256"] != validation_fixture.fixture_sha256:
+        raise BlindedDataError("blinded validation fixture summary is stale")
+    identity = DataIdentity.create(
+        archive_sha256=expected_archive_sha256,
+        train_raw_sha256=hashlib.sha256(raw_by_split["train"]).hexdigest(),
+        validation_raw_sha256=hashlib.sha256(
+            raw_by_split["validation"]
+        ).hexdigest(),
+        test_raw_sha256=hashlib.sha256(raw_by_split["test"]).hexdigest(),
+        train_tokens=identities["train"],
+        validation_tokens=identities["validation"],
+        test_tokens=identities["test"],
+        validation_fixture=validation_fixture,
+        access_policy_sha256=expected_access_policy_sha256,
+    )
+    if (
+        identity.data_identity_sha256 != expected_data_identity_sha256
+        or _data_identity_json(identity) != identity_bytes
+    ):
+        raise BlindedDataError("blinded typed data identity is stale")
+    return identity
+
+
 def _official_urlopen(url: str) -> BinaryIO:
     return urllib.request.urlopen(url)  # noqa: S310 - exact frozen HTTPS URL only
 

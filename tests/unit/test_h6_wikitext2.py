@@ -14,6 +14,9 @@ import pytest
 
 from vfe4.artifacts.atomic import canonical_json_bytes
 from vfe4.config import H6ArchiveMemberExpectation, H6DataConfig, H6ObservedArchive
+from vfe4.data.access import (
+    _revalidate_blinded_data_identity_for_readiness,
+)
 from vfe4.data.byte_tokenizer import ByteTokenizerV1
 from vfe4.data.wikitext2 import (
     ACCESS_POLICY_SHA256,
@@ -135,6 +138,26 @@ def test_internal_acquisition_streams_exact_archive_and_seals_identity(tmp_path:
     assert not tuple((tmp_path / "wikitext2-blinded").rglob("*.tokens"))
     encoded_train = ByteTokenizerV1().encode(b"train\r\nbytes")
     assert store.data_identity.train_tokens.token_count == len(encoded_train)
+    rehydrated = _revalidate_blinded_data_identity_for_readiness(
+        tmp_path / "wikitext2-blinded",
+        expected_archive_sha256=store.data_identity.archive_sha256,
+        expected_data_identity_sha256=store.data_identity_sha256,
+        expected_access_policy_sha256=store.data_identity.access_policy_sha256,
+    )
+    assert rehydrated == store.data_identity
+
+    fixture_path = (
+        tmp_path / "wikitext2-blinded" / "validation_safety_fixture.bin"
+    )
+    fixture_bytes = fixture_path.read_bytes()
+    fixture_path.write_bytes(fixture_bytes[:-1] + bytes((fixture_bytes[-1] ^ 1,)))
+    with pytest.raises(BlindedDataError, match="manifest|fixture"):
+        _revalidate_blinded_data_identity_for_readiness(
+            tmp_path / "wikitext2-blinded",
+            expected_archive_sha256=store.data_identity.archive_sha256,
+            expected_data_identity_sha256=store.data_identity_sha256,
+            expected_access_policy_sha256=store.data_identity.access_policy_sha256,
+        )
 
 
 def test_public_acquisition_has_no_url_argument_and_uses_only_official_opener(

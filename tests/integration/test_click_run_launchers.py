@@ -114,13 +114,22 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
             monkeypatch.setattr(
                 module,
                 "_run_h1_h5",
-                lambda raw: dispatched.append(("h1_h5", raw)) or marker,
+                lambda raw, *, publish_prediction_correctness: (
+                    dispatched.append(("h1_h5", raw)) or marker
+                ),
             )
             monkeypatch.setattr(
                 module,
                 "_run_projected",
                 lambda operation, raw: (
                     dispatched.append((operation, raw)) or marker
+                ),
+            )
+            monkeypatch.setattr(
+                module,
+                "_run_h6_smc_accuracy",
+                lambda raw: (
+                    dispatched.append(("h6_smc_accuracy", raw)) or marker
                 ),
             )
             authorizations = module._VERIFY_AUTHORIZATIONS

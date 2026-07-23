@@ -58,12 +58,16 @@ from vfe4.types.h5_schema import (
     H5_FACTOR_INPUT_SCHEMA_VERSION,
     H5_FACTOR_UNIVERSE,
     H5_H1_FIXTURE_RAW_SHA256,
+    H5_MODEL_SNAPSHOT_DOMAIN,
     H5_MODEL_BLOCK_UNIVERSE,
     H5_NONCLAIM_IDS,
     H5_OBJECTIVE_SCHEMA_DOMAIN,
     H5_OBJECTIVE_SCHEMA_SHA256,
     H5_PARAMETER_DEPENDENCY_ROWS,
+    H5_RECOGNITION_SNAPSHOT_DOMAIN,
     H5_RECOGNITION_COORDINATE_UNIVERSE,
+    H5_REFERENCE_STATE_DOMAIN,
+    H5_UPDATE_SPEC_DOMAIN,
     H5_VALIDATION_PAYLOAD_DOMAIN,
     H5_VARIABLE_DEPENDENCY_ROWS,
     canonical_h5_factor_input_schema_core_bytes,
@@ -78,6 +82,9 @@ from vfe4.types.updates import (
     H5UpdateRule,
     UpdateLabel,
     UpdateRequest,
+    canonical_h5_model_snapshot_bytes,
+    canonical_h5_recognition_snapshot_bytes,
+    canonical_h5_reference_state_bytes,
     canonical_h5_semantic_state_bytes,
     h5_semantic_state_sha256,
     initial_live,
@@ -2309,6 +2316,93 @@ def h5_validation_payload(evaluation: H5GateEvaluation) -> dict[str, object]:
     return result
 
 
+def h5_update_binding_preimages(
+    evaluation: H5GateEvaluation,
+) -> dict[str, object]:
+    """Encode the eight intrinsic H5 binding preimages for provenance."""
+
+    if type(evaluation) is not H5GateEvaluation:
+        raise ValueError("H5 update-binding preimages require the exact evaluation type")
+    if (
+        evaluation.result.preflight.phase is not H5PreflightPhase.READY
+        or evaluation.reference is None
+    ):
+        raise ValueError("H5 update-binding preimages require a READY evaluation")
+    reference = evaluation.reference
+    preimages = {
+        "update_spec_raw_sha256": reference.raw_update_spec_bytes,
+        "update_spec_canonical_sha256": (
+            H5_UPDATE_SPEC_DOMAIN + reference.specification.canonical_bytes
+        ),
+        "objective_schema_sha256": (
+            H5_OBJECTIVE_SCHEMA_DOMAIN
+            + canonical_h5_objective_schema_core_bytes()
+        ),
+        "factor_input_schema_sha256": (
+            H5_FACTOR_INPUT_SCHEMA_DOMAIN
+            + canonical_h5_factor_input_schema_core_bytes()
+        ),
+        "reference_sha256": (
+            H5_REFERENCE_STATE_DOMAIN
+            + canonical_h5_reference_state_bytes(reference)
+        ),
+        "recognition_state_sha256": (
+            H5_RECOGNITION_SNAPSHOT_DOMAIN
+            + canonical_h5_recognition_snapshot_bytes(
+                reference.initial_recognition
+            )
+        ),
+        "model_state_sha256": (
+            H5_MODEL_SNAPSHOT_DOMAIN
+            + canonical_h5_model_snapshot_bytes(reference.initial_model)
+        ),
+        "validation_payload_sha256": (
+            H5_VALIDATION_PAYLOAD_DOMAIN
+            + evaluation.validation_payload.canonical_bytes
+        ),
+    }
+    expected_digests = {
+        "update_spec_raw_sha256": evaluation.result.update_spec_raw_sha256,
+        "update_spec_canonical_sha256": (
+            evaluation.result.update_spec_canonical_sha256
+        ),
+        "objective_schema_sha256": evaluation.result.objective_schema_sha256,
+        "factor_input_schema_sha256": (
+            evaluation.result.factor_input_schema_sha256
+        ),
+        "reference_sha256": evaluation.result.reference_sha256,
+        "recognition_state_sha256": (
+            reference.initial_recognition.state_sha256
+        ),
+        "model_state_sha256": reference.initial_model.state_sha256,
+        "validation_payload_sha256": (
+            evaluation.validation_payload.payload_sha256
+        ),
+    }
+    observed_digests = {
+        name: hashlib.sha256(preimage).hexdigest()
+        for name, preimage in preimages.items()
+    }
+    if observed_digests != expected_digests:
+        mismatches = tuple(
+            name
+            for name in preimages
+            if observed_digests[name] != expected_digests[name]
+        )
+        raise RuntimeError(
+            "H5 update-binding preimages differ from digest summaries: "
+            + ", ".join(mismatches)
+        )
+    return {
+        "schema_version": "h5-update-binding-preimages-v1",
+        "encoding": "hex",
+        "preimages": {
+            name: preimage.hex()
+            for name, preimage in preimages.items()
+        },
+    }
+
+
 __all__ = [
     "H5PositiveCaseId",
     "H5ControlId",
@@ -2336,5 +2430,6 @@ __all__ = [
     "compare_h5_exact_candidate",
     "compare_h5_complete_delta",
     "evaluate_h5",
+    "h5_update_binding_preimages",
     "h5_validation_payload",
 ]

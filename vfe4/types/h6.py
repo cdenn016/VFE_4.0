@@ -119,9 +119,22 @@ def _canonical_json_object(raw_bytes: bytes, name: str) -> dict[str, object]:
         raise ValueError(f"{name} must be immutable bytes")
     try:
         value = json.loads(raw_bytes)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        ordinary_canonical = json.dumps(
+            value,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+        OverflowError,
+    ) as exc:
         raise ValueError(f"{name} must be canonical JSON") from exc
-    if type(value) is not dict or canonical_json_bytes(value) != raw_bytes:
+    if type(value) is not dict or ordinary_canonical != raw_bytes:
         raise ValueError(f"{name} must be a canonical JSON object")
     return value
 

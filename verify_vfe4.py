@@ -24,6 +24,7 @@ CONFIG: dict[str, object] = {
         "h1_h5": {
             "enabled": False,
             "authorization": None,
+            "publish_prediction_correctness": False,
             "config": {
     "schema_version": 1,
     "objective_schema_version": "vfe4-state-elbo-v1",
@@ -282,6 +283,23 @@ CONFIG: dict[str, object] = {
             "authorization": None,
             "config": {},
         },
+        "h6_smc_accuracy": {
+            "enabled": False,
+            "authorization": None,
+            "config": {
+                "artifact_root": "runs",
+                "run_name": "h6-smc-accuracy-current-candidate",
+                "fixture_paths": [
+                    "verification/fixtures/h6_smc_finite_01.json",
+                    "verification/fixtures/h6_smc_finite_02.json",
+                    "verification/fixtures/h6_smc_finite_03.json",
+                    "verification/fixtures/h6_smc_finite_04.json",
+                ],
+                "replicate_seeds": list(range(2026072300, 2026072812)),
+                "particle_count": 256,
+                "horizon_limit": None,
+            },
+        },
     },
 }
 
@@ -291,6 +309,7 @@ _VERIFY_AUTHORIZATIONS = {
     "h1_h5": "AUTHORIZE_VFE4_H1_H5_VERIFICATION_V1",
     "h1_prefix_prior": "AUTHORIZE_VFE4_H1_PREFIX_PRIOR_V1",
     "h6_prefix": "AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1",
+    "h6_smc_accuracy": "AUTHORIZE_VFE4_H6_SMC_ACCURACY_FULL_GRID_V1",
 }
 _VERIFY_OPERATION_NAMES = tuple(_VERIFY_AUTHORIZATIONS)
 
@@ -305,7 +324,7 @@ def _mapping(value: object, location: str) -> Mapping[str, object]:
 
 def _selected_operation(
     config: Mapping[str, object],
-) -> tuple[str, Mapping[str, object]] | None:
+) -> tuple[str, Mapping[str, object], bool] | None:
     if set(config) != {"launcher_schema", "operations"}:
         raise ValueError("verify CONFIG has unknown or missing root keys")
     if config["launcher_schema"] != "vfe4-verify-click-run-v1":
@@ -316,10 +335,19 @@ def _selected_operation(
     enabled: list[tuple[str, Mapping[str, object]]] = []
     for name in _VERIFY_OPERATION_NAMES:
         entry = _mapping(operations[name], f"operations.{name}")
-        if set(entry) != {"enabled", "authorization", "config"}:
+        expected_fields = {"enabled", "authorization", "config"}
+        if name == "h1_h5":
+            expected_fields.add("publish_prediction_correctness")
+        if set(entry) != expected_fields:
             raise ValueError(f"operations.{name} has unknown or missing keys")
         if type(entry["enabled"]) is not bool:
             raise ValueError(f"operations.{name}.enabled must be boolean")
+        if name == "h1_h5" and type(
+            entry["publish_prediction_correctness"]
+        ) is not bool:
+            raise ValueError(
+                "operations.h1_h5.publish_prediction_correctness must be boolean"
+            )
         scientific = _mapping(entry["config"], f"operations.{name}.config")
         if entry["enabled"]:
             enabled.append((name, entry))
@@ -336,18 +364,42 @@ def _selected_operation(
         raise PermissionError(
             f"operations.{name}.authorization does not equal its explicit phrase"
         )
-    return name, _mapping(entry["config"], f"operations.{name}.config")
+    publish_prediction_correctness = False
+    if name == "h1_h5":
+        selected_publish_value = entry["publish_prediction_correctness"]
+        if type(selected_publish_value) is not bool:
+            raise ValueError(
+                "operations.h1_h5.publish_prediction_correctness must be boolean"
+            )
+        publish_prediction_correctness = selected_publish_value
+    return (
+        name,
+        _mapping(entry["config"], f"operations.{name}.config"),
+        publish_prediction_correctness,
+    )
 
 
-def _run_h1_h5(scientific: Mapping[str, object]) -> object:
+def _run_h1_h5(
+    scientific: Mapping[str, object],
+    *,
+    publish_prediction_correctness: bool,
+) -> object:
     from verification.run_gates import run_verification
     from vfe4.config import resolve_config
 
     resolved = resolve_config(scientific, repo_root=_REPO_ROOT)
-    result = run_verification(resolved)  # type: ignore[arg-type]
+    result = run_verification(  # type: ignore[arg-type]
+        resolved,
+        publish_prediction_correctness=publish_prediction_correctness,
+    )
     for gate_result in result.gate_results:
         print(f"{gate_result.gate}: {gate_result.status.value}")
     print(f"artifact: {result.run_directory}")
+    for gate, root, manifest_sha256 in result.prediction_correctness_artifacts:
+        print(
+            f"prediction correctness {gate}: {root} "
+            f"(manifest {manifest_sha256})"
+        )
     return result
 
 
@@ -375,16 +427,85 @@ def _run_projected(
     return result
 
 
+def _run_h6_smc_accuracy(scientific: Mapping[str, object]) -> object:
+    from verification.h6_smc_gate import (
+        publish_h6_smc_accuracy_artifact,
+    )
+
+    expected = {
+        "artifact_root",
+        "run_name",
+        "fixture_paths",
+        "replicate_seeds",
+        "particle_count",
+        "horizon_limit",
+    }
+    if set(scientific) != expected:
+        raise ValueError(
+            "h6_smc_accuracy config has unknown or missing keys"
+        )
+    raw_paths = scientific["fixture_paths"]
+    raw_seeds = scientific["replicate_seeds"]
+    if (
+        type(raw_paths) is not list
+        or len(raw_paths) != 4
+        or any(type(value) is not str or not value for value in raw_paths)
+    ):
+        raise ValueError("h6_smc_accuracy fixture_paths must list four paths")
+    if (
+        type(raw_seeds) is not list
+        or not raw_seeds
+        or any(type(value) is not int for value in raw_seeds)
+    ):
+        raise ValueError("h6_smc_accuracy replicate_seeds must be an integer list")
+    artifact_root = scientific["artifact_root"]
+    run_name = scientific["run_name"]
+    particle_count = scientific["particle_count"]
+    horizon_limit = scientific["horizon_limit"]
+    if type(artifact_root) is not str or not artifact_root:
+        raise ValueError("h6_smc_accuracy artifact_root must be a path string")
+    if type(run_name) is not str or not run_name:
+        raise ValueError("h6_smc_accuracy run_name must be nonempty")
+    if type(particle_count) is not int or particle_count <= 0:
+        raise ValueError("h6_smc_accuracy particle_count must be positive")
+    if horizon_limit is not None and (
+        type(horizon_limit) is not int or horizon_limit <= 0
+    ):
+        raise ValueError("h6_smc_accuracy horizon_limit must be null or positive")
+    fixture_paths = tuple(
+        (Path(value) if Path(value).is_absolute() else _REPO_ROOT / value)
+        for value in raw_paths
+    )
+    runs = Path(artifact_root)
+    if not runs.is_absolute():
+        runs = _REPO_ROOT / runs
+    report, root = publish_h6_smc_accuracy_artifact(
+        repository_root=_REPO_ROOT,
+        artifact_root=runs,
+        run_name=run_name,
+        fixture_paths=fixture_paths,
+        replicate_seeds=tuple(raw_seeds),
+        particle_count=particle_count,
+        horizon_limit=horizon_limit,
+    )
+    print(f"H6-SMC-Accuracy: {report.status}")
+    print(f"artifact: {root}")
+    return report, root
+
+
 def main(config: Mapping[str, object] = CONFIG) -> object | None:
     selected = _selected_operation(_mapping(config, "CONFIG"))
     if selected is None:
         return None
-    operation, scientific = selected
-    return (
-        _run_h1_h5(scientific)
-        if operation == "h1_h5"
-        else _run_projected(operation, scientific)
-    )
+    operation, scientific, publish_prediction_correctness = selected
+    if operation == "h1_h5":
+        return _run_h1_h5(
+            scientific,
+            publish_prediction_correctness=publish_prediction_correctness,
+        )
+    if operation == "h6_smc_accuracy":
+        return _run_h6_smc_accuracy(scientific)
+    return _run_projected(operation, scientific)
 
 
 def _script_main() -> int:

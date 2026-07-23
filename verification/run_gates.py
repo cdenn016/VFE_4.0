@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
+from collections.abc import Mapping
 from dataclasses import asdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from verification.h1_gate import (
     EXPECTED_H1_FIXTURE_SHA256,
@@ -28,9 +30,16 @@ from verification.h5_gate import (
     H5GateResult,
     H5PreflightPhase,
     evaluate_h5,
+    h5_update_binding_preimages,
     h5_validation_payload,
 )
-from vfe4.artifacts import build_environment, build_provenance, publish_run_directory
+from vfe4.artifacts import (
+    build_environment,
+    build_provenance,
+    canonical_json_bytes,
+    publish_run_directory,
+    source_candidate_sha256,
+)
 from vfe4.config import ResolvedConfig, resolve_config
 from vfe4.types import GateResult, GateStatus, H3GateResult, H4GateResult
 from vfe4.validation import (
@@ -49,12 +58,19 @@ _ALLOWED_PREFIXES = (
     ("H1", "H2", "H3"),
     ("H1", "H2", "H3", "H4", "H5"),
 )
+_PREDICTION_CORRECTNESS_GATES: tuple[
+    Literal["H1", "H2", "H3", "H5"], ...
+] = ("H1", "H2", "H3", "H5")
+_LOWER_HEX = frozenset("0123456789abcdef")
 
 
 @dataclass(frozen=True)
 class VerificationRunResult:
     gate_results: tuple[GateResult | H3GateResult | H4GateResult | H5GateResult, ...]
     run_directory: Path
+    prediction_correctness_artifacts: tuple[
+        tuple[Literal["H1", "H2", "H3", "H5"], Path, str], ...
+    ] = ()
 
     def __post_init__(self) -> None:
         if type(self.gate_results) is not tuple or not all(
@@ -67,6 +83,42 @@ class VerificationRunResult:
             raise ValueError("gate_results must contain an implemented ordered prefix")
         if not isinstance(self.run_directory, Path):
             raise ValueError("run_directory must be a Path")
+        if type(self.prediction_correctness_artifacts) is not tuple:
+            raise ValueError("prediction_correctness_artifacts must be a tuple")
+        correctness_gates: list[str] = []
+        correctness_roots: list[Path] = []
+        for reference in self.prediction_correctness_artifacts:
+            if type(reference) is not tuple or len(reference) != 3:
+                raise ValueError(
+                    "prediction correctness references must be "
+                    "(gate, root, manifest_sha256) tuples"
+                )
+            gate, root, manifest_sha256 = reference
+            if gate not in _PREDICTION_CORRECTNESS_GATES:
+                raise ValueError("prediction correctness gate is unsupported")
+            if not isinstance(root, Path):
+                raise ValueError("prediction correctness root must be a Path")
+            if (
+                type(manifest_sha256) is not str
+                or len(manifest_sha256) != 64
+                or any(character not in _LOWER_HEX for character in manifest_sha256)
+            ):
+                raise ValueError(
+                    "prediction correctness manifest SHA-256 must be lowercase 64-hex"
+                )
+            correctness_gates.append(gate)
+            correctness_roots.append(root)
+        if correctness_gates and tuple(correctness_gates) != _PREDICTION_CORRECTNESS_GATES:
+            raise ValueError(
+                "prediction correctness references must contain H1, H2, H3, H5 "
+                "in frozen order"
+            )
+        if correctness_gates and gate_names != ("H1", "H2", "H3", "H4", "H5"):
+            raise ValueError(
+                "prediction correctness references require the full H1--H5 result"
+            )
+        if len(set(correctness_roots)) != len(correctness_roots):
+            raise ValueError("prediction correctness roots must be distinct")
 
 
 def _utc_now() -> str:
@@ -85,6 +137,284 @@ def _config_payload(config: ResolvedConfig) -> dict[str, object]:
     payload = json.loads(config.canonical_json)
     payload["config_sha256"] = config.config_sha256
     return payload
+
+
+def _raw_config_payload(config: ResolvedConfig) -> tuple[dict[str, object], bytes]:
+    """Recover the exact canonical config bytes consumed by one gate."""
+
+    if type(config) is not ResolvedConfig:
+        raise ValueError("prediction correctness config must be a ResolvedConfig")
+    try:
+        payload = json.loads(config.canonical_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("prediction correctness config JSON is invalid") from exc
+    if type(payload) is not dict:
+        raise ValueError("prediction correctness config must be one JSON object")
+    raw_bytes = canonical_json_bytes(payload)
+    if raw_bytes != config.canonical_json.encode("utf-8"):
+        raise ValueError(
+            "prediction correctness config bytes differ from canonical_json"
+        )
+    if hashlib.sha256(raw_bytes).hexdigest() != config.config_sha256:
+        raise ValueError(
+            "prediction correctness raw config SHA-256 differs from config"
+        )
+    return payload, raw_bytes
+
+
+def _ordered_prediction_inputs(
+    value: object,
+    *,
+    name: str,
+) -> dict[str, object]:
+    if (
+        type(value) is not tuple
+        or any(type(item) is not tuple or len(item) != 2 for item in value)
+    ):
+        raise ValueError(f"{name} must be an ordered tuple of gate/value pairs")
+    gates = tuple(item[0] for item in value)
+    if gates != _PREDICTION_CORRECTNESS_GATES:
+        raise ValueError(f"{name} must contain H1, H2, H3, H5 in frozen order")
+    return {item[0]: item[1] for item in value}
+
+
+def _prediction_correctness_run_name(
+    timestamp: str,
+    gate: Literal["H1", "H2", "H3", "H5"],
+    config_sha256: str,
+) -> str:
+    safe = timestamp.replace("-", "").replace(":", "").replace(".", "")
+    return (
+        f"verify-prediction-correctness-{gate.lower()}-"
+        f"{safe}-{config_sha256[:12]}"
+    )
+
+
+def _producer_validation_result_fields(
+    *,
+    gate: Literal["H1", "H2", "H3", "H5"],
+    producer_validation: Mapping[str, object],
+) -> tuple[str, str, tuple[str, ...]]:
+    if gate in ("H1", "H2"):
+        record = producer_validation.get("gate_result")
+    elif gate == "H5":
+        record = producer_validation.get("result")
+    else:
+        record = producer_validation
+    if isinstance(record, Mapping):
+        nested_gate = record.get("gate")
+        nested_status = record.get("status")
+        nested_obligations = record.get("obligations")
+    else:
+        nested_gate = getattr(record, "gate", None)
+        nested_status = getattr(record, "status", None)
+        nested_obligations = getattr(record, "obligations", None)
+    if isinstance(nested_status, GateStatus):
+        nested_status = nested_status.value
+    if (
+        type(nested_gate) is not str
+        or type(nested_status) is not str
+        or type(nested_obligations) not in (tuple, list)
+        or any(
+            type(item) is not str or not item
+            for item in nested_obligations
+        )
+    ):
+        raise ValueError(
+            f"{gate} producer validation does not expose a typed result identity"
+        )
+    return nested_gate, nested_status, tuple(nested_obligations)
+
+
+def _publish_prediction_correctness_artifacts(
+    *,
+    run_root: Path,
+    started_utc: str,
+    source_provenance: Mapping[str, object],
+    gate_configs: tuple[
+        tuple[Literal["H1", "H2", "H3", "H5"], ResolvedConfig], ...
+    ],
+    gate_results: tuple[
+        tuple[
+            Literal["H1", "H2", "H3", "H5"],
+            GateResult | H3GateResult | H5GateResult,
+        ],
+        ...,
+    ],
+    producer_validations: tuple[
+        tuple[Literal["H1", "H2", "H3", "H5"], object], ...
+    ],
+) -> tuple[
+    tuple[Literal["H1", "H2", "H3", "H5"], Path, str], ...
+]:
+    """Publish Prediction-only gate roots from already-computed evaluations."""
+
+    if not isinstance(run_root, Path):
+        raise ValueError("prediction correctness run_root must be a Path")
+    if type(started_utc) is not str or not started_utc:
+        raise ValueError("prediction correctness started_utc must be nonempty")
+    if not isinstance(source_provenance, Mapping):
+        raise ValueError("prediction correctness source provenance must be a mapping")
+    configs = _ordered_prediction_inputs(gate_configs, name="gate_configs")
+    results = _ordered_prediction_inputs(gate_results, name="gate_results")
+    validations = _ordered_prediction_inputs(
+        producer_validations,
+        name="producer_validations",
+    )
+    git_head = source_provenance.get("git_head")
+    dirty_digest = source_provenance.get("dirty_digest")
+    if (
+        type(git_head) is not str
+        or len(git_head) != 40
+        or any(character not in _LOWER_HEX for character in git_head)
+    ):
+        raise ValueError("prediction correctness git_head must be lowercase 40-hex")
+    if (
+        type(dirty_digest) is not str
+        or len(dirty_digest) != 64
+        or any(character not in _LOWER_HEX for character in dirty_digest)
+    ):
+        raise ValueError(
+            "prediction correctness dirty_digest must be lowercase 64-hex"
+        )
+    recorded_dirty_content = source_provenance.get("dirty_content_digest")
+    if (
+        recorded_dirty_content is not None
+        and recorded_dirty_content != dirty_digest
+    ):
+        raise ValueError(
+            "prediction correctness source dirty digests disagree"
+        )
+    source_sha256 = source_candidate_sha256(
+        git_head_value=git_head,
+        dirty_digest_value=dirty_digest,
+    )
+
+    prepared: list[
+        tuple[
+            Literal["H1", "H2", "H3", "H5"],
+            str,
+            dict[str, object],
+            dict[str, object],
+            dict[str, object],
+        ]
+    ] = []
+    for gate in _PREDICTION_CORRECTNESS_GATES:
+        config = configs[gate]
+        if type(config) is not ResolvedConfig:
+            raise ValueError(f"{gate} correctness config has the wrong type")
+        config_payload, config_bytes = _raw_config_payload(config)
+        config_sha256 = hashlib.sha256(config_bytes).hexdigest()
+        result = results[gate]
+        if getattr(result, "gate", None) != gate:
+            raise ValueError(f"{gate} correctness result gate differs")
+        status = getattr(result, "status", None)
+        obligations = getattr(result, "obligations", None)
+        if not isinstance(status, GateStatus):
+            raise ValueError(f"{gate} correctness status is not typed")
+        if (
+            type(obligations) is not tuple
+            or any(type(item) is not str or not item for item in obligations)
+        ):
+            raise ValueError(
+                f"{gate} correctness obligations must be nonempty strings"
+            )
+        producer_validation = validations[gate]
+        if not isinstance(producer_validation, Mapping):
+            raise ValueError(
+                f"{gate} producer_validation must be a mapping"
+            )
+        nested_gate, nested_status, nested_obligations = (
+            _producer_validation_result_fields(
+                gate=gate,
+                producer_validation=producer_validation,
+            )
+        )
+        if (
+            nested_gate != gate
+            or nested_status != status.value
+            or nested_obligations != obligations
+        ):
+            raise ValueError(
+                f"{gate} producer validation differs from its typed gate result"
+            )
+        validation_payload = {
+            "schema_version": "vfe4-prediction-correctness-v1",
+            "gate": gate,
+            "git_head": git_head,
+            "dirty_digest": dirty_digest,
+            "config_sha256": config_sha256,
+            "status": status.value,
+            "obligations": obligations,
+            "producer_validation": producer_validation,
+        }
+        provenance_payload = {
+            "schema_version": "vfe4-prediction-correctness-provenance-v1",
+            "gate": gate,
+            "git_head": git_head,
+            "dirty_digest": dirty_digest,
+            "dirty_content_digest": dirty_digest,
+            "source_sha256": source_sha256,
+            "config_sha256": config_sha256,
+            "status": status.value,
+        }
+        if gate == "H5":
+            h5_fields = (
+                "h5_config",
+                "h5_state_hashes",
+                "h5_update_hash_records",
+                "h5_update_binding_preimages",
+            )
+            missing_h5_fields = tuple(
+                name for name in h5_fields if source_provenance.get(name) is None
+            )
+            if status is GateStatus.PASS and missing_h5_fields:
+                raise RuntimeError(
+                    "PASS H5 correctness publication lacks producer provenance: "
+                    + ", ".join(missing_h5_fields)
+                )
+            for name in h5_fields:
+                value = source_provenance.get(name)
+                if value is not None:
+                    provenance_payload[name] = value
+        prepared.append(
+            (
+                gate,
+                config_sha256,
+                config_payload,
+                validation_payload,
+                provenance_payload,
+            )
+        )
+
+    references: list[
+        tuple[Literal["H1", "H2", "H3", "H5"], Path, str]
+    ] = []
+    for (
+        gate,
+        config_sha256,
+        config_payload,
+        validation_payload,
+        provenance_payload,
+    ) in prepared:
+        root = publish_run_directory(
+            run_root,
+            _prediction_correctness_run_name(
+                started_utc,
+                gate,
+                config_sha256,
+            ),
+            {
+                "config.json": config_payload,
+                "provenance.json": provenance_payload,
+                f"validation/{gate.lower()}.json": validation_payload,
+            },
+        )
+        manifest_sha256 = hashlib.sha256(
+            (root / "manifest.sha256").read_bytes()
+        ).hexdigest()
+        references.append((gate, root, manifest_sha256))
+    return tuple(references)
 
 
 def _canonical_config(config: object) -> ResolvedConfig:
@@ -286,16 +616,37 @@ def _combined_provenance(
             "deterministic complete-objective update coherence for the frozen H5 cases"
         )
         provenance["h5_nonclaims"] = h5.validation_payload.nonclaims
+        if (
+            h5.result.preflight.phase is H5PreflightPhase.READY
+            and h5.reference is not None
+        ):
+            provenance["h5_update_binding_preimages"] = (
+                h5_update_binding_preimages(h5)
+            )
     return provenance
 
 
-def run_verification(config: ResolvedConfig) -> VerificationRunResult:
+def run_verification(
+    config: ResolvedConfig,
+    *,
+    publish_prediction_correctness: bool = False,
+) -> VerificationRunResult:
     """Evaluate one implemented prefix from one capture set and publish once."""
 
+    if type(publish_prediction_correctness) is not bool:
+        raise ValueError("publish_prediction_correctness must be a boolean")
     canonical = _canonical_config(config)
     gates = canonical.validation.gates
     if gates not in _ALLOWED_PREFIXES:
         raise ValueError("run_verification requires an implemented ordered gate prefix")
+    if (
+        publish_prediction_correctness
+        and gates != ("H1", "H2", "H3", "H4", "H5")
+    ):
+        raise ValueError(
+            "Prediction correctness publication requires the full H1--H5 "
+            "evaluation operation"
+        )
     legacy = _legacy_projection(canonical)
     h3_config = _h3_projection(canonical) if "H3" in gates else None
     started = _utc_now()
@@ -379,18 +730,19 @@ def run_verification(config: ResolvedConfig) -> VerificationRunResult:
 
     frozen_results = tuple(results)
     ended = _utc_now()
+    provenance = _combined_provenance(
+        canonical,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        started,
+        ended,
+    )
     payloads = {
         "config.json": _config_payload(canonical),
-        "provenance.json": _combined_provenance(
-            canonical,
-            h1,
-            h2,
-            h3,
-            h4,
-            h5,
-            started,
-            ended,
-        ),
+        "provenance.json": provenance,
         "environment.json": build_environment(canonical),
         **validation_payloads,
     }
@@ -399,7 +751,43 @@ def run_verification(config: ResolvedConfig) -> VerificationRunResult:
         _run_name(started, canonical.config_sha256, gates),
         payloads,
     )
-    return VerificationRunResult(frozen_results, run_directory)
+    correctness_artifacts: tuple[
+        tuple[Literal["H1", "H2", "H3", "H5"], Path, str], ...
+    ] = ()
+    if publish_prediction_correctness:
+        if h2 is None or h3 is None or h3_config is None or h5 is None:
+            raise RuntimeError(
+                "Prediction correctness publication lacks computed H1/H2/H3/H5 "
+                "evaluations"
+            )
+        correctness_artifacts = _publish_prediction_correctness_artifacts(
+            run_root=canonical.artifacts.run_root,
+            started_utc=started,
+            source_provenance=provenance,
+            gate_configs=(
+                ("H1", legacy),
+                ("H2", legacy),
+                ("H3", h3_config),
+                ("H5", canonical),
+            ),
+            gate_results=(
+                ("H1", h1.result),
+                ("H2", h2.result),
+                ("H3", h3.result),
+                ("H5", h5.result),
+            ),
+            producer_validations=(
+                ("H1", validation_payloads["validation/h1.json"]),
+                ("H2", validation_payloads["validation/h2.json"]),
+                ("H3", validation_payloads["validation/h3.json"]),
+                ("H5", validation_payloads["validation/h5.json"]),
+            ),
+        )
+    return VerificationRunResult(
+        frozen_results,
+        run_directory,
+        correctness_artifacts,
+    )
 
 
 __all__ = ["VerificationRunResult", "run_verification"]

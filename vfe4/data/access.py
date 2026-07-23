@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from vfe4.types.h6 import (
+    DataIdentity,
     DurableTestOpeningCapability,
     ExperimentIdentity,
     FrozenBatchSchedule,
@@ -28,6 +29,25 @@ from .wikitext2 import BlindedCorpusStore
 
 class OpeningCapabilityError(RuntimeError):
     """The blinded-data readiness or one-shot opening contract failed."""
+
+
+def _revalidate_blinded_data_identity_for_readiness(
+    directory: Path,
+    *,
+    expected_archive_sha256: str,
+    expected_data_identity_sha256: str,
+    expected_access_policy_sha256: str,
+) -> DataIdentity:
+    """Privately reconstruct the typed identity for the readiness boundary."""
+
+    from .wikitext2 import _rehydrate_blinded_data_identity
+
+    return _rehydrate_blinded_data_identity(
+        directory,
+        expected_archive_sha256=expected_archive_sha256,
+        expected_data_identity_sha256=expected_data_identity_sha256,
+        expected_access_policy_sha256=expected_access_policy_sha256,
+    )
 
 
 @dataclass(frozen=True)

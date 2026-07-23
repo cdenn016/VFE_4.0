@@ -49,11 +49,17 @@ _H5_LABELS = (
     "generalized_em",
     "natural_gradient_proposal",
 )
+_H5_INTRINSIC_PREIMAGE_FIELDS = (
+    "update_spec_raw_sha256",
+    "update_spec_canonical_sha256",
+    "objective_schema_sha256",
+    "factor_input_schema_sha256",
+    "reference_sha256",
+    "recognition_state_sha256",
+    "model_state_sha256",
+    "validation_payload_sha256",
+)
 PREDICTION_READINESS_SOURCE_BLOCKERS = (
-    "separate manifest-linked H1/H2/H3/H5 correctness producers are absent",
-    "finite-SMC lacks a manifest-linked config/estimator/fixture publisher",
-    "H5 does not publish the ten exact update-binding preimages",
-    "blinded data does not publish retained typed DataIdentity preimages",
     "arm matching lacks an immutable manifest-linked matching-set publisher",
 )
 
@@ -558,7 +564,7 @@ def _load_prefix_certificates(
 def _load_h5_update_binding(
     root: Path, *, expected_binding_sha256: str
 ) -> H5UpdateBinding:
-    _, _, payloads = _load_manifested_files(
+    manifest, _, payloads = _load_manifested_files(
         root,
         required_paths=("provenance.json", "validation/h5.json"),
         expected_manifest_sha256=None,
@@ -573,38 +579,130 @@ def _load_h5_update_binding(
     labels = h5_config.get("enabled_update_labels")
     if type(labels) is not list or tuple(labels) != _H5_LABELS:
         raise ValueError("H5 enabled_update_labels differ from the three actual labels")
-    for name in (
+    config_digest_names = (
         "update_spec_raw_sha256",
         "update_spec_canonical_sha256",
         "objective_schema_sha256",
         "factor_input_schema_sha256",
-    ):
-        _require_sha256(h5_config.get(name), f"H5 {name}")
-    for name in (
+    )
+    state_digest_names = (
         "reference_sha256",
         "recognition_sha256",
         "model_sha256",
         "validation_payload_sha256",
+    )
+    config_digests = {
+        name: _require_sha256(h5_config.get(name), f"H5 {name}")
+        for name in config_digest_names
+    }
+    state_digests = {
+        name: _require_sha256(h5_state.get(name), f"H5 {name}")
+        for name in state_digest_names
+    }
+    encoded_preimages = provenance.get("h5_update_binding_preimages")
+    if (
+        type(encoded_preimages) is not dict
+        or set(encoded_preimages)
+        != {"schema_version", "encoding", "preimages"}
+        or encoded_preimages.get("schema_version")
+        != "h5-update-binding-preimages-v1"
+        or encoded_preimages.get("encoding") != "hex"
     ):
-        _require_sha256(h5_state.get(name), f"H5 {name}")
+        raise ProducerCompatibilityError(
+            "H5 update-binding preimage envelope is not the exact v1 hex schema"
+        )
+    encoded_values = encoded_preimages.get("preimages")
+    if (
+        type(encoded_values) is not dict
+        or set(encoded_values) != set(_H5_INTRINSIC_PREIMAGE_FIELDS)
+    ):
+        raise ProducerCompatibilityError(
+            "H5 update-binding preimages do not equal the eight intrinsic fields"
+        )
+    intrinsic_preimages: dict[str, bytes] = {}
+    for name in _H5_INTRINSIC_PREIMAGE_FIELDS:
+        encoded = encoded_values[name]
+        if (
+            type(encoded) is not str
+            or not encoded
+            or len(encoded) % 2 != 0
+            or any(character not in _LOWER_HEX for character in encoded)
+        ):
+            raise ProducerCompatibilityError(
+                f"H5 update-binding preimage {name} is not canonical lowercase hex"
+            )
+        intrinsic_preimages[name] = bytes.fromhex(encoded)
+    summary_digests = {
+        **config_digests,
+        "reference_sha256": state_digests["reference_sha256"],
+        "recognition_state_sha256": state_digests["recognition_sha256"],
+        "model_state_sha256": state_digests["model_sha256"],
+        "validation_payload_sha256": state_digests[
+            "validation_payload_sha256"
+        ],
+    }
+    for name in _H5_INTRINSIC_PREIMAGE_FIELDS:
+        if hashlib.sha256(intrinsic_preimages[name]).hexdigest() != summary_digests[
+            name
+        ]:
+            raise ValueError(
+                f"H5 update-binding preimage does not match digest summary: {name}"
+            )
+    validation = _json_object(
+        payloads["validation/h5.json"], name="validation/h5.json"
+    )
+    producer_validation = validation.get("producer_validation")
+    if type(producer_validation) is not dict:
+        raise ProducerCompatibilityError(
+            "H5 correctness artifact does not contain its producer validation"
+        )
+    validation_payload_sha256 = _require_sha256(
+        producer_validation.get("payload_sha256"),
+        "H5 producer validation payload_sha256",
+    )
+    if validation_payload_sha256 != state_digests["validation_payload_sha256"]:
+        raise ValueError(
+            "H5 validation payload digest differs from provenance state hashes"
+        )
     _require_sha256(expected_binding_sha256, "h5_update_binding_sha256")
-    raise ProducerCompatibilityError(
-        "H5 producer schema records digest summaries but does not publish the exact "
-        "ten named producer preimages required by "
-        "H5UpdateBinding.from_producer_preimages; readiness will not fabricate them"
+    producer_preimages = {
+        "h5_manifest_sha256": manifest,
+        "h5_payload_sha256": payloads["validation/h5.json"],
+        **intrinsic_preimages,
+    }
+    binding = H5UpdateBinding.from_producer_preimages(
+        producer_preimages=producer_preimages,
+        enabled_update_labels=tuple(labels),
+    )
+    binding.verify_producer_preimages(producer_preimages)
+    for name, expected_digest in summary_digests.items():
+        if getattr(binding, name) != expected_digest:
+            raise ValueError(
+                f"H5 update-binding digest/name mapping is inconsistent: {name}"
+            )
+    if binding.binding_sha256 != expected_binding_sha256:
+        raise ValueError(
+            "H5 update-binding SHA-256 differs from the frozen Prediction config"
+        )
+    return binding
+
+
+def _load_blinded_data_identity(
+    root: Path,
+    *,
+    expected_archive_sha256: str,
+    expected_data_identity_sha256: str,
+    expected_access_policy_sha256: str,
+) -> DataIdentity:
+    from vfe4.data.access import (
+        _revalidate_blinded_data_identity_for_readiness,
     )
 
-
-def _load_blinded_data_identity(root: Path) -> DataIdentity:
-    _load_manifested_files(
+    return _revalidate_blinded_data_identity_for_readiness(
         root,
-        required_paths=("data_identity.json",),
-        expected_manifest_sha256=None,
-    )
-    raise ProducerCompatibilityError(
-        "blinded-data producer schema does not serialize the retained typed "
-        "EncodedTokenStorageIdentity/ValidationSafetyFixture bytes needed to "
-        "reconstruct DataIdentity without decoding sealed corpus members"
+        expected_archive_sha256=expected_archive_sha256,
+        expected_data_identity_sha256=expected_data_identity_sha256,
+        expected_access_policy_sha256=expected_access_policy_sha256,
     )
 
 
@@ -700,8 +798,16 @@ def _revalidate_h6_prediction_readiness_inputs(
         expected_git_head=git_head_value,
         expected_dirty_digest=dirty_digest,
     )
+    observed_archive = config.data.observed_archive
+    if observed_archive is None:
+        raise ProducerCompatibilityError(
+            "Prediction readiness requires the frozen observed WikiText-2 archive identity"
+        )
     data_identity = _load_blinded_data_identity(
-        prerequisite_refs.blinded_data_artifact_root
+        prerequisite_refs.blinded_data_artifact_root,
+        expected_archive_sha256=observed_archive.archive_sha256,
+        expected_data_identity_sha256=config.data_identity_sha256,
+        expected_access_policy_sha256=config.access_policy_sha256,
     )
     if (
         data_identity.data_identity_sha256 != config.data_identity_sha256

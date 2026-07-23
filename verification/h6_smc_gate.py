@@ -12,6 +12,11 @@ from typing import Literal
 
 import torch
 
+from vfe4.artifacts.atomic import (
+    canonical_json_bytes as artifact_json_bytes,
+    publish_run_directory,
+)
+from vfe4.artifacts.provenance import current_source_identity
 from vfe4.data.windows import CausalPrefix
 from vfe4.numerics.critical_values import (
     CRITICAL_VALUES_PROTOCOL_SHA256,
@@ -242,10 +247,15 @@ class FiniteSmcFixture:
         )
 
 
-def load_finite_fixture(path: Path) -> FiniteSmcFixture:
-    if type(path) is not Path:
-        path = Path(path)
-    raw = path.read_bytes()
+def _load_finite_fixture_bytes(
+    raw: bytes,
+    *,
+    filename: str,
+) -> FiniteSmcFixture:
+    if type(raw) is not bytes:
+        raise ValueError("finite fixture snapshot must be immutable bytes")
+    if type(filename) is not str or not filename:
+        raise ValueError("finite fixture snapshot requires its filename")
     raw_sha256 = hashlib.sha256(raw).hexdigest()
     try:
         payload = json.loads(raw)
@@ -261,7 +271,7 @@ def load_finite_fixture(path: Path) -> FiniteSmcFixture:
         raise ValueError("finite fixture schema is incomplete")
     fixture_id = payload.get("fixture_id")
     expected_name = f"{fixture_id.replace('-', '_')}.json" if type(fixture_id) is str else ""
-    if path.name != expected_name:
+    if filename != expected_name:
         raise ValueError("finite fixture filename does not match its ID")
     suffix = int(str(fixture_id).rsplit("-", 1)[-1])
     if not 1 <= suffix <= 4 or raw_sha256 != FINITE_FIXTURE_SHA256[suffix - 1]:
@@ -331,6 +341,19 @@ def load_finite_fixture(path: Path) -> FiniteSmcFixture:
         semantic_sha256=_owned_hash(
             "vfe4.h6.finite-smc-fixture.v1", values
         ),
+    )
+
+
+def _read_fixture_bytes(path: Path) -> bytes:
+    return path.read_bytes()
+
+
+def load_finite_fixture(path: Path) -> FiniteSmcFixture:
+    if type(path) is not Path:
+        path = Path(path)
+    return _load_finite_fixture_bytes(
+        _read_fixture_bytes(path),
+        filename=path.name,
     )
 
 
@@ -676,52 +699,73 @@ class SmcAccuracyReport:
         )
 
 
-def run_h6_smc_gate(
+def _validate_smc_grid_arguments(
     *,
-    fixture_paths: tuple[Path, ...],
+    fixture_count: int,
     replicate_seeds: tuple[int, ...],
     particle_count: int,
-    horizon_limit: int | None = None,
-    output_path: Path | None = None,
-    repository_root: Path | None = None,
-) -> SmcAccuracyReport:
-    """Run an explicit grid; anything short of the frozen grid is non-closing."""
-
+) -> None:
     if (
-        type(fixture_paths) is not tuple
-        or not fixture_paths
+        type(fixture_count) is not int
+        or fixture_count <= 0
         or type(replicate_seeds) is not tuple
         or not replicate_seeds
-        or any(type(seed) is not int or not 0 <= seed < 2**64 for seed in replicate_seeds)
+        or any(
+            type(seed) is not int or not 0 <= seed < 2**64
+            for seed in replicate_seeds
+        )
         or len(set(replicate_seeds)) != len(replicate_seeds)
         or type(particle_count) is not int
         or particle_count <= 0
     ):
-        raise ValueError("SMC gate requires explicit unique seeds, fixtures, and particles")
-    destination: Path | None = None
-    if output_path is not None:
-        if repository_root is None:
-            raise ValueError(
-                "publishing an SMC artifact requires a declared repository root"
-            )
-        root = Path(repository_root).resolve()
-        destination = Path(output_path).resolve()
-        try:
-            relative_destination = destination.relative_to(root)
-        except ValueError as error:
-            raise ValueError(
-                "SMC accuracy artifact must be inside the declared repository root"
-            ) from error
-        expected_parts = tuple(SMC_VALIDATION_RELATIVE_PATH.split("/"))
-        if relative_destination.parts != expected_parts:
-            raise ValueError(
-                "SMC accuracy artifacts use validation/h6_smc_accuracy.json"
-            )
+        raise ValueError(
+            "SMC gate requires explicit unique seeds, fixtures, and particles"
+        )
+
+
+def _snapshot_fixture_paths(
+    fixture_paths: tuple[Path, ...],
+) -> tuple[tuple[str, bytes], ...]:
+    snapshots: list[tuple[str, bytes]] = []
+    for value in fixture_paths:
+        path = Path(value)
+        snapshots.append((path.name, _read_fixture_bytes(path)))
+    return tuple(snapshots)
+
+
+def _run_h6_smc_gate_from_fixture_bytes(
+    *,
+    fixture_snapshots: tuple[tuple[str, bytes], ...],
+    replicate_seeds: tuple[int, ...],
+    particle_count: int,
+    horizon_limit: int | None = None,
+) -> SmcAccuracyReport:
+    """Evaluate the existing SMC grid against one immutable fixture snapshot."""
+
+    if (
+        type(fixture_snapshots) is not tuple
+        or any(
+            type(snapshot) is not tuple
+            or len(snapshot) != 2
+            or type(snapshot[0]) is not str
+            or type(snapshot[1]) is not bytes
+            for snapshot in fixture_snapshots
+        )
+    ):
+        raise ValueError("SMC fixture snapshots must be filename/bytes pairs")
+    _validate_smc_grid_arguments(
+        fixture_count=len(fixture_snapshots),
+        replicate_seeds=replicate_seeds,
+        particle_count=particle_count,
+    )
     errors: dict[str, list[float]] = {}
     raw_hashes: list[str] = []
     identity: EstimatorIdentity | None = None
-    for path in fixture_paths:
-        fixture = load_finite_fixture(Path(path))
+    for filename, raw_bytes in fixture_snapshots:
+        fixture = _load_finite_fixture_bytes(
+            raw_bytes,
+            filename=filename,
+        )
         raw_hashes.append(fixture.raw_fixture_sha256)
         if horizon_limit is not None:
             fixture = fixture.truncate(horizon_limit)
@@ -811,11 +855,58 @@ def run_h6_smc_gate(
         "error_trace_sha256": error_trace_sha256,
         "obligations": obligations,
     }
-    report = SmcAccuracyReport(
+    return SmcAccuracyReport(
         **payload,
         report_sha256=_owned_hash(
             "vfe4.h6.smc-accuracy-report.v1", payload
         ),
+    )
+
+
+def run_h6_smc_gate(
+    *,
+    fixture_paths: tuple[Path, ...],
+    replicate_seeds: tuple[int, ...],
+    particle_count: int,
+    horizon_limit: int | None = None,
+    output_path: Path | None = None,
+    repository_root: Path | None = None,
+) -> SmcAccuracyReport:
+    """Run an explicit grid; anything short of the frozen grid is non-closing."""
+
+    if type(fixture_paths) is not tuple:
+        raise ValueError(
+            "SMC gate requires explicit unique seeds, fixtures, and particles"
+        )
+    _validate_smc_grid_arguments(
+        fixture_count=len(fixture_paths),
+        replicate_seeds=replicate_seeds,
+        particle_count=particle_count,
+    )
+    destination: Path | None = None
+    if output_path is not None:
+        if repository_root is None:
+            raise ValueError(
+                "publishing an SMC artifact requires a declared repository root"
+            )
+        root = Path(repository_root).resolve()
+        destination = Path(output_path).resolve()
+        try:
+            relative_destination = destination.relative_to(root)
+        except ValueError as error:
+            raise ValueError(
+                "SMC accuracy artifact must be inside the declared repository root"
+            ) from error
+        expected_parts = tuple(SMC_VALIDATION_RELATIVE_PATH.split("/"))
+        if relative_destination.parts != expected_parts:
+            raise ValueError(
+                "SMC accuracy artifacts use validation/h6_smc_accuracy.json"
+            )
+    report = _run_h6_smc_gate_from_fixture_bytes(
+        fixture_snapshots=_snapshot_fixture_paths(fixture_paths),
+        replicate_seeds=replicate_seeds,
+        particle_count=particle_count,
+        horizon_limit=horizon_limit,
     )
     if destination is not None:
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -824,6 +915,151 @@ def run_h6_smc_gate(
             handle.flush()
             os.fsync(handle.fileno())
     return report
+
+
+def _estimator_identity_for_particles(
+    particle_count: int,
+) -> EstimatorIdentity:
+    return EstimatorIdentity.from_spec(
+        EstimatorSpec.create(
+            kind="weighted_smc",
+            particle_count=particle_count,
+            resampling="systematic_ess_half",
+        )
+    )
+
+
+def _artifact_json_object(raw_bytes: bytes, *, name: str) -> dict[str, object]:
+    if type(raw_bytes) is not bytes:
+        raise ValueError(f"{name} must be immutable bytes")
+    try:
+        value = json.loads(raw_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{name} must be valid JSON") from exc
+    if type(value) is not dict or artifact_json_bytes(value) != raw_bytes:
+        raise ValueError(f"{name} must be a canonical JSON object")
+    return value
+
+
+def publish_h6_smc_accuracy_artifact(
+    *,
+    repository_root: Path,
+    artifact_root: Path,
+    run_name: str,
+    fixture_paths: tuple[Path, ...],
+    replicate_seeds: tuple[int, ...],
+    particle_count: int,
+    horizon_limit: int | None = None,
+) -> tuple[SmcAccuracyReport, Path]:
+    """Run from one snapshot and atomically publish direct readiness inputs."""
+
+    if type(fixture_paths) is not tuple or len(fixture_paths) != 4:
+        raise ValueError(
+            "SMC readiness publication requires exactly four fixture paths"
+        )
+    _validate_smc_grid_arguments(
+        fixture_count=len(fixture_paths),
+        replicate_seeds=replicate_seeds,
+        particle_count=particle_count,
+    )
+    repository = Path(repository_root).resolve()
+    runs = Path(artifact_root)
+    git_head_value, dirty_digest_value, source_sha256 = (
+        current_source_identity(repository, runs)
+    )
+
+    estimator_identity = _estimator_identity_for_particles(particle_count)
+    estimator_bytes = estimator_identity.artifact_bytes
+    estimator_payload = _artifact_json_object(
+        estimator_bytes,
+        name="SMC estimator artifact",
+    )
+    fixture_snapshots = _snapshot_fixture_paths(fixture_paths)
+    fixture_sha256 = tuple(
+        hashlib.sha256(raw_bytes).hexdigest()
+        for _, raw_bytes in fixture_snapshots
+    )
+    config_payload = {
+        "schema_version": "h6-smc-accuracy-config-v1",
+        "fixture_sha256": fixture_sha256,
+        "replicate_seeds": replicate_seeds,
+        "particle_count": particle_count,
+        "horizon_limit": horizon_limit,
+        "estimator_semantic_sha256": estimator_identity.semantic_sha256,
+        "estimator_artifact_bytes_sha256": (
+            estimator_identity.artifact_bytes_sha256
+        ),
+        "critical_values_sha256": CRITICAL_VALUES_PROTOCOL_SHA256,
+    }
+    fixture_set_payload = {
+        "schema_version": "h6-finite-smc-fixture-set-v1",
+        "encoding": "hex",
+        "fixtures": tuple(
+            {
+                "filename": filename,
+                "raw_sha256": raw_sha256,
+                "raw_bytes_hex": raw_bytes.hex(),
+            }
+            for (filename, raw_bytes), raw_sha256 in zip(
+                fixture_snapshots,
+                fixture_sha256,
+                strict=True,
+            )
+        ),
+    }
+    config_bytes = artifact_json_bytes(config_payload)
+    fixture_set_bytes = artifact_json_bytes(fixture_set_payload)
+
+    report = _run_h6_smc_gate_from_fixture_bytes(
+        fixture_snapshots=fixture_snapshots,
+        replicate_seeds=replicate_seeds,
+        particle_count=particle_count,
+        horizon_limit=horizon_limit,
+    )
+    if (
+        report.fixture_sha256 != fixture_sha256
+        or report.particle_count != particle_count
+        or report.estimator_semantic_sha256
+        != estimator_identity.semantic_sha256
+        or report.estimator_artifact_bytes_sha256
+        != estimator_identity.artifact_bytes_sha256
+        or report.critical_values_sha256
+        != CRITICAL_VALUES_PROTOCOL_SHA256
+    ):
+        raise ValueError(
+            "SMC report does not match the snapshotted publication inputs"
+        )
+
+    validation_payload = {
+        "schema_version": "vfe4-h6-smc-accuracy-v1",
+        "gate": "H6-SMC-Accuracy",
+        "git_head": git_head_value,
+        "dirty_digest": dirty_digest_value,
+        "source_sha256": source_sha256,
+        "config_sha256": hashlib.sha256(config_bytes).hexdigest(),
+        "estimator_sha256": estimator_identity.artifact_bytes_sha256,
+        "estimator_semantic_sha256": estimator_identity.semantic_sha256,
+        "fixture_set_sha256": hashlib.sha256(
+            fixture_set_bytes
+        ).hexdigest(),
+        "status": report.status.lower(),
+        "obligations": report.obligations,
+        "producer_validation": _artifact_json_object(
+            report.artifact_bytes(),
+            name="SMC accuracy report",
+        ),
+    }
+    run_directory = publish_run_directory(
+        runs,
+        run_name,
+        {
+            "config.json": config_payload,
+            "protocol/estimator.json": estimator_payload,
+            "fixtures/finite_smc.json": fixture_set_payload,
+            SMC_VALIDATION_RELATIVE_PATH: validation_payload,
+        },
+    )
+    return report, run_directory
 
 
 __all__ = [
@@ -837,5 +1073,6 @@ __all__ = [
     "exact_finite_oracle",
     "finite_gate_inventory",
     "load_finite_fixture",
+    "publish_h6_smc_accuracy_artifact",
     "run_h6_smc_gate",
 ]
