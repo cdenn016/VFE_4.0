@@ -751,7 +751,7 @@ git commit -m "feat: freeze H6 prefix and prediction protocol"
 
 - [ ] **Step 6: Run focused GREEN.** Run the Step 2 command. Expected: PASS on synthetic identity fixtures only; do not access an official/local corpus cache.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```text
 git add vfe4/data tests/unit/test_h6_byte_tokenizer.py tests/unit/test_h6_wikitext2.py tests/unit/test_h6_data_access.py tests/unit/test_h6_windows.py
@@ -978,6 +978,8 @@ git commit -m "feat: add H6 training and prior scoring"
 
 ### Task 9: Implement the 9,720-case and 4,096-case dynamic prefix oracle
 
+**Development safety:** `9,720` and `4,096` are closed-form/full-evidence inventory metadata, not routine CPU test counts. Focused execution is hard-capped at 16 supplied cases; this task's tests use four V=3 cases and two V=258 cases. Complete materialization remains Task 13-only and separately authorized.
+
 **Files:**
 - Create: `verification/numpy_oracles/h6_prefix.py`
 - Modify: `verification/numpy_oracles/__init__.py`
@@ -990,17 +992,17 @@ git commit -m "feat: add H6 training and prior scoring"
 - Produces: `enumerate_ordered_tail_pairs`, `load_frozen_validation_perturbations`, `run_dynamic_prefix_checks`, and `DynamicPrefixReport`.
 - Consumes: exact predictor/config/estimator case key from Tasks 1/5/7 and only Task 2's identity-bound frozen validation-safety fixture; it has no train/test capability.
 
-- [ ] **Step 1: Write failing enumeration and perturbation tests on shrunken fixtures.** Exercise the real production predictor/factories with distinct V=3 and V=258 identities on a small deterministic subset. Unit-test the closed-form full inventory counts `9,720`, `(6561,2187,729,243)`, and `4,096`, generator identities, and no config mutation without executing the complete inventories during buildout.
+- [x] **Step 1: Write failing enumeration and perturbation tests on shrunken fixtures.** Exercise the real production predictor/factories with distinct V=3 and V=258 identities on a small deterministic subset. Unit-test the closed-form full inventory counts `9,720`, `(6561,2187,729,243)`, and `4,096`, generator identities, and no config mutation without executing the complete inventories during buildout.
 
-- [ ] **Step 2: Write failing leak/cache/mask tests.** Inject one target-reading predictor, one suffix-reading wrapper, one cache missing config identity, one post-softmax mask, and one all-invalid fallback. Each witnessed defect must FAIL. Remove a fixture/audit field and require INCONCLUSIVE. The correct predictor must produce exact zero residual in cold/warm/reverse modes.
+- [x] **Step 2: Write failing leak/cache/mask tests.** Inject one target-reading predictor, one suffix-reading wrapper, one cache missing config identity, one post-softmax mask, and one all-invalid fallback. Each witnessed defect must FAIL. Remove a fixture/audit field and require INCONCLUSIVE. The correct predictor must produce exact zero residual in cold/warm/reverse modes.
 
-- [ ] **Step 3: Run focused RED.** Run `python -m pytest tests/property/test_h6_prefix.py -q`. Expected: FAIL on missing oracle/fixture/runner.
+- [x] **Step 3: Run focused RED.** The three-node focused file ran in `1.303 s`; two nodes passed and the one Windows `Path` branch failed. No other test file or inventory ran.
 
-- [ ] **Step 4: Implement independent enumeration and frozen perturbation generation.** The NumPy oracle constructs sequence pairs independently of production helpers and invokes the production predictor under the separately resolved small fixture. Focused tests generate only a deterministic subset. The complete 4,096 V=258 records and full 9,720 inventory are materialized and identity-bound only in the separately authorized Prefix evidence run.
+- [x] **Step 4: Implement independent enumeration and frozen perturbation generation.** The NumPy oracle constructs sequence pairs independently of production helpers and invokes the production predictor under the separately resolved small fixture. Focused tests generate only a deterministic subset. The complete 4,096 V=258 records and full 9,720 inventory are materialized and identity-bound only in the separately authorized Prefix evidence run.
 
-- [ ] **Step 5: Implement dynamic comparisons.** For each exact case key, instantiate a fresh counter stream for the pair and capture log probabilities before selecting any target. Require equal vocabulary identity, dtype, shape `(V,)`, device, contiguity, raw `uint8` bytes, and SHA-256; do not use `torch.equal`, which hides signed-zero differences. Calculate exact mask mass, audit all-invalid behavior, and compare cache modes/traversal order. Record first counterexample and complete inventory; never short-circuit artifact accounting after a failure.
+- [x] **Step 5: Implement dynamic comparisons.** For each exact case key, instantiate a fresh counter stream for the pair and capture log probabilities before selecting any target. Require equal vocabulary identity, dtype, shape `(V,)`, device, contiguity, raw `uint8` bytes, and SHA-256; do not use `torch.equal`, which hides signed-zero differences. Calculate exact mask mass, audit all-invalid behavior, and compare cache modes/traversal order. Record first counterexample and complete inventory; never short-circuit artifact accounting after a failure.
 
-- [ ] **Step 6: Run focused GREEN.** Run the Step 3 command. Expected: PASS for correct fixtures and expected FAIL/INCONCLUSIVE for injected controls.
+- [x] **Step 6: Run focused GREEN.** After the semantic tail-harness correction, the unaffected V=258 node passed in the three-node run and the two nodes affected by one duplicated sparse-index literal passed together in `1.353 s`. No broad rerun was performed.
 
 - [ ] **Step 7: Commit.**
 
