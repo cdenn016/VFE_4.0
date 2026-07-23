@@ -64,7 +64,7 @@
 
 | Path | Responsibility |
 |---|---|
-| `vfe4/types/h6.py` | Immutable, separately hashed `ZeroDimensionalBase`, `CausalDag`, H6 language structure, arm, data identity, predictor/cache, prefix certificate, estimator, ELBO, NLL, checkpoint, attempt, and decision records. |
+| `vfe4/types/h6.py` | Immutable, domain-separated hashed `ZeroDimensionalBase`, `CausalDagRow`/`CausalDag`, H6 language structure, `FrozenTensorSnapshot`, arm, data identity, predictor/cache, complete prefix certificate, estimator, ELBO, NLL, checkpoint, attempt, and decision records. |
 | `vfe4/config/schema.py` | Conditional frozen H6 Prefix/Prediction sections, H6-owned AdamW `H6TrainingSchedule`, Prediction-only H1/H2/H3/H5 references, estimator/matrix config, and closed literals. |
 | `vfe4/config/resolve.py` | Existing resolver extended with H6-Prefix and Prediction operations, exact own Prefix identities, Prediction-only prerequisites, conditional H6 sections, and one canonical config/hash. |
 | `vfe4/types/results.py` | Existing explicit result union extended with fail-closed `H6PrefixGateResult` and `H6PredictionResult` without weakening earlier result types. |
@@ -96,7 +96,7 @@
 | `verification/h6_prefix_gate.py` | Atomic H6-Prefix gate and certificate-set publisher. |
 | `vfe4/artifacts/h6.py` | H6-specific atomic experiment/checkpoint/metrics/failure/test-opening writers. |
 | `vfe4/artifacts/provenance.py` | Extend provenance with data, estimator, prefix certificate, checkpoint, and parent evidence revisions. |
-| `verify_vfe4.py` | Extend the one-editable-dictionary/one-main/no-required-CLI verifier through independent H6-Prefix and own the pure H1-prefix-prior/H6-Prefix projections plus generic current-candidate runner consumed by H7. |
+| `verify_vfe4.py` | Extend the one-editable-dictionary/one-main/no-required-CLI verifier through independent H6-Prefix and own the pure H1-prefix-prior/H6-Prefix projections plus generic current-candidate runner intended for the synchronized H7 consumer. |
 | `train_vfe4.py` | New click-to-run editable prediction dictionary; no required CLI. |
 | `docs/preregistrations/2026-07-21-h6-prefix-prediction.md` | Frozen source resolutions, hashes, arm matrix, estimator, schedules, statuses, decisions, nonclaims, and artifact schemas. |
 | `tests/unit/test_h6_*.py` | H6 types/config/data/model/recognition/predictor/matcher/checkpoint/statistics unit contracts. |
@@ -110,7 +110,7 @@
 | `tests/integration/test_train_vfe4.py` | Imports and shrinks the live editable dictionary without adding CLI requirements. |
 | `tests/unit/test_config.py` | Existing ordered-prefix/conditional-H6/canonical-hash and predecessor fail-closed coverage. |
 | `tests/unit/test_atomic_artifacts.py` | Existing atomic writer tests extended for separate H6 references and exclusive durable test opening. |
-| `tests/integration/test_verify_vfe4.py` | Existing click-run integration extended through independent H6-Prefix plus the three H6-owned H7 lifecycle adapters, with no Prefix predecessor read/rerun/copy. |
+| `tests/integration/test_verify_vfe4.py` | Existing click-run integration extended through independent H6-Prefix plus the three H6-owned lifecycle adapters, with no Prefix predecessor read/rerun/copy; synchronized H7-consumer compatibility is a separate focused contract test. |
 
 Dependency direction is `config + types -> data/numerics -> generative -> recognition/objective -> predictive/inference -> training/evaluation -> launchers/artifacts`. Production never imports `verification/` or `tests/`. `predictive/` and `generative/` never import `recognition/`, `objective/`, `training/`, or a target-bearing batch type. V3 code is not imported.
 
@@ -131,10 +131,15 @@ class ZeroDimensionalBase:
     canonical_sha256: str
 
 @dataclass(frozen=True)
+class CausalDagRow:
+    receiver_t: int
+    parents: tuple[int, ...]
+
+@dataclass(frozen=True)
 class CausalDag:
     labeling: Literal["zero_based"]
     node_labels: tuple[int, ...]
-    parent_rows: tuple[tuple[int, ...], ...]
+    rows: tuple[CausalDagRow, ...]
     canonical_sha256: str
 
 @dataclass(frozen=True)
@@ -144,6 +149,22 @@ class H6LanguageStructure:
     receiver_labels: tuple[int, ...]
     structure_sha256: str
 
+@dataclass(frozen=True, init=False)
+class FrozenTensorSnapshot:
+    __owned: torch.Tensor
+    dtype: str
+    shape: tuple[int, ...]
+    device: str
+    contiguous: bool
+    requires_grad: bool
+    storage_version: int
+    raw_bytes_sha256: str
+
+    @classmethod
+    def capture(cls, value: torch.Tensor) -> "FrozenTensorSnapshot": ...
+    def value(self) -> torch.Tensor: ...  # fresh clone; autograd path preserved
+    def assert_intact(self) -> None: ...
+
 @dataclass(frozen=True)
 class H6FactorTerm:
     receiver_t: int
@@ -152,7 +173,7 @@ class H6FactorTerm:
         "state_transition", "model_transition", "entropy"
     ]
     factor_identity_sha256: str
-    value: torch.Tensor
+    value: FrozenTensorSnapshot
 
 @dataclass(frozen=True)
 class H6LanguageElboTerms:
@@ -165,8 +186,8 @@ class H6LanguageElboTerms:
     state_transition_terms: tuple[H6FactorTerm, ...]
     model_transition_terms: tuple[H6FactorTerm, ...]
     entropy_terms: tuple[H6FactorTerm, ...]
-    complete_decomposition: torch.Tensor
-    total_language_elbo: torch.Tensor
+    complete_decomposition: FrozenTensorSnapshot
+    total_language_elbo: FrozenTensorSnapshot
     equality_checked: Literal[True]
     canonical_sha256: str
 
@@ -174,7 +195,7 @@ class H6LanguageElboTerms:
 class EmissionOnlyAblationTerms:
     objective_kind: Literal["emission_only_ablation_non_elbo"]
     ordered_emission_terms: tuple[H6FactorTerm, ...]
-    total: torch.Tensor
+    total: FrozenTensorSnapshot
     canonical_sha256: str
 
 class PriorPredictor(Protocol):
@@ -188,7 +209,7 @@ class PriorPredictor(Protocol):
 @dataclass(frozen=True)
 class PriorPrediction:
     vocabulary: VocabularyIdentity
-    log_probs: torch.Tensor          # shape (vocabulary.size,)
+    log_probs: FrozenTensorSnapshot  # shape (vocabulary.size,)
     cache: PrefixCache
     estimator_record: EstimatorRecord
 
@@ -199,8 +220,18 @@ class PrefixCaseKey:
     estimator_sha256: str
     model_family_sha256: str
     vocabulary_sha256: str
+    data_safety_sha256: str
     git_head: str
     dirty_digest: str
+
+@dataclass(frozen=True)
+class PrefixCertificate:
+    key: PrefixCaseKey
+    validation_payload_canonical_json: bytes
+    validation_payload_sha256: str
+    status: EvidenceStatus
+    obligations: tuple[str, ...]
+    certificate_sha256: str
 
 @dataclass(frozen=True)
 class PredictionCorrectnessArtifactRef:
@@ -361,11 +392,17 @@ def score_prior_nll_replicate(
 ) -> NllTotals: ...
 ```
 
-`ZeroDimensionalBase` accepts exactly `base_id="C0"`, `points=("*",)`, and `dimension=0`; its canonical hash excludes no field. `CausalDag` is separately canonicalized and accepts only explicit zero-based integer node labels with no gaps or duplicates. `H6LanguageStructure.receiver_labels` is explicit, unique, strictly increasing, and names every receiver row exactly once. For every `(receiver_t, parents)` pair, parents are unique declared nodes and satisfy strict `j < receiver_t`; self/future parents, duplicate parents, missing/duplicate receivers, a one-based alternative, and any labeling that could be interpreted as either zero- or one-based are rejected. Token/DAG edges never enter base transport, curvature, or holonomy records.
+`ZeroDimensionalBase` accepts exactly `base_id="C0"`, `points=("*",)`, and `dimension=0`. `CausalDag` owns immutable `CausalDagRow(receiver_t, parents)` records, so its separately computed hash intrinsically binds every receiver-to-parent mapping rather than relying on positional tuple interpretation. It accepts only explicit zero-based integer node labels with no gaps or duplicates; rows have unique strictly increasing receivers, unique declared parents, and strict `j < receiver_t`. `H6LanguageStructure.receiver_labels` must equal `tuple(row.receiver_t for row in dag.rows)` exactly, in order. Self/future parents, duplicate parents, missing/duplicate receivers, a one-based alternative, and any labeling that could be interpreted as either zero- or one-based are rejected. Token/DAG edges never enter base transport, curvature, or holonomy records.
+
+Digest roles are explicit. Each record has at most one **owned integrity digest** (for example `canonical_sha256`, `structure_sha256`, `binding_sha256`, `schedule_sha256`, `readiness_sha256`, or `certificate_sha256`): compute that digest from a domain-separated canonical preimage containing every semantic field of the record, including all already-verified reference/content digests, while excluding only the owned digest field itself. By contrast, **referenced/content digests** such as `tokenizer_spec_sha256`, `raw_bytes_sha256`, fixture/payload/manifest hashes, and H5 producer hashes are independently recomputed from and checked against their named external bytes or producer-defined canonical preimages; they are not recomputed from the containing record. Construction rejects either a wrong owned digest or an unverified/mismatched reference digest. A one-bit semantic mutation changes the owned digest, and a one-bit external-byte mutation invalidates its reference digest without creating a self-referential hash.
+
+`FrozenTensorSnapshot.capture` privately owns a contiguous clone without detaching it from the autograd graph, records dtype/shape/device/contiguity/`requires_grad`/tensor storage-version/raw-byte SHA metadata, and exposes tensor values only as fresh clones that preserve the autograd path. Construction, every public access, canonical serialization, hashing, metrics, and checkpoint publication call `assert_intact`; any in-place mutation or metadata/raw-byte/version mismatch is rejected. `H6FactorTerm`, `H6LanguageElboTerms`, `EmissionOnlyAblationTerms`, and `PriorPrediction` hash immutable snapshot metadata and bytes, never a caller-owned mutable tensor, so their canonical identity cannot diverge after mutation.
+
+`PrefixCertificate` binds the complete `PrefixCaseKey`, including `data_safety_sha256`, plus immutable canonical validation bytes, their independently checked hash, status, obligations, and its own domain-separated certificate hash. PASS is fail-closed: it requires an exact PASS validation payload for the same complete key, empty obligations, all required dynamic/static checks present and passing, matching payload bytes/hash, and a valid certificate hash; otherwise construction returns/requires FAIL or INCONCLUSIVE and `require_prefix_pass` rejects it.
 
 `TrainingPhase` is a closed H6 enum with exactly `MODEL_CE_ADAMW`, `RECOGNITION_ADAMW`, `IMMUTABLE_DETACHED_SNAPSHOT`, and `MODEL_ADAMW`. An endpoint with `latent_enabled=false` has phases `(MODEL_CE_ADAMW,)` and zero recognition updates. A latent endpoint has phases `(RECOGNITION_ADAMW, IMMUTABLE_DETACHED_SNAPSHOT, MODEL_ADAMW)` and one recognition update. These are H6 schedule labels, not H5 labels. Any other tuple, phase reordering, dummy phase, recognition object on a no-latent endpoint, or mismatch between the phase schedule and endpoint config is rejected during resolution.
 
-The three lifecycle adapters above are H6-owned public compatibility interfaces used by H7. Both projections are pure and never mutate the one editable root `CONFIG`. `project_h6_prefix_config` includes only H6 Prefix identities and has no predecessor/PASS input. `run_projected_current_candidate` requires `predecessor_refs == {}` for `H6-Prefix`; a nonempty mapping is rejected rather than recorded as Prefix provenance. H8's `project_h7_compatibility_config` is not implemented or owned by H6.
+The three lifecycle adapters above are H6-owned independent compatibility interfaces. Both projections are pure and never mutate the one editable root `CONFIG`. `project_h6_prefix_config` includes only H6 Prefix identities and has no predecessor/PASS input. `run_projected_current_candidate` is keyword-only and requires `predecessor_refs == {}` for `H6-Prefix`; a nonempty mapping is rejected rather than recorded as Prefix provenance. The current H7/H8 plans must be synchronized and focused-tested against this frozen contract before Task 11 may close; this is a required documentation/consumer-compatibility task, not H6 Prefix or Prediction evidence. H8's `project_h7_compatibility_config` remains H8-owned.
 
 The scorer calls `next_token_log_probs(prefix, rng, cache)` before reading the target for that position. It then selects the target log probability, updates token totals, and only on the next call includes that formerly scored token in the prefix. A cache can accelerate this sequence but cannot change the call contract.
 
@@ -466,10 +503,10 @@ A1, A3, and A4 remain independently tuned, matched descriptive controls in the s
 - Create: `docs/preregistrations/2026-07-21-h6-prefix-prediction.md`
 
 **Interfaces:**
-- Produces: `ZeroDimensionalBase`, `CausalDag`, `H6LanguageStructure`, `ArmId`, `EvidenceStatus`, `VocabularyIdentity`, `PrefixCaseKey`, `PrefixCertificate`, `PredictionCorrectnessArtifactRef`, `H1PrefixPriorArtifactRef`, `SmcAccuracyArtifactRef`, exact-producer-field `H5UpdateBinding`, `TrainingPhase`, `H6OuterSchedule`, `H6ArmPhaseSchedule`, `H6TrainingSchedule`, `H6PredictionReadinessToken`, blinded/materialized/test-opening data capabilities, `EstimatorSpec`, endpoint-SMC protocol types, `DataIdentity`, `CheckpointIdentity`, `NllTotals`, `PredictionDecision`, conditional H6 sections on existing `ResolvedConfig`, and the explicit `H6PrefixGateResult` / `H6PredictionResult` union members.
+- Produces: `ZeroDimensionalBase`, `CausalDagRow`, `CausalDag`, `H6LanguageStructure`, `FrozenTensorSnapshot`, `ArmId`, `EvidenceStatus`, `VocabularyIdentity`, `PrefixCaseKey`, concrete `PrefixCertificate`, `PredictionCorrectnessArtifactRef`, `H1PrefixPriorArtifactRef`, `SmcAccuracyArtifactRef`, exact-producer-field `H5UpdateBinding`, `TrainingPhase`, `H6OuterSchedule`, `H6ArmPhaseSchedule`, `H6TrainingSchedule`, `H6PredictionReadinessToken`, blinded/materialized/test-opening data capabilities, `EstimatorSpec`, endpoint-SMC protocol types, `DataIdentity`, `CheckpointIdentity`, `NllTotals`, `PredictionDecision`, conditional H6 sections on existing `ResolvedConfig`, and the explicit `H6PrefixGateResult` / `H6PredictionResult` union members.
 - Consumes: existing `GateStatus`, H1/H2/H3/H5 result types for Prediction only, and existing `resolve_config`; earlier result records remain unchanged. It does not consume H4 or any predecessor result for Prefix.
 
-- [ ] **Step 1: Write failing immutable-type and strict-config tests.** Require a separately hashed exact-one-point `ZeroDimensionalBase`, a separately hashed explicitly zero-based `CausalDag`, and an `H6LanguageStructure` that owns all receiver labels. Accept only complete ordered receiver rows with unique parents satisfying `j < receiver_t`; reject self/future parents, duplicate parents, missing/duplicate receivers, gapped node labels, one-based labels, and ambiguous mixed labeling. Require all six arm IDs, vocabulary identities, exact seeds, exact tokenizer/window/access-capability values, the 64-stream/four-particle-level endpoint estimator, exact grid, H6-owned AdamW class/policy, typed per-endpoint phase schedules, two/quarter and eight/two-pass schedules, three status states, unknown-key rejection, no H7/H8 dataset values, no CLI-only fields, and round-trip canonical hashes. A0 and every no-latent endpoint resolve only the H6 model-CE AdamW phase and zero recognition updates; every latent endpoint resolves H6 recognition-AdamW/snapshot/model-AdamW in order. Reject no-op/filler phases, a recognition object for no-latent arms, an H5 label used as an H6 phase, and a phase/config mismatch. Preserve every existing operation unchanged; independent `H6-Prefix` requires only its own conditional section and identities, while Prediction requires exact current H1/H2/H3/H5, H1-prefix-prior/SMC/Prefix, estimator/matrix/schedule/access references. Reject H4 as a required Prediction reference.
+- [ ] **Step 1: Write failing immutable-type and strict-config tests.** Require a separately hashed exact-one-point `ZeroDimensionalBase`, immutable `CausalDagRow(receiver_t,parents)` records inside a separately hashed explicitly zero-based `CausalDag`, and exact structure/DAG receiver equality. For each record's single owned integrity digest, recompute the domain-separated semantic preimage including already-verified reference digests and excluding only that owned digest; test one-bit semantic mutations and supplied-wrong-digest rejection. Separately mutate every named external byte/preimage and prove its tokenizer/raw-data/fixture/payload/manifest/H5 producer digest fails independent verification rather than being recomputed from the container. Test `FrozenTensorSnapshot` ownership/integrity and fail-closed data-safety-bound certificates. Require exact schedules/protocols and independent Prefix versus Prediction prerequisites; reject H4 as required.
 
 ```python
 def test_prediction_config_is_blocked_without_exact_prefix_set() -> None:
@@ -484,7 +521,7 @@ def test_public_arm_inventory_is_exact() -> None:
 
 - [ ] **Step 2: Run the focused RED tests.** Run `python -m pytest tests/unit/test_h6_types.py tests/unit/test_h6_config.py tests/unit/test_config.py -q`. Expected: FAIL because H6 records and conditional existing-resolver support do not exist.
 
-- [ ] **Step 3: Extend the existing schema, resolver, and explicit result union.** Keep Prefix and Prediction conditional sections distinct inside the one canonical config. Prefix canonical JSON/hash contains the structural, vocabulary, source, model-family, estimator, fixture/data-safety, mask-manifest, case-inventory, static-audit, and publication identities only; it contains no H1--H5 status/reference field. Prediction canonical JSON additionally includes exact current-candidate H1/H2/H3/H5 references, H1 variant/SMC/Prefix references, the H5 exact fields `update_spec_raw_sha256`, `update_spec_canonical_sha256`, `objective_schema_sha256`, `factor_input_schema_sha256`, `reference_sha256`, `recognition_state_sha256`, `model_state_sha256`, and `validation_payload_sha256`, common/typed H6 AdamW schedules, data capabilities, the 64-stream/four-level endpoint protocol, arm matrix, retry count, and O_EXCL test-opening policy. H5 enabled labels are restricted to `exact_coordinate`, `generalized_em`, and `natural_gradient_proposal` and never populate H6 phase names. Absent conditional sections contribute nothing to other operation hashes. `EvidenceStatus` accepts only PASS/FAIL/INCONCLUSIVE; missing obligations cannot become PASS. Do not add a nonexistent predecessor dependency-closure field or create a parallel config parser.
+- [ ] **Step 3: Extend the existing schema, resolver, immutable ownership boundary, and explicit result union.** Implement structural canonicalization, snapshots, and complete certificates. Give each record one domain-separated owned integrity digest whose preimage excludes only itself and includes verified reference digests; independently verify tokenizer/data/fixture/payload/manifest/H5 producer digests against their named bytes or producer preimages before container canonicalization. Prefix remains predecessor-free; Prediction adds exact H1/H2/H3/H5 and its other frozen inputs. Missing obligations cannot become PASS; do not add a parallel parser.
 
 - [ ] **Step 4: Write the preregistration before any H6 computation.** Copy every Global Constraint, public interface, weighted SMC equation/bound, actual-endpoint `Y/Q/R/B/e` formula, 352-interval family, all frozen critical constants, attribution-matrix row, source/access resolution, source-freeze/current-candidate lifecycle, separate artifact schema, statistical formula, failure rule, and nonclaim. Define distinct `h6-prefix-v1`, `h6-prediction-readiness-v1`, and `h6-prediction-v1` schemas plus revision-specific deferred Prefix/Prediction ledger paths. Mark the exhaustive Prefix cases, 512-replicate finite-SMC grid, corpus tuning/training, 96-checkpoint assessment, and one-time test opening as separately authorized evidence operations, not source-build completion. State that measured archive hashes, arm dimensions/counts/FLOPs, and certificate-set hash are frozen before their evidence revision and are not selected using prediction results.
 
@@ -577,11 +614,11 @@ git commit -m "feat: add normalized H6 language factors"
 - Produces: `StructuredLanguageRecognition`, `FactorizedLanguageRecognition`, `RecognitionConditioning`, `H6FactorTerm`, `H6LanguageElboTerms`, `EmissionOnlyAblationTerms`, `evaluate_language_elbo(...) -> H6LanguageElboTerms`, and `evaluate_emission_only_ablation(...) -> EmissionOnlyAblationTerms`.
 - Consumes: generative factors from Task 3 and existing precision/information interfaces; predictive modules do not import these outputs.
 
-- [ ] **Step 1: Write failing access/normalization/term tests.** Prove smoothing may use the whole observed window, filtering at position `t` may use `x_<=t` but no suffix, structured versus factorized are separate families, and exact mixtures versus projections return different tagged types. Require `H6LanguageElboTerms` to carry the exact horizon; a deterministically ordered factor term for every `(receiver_t, partition, factor_identity_sha256)`; explicit emission, initial, state-source, model-source, state-transition, model-transition, and entropy partitions; no duplicate or missing factor identity; and an exact checked equality between `complete_decomposition` and `total_language_elbo`. Reject the existing two-time-step `ElboTerms` type at this boundary. Test emission-only returns `EmissionOnlyAblationTerms` with `objective_kind="emission_only_ablation_non_elbo"` and cannot be passed where `H6LanguageElboTerms` is required.
+- [ ] **Step 1: Write failing access/normalization/term tests.** Prove the recognition access rules and distinct exact/projection types. Require exact-horizon ordered factor identities, all seven partitions, no duplicate/missing term, and checked equality between complete decomposition and total language ELBO. Reject the two-step `ElboTerms`. Require every tensor field to be a `FrozenTensorSnapshot`; mutate the original tensor, a returned clone, and (in a negative control) private storage, proving canonical bytes/hash remain stable or access fails before use. Test clone-only access preserves autograd. Emission-only remains a distinct non-ELBO type.
 
 - [ ] **Step 2: Run focused RED.** Run `python -m pytest tests/unit/test_h6_language_recognition.py tests/unit/test_h6_language_elbo.py -q`. Expected: FAIL on missing language recognition/objective.
 
-- [ ] **Step 3: Implement the families and horizon-indexed canonical assembler.** Reuse the sparse precision protocol; do not form a production dense inverse. Exact source treatment retains a normalized mixture. Projection returns a record with source mixture identity, projected moments, projection method, and error diagnostics. Build immutable `H6FactorTerm` entries in canonical horizon/partition/factor-identity order, derive each named partition from that same ordered tuple, compute the complete decomposition from all partitions exactly once, compare it to the independently accumulated total language ELBO under the frozen equality rule, and reject any missing/duplicate/mismatched term. Do not adapt or alias the existing two-time-step `ElboTerms`. Keep the primary training config on smoothing and the emission-only return type explicitly outside the ELBO API.
+- [ ] **Step 3: Implement the families and horizon-indexed canonical assembler.** Build `H6FactorTerm` entries in canonical order, capturing each value through `FrozenTensorSnapshot`; derive partitions from that tuple, independently accumulate the total, capture both totals, assert snapshot integrity, and check equality. Canonical hashes bind verified snapshot metadata/bytes. Reject missing/duplicate/mutated terms and never adapt the two-step `ElboTerms`; emission-only stays outside the ELBO API.
 
 - [ ] **Step 4: Run focused GREEN.** Run the Step 2 command. Expected: PASS.
 
@@ -615,7 +652,7 @@ git commit -m "feat: add H6 language recognition and ELBO"
 - Produces: the frozen `PriorPredictor` implementation boundary, `EstimatorStream`, weighted `PrefixCache`/pending state, `BootstrapSmcPredictor`, `SmcAccuracyReport`, and `run_h6_smc_gate` plus its immutable artifact.
 - Consumes: only Task 3 generative interfaces, Task 1 `VocabularyIdentity`/estimator/`SmcAccuracyArtifactRef` types, and prefix tokens.
 
-- [ ] **Step 1: Write failing signature and target-blind tests.** Inspect the bound method for exactly `prefix_tokens`, `estimator_rng`, `cache`; assert imports contain no recognition/objective/training module; compare repeated common-stream calls by dtype/shape/device plus contiguous raw `uint8` bytes/hash; reject a cache with wrong prefix/vocabulary/config/model-state/estimator digest; require `(3,)` and `(258,)` normalized outputs on their distinct vocabulary identities; distinguish signed zero; and test that the target is not read before scoring.
+- [ ] **Step 1: Write failing signature, target-blind, and snapshot tests.** Inspect the exact bound signature/import boundary; require `PriorPrediction.log_probs` to be a `FrozenTensorSnapshot` of shape `(V,)`; compare metadata/raw bytes/hash across common streams; prove caller mutation of the source or returned clone cannot alter the record, autograd is preserved, and a private-storage/version mutation fails on access. Reject wrong cache/prefix/vocabulary/config/model-state/estimator/data-safety identities and prove the target is not read before scoring.
 
 - [ ] **Step 2: Write failing independent estimator/constant tests on a shrunken deterministic grid.** Raw-hash the four frozen finite-model schemas, but use a small fixed subset of cells/seeds/particles to test carried nonuniform weights, weighted mixtures, incremental weights, `log Z_hat_t`, normalization/resampling order, ESS, systematic ancestors, cache state, cold/warm replay, and counters. Unit-test the complete 76-cell/512-replicate inventory formulas, df=511, familywise allocation, literal constants, thresholds, and status boundaries without executing that grid. Assert no SciPy import and fail on a one-ULP constant mutation. The full seeds `2026072300..2026072811` run only in deferred Task 13 evidence.
 
@@ -712,7 +749,7 @@ git commit -m "feat: add matched H6 arm factories"
 - Produces: `train_h6_attempt`, `save_h6_checkpoint`, `load_h6_checkpoint`, `score_prior_nll_replicate`, `aggregate_endpoint_smc`, `inflate_paired_interval`, `paired_t_interval`, and `decide_primary_prediction`.
 - Consumes: Task 1 H6-owned AdamW `H6TrainingSchedule` and Prediction-only exact H5 producer-field binding, Task 2 batch schedules, Task 4 `H6LanguageElboTerms`/typed non-ELBO ablation, Task 5 predictor, and Task 7 arms/matching report.
 
-- [ ] **Step 1: Write failing tiny training/resume tests.** No training object may be constructed before a valid readiness capability materializes train data. All endpoints receive identical window IDs, counted tokens, passes, model-update/validation/checkpoint indices, common outer-schedule hash, H6 AdamW class/policy/phase identities, Prediction-only exact H5 producer-field reference, and terminal-checkpoint policy. Split/resume reproduces uninterrupted active weights/optimizers, estimator stream, sampler cursor, and metric hashes. Assert A0/no-latent endpoints run only `MODEL_CE_ADAMW`, allocate no recognition state/optimizer, and contain no filler phase; latent endpoints run H6 recognition AdamW, detached/nonalias snapshot, then H6 model AdamW. Metrics and checkpoints round-trip the exact horizon, ordered factor identities, all seven ELBO partitions, decomposition total, equality-check record, and canonical `H6LanguageElboTerms` hash. Emission-only checkpoints use the distinct non-ELBO type/tag. No H6 phase is accepted as an H5 update label, and no schedule makes an exact-coordinate/GEM/natural-gradient/monotonicity claim.
+- [ ] **Step 1: Write failing tiny training/resume tests.** Enforce readiness, identical schedules, H6 AdamW identities, exact H5 provenance, and exact resume. Metrics/checkpoints round-trip the horizon, ordered factors, seven partitions, totals, equality record, and verified snapshot metadata/bytes/hashes; source/returned-clone mutation cannot alter them and private mutation fails before save/load. Emission-only uses its distinct type. H6 phases never become H5 labels or monotonicity claims.
 
 - [ ] **Step 2: Write failing scorer/uncertainty/statistics tests.** Use fake target-blind predictors and hand-authored 96-checkpoint/64-stream tables to prove corpus-summed token weighting, `-100` exclusion, no recognition argument, certificate/opening enforcement, exact particle/replicate inventory, registry pairing, `Y/Q0/Q1/Q2/R1/R2`, unbiased denominator-63 variance/covariance, exactly 352 simultaneous intervals, frozen `4.5144904535377144`, contraction and `B/H/e` thresholds, `Q2` as the reported NLL, and 256-corner interval inflation. Prove one-stream scoring, missing/nonfinite/duplicate streams, particle-level omission, failed convergence, or uncertainty above/equal-to the wrong side of a boundary is INCONCLUSIVE. Test exact `delta`, frozen df=7 constant `2.364624251592784`, PRIMARY/MAP rules, and descriptive rows.
 
@@ -811,18 +848,22 @@ git commit -m "test: audit H6 causal dataflow"
 - Modify: `tests/unit/test_atomic_artifacts.py`
 - Modify: `tests/integration/test_verify_vfe4.py`
 - Create: `tests/integration/test_train_vfe4.py`
+- Modify: `docs/superpowers/plans/2026-07-21-vfe4-h7-frame-covariance.md`
+- Modify: `docs/superpowers/plans/2026-07-21-vfe4-h8-sparse-scale.md`
 
 **Interfaces:**
 - Produces: exact public `project_h1_prefix_prior_config`, `project_h6_prefix_config`, and `run_projected_current_candidate` lifecycle adapters with the return records/signatures frozen under Public Interfaces; `CurrentPredictionPrerequisiteRefs`, `run_h6_prefix`, `validate_h6_prediction_readiness`, `run_h6_experiment`, separate atomic Prediction-prerequisite/certificate/readiness/failure/checkpoint/test-opening schemas, and two editable root dictionaries.
 - Consumes: all earlier tasks; launchers orchestrate only.
 
+**Precondition:** Before Task 11 closes, update the H7 and H8 plan consumers to the exact independent-Prefix projector/runner signatures above and add a focused cross-plan compatibility test. Until that docs/consumer sync passes, H6 retains the desired frozen contract but does not claim the current H7 plan consumes it. This synchronization is required documentation/integration work, not H6 evidence.
+
 - [ ] **Step 1: Write failing independent Prefix gate/artifact tests.** Require one prefix certificate per exact source/config/model-family/vocabulary/estimator/data-safety key, PASS/FAIL/INCONCLUSIVE precedence, stale-own-hash rejection, exact mask/case/static-audit inventories, atomic manifests, and no overwrite. Prove Prefix runs and publishes with no predecessor artifact or PASS state present. Reject any Prefix config, preflight, result, reference file, artifact, or ledger schema containing an H1--H5 status/reference. The artifact contains only `config.json`, `provenance.json`, `environment.json`, `validation/h6_prefix.json`, `certificates/prefix_set.json`, and `manifest.sha256`. Assert Prefix closure contains no H1 variant, SMC accuracy, H6 schedule, matching, tuning, capacity, checkpoint, opening, or prediction claim.
 
-- [ ] **Step 2: Write failing Prediction-readiness/access/launcher and lifecycle-adapter tests.** For each Prediction correctness input H1, H2, H3, and H5 independently, test absent payload, duplicate, `fail`, `inconclusive`, stale manifest, wrong `git_head`, wrong `dirty_digest`, wrong config/schema, and changed payload hash; each stops before endpoint factory/matcher, train materialization, optimizer, or trainer. Assert no H4 input is requested or can trigger an H4 benchmark. Validate H5 only through its payload/manifest identity and exact fields `update_spec_raw_sha256`, `update_spec_canonical_sha256`, `objective_schema_sha256`, `factor_input_schema_sha256`, `reference_sha256`, `recognition_state_sha256`, `model_state_sha256`, and `validation_payload_sha256`, with enabled labels restricted to the three actual H5 labels; reject invented schedule/snapshot/dependency hashes and Adam/AdamW labels. Reject Task 5/6 development artifacts whose revision/digest differs from the frozen Prediction candidate. After valid current inputs, require readiness to reconstruct every endpoint without corpus data, reproduce every parameter/FLOP/optimizer match report, and freeze H6-owned typed AdamW schedules. Test missing/stale/non-PASS prefix cert, current SMC/H1-prefix artifacts, critical-value/protocol hash, matrix key, and sealed-data access policy likewise. Focused compatibility tests freeze the exact three adapter signatures/return records, prove both projections are pure/nonmutating, require `project_h6_prefix_config(CONFIG)` to contain no predecessor fields, require `run_projected_current_candidate(..., predecessor_refs={})` for Prefix, and prove no H6 module owns `project_h7_compatibility_config`. `verify_vfe4.py` retains one editable root `CONFIG`, one `main`, and no required CLI; `train_vfe4.py` does likewise, imports without side effects, and its focused test shrinks dimensions/pass counts while preserving readiness/capability/factory/artifact paths.
+- [ ] **Step 2: Write failing Prediction-readiness/access/launcher and lifecycle-adapter tests.** Test fail-closed H1/H2/H3/H5 readiness and exact H5 fields/labels; H4 is absent. Freeze the three adapter signatures/records, pure projectors, keyword-only runner, `project_h6_prefix_config(CONFIG)` without predecessors, and `predecessor_refs={}` for Prefix. Add a focused consumer-contract fixture used by the synchronized H7/H8 plan text; reject their old predecessor-accepting Prefix signature. Prove H8 alone owns `project_h7_compatibility_config`. Retain one root `CONFIG`, one `main`, one guard, and no required CLI per launcher.
 
 - [ ] **Step 3: Run focused RED.** Run `python -m pytest tests/promotion/test_h6_prefix_gate.py tests/unit/test_h6_prediction_readiness.py tests/unit/test_config.py tests/unit/test_atomic_artifacts.py tests/integration/test_verify_vfe4.py tests/integration/test_train_vfe4.py -q`. Expected: FAIL on missing gate/readiness/launcher/orchestrator and conditional existing-surface wiring.
 
-- [ ] **Step 4: Implement the H6-owned lifecycle adapters and independent H6-Prefix publication.** Add pure, nonmutating `project_h1_prefix_prior_config(CONFIG) -> ProjectedCurrentCandidateConfig` and `project_h6_prefix_config(CONFIG) -> ProjectedCurrentCandidateConfig`, plus the generic keyword-only `run_projected_current_candidate(config,junit_sha256,predecessor_refs) -> CandidateArtifactReference` exactly as frozen above. H6-Prefix resolution and preflight validate only its exact own identities and require `predecessor_refs={}`. Publish only `config.json`, `provenance.json`, `environment.json`, `validation/h6_prefix.json`, `certificates/prefix_set.json`, and `manifest.sha256`; there is no predecessor reference file. The certificate set hashes sorted exact keys/payloads; `vfe4/types/results.py` carries the explicit H6 result. Leave H8's `project_h7_compatibility_config` to H8.
+- [ ] **Step 4: Implement the H6-owned lifecycle adapters and independent H6-Prefix publication.** Implement the frozen pure projectors and keyword-only runner; Prefix requires `predecessor_refs={}` and publishes no predecessor reference. Publish the complete fail-closed certificates with verified `data_safety_sha256`, payload bytes/hash/status/obligations, and domain-separated certificate hash. Synchronize the H7/H8 plan consumer signatures and focused contract test in the same source task; leave `project_h7_compatibility_config` H8-owned.
 
 - [ ] **Step 5: Implement Prediction readiness before experiment access.** `validate_h6_prediction_readiness` first revalidates the exact deferred-evidence H1/H2/H3/H5 artifacts at one `git_head`/`dirty_digest`, then the separate same-candidate H1-prefix-prior and finite-SMC artifacts/ledgers and independent H6-Prefix certificate set. It validates H5's actual fields/labels as correctness provenance while taking AdamW class/policy/phases solely from the common/typed H6 schedule. It also validates critical-value and actual-endpoint protocol hashes, the literal matrix, every prefix key, and the blinded-data access policy; then it reconstructs all endpoints without corpus access and mechanically reproduces/freeze-hashes every match report. It never requests H4 or launches an H4 benchmark. It publishes separate `h6_prediction_readiness.json` and returns an opaque PASS token. Only that token can materialize train data or start empirical operations; matching is a Prediction-readiness phase, not a Prefix claim.
 
@@ -833,7 +874,7 @@ git commit -m "test: audit H6 causal dataflow"
 - [ ] **Step 8: Commit.**
 
 ```text
-git add vfe4/artifacts/h6.py vfe4/artifacts/provenance.py vfe4/artifacts/__init__.py vfe4/types/results.py vfe4/config/schema.py vfe4/config/resolve.py verification/h6_prefix_gate.py verification/run_gates.py verify_vfe4.py train_vfe4.py vfe4/training/h6_experiment.py vfe4/training/h6_readiness.py tests/promotion/test_h6_prefix_gate.py tests/unit/test_h6_prediction_readiness.py tests/unit/test_config.py tests/unit/test_atomic_artifacts.py tests/integration/test_verify_vfe4.py tests/integration/test_train_vfe4.py
+git add vfe4/artifacts/h6.py vfe4/artifacts/provenance.py vfe4/artifacts/__init__.py vfe4/types/results.py vfe4/config/schema.py vfe4/config/resolve.py verification/h6_prefix_gate.py verification/run_gates.py verify_vfe4.py train_vfe4.py vfe4/training/h6_experiment.py vfe4/training/h6_readiness.py tests/promotion/test_h6_prefix_gate.py tests/unit/test_h6_prediction_readiness.py tests/unit/test_config.py tests/unit/test_atomic_artifacts.py tests/integration/test_verify_vfe4.py tests/integration/test_train_vfe4.py docs/superpowers/plans/2026-07-21-vfe4-h7-frame-covariance.md docs/superpowers/plans/2026-07-21-vfe4-h8-sparse-scale.md
 git commit -m "feat: publish H6 prefix and experiment surfaces"
 ```
 
@@ -855,7 +896,7 @@ python -m pytest tests/promotion/test_h6_prefix_gate.py tests/unit/test_h6_predi
 
 Expected: PASS on shrunken fixtures. This is focused source verification only, not full Prefix, SMC, corpus, checkpoint, timing, or Prediction evidence.
 
-- [ ] **Step 3: Review the three H6-owned lifecycle adapters.** Confirm the exact public signatures and return records for `project_h1_prefix_prior_config`, `project_h6_prefix_config`, and `run_projected_current_candidate`; Prefix projection/runner tests require no predecessor reference or PASS state. Confirm `project_h7_compatibility_config` is absent because H8 owns it.
+- [ ] **Step 3: Review lifecycle adapters and consumer synchronization.** Confirm the exact three H6-owned signatures/records, pure projections, keyword-only runner, and empty Prefix predecessor mapping. Confirm the H7/H8 plan consumers were updated and focused-tested against that contract before Task 11 closed; do not describe this docs sync as H6 evidence. Confirm `project_h7_compatibility_config` remains H8-owned.
 
 - [ ] **Step 4: Review the Prefix/Prediction boundary.** Confirm Prefix config, status, preflight, artifact, publication, and focused tests contain only exact H6 source/config/model-family/vocabulary/estimator/data-safety identities. Confirm Prediction readiness alone names exact H1/H2/H3/H5 correctness, H1-prefix-prior, finite-SMC, and Prefix inputs; it neither requires H4 nor calls the deferred H4 benchmark.
 
@@ -924,8 +965,8 @@ Expected: PASS on shrunken fixtures. This is focused source verification only, n
 
 ## Self-Review of Plan Completeness
 
-- **Spec coverage:** Tasks 1--11 build separate Prefix/Prediction surfaces with exact singleton/DAG types, horizon-indexed `H6LanguageElboTerms`, the actual H5 producer boundary, H6-owned AdamW schedules, and all three H7-consumed lifecycle adapters. Task 12 closes source with focused shrunken tests only. Tasks 13--14 explicitly defer full Prefix inventories, exact H1/H2/H3/H5 plus H1-prefix-prior/finite-SMC readiness, corpus training, 96 checkpoints, and one test opening; none requires or reruns H4 timing.
+- **Spec coverage:** Tasks 1--11 build separate Prefix/Prediction surfaces with explicit hashed DAG rows, exact receiver equality, complete data-safety-bound certificates, immutable tensor snapshots, domain-separated non-self-referential hashes, the actual H5 boundary, H6-owned AdamW schedules, and the frozen independent-Prefix lifecycle contract. Task 11 requires H7/H8 consumer-plan synchronization and focused compatibility before closure but does not claim the current H7 plan already consumes it. Task 12 closes source with focused tests; Tasks 13--14 defer evidence workloads and never rerun H4 timing.
 - **Task ordering:** Prefix can run and publish independently from its own identities. Prediction readiness alone consumes exact H1/H2/H3/H5, H1-prefix-prior, finite-SMC, and Prefix evidence before corpus materialization. Source buildout ends at Task 12 without a broad suite, gate, training run, checkpoint grid, or opening. Under separate authorization, tuning precedes confirmation, all checkpoints precede the durable opening, and Prediction closure never mutates Prefix evidence.
-- **Type consistency:** `ZeroDimensionalBase`, `CausalDag`, `H6LanguageStructure`, `H6FactorTerm`, `H6LanguageElboTerms`, `EmissionOnlyAblationTerms`, `ArmId`, `VocabularyIdentity`, `PrefixCaseKey`, `PrefixCertificate`, Prediction-only artifact refs, exact-field `H5UpdateBinding`, H6 AdamW schedules, the three lifecycle adapter records, capabilities, estimator records, and evidence revisions have one owner and consistent consumers. The public predictor signature, ELBO partitions, adapter signatures, vocabulary-sized result, access capabilities, and typed schedule are identical across config, factories, metrics, checkpoints, tests, and static audit.
+- **Type consistency:** `CausalDagRow`/`CausalDag` bind receiver edges intrinsically; structure receiver labels equal DAG receivers. `FrozenTensorSnapshot` owns every public tensor-bearing result. `PrefixCaseKey` includes data safety and `PrefixCertificate` binds the complete fail-closed validation record. Each record's single owned integrity digest excludes only itself and includes verified reference digests; content/reference digests are independently verified against their named external bytes/preimages. The independent lifecycle signatures remain consistent across H6 and the required synchronized H7/H8 consumer docs.
 - **Placeholder scan:** Every protocol choice that affects evidence is fixed here or has an exact pre-outcome measurement-and-freeze procedure. No threshold, seed, status rule, estimator algorithm, dataset substitution, or statistical decision is selected after predictive outcomes.
 - **Path check:** The plan is saved at `docs/superpowers/plans/2026-07-21-vfe4-h6-prefix-prediction.md`. Implementation must use a fresh dedicated branch/worktree, preserve the user's live/WIP, and follow the bounded commit sequence above. This authoring task itself performs no code change, test, training run, network action, or commit.
