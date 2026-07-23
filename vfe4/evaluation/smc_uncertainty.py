@@ -86,11 +86,15 @@ class EndpointSmcObservation:
     checkpoint_sha256: str
     replicate_id: int
     particle_count: int
-    nats_per_token: float
+    common_stream_sha256: str
+    negative_log_likelihood_sum: float
+    counted_targets: int
 
     def __post_init__(self) -> None:
         if not _is_sha256(self.checkpoint_sha256):
             raise ValueError("checkpoint_sha256 must be lowercase SHA-256")
+        if not _is_sha256(self.common_stream_sha256):
+            raise ValueError("common_stream_sha256 must be lowercase SHA-256")
         if (
             type(self.replicate_id) is not int
             or not 0 <= self.replicate_id < ENDPOINT_REPLICATE_COUNT
@@ -101,14 +105,31 @@ class EndpointSmcObservation:
             or self.particle_count not in ENDPOINT_PARTICLE_COUNTS
         ):
             raise ValueError("particle_count is outside the frozen ladder")
-        if type(self.nats_per_token) is not float:
-            raise ValueError("nats_per_token must be a binary64 float")
+        if type(self.negative_log_likelihood_sum) is not float:
+            raise ValueError("NLL sum must be a binary64 float")
+        if type(self.counted_targets) is not int:
+            raise ValueError("counted_targets must be an exact integer")
+
+    @property
+    def nats_per_token(self) -> float:
+        if (
+            not math.isfinite(self.negative_log_likelihood_sum)
+            or self.negative_log_likelihood_sum < 0.0
+            or self.counted_targets <= 0
+        ):
+            raise ValueError("NLL sufficient statistics are not finite/positive")
+        return self.negative_log_likelihood_sum / self.counted_targets
 
 
 @dataclass(frozen=True)
 class EndpointSmcAggregate:
     checkpoint_sha256: str
     y: Mapping[int, tuple[float, ...]]
+    y_means: Mapping[int, float]
+    y_sample_variances: Mapping[int, float]
+    y_cross_level_sample_covariances: Mapping[
+        tuple[int, int], float
+    ]
     q0: tuple[float, ...]
     q1: tuple[float, ...]
     q2: tuple[float, ...]
@@ -189,6 +210,9 @@ def _endpoint_failure(
                 "nonfinite_observations": (
                     "replace nonfinite endpoint observations"
                 ),
+                "invalid_target_totals": (
+                    "replace invalid endpoint NLL sufficient statistics"
+                ),
                 "nonfinite_derived_values": (
                     "resolve nonfinite endpoint uncertainty arithmetic"
                 ),
@@ -214,6 +238,8 @@ def aggregate_endpoint_smc(
     records = tuple(observations)
     if any(type(record) is not EndpointSmcObservation for record in records):
         raise ValueError("all observations must be exact EndpointSmcObservation")
+    for record in records:
+        record.__post_init__()
     checkpoint_ids = tuple(
         sorted({record.checkpoint_sha256 for record in records})
     )
@@ -224,16 +250,61 @@ def aggregate_endpoint_smc(
             checkpoint_sha256s=checkpoint_ids,
             observation_count=len(records),
         )
+    streams_by_replicate: dict[int, str] = {}
+    replicate_by_stream: dict[str, int] = {}
+    stream_identity_mismatch = False
+    target_counts = {
+        record.counted_targets
+        for record in records
+        if record.counted_targets > 0
+    }
+    for record in records:
+        prior_stream = streams_by_replicate.setdefault(
+            record.replicate_id, record.common_stream_sha256
+        )
+        prior_replicate = replicate_by_stream.setdefault(
+            record.common_stream_sha256, record.replicate_id
+        )
+        if (
+            prior_stream != record.common_stream_sha256
+            or prior_replicate != record.replicate_id
+        ):
+            stream_identity_mismatch = True
+    if stream_identity_mismatch or len(target_counts) > 1:
+        failure_kinds = []
+        if stream_identity_mismatch:
+            failure_kinds.append("common_stream_identity_mismatch")
+        if len(target_counts) > 1:
+            failure_kinds.append("counted_target_total_mismatch")
+        return _endpoint_failure(
+            status=EvidenceStatus.FAIL,
+            failure_kinds=tuple(failure_kinds),
+            checkpoint_sha256s=checkpoint_ids,
+            observation_count=len(records),
+        )
     keyed: dict[tuple[int, int], float] = {}
     duplicate_keys: set[tuple[int, int]] = set()
     nonfinite_keys: set[tuple[int, int]] = set()
     for record in records:
         key = (record.replicate_id, record.particle_count)
+        invalid_totals = (
+            record.counted_targets <= 0
+            or record.negative_log_likelihood_sum < 0.0
+        )
+        nonfinite = not math.isfinite(
+            record.negative_log_likelihood_sum
+        )
         if key in keyed:
             duplicate_keys.add(key)
         else:
-            keyed[key] = record.nats_per_token
-        if not math.isfinite(record.nats_per_token):
+            keyed[key] = (
+                math.nan
+                if invalid_totals or nonfinite
+                else record.nats_per_token
+            )
+        if invalid_totals:
+            nonfinite_keys.add(key)
+        if nonfinite:
             nonfinite_keys.add(key)
     expected_keys = {
         (replicate_id, particle_count)
@@ -246,7 +317,17 @@ def aggregate_endpoint_smc(
     if duplicate_keys:
         failure_kinds.append("duplicate_observations")
     if nonfinite_keys:
-        failure_kinds.append("nonfinite_observations")
+        if any(
+            record.counted_targets <= 0
+            or record.negative_log_likelihood_sum < 0.0
+            for record in records
+        ):
+            failure_kinds.append("invalid_target_totals")
+        if any(
+            not math.isfinite(record.negative_log_likelihood_sum)
+            for record in records
+        ):
+            failure_kinds.append("nonfinite_observations")
     if failure_kinds:
         return _endpoint_failure(
             status=EvidenceStatus.INCONCLUSIVE,
@@ -263,6 +344,24 @@ def aggregate_endpoint_smc(
         for particle_count in ENDPOINT_PARTICLE_COUNTS
     }
     y: Mapping[int, tuple[float, ...]] = MappingProxyType(y_mutable)
+    y_means_mutable = {
+        particle_count: _mean(y[particle_count])
+        for particle_count in ENDPOINT_PARTICLE_COUNTS
+    }
+    y_variances_mutable = {
+        particle_count: _sample_variance(
+            y[particle_count],
+            mean=y_means_mutable[particle_count],
+            degrees_of_freedom=ENDPOINT_DEGREES_OF_FREEDOM,
+        )
+        for particle_count in ENDPOINT_PARTICLE_COUNTS
+    }
+    y_covariances_mutable = {
+        (left, right): _sample_covariance(y[left], y[right])
+        for left, right in itertools.combinations(
+            ENDPOINT_PARTICLE_COUNTS, 2
+        )
+    }
     q0 = tuple(
         2.0 * y256 - y128
         for y128, y256 in zip(y[128], y[256], strict=True)
@@ -323,6 +422,11 @@ def aggregate_endpoint_smc(
     return EndpointSmcAggregate(
         checkpoint_sha256=checkpoint_ids[0],
         y=y,
+        y_means=MappingProxyType(y_means_mutable),
+        y_sample_variances=MappingProxyType(y_variances_mutable),
+        y_cross_level_sample_covariances=MappingProxyType(
+            y_covariances_mutable
+        ),
         q0=q0,
         q1=q1,
         q2=q2,
@@ -385,10 +489,12 @@ def paired_t_interval(values: Iterable[float]) -> PairedInterval:
     )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class InflatedPairedInterval:
     values: tuple[float, ...]
-    half_widths: tuple[float, ...]
+    paired_half_widths: tuple[float, ...]
+    left_bias_bounds: tuple[float, ...]
+    right_bias_bounds: tuple[float, ...]
     error_radii: tuple[float, ...]
     uninflated: PairedInterval
     corner_intervals: tuple[PairedInterval, ...]
@@ -398,24 +504,113 @@ class InflatedPairedInterval:
     status: EvidenceStatus
     obligations: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        for name in (
+            "values",
+            "paired_half_widths",
+            "left_bias_bounds",
+            "right_bias_bounds",
+            "error_radii",
+        ):
+            owned = getattr(self, name)
+            if type(owned) is not tuple or len(owned) != PAIRED_SEED_COUNT:
+                raise ValueError(f"{name} must contain exactly eight values")
+            for value in owned:
+                _finite_float(value, name)
+        for name in (
+            "paired_half_widths",
+            "left_bias_bounds",
+            "right_bias_bounds",
+            "error_radii",
+        ):
+            if any(value < 0.0 for value in getattr(self, name)):
+                raise ValueError(f"{name} must be nonnegative")
+        derived_radii = tuple(
+            math.fsum((half_width, left_bias, right_bias))
+            for half_width, left_bias, right_bias in zip(
+                self.paired_half_widths,
+                self.left_bias_bounds,
+                self.right_bias_bounds,
+                strict=True,
+            )
+        )
+        if self.error_radii != derived_radii:
+            raise ValueError("paired error radii are not H_i+B_left_i+B_right_i")
+        expected_uninflated = paired_t_interval(self.values)
+        expected_corners = tuple(
+            paired_t_interval(
+                tuple(
+                    value + sign * radius
+                    for value, radius, sign in zip(
+                        self.values,
+                        self.error_radii,
+                        signs,
+                        strict=True,
+                    )
+                )
+            )
+            for signs in itertools.product(
+                (-1.0, 1.0), repeat=PAIRED_SEED_COUNT
+            )
+        )
+        if (
+            self.uninflated != expected_uninflated
+            or self.corner_intervals != expected_corners
+            or len(self.corner_intervals) != PAIRED_CORNER_COUNT
+        ):
+            raise ValueError("paired interval arithmetic is stale or incomplete")
+        expected_lower = min(item.lower for item in expected_corners)
+        expected_upper = max(item.upper for item in expected_corners)
+        half_width_eligible = all(
+            value <= ENDPOINT_HALF_WIDTH_LIMIT
+            for value in self.paired_half_widths
+        )
+        radius_eligible = all(
+            value <= PAIRED_ERROR_RADIUS_LIMIT
+            for value in self.error_radii
+        )
+        expected_eligible = half_width_eligible and radius_eligible
+        expected_obligations: list[str] = []
+        if not half_width_eligible:
+            expected_obligations.append("paired estimator half-width exceeded")
+        if not radius_eligible:
+            expected_obligations.append("paired estimator error radius exceeded")
+        expected_status = (
+            EvidenceStatus.PASS
+            if expected_eligible
+            else EvidenceStatus.INCONCLUSIVE
+        )
+        if (
+            self.lower != expected_lower
+            or self.upper != expected_upper
+            or self.eligible is not expected_eligible
+            or self.status is not expected_status
+            or self.obligations != tuple(expected_obligations)
+        ):
+            raise ValueError("inflated paired interval fields are inconsistent")
+
 
 def inflate_paired_interval(
     values: Iterable[float],
-    half_widths: Iterable[float],
-    error_radii: Iterable[float],
+    paired_half_widths: Iterable[float],
+    left_bias_bounds: Iterable[float],
+    right_bias_bounds: Iterable[float],
 ) -> InflatedPairedInterval:
     """Envelope all 256 df=7 intervals over the eight error-box corners."""
 
     owned_values = tuple(values)
-    owned_half_widths = tuple(half_widths)
-    owned_radii = tuple(error_radii)
+    owned_half_widths = tuple(paired_half_widths)
+    owned_left_bias = tuple(left_bias_bounds)
+    owned_right_bias = tuple(right_bias_bounds)
     if (
         len(owned_values) != PAIRED_SEED_COUNT
         or len(owned_half_widths) != PAIRED_SEED_COUNT
-        or len(owned_radii) != PAIRED_SEED_COUNT
+        or len(owned_left_bias) != PAIRED_SEED_COUNT
+        or len(owned_right_bias) != PAIRED_SEED_COUNT
     ):
         raise ValueError(
-            "interval inflation requires eight values, half-widths, and radii"
+            "interval inflation requires eight effects, half-widths, and "
+            "left/right bias bounds"
         )
     for value in owned_values:
         _finite_float(value, "paired seed value")
@@ -423,10 +618,23 @@ def inflate_paired_interval(
         _finite_float(half_width, "paired estimator half-width")
         if half_width < 0.0:
             raise ValueError("paired estimator half-widths must be nonnegative")
-    for radius in owned_radii:
-        _finite_float(radius, "paired error radius")
-        if radius < 0.0:
-            raise ValueError("paired error radii must be nonnegative")
+    for name, bounds in (
+        ("left endpoint bias bound", owned_left_bias),
+        ("right endpoint bias bound", owned_right_bias),
+    ):
+        for bound in bounds:
+            _finite_float(bound, name)
+            if bound < 0.0:
+                raise ValueError(f"{name}s must be nonnegative")
+    owned_radii = tuple(
+        math.fsum((half_width, left_bias, right_bias))
+        for half_width, left_bias, right_bias in zip(
+            owned_half_widths,
+            owned_left_bias,
+            owned_right_bias,
+            strict=True,
+        )
+    )
 
     corner_intervals = tuple(
         paired_t_interval(
@@ -457,22 +665,29 @@ def inflate_paired_interval(
         obligations.append("paired estimator half-width exceeded")
     if not radius_eligible:
         obligations.append("paired estimator error radius exceeded")
-    return InflatedPairedInterval(
-        values=owned_values,
-        half_widths=owned_half_widths,
-        error_radii=owned_radii,
-        uninflated=paired_t_interval(owned_values),
-        corner_intervals=corner_intervals,
-        lower=min(interval.lower for interval in corner_intervals),
-        upper=max(interval.upper for interval in corner_intervals),
-        eligible=eligible,
-        status=(
+    values_by_name: dict[str, object] = {
+        "values": owned_values,
+        "paired_half_widths": owned_half_widths,
+        "left_bias_bounds": owned_left_bias,
+        "right_bias_bounds": owned_right_bias,
+        "error_radii": owned_radii,
+        "uninflated": paired_t_interval(owned_values),
+        "corner_intervals": corner_intervals,
+        "lower": min(interval.lower for interval in corner_intervals),
+        "upper": max(interval.upper for interval in corner_intervals),
+        "eligible": eligible,
+        "status": (
             EvidenceStatus.PASS
             if eligible
             else EvidenceStatus.INCONCLUSIVE
         ),
-        obligations=tuple(obligations),
-    )
+        "obligations": tuple(obligations),
+    }
+    result = object.__new__(InflatedPairedInterval)
+    for name, value in values_by_name.items():
+        object.__setattr__(result, name, value)
+    result.__post_init__()
+    return result
 
 
 def decide_primary_prediction(
@@ -484,6 +699,7 @@ def decide_primary_prediction(
 
     if type(inflated_interval) is not InflatedPairedInterval:
         raise ValueError("PRIMARY decision requires an inflated interval")
+    inflated_interval.__post_init__()
     if type(estimator_complete) is not bool:
         raise ValueError("estimator_complete must be boolean")
     complete = estimator_complete and inflated_interval.eligible

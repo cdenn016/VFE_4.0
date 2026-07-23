@@ -29,7 +29,17 @@ def test_eight_seed_interval_inflates_over_all_256_scalar_corners() -> None:
         for index in range(8)
     )
     half_widths = (0.00004,) * 8
-    error_radii = (0.0001,) * 8
+    left_bias_bounds = (0.00002,) * 8
+    right_bias_bounds = (0.00004,) * 8
+    error_radii = tuple(
+        math.fsum(items)
+        for items in zip(
+            half_widths,
+            left_bias_bounds,
+            right_bias_bounds,
+            strict=True,
+        )
+    )
 
     interval = paired_t_interval(values)
     expected_lower, expected_upper = _expected_interval(values)
@@ -52,7 +62,8 @@ def test_eight_seed_interval_inflates_over_all_256_scalar_corners() -> None:
     inflated = inflate_paired_interval(
         values,
         half_widths,
-        error_radii,
+        left_bias_bounds,
+        right_bias_bounds,
     )
 
     assert len(inflated.corner_intervals) == 2**8 == 256
@@ -62,9 +73,14 @@ def test_eight_seed_interval_inflates_over_all_256_scalar_corners() -> None:
     assert inflated.upper == pytest.approx(
         max(upper for _, upper in expected_intervals)
     )
-    assert inflated.half_widths == half_widths
+    assert inflated.paired_half_widths == half_widths
+    assert inflated.error_radii == error_radii
     decision = decide_primary_prediction(
         inflated,
         estimator_complete=True,
     )
     assert decision.status is EvidenceStatus.PASS
+
+    object.__setattr__(inflated, "lower", inflated.lower + 1.0)
+    with pytest.raises(ValueError, match="inconsistent"):
+        decide_primary_prediction(inflated, estimator_complete=True)

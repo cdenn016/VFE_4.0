@@ -261,6 +261,16 @@ training, checkpoint inventories, and endpoint evidence remain disabled
 click-run operations behind editable root dictionaries and separate
 authorization.
 
+Each endpoint-SMC observation binds its checkpoint, replicate ID, particle
+count, common-stream identity, corpus-summed negative log likelihood, and exact
+counted-target total; `nats_per_token` is derived rather than caller supplied.
+Aggregation rejects mixed common-stream or target-count identities, and retains
+per-level means, denominator-63 variances, and cross-level covariances. Paired
+error radii are likewise derived as `e_i=H_i+B_left_i+B_right_i`; callers cannot
+provide an independent radius. The inflated 256-corner record is factory-only
+and revalidates all inputs, corners, bounds, eligibility, and status before any
+PRIMARY decision consumes it.
+
 ## Frozen arm-construction and matching contract
 
 `ArmConfig`, `CapacityAllocation`, `BuiltArm`, `ParameterRoleRecord`,

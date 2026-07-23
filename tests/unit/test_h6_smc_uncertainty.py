@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -33,6 +35,12 @@ def _sample_covariance(
     ) / 63
 
 
+def _stream_sha256(replicate_id: int) -> str:
+    return hashlib.sha256(
+        f"h6-test-common-stream-{replicate_id}".encode("ascii")
+    ).hexdigest()
+
+
 def test_one_checkpoint_64_by_4_aggregate_uses_frozen_arithmetic() -> None:
     observations = []
     expected_y = {particle_count: [] for particle_count in PARTICLES}
@@ -52,7 +60,9 @@ def test_one_checkpoint_64_by_4_aggregate_uses_frozen_arithmetic() -> None:
                     checkpoint_sha256=SHA_A,
                     replicate_id=replicate_id,
                     particle_count=particle_count,
-                    nats_per_token=value,
+                    common_stream_sha256=_stream_sha256(replicate_id),
+                    negative_log_likelihood_sum=value * 100.0,
+                    counted_targets=100,
                 )
             )
 
@@ -86,6 +96,19 @@ def test_one_checkpoint_64_by_4_aggregate_uses_frozen_arithmetic() -> None:
     )
 
     assert aggregate.y[128] == pytest.approx(expected_y[128])
+    assert aggregate.y_means[128] == pytest.approx(
+        math.fsum(expected_y[128]) / 64
+    )
+    assert aggregate.y_sample_variances[128] == pytest.approx(
+        _sample_variance(tuple(expected_y[128]))
+    )
+    assert aggregate.y_cross_level_sample_covariances[(128, 256)] == (
+        pytest.approx(
+            _sample_covariance(
+                tuple(expected_y[128]), tuple(expected_y[256])
+            )
+        )
+    )
     assert aggregate.q0 == pytest.approx(q0)
     assert aggregate.q1 == pytest.approx(q1)
     assert aggregate.q2 == pytest.approx(q2)
@@ -108,3 +131,14 @@ def test_one_checkpoint_64_by_4_aggregate_uses_frozen_arithmetic() -> None:
     assert type(incomplete) is EndpointSmcFailure
     assert incomplete.status is EvidenceStatus.INCONCLUSIVE
     assert incomplete.failure_kinds == ("missing_observations",)
+
+    wrong_stream = list(observations)
+    wrong_stream[-1] = replace(
+        wrong_stream[-1], common_stream_sha256="f" * 64
+    )
+    identity_failure = aggregate_endpoint_smc(tuple(wrong_stream))
+    assert type(identity_failure) is EndpointSmcFailure
+    assert identity_failure.status is EvidenceStatus.FAIL
+    assert identity_failure.failure_kinds == (
+        "common_stream_identity_mismatch",
+    )
