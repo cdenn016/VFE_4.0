@@ -34,6 +34,10 @@ from vfe4.types.h5_schema import (
     H5_RECOGNITION_COORDINATE_UNIVERSE,
 )
 from vfe4.types.h6 import (
+    AdamWPolicyRecord,
+    ArmConfig,
+    ArmId,
+    CapacityAllocation,
     EndpointSmcProtocol,
     EstimatorSpec,
     H6LanguageStructure,
@@ -628,6 +632,118 @@ class H6PredictionResolvedConfig:
     artifact_root: Path
     canonical_json: str
     config_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class H6ArmMatchingResolvedConfig:
+    """Standalone typed Task 7 projection; not an H6-Prediction v1 section."""
+
+    schema_version: Literal["h6-arm-matching-config-v1"]
+    operation: Literal["H6-Arm-Matching"]
+    arm_configs: tuple[
+        ArmConfig,
+        ArmConfig,
+        ArmConfig,
+        ArmConfig,
+        ArmConfig,
+        ArmConfig,
+    ]
+    adamw_policy: AdamWPolicyRecord
+    reference_allocation: CapacityAllocation
+    emission_width_candidates: tuple[int, int, int, int]
+    latent_width_candidates: tuple[int, int, int, int]
+    recognition_width_candidates: tuple[int, int, int]
+    parameter_relative_tolerance: float
+    flop_relative_tolerance: float
+    matching_schedule_sha256: str
+    canonical_json: str
+    config_sha256: str
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != "h6-arm-matching-config-v1"
+            or self.operation != "H6-Arm-Matching"
+            or type(self.arm_configs) is not tuple
+            or len(self.arm_configs) != 6
+            or any(type(item) is not ArmConfig for item in self.arm_configs)
+            or tuple(item.arm for item in self.arm_configs) != tuple(ArmId)
+            or type(self.adamw_policy) is not AdamWPolicyRecord
+            or type(self.reference_allocation) is not CapacityAllocation
+            or (
+                self.reference_allocation.emission_width,
+                self.reference_allocation.latent_width,
+                self.reference_allocation.recognition_width,
+            )
+            != (64, 16, 64)
+            or self.emission_width_candidates != (48, 64, 80, 96)
+            or self.latent_width_candidates != (8, 16, 24, 32)
+            or self.recognition_width_candidates != (32, 64, 96)
+            or type(self.parameter_relative_tolerance) is not float
+            or self.parameter_relative_tolerance != 0.01
+            or type(self.flop_relative_tolerance) is not float
+            or self.flop_relative_tolerance != 0.05
+            or type(self.matching_schedule_sha256) is not str
+            or len(self.matching_schedule_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in self.matching_schedule_sha256
+            )
+        ):
+            raise ValueError("H6 arm-matching configuration is not frozen")
+        a2_payload = self.arm_configs[2].semantic_payload()
+        a5_payload = self.arm_configs[5].semantic_payload()
+        if (
+            a2_payload["map_mode"]
+            != "generic_fixed_frame_non_coboundary"
+            or a5_payload["map_mode"] != "shared_vertex_coboundary"
+            or any(
+                a2_payload[name] != a5_payload[name]
+                for name in a2_payload
+                if name != "map_mode"
+            )
+        ):
+            raise ValueError(
+                "A2 and A5 must differ semantically only in map_mode"
+            )
+        payload = {
+            "schema_version": self.schema_version,
+            "operation": self.operation,
+            "arm_config_sha256": tuple(
+                item.config_sha256 for item in self.arm_configs
+            ),
+            "optimizer_policy_sha256": (
+                self.adamw_policy.optimizer_policy_sha256
+            ),
+            "reference_allocation_sha256": (
+                self.reference_allocation.allocation_sha256
+            ),
+            "emission_width_candidates": self.emission_width_candidates,
+            "latent_width_candidates": self.latent_width_candidates,
+            "recognition_width_candidates": (
+                self.recognition_width_candidates
+            ),
+            "parameter_relative_tolerance": (
+                self.parameter_relative_tolerance
+            ),
+            "flop_relative_tolerance": self.flop_relative_tolerance,
+            "matching_schedule_sha256": self.matching_schedule_sha256,
+        }
+        canonical = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        if self.canonical_json != canonical:
+            raise ValueError(
+                "H6 arm-matching canonical JSON does not match fields"
+            )
+        if self.config_sha256 != hashlib.sha256(
+            canonical.encode("utf-8")
+        ).hexdigest():
+            raise ValueError(
+                "H6 arm-matching config SHA-256 does not match fields"
+            )
 
 
 @dataclass(frozen=True)

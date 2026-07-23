@@ -264,6 +264,1036 @@ class VocabularyIdentity:
             raise ValueError("tokenizer_spec_sha256 does not match tokenizer bytes")
 
 
+_H6_CAPACITY_FIELDS = (
+    "emission_width",
+    "latent_width",
+    "recognition_width",
+)
+_H6_ARM_SEMANTIC_FIELDS = (
+    "latent_enabled",
+    "state_channel_enabled",
+    "model_channel_enabled",
+    "source_mode",
+    "map_mode",
+    "recognition_family",
+    "recognition_conditioning",
+    "prior_variant",
+    "mixture_mode",
+    "objective_kind",
+)
+_H6_SOURCE_MODES = frozenset(
+    {"absent", "immediate_predecessor", "categorical"}
+)
+_H6_MAP_MODES = frozenset(
+    {
+        "absent",
+        "generic_fixed_frame_non_coboundary",
+        "shared_vertex_coboundary",
+    }
+)
+_H6_RECOGNITION_FAMILIES = frozenset(
+    {"absent", "structured", "factorized"}
+)
+_H6_RECOGNITION_CONDITIONINGS = frozenset(
+    {"absent", "filtering", "smoothing"}
+)
+_H6_PRIOR_VARIANTS = frozenset(
+    {"absent", "fixed", "learned", "prefix_conditioned"}
+)
+_H6_MIXTURE_MODES = frozenset({"absent", "exact", "moment_projected"})
+_H6_OBJECTIVE_KINDS = frozenset(
+    {"cross_entropy", "complete_elbo", "emission_only_ablation_non_elbo"}
+)
+_H6_ARM_PROFILE_BY_CONFIG_ID = {
+    "h6-a0-ar-v1": (
+        ArmId.A0, False, False, False, "absent", "absent", "absent",
+        "absent", "absent", "absent", "cross_entropy",
+    ),
+    "h6-a1-ordinary-latent-v1": (
+        ArmId.A1, True, True, False, "absent", "absent", "structured",
+        "smoothing", "absent", "absent", "complete_elbo",
+    ),
+    "h6-a2-generic-map-v1": (
+        ArmId.A2, True, True, True, "categorical",
+        "generic_fixed_frame_non_coboundary", "structured", "smoothing",
+        "fixed", "exact", "complete_elbo",
+    ),
+    "h6-a3-immediate-predecessor-v1": (
+        ArmId.A3, True, True, True, "immediate_predecessor",
+        "shared_vertex_coboundary", "structured", "smoothing", "absent",
+        "absent", "complete_elbo",
+    ),
+    "h6-a4-state-only-v1": (
+        ArmId.A4, True, True, False, "categorical",
+        "shared_vertex_coboundary", "structured", "smoothing", "fixed",
+        "exact", "complete_elbo",
+    ),
+    "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1": (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "structured", "smoothing", "fixed",
+        "exact", "complete_elbo",
+    ),
+    "h6-a5-factorized-fixed-exact-complete-latent-smoothing-v1": (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "factorized", "smoothing", "fixed",
+        "exact", "complete_elbo",
+    ),
+    "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1": (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "structured", "smoothing",
+        "prefix_conditioned", "exact", "complete_elbo",
+    ),
+    "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1": (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "structured", "smoothing", "fixed",
+        "moment_projected", "complete_elbo",
+    ),
+    "h6-a5-structured-fixed-exact-emission-latent-smoothing-v1": (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "structured", "smoothing", "fixed",
+        "exact", "emission_only_ablation_non_elbo",
+    ),
+    "h6-a5-structured-fixed-exact-complete-nolatent-norecognition-v1": (
+        ArmId.A5, False, False, False, "absent", "absent", "absent",
+        "absent", "absent", "absent", "complete_elbo",
+    ),
+    "h6-a5-structured-fixed-exact-complete-latent-filtering-v1": (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "structured", "filtering", "fixed",
+        "exact", "complete_elbo",
+    ),
+}
+
+
+def _require_exact_type_tuple(
+    value: object,
+    item_type: type[object],
+    name: str,
+    *,
+    nonempty: bool = False,
+) -> tuple[object, ...]:
+    if (
+        type(value) is not tuple
+        or (nonempty and not value)
+        or any(type(item) is not item_type for item in value)
+    ):
+        qualifier = "nonempty " if nonempty else ""
+        raise ValueError(
+            f"{name} must be a {qualifier}tuple of {item_type.__name__}"
+        )
+    return value
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class AdamWPolicyRecord:
+    """The H6 optimizer policy, excluding the preregistered tuning cell."""
+
+    optimizer_class: Literal["AdamW"]
+    betas: tuple[float, float]
+    eps: float
+    amsgrad: Literal[False]
+    maximize: Literal[False]
+    foreach: Literal[False]
+    capturable: Literal[False]
+    differentiable: Literal[False]
+    fused: Literal[False]
+    zero_grad_set_to_none: Literal[True]
+    weight_decay_scope: Literal["all_active_parameters"]
+    gradient_clip: Literal["always_evaluated_l2_global_scale"]
+    gradient_clip_max_norm: float
+    optimizer_policy_sha256: str
+
+    def __post_init__(self) -> None:
+        expected_fields = (
+            "AdamW",
+            (0.9, 0.999),
+            1.0e-8,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            True,
+            "all_active_parameters",
+            "always_evaluated_l2_global_scale",
+            1.0,
+        )
+        observed_fields = tuple(
+            getattr(self, name)
+            for name in tuple(self.__dataclass_fields__)[:-1]
+        )
+        if observed_fields != expected_fields:
+            raise ValueError("AdamW policy must equal the frozen H6 contract")
+        expected = _owned_hash(
+            "vfe4.h6.adamw-policy.v1",
+            {
+                name: getattr(self, name)
+                for name in tuple(self.__dataclass_fields__)[:-1]
+            },
+        )
+        if self.optimizer_policy_sha256 != expected:
+            raise ValueError(
+                "optimizer_policy_sha256 does not match the AdamW policy"
+            )
+
+    @classmethod
+    def create(cls) -> "AdamWPolicyRecord":
+        values: dict[str, object] = {
+            "optimizer_class": "AdamW",
+            "betas": (0.9, 0.999),
+            "eps": 1.0e-8,
+            "amsgrad": False,
+            "maximize": False,
+            "foreach": False,
+            "capturable": False,
+            "differentiable": False,
+            "fused": False,
+            "zero_grad_set_to_none": True,
+            "weight_decay_scope": "all_active_parameters",
+            "gradient_clip": "always_evaluated_l2_global_scale",
+            "gradient_clip_max_norm": 1.0,
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            optimizer_policy_sha256=_owned_hash(
+                "vfe4.h6.adamw-policy.v1", values
+            ),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class CapacityAllocation:
+    """Outcome-blind width allocation used by formula-only arm matching."""
+
+    emission_width: int
+    latent_width: int | None
+    recognition_width: int | None
+    allocation_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self.emission_width) is not int or self.emission_width <= 0:
+            raise ValueError("emission_width must be a positive integer")
+        for name in ("latent_width", "recognition_width"):
+            value = getattr(self, name)
+            if value is not None and (type(value) is not int or value <= 0):
+                raise ValueError(f"{name} must be None or a positive integer")
+        if self.latent_width is None and self.recognition_width is not None:
+            raise ValueError(
+                "recognition_width requires an applicable latent allocation"
+            )
+        expected = _owned_hash(
+            "vfe4.h6.capacity-allocation.v1",
+            {
+                name: getattr(self, name)
+                for name in _H6_CAPACITY_FIELDS
+            },
+        )
+        if self.allocation_sha256 != expected:
+            raise ValueError(
+                "allocation_sha256 does not match the capacity allocation"
+            )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        emission_width: int,
+        latent_width: int | None,
+        recognition_width: int | None,
+    ) -> "CapacityAllocation":
+        values = {
+            "emission_width": emission_width,
+            "latent_width": latent_width,
+            "recognition_width": recognition_width,
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            allocation_sha256=_owned_hash(
+                "vfe4.h6.capacity-allocation.v1", values
+            ),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class ArmConfig:
+    """Typed, hash-bound semantic and nuisance-capacity arm configuration."""
+
+    arm: ArmId
+    config_id: str
+    vocabulary: VocabularyIdentity
+    horizon: int
+    latent_enabled: bool
+    state_channel_enabled: bool
+    model_channel_enabled: bool
+    source_mode: str
+    map_mode: str
+    recognition_family: str
+    recognition_conditioning: str
+    prior_variant: str
+    mixture_mode: str
+    objective_kind: str
+    capacity_allocation: CapacityAllocation
+    config_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self.arm) is not ArmId:
+            raise ValueError("arm must be an ArmId")
+        _require_nonempty(self.config_id, "config_id")
+        if type(self.vocabulary) is not VocabularyIdentity:
+            raise ValueError("vocabulary must be a VocabularyIdentity")
+        if type(self.horizon) is not int or self.horizon <= 0:
+            raise ValueError("horizon must be a positive integer")
+        for name in (
+            "latent_enabled",
+            "state_channel_enabled",
+            "model_channel_enabled",
+        ):
+            if type(getattr(self, name)) is not bool:
+                raise ValueError(f"{name} must be a bool")
+        choices = (
+            ("source_mode", _H6_SOURCE_MODES),
+            ("map_mode", _H6_MAP_MODES),
+            ("recognition_family", _H6_RECOGNITION_FAMILIES),
+            (
+                "recognition_conditioning",
+                _H6_RECOGNITION_CONDITIONINGS,
+            ),
+            ("prior_variant", _H6_PRIOR_VARIANTS),
+            ("mixture_mode", _H6_MIXTURE_MODES),
+            ("objective_kind", _H6_OBJECTIVE_KINDS),
+        )
+        for name, allowed in choices:
+            if getattr(self, name) not in allowed:
+                raise ValueError(f"{name} is not an implemented H6 value")
+        expected_profile = _H6_ARM_PROFILE_BY_CONFIG_ID.get(self.config_id)
+        observed_profile = (self.arm,) + tuple(
+            getattr(self, name) for name in _H6_ARM_SEMANTIC_FIELDS
+        )
+        if expected_profile is None or observed_profile != expected_profile:
+            raise ValueError(
+                "config_id and semantic fields must equal one canonical H6 arm profile"
+            )
+        if type(self.capacity_allocation) is not CapacityAllocation:
+            raise ValueError(
+                "capacity_allocation must be a CapacityAllocation"
+            )
+        if self.latent_enabled != (
+            self.capacity_allocation.latent_width is not None
+        ):
+            raise ValueError(
+                "latent_enabled must match latent_width applicability"
+            )
+        recognition_enabled = self.recognition_family != "absent"
+        if recognition_enabled != (
+            self.capacity_allocation.recognition_width is not None
+        ):
+            raise ValueError(
+                "recognition_family must match recognition_width applicability"
+            )
+        if (self.recognition_conditioning != "absent") != recognition_enabled:
+            raise ValueError(
+                "recognition conditioning must match recognition applicability"
+            )
+        if not self.latent_enabled:
+            forbidden = (
+                self.state_channel_enabled,
+                self.model_channel_enabled,
+                self.source_mode != "absent",
+                self.map_mode != "absent",
+                recognition_enabled,
+                self.prior_variant != "absent",
+                self.mixture_mode != "absent",
+            )
+            if any(forbidden):
+                raise ValueError(
+                    "a no-latent arm cannot retain latent/source/map sectors"
+                )
+        expected = _owned_hash(
+            "vfe4.h6.arm-config.v1", self.canonical_payload()
+        )
+        if self.config_sha256 != expected:
+            raise ValueError("config_sha256 does not match the arm config")
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "arm": self.arm.value,
+            "config_id": self.config_id,
+            "vocabulary": {
+                "vocabulary_id": self.vocabulary.vocabulary_id,
+                "size": self.vocabulary.size,
+                "tokenizer_spec_sha256": (
+                    self.vocabulary.tokenizer_spec_sha256
+                ),
+            },
+            "horizon": self.horizon,
+            **{
+                name: getattr(self, name)
+                for name in _H6_ARM_SEMANTIC_FIELDS
+            },
+            "capacity_allocation": {
+                name: getattr(self.capacity_allocation, name)
+                for name in _H6_CAPACITY_FIELDS
+            },
+            "capacity_allocation_sha256": (
+                self.capacity_allocation.allocation_sha256
+            ),
+        }
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        arm: ArmId,
+        config_id: str,
+        vocabulary: VocabularyIdentity,
+        horizon: int,
+        latent_enabled: bool,
+        state_channel_enabled: bool,
+        model_channel_enabled: bool,
+        source_mode: str,
+        map_mode: str,
+        recognition_family: str,
+        recognition_conditioning: str,
+        prior_variant: str,
+        mixture_mode: str,
+        objective_kind: str,
+        capacity_allocation: CapacityAllocation,
+    ) -> "ArmConfig":
+        values: dict[str, object] = {
+            "arm": arm,
+            "config_id": config_id,
+            "vocabulary": vocabulary,
+            "horizon": horizon,
+            "latent_enabled": latent_enabled,
+            "state_channel_enabled": state_channel_enabled,
+            "model_channel_enabled": model_channel_enabled,
+            "source_mode": source_mode,
+            "map_mode": map_mode,
+            "recognition_family": recognition_family,
+            "recognition_conditioning": recognition_conditioning,
+            "prior_variant": prior_variant,
+            "mixture_mode": mixture_mode,
+            "objective_kind": objective_kind,
+            "capacity_allocation": capacity_allocation,
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        digest = _owned_hash(
+            "vfe4.h6.arm-config.v1",
+            provisional.canonical_payload(),
+        )
+        return _new_frozen(
+            cls, **values, config_sha256=digest
+        )  # type: ignore[return-value]
+
+    def semantic_payload(self) -> dict[str, object]:
+        """Return only intervention-bearing fields, excluding identity/capacity."""
+
+        return {
+            name: getattr(self, name)
+            for name in _H6_ARM_SEMANTIC_FIELDS
+        }
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class ParameterRoleRecord:
+    qualified_name: str
+    role: str
+    phase: str
+    parameter_id: int
+    scalar_count: int
+    record_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_nonempty(self.qualified_name, "qualified_name")
+        _require_nonempty(self.role, "role")
+        try:
+            phase = TrainingPhase(self.phase)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("phase is not an H6 training phase") from exc
+        if phase is TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT:
+            raise ValueError("snapshot phase cannot own trainable parameters")
+        if type(self.parameter_id) is not int or self.parameter_id <= 0:
+            raise ValueError("parameter_id must be a positive object identity")
+        if type(self.scalar_count) is not int or self.scalar_count <= 0:
+            raise ValueError("scalar_count must be a positive integer")
+        expected = _owned_hash(
+            "vfe4.h6.parameter-role.v1",
+            {
+                "qualified_name": self.qualified_name,
+                "role": self.role,
+                "phase": self.phase,
+                "parameter_id": self.parameter_id,
+                "scalar_count": self.scalar_count,
+            },
+        )
+        if self.record_sha256 != expected:
+            raise ValueError("record_sha256 does not match parameter role")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        qualified_name: str,
+        role: str,
+        phase: str,
+        parameter_id: int,
+        scalar_count: int,
+    ) -> "ParameterRoleRecord":
+        values = {
+            "qualified_name": qualified_name,
+            "role": role,
+            "phase": phase,
+            "parameter_id": parameter_id,
+            "scalar_count": scalar_count,
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            record_sha256=_owned_hash(
+                "vfe4.h6.parameter-role.v1", values
+            ),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class OptimizerBinding:
+    phase: str
+    optimizer_class: Literal["AdamW"]
+    optimizer_policy_sha256: str
+    parameter_ids: tuple[int, ...]
+    binding_sha256: str
+
+    def __post_init__(self) -> None:
+        try:
+            phase = TrainingPhase(self.phase)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("phase is not an H6 training phase") from exc
+        if phase is TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT:
+            raise ValueError("snapshot phase cannot have an optimizer binding")
+        if self.optimizer_class != "AdamW":
+            raise ValueError("optimizer_class must be AdamW")
+        _require_sha256(
+            self.optimizer_policy_sha256, "optimizer_policy_sha256"
+        )
+        _require_exact_type_tuple(
+            self.parameter_ids, int, "parameter_ids", nonempty=True
+        )
+        if (
+            any(parameter_id <= 0 for parameter_id in self.parameter_ids)
+            or len(set(self.parameter_ids)) != len(self.parameter_ids)
+        ):
+            raise ValueError(
+                "parameter_ids must contain unique positive object identities"
+            )
+        expected = _owned_hash(
+            "vfe4.h6.optimizer-binding.v1",
+            {
+                "phase": self.phase,
+                "optimizer_class": self.optimizer_class,
+                "optimizer_policy_sha256": self.optimizer_policy_sha256,
+                "parameter_ids": self.parameter_ids,
+            },
+        )
+        if self.binding_sha256 != expected:
+            raise ValueError("binding_sha256 does not match optimizer binding")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        phase: str,
+        optimizer_class: str,
+        optimizer_policy_sha256: str,
+        parameter_ids: tuple[int, ...],
+    ) -> "OptimizerBinding":
+        values = {
+            "phase": phase,
+            "optimizer_class": optimizer_class,
+            "optimizer_policy_sha256": optimizer_policy_sha256,
+            "parameter_ids": tuple(parameter_ids),
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            binding_sha256=_owned_hash(
+                "vfe4.h6.optimizer-binding.v1", values
+            ),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class FlopTerm:
+    phase: str
+    operation: str
+    repetitions: int
+    arithmetic_flops_per_repetition: int
+    bytes_copied_per_repetition: int
+    total_arithmetic_flops: int
+    total_bytes_copied: int
+    term_sha256: str
+
+    def __post_init__(self) -> None:
+        try:
+            TrainingPhase(self.phase)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("phase is not an H6 training phase") from exc
+        _require_nonempty(self.operation, "operation")
+        if type(self.repetitions) is not int or self.repetitions <= 0:
+            raise ValueError("repetitions must be a positive integer")
+        for name in (
+            "arithmetic_flops_per_repetition",
+            "bytes_copied_per_repetition",
+        ):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{name} must be a nonnegative integer")
+        if self.total_arithmetic_flops != (
+            self.repetitions * self.arithmetic_flops_per_repetition
+        ):
+            raise ValueError("total_arithmetic_flops is inconsistent")
+        if self.total_bytes_copied != (
+            self.repetitions * self.bytes_copied_per_repetition
+        ):
+            raise ValueError("total_bytes_copied is inconsistent")
+        if (
+            self.phase == TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT.value
+            and self.arithmetic_flops_per_repetition != 0
+        ):
+            raise ValueError("immutable snapshots cost zero arithmetic FLOPs")
+        expected = _owned_hash(
+            "vfe4.h6.flop-term.v1",
+            {
+                name: getattr(self, name)
+                for name in tuple(self.__dataclass_fields__)[:-1]
+            },
+        )
+        if self.term_sha256 != expected:
+            raise ValueError("term_sha256 does not match the FLOP term")
+
+    @property
+    def arithmetic_flops(self) -> int:
+        return self.total_arithmetic_flops
+
+    @property
+    def copied_bytes(self) -> int:
+        return self.total_bytes_copied
+
+    @property
+    def total_flops(self) -> int:
+        return self.total_arithmetic_flops
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        phase: str,
+        operation: str,
+        repetitions: int,
+        arithmetic_flops_per_repetition: int,
+        bytes_copied_per_repetition: int,
+    ) -> "FlopTerm":
+        values = {
+            "phase": phase,
+            "operation": operation,
+            "repetitions": repetitions,
+            "arithmetic_flops_per_repetition": (
+                arithmetic_flops_per_repetition
+            ),
+            "bytes_copied_per_repetition": bytes_copied_per_repetition,
+            "total_arithmetic_flops": (
+                repetitions * arithmetic_flops_per_repetition
+            ),
+            "total_bytes_copied": (
+                repetitions * bytes_copied_per_repetition
+            ),
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            term_sha256=_owned_hash("vfe4.h6.flop-term.v1", values),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class MatchingReport:
+    matching_config_sha256: str
+    endpoint_config_sha256: str
+    reference_config_sha256: str
+    endpoint_parameter_count: int
+    reference_parameter_count: int
+    parameter_relative_difference: float
+    endpoint_training_flops: int
+    reference_training_flops: int
+    flop_relative_difference: float
+    parameter_relative_tolerance: float
+    flop_relative_tolerance: float
+    ownership_valid: bool
+    common_schedule: bool
+    optimizer_policy_match: bool
+    training_flop_ledger_complete: bool
+    training_flop_obligations: tuple[str, ...]
+    semantic_interventions: tuple[str, ...]
+    named_factor: str
+    nuisance_capacity_fields: tuple[str, ...]
+    capacity_allocation_policy: Literal[
+        "outcome_blind_nuisance_reallocation"
+    ]
+    common_schedule_sha256: str
+    status: Literal["ELIGIBLE", "INCONCLUSIVE"]
+    eligible: bool
+    obligations: tuple[str, ...]
+    report_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_sha256(
+            self.matching_config_sha256, "matching_config_sha256"
+        )
+        _require_sha256(
+            self.endpoint_config_sha256, "endpoint_config_sha256"
+        )
+        _require_sha256(
+            self.reference_config_sha256, "reference_config_sha256"
+        )
+        for name in (
+            "endpoint_parameter_count",
+            "reference_parameter_count",
+            "endpoint_training_flops",
+            "reference_training_flops",
+        ):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{name} must be a nonnegative integer")
+        if (
+            self.reference_parameter_count <= 0
+            or self.reference_training_flops <= 0
+        ):
+            raise ValueError("reference totals must be positive")
+        if (
+            type(self.parameter_relative_tolerance) is not float
+            or self.parameter_relative_tolerance != 0.01
+            or type(self.flop_relative_tolerance) is not float
+            or self.flop_relative_tolerance != 0.05
+        ):
+            raise ValueError("matching tolerances are not the canonical policy")
+        expected_parameter_difference = abs(
+            self.endpoint_parameter_count - self.reference_parameter_count
+        ) / self.reference_parameter_count
+        expected_flop_difference = abs(
+            self.endpoint_training_flops - self.reference_training_flops
+        ) / self.reference_training_flops
+        if (
+            self.parameter_relative_difference
+            != expected_parameter_difference
+            or self.flop_relative_difference != expected_flop_difference
+        ):
+            raise ValueError("matching relative differences are inconsistent")
+        for name in (
+            "ownership_valid",
+            "common_schedule",
+            "optimizer_policy_match",
+            "training_flop_ledger_complete",
+            "eligible",
+        ):
+            if type(getattr(self, name)) is not bool:
+                raise ValueError(f"{name} must be a bool")
+        _require_exact_type_tuple(
+            self.training_flop_obligations,
+            str,
+            "training_flop_obligations",
+        )
+        _require_exact_type_tuple(
+            self.semantic_interventions,
+            str,
+            "semantic_interventions",
+        )
+        _require_nonempty(self.named_factor, "named_factor")
+        _require_exact_type_tuple(
+            self.nuisance_capacity_fields,
+            str,
+            "nuisance_capacity_fields",
+        )
+        _require_exact_type_tuple(
+            self.obligations, str, "obligations"
+        )
+        if (
+            self.capacity_allocation_policy
+            != "outcome_blind_nuisance_reallocation"
+        ):
+            raise ValueError("capacity allocation policy is not frozen")
+        _require_sha256(
+            self.common_schedule_sha256, "common_schedule_sha256"
+        )
+        if self.status not in ("ELIGIBLE", "INCONCLUSIVE"):
+            raise ValueError("unsupported matching status")
+        if self.eligible != (self.status == "ELIGIBLE"):
+            raise ValueError("eligible does not match status")
+        if self.eligible != (not self.obligations):
+            raise ValueError("eligible reports must have no obligations")
+        expected = _owned_hash(
+            "vfe4.h6.matching-report.v1",
+            {
+                name: getattr(self, name)
+                for name in tuple(self.__dataclass_fields__)[:-1]
+            },
+        )
+        if self.report_sha256 != expected:
+            raise ValueError("report_sha256 does not match matching report")
+
+    @classmethod
+    def from_totals(
+        cls,
+        *,
+        matching_config_sha256: str,
+        endpoint_config_sha256: str,
+        reference_config_sha256: str,
+        endpoint_parameter_count: int,
+        reference_parameter_count: int,
+        endpoint_training_flops: int,
+        reference_training_flops: int,
+        parameter_relative_tolerance: float,
+        flop_relative_tolerance: float,
+        ownership_valid: bool,
+        common_schedule: bool,
+        optimizer_policy_match: bool,
+        training_flop_ledger_complete: bool,
+        training_flop_obligations: tuple[str, ...],
+        semantic_interventions: tuple[str, ...],
+        named_factor: str,
+        nuisance_capacity_fields: tuple[str, ...],
+        common_schedule_sha256: str,
+    ) -> "MatchingReport":
+        if (
+            type(reference_parameter_count) is not int
+            or reference_parameter_count <= 0
+            or type(reference_training_flops) is not int
+            or reference_training_flops <= 0
+        ):
+            raise ValueError("reference matching totals must be positive")
+        parameter_relative_difference = abs(
+            endpoint_parameter_count - reference_parameter_count
+        ) / reference_parameter_count
+        flop_relative_difference = abs(
+            endpoint_training_flops - reference_training_flops
+        ) / reference_training_flops
+        obligations: list[str] = []
+        if not ownership_valid:
+            obligations.append("resolve exact parameter ownership")
+        if not common_schedule:
+            obligations.append("restore the common training schedule")
+        if not optimizer_policy_match:
+            obligations.append("restore the common AdamW policy")
+        flop_obligations = tuple(training_flop_obligations)
+        if (
+            type(training_flop_ledger_complete) is not bool
+            or type(flop_obligations) is not tuple
+            or any(type(item) is not str or not item for item in flop_obligations)
+        ):
+            raise ValueError("training FLOP completeness evidence is malformed")
+        if not training_flop_ledger_complete:
+            obligations.append(
+                "provide a complete whole-schedule training FLOP ledger"
+            )
+            obligations.extend(flop_obligations)
+        elif flop_obligations:
+            obligations.append(
+                "clear all training FLOP ledger obligations before eligibility"
+            )
+            obligations.extend(flop_obligations)
+        if parameter_relative_difference > parameter_relative_tolerance:
+            obligations.append(
+                "match active parameter count within the hard 1% tolerance"
+            )
+        if flop_relative_difference > flop_relative_tolerance:
+            obligations.append(
+                "match whole-schedule FLOPs within the hard 5% tolerance"
+            )
+        interventions = tuple(semantic_interventions)
+        if named_factor not in (
+            "whole_declared_architecture",
+            "arm_semantics",
+        ) and interventions != (named_factor,):
+            obligations.append(
+                "restrict semantic interventions to the named factor"
+            )
+        nuisance = tuple(nuisance_capacity_fields)
+        if (
+            len(set(nuisance)) != len(nuisance)
+            or any(field not in _H6_CAPACITY_FIELDS for field in nuisance)
+        ):
+            obligations.append(
+                "restrict nuisance fields to outcome-blind capacity widths"
+            )
+        values: dict[str, object] = {
+            "matching_config_sha256": matching_config_sha256,
+            "endpoint_config_sha256": endpoint_config_sha256,
+            "reference_config_sha256": reference_config_sha256,
+            "endpoint_parameter_count": endpoint_parameter_count,
+            "reference_parameter_count": reference_parameter_count,
+            "parameter_relative_difference": parameter_relative_difference,
+            "endpoint_training_flops": endpoint_training_flops,
+            "reference_training_flops": reference_training_flops,
+            "flop_relative_difference": flop_relative_difference,
+            "parameter_relative_tolerance": parameter_relative_tolerance,
+            "flop_relative_tolerance": flop_relative_tolerance,
+            "ownership_valid": ownership_valid,
+            "common_schedule": common_schedule,
+            "optimizer_policy_match": optimizer_policy_match,
+            "training_flop_ledger_complete": (
+                training_flop_ledger_complete
+            ),
+            "training_flop_obligations": flop_obligations,
+            "semantic_interventions": interventions,
+            "named_factor": named_factor,
+            "nuisance_capacity_fields": nuisance,
+            "capacity_allocation_policy": (
+                "outcome_blind_nuisance_reallocation"
+            ),
+            "common_schedule_sha256": common_schedule_sha256,
+            "status": "ELIGIBLE" if not obligations else "INCONCLUSIVE",
+            "eligible": not obligations,
+            "obligations": tuple(obligations),
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            report_sha256=_owned_hash(
+                "vfe4.h6.matching-report.v1", values
+            ),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class ArmMatrixRow:
+    row_id: str
+    left_config_id: str
+    left_factory_id: str
+    right_config_id: str
+    right_factory_id: str
+    named_factor: str
+    semantic_interventions: tuple[str, ...]
+    nuisance_capacity_fields: tuple[str, ...]
+    capacity_allocation_policy: Literal[
+        "outcome_blind_nuisance_reallocation"
+    ]
+    tuning_estimand: str
+    interpretation: str
+    confirmatory_seeds: tuple[int, ...]
+    checkpoint_template: str
+    certificate_key_template: str
+    opening_group: str
+    nonclaims: tuple[str, ...]
+    row_sha256: str
+
+    def __post_init__(self) -> None:
+        for name in (
+            "row_id",
+            "left_config_id",
+            "left_factory_id",
+            "right_config_id",
+            "right_factory_id",
+            "named_factor",
+            "tuning_estimand",
+            "interpretation",
+            "checkpoint_template",
+            "certificate_key_template",
+            "opening_group",
+        ):
+            _require_nonempty(getattr(self, name), name)
+        _require_exact_type_tuple(
+            self.semantic_interventions,
+            str,
+            "semantic_interventions",
+            nonempty=True,
+        )
+        _require_exact_type_tuple(
+            self.nuisance_capacity_fields,
+            str,
+            "nuisance_capacity_fields",
+        )
+        if any(
+            name not in _H6_CAPACITY_FIELDS
+            for name in self.nuisance_capacity_fields
+        ):
+            raise ValueError("matrix row has a non-capacity nuisance field")
+        if (
+            self.capacity_allocation_policy
+            != "outcome_blind_nuisance_reallocation"
+        ):
+            raise ValueError("matrix row capacity policy is not frozen")
+        _require_exact_type_tuple(
+            self.confirmatory_seeds,
+            int,
+            "confirmatory_seeds",
+            nonempty=True,
+        )
+        if self.confirmatory_seeds != tuple(range(2026072101, 2026072109)):
+            raise ValueError("matrix row confirmatory seeds are not frozen")
+        _require_exact_type_tuple(
+            self.nonclaims, str, "nonclaims", nonempty=True
+        )
+        expected = _owned_hash(
+            "vfe4.h6.arm-matrix-row.v1",
+            {
+                name: getattr(self, name)
+                for name in tuple(self.__dataclass_fields__)[:-1]
+            },
+        )
+        if self.row_sha256 != expected:
+            raise ValueError("row_sha256 does not match matrix row")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        row_id: str,
+        left_config_id: str,
+        left_factory_id: str,
+        right_config_id: str,
+        right_factory_id: str,
+        named_factor: str,
+        semantic_interventions: tuple[str, ...],
+        nuisance_capacity_fields: tuple[str, ...],
+        tuning_estimand: str,
+        interpretation: str,
+        checkpoint_template: str,
+        certificate_key_template: str,
+        opening_group: str,
+        nonclaims: tuple[str, ...],
+    ) -> "ArmMatrixRow":
+        values: dict[str, object] = {
+            "row_id": row_id,
+            "left_config_id": left_config_id,
+            "left_factory_id": left_factory_id,
+            "right_config_id": right_config_id,
+            "right_factory_id": right_factory_id,
+            "named_factor": named_factor,
+            "semantic_interventions": tuple(semantic_interventions),
+            "nuisance_capacity_fields": tuple(nuisance_capacity_fields),
+            "capacity_allocation_policy": (
+                "outcome_blind_nuisance_reallocation"
+            ),
+            "tuning_estimand": tuning_estimand,
+            "interpretation": interpretation,
+            "confirmatory_seeds": tuple(range(2026072101, 2026072109)),
+            "checkpoint_template": checkpoint_template,
+            "certificate_key_template": certificate_key_template,
+            "opening_group": opening_group,
+            "nonclaims": tuple(nonclaims),
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            row_sha256=_owned_hash(
+                "vfe4.h6.arm-matrix-row.v1", values
+            ),
+        )  # type: ignore[return-value]
+
+
 _TOKEN_STORAGE_DOMAIN = b"VFE4-H6-U16LE-TOKENS-V1\x00"
 
 

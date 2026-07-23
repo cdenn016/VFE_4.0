@@ -27,8 +27,12 @@ from vfe4.types.h5_schema import (
 )
 from vfe4.types.updates import H5UpdateRule, UpdateLabel
 from vfe4.types.h6 import (
+    AdamWPolicyRecord,
+    ArmConfig,
+    ArmId,
     CausalDag,
     CausalDagRow,
+    CapacityAllocation,
     EndpointSmcProtocol,
     EstimatorSpec,
     H6ArmPhaseSchedule,
@@ -57,6 +61,7 @@ from .schema import (
     H5_POSITIVE_CASE_IDS,
     H5_UPDATE_SPEC_CANONICAL_SHA256,
     H1PrefixPriorResolvedConfig,
+    H6ArmMatchingResolvedConfig,
     InferenceConfig,
     H6PredictionResolvedConfig,
     H6PrefixResolvedConfig,
@@ -1138,6 +1143,168 @@ def _resolve_h6_prediction_config(
     )
 
 
+def _resolve_h6_arm_matching_values(
+    *,
+    schema_version: str,
+    operation: str,
+    arm_configs: tuple[ArmConfig, ...],
+    adamw_policy: AdamWPolicyRecord,
+    reference_allocation: CapacityAllocation,
+    emission_width_candidates: tuple[int, ...],
+    latent_width_candidates: tuple[int, ...],
+    recognition_width_candidates: tuple[int, ...],
+    parameter_relative_tolerance: float,
+    flop_relative_tolerance: float,
+    matching_schedule_sha256: str,
+    expected_arm_config_sha256: tuple[str, ...] | None,
+    expected_optimizer_policy_sha256: str | None,
+    expected_reference_allocation_sha256: str | None,
+) -> H6ArmMatchingResolvedConfig:
+    """Resolve the standalone Task 7 projection without widening Prediction v1."""
+
+    if schema_version != "h6-arm-matching-config-v1":
+        raise ValueError(
+            "schema_version must equal 'h6-arm-matching-config-v1'"
+        )
+    if operation != "H6-Arm-Matching":
+        raise ValueError("operation must equal 'H6-Arm-Matching'")
+    if (
+        type(arm_configs) is not tuple
+        or len(arm_configs) != 6
+        or any(type(item) is not ArmConfig for item in arm_configs)
+        or tuple(item.arm for item in arm_configs) != tuple(ArmId)
+    ):
+        raise ValueError("arm_configs must contain A0 through A5 in order")
+    if type(adamw_policy) is not AdamWPolicyRecord:
+        raise ValueError("adamw_policy must be an AdamWPolicyRecord")
+    if type(reference_allocation) is not CapacityAllocation:
+        raise ValueError(
+            "reference_allocation must be a CapacityAllocation"
+        )
+
+    observed_arm_hashes = tuple(
+        item.config_sha256 for item in arm_configs
+    )
+    if (
+        expected_arm_config_sha256 is not None
+        and expected_arm_config_sha256 != observed_arm_hashes
+    ):
+        raise ValueError(
+            "expected_arm_config_sha256 does not match typed arm configs"
+        )
+    if (
+        expected_optimizer_policy_sha256 is not None
+        and expected_optimizer_policy_sha256
+        != adamw_policy.optimizer_policy_sha256
+    ):
+        raise ValueError(
+            "expected_optimizer_policy_sha256 does not match typed policy"
+        )
+    if (
+        expected_reference_allocation_sha256 is not None
+        and expected_reference_allocation_sha256
+        != reference_allocation.allocation_sha256
+    ):
+        raise ValueError(
+            "expected_reference_allocation_sha256 does not match typed allocation"
+        )
+    schedule_sha256 = _require_h6_sha256(
+        matching_schedule_sha256, "matching_schedule_sha256"
+    )
+    payload = {
+        "schema_version": schema_version,
+        "operation": operation,
+        "arm_config_sha256": observed_arm_hashes,
+        "optimizer_policy_sha256": (
+            adamw_policy.optimizer_policy_sha256
+        ),
+        "reference_allocation_sha256": (
+            reference_allocation.allocation_sha256
+        ),
+        "emission_width_candidates": emission_width_candidates,
+        "latent_width_candidates": latent_width_candidates,
+        "recognition_width_candidates": recognition_width_candidates,
+        "parameter_relative_tolerance": parameter_relative_tolerance,
+        "flop_relative_tolerance": flop_relative_tolerance,
+        "matching_schedule_sha256": schedule_sha256,
+    }
+    canonical_json, config_sha256 = _h6_json(payload)
+    return H6ArmMatchingResolvedConfig(
+        schema_version,  # type: ignore[arg-type]
+        operation,  # type: ignore[arg-type]
+        arm_configs,  # type: ignore[arg-type]
+        adamw_policy,
+        reference_allocation,
+        emission_width_candidates,  # type: ignore[arg-type]
+        latent_width_candidates,  # type: ignore[arg-type]
+        recognition_width_candidates,  # type: ignore[arg-type]
+        parameter_relative_tolerance,
+        flop_relative_tolerance,
+        schedule_sha256,
+        canonical_json,
+        config_sha256,
+    )
+
+
+def _resolve_h6_arm_matching_config(
+    raw: Mapping[str, object],
+) -> H6ArmMatchingResolvedConfig:
+    root = _require_mapping(raw, "h6_arm_matching")
+    expected_keys = frozenset(
+        {
+            "schema_version",
+            "operation",
+            "arm_configs",
+            "adamw_policy",
+            "reference_allocation",
+            "emission_width_candidates",
+            "latent_width_candidates",
+            "recognition_width_candidates",
+            "parameter_relative_tolerance",
+            "flop_relative_tolerance",
+            "matching_schedule_sha256",
+            "expected_arm_config_sha256",
+            "expected_optimizer_policy_sha256",
+            "expected_reference_allocation_sha256",
+        }
+    )
+    _validate_keys(root, expected_keys, "h6_arm_matching")
+    tuple_fields = (
+        "arm_configs",
+        "emission_width_candidates",
+        "latent_width_candidates",
+        "recognition_width_candidates",
+    )
+    for name in tuple_fields:
+        if type(root[name]) is not tuple:
+            raise ValueError(f"h6_arm_matching.{name} must be a tuple")
+    expected_arm_hashes = root["expected_arm_config_sha256"]
+    if expected_arm_hashes is not None and type(expected_arm_hashes) is not tuple:
+        raise ValueError(
+            "expected_arm_config_sha256 must be None or a tuple"
+        )
+    return _resolve_h6_arm_matching_values(
+        schema_version=root["schema_version"],  # type: ignore[arg-type]
+        operation=root["operation"],  # type: ignore[arg-type]
+        arm_configs=root["arm_configs"],  # type: ignore[arg-type]
+        adamw_policy=root["adamw_policy"],  # type: ignore[arg-type]
+        reference_allocation=root["reference_allocation"],  # type: ignore[arg-type]
+        emission_width_candidates=root["emission_width_candidates"],  # type: ignore[arg-type]
+        latent_width_candidates=root["latent_width_candidates"],  # type: ignore[arg-type]
+        recognition_width_candidates=root["recognition_width_candidates"],  # type: ignore[arg-type]
+        parameter_relative_tolerance=root["parameter_relative_tolerance"],  # type: ignore[arg-type]
+        flop_relative_tolerance=root["flop_relative_tolerance"],  # type: ignore[arg-type]
+        matching_schedule_sha256=root["matching_schedule_sha256"],  # type: ignore[arg-type]
+        expected_arm_config_sha256=expected_arm_hashes,  # type: ignore[arg-type]
+        expected_optimizer_policy_sha256=root[
+            "expected_optimizer_policy_sha256"
+        ],  # type: ignore[arg-type]
+        expected_reference_allocation_sha256=root[
+            "expected_reference_allocation_sha256"
+        ],  # type: ignore[arg-type]
+    )
+
+
 def resolve_config(
     raw: Mapping[str, object], *, repo_root: Path
 ) -> (
@@ -1145,6 +1312,7 @@ def resolve_config(
     | H1PrefixPriorResolvedConfig
     | H6PrefixResolvedConfig
     | H6PredictionResolvedConfig
+    | H6ArmMatchingResolvedConfig
 ):
     """Resolve one frozen H1--H5 or separately discriminated H6 operation."""
 
@@ -1159,10 +1327,16 @@ def resolve_config(
         return _resolve_h6_prefix_config(root, repo_root=repo_root)
     if discriminator == ("h6-prediction-config-v1", "H6-Prediction"):
         return _resolve_h6_prediction_config(root, repo_root=repo_root)
+    if discriminator == (
+        "h6-arm-matching-config-v1",
+        "H6-Arm-Matching",
+    ):
+        return _resolve_h6_arm_matching_config(root)
     if type(root.get("schema_version")) is str or "operation" in root:
         raise ValueError(
             "config schema_version and operation must identify a supported "
-            "H1 Prefix Prior, H6 Prefix, or H6 Prediction configuration"
+            "H1 Prefix Prior, H6 Prefix, H6 Prediction, or H6 Arm Matching "
+            "configuration"
         )
     return _resolve_h1_h5_config(root, repo_root=repo_root)
 
@@ -1197,6 +1371,19 @@ def resolve_h6_prediction_config(
     resolved = resolve_config(raw, repo_root=repo_root)
     if not isinstance(resolved, H6PredictionResolvedConfig):
         raise ValueError("configuration is not an H6 Prediction configuration")
+    return resolved
+
+
+def resolve_h6_arm_matching_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> H6ArmMatchingResolvedConfig:
+    """Resolve H6 Arm Matching through the standard discriminator."""
+
+    resolved = resolve_config(raw, repo_root=repo_root)
+    if not isinstance(resolved, H6ArmMatchingResolvedConfig):
+        raise ValueError(
+            "configuration is not an H6 Arm Matching configuration"
+        )
     return resolved
 
 

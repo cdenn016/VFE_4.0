@@ -196,34 +196,61 @@ semantic model, optional trainable recognition store, an arm-specific
 `TargetFreeProposalAdapter`, target-blind `PriorPredictor`, parameter-role
 table, optimizer bindings, FLOP terms, and model-family identity.
 
-Arm semantics are literal. A0 is normalized autoregressive CE with no latent,
-source, or recognition sector. A1 is an ordinary latent sequence model without
-typed maps. A2 uses unconstrained generic maps. A3 has fixed
-immediate-predecessor transitions and no source categorical variables. A4 has
-no model channel. A5 has state and model channels, both causal source banks,
-and typed same-point maps. Every latent arm's recognition `nn.Parameter` is
-owned by exactly one parameter store and bound exactly once to
-`recognition_adamw`; emitted recognition laws remain connected to those
-parameters but do not own them. Predictive and generative modules never import
-the store or a recognition law.
+Arm semantics are literal:
+
+- A0 is normalized autoregressive CE with no latent, source, map, or
+  recognition sector.
+- A1 is one ordinary Gaussian state chain with no categorical source bank,
+  internal map, model channel, `B_t`, or model-source bank.
+- A2 is identical to A5 except for map geometry. It retains the same state and
+  model channels, categorical state/model source banks, fixed source priors,
+  exact source mixture, recognition family/conditioning, complete objective,
+  and full same-receiver `B_t`. In place of A5's shared vertex frames
+  `U_t=exp(Phi_t)` and `Omega_tj=U_t U_j^-1`, A2 uses independent dense
+  fixed-frame/non-coboundary edge maps `A^z_tj` and `A^m_tj`.
+- A3 is a typed dual-channel immediate-predecessor family and constructs no
+  categorical source variable or source bank.
+- A4 is a typed shared-vertex-coboundary state-only family with one
+  categorical state-source bank and no model channel, `B_t`, or model-source
+  bank.
+- A5 is the full dual-channel, dual-source-bank shared vertex-coboundary
+  family with `U_t=exp(Phi_t)`, `Omega_tj=U_t U_j^-1`, and full same-receiver
+  `B_t`.
+
+The MAP contrast is therefore named **shared vertex-coboundary versus generic
+fixed-frame/non-coboundary maps**. It is an algebraic model-parameterization
+contrast at the singleton base, not a frame-covariance, connection, curvature,
+or holonomy claim. Every latent arm's recognition `nn.Parameter` is owned by
+exactly one parameter store and bound exactly once to `recognition_adamw`;
+emitted recognition laws remain connected to those parameters but do not own
+them. Predictive and generative modules never import the store or a recognition
+law.
+
+A1, A3, A4, and A5 have different live generative factors. Before downstream
+objective/training implementation, each latent family must declare and hash its
+own ELBO factor/term inventory. A5's full `1+6T` inventory cannot be applied
+unchanged to A1, A3, or A4 when factors are structurally absent.
 
 A5's reference allocation is exactly
-`(token_width=64, latent_width=16, recognition_width=64, map_rank=8)`. Other
-endpoints search, in field order
-`(token_width, latent_width, recognition_width, map_rank)`, only the applicable
-Cartesian product of these literal tuples:
+`(emission_width=64, latent_width=16, recognition_width=64)`. Latent endpoints
+search, in field order
+`(emission_width, latent_width, recognition_width)`, the Cartesian product of
+these literal tuples:
 
 ```text
-token_width       = (48, 64, 80, 96)
+emission_width    = (48, 64, 80, 96)
 latent_width      = (8, 16, 24, 32)
 recognition_width = (32, 64, 96)
-map_rank          = (4, 8, 16)
 ```
 
-Structurally absent fields are `None`, not dormant parameters. The maximum is
-144 formula-only candidates per endpoint. Selection is the first
-lexicographically eligible allocation and cannot inspect corpus bytes, loss,
-gradients, validation, test data, or any predictive metric.
+The maximum is 48 formula-only candidates per latent endpoint. A0 and every
+no-latent endpoint search exactly the four `emission_width` candidates with
+`latent_width=None` and `recognition_width=None`. Every present field must
+control a live tensor shape and live forward/training computation.
+Structurally absent fields are `None`; filler, dormant, identity-only, and no-op
+uses are forbidden. Selection is the first lexicographically eligible
+allocation and cannot inspect corpus bytes, loss, gradients, validation, test
+data, or any predictive metric.
 
 Parameter matching counts active trainable scalars by named role and phase.
 Every active object ID appears in exactly one declared AdamW binding;
@@ -236,19 +263,24 @@ costs one; length-`n` `log_softmax` costs `5n-1`; backward costs
 `3P+3` for `P` active gradient scalars; and AdamW costs `18P` per update.
 Immutable detached snapshots cost zero arithmetic FLOPs and record exact bytes
 copied. Whole-schedule training FLOPs contain only active training phases over
-the common batches/passes; data I/O, validation, checkpoint serialization, and
-test scoring are excluded. Every term records phase, operation, repetitions,
-arithmetic FLOPs, copied bytes, total, and digest.
+the common batches/passes; data I/O, validation, checkpoint serialization, test
+scoring, particle propagation, estimator work, and cache work are excluded.
+Every term records phase, operation, repetitions, arithmetic FLOPs, copied
+bytes, total, and digest. Prediction FLOPs are computed and reported separately
+for each endpoint/prefix/estimator/particle-count/cache protocol and never enter
+capacity-matching eligibility.
 
-Eligibility requires parameter difference at most 1% and whole-schedule FLOP
-difference at most 5% from A5, with common passes, batches, model-update
-opportunities, validation/checkpoint boundaries, and AdamW policy. Capacity
-allocation is an outcome-blind nuisance adjustment: after deleting only
-`capacity_allocation`, a component row's semantic configs must differ in
+Eligibility requires parameter difference at most 1% and whole-schedule
+**training** FLOP difference at most 5% from A5, with common passes, batches,
+model-update opportunities, validation/checkpoint boundaries, and AdamW policy.
+Capacity allocation is an outcome-blind nuisance adjustment: after deleting
+only `capacity_allocation`, a component row's semantic configs must differ in
 exactly its named factor; raw configs may additionally differ in the recorded
-allocation. Any other difference or absence of an eligible literal candidate
-makes the row INCONCLUSIVE. Matching does not convert a descriptive row into a
-causal claim.
+allocation. For MAP, the semantic diff must contain only the exact map-mode and
+map-parameter change above; both channels, both source banks, fixed priors,
+exact mixture, recognition, objective, and `B_t` must remain identical. Any
+other difference or absence of an eligible literal candidate makes the row
+INCONCLUSIVE. Matching does not convert a descriptive row into a causal claim.
 
 ## Frozen tuning protocol
 
@@ -463,7 +495,7 @@ otherwise the complete result is INCONCLUSIVE. Perplexity is secondary.
 Every row uses confirmatory seeds `2026072101..2026072108`, one terminal
 checkpoint per endpoint/seed, exact endpoint Prefix-certificate keys, and the
 all-or-none global test opening. Each endpoint must pass the 1% parameter, 5%
-whole-schedule FLOP, and exact optimizer-access checks; otherwise the row is
+whole-schedule training-FLOP, and exact optimizer-access checks; otherwise the row is
 ineligible/INCONCLUSIVE rather than relaxed. "Shared A5" means that both
 endpoints use the A5-primary selected `(lr,wd)` and estimate a factor
 intervention conditional on that optimizer setting.
@@ -471,7 +503,7 @@ intervention conditional on that optimizer setting.
 | ID | Left exact config / factory | Right exact config / factory | Sole config factor changed | Hyperparameter estimand | Interpretation |
 |---|---|---|---|---|---|
 | `PRIMARY` | `h6-a0-ar-v1` / `build_a0@h6-arm-v1` | `h6-a5-structured-fixed-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | Whole declared architecture | Equal six-cell tuning per endpoint | Primary A0--A5 predictive contrast; not component attribution. |
-| `MAP` | `h6-a2-generic-map-v1` / `build_a2@h6-arm-v1` | `h6-a5-structured-fixed-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | Generic map versus typed same-point map restriction | Equal six-cell tuning per endpoint | Conditional map attribution only; never H7 covariance. |
+| `MAP` | `h6-a2-generic-map-v1` / `build_a2@h6-arm-v1` | `h6-a5-structured-fixed-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | Shared vertex-coboundary versus generic fixed-frame/non-coboundary maps (right versus left) | Equal six-cell tuning per endpoint | Conditional map-parameterization attribution only. A2 and A5 are otherwise identical, including both source banks, fixed priors, exact mixture, recognition, objective, both channels, and `B_t`; never an H7 covariance, connection, curvature, or holonomy claim. |
 | `STRUCTURE` | `h6-a5-factorized-fixed-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | `h6-a5-structured-fixed-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | Recognition precision structure | Shared A5 | Recognition-family effect conditional on A5 tuning. |
 | `PRIOR` | `h6-a5-structured-fixed-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | `h6-a5-structured-prefix-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | Fixed versus prefix-conditioned generative source prior | Shared A5 | Descriptive changed-joint contrast; right endpoint requires a separate H1 rerun. |
 | `MIXTURE` | `h6-a5-structured-fixed-exact-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | `h6-a5-structured-fixed-projection-complete-latent-smoothing-v1` / `build_a5@h6-arm-v1` | Exact mixture versus declared moment projection | Shared A5 | Descriptive approximation contrast with a projection-error record. |
@@ -487,13 +519,17 @@ and an inflated MAP lower bound above zero.
 
 ## Arms, controls, and nonclaims
 
-Arms are A0 conventional autoregressive, A1 ordinary latent, A2 matched generic
-map, A3 immediate-predecessor/source-free, A4 model-channel-free, and A5 full
-H6. Parameter counts must be within 1% of A5 and whole-schedule FLOPs within 5%,
-with every active parameter in exactly one optimizer and no filler. Factorial
-reports isolate recognition structure, source-prior form, source mixture,
-complete ELBO versus emission-only, latent enablement, and smoothing versus
-filtering.
+Arms are A0 conventional autoregressive; A1 one ordinary Gaussian state chain;
+A2 the dual-channel/dual-source-bank A5 family with only generic
+fixed-frame/non-coboundary edge maps substituted; A3 typed dual-channel
+immediate-predecessor with no categorical sources; A4 typed
+shared-vertex-coboundary state-only with one state-source bank; and A5 the full
+dual-channel/dual-source-bank shared vertex-coboundary family. Parameter counts
+must be within 1% of A5 and whole-schedule training FLOPs within 5%, with every
+active parameter in exactly one optimizer and no filler. Prediction FLOPs are
+reported separately. Factorial reports isolate recognition structure,
+source-prior form, source mixture, complete ELBO versus emission-only, latent
+enablement, and smoothing versus filtering.
 
 H6 does not claim H7 covariance, orientation-reversing `GL(2)`, optimizer
 superiority, exact mixture when projection is used, universal leakage from
