@@ -33,6 +33,13 @@ from vfe4.types.h5_schema import (
     H5_QUADRATURE_ORDERS,
     H5_RECOGNITION_COORDINATE_UNIVERSE,
 )
+from vfe4.types.h6 import (
+    EndpointSmcProtocol,
+    EstimatorSpec,
+    H6LanguageStructure,
+    H6TrainingSchedule,
+    VocabularyIdentity,
+)
 from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
 
@@ -517,6 +524,50 @@ class ArtifactConfig:
 
 
 @dataclass(frozen=True)
+class H6SourceIdentity:
+    git_head: str
+    dirty_digest: str
+    source_sha256: str
+
+
+@dataclass(frozen=True)
+class H6PrefixResolvedConfig:
+    schema_version: Literal["h6-prefix-config-v1"]
+    operation: Literal["H6-Prefix"]
+    source: H6SourceIdentity
+    structure: H6LanguageStructure
+    model_family_sha256: str
+    vocabulary: VocabularyIdentity
+    estimator: EstimatorSpec
+    data_safety_sha256: str
+    artifact_root: Path
+    canonical_json: str
+    config_sha256: str
+
+
+@dataclass(frozen=True)
+class H6PredictionResolvedConfig:
+    schema_version: Literal["h6-prediction-config-v1"]
+    operation: Literal["H6-Prediction"]
+    source: H6SourceIdentity
+    correctness_manifests: tuple[tuple[str, str], ...]
+    h1_prefix_prior_manifest_sha256: str
+    smc_validation_manifest_sha256: str
+    prefix_certificate_set_sha256: str
+    h5_update_binding_sha256: str
+    training_schedule: H6TrainingSchedule
+    critical_values_sha256: str
+    endpoint_smc_protocol: EndpointSmcProtocol
+    attribution_matrix_sha256: str
+    matching_set_sha256: str
+    data_identity_sha256: str
+    access_policy_sha256: str
+    artifact_root: Path
+    canonical_json: str
+    config_sha256: str
+
+
+@dataclass(frozen=True)
 class ResolvedConfig:
     schema_version: Literal[1]
     objective_schema_version: Literal["vfe4-state-elbo-v1"]
@@ -533,3 +584,5 @@ class ResolvedConfig:
     h3: H3ValidationConfig | None = None
     h4: H4ValidationConfig | None = None
     h5: H5ValidationConfig | None = None
+    h6_prefix: H6PrefixResolvedConfig | None = None
+    h6_prediction: H6PredictionResolvedConfig | None = None

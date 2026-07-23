@@ -582,6 +582,17 @@ def test_resolve_config_does_not_mutate_input(tmp_path: Path) -> None:
     assert raw == before
 
 
+def test_h1_h5_configs_remain_free_of_h6_sections_and_byte_stable(tmp_path: Path) -> None:
+    raw = _raw_h5_config()
+    resolved = resolve_config(raw, repo_root=tmp_path)
+
+    assert resolved.h6_prefix is None
+    assert resolved.h6_prediction is None
+    payload = json.loads(resolved.canonical_json)
+    assert "h6_prefix" not in payload
+    assert "h6_prediction" not in payload
+
+
 @pytest.mark.parametrize(
     ("gates", "expected_length", "expected_sha256"),
     [

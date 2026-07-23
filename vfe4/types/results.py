@@ -212,11 +212,82 @@ class GateResult:
         object.__setattr__(self, "measurements", MappingProxyType(copied_measurements))
 
 
+@dataclass(frozen=True)
+class H6PrefixGateResult:
+    """Result of the independent H6 Prefix safety gate."""
+
+    gate: Literal["H6-Prefix"]
+    status: GateStatus
+    validation_payload_sha256: str
+    prefix_certificate_set_sha256: str
+    obligations: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.gate != "H6-Prefix":
+            raise ValueError("gate must be H6-Prefix")
+        if not isinstance(self.status, GateStatus):
+            raise ValueError("status must be a GateStatus")
+        _require_sha256(self.validation_payload_sha256, "validation_payload_sha256")
+        _require_sha256(
+            self.prefix_certificate_set_sha256,
+            "prefix_certificate_set_sha256",
+        )
+        _require_obligations(self.obligations)
+        if self.status is GateStatus.INCONCLUSIVE:
+            if not self.obligations:
+                raise ValueError("inconclusive H6-Prefix requires an obligation")
+        elif self.obligations:
+            raise ValueError("conclusive H6-Prefix cannot retain obligations")
+
+
+@dataclass(frozen=True)
+class H6PredictionResult:
+    """Result of the separately authorized H6 Prediction evidence stage."""
+
+    gate: Literal["H6-Prediction"]
+    status: GateStatus
+    readiness_sha256: str
+    metrics_sha256: str | None
+    obligations: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.gate != "H6-Prediction":
+            raise ValueError("gate must be H6-Prediction")
+        if not isinstance(self.status, GateStatus):
+            raise ValueError("status must be a GateStatus")
+        _require_sha256(self.readiness_sha256, "readiness_sha256")
+        if self.metrics_sha256 is not None:
+            _require_sha256(self.metrics_sha256, "metrics_sha256")
+        _require_obligations(self.obligations)
+        if self.status is GateStatus.INCONCLUSIVE:
+            if not self.obligations:
+                raise ValueError("inconclusive H6-Prediction requires an obligation")
+        else:
+            if self.obligations:
+                raise ValueError("conclusive H6-Prediction cannot retain obligations")
+            if self.metrics_sha256 is None:
+                raise ValueError("conclusive H6-Prediction requires metrics")
+
+
 def _require_allowance_pair(value: object, name: str) -> None:
     if type(value) is not tuple or len(value) != 2 or not all(
         isinstance(item, NumericalAllowance) for item in value
     ):
         raise ValueError(f"{name} must be a pair of NumericalAllowance")
+
+
+def _require_sha256(value: object, name: str) -> None:
+    if (
+        type(value) is not str
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError(f"{name} must be a lowercase 64-hex SHA-256")
+
+
+def _require_obligations(value: object) -> None:
+    if type(value) is not tuple or any(type(item) is not str or not item for item in value):
+        raise ValueError("obligations must be a tuple of nonempty strings")
 
 
 def _require_finite_pair(value: object, name: str) -> None:

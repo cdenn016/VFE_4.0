@@ -1,6 +1,11 @@
 """Strict configuration types and resolution for VFE 4.0."""
 
-from .resolve import resolve_config, resolve_h4_validation_config
+from .resolve import (
+    resolve_config,
+    resolve_h4_validation_config,
+    resolve_h6_prediction_config,
+    resolve_h6_prefix_config,
+)
 from .schema import (
     ArtifactConfig,
     DataConfig,
@@ -13,6 +18,9 @@ from .schema import (
     H4TraversalConfig,
     H4ValidationConfig,
     H5ValidationConfig,
+    H6PredictionResolvedConfig,
+    H6PrefixResolvedConfig,
+    H6SourceIdentity,
     InferenceConfig,
     ModelConfig,
     OptimizationConfig,
@@ -34,6 +42,9 @@ __all__ = [
     "H4TraversalConfig",
     "H4ValidationConfig",
     "H5ValidationConfig",
+    "H6PredictionResolvedConfig",
+    "H6PrefixResolvedConfig",
+    "H6SourceIdentity",
     "InferenceConfig",
     "ModelConfig",
     "OptimizationConfig",
@@ -43,4 +54,6 @@ __all__ = [
     "ValidationConfig",
     "resolve_config",
     "resolve_h4_validation_config",
+    "resolve_h6_prediction_config",
+    "resolve_h6_prefix_config",
 ]

@@ -26,6 +26,19 @@ from vfe4.types.h5_schema import (
     H5_RECOGNITION_COORDINATE_UNIVERSE,
 )
 from vfe4.types.updates import H5UpdateRule, UpdateLabel
+from vfe4.types.h6 import (
+    CausalDag,
+    CausalDagRow,
+    EndpointSmcProtocol,
+    EstimatorSpec,
+    H6ArmPhaseSchedule,
+    H6LanguageStructure,
+    H6OuterSchedule,
+    H6TrainingSchedule,
+    TrainingPhase,
+    VocabularyIdentity,
+    ZeroDimensionalBase,
+)
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
 
 from .schema import (
@@ -44,6 +57,9 @@ from .schema import (
     H5_POSITIVE_CASE_IDS,
     H5_UPDATE_SPEC_CANONICAL_SHA256,
     InferenceConfig,
+    H6PredictionResolvedConfig,
+    H6PrefixResolvedConfig,
+    H6SourceIdentity,
     ModelConfig,
     OptimizationConfig,
     RecognitionConfig,
@@ -348,6 +364,423 @@ def _validate_h4_orders(traversal: H4TraversalConfig, timing: H4TimingConfig) ->
                 problem_index += 1
     if problem_index != 120 or tuple(primary_rows) != timing.primary_timed_balance:
         raise ValueError("H4 timing balance does not follow independent-index parity")
+
+
+def _require_h6_sha256(value: object, location: str) -> str:
+    if (
+        type(value) is not str
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError(f"{location} must be a lowercase 64-hex SHA-256")
+    return value
+
+
+def _resolve_h6_source(value: object) -> H6SourceIdentity:
+    raw = _require_mapping(value, "source")
+    _validate_keys(raw, frozenset({"git_head", "dirty_digest", "source_sha256"}), "source")
+    git_head = raw["git_head"]
+    if (
+        type(git_head) is not str
+        or len(git_head) != 40
+        or any(character not in "0123456789abcdef" for character in git_head)
+    ):
+        raise ValueError("source.git_head must be a lowercase 40-hex Git object name")
+    return H6SourceIdentity(
+        git_head,
+        _require_h6_sha256(raw["dirty_digest"], "source.dirty_digest"),
+        _require_h6_sha256(raw["source_sha256"], "source.source_sha256"),
+    )
+
+
+def _h6_json(payload: Mapping[str, object]) -> tuple[str, str]:
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return canonical, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def resolve_h6_prefix_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> H6PrefixResolvedConfig:
+    """Resolve the independent predecessor-free H6 Prefix configuration."""
+    root = _require_mapping(raw, "h6_prefix")
+    _validate_keys(
+        root,
+        frozenset(
+            {
+                "schema_version", "operation", "source", "structure",
+                "model_family_sha256", "vocabulary", "estimator",
+                "data_safety_sha256", "artifact_root",
+            }
+        ),
+        "h6_prefix",
+    )
+    schema_version = _require_exact(
+        root["schema_version"], "h6-prefix-config-v1", "h6_prefix.schema_version"
+    )
+    operation = _require_exact(root["operation"], "H6-Prefix", "h6_prefix.operation")
+    source = _resolve_h6_source(root["source"])
+
+    structure_raw = _require_mapping(root["structure"], "h6_prefix.structure")
+    _validate_keys(
+        structure_raw, frozenset({"base", "dag", "receiver_labels"}),
+        "h6_prefix.structure",
+    )
+    base_raw = _require_mapping(structure_raw["base"], "h6_prefix.structure.base")
+    _validate_keys(
+        base_raw, frozenset({"base_id", "points", "dimension"}),
+        "h6_prefix.structure.base",
+    )
+    _require_exact(base_raw["base_id"], "C0", "h6_prefix.structure.base.base_id")
+    _require_exact(base_raw["points"], ["*"], "h6_prefix.structure.base.points")
+    _require_exact(base_raw["dimension"], 0, "h6_prefix.structure.base.dimension")
+    base = ZeroDimensionalBase.create()
+
+    dag_raw = _require_mapping(structure_raw["dag"], "h6_prefix.structure.dag")
+    _validate_keys(
+        dag_raw, frozenset({"labeling", "node_labels", "rows"}),
+        "h6_prefix.structure.dag",
+    )
+    _require_exact(dag_raw["labeling"], "zero_based", "h6_prefix.structure.dag.labeling")
+    node_labels_raw = dag_raw["node_labels"]
+    if type(node_labels_raw) is not list or any(type(item) is not int for item in node_labels_raw):
+        raise ValueError("h6_prefix.structure.dag.node_labels must be an integer list")
+    rows_raw = dag_raw["rows"]
+    if type(rows_raw) is not list:
+        raise ValueError("h6_prefix.structure.dag.rows must be a list")
+    rows: list[CausalDagRow] = []
+    for index, value in enumerate(rows_raw):
+        row = _require_mapping(value, f"h6_prefix.structure.dag.rows[{index}]")
+        _validate_keys(
+            row, frozenset({"receiver_t", "parents"}),
+            f"h6_prefix.structure.dag.rows[{index}]",
+        )
+        parents = row["parents"]
+        if type(parents) is not list or any(type(item) is not int for item in parents):
+            raise ValueError(f"h6_prefix.structure.dag.rows[{index}].parents must be integers")
+        rows.append(CausalDagRow(_require_int(row["receiver_t"], "receiver_t"), tuple(parents)))
+    dag = CausalDag.create(node_labels=tuple(node_labels_raw), rows=tuple(rows))
+    receivers_raw = structure_raw["receiver_labels"]
+    if type(receivers_raw) is not list or any(type(item) is not int for item in receivers_raw):
+        raise ValueError("h6_prefix.structure.receiver_labels must be an integer list")
+    structure = H6LanguageStructure.create(
+        base=base, dag=dag, receiver_labels=tuple(receivers_raw)
+    )
+
+    model_family_sha256 = _require_h6_sha256(
+        root["model_family_sha256"], "h6_prefix.model_family_sha256"
+    )
+    vocabulary_raw = _require_mapping(root["vocabulary"], "h6_prefix.vocabulary")
+    _validate_keys(
+        vocabulary_raw, frozenset({"vocabulary_id", "size", "tokenizer_spec_sha256"}),
+        "h6_prefix.vocabulary",
+    )
+    vocabulary = VocabularyIdentity(
+        _require_exact(
+            vocabulary_raw["vocabulary_id"], "h6-prefix-small-v1",
+            "h6_prefix.vocabulary.vocabulary_id",
+        ),
+        _require_int(vocabulary_raw["size"], "h6_prefix.vocabulary.size"),
+        _require_h6_sha256(
+            vocabulary_raw["tokenizer_spec_sha256"],
+            "h6_prefix.vocabulary.tokenizer_spec_sha256",
+        ),
+    )
+    if vocabulary.size != 3:
+        raise ValueError("H6 Prefix small vocabulary size must equal 3")
+
+    estimator_raw = _require_mapping(root["estimator"], "h6_prefix.estimator")
+    _validate_keys(
+        estimator_raw,
+        frozenset({"schema_version", "kind", "particle_count", "resampling", "dtype", "device"}),
+        "h6_prefix.estimator",
+    )
+    _require_exact(estimator_raw["schema_version"], "h6-estimator-v1", "estimator.schema_version")
+    estimator = EstimatorSpec.create(
+        kind=_require_exact(estimator_raw["kind"], "deterministic_exact", "estimator.kind"),
+        particle_count=_require_exact(estimator_raw["particle_count"], None, "estimator.particle_count"),
+        resampling=_require_exact(estimator_raw["resampling"], "none", "estimator.resampling"),
+        dtype=_require_exact(estimator_raw["dtype"], "float64", "estimator.dtype"),
+        device=_require_exact(estimator_raw["device"], "cpu", "estimator.device"),
+    )
+    data_safety_sha256 = _require_h6_sha256(
+        root["data_safety_sha256"], "h6_prefix.data_safety_sha256"
+    )
+    artifact_root = _resolve_run_root(root["artifact_root"], repo_root)
+    payload = {
+        "schema_version": schema_version,
+        "operation": operation,
+        "source": {
+            "git_head": source.git_head,
+            "dirty_digest": source.dirty_digest,
+            "source_sha256": source.source_sha256,
+        },
+        "structure": {
+            "base_sha256": base.canonical_sha256,
+            "dag_sha256": dag.canonical_sha256,
+            "receiver_labels": structure.receiver_labels,
+            "structure_sha256": structure.structure_sha256,
+        },
+        "model_family_sha256": model_family_sha256,
+        "vocabulary": {
+            "vocabulary_id": vocabulary.vocabulary_id,
+            "size": vocabulary.size,
+            "tokenizer_spec_sha256": vocabulary.tokenizer_spec_sha256,
+        },
+        "estimator": {
+            "schema_version": estimator.schema_version,
+            "kind": estimator.kind,
+            "particle_count": estimator.particle_count,
+            "resampling": estimator.resampling,
+            "dtype": estimator.dtype,
+            "device": estimator.device,
+            "estimator_sha256": estimator.estimator_sha256,
+        },
+        "data_safety_sha256": data_safety_sha256,
+        "artifact_root": artifact_root.as_posix(),
+    }
+    canonical_json, config_sha256 = _h6_json(payload)
+    return H6PrefixResolvedConfig(
+        schema_version, operation, source, structure, model_family_sha256,
+        vocabulary, estimator, data_safety_sha256, artifact_root,
+        canonical_json, config_sha256,
+    )
+
+
+def resolve_h6_prediction_config(
+    raw: Mapping[str, object], *, repo_root: Path
+) -> H6PredictionResolvedConfig:
+    """Resolve H6 Prediction without admitting H4 as a prerequisite."""
+    root = _require_mapping(raw, "h6_prediction")
+    _validate_keys(
+        root,
+        frozenset(
+            {
+                "schema_version", "operation", "source", "prerequisites",
+                "h5_update_binding_sha256", "training_schedule",
+                "critical_values_sha256", "endpoint_smc_protocol",
+                "attribution_matrix_sha256", "matching_set_sha256",
+                "data_identity_sha256", "access_policy_sha256", "artifact_root",
+            }
+        ),
+        "h6_prediction",
+    )
+    schema_version = _require_exact(
+        root["schema_version"], "h6-prediction-config-v1",
+        "h6_prediction.schema_version",
+    )
+    operation = _require_exact(
+        root["operation"], "H6-Prediction", "h6_prediction.operation"
+    )
+    source = _resolve_h6_source(root["source"])
+    prerequisites = _require_mapping(root["prerequisites"], "h6_prediction.prerequisites")
+    _validate_keys(
+        prerequisites,
+        frozenset(
+            {
+                "correctness_manifests", "h1_prefix_prior_manifest_sha256",
+                "smc_validation_manifest_sha256", "prefix_certificate_set_sha256",
+            }
+        ),
+        "h6_prediction.prerequisites",
+    )
+    correctness_raw = _require_mapping(
+        prerequisites["correctness_manifests"],
+        "h6_prediction.prerequisites.correctness_manifests",
+    )
+    if set(correctness_raw) != {"H1", "H2", "H3", "H5"}:
+        raise ValueError("correctness manifests must be exactly H1, H2, H3, H5; H4 is forbidden")
+    correctness_manifests = tuple(
+        (gate, _require_h6_sha256(correctness_raw[gate], f"correctness_manifests.{gate}"))
+        for gate in ("H1", "H2", "H3", "H5")
+    )
+    prefix_value = prerequisites["prefix_certificate_set_sha256"]
+    if prefix_value is None:
+        raise ValueError("exact H6-Prefix certificate set is required")
+    prefix_certificate_set_sha256 = _require_h6_sha256(
+        prefix_value, "prefix_certificate_set_sha256"
+    )
+    h1_prefix_prior_manifest_sha256 = _require_h6_sha256(
+        prerequisites["h1_prefix_prior_manifest_sha256"],
+        "h1_prefix_prior_manifest_sha256",
+    )
+    smc_validation_manifest_sha256 = _require_h6_sha256(
+        prerequisites["smc_validation_manifest_sha256"],
+        "smc_validation_manifest_sha256",
+    )
+
+    schedule_raw = _require_mapping(root["training_schedule"], "h6_prediction.training_schedule")
+    _validate_keys(
+        schedule_raw, frozenset({"schedule_schema", "outer", "endpoint_phases"}),
+        "h6_prediction.training_schedule",
+    )
+    _require_exact(
+        schedule_raw["schedule_schema"], "h6-training-schedule-v2",
+        "training_schedule.schedule_schema",
+    )
+    outer_raw = _require_mapping(schedule_raw["outer"], "training_schedule.outer")
+    _validate_keys(
+        outer_raw,
+        frozenset(
+            {
+                "schedule_schema", "optimizer_class", "optimizer_policy_sha256",
+                "model_updates_per_batch", "validation_twentieths_per_pass", "full_passes",
+            }
+        ),
+        "training_schedule.outer",
+    )
+    for name, expected in (
+        ("schedule_schema", "h6-outer-schedule-v1"),
+        ("optimizer_class", "AdamW"),
+        ("model_updates_per_batch", 1),
+        ("validation_twentieths_per_pass", 20),
+        ("full_passes", 2),
+    ):
+        _require_exact(outer_raw[name], expected, f"training_schedule.outer.{name}")
+    outer = H6OuterSchedule.create(
+        optimizer_policy_sha256=_require_h6_sha256(
+            outer_raw["optimizer_policy_sha256"],
+            "training_schedule.outer.optimizer_policy_sha256",
+        )
+    )
+    phases_raw = schedule_raw["endpoint_phases"]
+    if type(phases_raw) is not list or not phases_raw:
+        raise ValueError("training_schedule.endpoint_phases must be a nonempty list")
+    phase_records: list[H6ArmPhaseSchedule] = []
+    for index, value in enumerate(phases_raw):
+        phase_raw = _require_mapping(value, f"endpoint_phases[{index}]")
+        _validate_keys(
+            phase_raw,
+            frozenset(
+                {
+                    "endpoint_config_sha256", "latent_enabled", "phases",
+                    "recognition_updates_per_batch", "model_updates_per_batch", "no_op_phases",
+                }
+            ),
+            f"endpoint_phases[{index}]",
+        )
+        latent_enabled = phase_raw["latent_enabled"]
+        if type(latent_enabled) is not bool:
+            raise ValueError("endpoint latent_enabled must be a bool")
+        raw_phase_names = phase_raw["phases"]
+        if type(raw_phase_names) is not list:
+            raise ValueError("endpoint phases must be a list")
+        try:
+            phases = tuple(TrainingPhase(name) for name in raw_phase_names)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("endpoint phase name is unsupported") from exc
+        record = H6ArmPhaseSchedule.create(
+            endpoint_config_sha256=_require_h6_sha256(
+                phase_raw["endpoint_config_sha256"], "endpoint_config_sha256"
+            ),
+            latent_enabled=latent_enabled,
+            phases=phases,
+        )
+        for name in ("recognition_updates_per_batch", "model_updates_per_batch", "no_op_phases"):
+            if _require_int(phase_raw[name], name) != getattr(record, name):
+                raise ValueError(f"endpoint {name} does not match phase schedule")
+        phase_records.append(record)
+    training_schedule = H6TrainingSchedule.create(
+        outer=outer, endpoint_phases=tuple(phase_records)
+    )
+
+    endpoint_raw = _require_mapping(root["endpoint_smc_protocol"], "endpoint_smc_protocol")
+    _validate_keys(
+        endpoint_raw,
+        frozenset(
+            {
+                "protocol_schema", "particle_counts", "replicate_count",
+                "registry_root_seed", "common_stream_domain",
+                "simultaneous_interval_count", "familywise_alpha",
+                "critical_value_df63", "remainder_contraction",
+            }
+        ),
+        "endpoint_smc_protocol",
+    )
+    _require_exact(endpoint_raw["protocol_schema"], "h6-endpoint-smc-v1", "protocol_schema")
+    particles = endpoint_raw["particle_counts"]
+    if type(particles) is not list or any(type(item) is not int for item in particles):
+        raise ValueError("particle_counts must be an integer list")
+    endpoint_protocol = EndpointSmcProtocol.create(
+        particle_counts=tuple(particles),
+        replicate_count=_require_int(endpoint_raw["replicate_count"], "replicate_count"),
+        registry_root_seed=_require_int(endpoint_raw["registry_root_seed"], "registry_root_seed"),
+        common_stream_domain=_require_exact(
+            endpoint_raw["common_stream_domain"], "h6-wt2-endpoint-mc-v1", "common_stream_domain"
+        ),
+        simultaneous_interval_count=_require_int(
+            endpoint_raw["simultaneous_interval_count"], "simultaneous_interval_count"
+        ),
+        familywise_alpha=_require_exact(endpoint_raw["familywise_alpha"], 0.01, "familywise_alpha"),
+        critical_value_df63=_require_exact(
+            endpoint_raw["critical_value_df63"], 4.5144904535377144, "critical_value_df63"
+        ),
+        remainder_contraction=_require_exact(
+            endpoint_raw["remainder_contraction"], 0.75, "remainder_contraction"
+        ),
+    )
+    digest_names = (
+        "h5_update_binding_sha256", "critical_values_sha256",
+        "attribution_matrix_sha256", "matching_set_sha256",
+        "data_identity_sha256", "access_policy_sha256",
+    )
+    digests = {name: _require_h6_sha256(root[name], name) for name in digest_names}
+    artifact_root = _resolve_run_root(root["artifact_root"], repo_root)
+    payload = {
+        "schema_version": schema_version,
+        "operation": operation,
+        "source": {
+            "git_head": source.git_head,
+            "dirty_digest": source.dirty_digest,
+            "source_sha256": source.source_sha256,
+        },
+        "prerequisites": {
+            "correctness_manifests": dict(correctness_manifests),
+            "h1_prefix_prior_manifest_sha256": h1_prefix_prior_manifest_sha256,
+            "smc_validation_manifest_sha256": smc_validation_manifest_sha256,
+            "prefix_certificate_set_sha256": prefix_certificate_set_sha256,
+        },
+        "h5_update_binding_sha256": digests["h5_update_binding_sha256"],
+        "training_schedule": {
+            "schedule_schema": training_schedule.schedule_schema,
+            "outer_schedule_sha256": outer.outer_schedule_sha256,
+            "phase_schedule_sha256": tuple(item.phase_schedule_sha256 for item in phase_records),
+            "schedule_sha256": training_schedule.schedule_sha256,
+        },
+        "critical_values_sha256": digests["critical_values_sha256"],
+        "endpoint_smc_protocol_sha256": endpoint_protocol.protocol_sha256,
+        "attribution_matrix_sha256": digests["attribution_matrix_sha256"],
+        "matching_set_sha256": digests["matching_set_sha256"],
+        "data_identity_sha256": digests["data_identity_sha256"],
+        "access_policy_sha256": digests["access_policy_sha256"],
+        "artifact_root": artifact_root.as_posix(),
+    }
+    canonical_json, config_sha256 = _h6_json(payload)
+    return H6PredictionResolvedConfig(
+        schema_version,
+        operation,
+        source,
+        correctness_manifests,
+        h1_prefix_prior_manifest_sha256,
+        smc_validation_manifest_sha256,
+        prefix_certificate_set_sha256,
+        digests["h5_update_binding_sha256"],
+        training_schedule,
+        digests["critical_values_sha256"],
+        endpoint_protocol,
+        digests["attribution_matrix_sha256"],
+        digests["matching_set_sha256"],
+        digests["data_identity_sha256"],
+        digests["access_policy_sha256"],
+        artifact_root,
+        canonical_json,
+        config_sha256,
+    )
 
 
 def resolve_config(raw: Mapping[str, object], *, repo_root: Path) -> ResolvedConfig:
