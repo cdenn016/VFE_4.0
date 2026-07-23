@@ -13,6 +13,13 @@ from .reference_h4 import (
     make_h4_problem,
     parse_h4_problem_bytes,
 )
+from .language import LanguageGenerativeModel, NormalizedLanguageFactor
+from .source_priors import (
+    FixedSourcePrior,
+    MaskCaseKey,
+    NormalizedSourceFactor,
+    PrefixConditionedSourcePrior,
+)
 
 __all__ = [
     "assemble_generative_information",
@@ -20,6 +27,12 @@ __all__ = [
     "H3CanonicalJoint",
     "H3GenerativeModel",
     "H3ScalarGaussianFactor",
+    "FixedSourcePrior",
+    "LanguageGenerativeModel",
+    "MaskCaseKey",
+    "NormalizedLanguageFactor",
+    "NormalizedSourceFactor",
+    "PrefixConditionedSourcePrior",
     "canonical_h4_gaussian",
     "h4_anchor_from_h3",
     "make_h4_problem",

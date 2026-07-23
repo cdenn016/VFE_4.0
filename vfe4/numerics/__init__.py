@@ -1,6 +1,13 @@
 """Public numerical primitives for deterministic H1 evaluation."""
 
-from .categorical import categorical_kl, require_probability_vector, selected_log_softmax
+from .categorical import (
+    AllInvalidSourceRowError,
+    MaskedLogProbabilities,
+    categorical_kl,
+    masked_log_softmax_from_parents,
+    require_probability_vector,
+    selected_log_softmax,
+)
 from .gaussian import gaussian_log_prob, require_spd
 from .information import InformationGaussian
 from .h5_budget import (
@@ -19,6 +26,7 @@ from .precision import DenseCholeskyPrecision
 from .quadrature import probabilists_gauss_hermite
 
 __all__ = [
+    "AllInvalidSourceRowError",
     "categorical_kl",
     "DenseCholeskyPrecision",
     "gaussian_log_prob",
@@ -28,9 +36,11 @@ __all__ = [
     "H5DeltaAllowance",
     "H5TermAllowance",
     "InformationGaussian",
+    "MaskedLogProbabilities",
     "add_initial_gaussian",
     "add_scalar_conditional",
     "probabilists_gauss_hermite",
+    "masked_log_softmax_from_parents",
     "require_probability_vector",
     "require_spd",
     "selected_log_softmax",
