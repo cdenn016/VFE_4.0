@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Iterable, Mapping
+from typing import Iterable, Literal, Mapping
 
 from vfe4.numerics.critical_values import (
     ENDPOINT_T_DF63,
@@ -26,6 +27,95 @@ PAIRED_ERROR_RADIUS_LIMIT = 0.001005033585350145
 PAIRED_SEED_COUNT = 8
 PAIRED_DEGREES_OF_FREEDOM = 7
 PAIRED_CORNER_COUNT = 256
+
+
+@dataclass(frozen=True, slots=True)
+class SmcBiasSemantics:
+    """Freeze the distinction between raw Jensen bias and the Q2 remainder.
+
+    If ``Y_N = log Z_hat_N`` and ``Z_hat_N`` is nonnegative and unbiased for
+    ``Z``, Jensen gives ``E[Y_N] <= log Z`` and therefore the corresponding
+    raw NLL has the opposite inequality.  For an expansion
+
+    ``E[Y_N] = Y + c/N + d/N**2 + ...``,
+
+    Richardson extrapolation gives
+
+    ``E[2*Y_2N - Y_N] = Y - d/(2*N**2) + ...``.
+
+    The Jensen restriction ``c <= 0`` says nothing about the sign of ``d``.
+    Consequently the reported Q2 endpoint retains a two-sided conditional
+    geometric-remainder bound.
+    """
+
+    schema_version: Literal["h6-smc-bias-semantics-v2"] = (
+        "h6-smc-bias-semantics-v2"
+    )
+    raw_log_normalizer_direction: Literal[
+        "downward_or_equal_in_expectation"
+    ] = "downward_or_equal_in_expectation"
+    raw_nll_direction: Literal["upward_or_equal_in_expectation"] = (
+        "upward_or_equal_in_expectation"
+    )
+    reported_endpoint: Literal["Q2=2Y_1024-Y_512"] = (
+        "Q2=2Y_1024-Y_512"
+    )
+    q2_remainder_direction: Literal[
+        "unknown_without_signed_expansion"
+    ] = "unknown_without_signed_expansion"
+    q2_bound_kind: Literal[
+        "two_sided_conditional_geometric_remainder"
+    ] = "two_sided_conditional_geometric_remainder"
+    contraction: Literal[0.75] = ENDPOINT_REMAINDER_CONTRACTION
+    semantics_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "h6-smc-bias-semantics-v2":
+            raise ValueError("SMC bias semantics schema is frozen")
+        if (
+            self.raw_log_normalizer_direction
+            != "downward_or_equal_in_expectation"
+        ):
+            raise ValueError("raw log-normalizer Jensen direction is frozen")
+        if self.raw_nll_direction != "upward_or_equal_in_expectation":
+            raise ValueError("raw NLL Jensen direction is frozen")
+        if self.reported_endpoint != "Q2=2Y_1024-Y_512":
+            raise ValueError("reported SMC endpoint is frozen")
+        if (
+            self.q2_remainder_direction
+            != "unknown_without_signed_expansion"
+        ):
+            raise ValueError(
+                "Q2 remainder direction is unknown without a signed expansion"
+            )
+        if (
+            self.q2_bound_kind
+            != "two_sided_conditional_geometric_remainder"
+        ):
+            raise ValueError("Q2 bound kind must remain two-sided")
+        if self.contraction != ENDPOINT_REMAINDER_CONTRACTION:
+            raise ValueError("Q2 conditional contraction is frozen")
+        payload = "\x1f".join(
+            (
+                self.schema_version,
+                self.raw_log_normalizer_direction,
+                self.raw_nll_direction,
+                self.reported_endpoint,
+                self.q2_remainder_direction,
+                self.q2_bound_kind,
+                self.contraction.hex(),
+            )
+        ).encode("ascii")
+        object.__setattr__(
+            self,
+            "semantics_sha256",
+            hashlib.sha256(
+                b"vfe4.h6.smc-bias-semantics.v2\x00" + payload
+            ).hexdigest(),
+        )
+
+
+SMC_BIAS_SEMANTICS = SmcBiasSemantics()
 
 
 def _is_sha256(value: object) -> bool:
@@ -729,6 +819,8 @@ __all__ = [
     "PAIRED_SEED_COUNT",
     "PREDICTION_DELTA",
     "PairedInterval",
+    "SMC_BIAS_SEMANTICS",
+    "SmcBiasSemantics",
     "aggregate_endpoint_smc",
     "decide_primary_prediction",
     "inflate_paired_interval",
