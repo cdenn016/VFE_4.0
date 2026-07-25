@@ -1262,3 +1262,42 @@ git commit -m "feat: publish H6 prefix and experiment surfaces"
 - **Type consistency:** `CausalDagRow`/`CausalDag` bind receiver edges intrinsically; structure receiver labels equal DAG receivers. `FrozenTensorSnapshot` owns every public tensor-bearing result. `PrefixCaseKey` includes data safety and `PrefixCertificate` binds the complete fail-closed validation record. Each record's single owned integrity digest excludes only itself and includes verified reference digests; content/reference digests are independently verified against their named external bytes/preimages. The independent lifecycle signatures remain consistent across H6 and the required synchronized H7/H8 consumer docs.
 - **Placeholder scan:** Every protocol choice that affects evidence is fixed here or has an exact pre-outcome measurement-and-freeze procedure. No threshold, seed, status rule, estimator algorithm, dataset substitution, or statistical decision is selected after predictive outcomes.
 - **Path check:** The plan is saved at `docs/superpowers/plans/2026-07-21-vfe4-h6-prefix-prediction.md`. Implementation must use a fresh dedicated branch/worktree, preserve the user's live/WIP, and follow the bounded commit sequence above. This authoring task itself performs no code change, test, training run, network action, or commit.
+
+## July 25, 2026 audit amendment (normative)
+
+The normative amendment is
+`docs/preregistrations/2026-07-25-h6-audit-amendment.md`. Where this plan
+still names `h6-a0-ar-v1`, the fixed-prior A5 as PRIMARY, the
+pooled-latent-history prefix scorer, or OBJECTIVE as merely descriptive, the
+dated amendment supersedes that text.
+
+The amended build order is:
+
+1. replace PRIMARY A0 with `h6-a0-transformer-v2`, using H6
+   `L_max=32`, `h=52`, two equal heads of width 26, and exactly 61,982 active
+   parameters;
+2. implement the parent-specific pooled-prefix scorer-v2 prerequisite and
+   promote its complete A5 endpoint to PRIMARY;
+3. remove only exact shared-frame common-subexpression redundancy, then
+   select the A5 nuisance allocation by a prospective formula-only search
+   that must satisfy both the unchanged 1% parameter and 5% whole-schedule
+   training-FLOP gates;
+4. record Jensen's direction for raw `Y_N=log Z_hat_N` while keeping the
+   Richardson Q2 remainder and final estimator-error boxes two-sided;
+5. adjudicate the parent-specific complete-versus-emission OBJECTIVE gate
+   first under the single all-or-none opening, with
+   `delta_obj=-log(0.99)`, without claiming compute savings; and
+6. repin only direct consumers: the B1 scorer changes H1-Prefix/H6-Prefix
+   and therefore future H7 evidence; A1/A2/B2 change H6-Prediction and
+   therefore future H8 evidence, never an H7 premise.
+
+The tuple `(e,d,r,c)=(89,2,113,6)` is a provisional parameter probe, not a
+frozen endpoint or an eligibility claim. H4's operand-local repair is already
+present and requires fresh separately authorized evidence, not another source
+rewrite. H7/H8 remain source-only and INCONCLUSIVE.
+
+The prospective A5 inventory is exactly `D=(2,4,8)`, `C=(4,6,8)`,
+`E=(84,85,86,87,88,89)`, and `R=(113,114,115,116,117,118)`, enumerated in
+ascending lexicographic `(d,c,e,r)` order. After both hard gates, select the
+minimum `(abs(log(P_A5/P_A0)),abs(log(F_A5/F_A0)),d,c,e,r)`; an empty
+eligible set makes PRIMARY ineligible.

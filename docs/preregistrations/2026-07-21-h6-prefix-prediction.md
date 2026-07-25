@@ -718,3 +718,44 @@ final metrics. These fields remain explicitly `DEFERRED` during source buildout;
 their absence is an evidence state, not a fabricated value, zero hash, inferred
 measurement, or PASS. Each is filled only before or during its separately
 authorized exact-revision evidence operation according to the frozen protocol.
+
+## July 25, 2026 audit amendment (normative)
+
+`docs/preregistrations/2026-07-25-h6-audit-amendment.md` supersedes the
+conflicting A0, primary-A5, source-prior, matching, SMC-bias, OBJECTIVE, and
+interpretation clauses in this preregistration.
+
+The amended primary identities are `h6-a0-transformer-v2` and
+`h6-a5-structured-parent-specific-prefix-exact-complete-latent-smoothing-v2`.
+The former uses `L_max=32`, `h=52`, two equal heads, and exactly 61,982 active
+parameters. The latter is target-blind and normalized, scores each candidate
+parent's realized latent content, retains a mean-pooled token query, and is
+not transformer attention.
+
+The final A5 nuisance allocation is DEFERRED until exact shared-frame
+common-subexpression elimination and the implemented operator ledgers permit
+an outcome-blind candidate to satisfy both the unchanged 1% parameter and 5%
+whole-schedule training-FLOP gates. The exact inventory is `D=(2,4,8)`,
+`C=(4,6,8)`, `E=(84,85,86,87,88,89)`, and
+`R=(113,114,115,116,117,118)`, enumerated in ascending lexicographic
+`(d,c,e,r)` order. After both hard gates, the deterministic selection key is
+`(abs(log(P_A5/P_A0)),abs(log(F_A5/F_A0)),d,c,e,r)`. An empty eligible set
+makes PRIMARY ineligible. `(e,d,r,c)=(89,2,113,6)` and `P_A5=62,112` are a
+provisional parameter-feasibility probe only. No filler, fake phase,
+redundant recomputation, dormant parameter, or tolerance change is permitted.
+
+Jensen's inequality signs raw `Y_N=log Z_hat_N`, not the reported Richardson
+`Q2=2Y_1024-Y_512`; Q2 therefore retains its two-sided conditional remainder
+and two-sided interval inflation. OBJECTIVE compares parent-specific complete
+and parent-specific emission-only training with
+`d_obj=NLL_complete-NLL_emission` and
+`delta_obj=0.01005033585350145`. PASS requires `upper<=delta_obj`, FAIL
+requires `lower>delta_obj`, and every other case is INCONCLUSIVE. OBJECTIVE is
+logically evaluated before PRIMARY within the existing one-opening protocol;
+it does not reduce the already-frozen confirmatory training or scoring work.
+
+This amendment produces no evidence. B1 repins H1-Prefix/H6-Prefix and their
+future H7 consumer. A1, A2, and B2 repin H6-Prediction and its future H8
+consumer only; H6-Prediction is not an H7 premise. H4, H6, H7, and H8 retain
+their current evidence states until separately authorized exact-revision
+artifacts exist.
