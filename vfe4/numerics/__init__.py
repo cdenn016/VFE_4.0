@@ -15,8 +15,6 @@ from .block_layout import (
     BlockChainLayout,
     BlockId,
 )
-from .block_tridiagonal import BlockTridiagonalCholesky
-from .block_canonical import BlockCanonicalAssembler
 from .gaussian import gaussian_log_prob, require_spd
 from .information import InformationGaussian
 from .h5_budget import (
@@ -33,7 +31,33 @@ from .h5_budget import (
 from .linear_gaussian import add_initial_gaussian, add_scalar_conditional
 from .precision import DenseCholeskyPrecision
 from .quadrature import probabilists_gauss_hermite
-from .sparse_information import BlockMomentBlocks, FactorBackedInformationGaussian
+
+_H8_LAZY_EXPORTS = frozenset(
+    {
+        "BlockCanonicalAssembler",
+        "BlockMomentBlocks",
+        "BlockTridiagonalCholesky",
+        "FactorBackedInformationGaussian",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    """Load H8 primitives after ``vfe4.types.h8`` finishes initializing."""
+
+    if name == "BlockCanonicalAssembler":
+        from .block_canonical import BlockCanonicalAssembler
+
+        return BlockCanonicalAssembler
+    if name == "BlockTridiagonalCholesky":
+        from .block_tridiagonal import BlockTridiagonalCholesky
+
+        return BlockTridiagonalCholesky
+    if name in ("BlockMomentBlocks", "FactorBackedInformationGaussian"):
+        from . import sparse_information
+
+        return getattr(sparse_information, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "AllInvalidSourceRowError",
