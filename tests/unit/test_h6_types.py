@@ -574,10 +574,10 @@ def test_language_elbo_and_ablation_recompute_owned_digests() -> None:
         getattr(elbo, f"{partition}_terms")
         for partition in partitions
     )
-    ablation = EmissionOnlyAblationTerms.create(
-        ordered_emission_terms=elbo.emission_terms
-    )
-    assert ablation.total.value().item() == 1.0
+    with pytest.raises(TypeError):
+        EmissionOnlyAblationTerms.create(
+            ordered_emission_terms=elbo.emission_terms  # type: ignore[call-arg]
+        )
     with pytest.raises(ValueError, match="seven partitions"):
         H6LanguageElboTerms.create(
             horizon=1,
@@ -817,6 +817,7 @@ def test_h6_results_are_explicit_and_do_not_widen_legacy_gate_result() -> None:
     )
     assert prefix.gate == "H6-Prefix"
     assert prediction.status is GateStatus.INCONCLUSIVE
+    assert prediction.smc_bias_semantics_sha256 is None
     assert not hasattr(H6PredictionResult, "from_decision")
     with pytest.raises(TypeError):
         H6PrefixGateResult("H6-Prefix", GateStatus.PASS, SHA_A, SHA_B, ())

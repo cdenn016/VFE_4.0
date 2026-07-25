@@ -20,8 +20,9 @@ AMENDED_LATENT_WIDTH_CANDIDATES = (2, 8, 16, 24, 32)
 AMENDED_RECOGNITION_WIDTH_CANDIDATES = (32, 64, 96)
 PROPOSED_PREFIX_PRIOR_CONTEXT_WIDTH = 6
 
-_PREFIX_CONFIG_ID = (
-    "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1"
+_PARENT_SPECIFIC_PREFIX_CONFIG_ID = (
+    "h6-a5-structured-parent-specific-prefix-exact-complete-"
+    "latent-smoothing-v2"
 )
 
 
@@ -96,7 +97,7 @@ def fixed_source_prior_parameter_count(
     return bank_count * row_scalars
 
 
-def prefix_conditioned_source_prior_parameter_count(
+def parent_specific_pooled_prefix_source_prior_parameter_count(
     *,
     vocabulary_size: int,
     horizon: int,
@@ -104,7 +105,7 @@ def prefix_conditioned_source_prior_parameter_count(
     context_width: int,
     gauge_anchored: bool,
 ) -> int:
-    """Count both banks of the prefix-conditioned source-prior constructor."""
+    """Count both banks of the parent-specific pooled-prefix constructor."""
 
     vocabulary_size = _positive_int(vocabulary_size, "vocabulary_size")
     horizon = _positive_int(horizon, "horizon")
@@ -369,7 +370,7 @@ def _available_assessment(
     )
 
 
-def _prefix_a5_parameter_count() -> int:
+def _parent_specific_prefix_a5_parameter_count() -> int:
     emission_width = 80
     latent_width = 8
     recognition_width = 96
@@ -384,7 +385,7 @@ def _prefix_a5_parameter_count() -> int:
     return (
         current_fixed_count
         - fixed_source_prior_parameter_count(horizon=32, bank_count=2)
-        + prefix_conditioned_source_prior_parameter_count(
+        + parent_specific_pooled_prefix_source_prior_parameter_count(
             vocabulary_size=258,
             horizon=32,
             latent_width=latent_width,
@@ -456,14 +457,14 @@ def outcome_blind_feasibility_assessments(
             recognition_family="factorized",
         ),
         ParameterCountAssessment(
-            config_id=_PREFIX_CONFIG_ID,
+            config_id=_PARENT_SPECIFIC_PREFIX_CONFIG_ID,
             arm="A5",
             emission_width=80,
             latent_width=8,
             recognition_width=96,
             prior_context_width=PROPOSED_PREFIX_PRIOR_CONTEXT_WIDTH,
             status="AVAILABLE",
-            parameter_count=_prefix_a5_parameter_count(),
+            parameter_count=_parent_specific_prefix_a5_parameter_count(),
             planned_parameter_count=None,
             obligations=(),
         ),
@@ -477,15 +478,20 @@ def outcome_blind_feasibility_assessments(
             latent_width=16,
             recognition_width=64,
         ),
-        _available_assessment(
+        ParameterCountAssessment(
             config_id=(
-                "h6-a5-structured-fixed-exact-emission-"
-                "latent-smoothing-v1"
+                "h6-a5-structured-parent-specific-prefix-exact-emission-"
+                "latent-smoothing-v2"
             ),
             arm="A5",
-            emission_width=64,
-            latent_width=16,
-            recognition_width=64,
+            emission_width=80,
+            latent_width=8,
+            recognition_width=96,
+            prior_context_width=PROPOSED_PREFIX_PRIOR_CONTEXT_WIDTH,
+            status="AVAILABLE",
+            parameter_count=_parent_specific_prefix_a5_parameter_count(),
+            planned_parameter_count=None,
+            obligations=(),
         ),
         _available_assessment(
             config_id=(
@@ -523,6 +529,6 @@ __all__ = [
     "mean_pooled_no_latent_parameter_count",
     "outcome_blind_feasibility_assessments",
     "parameter_count_within_tolerance",
-    "prefix_conditioned_source_prior_parameter_count",
+    "parent_specific_pooled_prefix_source_prior_parameter_count",
     "recognition_parameter_count",
 ]

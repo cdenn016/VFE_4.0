@@ -12,11 +12,12 @@ from vfe4.data.access import (
     materialize_prediction_train,
     materialize_validation_safety_fixture,
     open_test_for_scoring,
+    open_test_for_scoring_with_receipt,
     reserve_and_issue_durable_test_opening_capability,
     validate_durable_test_opening_capability,
+    validated_test_opening_identity,
 )
 from vfe4.data.wikitext2 import (
-    ACCESS_POLICY_SHA256,
     WIKITEXT2_RAW_URL,
     H6DataAcquisitionRequest,
     _acquire_wikitext2_blinded,
@@ -415,9 +416,21 @@ def test_durable_opening_proof_is_exact_opaque_and_one_shot(tmp_path: Path) -> N
             experiment_identity=alternate_experiment,
         )
 
-    test_windows = open_test_for_scoring(store, opening)
+    test_windows, receipt = open_test_for_scoring_with_receipt(
+        store,
+        opening,
+    )
     assert test_windows.split == "test"
     assert test_windows.counted_target_total == len(test_payload) + 1
+    assert validated_test_opening_identity(receipt) == (
+        opening.proof_identity_sha256
+    )
+
+    class ForgedReceipt:
+        proof_identity_sha256 = opening.proof_identity_sha256
+
+    with pytest.raises(OpeningCapabilityError, match="forged"):
+        validated_test_opening_identity(ForgedReceipt())  # type: ignore[arg-type]
     with pytest.raises(OpeningCapabilityError, match="consumed"):
         validate_durable_test_opening_capability(store, opening)
 

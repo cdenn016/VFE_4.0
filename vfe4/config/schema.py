@@ -41,6 +41,7 @@ from vfe4.types.h6 import (
     EndpointSmcProtocol,
     H6PrefixProfilePair,
     H6TrainingSchedule,
+    ObjectiveGateSpec,
 )
 from vfe4.types.h7 import (
     H7_CONTROL_IDS,
@@ -638,6 +639,33 @@ class H1PrefixPriorResolvedConfig:
 
 
 @dataclass(frozen=True)
+class H1PrefixPriorV2ResolvedConfig:
+    schema_version: Literal["h1-prefix-prior-config-v2"]
+    operation: Literal["H1-Prefix-Prior"]
+    source: H6SourceIdentity
+    fixture_id: Literal["h1-prefix-prior-scorer-v2"]
+    fixture_sha256: str
+    base_fixture_sha256: str
+    generative_factor_schema_sha256: str
+    scorer_schema: Literal["parent-specific-pooled-prefix-bilinear-v1"]
+    horizon: Literal[2]
+    d_z: Literal[1]
+    d_m: Literal[1]
+    vocabulary_size: Literal[3]
+    state_parent_sets: tuple[tuple[int, ...], tuple[int, ...]]
+    model_parent_sets: tuple[tuple[int, ...], tuple[int, ...]]
+    latent_projection_policy: Literal["nonzero_bank_projections"]
+    parent_history_policy: Literal["active_swapped_distinct_nonzero"]
+    prefix_policy: Literal["strictly_prior_tokens"]
+    quadrature_order: Literal[21]
+    convergence_check_order: Literal[17]
+    maximum_convergence_estimate: Literal[1e-9]
+    artifact_root: Path
+    canonical_json: str
+    config_sha256: str
+
+
+@dataclass(frozen=True)
 class H6PrefixResolvedConfig:
     schema_version: Literal["h6-prefix-config-v1"]
     operation: Literal["H6-Prefix"]
@@ -666,6 +694,32 @@ class H6PredictionResolvedConfig:
     endpoint_smc_protocol: EndpointSmcProtocol
     attribution_matrix_sha256: str
     matching_set_sha256: str
+    data_identity_sha256: str
+    access_policy_sha256: str
+    artifact_root: Path
+    canonical_json: str
+    config_sha256: str
+
+
+@dataclass(frozen=True)
+class H6PredictionV2ResolvedConfig:
+    schema_version: Literal["h6-prediction-config-v2"]
+    operation: Literal["H6-Prediction"]
+    source: H6SourceIdentity
+    data: H6DataConfig
+    correctness_manifests: tuple[tuple[str, str], ...]
+    h1_prefix_prior_manifest_sha256: str
+    h1_prefix_prior_generative_factor_schema_sha256: str
+    smc_bias_semantics_sha256: str
+    smc_validation_manifest_sha256: str
+    prefix_certificate_set_sha256: str
+    h5_update_binding_sha256: str
+    training_schedule: H6TrainingSchedule
+    critical_values_sha256: str
+    endpoint_smc_protocol: EndpointSmcProtocol
+    attribution_matrix_sha256: str
+    matching_set_sha256: str
+    objective_gate: ObjectiveGateSpec
     data_identity_sha256: str
     access_policy_sha256: str
     artifact_root: Path
@@ -782,6 +836,130 @@ class H6ArmMatchingResolvedConfig:
         ).hexdigest():
             raise ValueError(
                 "H6 arm-matching config SHA-256 does not match fields"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class H6PrimaryMatchingResolvedConfig:
+    """Editable-dictionary projection for the amended 324-row primary search."""
+
+    schema_version: Literal["h6-primary-matching-config-v1"]
+    operation: Literal["H6-Primary-Matching"]
+    a0_config: ArmConfig
+    a5_template: ArmConfig
+    latent_width_candidates: tuple[int, int, int]
+    prior_context_width_candidates: tuple[int, int, int]
+    emission_width_candidates: tuple[int, int, int, int, int, int]
+    recognition_width_candidates: tuple[int, int, int, int, int, int]
+    parameter_relative_tolerance: Literal[0.01]
+    flop_relative_tolerance: Literal[0.05]
+    matching_policy_sha256: str
+    canonical_json: str
+    config_sha256: str
+
+    def policy_payload(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "operation": self.operation,
+            "latent_width_candidates": self.latent_width_candidates,
+            "prior_context_width_candidates": (
+                self.prior_context_width_candidates
+            ),
+            "emission_width_candidates": self.emission_width_candidates,
+            "recognition_width_candidates": (
+                self.recognition_width_candidates
+            ),
+            "parameter_relative_tolerance": (
+                self.parameter_relative_tolerance
+            ),
+            "flop_relative_tolerance": self.flop_relative_tolerance,
+            "enumeration_order": "ascending_d_c_e_r",
+            "selection_key": (
+                "abs_log_parameter_ratio_abs_log_flop_ratio_d_c_e_r"
+            ),
+        }
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            **self.policy_payload(),
+            "a0_config_sha256": self.a0_config.config_sha256,
+            "a5_template_config_sha256": (
+                self.a5_template.config_sha256
+            ),
+            "matching_policy_sha256": self.matching_policy_sha256,
+        }
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != "h6-primary-matching-config-v1"
+            or self.operation != "H6-Primary-Matching"
+            or type(self.a0_config) is not ArmConfig
+            or type(self.a5_template) is not ArmConfig
+        ):
+            raise ValueError("H6 primary-matching configuration is not frozen")
+        self.a0_config.__post_init__()
+        self.a5_template.__post_init__()
+        if any(
+            endpoint.vocabulary.vocabulary_id != "wikitext-2-byte-v1"
+            or endpoint.vocabulary.size != 258
+            or endpoint.horizon != 32
+            for endpoint in (self.a0_config, self.a5_template)
+        ):
+            raise ValueError(
+                "H6 primary matching requires "
+                "vocabulary_id='wikitext-2-byte-v1', V=258, and T=32"
+            )
+        if (
+            self.a0_config.config_id != "h6-a0-transformer-v2"
+            or self.a0_config.capacity_allocation.emission_width != 52
+            or self.a0_config.latent_enabled
+            or self.a5_template.config_id
+            != (
+                "h6-a5-structured-parent-specific-prefix-exact-complete-"
+                "latent-smoothing-v2"
+            )
+            or self.a5_template.prior_variant
+            != "parent_specific_pooled_prefix"
+            or not self.a5_template.latent_enabled
+            or self.a0_config.vocabulary != self.a5_template.vocabulary
+            or self.a0_config.horizon != self.a5_template.horizon
+            or self.latent_width_candidates != (2, 4, 8)
+            or self.prior_context_width_candidates != (4, 6, 8)
+            or self.emission_width_candidates != (84, 85, 86, 87, 88, 89)
+            or self.recognition_width_candidates
+            != (113, 114, 115, 116, 117, 118)
+            or self.parameter_relative_tolerance != 0.01
+            or self.flop_relative_tolerance != 0.05
+        ):
+            raise ValueError(
+                "H6 primary-matching endpoints or finite inventory are stale"
+            )
+        policy_bytes = json.dumps(
+            self.policy_payload(),
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+        expected_policy_sha256 = hashlib.sha256(
+            b"vfe4.h6.primary-matching-policy.v1\x00" + policy_bytes
+        ).hexdigest()
+        if self.matching_policy_sha256 != expected_policy_sha256:
+            raise ValueError("H6 primary-matching policy SHA-256 is stale")
+        canonical = json.dumps(
+            self.canonical_payload(),
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        if self.canonical_json != canonical:
+            raise ValueError(
+                "H6 primary-matching canonical JSON does not match fields"
+            )
+        if self.config_sha256 != hashlib.sha256(
+            canonical.encode("utf-8")
+        ).hexdigest():
+            raise ValueError(
+                "H6 primary-matching config SHA-256 does not match fields"
             )
 
 

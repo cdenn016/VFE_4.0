@@ -1,6 +1,6 @@
 # H8 Sparse-Scale Systems Preregistration
 
-Protocol revision: `h8-sparse-scale-v1`
+Protocol revision: `h8-sparse-scale-v2` (amended 2026-07-25)
 
 Status at freeze: protocol only. No H8 correctness grid, production child,
 profiler child, negative control, timing measurement, memory measurement, or
@@ -423,9 +423,10 @@ H1/H2/H3/H5 scientific premises and never H4 or H4 timing.
 
 Current H7 compatibility registry keys are exactly, in order,
 `h1_h5`, `h1_prefix_prior`, `h6_prefix`, retaining every keyed payload hash
-and candidate JUnit hash.
+and candidate JUnit path/hash.
 
-The H8 registry contains:
+The sole authorizing H8 registry schema is
+`h8-current-candidate-refs-v2`. It contains:
 
 - `H8H1H5Reference(kind,artifact_path,manifest_sha256,result_path,
   result_sha256,content_hashes,payload_hashes,ledger_path,ledger_sha256,
@@ -436,16 +437,56 @@ The H8 registry contains:
   `certificate_set_sha256` and keyed `certificate_hashes`
 - `H8H7Reference` with the common fields plus `result_pointer_path`,
   `result_pointer_sha256`, and `fixture_set_sha256`
-- `H8H6PredictionReference` with the common fields plus
-  `experiment_sha256` and optional candidate JUnit
+- `H8H6PredictionReference` with the common fields plus the literal
+  `prediction_schema="h6-prediction-amended-v2"`, the exact config,
+  readiness, metrics, and result schema discriminators, `experiment_sha256`,
+  `config_sha256`, `readiness_artifact_path`, `readiness_manifest_sha256`,
+  `readiness_sha256`, exact ordered `correctness_artifact_paths` for
+  H1/H2/H3/H5, `h1_prefix_prior_artifact_path`,
+  `smc_accuracy_artifact_path`, `smc_accuracy_manifest_sha256`,
+  `h6_prefix_artifact_path`, `h6_prefix_manifest_sha256`,
+  `blinded_data_artifact_path`, `blinded_data_manifest_sha256`,
+  `matching_artifact_path`, `matching_manifest_sha256`,
+  `matching_set_sha256`,
+  `h1_prefix_prior_generative_factor_schema_sha256`,
+  `smc_bias_semantics_sha256`, `objective_gate_spec_sha256`,
+  `metrics_sha256`, and the non-null same-candidate JUnit hash
 
 All status tags are literal `pass`. Keyed content, payload, and certificate
-maps are preserved losslessly. No singular aggregate replacement and no copy
-of predecessor validation, certificate, or ledger bytes is admissible.
+maps are preserved losslessly. A content-hash key is an exact
+manifest-relative payload path. A certificate-hash key is the canonical
+one-line JSON encoding of its typed `PrefixCaseKey`. No singular aggregate
+replacement and no copy of predecessor validation, certificate, or ledger
+bytes is admissible.
+The direct H1--H5, H1-prefix-prior, and H6-Prefix variants must match their
+H7 transitive references field-for-field, including ordered keyed payload
+hashes. The amended H6-Prediction producer head, dirty digest, and non-null
+JUnit hash must match the H8 candidate. At H8 preflight, every exact artifact,
+result, ledger, H7 result
+pointer, shared H7 JUnit preimage, H6-Prediction readiness and complete
+scientific-prerequisite artifact set, raw endpoint table, metrics file, and
+result file is reopened by its frozen path and rehashed. H7 fixture closure is
+rederived from the current-candidate `h1_v1.json`, `h7_v1.json`, and
+`h7_density_probes_v1.json` bytes, including the typed density-probe set; the
+H7 validation and reference fixture-set hashes must equal those preimages.
+The blinded-data
+preimage reconstructs the true held-out token count; the matching-set preimage
+reconstructs the typed endpoint ownership inventory. The native H6 reader then
+rederives raw aggregates, ordered OBJECTIVE/PRIMARY metrics, result identity,
+and result-root name. Reopened bytes validate the registry record; they never
+reconstruct it and are never copied into H8.
+
+Registry v1 remains readable solely for historical diagnosis. Its
+`H8LegacyH6PredictionReference` lacks the amended bindings and therefore adds
+the named prerequisite obligation
+`h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2`.
+Unavailable or changed immutable bytes add a reference-specific prerequisite
+obligation. Either condition makes H8 `INCONCLUSIVE`; neither can authorize
+`PASS`.
 
 After publication only, the external current-candidate result has exact
 top-level keys `schema_version`, `candidate`, `artifact`, `current_refs`,
-`predecessors`; schema is `h8-current-candidate-result-v1`.
+`predecessors`; schema is `h8-current-candidate-result-v2`.
 `candidate={git_head,dirty_digest,junit_sha256}`;
 `artifact={path,manifest_sha256,config_sha256,validation_sha256}`;
 `current_refs={path,sha256}`; and `predecessors` contains the five reference
@@ -454,7 +495,7 @@ variants verbatim. The external pointer is not part of the artifact manifest.
 ## Validation payload schema
 
 The in-artifact file is `validation/h8.json`,
-`schema_version="h8-sparse-scale-v1"`, `gate="H8"`. Its exact top-level key
+`schema_version="h8-sparse-scale-v2"`, `gate="H8"`. Its exact top-level key
 order is:
 
 ```text
@@ -469,8 +510,9 @@ Required nested inventories:
 - `revision`: `git_head`, `dirty_digest`, `dependency_closure_sha256`,
   `manuscript_sha256`, `preregistration_sha256`, `h7_plan_sha256`
 - `config`: canonical H8 config hash and exact resolved configuration
-- `prerequisites`: the complete H7 compatibility mapping and five lossless
-  tagged H8 reference variants
+- `prerequisites`: the complete H7 compatibility mapping, five lossless
+  tagged H8 reference variants, exact compatibility-check inventory, named
+  prerequisite obligations, and `all_current_and_pass`
 - `interpretation`: interpretation hash, choice kind, K semantics, all
   dimensions/order/supports, and ambiguity policy
 - `protocol`: generator/sample/factor/selected-inverse/condition/allocation/

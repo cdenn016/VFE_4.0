@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import cast
@@ -46,12 +47,13 @@ from vfe4.types.h8 import (
     H8GateEvaluation,
     H8H6PredictionReference,
     H8H7Reference,
+    H8LegacyH6PredictionReference,
 )
 from vfe4.types.results import GateStatus, H8GateResult
 
 
-H8_VALIDATION_SCHEMA = "h8-sparse-scale-v1"
-H8_CURRENT_CANDIDATE_RESULT_SCHEMA = "h8-current-candidate-result-v1"
+H8_VALIDATION_SCHEMA = "h8-sparse-scale-v2"
+H8_CURRENT_CANDIDATE_RESULT_SCHEMA = "h8-current-candidate-result-v2"
 H8_BOUNDED_CLAIM = (
     "The frozen T=128, K=d_z=d_m=20 synthetic chain completed within the "
     "preregistered sparse storage, allocation, numerical, time, and memory "
@@ -109,6 +111,81 @@ H8_SOURCE_ONLY_OBLIGATIONS = (
     "h8_runtime_sections_not_bound",
     "h8_complete_runtime_cross_binding_not_implemented",
 )
+
+@dataclass(frozen=True, slots=True)
+class H8PrerequisiteArtifactValidation:
+    registry_sha256: str
+    revalidated_reference_names: tuple[str, ...]
+    obligations: tuple[str, ...]
+    validation_sha256: str
+
+    def __post_init__(self) -> None:
+        _sha256(self.registry_sha256, "registry_sha256")
+        allowed_names = (
+            "h1_h5",
+            "h1_prefix_prior",
+            "h6_prefix",
+            "h7",
+            "h6_prediction",
+        )
+        if (
+            type(self.revalidated_reference_names) is not tuple
+            or any(
+                type(item) is not str or item not in allowed_names
+                for item in self.revalidated_reference_names
+            )
+            or tuple(
+                name
+                for name in allowed_names
+                if name in self.revalidated_reference_names
+            )
+            != self.revalidated_reference_names
+        ):
+            raise ValueError("revalidated prerequisite names are not exact and ordered")
+        if (
+            type(self.obligations) is not tuple
+            or any(type(item) is not str or not item for item in self.obligations)
+            or len(set(self.obligations)) != len(self.obligations)
+        ):
+            raise ValueError("prerequisite obligations must be unique strings")
+        expected = hashlib.sha256(
+            canonical_h8_json_bytes(
+                {
+                    "domain": "vfe4.h8.prerequisite-artifact-validation.v2",
+                    "registry_sha256": self.registry_sha256,
+                    "revalidated_reference_names": (
+                        self.revalidated_reference_names
+                    ),
+                    "obligations": self.obligations,
+                }
+            )
+        ).hexdigest()
+        if self.validation_sha256 != expected:
+            raise ValueError("prerequisite artifact validation hash is stale")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        registry_sha256: str,
+        revalidated_reference_names: tuple[str, ...],
+        obligations: tuple[str, ...],
+    ) -> "H8PrerequisiteArtifactValidation":
+        payload = {
+            "domain": "vfe4.h8.prerequisite-artifact-validation.v2",
+            "registry_sha256": registry_sha256,
+            "revalidated_reference_names": revalidated_reference_names,
+            "obligations": obligations,
+        }
+        return cls(
+            registry_sha256=registry_sha256,
+            revalidated_reference_names=revalidated_reference_names,
+            obligations=obligations,
+            validation_sha256=hashlib.sha256(
+                canonical_h8_json_bytes(payload)
+            ).hexdigest(),
+        )
+
 
 _HEX = frozenset("0123456789abcdef")
 _SUPPLIED_RUNTIME_SECTION_KEYS = (
@@ -444,6 +521,7 @@ def _source_only_sections(
     refs: CurrentH8PrerequisiteRefs,
     dependency_closure_sha256: str,
     preregistration_sha256: str,
+    prerequisites_current_and_pass: bool,
 ) -> dict[str, object]:
     """Build an exact-key, explicitly unavailable source-only section set."""
 
@@ -554,7 +632,7 @@ def _source_only_sections(
         },
         "invariants": {
             **{key: False for key in _NESTED_KEYS["invariants"]},
-            "prerequisites_current_and_pass": True,
+            "prerequisites_current_and_pass": prerequisites_current_and_pass,
             "interpretation_hash_current": True,
             "witnessed_failure_dominance_applied": True,
             "all_pass": result.status is GateStatus.PASS,
@@ -599,6 +677,7 @@ def _validate_section_bindings(
     refs: CurrentH8PrerequisiteRefs,
     dependency_closure_sha256: str,
     preregistration_sha256: str,
+    prerequisites_current_and_pass: bool,
 ) -> None:
     """Reject section identities or decisions that contradict typed evidence."""
 
@@ -637,7 +716,8 @@ def _validate_section_bindings(
     ):
         raise ValueError("H8 interpretation section is not the frozen interpretation")
     if (
-        invariants["prerequisites_current_and_pass"] is not True
+        invariants["prerequisites_current_and_pass"]
+        is not prerequisites_current_and_pass
         or invariants["interpretation_hash_current"] is not True
         or invariants["witnessed_failure_dominance_applied"] is not True
         or invariants["all_pass"] is not (result.status is GateStatus.PASS)
@@ -655,7 +735,648 @@ def _validate_section_bindings(
         raise ValueError("H8 artifact paths differ from the exact publication inventory")
 
 
-def _prerequisite_payload(refs: CurrentH8PrerequisiteRefs) -> dict[str, object]:
+def _read_immutable_file(
+    raw_path: str,
+    *,
+    expected_sha256: str,
+    name: str,
+) -> tuple[Path, bytes]:
+    """Reopen one exact immutable file without projecting or copying its payload."""
+
+    _sha256(expected_sha256, f"{name}_sha256")
+    path = Path(raw_path)
+    if not path.is_absolute():
+        raise ValueError(f"{name} path must be absolute")
+    if path.is_symlink():
+        raise ValueError(f"{name} path cannot be a symlink")
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError(f"{name} path is unavailable") from exc
+    if resolved.is_symlink() or not resolved.is_file():
+        raise ValueError(f"{name} path must be a regular non-symlink file")
+    payload = resolved.read_bytes()
+    if hashlib.sha256(payload).hexdigest() != expected_sha256:
+        raise ValueError(f"{name} bytes differ from the immutable reference")
+    return resolved, payload
+
+
+def _safe_artifact_payload_path(root: Path, raw_name: str) -> Path:
+    relative = PurePosixPath(raw_name)
+    if (
+        not raw_name
+        or relative.is_absolute()
+        or ".." in relative.parts
+        or "." in relative.parts
+    ):
+        raise ValueError("artifact payload name is not a safe relative POSIX path")
+    path = root.joinpath(*relative.parts)
+    if path.is_symlink():
+        raise ValueError("artifact payload cannot be a symlink")
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("artifact payload is unavailable") from exc
+    if root not in resolved.parents or resolved.is_symlink() or not resolved.is_file():
+        raise ValueError("artifact payload escapes its immutable artifact root")
+    return resolved
+
+
+def _manifest_entries_exact(manifest_bytes: bytes) -> tuple[tuple[str, str], ...]:
+    try:
+        text = manifest_bytes.decode("ascii", errors="strict")
+    except UnicodeError as exc:
+        raise ValueError("prerequisite manifest is not strict ASCII") from exc
+    if not text.endswith("\n"):
+        raise ValueError("prerequisite manifest must end in one newline")
+    entries: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        digest, separator, name = line.partition("  ")
+        if (
+            separator != "  "
+            or not name
+            or len(digest) != 64
+            or any(character not in _HEX for character in digest)
+        ):
+            raise ValueError("prerequisite manifest entry is malformed")
+        entries.append((name, digest))
+    if not entries or len({name for name, _ in entries}) != len(entries):
+        raise ValueError("prerequisite manifest inventory is empty or duplicated")
+    return tuple(entries)
+
+
+def _reopen_manifested_artifact(
+    reference: object,
+    *,
+    require_content_hashes: bool = True,
+) -> tuple[Path, Mapping[str, bytes]]:
+    raw_root = getattr(reference, "artifact_path", None)
+    if type(raw_root) is not str:
+        raise ValueError("prerequisite artifact path is missing")
+    root, entries, payloads = _reopen_manifested_root(
+        raw_root,
+        expected_manifest_sha256=getattr(reference, "manifest_sha256", None),
+    )
+    payload_hashes = getattr(reference, "payload_hashes", None)
+    if (
+        not isinstance(payload_hashes, Mapping)
+        or tuple(entries) != tuple(payload_hashes.items())
+    ):
+        raise ValueError("prerequisite manifest differs from keyed payload hashes")
+    if require_content_hashes:
+        _revalidate_content_hashes(reference, payloads)
+    return root, payloads
+
+
+def _resolve_immutable_artifact_root(raw_root: str, *, name: str) -> Path:
+    if type(raw_root) is not str:
+        raise ValueError(f"{name} path is missing")
+    root_path = Path(raw_root)
+    if not root_path.is_absolute():
+        raise ValueError(f"{name} path must be absolute")
+    if root_path.is_symlink():
+        raise ValueError(f"{name} root cannot be a symlink")
+    try:
+        root = root_path.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError(f"{name} root is unavailable") from exc
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError(f"{name} root must be a regular directory")
+    return root
+
+
+def _reopen_manifested_root(
+    raw_root: str,
+    *,
+    expected_manifest_sha256: object,
+) -> tuple[Path, tuple[tuple[str, str], ...], Mapping[str, bytes]]:
+    root = _resolve_immutable_artifact_root(
+        raw_root,
+        name="prerequisite artifact",
+    )
+    if type(expected_manifest_sha256) is not str:
+        raise ValueError("prerequisite manifest SHA-256 is missing")
+    _sha256(expected_manifest_sha256, "prerequisite_manifest_sha256")
+    manifest_path = root / "manifest.sha256"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ValueError("prerequisite artifact manifest is unavailable")
+    manifest_bytes = manifest_path.read_bytes()
+    if (
+        hashlib.sha256(manifest_bytes).hexdigest()
+        != expected_manifest_sha256
+    ):
+        raise ValueError("prerequisite artifact manifest hash is stale")
+    entries = _manifest_entries_exact(manifest_bytes)
+    payloads: dict[str, bytes] = {}
+    for name, expected_sha256 in entries:
+        path = _safe_artifact_payload_path(root, name)
+        payload = path.read_bytes()
+        if hashlib.sha256(payload).hexdigest() != expected_sha256:
+            raise ValueError("prerequisite artifact payload hash is stale")
+        payloads[name] = payload
+    observed_files = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+    if observed_files != {*payloads, "manifest.sha256"}:
+        raise ValueError("prerequisite artifact file inventory is not exact")
+    return root, entries, payloads
+
+
+def _revalidate_content_hashes(
+    reference: object,
+    payloads: Mapping[str, bytes],
+) -> None:
+    """Rehash every named content preimage rather than trusting registry digests."""
+
+    content_hashes = getattr(reference, "content_hashes", None)
+    if not isinstance(content_hashes, Mapping) or not content_hashes:
+        raise ValueError("prerequisite content hashes are missing")
+    for name, expected_sha256 in content_hashes.items():
+        if type(name) is not str or name not in payloads:
+            raise ValueError("content hash does not name a manifested artifact payload")
+        _sha256(expected_sha256, f"content_hashes[{name!r}]")
+        if hashlib.sha256(payloads[name]).hexdigest() != expected_sha256:
+            raise ValueError("manifested content bytes differ from their registry hash")
+
+
+def _canonical_mapping(payload: bytes, name: str) -> Mapping[str, object]:
+    try:
+        value = json.loads(payload.decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{name} is not strict UTF-8 JSON") from exc
+    if not isinstance(value, dict) or canonical_h8_json_bytes(value) != payload:
+        raise ValueError(f"{name} is not one canonical JSON object")
+    return value
+
+
+def _reopen_reference_common(reference: object) -> tuple[Path, Mapping[str, bytes]]:
+    root, payloads = _reopen_manifested_artifact(reference)
+    _read_immutable_file(
+        getattr(reference, "result_path"),
+        expected_sha256=getattr(reference, "result_sha256"),
+        name=f"{getattr(reference, 'kind')}_result",
+    )
+    _read_immutable_file(
+        getattr(reference, "ledger_path"),
+        expected_sha256=getattr(reference, "ledger_sha256"),
+        name=f"{getattr(reference, 'kind')}_ledger",
+    )
+    return root, payloads
+
+
+def _reopen_h7_compatibility_references(
+    refs: CurrentH8PrerequisiteRefs,
+) -> None:
+    candidate_junit_path: Path | None = None
+    for key, reference in refs.h7_compatibility_refs.items():
+        _reopen_manifested_artifact(
+            reference,
+            require_content_hashes=False,
+        )
+        _read_immutable_file(
+            reference.ledger_path,
+            expected_sha256=reference.ledger_sha256,
+            name=f"h7_transitive_{key}_ledger",
+        )
+        junit_path, _ = _read_immutable_file(
+            reference.junit_path,
+            expected_sha256=reference.junit_sha256,
+            name=f"h7_transitive_{key}_junit",
+        )
+        if candidate_junit_path is None:
+            candidate_junit_path = junit_path
+        elif junit_path != candidate_junit_path:
+            raise ValueError("H7 transitive references do not share one JUnit preimage")
+
+
+def _revalidate_h6_prefix_certificates(
+    reference: object,
+    payloads: Mapping[str, bytes],
+) -> None:
+    from vfe4.training import h6_readiness
+
+    if "certificates/prefix_set.json" not in payloads:
+        raise ValueError("H6-Prefix artifact lacks its manifested certificate set")
+    certificates = h6_readiness._load_prefix_certificates(
+        root=Path(getattr(reference, "artifact_path")),
+        expected_set_sha256=getattr(reference, "certificate_set_sha256"),
+        expected_git_head=getattr(reference, "producer_head"),
+        expected_dirty_digest=getattr(reference, "producer_dirty_digest"),
+    )
+    observed = {
+        canonical_h8_json_bytes(key.canonical_payload()).decode("ascii"): (
+            certificate.certificate_sha256
+        )
+        for key, certificate in sorted(
+            certificates.items(),
+            key=lambda item: canonical_h8_json_bytes(item[0].canonical_payload()),
+        )
+    }
+    if observed != dict(getattr(reference, "certificate_hashes")):
+        raise ValueError("H6-Prefix certificate hashes do not match reopened certificates")
+
+
+def _revalidate_h7_fixture_set(
+    reference: H8H7Reference,
+    payloads: Mapping[str, bytes],
+) -> None:
+    from vfe4.types.h7 import h7_owned_sha256
+    from vfe4.types.results import H7GateResult
+    from vfe4.validation import parse_h7_fixture_bytes
+
+    raw_validation = payloads.get("validation/h7.json")
+    if raw_validation is None:
+        raise ValueError("H7 artifact lacks validation/h7.json")
+    validation = _canonical_mapping(raw_validation, "H7 validation")
+    result = validation.get("result")
+    if (
+        validation.get("schema") != "h7-frame-covariance-validation-v1"
+        or type(result) is not dict
+        or result.get("status") != "pass"
+        or result.get("obligations") != []
+        or not isinstance(result.get("fixture_hashes"), Mapping)
+    ):
+        raise ValueError("H7 validation is not one exact PASS fixture record")
+
+    repository_root = Path(__file__).resolve().parents[1]
+    fixture_root = repository_root / "vfe4" / "validation" / "fixtures"
+    fixture_paths = {
+        "h1_fixture_raw_sha256": fixture_root / "h1_v1.json",
+        "h7_fixture_raw_sha256": fixture_root / "h7_v1.json",
+        "density_probe_table_raw_sha256": (
+            fixture_root / "h7_density_probes_v1.json"
+        ),
+    }
+    fixture_bytes: dict[str, bytes] = {}
+    for key, path in fixture_paths.items():
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"H7 current-candidate fixture is unavailable: {key}")
+        resolved = path.resolve(strict=True)
+        if (
+            repository_root not in resolved.parents
+            or resolved.is_symlink()
+            or not resolved.is_file()
+        ):
+            raise ValueError(f"H7 current-candidate fixture escapes the repository: {key}")
+        fixture_bytes[key] = resolved.read_bytes()
+    parsed_fixture = parse_h7_fixture_bytes(
+        fixture_bytes["h7_fixture_raw_sha256"],
+    )
+    if (
+        fixture_paths["density_probe_table_raw_sha256"].read_bytes()
+        != fixture_bytes["density_probe_table_raw_sha256"]
+    ):
+        raise ValueError("H7 density-probe bytes changed during fixture parsing")
+    derived_fixture_hashes = {
+        key: hashlib.sha256(payload).hexdigest()
+        for key, payload in fixture_bytes.items()
+    }
+    derived_fixture_hashes["density_probe_set_sha256"] = (
+        parsed_fixture.density_probe_set_sha256
+    )
+    if (
+        tuple(derived_fixture_hashes) != H7GateResult.fixture_hash_keys
+        or result["fixture_hashes"] != derived_fixture_hashes
+    ):
+        raise ValueError(
+            "H7 validation fixture hashes differ from current-candidate fixture bytes"
+        )
+    derived_fixture_set_sha256 = h7_owned_sha256(
+        "vfe4.h7.fixture-set.v1",
+        derived_fixture_hashes,
+    )
+    if (
+        validation.get("fixture_set_sha256") != derived_fixture_set_sha256
+        or reference.fixture_set_sha256 != derived_fixture_set_sha256
+    ):
+        raise ValueError("H7 fixture-set hash is not derivable from reopened fixture bytes")
+
+
+def _validate_blinded_data_manifest(
+    root: Path,
+    *,
+    expected_manifest_sha256: str,
+) -> None:
+    _sha256(expected_manifest_sha256, "blinded_data_manifest_sha256")
+    manifest_path = root / "manifest.sha256"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ValueError("blinded-data manifest is unavailable")
+    if manifest_path.read_bytes() != (expected_manifest_sha256 + "\n").encode("ascii"):
+        raise ValueError("blinded-data directory manifest identity is stale")
+
+
+def _reconstruct_h6_prediction_readiness(
+    *,
+    reference: H8H6PredictionReference,
+    config: Mapping[str, object],
+) -> object:
+    from vfe4.config import resolve_h6_prediction_v2_config
+    from vfe4.training import h6_readiness
+    from vfe4.types.h6 import issue_prediction_readiness_v2
+
+    repository_root = Path(__file__).resolve().parents[1]
+    resolved = resolve_h6_prediction_v2_config(
+        config,
+        repo_root=repository_root,
+    )
+    source = resolved.source
+    if (
+        resolved.config_sha256 != reference.config_sha256
+        or resolved.schema_version != reference.config_schema
+        or source.git_head != reference.producer_head
+        or source.dirty_digest != reference.producer_dirty_digest
+        or source.source_sha256
+        != source_candidate_sha256(
+            git_head_value=reference.producer_head,
+            dirty_digest_value=reference.producer_dirty_digest,
+        )
+        or resolved.matching_set_sha256 != reference.matching_set_sha256
+        or resolved.h1_prefix_prior_generative_factor_schema_sha256
+        != reference.h1_prefix_prior_generative_factor_schema_sha256
+        or resolved.smc_bias_semantics_sha256
+        != reference.smc_bias_semantics_sha256
+        or resolved.objective_gate.spec_sha256
+        != reference.objective_gate_spec_sha256
+    ):
+        raise ValueError("H6-Prediction resolved config/source bindings are stale")
+
+    correctness_manifests = dict(resolved.correctness_manifests)
+    if tuple(correctness_manifests) != ("H1", "H2", "H3", "H5"):
+        raise ValueError("H6-Prediction correctness manifest inventory is not exact")
+    correctness = []
+    for gate in ("H1", "H2", "H3", "H5"):
+        raw_path = reference.correctness_artifact_paths[gate]
+        _reopen_manifested_root(
+            raw_path,
+            expected_manifest_sha256=correctness_manifests[gate],
+        )
+        correctness.append(
+            h6_readiness._load_prediction_correctness_artifact(
+                gate=gate,
+                root=Path(raw_path),
+                expected_manifest_sha256=correctness_manifests[gate],
+                expected_git_head=source.git_head,
+                expected_dirty_digest=source.dirty_digest,
+            )
+        )
+
+    _reopen_manifested_root(
+        reference.h1_prefix_prior_artifact_path,
+        expected_manifest_sha256=resolved.h1_prefix_prior_manifest_sha256,
+    )
+    h1_prefix = h6_readiness._load_h1_prefix_prior_artifact(
+        root=Path(reference.h1_prefix_prior_artifact_path),
+        expected_manifest_sha256=resolved.h1_prefix_prior_manifest_sha256,
+        expected_generative_factor_schema_sha256=(
+            resolved.h1_prefix_prior_generative_factor_schema_sha256
+        ),
+        expected_git_head=source.git_head,
+        expected_dirty_digest=source.dirty_digest,
+        expected_source_sha256=source.source_sha256,
+    )
+
+    if (
+        resolved.smc_validation_manifest_sha256
+        != reference.smc_accuracy_manifest_sha256
+    ):
+        raise ValueError("finite-SMC manifest differs from the H6-Prediction config")
+    _reopen_manifested_root(
+        reference.smc_accuracy_artifact_path,
+        expected_manifest_sha256=reference.smc_accuracy_manifest_sha256,
+    )
+    smc = h6_readiness._load_smc_accuracy_artifact(
+        root=Path(reference.smc_accuracy_artifact_path),
+        expected_manifest_sha256=reference.smc_accuracy_manifest_sha256,
+        expected_git_head=source.git_head,
+        expected_dirty_digest=source.dirty_digest,
+    )
+
+    _reopen_manifested_root(
+        reference.h6_prefix_artifact_path,
+        expected_manifest_sha256=reference.h6_prefix_manifest_sha256,
+    )
+    certificates = h6_readiness._load_prefix_certificates(
+        root=Path(reference.h6_prefix_artifact_path),
+        expected_set_sha256=resolved.prefix_certificate_set_sha256,
+        expected_git_head=source.git_head,
+        expected_dirty_digest=source.dirty_digest,
+    )
+    h5_binding = h6_readiness._load_h5_update_binding(
+        Path(reference.correctness_artifact_paths["H5"]),
+        expected_binding_sha256=resolved.h5_update_binding_sha256,
+    )
+
+    blinded_root = _resolve_immutable_artifact_root(
+        reference.blinded_data_artifact_path,
+        name="blinded-data artifact",
+    )
+    _validate_blinded_data_manifest(
+        blinded_root,
+        expected_manifest_sha256=reference.blinded_data_manifest_sha256,
+    )
+    observed_archive = resolved.data.observed_archive
+    if observed_archive is None:
+        raise ValueError("H6-Prediction config lacks its observed archive identity")
+    data_identity = h6_readiness._load_blinded_data_identity(
+        blinded_root,
+        expected_archive_sha256=observed_archive.archive_sha256,
+        expected_data_identity_sha256=resolved.data_identity_sha256,
+        expected_access_policy_sha256=resolved.access_policy_sha256,
+    )
+
+    _reopen_manifested_root(
+        reference.matching_artifact_path,
+        expected_manifest_sha256=reference.matching_manifest_sha256,
+    )
+    matching_set = h6_readiness._validate_matching_artifact(
+        Path(reference.matching_artifact_path),
+        expected_set_sha256=resolved.matching_set_sha256,
+        expected_git_head=source.git_head,
+        expected_dirty_digest=source.dirty_digest,
+    )
+
+    return issue_prediction_readiness_v2(
+        git_head=source.git_head,
+        dirty_digest=source.dirty_digest,
+        experiment_config_sha256=resolved.config_sha256,
+        correctness_artifacts=tuple(correctness),
+        h1_prefix_prior_artifact=h1_prefix,
+        h1_prefix_prior_generative_factor_schema_sha256=(
+            resolved.h1_prefix_prior_generative_factor_schema_sha256
+        ),
+        smc_bias_semantics_sha256=resolved.smc_bias_semantics_sha256,
+        objective_gate_spec=resolved.objective_gate,
+        h5_update_binding=h5_binding,
+        h6_training_schedule=resolved.training_schedule,
+        smc_accuracy_artifact=smc,
+        critical_values_sha256=resolved.critical_values_sha256,
+        endpoint_smc_protocol=resolved.endpoint_smc_protocol,
+        attribution_matrix_sha256=resolved.attribution_matrix_sha256,
+        matching_set_sha256=matching_set.matching_set_sha256,
+        prefix_certificates=certificates,
+        data_identity=data_identity,
+        matching_set=matching_set,
+    )
+
+
+def _reopen_h6_prediction_v2(
+    reference: H8H6PredictionReference,
+) -> None:
+    from vfe4.artifacts.h6 import read_h6_prediction_result
+    from vfe4.training.h6_readiness import _readiness_payload
+
+    artifact_root, payloads = _reopen_reference_common(reference)
+    expected_result_path = (
+        artifact_root / "validation" / "h6_prediction_result.json"
+    ).resolve(strict=False)
+    if Path(reference.result_path).resolve(strict=True) != expected_result_path:
+        raise ValueError("H6-Prediction result path is not its manifested result")
+    expected_payload_names = (
+        "raw/h6_endpoint_records.json",
+        "validation/h6_prediction_metrics.json",
+        "validation/h6_prediction_result.json",
+    )
+    if tuple(payloads) != expected_payload_names:
+        raise ValueError("H6-Prediction artifact payload inventory is not amended v2")
+    readiness_root, _entries, readiness_payloads = _reopen_manifested_root(
+        reference.readiness_artifact_path,
+        expected_manifest_sha256=reference.readiness_manifest_sha256,
+    )
+    if (
+        tuple(readiness_payloads)
+        != (
+            "config.json",
+            "validation/h6_prediction_readiness.json",
+        )
+        or readiness_root.name
+        != f"h6-prediction-readiness-{reference.readiness_sha256[:16]}"
+    ):
+        raise ValueError("H6-Prediction readiness artifact inventory is not exact")
+    config_bytes = readiness_payloads["config.json"]
+    config = _canonical_mapping(config_bytes, "H6-Prediction config")
+    readiness = _canonical_mapping(
+        readiness_payloads["validation/h6_prediction_readiness.json"],
+        "H6-Prediction readiness",
+    )
+    typed_readiness = _reconstruct_h6_prediction_readiness(
+        reference=reference,
+        config=config,
+    )
+    expected_readiness_bytes = canonical_h8_json_bytes(
+        _readiness_payload(typed_readiness)
+    )
+    if (
+        hashlib.sha256(config_bytes).hexdigest() != reference.config_sha256
+        or config.get("schema_version") != reference.config_schema
+        or canonical_h8_json_bytes(config) != config_bytes
+        or readiness_payloads["validation/h6_prediction_readiness.json"]
+        != expected_readiness_bytes
+        or readiness.get("readiness_schema") != reference.readiness_schema
+        or readiness.get("status") != "PASS"
+        or readiness.get("readiness_sha256") != reference.readiness_sha256
+        or readiness.get("experiment_config_sha256") != reference.config_sha256
+        or readiness.get("matching_set_sha256") != reference.matching_set_sha256
+        or readiness.get("h1_prefix_prior_generative_factor_schema_sha256")
+        != reference.h1_prefix_prior_generative_factor_schema_sha256
+        or readiness.get("smc_bias_semantics_sha256")
+        != reference.smc_bias_semantics_sha256
+        or readiness.get("objective_gate_spec_sha256")
+        != reference.objective_gate_spec_sha256
+    ):
+        raise ValueError("H6-Prediction readiness/config bindings are stale")
+
+    result = read_h6_prediction_result(
+        artifact_root=artifact_root,
+        readiness=typed_readiness,
+    )
+    metrics_bytes = payloads["validation/h6_prediction_metrics.json"]
+    metrics = _canonical_mapping(metrics_bytes, "H6-Prediction metrics")
+    result_payload = _canonical_mapping(
+        payloads["validation/h6_prediction_result.json"],
+        "H6-Prediction result",
+    )
+    if (
+        result.status is not GateStatus.PASS
+        or result.obligations
+        or result.readiness_sha256 != reference.readiness_sha256
+        or result.smc_bias_semantics_sha256
+        != reference.smc_bias_semantics_sha256
+        or result.metrics_sha256 != reference.metrics_sha256
+        or hashlib.sha256(metrics_bytes).hexdigest() != reference.metrics_sha256
+        or metrics.get("schema") != reference.metrics_schema
+        or metrics.get("objective_gate_spec_sha256")
+        != reference.objective_gate_spec_sha256
+        or result_payload.get("schema_version") != reference.result_schema
+        or result_payload.get("status") != "pass"
+    ):
+        raise ValueError("H6-Prediction raw-derived metrics/result bindings are stale")
+
+
+def validate_h8_prerequisite_artifacts(
+    refs: CurrentH8PrerequisiteRefs,
+) -> H8PrerequisiteArtifactValidation:
+    """Reopen exact referenced bytes and return one hash-bound validation.
+
+    The registry remains the sole source of reference records. This function
+    validates the immutable paths and hashes but never reconstructs a reference
+    from the reopened payload and never copies predecessor bytes into H8.
+    """
+
+    if type(refs) is not CurrentH8PrerequisiteRefs:
+        raise ValueError("refs must be exact CurrentH8PrerequisiteRefs")
+    refs.__post_init__()
+    obligations = list(refs.prerequisite_obligations)
+    revalidated: list[str] = []
+    try:
+        _reopen_h7_compatibility_references(refs)
+    except (OSError, RuntimeError, TypeError, ValueError):
+        obligations.append(
+            "h8_prerequisite_h7_transitive_junit_artifact_revalidation_required"
+        )
+    for name in ("h1_h5", "h1_prefix_prior", "h6_prefix", "h7"):
+        reference = getattr(refs, name)
+        try:
+            _root, payloads = _reopen_reference_common(reference)
+            if name == "h6_prefix":
+                _revalidate_h6_prefix_certificates(reference, payloads)
+            if name == "h7":
+                _read_immutable_file(
+                    reference.result_pointer_path,
+                    expected_sha256=reference.result_pointer_sha256,
+                    name="h7_result_pointer",
+                )
+                _revalidate_h7_fixture_set(reference, payloads)
+            revalidated.append(name)
+        except (OSError, RuntimeError, TypeError, ValueError):
+            obligations.append(
+                f"h8_prerequisite_{name}_immutable_artifact_revalidation_required"
+            )
+    if type(refs.h6_prediction) is H8H6PredictionReference:
+        try:
+            _reopen_h6_prediction_v2(
+                refs.h6_prediction,
+            )
+            revalidated.append("h6_prediction")
+        except (OSError, RuntimeError, TypeError, ValueError):
+            obligations.append(
+                "h8_prerequisite_h6_prediction_v2_artifact_revalidation_required"
+            )
+    elif type(refs.h6_prediction) is not H8LegacyH6PredictionReference:
+        raise ValueError("H6-Prediction reference variant is not exact")
+    return H8PrerequisiteArtifactValidation.create(
+        registry_sha256=refs.registry_sha256,
+        revalidated_reference_names=tuple(revalidated),
+        obligations=tuple(dict.fromkeys(obligations)),
+    )
+
+
+def _prerequisite_payload(
+    refs: CurrentH8PrerequisiteRefs,
+    *,
+    prerequisite_obligations: tuple[str, ...] = (),
+) -> dict[str, object]:
     return {
         "h7_compatibility_refs": {
             key: _json_value(reference)
@@ -669,9 +1390,13 @@ def _prerequisite_payload(refs: CurrentH8PrerequisiteRefs) -> dict[str, object]:
         "compatibility_checks": (
             "same_candidate_head",
             "same_candidate_dirty_digest",
+            "h7_transitive_reference_bytes_equal",
+            "immutable_artifacts_reopened_and_revalidated",
+            "amended_h6_prediction_v2_bound",
             "lossless_reference_round_trip",
         ),
-        "all_current_and_pass": True,
+        "obligations": prerequisite_obligations,
+        "all_current_and_pass": not prerequisite_obligations,
     }
 
 
@@ -684,7 +1409,7 @@ def h8_current_refs_registry_payload(
         raise ValueError("refs must be an exact CurrentH8PrerequisiteRefs")
     refs.__post_init__()
     return {
-        "schema_version": "h8-current-candidate-refs-v1",
+        "schema_version": refs.registry_schema_version,
         "candidate": {
             "git_head": refs.candidate_head,
             "dirty_digest": refs.candidate_dirty_digest,
@@ -804,6 +1529,7 @@ def assemble_h8_gate_evaluation(
     dependency_closure_sha256: str,
     preregistration_sha256: str,
     additional_obligations: tuple[str, ...] = (),
+    prerequisite_validation: H8PrerequisiteArtifactValidation | None = None,
     runtime_sections: Mapping[str, object] | None = None,
 ) -> H8GateEvaluation:
     """Freeze typed evidence; never launch, retry, or synthesize a child run."""
@@ -823,6 +1549,34 @@ def assemble_h8_gate_evaluation(
         or any(type(item) is not str or not item for item in additional_obligations)
     ):
         raise ValueError("additional_obligations must be nonempty strings")
+    if prerequisite_validation is None:
+        validated_obligations = (
+            "h8_prerequisite_artifact_revalidation_not_supplied",
+        )
+    else:
+        if type(prerequisite_validation) is not H8PrerequisiteArtifactValidation:
+            raise ValueError("prerequisite validation must retain its exact type")
+        prerequisite_validation.__post_init__()
+        if prerequisite_validation.registry_sha256 != current_refs.registry_sha256:
+            raise ValueError("prerequisite validation belongs to another registry")
+        validated_obligations = prerequisite_validation.obligations
+        if (
+            not validated_obligations
+            and prerequisite_validation.revalidated_reference_names
+            != H8_POINTER_PREDECESSOR_KEYS
+        ):
+            raise ValueError(
+                "successful prerequisite validation must reopen every reference"
+            )
+    bound_prerequisite_obligations = tuple(
+        dict.fromkeys(
+            (
+                *current_refs.prerequisite_obligations,
+                *validated_obligations,
+            )
+        )
+    )
+    prerequisites_current_and_pass = not bound_prerequisite_obligations
 
     complete = _inventory_complete(
         correctness,
@@ -830,7 +1584,10 @@ def assemble_h8_gate_evaluation(
         profiler_runs,
         controls,
     )
-    obligations = list(additional_obligations)
+    obligations = [
+        *bound_prerequisite_obligations,
+        *additional_obligations,
+    ]
     if not complete:
         if tuple(item.cell_id for item in correctness) != tuple(
             range(1, len(H8_CORRECTNESS_CASES) + 1)
@@ -887,6 +1644,7 @@ def assemble_h8_gate_evaluation(
             refs=current_refs,
             dependency_closure_sha256=dependency_closure_sha256,
             preregistration_sha256=preregistration_sha256,
+            prerequisites_current_and_pass=prerequisites_current_and_pass,
         )
         if runtime_sections is None
         else _validate_runtime_sections(runtime_sections)
@@ -897,6 +1655,7 @@ def assemble_h8_gate_evaluation(
         refs=current_refs,
         dependency_closure_sha256=dependency_closure_sha256,
         preregistration_sha256=preregistration_sha256,
+        prerequisites_current_and_pass=prerequisites_current_and_pass,
     )
     payload = {
         "schema_version": H8_VALIDATION_SCHEMA,
@@ -911,7 +1670,10 @@ def assemble_h8_gate_evaluation(
         "nonclaims": H8_NONCLAIMS,
         "revision": sections["revision"],
         "config": sections["config"],
-        "prerequisites": _prerequisite_payload(current_refs),
+        "prerequisites": _prerequisite_payload(
+            current_refs,
+            prerequisite_obligations=bound_prerequisite_obligations,
+        ),
         "interpretation": sections["interpretation"],
         "protocol": sections["protocol"],
         "environment": sections["environment"],
@@ -984,7 +1746,9 @@ def build_h8_publication_payloads(
     evaluation: H8GateEvaluation,
     *,
     h7_reference: H8H7Reference,
-    h6_prediction_reference: H8H6PredictionReference,
+    h6_prediction_reference: (
+        H8H6PredictionReference | H8LegacyH6PredictionReference
+    ),
     provenance: Mapping[str, object] | None = None,
     environment: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
@@ -1177,6 +1941,22 @@ def _revalidate_h8_artifact_semantics(
     validation_obligations = validation.get("obligations")
     correctness = validation.get("correctness")
     invariants = validation.get("invariants")
+    raw_prerequisite_obligations = (
+        prerequisites.get("obligations")
+        if isinstance(prerequisites, Mapping)
+        else None
+    )
+    if (
+        not isinstance(raw_prerequisite_obligations, list)
+        or any(
+            type(item) is not str or not item
+            for item in raw_prerequisite_obligations
+        )
+        or len(set(raw_prerequisite_obligations))
+        != len(raw_prerequisite_obligations)
+    ):
+        raise ValueError("H8 prerequisite obligations are not exact")
+    prerequisite_obligations = tuple(raw_prerequisite_obligations)
     if (
         validation.get("status") != GateStatus.INCONCLUSIVE.value
         or not isinstance(validation_obligations, list)
@@ -1198,6 +1978,16 @@ def _revalidate_h8_artifact_semantics(
         or not isinstance(invariants, Mapping)
         or invariants.get("all_pass") is not False
         or invariants.get("witnessed_failure_dominance_applied") is not True
+        or invariants.get("prerequisites_current_and_pass")
+        is not (not prerequisite_obligations)
+        or any(
+            item not in validation_obligations
+            for item in prerequisite_obligations
+        )
+        or any(
+            item not in prerequisite_obligations
+            for item in current_refs.prerequisite_obligations
+        )
         or
         not isinstance(revision, Mapping)
         or revision.get("git_head") != current_refs.candidate_head
@@ -1209,7 +1999,13 @@ def _revalidate_h8_artifact_semantics(
         != current_refs.registry_sha256
         or validation_config_identity.get("candidate_junit_sha256")
         != junit_sha256
-        or prerequisites != _json_value(_prerequisite_payload(current_refs))
+        or prerequisites
+        != _json_value(
+            _prerequisite_payload(
+                current_refs,
+                prerequisite_obligations=prerequisite_obligations,
+            )
+        )
         or validation.get("environment") != environment
     ):
         raise ValueError("H8 validation identities do not match artifact inputs")
@@ -1410,6 +2206,7 @@ __all__ = [
     "H8_BOUNDED_CLAIM",
     "H8_CURRENT_CANDIDATE_RESULT_SCHEMA",
     "H8_POINTER_PREDECESSOR_KEYS",
+    "H8PrerequisiteArtifactValidation",
     "H8_PUBLICATION_PAYLOAD_KEYS",
     "H8_SOURCE_ONLY_OBLIGATIONS",
     "H8_VALIDATION_SCHEMA",
@@ -1422,4 +2219,5 @@ __all__ = [
     "h8_current_refs_registry_payload",
     "h8_validation_payload",
     "make_h8_preflight_inconclusive",
+    "validate_h8_prerequisite_artifacts",
 ]

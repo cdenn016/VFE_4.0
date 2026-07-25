@@ -25,10 +25,11 @@ from verification.h7_gate import (
     _inventory_obligations,
     _validate_predecessor_files,
     assemble_h7_gate_evaluation,
+    h7_predecessor_closure_claim_contract,
     validate_h7_predecessor_registry,
 )
 from verification.run_gates import _combined_provenance, run_verification
-from vfe4.artifacts import publish_run_directory
+from vfe4.artifacts import publish_run_directory, source_candidate_sha256
 from vfe4.types import H7GateResult as PublicH7GateResult
 from vfe4.types.h7 import (
     H7_CONTROL_IDS,
@@ -57,11 +58,15 @@ def _controlled_predecessor(
     git_head: str,
     declared_dirty_digest: str,
     artifact_dirty_digest: str,
-    junit_sha256: str,
     live_artifact_revision: str,
     ledger_artifact_revision: str,
     ledger_errors: tuple[str, ...] = (),
 ) -> tuple[H7PredecessorReference, SimpleNamespace, str]:
+    junit_bytes = b'<testsuite tests="1" failures="0" errors="0"/>\n'
+    junit_path = repo_root / ".verification" / "candidate-junit.xml"
+    junit_path.parent.mkdir(parents=True, exist_ok=True)
+    junit_path.write_bytes(junit_bytes)
+    junit_sha256 = hashlib.sha256(junit_bytes).hexdigest()
     artifact = repo_root / name / "artifact"
     validation = artifact / "validation"
     validation.mkdir(parents=True)
@@ -73,6 +78,10 @@ def _controlled_predecessor(
             "schema_version": 1,
             "git_head": git_head,
             "dirty_digest": artifact_dirty_digest,
+            "source_sha256": source_candidate_sha256(
+                git_head_value=git_head,
+                dirty_digest_value=artifact_dirty_digest,
+            ),
             "junit_sha256": junit_sha256,
         }
     )
@@ -82,16 +91,40 @@ def _controlled_predecessor(
     manifest = f"{payload_sha256}  {payload_name}\n".encode("utf-8")
     (artifact / "manifest.sha256").write_bytes(manifest)
 
+    manifest_sha256 = hashlib.sha256(manifest).hexdigest()
+    payload_hashes = {payload_name: payload_sha256}
+    claim_contract = h7_predecessor_closure_claim_contract(
+        name if name in H7_PREDECESSOR_KEYS else "h1_h5",
+        repo_root=repo_root,
+        artifact_path=str(artifact),
+        git_head=git_head,
+        dirty_digest=declared_dirty_digest,
+        junit_path=str(junit_path),
+        junit_sha256=junit_sha256,
+        manifest_sha256=manifest_sha256,
+        payload_hashes=payload_hashes,
+    )
+    claim_evidence = [
+        {
+            **dict(record),
+            "artifact_revision": ledger_artifact_revision,
+        }
+        for record in claim_contract["evidence"]
+    ]
     ledger = {
         "schema_version": "1.0",
         "mode": "closure",
         "artifact_revision": ledger_artifact_revision,
         "claims": [
             {
+                "id": claim_contract["id"],
+                "domain": claim_contract["domain"],
+                "statement": claim_contract["statement"],
                 "artifact_revision": ledger_artifact_revision,
                 "state": "EVIDENCE_VERIFIED",
                 "open_obligations": [],
                 "evidence_invalidated": False,
+                "evidence": claim_evidence,
             }
         ],
     }
@@ -104,8 +137,9 @@ def _controlled_predecessor(
         git_head=git_head,
         dirty_digest=declared_dirty_digest,
         junit_sha256=junit_sha256,
-        manifest_sha256=hashlib.sha256(manifest).hexdigest(),
-        payload_hashes={payload_name: payload_sha256},
+        junit_path=str(junit_path),
+        manifest_sha256=manifest_sha256,
+        payload_hashes=payload_hashes,
         ledger_path=str(ledger_path),
         ledger_sha256=hashlib.sha256(ledger_bytes).hexdigest(),
     )
@@ -181,7 +215,11 @@ def test_candidate_junit_flows_through_real_minimal_h1_h5_artifact(
 
     git_head = "a" * 40
     dirty_digest = "b" * 64
-    junit_sha256 = "c" * 64
+    junit_bytes = b'<testsuite tests="1" failures="0" errors="0"/>\n'
+    junit_path = tmp_path / ".verification" / "candidate-junit.xml"
+    junit_path.parent.mkdir(parents=True, exist_ok=True)
+    junit_path.write_bytes(junit_bytes)
+    junit_sha256 = hashlib.sha256(junit_bytes).hexdigest()
     revision = f"git:{git_head}:sha256:{dirty_digest}"
     monkeypatch.setattr(provenance_module, "git_head", lambda _root: git_head)
     monkeypatch.setattr(
@@ -260,8 +298,19 @@ def test_candidate_junit_flows_through_real_minimal_h1_h5_artifact(
         line.split("  ", 1)[1]: line.split("  ", 1)[0]
         for line in manifest_bytes.decode("ascii").splitlines()
     }
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    claim_contract = h7_predecessor_closure_claim_contract(
+        "h1_h5",
+        repo_root=tmp_path,
+        artifact_path=str(artifact),
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+        junit_path=str(junit_path),
+        junit_sha256=junit_sha256,
+        manifest_sha256=manifest_sha256,
+        payload_hashes=payload_hashes,
+    )
     ledger_path = tmp_path / ".verification" / "h1-h5-ledger.json"
-    ledger_path.parent.mkdir()
     ledger_bytes = _json_bytes(
         {
             "schema_version": "1.0",
@@ -269,10 +318,20 @@ def test_candidate_junit_flows_through_real_minimal_h1_h5_artifact(
             "artifact_revision": revision,
             "claims": [
                 {
+                    "id": claim_contract["id"],
+                    "domain": claim_contract["domain"],
+                    "statement": claim_contract["statement"],
                     "artifact_revision": revision,
                     "state": "EVIDENCE_VERIFIED",
                     "open_obligations": [],
                     "evidence_invalidated": False,
+                    "evidence": [
+                        {
+                            **dict(record),
+                            "artifact_revision": revision,
+                        }
+                        for record in claim_contract["evidence"]
+                    ],
                 }
             ],
         }
@@ -283,7 +342,8 @@ def test_candidate_junit_flows_through_real_minimal_h1_h5_artifact(
         git_head=git_head,
         dirty_digest=dirty_digest,
         junit_sha256=junit_sha256,
-        manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        junit_path=str(junit_path),
+        manifest_sha256=manifest_sha256,
         payload_hashes=payload_hashes,
         ledger_path=str(ledger_path),
         ledger_sha256=hashlib.sha256(ledger_bytes).hexdigest(),
@@ -419,7 +479,6 @@ def test_malformed_ledger_is_rejected_by_deterministic_validator(
 ) -> None:
     git_head = "a" * 40
     dirty_digest = "b" * 64
-    junit_sha256 = "c" * 64
     revision = f"git:{git_head}:sha256:{dirty_digest}"
     reference, validator_api, live_revision = _controlled_predecessor(
         tmp_path,
@@ -427,7 +486,6 @@ def test_malformed_ledger_is_rejected_by_deterministic_validator(
         git_head=git_head,
         declared_dirty_digest=dirty_digest,
         artifact_dirty_digest=dirty_digest,
-        junit_sha256=junit_sha256,
         live_artifact_revision=revision,
         ledger_artifact_revision=revision,
         ledger_errors=("ledger: malformed closure record",),
@@ -451,7 +509,6 @@ def test_artifact_and_ledger_are_cross_bound_to_one_candidate(
 ) -> None:
     git_head = "a" * 40
     dirty_digest = "b" * 64
-    junit_sha256 = "c" * 64
     revision = f"git:{git_head}:sha256:{dirty_digest}"
     wrong_revision = f"git:{git_head}:sha256:{'d' * 64}"
 
@@ -461,7 +518,6 @@ def test_artifact_and_ledger_are_cross_bound_to_one_candidate(
         git_head=git_head,
         declared_dirty_digest=dirty_digest,
         artifact_dirty_digest="d" * 64,
-        junit_sha256=junit_sha256,
         live_artifact_revision=revision,
         ledger_artifact_revision=revision,
     )
@@ -480,7 +536,6 @@ def test_artifact_and_ledger_are_cross_bound_to_one_candidate(
         git_head=git_head,
         declared_dirty_digest=dirty_digest,
         artifact_dirty_digest=dirty_digest,
-        junit_sha256=junit_sha256,
         live_artifact_revision=revision,
         ledger_artifact_revision=wrong_revision,
     )
@@ -493,6 +548,76 @@ def test_artifact_and_ledger_are_cross_bound_to_one_candidate(
             live_artifact_revision=ledger_live,
         )
     assert len(ledger_api.validated_ledgers) == 1
+
+
+def test_predecessor_reopens_candidate_junit_preimage(
+    tmp_path: Path,
+) -> None:
+    git_head = "a" * 40
+    dirty_digest = "b" * 64
+    revision = f"git:{git_head}:sha256:{dirty_digest}"
+    reference, validator_api, live_revision = _controlled_predecessor(
+        tmp_path,
+        name="junit-preimage",
+        git_head=git_head,
+        declared_dirty_digest=dirty_digest,
+        artifact_dirty_digest=dirty_digest,
+        live_artifact_revision=revision,
+        ledger_artifact_revision=revision,
+    )
+    Path(reference.junit_path).write_bytes(b"mutated JUnit bytes\n")
+    with pytest.raises(ValueError, match="JUnit preimage hash mismatch"):
+        _validate_predecessor_files(
+            "h1_h5",
+            reference,
+            repo_root=tmp_path,
+            validator_api=validator_api,
+            live_artifact_revision=live_revision,
+        )
+
+
+def test_unrelated_closure_ledger_cannot_authorize_a_predecessor(
+    tmp_path: Path,
+) -> None:
+    git_head = "a" * 40
+    dirty_digest = "b" * 64
+    revision = f"git:{git_head}:sha256:{dirty_digest}"
+    reference, validator_api, live_revision = _controlled_predecessor(
+        tmp_path,
+        name="unrelated-claim",
+        git_head=git_head,
+        declared_dirty_digest=dirty_digest,
+        artifact_dirty_digest=dirty_digest,
+        live_artifact_revision=revision,
+        ledger_artifact_revision=revision,
+    )
+    ledger_path = Path(reference.ledger_path)
+    ledger = json.loads(ledger_path.read_bytes())
+    ledger["claims"][0]["id"] = "unrelated-valid-claim"
+    ledger_bytes = _json_bytes(ledger)
+    ledger_path.write_bytes(ledger_bytes)
+    unrelated_reference = H7PredecessorReference.create(
+        artifact_path=reference.artifact_path,
+        git_head=reference.git_head,
+        dirty_digest=reference.dirty_digest,
+        junit_sha256=reference.junit_sha256,
+        junit_path=reference.junit_path,
+        manifest_sha256=reference.manifest_sha256,
+        payload_hashes=reference.payload_hashes,
+        ledger_path=reference.ledger_path,
+        ledger_sha256=hashlib.sha256(ledger_bytes).hexdigest(),
+    )
+    with pytest.raises(
+        ValueError,
+        match="lacks one exact predecessor-closure claim",
+    ):
+        _validate_predecessor_files(
+            "h1_h5",
+            unrelated_reference,
+            repo_root=tmp_path,
+            validator_api=validator_api,
+            live_artifact_revision=live_revision,
+        )
 
 
 def test_expected_negative_paths_and_complete_pass_fail_precedence() -> None:

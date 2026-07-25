@@ -6,7 +6,7 @@ from vfe4.training.parameter_counts import (
     arm_parameter_count,
     h6_a0_parameter_count,
     outcome_blind_feasibility_assessments,
-    prefix_conditioned_source_prior_parameter_count,
+    parent_specific_pooled_prefix_source_prior_parameter_count,
 )
 from vfe4.training.h6_transformer import (
     H6A0ArchitectureProfile,
@@ -67,14 +67,14 @@ def test_symbolic_parameter_counts_match_the_constructor_inventory() -> None:
         recognition_family="factorized",
         **dimensions,
     ) == 63_378
-    assert prefix_conditioned_source_prior_parameter_count(
+    assert parent_specific_pooled_prefix_source_prior_parameter_count(
         vocabulary_size=258,
         horizon=32,
         latent_width=8,
         context_width=6,
         gauge_anchored=False,
     ) == 9_036
-    assert prefix_conditioned_source_prior_parameter_count(
+    assert parent_specific_pooled_prefix_source_prior_parameter_count(
         vocabulary_size=258,
         horizon=32,
         latent_width=8,
@@ -108,7 +108,10 @@ def test_outcome_blind_witnesses_match_the_amended_width_policy() -> None:
             "AVAILABLE",
             63_378,
         ),
-        "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1": (
+        (
+            "h6-a5-structured-parent-specific-prefix-exact-complete-"
+            "latent-smoothing-v2"
+        ): (
             "AVAILABLE",
             63_430,
         ),
@@ -116,9 +119,12 @@ def test_outcome_blind_witnesses_match_the_amended_width_policy() -> None:
             "AVAILABLE",
             63_634,
         ),
-        "h6-a5-structured-fixed-exact-emission-latent-smoothing-v1": (
+        (
+            "h6-a5-structured-parent-specific-prefix-exact-emission-"
+            "latent-smoothing-v2"
+        ): (
             "AVAILABLE",
-            63_634,
+            63_430,
         ),
         "h6-a5-structured-fixed-exact-complete-nolatent-norecognition-v1": (
             "AVAILABLE",
@@ -133,7 +139,10 @@ def test_outcome_blind_witnesses_match_the_amended_width_policy() -> None:
         item
         for item in assessments
         if item.config_id
-        == "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1"
+        == (
+            "h6-a5-structured-parent-specific-prefix-exact-complete-"
+            "latent-smoothing-v2"
+        )
     )
     assert prior.prior_context_width == 6
     assert prior.parameter_count == 63_430

@@ -11,7 +11,7 @@ from vfe4.generative import (
     LanguageGenerativeModel,
     NormalizedLanguageFactor,
     NormalizedSourceFactor,
-    PrefixConditionedSourcePrior,
+    ParentSpecificPooledPrefixSourcePrior,
 )
 from vfe4.types import (
     CausalDag,
@@ -276,7 +276,7 @@ def test_language_model_rejects_source_prior_identity_and_latent_mismatches() ->
             source_prior=wrong_family,
         )
 
-    wrong_latent = PrefixConditionedSourcePrior(
+    wrong_latent = ParentSpecificPooledPrefixSourcePrior(
         structure=structure,
         vocabulary=vocabulary,
         fixture_sha256=SHA_A,

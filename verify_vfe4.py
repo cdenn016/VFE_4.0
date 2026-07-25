@@ -282,6 +282,49 @@ CONFIG: dict[str, object] = {
             "authorization": None,
             "config": {},
         },
+        "h1_prefix_prior_v2": {
+            "enabled": False,
+            "authorization": None,
+            "config": {
+                "schema_version": "h1-prefix-prior-config-v2",
+                "operation": "H1-Prefix-Prior",
+                "source": "CURRENT_CANDIDATE",
+                "fixture": {
+                    "fixture_id": "h1-prefix-prior-scorer-v2",
+                    "fixture_sha256": (
+                        "6b0e855482b8f335bec73e4b0976a1317d7ce4cf3ff050670b3950e271c57fde"
+                    ),
+                    "base_fixture_sha256": (
+                        "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+                    ),
+                },
+                "generative_factor_schema_sha256": (
+                    "0ab33d1cc790711eee82c598bb853d46ab52662eb31e9433e973978e77d9e375"
+                ),
+                "scorer_schema": (
+                    "parent-specific-pooled-prefix-bilinear-v1"
+                ),
+                "model": {
+                    "horizon": 2,
+                    "d_z": 1,
+                    "d_m": 1,
+                    "vocabulary_size": 3,
+                    "state_parent_sets": [[0], [0, 1]],
+                    "model_parent_sets": [[0], [0, 1]],
+                    "latent_projection_policy": "nonzero_bank_projections",
+                    "parent_history_policy": (
+                        "active_swapped_distinct_nonzero"
+                    ),
+                    "prefix_policy": "strictly_prior_tokens",
+                },
+                "quadrature": {
+                    "order": 21,
+                    "convergence_check_order": 17,
+                    "maximum_convergence_estimate": 1.0e-9,
+                },
+                "artifact_root": "runs",
+            },
+        },
         "h6_prefix": {
             "enabled": False,
             "authorization": None,
@@ -343,10 +386,11 @@ _REPO_ROOT = Path(__file__).resolve().parent
 _VERIFY_AUTHORIZATIONS = {
     "h1_h5": "AUTHORIZE_VFE4_H1_H5_VERIFICATION_V1",
     "h1_prefix_prior": "AUTHORIZE_VFE4_H1_PREFIX_PRIOR_V1",
+    "h1_prefix_prior_v2": "AUTHORIZE_VFE4_H1_PREFIX_PRIOR_SCORER_V2",
     "h6_prefix": "AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1",
     "h6_smc_accuracy": "AUTHORIZE_VFE4_H6_SMC_ACCURACY_FULL_GRID_V1",
     "h7": "AUTHORIZE_VFE4_H7_FRAME_COVARIANCE_V1",
-    "h8": "AUTHORIZE_VFE4_H8_SPARSE_SCALE_SOURCE_ONLY_V1",
+    "h8": "AUTHORIZE_VFE4_H8_SPARSE_SCALE_SOURCE_ONLY_V2",
 }
 _VERIFY_OPERATION_NAMES = tuple(_VERIFY_AUTHORIZATIONS)
 
@@ -552,15 +596,32 @@ def _run_projected(
 
     from vfe4.artifacts.h6 import (
         project_h1_prefix_prior_config,
+        project_h1_prefix_prior_v2_config,
         project_h6_prefix_config,
     )
     from verification.projected_runner import run_projected_current_candidate
 
-    projected = (
-        project_h1_prefix_prior_config(scientific)
-        if operation == "h1_prefix_prior"
-        else project_h6_prefix_config(scientific)
-    )
+    if operation == "h1_prefix_prior_v2":
+        from vfe4.artifacts.provenance import current_source_identity
+
+        bound = copy.deepcopy(dict(scientific))
+        artifact_root = Path(bound["artifact_root"])
+        if not artifact_root.is_absolute():
+            artifact_root = _REPO_ROOT / artifact_root
+        git_head, dirty_digest, source_sha256 = current_source_identity(
+            _REPO_ROOT,
+            artifact_root,
+        )
+        bound["source"] = {
+            "git_head": git_head,
+            "dirty_digest": dirty_digest,
+            "source_sha256": source_sha256,
+        }
+        projected = project_h1_prefix_prior_v2_config(bound)
+    elif operation == "h1_prefix_prior":
+        projected = project_h1_prefix_prior_config(scientific)
+    else:
+        projected = project_h6_prefix_config(scientific)
     result = run_projected_current_candidate(
         config=projected,
         junit_sha256=None,

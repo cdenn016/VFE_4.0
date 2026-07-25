@@ -18,6 +18,7 @@ from vfe4.numerics.h5_budget import (
     H5DeltaAllowance,
     epsilon_delta,
 )
+from vfe4.numerics.linear_gaussian import assemble_rectangular_information
 from vfe4.numerics.quadrature import probabilists_gauss_hermite
 from vfe4.objective.dependency_graph import (
     build_h5_reference_dependency_graph,
@@ -44,7 +45,6 @@ from vfe4.types.updates import (
     FrozenByteState,
     FrozenTensorValue,
     GaussianRecognitionCoordinate,
-    H5_RULE_CONTRACTS,
     H5CandidateSnapshot,
     H5LiveState,
     H5ModelSnapshot,
@@ -2239,9 +2239,6 @@ def execute_update(
         and fault_injection.kind is H5FaultKind.MUTATE_REJECTED_LIVE_AND_RNG
         and not accepted
     ):
-        coordinate = next(
-            item for item in live.recognition.gaussians if item.coordinate_id == "q[z1]"
-        )
         mutated_gaussians = tuple(
             GaussianRecognitionCoordinate(
                 item.coordinate_id,
@@ -2342,6 +2339,523 @@ def execute_update(
     return H5TransactionResult("h5-transaction-result-v1", final_live, completed)
 
 
+def _rectangular_tensor(
+    value: object,
+    shape: tuple[int, ...],
+    device: torch.device,
+    name: str,
+) -> torch.Tensor:
+    if (
+        not isinstance(value, torch.Tensor)
+        or value.dtype is not torch.float64
+        or value.shape != shape
+        or value.device != device
+        or not bool(torch.isfinite(value).all())
+    ):
+        raise ValueError(
+            f"{name} must be a finite float64 tensor of shape {shape} "
+            "on the receiver device"
+        )
+    return value.detach().clone()
+
+
+def _rectangular_spd(
+    value: object,
+    dimension: int,
+    device: torch.device,
+    name: str,
+) -> torch.Tensor:
+    checked = _rectangular_tensor(
+        value, (dimension, dimension), device, name
+    )
+    if not bool(
+        torch.allclose(
+            checked,
+            checked.transpose(0, 1),
+            rtol=0.0,
+            atol=1.0e-14,
+        )
+    ):
+        raise ValueError(f"{name} must be symmetric")
+    symmetric = 0.5 * (checked + checked.transpose(0, 1))
+    _, info = torch.linalg.cholesky_ex(symmetric, check_errors=False)
+    if int(info.item()) != 0:
+        raise ValueError(f"{name} must be positive definite")
+    return checked
+
+
+def _rectangular_weighted_parent_mean(
+    *,
+    weights: object,
+    transports: object,
+    means: object,
+    dimension: int,
+    device: torch.device,
+    name: str,
+) -> torch.Tensor:
+    if type(transports) is not tuple or type(means) is not tuple:
+        raise ValueError(f"{name} transports and means must be tuples")
+    if len(transports) == 0 or len(transports) != len(means):
+        raise ValueError(f"{name} transports and means must be nonempty and aligned")
+    checked_weights = _rectangular_tensor(
+        weights, (len(transports),), device, f"{name}_weights"
+    )
+    if bool(torch.any(checked_weights <= 0.0)):
+        raise ValueError(f"{name}_weights must be strictly positive")
+    if not bool(
+        torch.isclose(
+            checked_weights.sum(),
+            torch.tensor(1.0, dtype=torch.float64, device=device),
+            rtol=0.0,
+            atol=2.0e-15,
+        )
+    ):
+        raise ValueError(f"{name}_weights must sum to one")
+    result = torch.zeros(dimension, dtype=torch.float64, device=device)
+    for index, (transport, mean) in enumerate(
+        zip(transports, means, strict=True)
+    ):
+        checked_transport = _rectangular_tensor(
+            transport,
+            (dimension, dimension),
+            device,
+            f"{name}_transports[{index}]",
+        )
+        checked_mean = _rectangular_tensor(
+            mean, (dimension,), device, f"{name}_means[{index}]"
+        )
+        result.add_(checked_weights[index] * (checked_transport @ checked_mean))
+    return result
+
+
+def _rectangular_observation(
+    *,
+    observation_precision: object,
+    state_map: object,
+    model_map: object,
+    observation: object,
+    observation_offset: object,
+    d_z: int,
+    d_m: int,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    if (
+        not isinstance(observation_precision, torch.Tensor)
+        or observation_precision.ndim != 2
+        or observation_precision.shape[0] != observation_precision.shape[1]
+        or observation_precision.shape[0] < 1
+    ):
+        raise ValueError("observation_precision must be a square matrix")
+    d_x = observation_precision.shape[0]
+    precision = _rectangular_spd(
+        observation_precision,
+        d_x,
+        device,
+        "observation_precision",
+    )
+    return (
+        precision,
+        _rectangular_tensor(
+            state_map, (d_x, d_z), device, "observation_state_map"
+        ),
+        _rectangular_tensor(
+            model_map, (d_x, d_m), device, "observation_model_map"
+        ),
+        _rectangular_tensor(
+            observation, (d_x,), device, "observation"
+        ),
+        _rectangular_tensor(
+            observation_offset, (d_x,), device, "observation_offset"
+        ),
+    )
+
+
+def rectangular_state_natural_update(
+    *,
+    state_precision: torch.Tensor,
+    parent_weights: torch.Tensor,
+    parent_transports: tuple[torch.Tensor, ...],
+    parent_state_means: tuple[torch.Tensor, ...],
+    state_model_map: torch.Tensor,
+    model_mean: torch.Tensor,
+    state_offset: torch.Tensor,
+    child_weights: torch.Tensor,
+    child_transports: tuple[torch.Tensor, ...],
+    child_precisions: tuple[torch.Tensor, ...],
+    child_state_means: tuple[torch.Tensor, ...],
+    child_state_model_maps: tuple[torch.Tensor, ...],
+    child_model_means: tuple[torch.Tensor, ...],
+    child_state_offsets: tuple[torch.Tensor, ...],
+    observation_precision: torch.Tensor,
+    observation_state_map: torch.Tensor,
+    observation_model_map: torch.Tensor,
+    observation: torch.Tensor,
+    observation_offset: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Closed rectangular state-channel natural update from equation (6.746)."""
+
+    if (
+        not isinstance(state_precision, torch.Tensor)
+        or state_precision.ndim != 2
+        or state_precision.shape[0] != state_precision.shape[1]
+        or state_precision.shape[0] < 1
+    ):
+        raise ValueError("state_precision must be a square tensor")
+    d_z = state_precision.shape[0]
+    device = state_precision.device
+    checked_precision = _rectangular_spd(
+        state_precision, d_z, device, "state_precision"
+    )
+    if not isinstance(state_model_map, torch.Tensor) or state_model_map.ndim != 2:
+        raise ValueError("state_model_map must be a matrix")
+    if state_model_map.shape[0] == d_z:
+        d_m = state_model_map.shape[1]
+    elif state_model_map.shape[1] == d_z:
+        # Delegate to the shared shape contract for its explicit diagnostic.
+        assemble_rectangular_information(
+            state_precision=checked_precision,
+            state_model_map=state_model_map,
+            model_recoil_residual=torch.zeros(
+                d_z, dtype=torch.float64, device=device
+            ),
+        )
+        raise AssertionError("unreachable transposed rectangular map")
+    else:
+        raise ValueError("state_model_map must have shape (d_z,d_m)")
+    assemble_rectangular_information(
+        state_precision=checked_precision,
+        state_model_map=state_model_map,
+        model_recoil_residual=torch.zeros(
+            d_z, dtype=torch.float64, device=device
+        ),
+    )
+    checked_map = _rectangular_tensor(
+        state_model_map, (d_z, d_m), device, "state_model_map"
+    )
+    checked_model_mean = _rectangular_tensor(
+        model_mean, (d_m,), device, "model_mean"
+    )
+    checked_offset = _rectangular_tensor(
+        state_offset, (d_z,), device, "state_offset"
+    )
+    incoming = _rectangular_weighted_parent_mean(
+        weights=parent_weights,
+        transports=parent_transports,
+        means=parent_state_means,
+        dimension=d_z,
+        device=device,
+        name="state_parent",
+    )
+    precision = checked_precision.clone()
+    natural = checked_precision @ (
+        incoming + checked_map @ checked_model_mean + checked_offset
+    )
+
+    child_fields = (
+        child_transports,
+        child_precisions,
+        child_state_means,
+        child_state_model_maps,
+        child_model_means,
+        child_state_offsets,
+    )
+    if any(type(value) is not tuple for value in child_fields):
+        raise ValueError("state child inputs must be tuples")
+    child_count = len(child_transports)
+    if any(len(value) != child_count for value in child_fields):
+        raise ValueError("state child inputs must have equal lengths")
+    checked_child_weights = _rectangular_tensor(
+        child_weights, (child_count,), device, "state_child_weights"
+    )
+    if bool(torch.any(checked_child_weights <= 0.0)):
+        raise ValueError("state_child_weights must be strictly positive")
+    for index in range(child_count):
+        transport = _rectangular_tensor(
+            child_transports[index],
+            (d_z, d_z),
+            device,
+            f"state_child_transports[{index}]",
+        )
+        child_precision = _rectangular_spd(
+            child_precisions[index],
+            d_z,
+            device,
+            f"state_child_precisions[{index}]",
+        )
+        child_state_mean = _rectangular_tensor(
+            child_state_means[index],
+            (d_z,),
+            device,
+            f"child_state_means[{index}]",
+        )
+        child_map = _rectangular_tensor(
+            child_state_model_maps[index],
+            (d_z, d_m),
+            device,
+            f"child_state_model_maps[{index}]",
+        )
+        assemble_rectangular_information(
+            state_precision=child_precision,
+            state_model_map=child_map,
+            model_recoil_residual=torch.zeros(
+                d_z, dtype=torch.float64, device=device
+            ),
+        )
+        child_model_mean = _rectangular_tensor(
+            child_model_means[index],
+            (d_m,),
+            device,
+            f"child_model_means[{index}]",
+        )
+        child_offset = _rectangular_tensor(
+            child_state_offsets[index],
+            (d_z,),
+            device,
+            f"child_state_offsets[{index}]",
+        )
+        weight = checked_child_weights[index]
+        residual = child_state_mean - child_map @ child_model_mean - child_offset
+        precision.add_(
+            weight * (transport.transpose(0, 1) @ child_precision @ transport)
+        )
+        natural.add_(
+            weight * (transport.transpose(0, 1) @ child_precision @ residual)
+        )
+
+    p_x, c_z, c_m, x, d_x = _rectangular_observation(
+        observation_precision=observation_precision,
+        state_map=observation_state_map,
+        model_map=observation_model_map,
+        observation=observation,
+        observation_offset=observation_offset,
+        d_z=d_z,
+        d_m=d_m,
+        device=device,
+    )
+    precision.add_(c_z.transpose(0, 1) @ p_x @ c_z)
+    natural.add_(
+        c_z.transpose(0, 1)
+        @ p_x
+        @ (x - c_m @ checked_model_mean - d_x)
+    )
+    if not bool(torch.isfinite(precision).all() and torch.isfinite(natural).all()):
+        raise ValueError("rectangular state update must remain finite")
+    return precision, natural
+
+
+def rectangular_model_natural_update(
+    *,
+    model_precision: torch.Tensor,
+    state_precision: torch.Tensor,
+    state_model_map: torch.Tensor,
+    model_parent_weights: torch.Tensor,
+    model_parent_transports: tuple[torch.Tensor, ...],
+    model_parent_means: tuple[torch.Tensor, ...],
+    model_offset: torch.Tensor,
+    state_mean: torch.Tensor,
+    state_parent_weights: torch.Tensor,
+    state_parent_transports: tuple[torch.Tensor, ...],
+    state_parent_means: tuple[torch.Tensor, ...],
+    state_offset: torch.Tensor,
+    child_weights: torch.Tensor,
+    child_transports: tuple[torch.Tensor, ...],
+    child_precisions: tuple[torch.Tensor, ...],
+    child_model_means: tuple[torch.Tensor, ...],
+    child_model_offsets: tuple[torch.Tensor, ...],
+    observation_precision: torch.Tensor,
+    observation_state_map: torch.Tensor,
+    observation_model_map: torch.Tensor,
+    observation: torch.Tensor,
+    observation_offset: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Closed rectangular model-channel natural update from equation (6.775)."""
+
+    if (
+        not isinstance(state_precision, torch.Tensor)
+        or state_precision.ndim != 2
+        or state_precision.shape[0] != state_precision.shape[1]
+        or state_precision.shape[0] < 1
+        or not isinstance(model_precision, torch.Tensor)
+        or model_precision.ndim != 2
+        or model_precision.shape[0] != model_precision.shape[1]
+        or model_precision.shape[0] < 1
+    ):
+        raise ValueError("state_precision and model_precision must be square")
+    d_z = state_precision.shape[0]
+    d_m = model_precision.shape[0]
+    device = state_precision.device
+    checked_state_precision = _rectangular_spd(
+        state_precision, d_z, device, "state_precision"
+    )
+    checked_model_precision = _rectangular_spd(
+        model_precision, d_m, device, "model_precision"
+    )
+    incoming_model = _rectangular_weighted_parent_mean(
+        weights=model_parent_weights,
+        transports=model_parent_transports,
+        means=model_parent_means,
+        dimension=d_m,
+        device=device,
+        name="model_parent",
+    )
+    incoming_state = _rectangular_weighted_parent_mean(
+        weights=state_parent_weights,
+        transports=state_parent_transports,
+        means=state_parent_means,
+        dimension=d_z,
+        device=device,
+        name="state_parent",
+    )
+    checked_model_offset = _rectangular_tensor(
+        model_offset, (d_m,), device, "model_offset"
+    )
+    checked_state_mean = _rectangular_tensor(
+        state_mean, (d_z,), device, "state_mean"
+    )
+    checked_state_offset = _rectangular_tensor(
+        state_offset, (d_z,), device, "state_offset"
+    )
+    information = assemble_rectangular_information(
+        state_precision=checked_state_precision,
+        state_model_map=state_model_map,
+        model_recoil_residual=(
+            checked_state_mean - incoming_state - checked_state_offset
+        ),
+    )
+    if information.model_dimension != d_m:
+        raise ValueError(
+            "state_model_map must have shape (d_z,d_m) matching model_precision"
+        )
+    precision = (
+        checked_model_precision + information.model_precision_pullback
+    )
+    natural = (
+        checked_model_precision @ (incoming_model + checked_model_offset)
+        + information.model_recoil_natural
+    )
+
+    child_fields = (
+        child_transports,
+        child_precisions,
+        child_model_means,
+        child_model_offsets,
+    )
+    if any(type(value) is not tuple for value in child_fields):
+        raise ValueError("model child inputs must be tuples")
+    child_count = len(child_transports)
+    if any(len(value) != child_count for value in child_fields):
+        raise ValueError("model child inputs must have equal lengths")
+    checked_child_weights = _rectangular_tensor(
+        child_weights, (child_count,), device, "model_child_weights"
+    )
+    if bool(torch.any(checked_child_weights <= 0.0)):
+        raise ValueError("model_child_weights must be strictly positive")
+    for index in range(child_count):
+        transport = _rectangular_tensor(
+            child_transports[index],
+            (d_m, d_m),
+            device,
+            f"model_child_transports[{index}]",
+        )
+        child_precision = _rectangular_spd(
+            child_precisions[index],
+            d_m,
+            device,
+            f"model_child_precisions[{index}]",
+        )
+        child_mean = _rectangular_tensor(
+            child_model_means[index],
+            (d_m,),
+            device,
+            f"child_model_means[{index}]",
+        )
+        child_offset = _rectangular_tensor(
+            child_model_offsets[index],
+            (d_m,),
+            device,
+            f"child_model_offsets[{index}]",
+        )
+        weight = checked_child_weights[index]
+        precision.add_(
+            weight * (transport.transpose(0, 1) @ child_precision @ transport)
+        )
+        natural.add_(
+            weight
+            * (
+                transport.transpose(0, 1)
+                @ child_precision
+                @ (child_mean - child_offset)
+            )
+        )
+
+    p_x, c_z, c_m, x, d_x = _rectangular_observation(
+        observation_precision=observation_precision,
+        state_map=observation_state_map,
+        model_map=observation_model_map,
+        observation=observation,
+        observation_offset=observation_offset,
+        d_z=d_z,
+        d_m=d_m,
+        device=device,
+    )
+    precision.add_(c_m.transpose(0, 1) @ p_x @ c_m)
+    natural.add_(
+        c_m.transpose(0, 1)
+        @ p_x
+        @ (x - c_z @ checked_state_mean - d_x)
+    )
+    if not bool(torch.isfinite(precision).all() and torch.isfinite(natural).all()):
+        raise ValueError("rectangular model update must remain finite")
+    return precision, natural
+
+
+def rectangular_gaussian_coordinate_objective(
+    *,
+    precision: torch.Tensor,
+    natural: torch.Tensor,
+    coordinate: torch.Tensor,
+) -> torch.Tensor:
+    """Evaluate ``0.5 x.T J x - h.T x`` for a rectangular CAVI block."""
+
+    if (
+        not isinstance(precision, torch.Tensor)
+        or precision.ndim != 2
+        or precision.shape[0] != precision.shape[1]
+        or precision.shape[0] < 1
+    ):
+        raise ValueError("precision must be a nonempty square tensor")
+    dimension = precision.shape[0]
+    checked_precision = _rectangular_spd(
+        precision,
+        dimension,
+        precision.device,
+        "precision",
+    )
+    checked_natural = _rectangular_tensor(
+        natural,
+        (dimension,),
+        precision.device,
+        "natural",
+    )
+    checked_coordinate = _rectangular_tensor(
+        coordinate,
+        (dimension,),
+        precision.device,
+        "coordinate",
+    )
+    value = (
+        0.5
+        * torch.dot(
+            checked_coordinate,
+            checked_precision @ checked_coordinate,
+        )
+        - torch.dot(checked_natural, checked_coordinate)
+    )
+    if value.ndim != 0 or not bool(torch.isfinite(value)):
+        raise ValueError("rectangular Gaussian coordinate objective must be finite")
+    return value
+
+
 __all__ = [
     "H5_CANDIDATE_DRAFT_DOMAIN",
     "AttemptPhase",
@@ -2366,6 +2880,9 @@ __all__ = [
     "differentiable_h5_complete_elbo_order_21",
     "propose_generalized_em",
     "propose_natural_gradient",
+    "rectangular_state_natural_update",
+    "rectangular_model_natural_update",
+    "rectangular_gaussian_coordinate_objective",
     "freeze_candidate",
     "canonical_frozen_complement_bytes",
     "execute_update",

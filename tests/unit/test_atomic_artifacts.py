@@ -143,6 +143,11 @@ def test_h7_reference_adapter_is_canonical_owned_and_lossless(
     )
     from vfe4.artifacts.h6 import CandidateArtifactReference
 
+    junit_bytes = b'<testsuite tests="1" failures="0" errors="0"/>\n'
+    junit_path = tmp_path / ".verification" / "candidate-junit.xml"
+    junit_path.parent.mkdir(parents=True)
+    junit_path.write_bytes(junit_bytes)
+    junit_sha256 = hashlib.sha256(junit_bytes).hexdigest()
     references = {}
     for key in ("h1_h5", "h1_prefix_prior", "h6_prefix"):
         digest = hashlib.sha256(key.encode("ascii")).hexdigest()
@@ -155,7 +160,8 @@ def test_h7_reference_adapter_is_canonical_owned_and_lossless(
         )
         references[key] = candidate_artifact_reference_to_h7_reference(
             candidate,
-            junit_sha256="c" * 64,
+            junit_sha256=junit_sha256,
+            junit_path=junit_path,
             ledger_path=tmp_path / ".verification" / f"{key}-ledger.json",
             ledger_sha256=digest,
         )

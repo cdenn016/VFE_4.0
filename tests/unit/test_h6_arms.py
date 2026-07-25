@@ -7,7 +7,10 @@ import pytest
 import torch
 
 from vfe4.data.windows import CausalPrefix
-from vfe4.generative import FixedSourcePrior, PrefixConditionedSourcePrior
+from vfe4.generative import (
+    FixedSourcePrior,
+    ParentSpecificPooledPrefixSourcePrior,
+)
 from vfe4.predictive import (
     EstimatorStream,
     PrefixCache,
@@ -230,7 +233,9 @@ def _config(arm: ArmId, **changes: object) -> ArmConfig:
         latent_width=8 if latent else None,
         recognition_width=32 if recognized else None,
         prior_context_width=(
-            2 if values["prior_variant"] == "prefix_conditioned" else None
+            2
+            if values["prior_variant"] == "parent_specific_pooled_prefix"
+            else None
         ),
     )
     return ArmConfig.create(
@@ -338,13 +343,16 @@ def test_explicit_factories_construct_the_six_literal_families(
         _config(
             ArmId.A5,
             config_id=(
-                "h6-a5-structured-prefix-exact-complete-"
-                "latent-smoothing-v1"
+                "h6-a5-structured-parent-specific-prefix-exact-complete-"
+                "latent-smoothing-v2"
             ),
-            prior_variant="prefix_conditioned",
+            prior_variant="parent_specific_pooled_prefix",
         )
     )
-    assert type(prefix_a5.model.source_prior) is PrefixConditionedSourcePrior
+    assert (
+        type(prefix_a5.model.source_prior)
+        is ParentSpecificPooledPrefixSourcePrior
+    )
     assert prefix_a5.model.source_prior.context_dim == 2
 
     for builder, arm_id, change in (
@@ -612,6 +620,7 @@ def test_matrix_rows_freeze_literal_interventions_and_nonclaims() -> None:
             "emission_width",
             "latent_width",
             "recognition_width",
+            "prior_context_width",
         }
         assert row.confirmatory_seeds == tuple(range(2026072101, 2026072109))
         assert "{config_sha256}" in row.checkpoint_template

@@ -8,10 +8,13 @@ from pathlib import Path
 import pytest
 
 from vfe4.config import (
+    H6PredictionV2ResolvedConfig,
     resolve_config,
     resolve_h6_prediction_config,
+    resolve_h6_prediction_v2_config,
     resolve_h6_prefix_config,
 )
+from vfe4.evaluation.smc_uncertainty import SMC_BIAS_SEMANTICS
 from vfe4.training.arms import build_arm
 from vfe4.types.h6 import (
     ArmConfig,
@@ -22,6 +25,7 @@ from vfe4.types.h6 import (
     EstimatorSpec,
     H6LanguageStructure,
     H6PrefixProfilePair,
+    ObjectiveGateSpec,
     TrainingPhase,
     VocabularyIdentity,
     ZeroDimensionalBase,
@@ -284,6 +288,31 @@ def _prediction_config() -> dict[str, object]:
     }
 
 
+def _prediction_v2_config() -> dict[str, object]:
+    raw = copy.deepcopy(_prediction_config())
+    raw["schema_version"] = "h6-prediction-config-v2"
+    raw["smc_bias_semantics_sha256"] = (
+        SMC_BIAS_SEMANTICS.semantics_sha256
+    )
+    prerequisites = raw["prerequisites"]
+    assert isinstance(prerequisites, dict)
+    prerequisites[
+        "h1_prefix_prior_generative_factor_schema_sha256"
+    ] = "0ab33d1cc790711eee82c598bb853d46ab52662eb31e9433e973978e77d9e375"
+    objective = ObjectiveGateSpec.create()
+    raw["objective_gate"] = {
+        "schema_version": objective.schema_version,
+        "complete_arm_id": objective.complete_arm_id,
+        "emission_arm_id": objective.emission_arm_id,
+        "orientation": objective.orientation,
+        "delta_obj": objective.delta_obj,
+        "opening_policy": objective.opening_policy,
+        "evaluation_order": objective.evaluation_order,
+        "spec_sha256": objective.spec_sha256,
+    }
+    return raw
+
+
 def _reverse_mappings(value: object) -> object:
     if isinstance(value, dict):
         return {
@@ -430,6 +459,50 @@ def test_prediction_config_requires_exact_non_h4_prerequisites(tmp_path: Path) -
     assert resolved.data.observed_archive is None
     assert resolved.data.max_archive_bytes == 16_777_216
     assert "H4" not in resolved.canonical_json
+    assert "smc_bias_semantics_sha256" not in resolved.canonical_json
+
+
+def test_prediction_v2_binds_scorer_and_objective_without_upgrading_v1(
+    tmp_path: Path,
+) -> None:
+    raw = _prediction_v2_config()
+    before = copy.deepcopy(raw)
+    resolved = resolve_h6_prediction_v2_config(raw, repo_root=tmp_path)
+    assert type(resolved) is H6PredictionV2ResolvedConfig
+    assert raw == before
+    assert resolved.h1_prefix_prior_generative_factor_schema_sha256 == (
+        "0ab33d1cc790711eee82c598bb853d46ab52662eb31e9433e973978e77d9e375"
+    )
+    assert (
+        resolved.smc_bias_semantics_sha256
+        == SMC_BIAS_SEMANTICS.semantics_sha256
+    )
+    assert resolved.objective_gate == ObjectiveGateSpec.create()
+    assert json.loads(resolved.canonical_json)[
+        "smc_bias_semantics_sha256"
+    ] == SMC_BIAS_SEMANTICS.semantics_sha256
+    assert json.loads(resolved.canonical_json)["objective_gate"][
+        "spec_sha256"
+    ] == resolved.objective_gate.spec_sha256
+    assert (
+        resolve_h6_prediction_config(raw, repo_root=tmp_path)
+        == resolved
+    )
+    with pytest.raises(ValueError, match="not an H6 Prediction v2"):
+        resolve_h6_prediction_v2_config(
+            _prediction_config(),
+            repo_root=tmp_path,
+        )
+
+    tampered = copy.deepcopy(raw)
+    tampered["objective_gate"]["delta_obj"] = 0.02  # type: ignore[index]
+    with pytest.raises(ValueError, match="delta_obj"):
+        resolve_h6_prediction_v2_config(tampered, repo_root=tmp_path)
+
+    tampered = copy.deepcopy(raw)
+    tampered["smc_bias_semantics_sha256"] = _sha("f")
+    with pytest.raises(ValueError, match="smc_bias_semantics_sha256"):
+        resolve_h6_prediction_v2_config(tampered, repo_root=tmp_path)
 
 
 def test_prediction_data_config_accepts_bound_observations_and_rejects_mirrors(

@@ -20,8 +20,17 @@ def _execute_projected_gate(
     junit_sha256: str | None,
 ) -> tuple[object, Path]:
     if operation == "H1-Prefix-Prior":
-        from verification.h1_prefix_prior_gate import run_h1_prefix_prior
+        from verification.h1_prefix_prior_gate import (
+            run_h1_prefix_prior,
+            run_parent_specific_h1_prefix_prior,
+        )
+        from vfe4.config import H1PrefixPriorV2ResolvedConfig
 
+        if type(resolved_config) is H1PrefixPriorV2ResolvedConfig:
+            return run_parent_specific_h1_prefix_prior(
+                resolved_config,
+                junit_sha256=junit_sha256,
+            )
         return run_h1_prefix_prior(resolved_config)  # type: ignore[arg-type]
     if operation == "H6-Prefix":
         from verification.h6_prefix_gate import run_h6_prefix

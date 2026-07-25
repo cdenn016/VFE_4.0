@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import nullcontext
 from dataclasses import dataclass
 
 import torch
@@ -24,6 +25,7 @@ from .proposal import (
     CounterKey,
     CounterPurpose,
     EstimatorStream,
+    ManagedForwardGraphProposal,
     ProposalPopulation,
     TargetFreeProposalAdapter,
 )
@@ -508,6 +510,24 @@ class BootstrapSmcPredictor:
         prefix_tokens: CausalPrefix,
         estimator_rng: EstimatorStream,
         cache: PrefixCache | None = None,
+    ) -> PriorPrediction:
+        scope = (
+            self.proposal.live_forward_graph()
+            if isinstance(self.proposal, ManagedForwardGraphProposal)
+            else nullcontext()
+        )
+        with scope:
+            return self._next_token_log_probs(
+                prefix_tokens,
+                estimator_rng,
+                cache,
+            )
+
+    def _next_token_log_probs(
+        self,
+        prefix_tokens: CausalPrefix,
+        estimator_rng: EstimatorStream,
+        cache: PrefixCache | None,
     ) -> PriorPrediction:
         self.proposal.assert_current_state()
         self._validate_prefix(prefix_tokens)

@@ -10,6 +10,7 @@ import torch
 from vfe4.config import (
     H6ArmMatchingResolvedConfig,
     resolve_h6_arm_matching_config,
+    resolve_h6_primary_matching_config,
 )
 from vfe4.training.arms import (
     ArmConfig,
@@ -26,9 +27,11 @@ from vfe4.training.arms import (
 from vfe4.training.matching import (
     A5_REFERENCE_ALLOCATION,
     H6_ADAMW_POLICY,
+    H6TrainingWorkload,
     MATCHING_SCHEDULE_POLICY,
     FlopTerm,
     adamw_flops,
+    analytical_training_flop_ledger,
     audit_arm_matching,
     audit_parameter_ownership,
     backward_flops,
@@ -39,7 +42,10 @@ from vfe4.training.matching import (
     immutable_snapshot_flop_term,
     l2_clip_scale_flops,
     log_softmax_flops,
+    matrix_exp_pade13_flops,
+    matrix_solve_lu_flops,
     scalar_flops,
+    select_parent_specific_primary_allocation,
     stable_parameter_key,
 )
 from vfe4.types import ArmId, TrainingPhase, VocabularyIdentity
@@ -356,6 +362,355 @@ def test_parameter_ownership_is_exact_and_rejects_every_forbidden_case() -> None
             optimizer_policy_sha256=model_binding.optimizer_policy_sha256,
             parameter_keys=(removed_key,),
         )
+
+
+def test_shared_frame_cache_preserves_values_and_gradients() -> None:
+    base = _config(ArmId.A5)
+    config = ArmConfig.create(
+        arm=base.arm,
+        config_id=base.config_id,
+        vocabulary=base.vocabulary,
+        horizon=3,
+        latent_enabled=base.latent_enabled,
+        state_channel_enabled=base.state_channel_enabled,
+        model_channel_enabled=base.model_channel_enabled,
+        source_mode=base.source_mode,
+        map_mode=base.map_mode,
+        recognition_family=base.recognition_family,
+        recognition_conditioning=base.recognition_conditioning,
+        prior_variant=base.prior_variant,
+        mixture_mode=base.mixture_mode,
+        objective_kind=base.objective_kind,
+        capacity_allocation=base.capacity_allocation,
+    )
+    model = build_a5(config).model
+    parameter_bytes = sum(
+        parameter.numel() * parameter.element_size()
+        for parameter in model.parameters()
+    )
+    source_support = model.source_prior.structure.dag.rows[2].parents
+
+    def evaluate(frame_cache=None):
+        model.zero_grad(set_to_none=True)
+        values = torch.stack(
+            (
+                model.edge_map("state", 2, 0, frame_cache=frame_cache),
+                model.edge_map("state", 2, 1, frame_cache=frame_cache),
+                model.edge_map("state", 3, 0, frame_cache=frame_cache),
+                model.edge_map("state", 3, 2, frame_cache=frame_cache),
+                model.edge_map("model", 2, 0, frame_cache=frame_cache),
+                model.edge_map("model", 2, 1, frame_cache=frame_cache),
+                model.edge_map("model", 3, 0, frame_cache=frame_cache),
+                model.edge_map("model", 3, 2, frame_cache=frame_cache),
+            )
+        )
+        values.square().sum().backward()
+        gradients = tuple(
+            parameter.grad.detach().clone()
+            for parameter in (
+                tuple(model.state_vertex_phi)
+                + tuple(model.model_vertex_phi)
+            )
+        )
+        return values.detach().clone(), gradients
+
+    uncached_values, uncached_gradients = evaluate()
+    with model.shared_frame_evaluation() as cache:
+        cached_values, cached_gradients = evaluate(cache)
+        frame_count = cache.frame_count
+        source_inverse_count = cache.source_inverse_count
+
+    assert torch.equal(cached_values, uncached_values)
+    assert all(
+        torch.equal(cached, uncached)
+        for cached, uncached in zip(
+            cached_gradients, uncached_gradients, strict=True
+        )
+    )
+    assert frame_count == 8
+    assert source_inverse_count == 6
+    assert model.source_prior.structure.dag.rows[2].parents == source_support
+    assert sum(
+        parameter.numel() * parameter.element_size()
+        for parameter in model.parameters()
+    ) == parameter_bytes
+    with pytest.raises(ValueError, match="closed"):
+        model.edge_map(
+            "state",
+            2,
+            0,
+            frame_cache=cache,
+        )
+
+    with model.shared_frame_evaluation() as update_cache:
+        before_update = model.edge_map(
+            "state",
+            2,
+            0,
+            frame_cache=update_cache,
+        )
+        detached_snapshot = before_update.detach().clone()
+        with torch.no_grad():
+            model.state_vertex_phi[1].add_(0.125)
+        with pytest.raises(ValueError, match="parameters changed"):
+            model.edge_map(
+                "state",
+                2,
+                0,
+                frame_cache=update_cache,
+            )
+    with model.shared_frame_evaluation() as fresh_cache:
+        after_update = model.edge_map(
+            "state",
+            2,
+            0,
+            frame_cache=fresh_cache,
+        )
+        assert after_update is not before_update
+        assert not torch.equal(after_update, detached_snapshot)
+
+    state_only = build_a4(_config(ArmId.A4)).model
+    with state_only.shared_frame_evaluation() as state_only_cache:
+        state_only.edge_map(
+            "state",
+            2,
+            0,
+            frame_cache=state_only_cache,
+        )
+
+
+def test_parent_specific_primary_joint_search_closes_both_gates_or_fails_closed() -> None:
+    vocabulary = VocabularyIdentity("wikitext-2-byte-v1", 258, SHA_A)
+    a0 = ArmConfig.create(
+        arm=ArmId.A0,
+        config_id="h6-a0-transformer-v2",
+        vocabulary=vocabulary,
+        horizon=32,
+        latent_enabled=False,
+        state_channel_enabled=False,
+        model_channel_enabled=False,
+        source_mode="absent",
+        map_mode="absent",
+        recognition_family="absent",
+        recognition_conditioning="absent",
+        prior_variant="absent",
+        mixture_mode="absent",
+        objective_kind="cross_entropy",
+        capacity_allocation=CapacityAllocation.create(
+            emission_width=52,
+            latent_width=None,
+            recognition_width=None,
+        ),
+    )
+    a5 = ArmConfig.create(
+        arm=ArmId.A5,
+        config_id=(
+            "h6-a5-structured-parent-specific-prefix-exact-complete-"
+            "latent-smoothing-v2"
+        ),
+        vocabulary=vocabulary,
+        horizon=32,
+        latent_enabled=True,
+        state_channel_enabled=True,
+        model_channel_enabled=True,
+        source_mode="categorical",
+        map_mode="shared_vertex_coboundary",
+        recognition_family="structured",
+        recognition_conditioning="smoothing",
+        prior_variant="parent_specific_pooled_prefix",
+        mixture_mode="exact",
+        objective_kind="complete_elbo",
+        capacity_allocation=CapacityAllocation.create(
+            emission_width=89,
+            latent_width=2,
+            recognition_width=113,
+            prior_context_width=6,
+        ),
+    )
+    workload = H6TrainingWorkload.from_train_tokens(
+        train_token_count=258,
+        train_token_sha256="b" * 64,
+    )
+    matching_config = resolve_h6_primary_matching_config(
+        {
+            "schema_version": "h6-primary-matching-config-v1",
+            "operation": "H6-Primary-Matching",
+            "a0_config": a0,
+            "a5_template": a5,
+            "latent_width_candidates": (2, 4, 8),
+            "prior_context_width_candidates": (4, 6, 8),
+            "emission_width_candidates": (84, 85, 86, 87, 88, 89),
+            "recognition_width_candidates": (
+                113,
+                114,
+                115,
+                116,
+                117,
+                118,
+            ),
+            "parameter_relative_tolerance": 0.01,
+            "flop_relative_tolerance": 0.05,
+        },
+        repo_root=Path.cwd(),
+    )
+    matching_raw = {
+        "schema_version": "h6-primary-matching-config-v1",
+        "operation": "H6-Primary-Matching",
+        "a0_config": a0,
+        "a5_template": a5,
+        "latent_width_candidates": (2, 4, 8),
+        "prior_context_width_candidates": (4, 6, 8),
+        "emission_width_candidates": (84, 85, 86, 87, 88, 89),
+        "recognition_width_candidates": (113, 114, 115, 116, 117, 118),
+        "parameter_relative_tolerance": 0.01,
+        "flop_relative_tolerance": 0.05,
+    }
+
+    def clone_endpoint(
+        config: ArmConfig,
+        *,
+        vocabulary: VocabularyIdentity,
+        horizon: int,
+    ) -> ArmConfig:
+        return ArmConfig.create(
+            arm=config.arm,
+            config_id=config.config_id,
+            vocabulary=vocabulary,
+            horizon=horizon,
+            latent_enabled=config.latent_enabled,
+            state_channel_enabled=config.state_channel_enabled,
+            model_channel_enabled=config.model_channel_enabled,
+            source_mode=config.source_mode,
+            map_mode=config.map_mode,
+            recognition_family=config.recognition_family,
+            recognition_conditioning=config.recognition_conditioning,
+            prior_variant=config.prior_variant,
+            mixture_mode=config.mixture_mode,
+            objective_kind=config.objective_kind,
+            capacity_allocation=config.capacity_allocation,
+        )
+
+    for impostor_vocabulary, impostor_horizon in (
+        (VocabularyIdentity("same-count-impostor-v1", 258, SHA_A), 32),
+        (VocabularyIdentity("wikitext-2-byte-v1", 257, SHA_A), 32),
+        (vocabulary, 31),
+    ):
+        with pytest.raises(
+            ValueError,
+            match="vocabulary_id='wikitext-2-byte-v1', V=258, and T=32",
+        ):
+            resolve_h6_primary_matching_config(
+                {
+                    **matching_raw,
+                    "a0_config": clone_endpoint(
+                        a0,
+                        vocabulary=impostor_vocabulary,
+                        horizon=impostor_horizon,
+                    ),
+                    "a5_template": clone_endpoint(
+                        a5,
+                        vocabulary=impostor_vocabulary,
+                        horizon=impostor_horizon,
+                    ),
+                },
+                repo_root=Path.cwd(),
+            )
+
+    selection = select_parent_specific_primary_allocation(
+        matching_config=matching_config,
+        a0_config=a0,
+        a5_template=a5,
+        workload=workload,
+    )
+
+    assert 53 % 2 != 0
+    assert len(selection.candidates) == 324
+    assert (
+        selection.candidates[0].latent_width,
+        selection.candidates[0].prior_context_width,
+        selection.candidates[0].emission_width,
+        selection.candidates[0].recognition_width,
+    ) == (2, 4, 84, 113)
+    assert (
+        selection.candidates[-1].latent_width,
+        selection.candidates[-1].prior_context_width,
+        selection.candidates[-1].emission_width,
+        selection.candidates[-1].recognition_width,
+    ) == (8, 8, 89, 118)
+    provisional = next(
+        candidate
+        for candidate in selection.candidates
+        if (
+            candidate.latent_width,
+            candidate.prior_context_width,
+            candidate.emission_width,
+            candidate.recognition_width,
+        )
+        == (2, 6, 89, 113)
+    )
+    assert provisional.a0_parameter_count == 61_982
+    assert provisional.a5_parameter_count == 62_112
+
+    a0_ledger = analytical_training_flop_ledger(
+        endpoint_config=a0,
+        workload=workload,
+    )
+    a5_ledger = analytical_training_flop_ledger(
+        endpoint_config=a5,
+        workload=workload,
+    )
+    assert a0_ledger.status == a5_ledger.status == "COMPLETE"
+    assert a0_ledger.obligations == a5_ledger.obligations == ()
+
+    a0_tail_costs = {
+        term.operation.split("::")[1]: term.arithmetic_flops_per_repetition
+        for term in a0_ledger.terms
+        if term.phase == TrainingPhase.MODEL_CE_ADAMW.value
+        and term.operation.endswith("::tail_batch")
+    }
+    causal_pairs = 32 * 33 // 2
+    assert a0_tail_costs["a0_sdpa_score_scale"] == 2 * causal_pairs
+    assert a0_tail_costs["a0_sdpa_qk_vjp"] == 4 * causal_pairs * 52
+    assert a0_tail_costs["a0_sdpa_av_vjp"] == 4 * causal_pairs * 52
+    assert a0_tail_costs["a0_sdpa_softmax_vjp"] == (
+        2 * (4 * causal_pairs - 32)
+    )
+    assert a0_tail_costs["a0_embedding_scatter_add_vjp"] == (
+        (2 * 32 - 1) * 52
+    )
+
+    a5_tail_costs = {
+        term.operation.split("::")[1]: term.arithmetic_flops_per_repetition
+        for term in a5_ledger.terms
+        if term.phase == TrainingPhase.MODEL_ADAMW.value
+        and term.operation.startswith("forward::")
+        and term.operation.endswith("::tail_batch")
+    }
+    assert a5_tail_costs[
+        "shared_coboundary_graph_cached_matrix_exp_pade13"
+    ] == 2 * 32 * matrix_exp_pade13_flops(2)
+    assert a5_tail_costs[
+        "shared_coboundary_graph_cached_source_inverse_lu"
+    ] == 2 * 32 * matrix_solve_lu_flops(2)
+    assert a5_tail_costs[
+        "shared_coboundary_edge_frame_product_dense_matmul"
+    ] == 2 * causal_pairs * dense_matmul_flops(2, 2, 2)
+
+    eligible = tuple(
+        candidate
+        for candidate in selection.candidates
+        if candidate.hard_gate_eligible and candidate.formula_complete
+    )
+    assert eligible
+    expected = min(eligible, key=lambda candidate: candidate.selection_key)
+    assert selection.status == "ELIGIBLE"
+    assert selection.selected_candidate == expected
+    assert selection.obligations == ()
+    assert all(candidate.formula_complete for candidate in selection.candidates)
+    assert any(
+        candidate.hard_gate_eligible and candidate.formula_complete
+        for candidate in selection.candidates
+    )
 
 
 def test_flop_ledger_uses_only_the_frozen_arithmetic_formulas() -> None:

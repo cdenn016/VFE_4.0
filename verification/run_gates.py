@@ -59,6 +59,7 @@ from verification.h8_gate import (
     canonical_h8_json_bytes,
     h8_current_candidate_result_payload,
     h8_current_refs_registry_payload,
+    validate_h8_prerequisite_artifacts,
 )
 from vfe4.artifacts import (
     CandidateArtifactReference,
@@ -91,6 +92,7 @@ from vfe4.types.h8 import (
     H8H6PredictionReference,
     H8H6PrefixReference,
     H8H7Reference,
+    H8LegacyH6PredictionReference,
 )
 from vfe4.validation import (
     H3_COUPLED_FIXTURE_PATH,
@@ -205,6 +207,7 @@ def candidate_artifact_reference_to_h7_reference(
     candidate: CandidateArtifactReference,
     *,
     junit_sha256: str,
+    junit_path: Path,
     ledger_path: Path,
     ledger_sha256: str,
 ) -> H7PredecessorReference:
@@ -214,11 +217,14 @@ def candidate_artifact_reference_to_h7_reference(
         raise ValueError("candidate must be an exact CandidateArtifactReference")
     if not isinstance(ledger_path, Path):
         raise ValueError("ledger_path must be a Path")
+    if not isinstance(junit_path, Path):
+        raise ValueError("junit_path must be a Path")
     return H7PredecessorReference.create(
         artifact_path=candidate.artifact_path.as_posix(),
         git_head=candidate.git_head,
         dirty_digest=candidate.dirty_digest,
         junit_sha256=junit_sha256,
+        junit_path=junit_path.resolve(strict=False).as_posix(),
         manifest_sha256=candidate.manifest_sha256,
         payload_hashes=candidate.payload_hashes,
         ledger_path=ledger_path.resolve(strict=False).as_posix(),
@@ -269,6 +275,7 @@ def parse_h7_reference_registry_bytes(
         "git_head",
         "dirty_digest",
         "junit_sha256",
+        "junit_path",
         "manifest_sha256",
         "payload_hashes",
         "ledger_path",
@@ -294,6 +301,7 @@ def parse_h7_reference_registry_bytes(
         reference = candidate_artifact_reference_to_h7_reference(
             candidate,
             junit_sha256=raw["junit_sha256"],
+            junit_path=Path(raw["junit_path"]),
             ledger_path=Path(raw["ledger_path"]),
             ledger_sha256=raw["ledger_sha256"],
         )
@@ -326,7 +334,11 @@ def parse_h8_reference_registry_bytes(
             "h7_compatibility_refs",
             "references",
         }
-        or payload["schema_version"] != "h8-current-candidate-refs-v1"
+        or payload["schema_version"]
+        not in (
+            "h8-current-candidate-refs-v1",
+            "h8-current-candidate-refs-v2",
+        )
         or canonical_h8_json_bytes(payload) != registry_bytes
     ):
         raise ValueError("H8 reference registry is not exact canonical JSON")
@@ -358,6 +370,41 @@ def parse_h8_reference_registry_bytes(
         "candidate_junit_sha256",
         "status",
     }
+    registry_schema = payload["schema_version"]
+    h6_prediction_type: type[object]
+    h6_prediction_fields: set[str]
+    if registry_schema == "h8-current-candidate-refs-v2":
+        h6_prediction_type = H8H6PredictionReference
+        h6_prediction_fields = common_fields | {
+            "prediction_schema",
+            "config_schema",
+            "readiness_schema",
+            "metrics_schema",
+            "result_schema",
+            "experiment_sha256",
+            "config_sha256",
+            "readiness_artifact_path",
+            "readiness_manifest_sha256",
+            "readiness_sha256",
+            "correctness_artifact_paths",
+            "h1_prefix_prior_artifact_path",
+            "smc_accuracy_artifact_path",
+            "smc_accuracy_manifest_sha256",
+            "h6_prefix_artifact_path",
+            "h6_prefix_manifest_sha256",
+            "blinded_data_artifact_path",
+            "blinded_data_manifest_sha256",
+            "matching_artifact_path",
+            "matching_manifest_sha256",
+            "matching_set_sha256",
+            "h1_prefix_prior_generative_factor_schema_sha256",
+            "smc_bias_semantics_sha256",
+            "objective_gate_spec_sha256",
+            "metrics_sha256",
+        }
+    else:
+        h6_prediction_type = H8LegacyH6PredictionReference
+        h6_prediction_fields = common_fields | {"experiment_sha256"}
     variants: tuple[tuple[str, type[object], set[str]], ...] = (
         ("h1_h5", H8H1H5Reference, common_fields),
         ("h1_prefix_prior", H8H1PrefixPriorReference, common_fields),
@@ -378,8 +425,8 @@ def parse_h8_reference_registry_bytes(
         ),
         (
             "h6_prediction",
-            H8H6PredictionReference,
-            common_fields | {"experiment_sha256"},
+            h6_prediction_type,
+            h6_prediction_fields,
         ),
     )
     typed: dict[str, object] = {}
@@ -392,6 +439,11 @@ def parse_h8_reference_registry_bytes(
             or set(raw) != expected_fields
             or not isinstance(raw["content_hashes"], dict)
             or not isinstance(raw["payload_hashes"], dict)
+            or (
+                name == "h6_prediction"
+                and registry_schema == "h8-current-candidate-refs-v2"
+                and not isinstance(raw["correctness_artifact_paths"], dict)
+            )
         ):
             raise ValueError(f"H8 reference registry entry is malformed: {name}")
         value = expected_type(**raw)
@@ -1174,6 +1226,7 @@ def run_h8_verification(
         registry_sha256=refs.registry_sha256,
         preregistration_sha256=preregistration_sha256,
     )
+    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)
     evaluation = assemble_h8_gate_evaluation(
         config_sha256=canonical.config_sha256,
         current_refs=refs,
@@ -1183,6 +1236,7 @@ def run_h8_verification(
         controls=(),
         dependency_closure_sha256=dependency_closure_sha256,
         preregistration_sha256=preregistration_sha256,
+        prerequisite_validation=prerequisite_validation,
     )
     ended = _utc_now()
     environment = build_h8_environment(

@@ -23,7 +23,11 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import BinaryIO, Final
 
 from vfe4.artifacts.atomic import canonical_json_bytes
-from vfe4.config import H6DataConfig, H6PredictionResolvedConfig
+from vfe4.config import (
+    H6DataConfig,
+    H6PredictionResolvedConfig,
+    H6PredictionV2ResolvedConfig,
+)
 from vfe4.types.h6 import (
     DataIdentity,
     SealedSplitHandle,
@@ -96,9 +100,13 @@ class H6DataAcquisitionRequest:
 
     @classmethod
     def from_prediction_config(
-        cls, config: H6PredictionResolvedConfig
+        cls,
+        config: H6PredictionResolvedConfig | H6PredictionV2ResolvedConfig,
     ) -> "H6DataAcquisitionRequest":
-        if type(config) is not H6PredictionResolvedConfig:
+        if type(config) not in (
+            H6PredictionResolvedConfig,
+            H6PredictionV2ResolvedConfig,
+        ):
             raise ValueError("config must be the exact resolved H6 Prediction config")
         return cls(
             data=config.data,

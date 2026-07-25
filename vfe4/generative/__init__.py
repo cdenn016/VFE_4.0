@@ -41,7 +41,8 @@ from .source_priors import (
     FixedSourcePrior,
     MaskCaseKey,
     NormalizedSourceFactor,
-    PrefixConditionedSourcePrior,
+    ParentSpecificPooledPrefixSourcePrior,
+    PooledHistoryConditionedSourcePrior,
 )
 
 __all__ = [
@@ -65,7 +66,8 @@ __all__ = [
     "MaskCaseKey",
     "NormalizedLanguageFactor",
     "NormalizedSourceFactor",
-    "PrefixConditionedSourcePrior",
+    "ParentSpecificPooledPrefixSourcePrior",
+    "PooledHistoryConditionedSourcePrior",
     "pushforward_h7_generative",
     "canonical_h4_gaussian",
     "h4_anchor_from_h3",

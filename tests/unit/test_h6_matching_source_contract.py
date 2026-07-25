@@ -185,7 +185,6 @@ def test_h6_live_coboundary_map_call_multiplicities_are_counted_exactly() -> Non
         workload=workload,
     )
     edge_count = 32 * 33 // 2
-    nonanchor_source_edges = 32 * 31 // 2
     channels = 2
     dimension = 16
     operation_costs = {
@@ -196,20 +195,13 @@ def test_h6_live_coboundary_map_call_multiplicities_are_counted_exactly() -> Non
         and term.operation.endswith("::tail_batch")
     }
     assert operation_costs[
-        "shared_coboundary_receiver_matrix_exp_pade13"
-    ] == channels * edge_count * matrix_exp_pade13_flops(dimension)
+        "shared_coboundary_graph_cached_matrix_exp_pade13"
+    ] == channels * 32 * matrix_exp_pade13_flops(dimension)
     assert operation_costs[
-        "shared_coboundary_source_matrix_exp_pade13"
-    ] == (
-        channels
-        * nonanchor_source_edges
-        * matrix_exp_pade13_flops(dimension)
-    )
+        "shared_coboundary_graph_cached_source_inverse_lu"
+    ] == channels * 32 * matrix_solve_lu_flops(dimension)
     assert operation_costs[
-        "shared_coboundary_source_inverse_lu"
-    ] == channels * edge_count * matrix_solve_lu_flops(dimension)
-    assert operation_costs[
-        "shared_coboundary_frame_product_dense_matmul"
+        "shared_coboundary_edge_frame_product_dense_matmul"
     ] == channels * edge_count * dense_matmul_flops(
         dimension, dimension, dimension
     )

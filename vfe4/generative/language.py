@@ -21,7 +21,8 @@ from vfe4.types.h6 import (
 from .source_priors import (
     FixedSourcePrior,
     NormalizedSourceFactor,
-    PrefixConditionedSourcePrior,
+    ParentSpecificPooledPrefixSourcePrior,
+    PooledHistoryConditionedSourcePrior,
 )
 
 
@@ -161,7 +162,11 @@ class NormalizedLanguageFactor:
         )
 
 
-SourcePrior = FixedSourcePrior | PrefixConditionedSourcePrior
+SourcePrior = (
+    FixedSourcePrior
+    | ParentSpecificPooledPrefixSourcePrior
+    | PooledHistoryConditionedSourcePrior
+)
 
 
 @dataclass(frozen=True, eq=False)
@@ -279,7 +284,8 @@ class LanguageGenerativeModel(nn.Module):
             raise ValueError("latent_dim must be a positive integer")
         if source_prior is not None and type(source_prior) not in (
             FixedSourcePrior,
-            PrefixConditionedSourcePrior,
+            ParentSpecificPooledPrefixSourcePrior,
+            PooledHistoryConditionedSourcePrior,
         ):
             raise ValueError("source_prior must be a supported exact source-prior type")
         if h7_geometry is not None and type(
@@ -305,7 +311,11 @@ class LanguageGenerativeModel(nn.Module):
                 "source prior model_family_sha256 does not match the language model"
             )
         if (
-            type(source_prior) is PrefixConditionedSourcePrior
+            type(source_prior)
+            in (
+                ParentSpecificPooledPrefixSourcePrior,
+                PooledHistoryConditionedSourcePrior,
+            )
             and source_prior.latent_dim != latent_dim
         ):
             raise ValueError("prefix source-prior latent_dim does not match the language model")

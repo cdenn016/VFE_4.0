@@ -10,7 +10,13 @@
 
 ## Global Constraints
 
-- **This plan is post-H8.** No implementation task, data acquisition, source-lock operation, smoke run, or experiment in this plan may begin until an existing `validation/h8.json` with `schema_version="h8-sparse-scale-v1"` has `status="pass"`, its atomic manifest validates, its exact `(git_head, dirty_digest, config_sha256)` is recorded, and its revision-specific H8 claim ledger validates. Plan authoring itself is not execution.
+- **The 2026-07-25 arm/gate amendment is normative.**
+  `docs/preregistrations/2026-07-25-post-h8-arm-gate-amendment.md`
+  supersedes every independently entered two-arm count in this plan. All
+  tuning attempts, terminal checkpoints, scoring records, result rows,
+  resource work counts, and figure series are derived from one immutable
+  `EndpointInventory` and its SHA-256.
+- **This plan is post-H8.** No implementation task, data acquisition, source-lock operation, smoke run, or experiment in this plan may begin until an existing `validation/h8.json` with `schema_version="h8-sparse-scale-v2"` has `status="pass"`, its atomic manifest validates, its exact `(git_head, dirty_digest, config_sha256)` is recorded, and its revision-specific H8 claim ledger validates. Plan authoring itself is not execution.
 - The H8 artifact remains a synthetic `T=128`, `K=d_z=d_m=20`, CPU-float64 systems certificate. It is **not** evidence that the WikiText-103 decoder, batches, autograd graph, optimizer states, token caches, evaluation, GPU kernels, checkpoints, or figures are sparse or within any memory budget. The post-H8 candidate must measure those paths independently.
 - The language model remains the VFE4 singleton-base specialization `C0={*}` with labeled population positions and a separate causal DAG. Token positions, data windows, and source edges are not base points, base transport, base curvature, or base holonomy.
 - The normative state objective remains one complete normalized ELBO. Held-out NLL/PPL comes only from the causal target-blind generative prior predictor. Posterior reconstruction, emission-only loss, samples, and diagnostic free-energy quantities are separate labeled outputs.
@@ -20,7 +26,7 @@
 - H6-Prediction remains predecessor evidence for the selected scorer/update/statistical design, not a transferable WikiText-103 predictive result. Post-H8 readiness binds exact H5, H6, H7, and H8 artifact/ledger identities and reruns every configuration-sensitive safety check at the final training candidate.
 - Post-H8 readiness requires a distinct same-revision `TrainingSparsityCertificate`. H8 cannot satisfy it, and a device-capacity smoke below 85% cannot satisfy it. Structural shape/allocation safety and available-capacity safety are independent conjuncts.
 - Tasks 1--12 are hermetic with respect to the candidate tokenizer package. They may store only the candidate strings `distribution="tiktoken"`, `version="0.12.0"`, and `encoding_name="gpt2"`, and may exercise only injected synthetic distribution/table/tokenizer adapters. They must not import `tiktoken`, query its live version or `importlib.metadata` distribution/RECORD files, read live regex/rank/special-token tables, or run the production golden vectors. Those live checks occur together, for the first time, in Task 13 Step 3; a pre-source-lock `TokenizerSpec` exists only as synthetic fixture evidence and cannot satisfy readiness.
-- Every validation-boundary checkpoint is labeled `role="resume_only"`. It may restore the same attempt after a permitted interruption but cannot be selected, scored for confirmation/test, placed in the 16-endpoint inventory, or rendered. Only the post-pass terminal checkpoint labeled `role="terminal_scoring"` is eligible for confirmatory/test scoring.
+- Every validation-boundary checkpoint is labeled `role="resume_only"`. It may restore the same attempt after a permitted interruption but cannot be selected, scored for confirmation/test, placed in the hash-derived endpoint inventory, or rendered. Only the post-pass terminal checkpoint labeled `role="terminal_scoring"` is eligible for confirmatory/test scoring.
 - The user surface requires no CLI. `train_vfe4.py` and `generate_vfe4_figures.py` each expose one editable top-level `CONFIG`, one `main()`, and one `if __name__ == "__main__": main()` guard. Importing either file performs no parsing, I/O, device initialization, data access, run reservation, rendering, or training.
 - Every launcher dictionary is resolved once into frozen typed sections. Unknown keys, missing required keys, wrong plain-Python scalar types, invalid combinations, stale schema/objective identities, or derived-field overrides fail before side effects. Runtime code never rereads or mutates the dictionary.
 - V3 is a read-only rough engineering guide. VFE4 imports no V3 module, reads no V3 checkpoint, accepts no V3 config, and never discovers or reuses V3's filename-inferred/unverified `~/.cache/tokenized_cache/wikitext-103_*` files. V3 data/objective/checkpoint/metric schemas are not migration inputs.
@@ -52,7 +58,7 @@
 4. The final post-H8 predictor configuration is target-blind under the new vocabulary/cache/model identity.
 5. A checkpoint resumes to the same scientific weights, optimizer/scheduler states, RNG/data cursor, update trace, metric numerator/denominator state, and next predictions as uninterrupted execution for the bounded smoke fixture, while operational timestamps and artifact bytes remain separately identifiable.
 6. Recorded WikiText-103 NLL/PPL and diagnostic figures are reproducible from immutable run manifests and recorded metrics at the exact evidence revision.
-7. Any empirical A0/A5 contrast is limited to the preregistered arms, seeds, optimizer settings, capacity/compute matching report, stopping rule, estimator, and data identity.
+7. The empirical PRIMARY contrast is limited to the preregistered A0 reference and parent-specific pooled-prefix complete-objective endpoint, seeds, optimizer settings, capacity/compute matching report, stopping rule, estimator, and data identity. The three additional inventory arms are separately labeled gates or controls and cannot widen or rescue the PRIMARY claim.
 
 ### Claims this milestone must not make
 
@@ -61,7 +67,7 @@
 - H6's byte-tokenizer safety/prediction result transferred to GPT-2/tiktoken or WikiText-103.
 - VFE4 is backprop-free, forward-gradient trained, exact EM, or monotone under `adam_proposal`.
 - Perplexity is computed from a target-conditioned recognition state, posterior reconstruction, emission-only diagnostic, selected best checkpoint, or averaged batch means.
-- A0 versus A5 isolates one component; it is a whole-architecture comparison even when capacity/compute matched.
+- The PRIMARY A0-versus-parent-specific-complete comparison is a whole-architecture comparison even when training-compute matched; it does not isolate one mechanism.
 - An optimizer-only causal conclusion follows when capacity, active phases, update labels, regularization, data order, stopping, or evaluation differs.
 - A source-entropy or effective-source curve proves attention, causal discovery, gauge covariance, or useful source identification.
 - Two passes establish a scaling law, state-of-the-art result, convergence, posterior correctness, calibration, or long-context generalization.
@@ -189,13 +195,7 @@ combined_latent_block               = 40
 source_lookback                     = 20
 state_parents(t)                    = range(max(0,t-20),t)
 model_parents(t)                    = range(max(0,t-20),t)
-source_prior_variant                = "fixed_causal_banded"
-source_mixture                      = "exact"
-recognition_family                  = "structured_block_tridiagonal_smoothing"
-recognition_iterations_per_batch    = 1
 population_frame_profile            = "h7-direct-glplus-v1"
-training_objective_A5               = "complete_elbo"
-training_objective_A0               = "causal_cross_entropy"
 decoder_profile                     = "categorical_linear_chunked"
 decoder_train_token_chunk           = 512
 decoder_eval_token_chunk            = 256
@@ -248,6 +248,14 @@ best_checkpoint_selection           = false
 confirmatory_passes                 = 2
 early_stopping                      = false
 ```
+
+This profile contains only run-group fields shared across the inventory.
+`training_objective`, `prior_variant`, `source_mixture`,
+`recognition_family`, `recognition_iterations_per_batch`, latent/recognition
+applicability, scorer kind, update phases, and result role live only in each
+immutable `WT103ArmSpec`. A consumer that reconstructs one of those values
+from an A0/A5 family label instead of the arm spec fails configuration
+resolution.
 
 The real profile requires CUDA and does not fall back to CPU or another GPU. CPU float64 appears only in generated-fixture tests and is a separate non-scientific `smoke-v1` profile. Parameters and optimizer states remain float32; bfloat16 autocast is limited to declared dense contractions. SPD factorizations/solves/log determinants stay float32, and SMC log weights plus corpus accumulation use the stated higher-precision paths. Because bfloat16 uses no dynamic scaler here, every update records `amp_scale=1.0`, `amp_overflow=false|true`, and `grad_scaler_applicability="disabled_bfloat16"`; an overflow/nonfinite event rejects and rolls back the proposal.
 
@@ -317,7 +325,7 @@ P_A0(h) = token_embedding Vh
 
 `A0FormulaRecord` is an analytical semantic ledger, not a profiler estimate. It freezes `1 multiply=1 FLOP`, `1 add/subtract/divide/exp/log/tanh/rsqrt=1 FLOP`, comparisons and indexing `=0`, linear `F(m,k,n,bias)=2mkn+mn` when biased, causal QK-plus-AV `=4*B*[L(L+1)/2]*h`, causal softmax `=B*2*(4*[L(L+1)/2]-L)`, affine LayerNorm forward `=B*L*(7h+2)`, tanh-GELU forward `=9*B*L*4h`, and exact separately enumerated backward, cross-entropy, embedding-scatter, residual, and AdamW primitive records. Whole-attempt `F_A0` sums those records over the literal batch/window/cadence schedule; decoder chunking changes peak storage but not FLOPs. Task 6 must reconstruct `P_A0` from actual named parameter shapes and `F_A0` from an independent hand-enumerated tiny operator ledger, then match both byte-for-byte to the canonical formula record/hash. Profiler FLOP estimates cannot close this check.
 
-A5 initialization is fixed: embeddings and decoder weights use seed-local Xavier uniform gain 1; categorical/linear biases and source logits are zero; primary frame matrices are identity; block-precision diagonal factors initialize to identity and lower factors to zero. A0 uses the same seed-local initializer classes. Every initializer consumes an explicitly named counter substream and records its terminal counter.
+Initialization is dispatched from the immutable arm spec. Every latent row uses seed-local Xavier uniform gain 1 for embeddings and decoder weights, zero categorical/linear biases and source logits, identity primary frame matrices, identity block-precision diagonal factors, and zero lower factors. A0 and no-latent instantiate only their declared parameters and may not allocate dormant source, frame, precision, or recognition state; they use the same applicable initializer classes. Every initializer consumes an explicitly named counter substream and records its terminal counter.
 
 The A0 factory is `build_a0@wt103-arm-v1` and implements the exact `A0ArchitectureProfile` above, with no latent/recognition/source/frame state and hidden-width candidates exactly
 
@@ -325,11 +333,11 @@ The A0 factory is `build_a0@wt103-arm-v1` and implements the exact `A0Architectu
 (20,24,28,32,36,40,44,48,52,56,60,64,72,80,96,112,128,160).
 ```
 
-Evaluate every candidate without corpus tensors using the canonical parameter/FLOP formulas. Eligible candidates satisfy `abs(P_A0/P_A5-1)<=0.01`, `abs(F_A0/F_A5-1)<=0.05`, exact optimizer access, and no filler state. Select the unique minimum tuple `(abs(log(P_A0/P_A5)), abs(log(F_A0/F_A5)), h)`; only after selection does readiness test that exact `h` on the frozen Flash backend. Backend failure stops rather than selecting a different width. If no formula candidate is eligible, readiness is INCONCLUSIVE and this plan must be revised before outcomes. A5 dimensions never move to rescue A0 matching.
+Evaluate every candidate without corpus tensors using the canonical parameter/FLOP formulas. Let `P_PRIMARY` and `F_PRIMARY` denote only the `WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1` endpoint selected through its `PRIMARY_ENDPOINT` role. Eligible A0 candidates satisfy `abs(P_A0/P_PRIMARY-1)<=0.01`, `abs(F_A0/F_PRIMARY-1)<=0.05`, exact optimizer access, and no filler state. Select the unique minimum tuple `(abs(log(P_A0/P_PRIMARY)), abs(log(F_A0/F_PRIMARY)), h)`; only after selection does readiness test that exact `h` on the frozen Flash backend. Backend failure stops rather than selecting a different width. If no formula candidate is eligible, readiness is INCONCLUSIVE and this plan must be revised before outcomes. PRIMARY-endpoint dimensions never move to rescue A0 matching.
 
-A0 executes `model_ce_adam_proposal`. A5 executes exactly one `recognition_adam_proposal`, one immutable detached snapshot, and one `model_adam_proposal` per batch. Each `adam_proposal` applies AdamW and its scheduler only after all validity checks pass; objective decrease alone neither rejects nor licenses monotonicity. Rejection restores parameters, optimizer moments/step, scheduler ordinal/LR, RNG, AMP state, and update counters exactly.
+A0 and the no-latent control execute `model_ce_adam_proposal`. Each latent A5 row executes exactly one `recognition_adam_proposal`, one immutable detached snapshot, and one `model_adam_proposal` per batch under its frozen objective. Each `adam_proposal` applies AdamW and its scheduler only after all validity checks pass; objective decrease alone neither rejects nor licenses monotonicity. Rejection restores parameters, optimizer moments/step, scheduler ordinal/LR, RNG, AMP state, and update counters exactly.
 
-Validation runs at the 20 boundaries already frozen; checkpointing occurs after the metric/failure ledgers are durable at each boundary. The two newest rolling checkpoints are `role="resume_only"`: they may resume that same attempt and are categorically ineligible for validation selection, confirmatory/test scoring, the 16-endpoint inventory, aggregation, or figures. Only the post-pass checkpoint is `role="terminal_scoring"`. Removing an older resume-only checkpoint is a run-owned lineage event performed only after its successor and terminal lineage record are durable; its identity remains in the immutable lineage, and no externally referenced checkpoint is removed.
+Validation runs at the 20 boundaries already frozen; checkpointing occurs after the metric/failure ledgers are durable at each boundary. The two newest rolling checkpoints are `role="resume_only"`: they may resume that same attempt and are categorically ineligible for validation selection, confirmatory/test scoring, the hash-derived endpoint inventory, aggregation, or figures. Only the post-pass checkpoint is `role="terminal_scoring"`. Removing an older resume-only checkpoint is a run-owned lineage event performed only after its successor and terminal lineage record are durable; its identity remains in the immutable lineage, and no externally referenced checkpoint is removed.
 
 ---
 
@@ -337,48 +345,88 @@ Validation runs at the 20 boundaries already frozen; checkpointing occurs after 
 
 ### Arms and interventions
 
-The first WikiText-103 run group has two confirmatory arms:
+The first WikiText-103 run group uses the exact ordered
+`WT103ArmSpec` inventory from the 2026-07-25 amendment:
 
-- `WT103-A0-AR-v1`: conventional causal autoregressive baseline, no latent recognition object, one `model_ce_adam_proposal` phase.
-- `WT103-A5-VFE4-v1`: full zero-dimensional VFE4 language model with the H6-approved target-blind prior scorer, structured smoothing recognition for training, complete ELBO, and phases `recognition_adam_proposal -> immutable_detached_snapshot -> model_adam_proposal`.
+- `WT103-A0-AR-v1`;
+- `WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1`;
+- `WT103-A5-FIXED-COMPLETE-v1`;
+- `WT103-A5-PARENT-SPECIFIC-PREFIX-EMISSION-v1`;
+- `WT103-A5-NOLATENT-v1`.
 
-Both use the same tokenizer, window IDs/order, batch size, passes, model-update opportunities, validation/checkpoint boundaries, terminal selection, and test opening. Before tuning, the corpus-free finite A0 search applies the eligibility constraints and unique minimum tuple frozen in the literal profile; it does not inspect corpus outcomes. Every active parameter appears exactly once in its declared optimizer; no dormant/filler/no-op parameters or phases are allowed.
+The exact source rows are:
 
-The A0/A5 report is a whole-architecture contrast, not component attribution. Any future map, recognition, prior, mixture, objective, or latent intervention requires a new exact `ArmInterventionRecord` that changes one resolved field, reproduces matching, and freezes its own statistical disposition before outcomes. Runs that differ in optimizer, capacity, update schedule, regularization, stopping, data order, or estimator are descriptive across those differences and support no optimizer-only claim.
+| Arm | Factory | Objective | Prior | Latent / recognition | Scorer | Role |
+|---|---|---|---|---|---|---|
+| `WT103-A0-AR-v1` | `build_wt103_a0@wt103-arm-v1` | `cross_entropy` | `absent` | false / false | `exact_autoregressive` | `PRIMARY_REFERENCE` |
+| `WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1` | `build_wt103_a5_parent_specific@wt103-arm-v1` | `complete_elbo` | `parent_specific_pooled_prefix` | true / true | `weighted_smc` | `PRIMARY_ENDPOINT` |
+| `WT103-A5-FIXED-COMPLETE-v1` | `build_wt103_a5_fixed@wt103-arm-v1` | `complete_elbo` | `fixed` | true / true | `weighted_smc` | `PRIOR_CONTROL` |
+| `WT103-A5-PARENT-SPECIFIC-PREFIX-EMISSION-v1` | `build_wt103_a5_parent_specific@wt103-arm-v1` | `emission_only_ablation_non_elbo` | `parent_specific_pooled_prefix` | true / true | `weighted_smc` | `OBJECTIVE_GATE` |
+| `WT103-A5-NOLATENT-v1` | `build_wt103_a5_nolatent@wt103-arm-v1` | `cross_entropy` | `absent` | false / false | `exact_autoregressive` | `LATENT_PATH_CONTROL` |
+
+Every row uses `tuning_grid_id="wt103-six-cell-v1"`, confirmatory seeds
+`2026072101..2026072108`, and
+`terminal_checkpoint_role="terminal_scoring"`. The two parent-specific rows
+share the selected capacity, model family, normalized prior law, scorer,
+particle protocol, optimizer policy, data order, and checkpoint schedule;
+their only scientific intervention is the objective. The no-latent row may
+not retain dormant recognition parameters or fake SMC work.
+
+Each latent row additionally freezes `source_mixture="exact"`,
+`recognition_family="structured_block_tridiagonal_smoothing"`,
+`recognition_iterations_per_batch=1`, and update phases
+`("recognition_adam_proposal","immutable_detached_snapshot",
+"model_adam_proposal")`. A0 and no-latent freeze those three latent fields as
+`"absent"`, `0`, and update phases `("model_ce_adam_proposal",)`. These are
+arm-spec fields, not inferred defaults.
+
+Every applicable arm uses the same tokenizer, window IDs/order, batch size,
+passes, model-update opportunities, validation/checkpoint boundaries,
+terminal-selection rule, and test opening. Before tuning, corpus-free matching
+selects the eligible nuisance allocation without inspecting corpus outcomes.
+Every active parameter appears exactly once in its declared optimizer; no
+dormant/filler/no-op parameters or phases are allowed.
+
+The PRIMARY A0 versus parent-specific complete report is a
+training-compute-matched whole-architecture contrast, not component
+attribution. Fixed-prior complete is a changed-joint control,
+parent-specific emission-only is the ordered OBJECTIVE gate, and no-latent is
+a bundled latent-path control unless exact held-fixed semantics are later
+proved. These rows retain distinct labels and never rescue or promote PRIMARY.
 
 ### Update/autograd contract
 
 - A0 expected/observed autograd scope is `m_step` and has no recognition state or recognition optimizer.
-- A5 expected/observed scope is `e_and_m`. Recognition proposal tensors are the only active E-like leaves while model parameters are frozen. The accepted recognition result is cloned into an immutable nonaliasing `RecognitionSnapshot`, detached, and hashed. Model parameters are then the only active M-like leaves.
-- Both active optimizer labels are `adam_proposal`, with the exact H5 objective/update/snapshot/factor-dependency schema hashes. A proposal is accepted only if the configured rule says so and all finite, gradient, support, SPD, and immutable-snapshot checks pass. Rejections restore every affected parameter/optimizer/scheduler state and record reason plus before/after complete-objective numerators and estimator budget.
+- Every latent A5 inventory arm has expected/observed scope `e_and_m`. Recognition proposal tensors are the only active E-like leaves while model parameters are frozen. The accepted recognition result is cloned into an immutable nonaliasing `RecognitionSnapshot`, detached, and hashed. Model parameters are then the only active M-like leaves. The no-latent control has no recognition optimizer.
+- Every applicable active optimizer label is `adam_proposal`, with the exact H5 objective/update/snapshot/factor-dependency schema hashes. A proposal is accepted only if the configured rule says so and all finite, gradient, support, SPD, and immutable-snapshot checks pass. Rejections restore every affected parameter/optimizer/scheduler state and record reason plus before/after objective numerators and estimator budget.
 - Runtime instrumentation hard-fails if observed autograd scope differs from resolved scope, if a recognition snapshot aliases model storage, if a target/suffix reaches the prior scorer, if any active parameter is missing/duplicated across optimizers, or if an update is reported under a stronger label than executed.
 
 ### Tuning, confirmation, stopping, test, and inference
 
 The H6 policy is refrozen for the new dataset identity:
 
-- equal tuning grid for both arms: `learning_rate in {1e-4,3e-4,1e-3}` by `weight_decay in {0,1e-2}`;
+- equal tuning grid for every trainable inventory arm: `learning_rate in {1e-4,3e-4,1e-3}` by `weight_decay in {0,1e-2}`;
 - tuning seeds `2026072199` and `2026072200`, each exactly the first `ceil(training_batches/4)` batches of the frozen pass permutation;
 - select lowest mean full-validation prior-predictive NLL/token; tie-break by lower learning rate, then lower weight decay; publish every cell;
 - confirmatory initialization/run seeds `2026072101..2026072108`, shared data-order seed `2026072199`;
 - exactly two complete passes, validation at `ceil(k*batches_per_pass/20)` for `k=1..20` in each pass after stable deduplication, no early stopping, no adaptive extension, and no best-validation checkpoint selection;
 - rolling validation checkpoints are resume-only; only the post-pass terminal checkpoint is eligible for confirmation/test. Validation curves are diagnostics and do not select or promote a checkpoint;
-- every tuning/validation score uses the weighted target-blind scorer at exactly `N=256` particles and common validation stream IDs `0..7`, derived from `SHA256("post-h8-wt103-validation-v1|2026072198|stream_id|purpose")`; aggregate each stream by corpus-summed log normalizers and counted targets, then use the arithmetic mean of the eight corpus NLLs. A0 is exact and is repeated only as an identity check, not assigned fake variance;
+- every tuning/validation score uses the arm's frozen `scorer_kind`. A weighted-SMC row uses exactly `N=256` particles and common validation stream IDs `0..7`, derived from `SHA256("post-h8-wt103-validation-v1|2026072198|stream_id|purpose")`; aggregate each stream by corpus-summed log normalizers and counted targets, then use the arithmetic mean of the eight corpus NLLs. An exact-autoregressive row is evaluated once and may be replayed only as an identity check, never assigned fake variance;
 - at most one infrastructure retry, only with proof of no advancement or exact checkpoint restore. Numerical divergence, nonfinite values, model/estimator/prefix/capacity failure, or missing paired seed gets no replacement. Incomplete pairs are `INCONCLUSIVE`.
 
-The primary score is corpus-summed target-blind prior NLL in nats divided by counted targets; PPL is `exp(NLL/token)` and secondary. Never average batch means. For A5, retain the H6 weighted-SMC recursion and refreeze the 64 common counter-based streams rooted at `2026072198` plus particle ladder `(128,256,512,1024)` and `Q2` extrapolation/error rules for the actual test endpoint. A0's exact logits are paired with the same stream IDs without inventing stochastic variation. There are exactly `8*64*4=2,048` A5 corpus records plus eight exact A0 corpus records; missing/duplicate/nonfinite records make the primary result `INCONCLUSIVE`.
+The primary score is corpus-summed target-blind prior NLL in nats divided by counted targets; PPL is `exp(NLL/token)` and secondary. Never average batch means. Every weighted-SMC arm retains the H6 recursion, 64 common counter-based streams rooted at `2026072198`, particle ladder `(128,256,512,1024)`, and `Q2` extrapolation/error rules. Exact autoregressive arms are paired with the same stream identities without inventing stochastic variation. The required exact and weighted record counts are derived solely from each `WT103ArmSpec.scorer_kind`, the confirmatory-seed inventory, the stream inventory, and the particle inventory. Missing, duplicate, nonfinite, failed, or separately entered records make the associated gate `INCONCLUSIVE`.
 
-For each A5 checkpoint and each of the 64 test streams, compute `Q0=2Y256-Y128`, `Q1=2Y512-Y256`, `Q2=2Y1024-Y512`, `R1=Q1-Q0`, and `R2=Q2-Q1`. With `df=63`, use the frozen simultaneous constant `4.5144904535377144`, `h(X)=4.5144904535377144*s(X)/sqrt(64)`, `U1=abs(mean(R1))+h(R1)`, `U2=abs(mean(R2))+h(R2)`, conditional remainder bound `B=U2/(1-0.75)=4U2`, and random half-width `H=h(Q2)`. Eligibility requires `U2<=0.75*U1`, `B<=delta/40=0.00025125839633753625`, and `H<=delta/20=0.0005025167926750725`. For each paired seed, use common-stream `D_i[r]=NLL_A0,i-Q2_A5,i[r]`, `H_i=h(D_i)`, and `e_i=H_i+B_A5,i`; require `H_i<=delta/20` and `e_i<=delta/10=0.001005033585350145`.
+For each weighted-SMC checkpoint and each of the 64 test streams, compute `Q0=2Y256-Y128`, `Q1=2Y512-Y256`, `Q2=2Y1024-Y512`, `R1=Q1-Q0`, and `R2=Q2-Q1`. With `df=63`, use the frozen simultaneous constant `4.5144904535377144`, `h(X)=4.5144904535377144*s(X)/sqrt(64)`, `U1=abs(mean(R1))+h(R1)`, `U2=abs(mean(R2))+h(R2)`, conditional remainder bound `B=U2/(1-0.75)=4U2`, and random half-width `H=h(Q2)`. Eligibility requires `U2<=0.75*U1`, `B<=delta/40=0.00025125839633753625`, and `H<=delta/20=0.0005025167926750725`. For the PRIMARY pair only, use common-stream `D_i[r]=NLL_A0,i-Q2_parent-specific-complete,i[r]`, `H_i=h(D_i)`, and `e_i=H_i+B_parent-specific-complete,i`; require `H_i<=delta/20` and `e_i<=delta/10=0.001005033585350145`.
 
-Propagate each `e_i` into `d_i=NLL_A0,i-mean(Q2_A5,i)` by enumerating all `2^8=256` error-box corners and using the frozen `t_(0.975,7)=2.364624251592784`. The practical threshold remains `delta=-log(0.99)=0.01005033585350145`: inflated lower bound `>delta` is PASS, inflated upper bound `<=0` is FAIL, otherwise INCONCLUSIVE. These bounds retain H6's independent-stream, finite-variance, approximate-Gaussian replicate-mean, independent-training-seed, and geometric-remainder assumptions; a failed contraction or assumption is INCONCLUSIVE. This is a paired two-arm predictive decision only. Per-arm PPL, uninflated interval, estimator diagnostics, and seed variability remain reported regardless of decision.
+Propagate each `e_i` into `d_i=NLL_A0,i-mean(Q2_parent-specific-complete,i)` by enumerating all `2^8=256` error-box corners and using the frozen `t_(0.975,7)=2.364624251592784`. The practical threshold remains `delta=-log(0.99)=0.01005033585350145`: inflated lower bound `>delta` is PASS, inflated upper bound `<=0` is FAIL, otherwise INCONCLUSIVE. These bounds retain H6's independent-stream, finite-variance, approximate-Gaussian replicate-mean, independent-training-seed, and geometric-remainder assumptions; a failed contraction or assumption is INCONCLUSIVE. This paired decision applies only to PRIMARY A0 versus parent-specific complete. Per-arm PPL, uninflated intervals, estimator diagnostics, controls, and seed variability remain separately reported regardless of decision.
 
-The test split is opened once after all 16 terminal checkpoints, tuning selections, metric/analysis/figure source hashes, estimator streams, source/token/window manifests, and run-group manifest are frozen. The one transaction attempts every required endpoint and is never reopened for a fix, extra seed, prettier figure, or missing metric. Every endpoint record completed before a crash or failure is durably retained with its disposition, but a partial endpoint set is never aggregated, promoted, or reported as a scientific comparison; any missing, duplicate, or nonfinite required endpoint makes the terminal result INCONCLUSIVE.
+The test split is opened once after every terminal checkpoint derived by the immutable `EndpointInventory`, all tuning selections, metric/analysis/figure source hashes, estimator streams, source/token/window manifests, and run-group manifest are frozen. The one transaction attempts every required endpoint and is never reopened for a fix, extra seed, prettier figure, or missing metric. Every endpoint record completed before a crash or failure is durably retained with its disposition, but a partial endpoint set is never aggregated, promoted, or reported as a scientific comparison; any missing, duplicate, or nonfinite required endpoint makes the terminal result INCONCLUSIVE.
 
 ---
 
 ## Revision-Bound Training Sparsity Certificate
 
-`TrainingSparsityCertificate` is a same-`(git_head,dirty_digest,profile_sha256,factory_set_sha256)` structural certificate consumed by post-H8 readiness. It is not H8, not a memory-capacity smoke, and not an asymptotic complexity claim. PASS means only that every traced operation in the exact A0/A5 training/evaluation/checkpoint vocabulary obeyed this finite shape/storage contract.
+`TrainingSparsityCertificate` is a same-`(git_head,dirty_digest,profile_sha256,factory_set_sha256,endpoint_inventory_sha256)` structural certificate consumed by post-H8 readiness. It is not H8, not a memory-capacity smoke, and not an asymptotic complexity claim. PASS means only that every traced operation in the exact immutable arm-inventory training/evaluation/checkpoint vocabulary obeyed this finite shape/storage contract.
 
 For the literal profile let `B=128`, `L=128`, `b=40`, `W=20`, `V=50_257`, `D=L*b=5_120`, train decoder chunk `C_train=512`, evaluation decoder chunk `C_eval=256`, and SMC particle chunk `C_particle=32`.
 
@@ -397,7 +445,7 @@ Except for the nonmaterialized semantic pair count of the exact A0 Flash operato
 
 ### Required trace and reconciliation
 
-In clean child processes, trace the exact scientific profile through: A0 data transfer/forward/CE/backward/AdamW/evaluation/checkpoint; and A5 data transfer/forward, E-like proposal, immutable snapshot, complete-ELBO evaluation, model backward, both accepted optimizer/scheduler updates, prior evaluation at each particle chunk, metric/failure writes, and checkpoint serialization. Use four complementary records: PyTorch dispatch pre-request/result shape and stack/concat tracing, PyTorch profiler operator/memory events, CUDA allocator snapshot plus unique-storage lifetime registry, and backend/checkpoint tensor inventories.
+In clean child processes, trace the exact scientific profile through every distinct arm path derived from `EndpointInventory`: A0 data transfer/forward/CE/backward/AdamW/evaluation/checkpoint; parent-specific complete and fixed-complete data transfer/forward, E-like proposal, immutable snapshot, complete-ELBO evaluation, model backward, both accepted optimizer/scheduler updates, weighted prior evaluation at each particle chunk, metric/failure writes, and checkpoint serialization; the parent-specific emission-only objective-gate path with its exact objective scope; and the no-latent control path without fabricating recognition or latent work. Use four complementary records: PyTorch dispatch pre-request/result shape and stack/concat tracing, PyTorch profiler operator/memory events, CUDA allocator snapshot plus unique-storage lifetime registry, and backend/checkpoint tensor inventories.
 
 For every persistent or logical tensor, recompute `numel*element_size` from the frozen formula and require exact equality with its classified storage-byte record. Reconcile unique logical bytes to CUDA allocated bytes by recording allocator overhead/fragmentation separately; require `allocated_bytes>=classified_unique_storage_bytes` and zero unclassified live storage/events. Profiler and dispatch inventories must agree on every population- or vocabulary-shaped operation. Capacity percentages are not part of this certificate.
 
@@ -458,18 +506,18 @@ Each run records Git HEAD, staged/unstaged/untracked content digest, canonical d
 
 Before official acquisition, preprocessing, training, or evaluation, compute a byte forecast for archive staging, extracted members, int32 token caches, schedule files, all retained checkpoints, JSONL/CSV, test records, figures, and 25% temporary-write overhead. Require available bytes `>=2*forecast+10 GiB`; do not auto-delete another run or V3 cache. Tokenization runs one split at a time in an isolated process and requires available RAM/swap above its measured smoke-derived multiplier; otherwise fail before allocation.
 
-Before real training, run a synthetic shape-identical allocation preflight through data transfer, full A0/A5 forward, A5 recognition proposal, immutable snapshot, model backward/update, validation scorer, metric record, and checkpoint serialization. Require peak device allocated and reserved memory each `<=85%` of physical capacity and enough host/disk headroom for one atomic checkpoint duplicate. H8 values do not enter this decision, and this capacity check does not replace `TrainingSparsityCertificate`. OOM or over-budget fails; do not silently reduce batch size, sequence length, particles, sources, dimensions, precision, or checkpoint contents.
+Before real training, run a synthetic shape-identical allocation preflight through every distinct path in the immutable arm inventory: data transfer, forward, applicable recognition proposal, immutable snapshot, model backward/update, validation scorer, metric record, and checkpoint serialization. Require peak device allocated and reserved memory each `<=85%` of physical capacity and enough host/disk headroom for one atomic checkpoint duplicate. H8 values do not enter this decision, and this capacity check does not replace `TrainingSparsityCertificate`. OOM or over-budget fails; do not silently reduce batch size, sequence length, particles, sources, dimensions, precision, or checkpoint contents.
 
 ### Throughput, wall-time, GPU-hour, and energy authorization
 
-After Task 13 knows exact corpus/window counts but before authorization, measure the literal profile on generated shape-identical batches: five untimed warmups plus 20 timed A0 train updates, 20 timed A5 train updates, 10 timed full validation-window calls for A0, 10 at A5 `N=256`, 10 test-window calls at each A5 `N in (128,256,512,1024)`, five durable checkpoint writes, and one complete tiny figure-set render. Sample GPU board power every `100 ms` through a provenance-bound NVML or `nvidia-smi` provider; provider absence/permission failure makes energy readiness INCONCLUSIVE.
+After Task 13 knows exact corpus/window counts but before authorization, measure each distinct training and scorer path declared by the immutable arm inventory on generated shape-identical batches: five untimed warmups plus 20 timed updates per distinct train path, 10 timed full validation-window calls per scorer kind, 10 test-window calls at each applicable particle count, one durable checkpoint write per distinct checkpoint schema, and one complete tiny figure-set render. Sample GPU board power every `100 ms` through a provenance-bound NVML or `nvidia-smi` provider; provider absence/permission failure makes energy readiness INCONCLUSIVE.
 
 For each component use the minimum observed post-warmup throughput and maximum observed duration/power, not a mean, then multiply predicted time by `forecast_headroom_factor=1.25`. Publish a component table with exact work units and formulas for:
 
-- 24 tuning attempts (`2 arms * 6 cells * 2 seeds`) at one quarter train pass, plus one eight-stream `N=256` full-validation assessment per attempt;
-- 16 confirmation attempts at two full train passes, 40 full-validation boundaries per attempt, and checkpoint/metric costs at those boundaries;
-- eight exact A0 test corpora plus 2,048 A5 seed/stream/particle test corpora;
-- source/token/window preparation, final table aggregation, all eight figures, and review/export overhead (GPU hours zero where CPU-only).
+- the `EndpointInventory`-derived tuning attempts at one quarter train pass, plus one applicable full-validation assessment per attempt;
+- the inventory-derived confirmation attempts at two full train passes, 40 full-validation boundaries per attempt, and checkpoint/metric costs at those boundaries;
+- the inventory-derived exact and weighted-SMC test corpus records;
+- source/token/window preparation, final table aggregation, every frozen required-figure-registry entry with its inventory-derived panels/series, and review/export overhead (GPU hours zero where CPU-only).
 
 Sum predicted GPU seconds/device-hours and wall time without overlapping components unless the executable schedule explicitly overlaps them. Conservative energy is `forecast_gpu_hours * max(measured_max_board_power_watts, reported_power_limit_watts)/1000`. The immutable profile ceilings are `max_gpu_hours=720`, `max_wall_hours=840`, and `max_energy_kwh=500`; authorization requires each `1.25*raw_forecast` to remain at or below its ceiling. Exceeding a ceiling stops for an explicit preregistration/user-authorization revision; no automatic batch/particle/seed/schedule reduction is permitted.
 
@@ -481,20 +529,20 @@ Every attempt records actual device-seconds, wall seconds, and sampled energy in
 
 `FigureSpec` freezes schema/version/hash, ordered panels/series, source columns, aggregation, uncertainty interval, axis scale/limits, units, colors/markers/fonts, captions, and alt text. Rendering uses `Agg`, pinned Matplotlib, DejaVu fonts, fixed `svg.hashsalt`, fixed metadata with no current timestamp, explicit sorted ordering, and no random layout. Each figure writes SVG, PNG, and PDF when the installed backend passes a startup format probe; otherwise the whole required-format preflight fails before rendering. Every figure also writes the exact plotted CSV and JSON sidecars, caption Markdown, alt text, and an output manifest with input/spec/environment/output hashes.
 
-Every metric/result row has `applicability="applicable"|"not_applicable"` plus a reason. A5 owns complete-ELBO, recognition, source-entropy/effective-source, and SPD-population panels. A0 owns CE/prior-NLL/PPL, model-update, throughput, and ordinary parameter-gradient panels; its ELBO/recognition/source/SPD fields are explicit `not_applicable`, never zero, null silently plotted, or fabricated. Shared plots omit inapplicable series and state the reason in caption/alt text.
+Every metric/result row has `applicability="applicable"|"not_applicable"` plus a reason derived from its exact arm spec. Complete-ELBO panels apply only to complete-objective latent rows; recognition, source-entropy/effective-source, and SPD-population panels apply only when the corresponding arm fields are active; CE applies only to cross-entropy rows; prior-NLL/PPL, model-update, throughput, and ordinary parameter-gradient panels apply wherever their frozen scorer/model path produces them. Every other field is explicit `not_applicable`, never zero, silently null-plotted, or fabricated. Shared plots omit inapplicable series and state the reason in caption/alt text.
 
 The minimum required figure set is:
 
-1. A5 train complete-ELBO plus A0 train CE and both arms' validation prior-NLL/PPL curves, with all seed traces plus preregistered across-seed uncertainty;
-2. terminal A0/A5 prior-NLL and PPL comparison with estimator-aware paired interval;
-3. A5-only complete ELBO decomposition, including a visibly separate emission-only non-ELBO diagnostic; A0 is labeled not applicable;
-4. A5-only state/model source entropy and `exp(entropy_sum/source_row_count)` effective source count; A0 is labeled not applicable;
+1. role-labeled training-objective curves for every applicable inventory arm plus every arm's validation prior-NLL/PPL curves, with all seed traces and preregistered across-seed uncertainty;
+2. terminal prior-NLL and PPL for all ordered inventory arms, with the estimator-aware paired interval applied only to the PRIMARY A0-versus-parent-specific-complete contrast and the other rows visibly labeled as gates or controls;
+3. complete-ELBO decompositions for the two complete-objective latent arms, plus the parent-specific emission-only non-ELBO objective-gate diagnostic; A0 and every nonapplicable control field are explicitly labeled not applicable;
+4. state/model source entropy and `exp(entropy_sum/source_row_count)` effective source count for every applicable latent arm, with explicit not-applicable reasons for the other arms;
 5. accepted/rejected update counts and reasons by label/block;
-6. A5 SPD, pivot, condition-estimate, solve-residual, damping, and projection health, with A0 labeled not applicable;
+6. SPD, pivot, condition-estimate, solve-residual, damping, and projection health for every applicable latent arm, with explicit not-applicable reasons for the other arms;
 7. throughput, phase wall time, host memory, and device allocated/reserved memory;
 8. seed variability for terminal NLL/PPL, complete ELBO, acceptance rate, and peak memory.
 
-Curve x-coordinates are the shared counted-training-target boundaries, never wall-clock interpolation. At each common boundary, show all eight seed traces and the pointwise arithmetic mean with the descriptive two-sided `mean +/- 2.364624251592784*sample_sd/sqrt(8)` band; do not smooth, resample, or treat the pointwise band as a simultaneous hypothesis test. Terminal arm plots use the estimator-inflated interval above, not the pointwise curve band.
+Curve x-coordinates are the shared counted-training-target boundaries, never wall-clock interpolation. At each common boundary, show every confirmatory-seed trace and the pointwise arithmetic mean with the descriptive two-sided `mean +/- 2.364624251592784*sample_sd/sqrt(8)` band; do not smooth, resample, or treat the pointwise band as a simultaneous hypothesis test. Terminal arm plots use the estimator-inflated interval above, not the pointwise curve band.
 
 Figure generation publishes into a new content-addressed `figures/<figure_set_sha256>/` directory and atomically updates only the experiment's figure index after validating every required output/sidecar. Training finalization may invoke the same pure renderer by package API, but a rendering failure records a failure and never changes the training result; one click on `generate_vfe4_figures.py` regenerates the identical set later from the immutable run manifest.
 
@@ -504,7 +552,7 @@ Figure generation publishes into a new content-addressed `figures/<figure_set_sh
 
 | Path | Responsibility |
 |---|---|
-| `vfe4/types/training.py` | Frozen literal profile, run, arm, update, data cursor, sparsity, metric, checkpoint, evaluation, and experiment records. |
+| `vfe4/types/training.py` | Frozen `WT103ArmSpec`, `WT103GateSpec`, `EndpointInventory`, shared profile, run, update, data cursor, sparsity, metric, checkpoint, evaluation, and experiment records. |
 | `vfe4/types/figures.py` | Frozen figure input/spec/output/manifest records. |
 | `vfe4/config/schema.py` | Extend frozen training/data/evaluation/checkpoint/recording/artifact/figure sections and closed literal values. |
 | `vfe4/config/resolve.py` | Strict recursive unknown-key rejection, conditional training/figure resolution, derived fields, canonical hashes. |
@@ -513,9 +561,9 @@ Figure generation publishes into a new content-addressed `figures/<figure_set_sh
 | `vfe4/data/tokenizer.py` | Pinned GPT-2/tiktoken spec, split encoding, round trip, int32 cache publication. |
 | `vfe4/data/windows.py` | Exactly-once shifted windows, masks, counts, permutations, batches, and cursor replay. |
 | `vfe4/data/access.py` | Sealed split references and train/test capability boundary. |
-| `vfe4/training/factories.py` | Explicit A0/A5 model/recognition/predictor/optimizer/scheduler factories and match reports. |
+| `vfe4/training/factories.py` | Explicit factories for all five immutable `WT103ArmSpec` rows, including model/recognition/predictor/optimizer/scheduler construction and match reports. |
 | `vfe4/training/formulas.py` | Frozen A0 architecture, exact parameter formula, analytical semantic FLOP operator ledger, and canonical hashes. |
-| `vfe4/training/sparsity.py` | Revision-bound A0/A5 shape/allocation traces, formulas, classifications, negative controls, and certificate. |
+| `vfe4/training/sparsity.py` | Revision-bound inventory-wide shape/allocation traces, formulas, classifications, negative controls, and certificate. |
 | `vfe4/training/readiness.py` | Consume typed integrity records for H5/H6/H7/H8, predictor safety, training sparsity, allocation/data/resource readiness. |
 | `vfe4/training/engine.py` | Typed phase schedule, complete ELBO updates, immutable snapshots, acceptance/rollback, loop. |
 | `vfe4/checkpoint/schema.py` | Closed checkpoint schema and compatibility report. |
@@ -525,7 +573,7 @@ Figure generation publishes into a new content-addressed `figures/<figure_set_sh
 | `vfe4/recording/metrics.py` | Canonical hash-chained JSONL records and validation. |
 | `vfe4/recording/tables.py` | Stable deterministic CSV/result-table export. |
 | `vfe4/recording/failures.py` | Independent append-only failure ledger and retry classification. |
-| `vfe4/evaluation/prior_nll.py` | Target-blind corpus sums, cache audit, exact A0 and H6-SMC A5 scoring. |
+| `vfe4/evaluation/prior_nll.py` | Target-blind corpus sums, cache audit, and exact-autoregressive versus weighted-SMC dispatch solely from `WT103ArmSpec.scorer_kind`. |
 | `vfe4/evaluation/statistics.py` | Q2/error propagation, paired seed intervals, 256 corners, PASS/FAIL/INCONCLUSIVE. |
 | `vfe4/evaluation/test_opening.py` | Durable exclusive one-opening reservation and test capability. |
 | `vfe4/artifacts/run_directory.py` | Exclusive in-progress reservation, atomic terminal publication, run-group/index lifecycle. |
@@ -547,8 +595,8 @@ Figure generation publishes into a new content-addressed `figures/<figure_set_sh
 | `tests/unit/test_wikitext103_tokenizer.py` | Pinned spec/golden/round-trip/split-isolation/token-cache tests. |
 | `tests/unit/test_training_windows.py` | Shift/mask/count/permutation/batch/cursor tests. |
 | `tests/unit/test_training_config.py` | Recursive strict config, import safety, derived hashes, incompatible combinations. |
-| `tests/unit/test_training_factories.py` | A0/A5 semantics, active parameters/phases, H5 labels, capacity/FLOP matching. |
-| `tests/promotion/test_training_sparsity.py` | Exact A0/A5 path inventory, formula/byte reconciliation, forbidden shapes, assigned controls, certificate status. |
+| `tests/unit/test_training_factories.py` | Exact five-arm semantics, active parameters/phases, objective/prior interventions, H5 labels, capacity/FLOP matching, and result roles. |
+| `tests/promotion/test_training_sparsity.py` | Exact inventory-wide path coverage, formula/byte reconciliation, forbidden shapes, assigned controls, and certificate status. |
 | `tests/unit/test_training_engine.py` | Autograd scopes, snapshot nonaliasing, acceptance/rollback, complete objective. |
 | `tests/unit/test_training_checkpoint.py` | Atomic schema, exact resume, corruption/mismatch/migration/V3 rejection. |
 | `tests/unit/test_durability_backend.py` | POSIX/Windows probe, same-volume, flush/replace/reopen, failure injection, backend identity. |
@@ -557,8 +605,8 @@ Figure generation publishes into a new content-addressed `figures/<figure_set_sh
 | `tests/unit/test_training_evaluation.py` | Target blindness, corpus sums, one opening, estimator records, paired decisions. |
 | `tests/unit/test_training_figures.py` | No-training imports, stable specs, required plots/formats/sidecars/captions/alt text. |
 | `tests/property/test_training_prefix_safety.py` | GPT-2 vocabulary target/suffix/cache invariance under exact final predictor identity. |
-| `tests/integration/test_train_vfe4.py` | Import live dictionary and run one tiny generated two-arm train/resume/evaluate flow. |
-| `tests/integration/test_generate_vfe4_figures.py` | Regenerate all eight figure types from immutable tiny run metrics only. |
+| `tests/integration/test_train_vfe4.py` | Import the live dictionary and run one tiny generated inventory-wide train/resume/evaluate flow without external data. |
+| `tests/integration/test_generate_vfe4_figures.py` | Regenerate every frozen required-figure-registry entry from immutable tiny run metrics only. |
 | `tests/promotion/test_post_h8_training_readiness.py` | Exact H8/prerequisite/data/predictor/resource readiness and stale-reference blocking. |
 
 Dependency direction is `config + types -> artifacts.atomic + artifacts.durability + artifacts.manifest (generic integrity only) -> data/numerics -> generative/recognition/objective/predictive -> training/checkpoint/evaluation/recording -> artifacts.run_directory/environment/provenance -> figures -> launchers`. Generic integrity modules import no readiness, checkpoint, run-manager, figure, or domain module. Readiness consumes typed `ArtifactIntegrityRecord` values rather than hashing arbitrary paths. Checkpoint I/O consumes integrity/durability primitives and returns `CheckpointIdentity`/`LoadedCheckpoint`; only the downstream run manager publishes plan/terminal manifests. `figures` may import `types`, finalized `recording` readers, and generic artifact-integrity readers only. It cannot import `training`, `checkpoint`, `data`, `generative`, `recognition`, `objective`, `predictive`, run mutation, or either launcher. Production never imports `verification/`, `tests/`, or V3.
@@ -594,6 +642,98 @@ class WikiText103SourceRecord:
     record_sha256: str
 
 @dataclass(frozen=True)
+class WT103ArmSpec:
+    schema_version: Literal["wt103-arm-spec-v1"]
+    arm_id: Literal[
+        "WT103-A0-AR-v1",
+        "WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1",
+        "WT103-A5-FIXED-COMPLETE-v1",
+        "WT103-A5-PARENT-SPECIFIC-PREFIX-EMISSION-v1",
+        "WT103-A5-NOLATENT-v1",
+    ]
+    factory_id: str
+    training_objective: Literal[
+        "cross_entropy",
+        "complete_elbo",
+        "emission_only_ablation_non_elbo",
+    ]
+    prior_variant: Literal[
+        "absent", "fixed", "parent_specific_pooled_prefix"
+    ]
+    source_mixture: Literal["absent", "exact"]
+    latent_enabled: bool
+    recognition_enabled: bool
+    recognition_family: Literal[
+        "absent", "structured_block_tridiagonal_smoothing"
+    ]
+    recognition_iterations_per_batch: Literal[0, 1]
+    update_phases: tuple[str, ...]
+    scorer_kind: Literal["exact_autoregressive", "weighted_smc"]
+    tuning_grid_id: Literal["wt103-six-cell-v1"]
+    confirmatory_seed_ids: tuple[int, ...]
+    terminal_checkpoint_role: Literal["terminal_scoring"]
+    result_role: Literal[
+        "PRIMARY_REFERENCE",
+        "PRIMARY_ENDPOINT",
+        "PRIOR_CONTROL",
+        "OBJECTIVE_GATE",
+        "LATENT_PATH_CONTROL",
+    ]
+    nonclaims: tuple[str, ...]
+    arm_spec_sha256: str
+
+@dataclass(frozen=True)
+class WT103GateSpec:
+    schema_version: Literal["wt103-gate-spec-v1"]
+    gate_id: Literal[
+        "SOURCE_LOCK",
+        "H8_EXACT_REVISION",
+        "POST_H8_READINESS",
+        "OBJECTIVE",
+        "PRIMARY",
+        "PRIOR_CONTROL",
+        "LATENT_PATH_CONTROL",
+    ]
+    ordinal: int
+    prerequisite_gate_ids: tuple[str, ...]
+    result_arm_ids: tuple[str, ...]
+    disposition_rule_id: str
+    gate_spec_sha256: str
+
+@dataclass(frozen=True)
+class EndpointInventory:
+    schema_version: Literal["wt103-endpoint-inventory-v1"]
+    arms: tuple[WT103ArmSpec, ...]
+    gates: tuple[WT103GateSpec, ...]
+    tuning_cells: tuple[tuple[float, float], ...]
+    tuning_seed_ids: tuple[int, ...]
+    confirmatory_seed_ids: tuple[int, ...]
+    validation_stream_ids: tuple[int, ...]
+    test_stream_ids: tuple[int, ...]
+    particle_counts: tuple[int, ...]
+    estimator_protocol_sha256: str
+    tuning_attempt_keys: tuple[str, ...]
+    terminal_checkpoint_keys: tuple[str, ...]
+    validation_endpoint_keys: tuple[str, ...]
+    test_endpoint_keys: tuple[str, ...]
+    raw_score_record_keys: tuple[str, ...]
+    result_row_keys: tuple[str, ...]
+    figure_panel_keys: tuple[str, ...]
+    figure_series_keys: tuple[str, ...]
+    endpoint_inventory_sha256: str
+
+    @classmethod
+    def create(
+        cls,
+        arms: tuple[WT103ArmSpec, ...],
+        gates: tuple[WT103GateSpec, ...],
+        tuning_cells: tuple[tuple[float, float], ...],
+        tuning_seeds: tuple[int, ...],
+        confirmatory_seeds: tuple[int, ...],
+        estimator_protocol: EstimatorProtocol,
+    ) -> "EndpointInventory": ...
+
+@dataclass(frozen=True)
 class WT103ExperimentProfile:
     schema_version: Literal["wt103-experiment-profile-v1"]
     batch_size: Literal[128]
@@ -603,7 +743,6 @@ class WT103ExperimentProfile:
     K: Literal[20]
     source_lookback: Literal[20]
     model_depth: Literal[1]
-    recognition_iterations: Literal[1]
     optimizer: AdamWProfile
     scheduler: SchedulerProfile
     precision: PrecisionProfile
@@ -713,6 +852,11 @@ class PriorPredictor(Protocol):
 
 def resolve_training_config(raw: Mapping[str, object]) -> TrainingConfig: ...
 def resolve_figure_config(raw: Mapping[str, object]) -> FigureConfig: ...
+def validate_endpoint_inventory(
+    inventory: EndpointInventory,
+    *,
+    expected_sha256: str,
+) -> None: ...
 def acquire_wikitext103(config: AcquisitionConfig) -> SealedDatasetRef: ...
 def materialize_train_data(
     sealed: SealedDatasetRef,
@@ -735,6 +879,16 @@ def finalize_run(run: ReservedRun, checkpoints: tuple[CheckpointIdentity, ...]) 
 def render_figure_set(config: FigureConfig) -> FigureSetManifest: ...
 ```
 
+`EndpointInventory.create` validates the exact ordered five arm rows and seven
+gate rows, derives every key tuple from scorer/checkpoint applicability, and
+hashes the canonical payload. Attempt, checkpoint, endpoint, raw-record,
+result-row, figure-panel, and figure-series counts are read-only `len(...)`
+properties over those derived tuples; they are not constructor or
+configuration fields.
+Resolvers reject any count override, extra derived key, missing key, duplicate
+key, inapplicable particle key, reordered arm/gate, or payload/hash mismatch.
+`OBJECTIVE` must precede and be a prerequisite of `PRIMARY`.
+
 Before Task 13, `CandidateTokenizerContract` is the only production-scope tokenizer record; any `TokenizerSpec` created by Tasks 1--12 is explicitly fixture-scoped through an injected synthetic adapter. `CheckpointIdentity` contains checkpoint role plus distinct `scientific_state_sha256` and `artifact_sha256`; `LoadedCheckpoint` contains the validated bundle plus that identity. Neither API writes a run manifest.
 
 ---
@@ -750,11 +904,11 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 - Create: `docs/preregistrations/2026-07-21-post-h8-wikitext103-training.md`
 - Create: `tests/unit/test_training_config.py`
 
-**Interfaces:** Produce every frozen record and both strict resolvers named above. Consume existing H5/H6/H7/H8 result/reference types without widening their states.
+**Interfaces:** Produce every frozen record and both strict resolvers named above, including `WT103ArmSpec`, `WT103GateSpec`, `EndpointInventory.create`, and `validate_endpoint_inventory`. Consume existing H5/H6/H7/H8 result/reference types without widening their states.
 
-- [ ] **Step 1: Write failing config/type tests.** Assert the literal `WT103ExperimentProfile` and `A0ArchitectureProfile` field-by-field: batch/dimensions/depth/banded A5 parents/recognition iteration; A0 full-causal `flash_attention_only_no_fallback` policy, source-lock-resolved PyTorch/API/backend identity fields, learned absolute positions, pre-norm/final norm, residual topology, tanh-GELU, projection/bias/tie choices, candidate-width rule and parameter/FLOP schema hashes; proposals/validity acceptance; AdamW betas/epsilon/flags/clipping; per-attempt warmup/cosine scheduler; dtype/device/autocast/determinism; decoder/particle chunks; resume-only versus terminal-scoring checkpoint roles; evaluation cadence; H6 seeds/grid/stopping/constants; one-opening policy; metric/figure/resource/sparsity schemas; and all nonclaims. With an injected synthetic API-binding adapter, require the exact `sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION])` mapping and reject math/memory-efficient/cuDNN inclusion or fallback. Assert exact nested key sets, plain scalar types, frozen dataclasses, and canonical hash stability. Reject unknown keys at every depth, mutable lists where tuples are required after resolution, `bool` as `int`, derived hash/count overrides, backend fallback/materialized A0 attention, V3 paths, H6 byte vocabulary under WT103, absent H8/sparsity references, and claims of backprop-free or H8 training-memory transfer. Candidate URL/package facts remain unverified strings until source lock. Block `tiktoken` and live distribution/table discovery imports, inject only synthetic tokenizer adapters, and import both future launcher module names through stubs with zero side effects.
+- [ ] **Step 1: Write failing config/type tests.** Assert the shared-only `WT103ExperimentProfile`, exact ordered five `WT103ArmSpec` rows, seven ordered `WT103GateSpec` rows, derived `EndpointInventory`, and `A0ArchitectureProfile` field-by-field: batch/dimensions/depth/banded parent envelope; per-arm objective/prior/mixture/latent/recognition/update/scorer/role choices; OBJECTIVE-before-PRIMARY dependency; A0 full-causal `flash_attention_only_no_fallback` policy, source-lock-resolved PyTorch/API/backend identity fields, learned absolute positions, pre-norm/final norm, residual topology, tanh-GELU, projection/bias/tie choices, candidate-width rule and parameter/FLOP schema hashes; proposals/validity acceptance; AdamW betas/epsilon/flags/clipping; per-attempt warmup/cosine scheduler; dtype/device/autocast/determinism; decoder/particle chunks; resume-only versus terminal-scoring checkpoint roles; evaluation cadence; H6 seeds/grid/stopping/constants; one-opening policy; metric/figure/resource/sparsity schemas; and all nonclaims. Require every tuning/checkpoint/validation/test/raw-score/result-row/figure-series key and count to be derived from arm/gate/scorer applicability. With an injected synthetic API-binding adapter, require the exact `sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION])` mapping and reject math/memory-efficient/cuDNN inclusion or fallback. Assert exact nested key sets, plain scalar types, frozen dataclasses, and canonical hash stability. Reject unknown keys at every depth, mutable lists where tuples are required after resolution, `bool` as `int`, derived hash/count/key overrides, reordered/duplicate/missing arms or gates, family-inferred scorer/objective behavior, backend fallback/materialized A0 attention, V3 paths, H6 byte vocabulary under WT103, absent H8/sparsity references, and claims of backprop-free or H8 training-memory transfer. Candidate URL/package facts remain unverified strings until source lock. Block `tiktoken` and live distribution/table discovery imports, inject only synthetic tokenizer adapters, and import both future launcher module names through stubs with zero side effects.
 - [ ] **Step 2: Run focused RED.** Run `python -m pytest tests/unit/test_training_config.py -q`. Expected: FAIL on missing types/resolvers.
-- [ ] **Step 3: Implement frozen schemas and canonical resolution.** Keep launcher-friendly raw dictionaries at the boundary, convert once into immutable records, derive every count/hash in one place, use explicit architecture/arm/figure/checkpoint-role literals, and emit field-qualified errors. The pre-source-lock tokenizer config contains only the three candidate strings and an injected-adapter interface, never observed package/table facts. Preserve all existing H1--H8 config behavior.
+- [ ] **Step 3: Implement frozen schemas and canonical resolution.** Keep launcher-friendly raw dictionaries at the boundary, convert once into immutable records, derive every key/count/hash through `EndpointInventory.create`, use explicit architecture/arm/gate/figure/checkpoint-role literals, and emit field-qualified errors. Keep objective, prior, latent/recognition, update, scorer, and result-role choices in `WT103ArmSpec`; the shared profile contains no singular A5 behavior. The pre-source-lock tokenizer config contains only the three candidate strings and an injected-adapter interface, never observed package/table facts. Preserve all existing H1--H8 config behavior.
 - [ ] **Step 4: Write the complete preregistration.** Copy the exact source/archive/tokenizer/window/literal-profile/sparsity/update/tuning/stopping/statistical/opening/checkpoint/durability/artifact/metric/figure/resource/evidence/nonclaim rules from this plan. Mark request URLs, redirect chains, source/license facts, installed tokenizer facts, archive/member hashes, token hashes, and window/permutation hashes as candidate/unfrozen until the exact source-lock operation; they cannot be guessed or selected after outcomes.
 - [ ] **Step 5: Run focused GREEN.** Run the Step 2 command. Expected: PASS.
 - [ ] **Step 6: Review and commit.** Reviewer checks type/signature consistency, recursive rejection, immutable resolution, no CLI, and no transferred evidence. Commit `feat(training): freeze post-H8 WikiText-103 protocol`.
@@ -825,7 +979,7 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 - [ ] **Step 5: Run focused GREEN.** Run the Step 3 command. Expected: PASS.
 - [ ] **Step 6: Review and commit.** Reviewer checks boundary arithmetic, final padding, shuffle reproducibility, resume cursor, and test capability. Commit `feat(data): add deterministic causal schedules`.
 
-### Task 6: Create Explicit A0/A5 Factories, Training Sparsity, and Post-H8 Readiness
+### Task 6: Create the Five Explicit Arm Factories, Training Sparsity, and Post-H8 Readiness
 
 **Files:**
 - Create: `vfe4/training/__init__.py`
@@ -837,10 +991,10 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 - Create: `tests/promotion/test_training_sparsity.py`
 - Create: `tests/promotion/test_post_h8_training_readiness.py`
 
-**Interfaces:** Produce `A0ArchitectureProfile`, `A0FormulaRecord`, `reconstruct_a0_parameters`, `reconstruct_a0_flops`, `build_training_arm`, `audit_arm_matching`, `certify_training_sparsity`, `TrainingSparsityCertificate`, `validate_post_h8_readiness`, `PostH8ReadinessToken`, exact factory/config hashes, and `WT103PredictorSafetyCertificate`.
+**Interfaces:** Consume the exact `WT103ArmSpec`/`WT103GateSpec`/`EndpointInventory` records from Task 1 and produce `A0ArchitectureProfile`, `A0FormulaRecord`, `reconstruct_a0_parameters`, `reconstruct_a0_flops`, `build_training_arm`, `audit_arm_matching`, `certify_training_sparsity`, `TrainingSparsityCertificate`, `validate_post_h8_readiness`, `PostH8ReadinessToken`, exact factory/config/inventory hashes, and `WT103PredictorSafetyCertificate`.
 
-- [ ] **Step 1: Write failing factory/formula tests.** Assert A0 exactly matches `A0ArchitectureProfile`: full causal two-head `flash_attention_only_no_fallback` policy mapped to the frozen `sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION])` API with alternatives disabled and no mask/weights/fallback, learned absolute positions, pre-norm plus final norm, exact residual topology, tanh-GELU, and every projection/bias/tie choice. Assert the resolved PyTorch version/API/backend hashes enter the architecture hash; substitute another backend or fallback and require rejection. A0 has no latent/recognition/snapshot phase and exactly one CE/model optimizer phase. Reconstruct `P_A0(h)=2Vh+128h+12h^2+15h+V` from actual named tensor shapes with every parameter counted once. Independently hand-enumerate a tiny full-causal operator ledger, including semantic attention pairs, decoder chunks, backward, CE, and AdamW, and require exact equality with `A0FormulaRecord`, whole-schedule `F_A0`, and both canonical schema hashes; decoder rechunking must preserve FLOPs. Assert A5's complete-ELBO/recognition/H6/H5/snapshot scope, forbid filler/no-op/dormant capacity, and enforce 1%/5% matching from the deterministic finite search.
-- [ ] **Step 2: Write failing training-sparsity tests.** Bind the literal profile and exact A0/A5 factories, then trace the enumerated train, E-like proposal, snapshot, backward, optimizer, evaluation, and checkpoint paths. Require permitted vocabulary/logit chunks, A0 Q/K/V/result tensors, the exact nonmaterialized Flash operator, and block/banded population shapes. Reject backend fallback, explicit/materialized attention masks or weights, `[B,2,L,L]` or aggregate pair-axis storage, and every forbidden population/source/pair/logit shape; reconcile every unique storage as `numel*element_size` with allocator overhead separate and zero unclassified bytes. Require each math-SDPA/materialized-attention, dense-population, batch-dense, full-source, pair-slab, full-decoder, selector/RHS, and unclassified-checkpoint negative control to fire before allocation or serialization. Prove H8 and the 85% capacity preflight cannot populate or replace this certificate.
+- [ ] **Step 1: Write failing factory/formula tests.** Assert A0 exactly matches `A0ArchitectureProfile`: full causal two-head `flash_attention_only_no_fallback` policy mapped to the frozen `sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION])` API with alternatives disabled and no mask/weights/fallback, learned absolute positions, pre-norm plus final norm, exact residual topology, tanh-GELU, and every projection/bias/tie choice. Assert the resolved PyTorch version/API/backend hashes enter the architecture hash; substitute another backend or fallback and require rejection. A0 has no latent/recognition/snapshot phase and exactly one CE/model optimizer phase. Reconstruct `P_A0(h)=2Vh+128h+12h^2+15h+V` from actual named tensor shapes with every parameter counted once. Independently hand-enumerate a tiny full-causal operator ledger, including semantic attention pairs, decoder chunks, backward, CE, and AdamW, and require exact equality with `A0FormulaRecord`, whole-schedule `F_A0`, and both canonical schema hashes; decoder rechunking must preserve FLOPs. Assert each of the five factories exactly follows its arm spec: both complete rows use complete ELBO, the parent-specific emission row uses only its bound non-ELBO objective intervention, no-latent has no recognition/snapshot/SMC work, and scorer dispatch follows `scorer_kind` rather than the A0/A5 label. Forbid filler/no-op/dormant capacity and enforce 1%/5% PRIMARY training matching from the deterministic finite search.
+- [ ] **Step 2: Write failing training-sparsity tests.** Bind the literal profile and exact ordered five-arm factory inventory, then trace every distinct enumerated train, applicable E-like proposal, snapshot, backward, optimizer, scorer, and checkpoint path. Require permitted vocabulary/logit chunks, A0 Q/K/V/result tensors, the exact nonmaterialized Flash operator, and block/banded population shapes. Reject backend fallback, explicit/materialized attention masks or weights, `[B,2,L,L]` or aggregate pair-axis storage, and every forbidden population/source/pair/logit shape; reconcile every unique storage as `numel*element_size` with allocator overhead separate and zero unclassified bytes. Require each math-SDPA/materialized-attention, dense-population, batch-dense, full-source, pair-slab, full-decoder, selector/RHS, and unclassified-checkpoint negative control to fire before allocation or serialization. Prove H8 and the 85% capacity preflight cannot populate or replace this certificate.
 - [ ] **Step 3: Write failing readiness tests.** Use only injected synthetic tokenizer records in this task and prove their `synthetic_fixture_only` scope cannot issue a production token. Require typed, manifest-validated integrity records for H5, H6-Prefix, H6-Prediction, H7, and exact prerequisite H8 PASS; exact source/tokenizer/window/permutation/cadence/profile/A0-architecture/formula/factory/objective/update/snapshot/estimator identities; a PASS same-revision `TrainingSparsityCertificate`; the independent 85% capacity record; throughput/power/resource authorization; clean source candidate; and no changed dependency closure. Prove H6 byte certificates and H8 allocation endpoints cannot satisfy GPT-2 predictor safety, training sparsity, or training capacity. Exhaustively perturb current target/suffix/cache traversal on bounded `V=50257` synthetic cases and run static signature/import/taint/cache audits against the final predictor. Readiness consumes typed integrity records and never hashes an arbitrary caller path.
 - [ ] **Step 4: Run focused RED.** Run `python -m pytest tests/unit/test_training_factories.py tests/promotion/test_training_sparsity.py tests/promotion/test_post_h8_training_readiness.py -q`. Expected: FAIL on missing factories/sparsity/readiness.
 - [ ] **Step 5: Implement explicit factories, formulas, and matching.** Use direct constructors, not signature inspection/registries. Implement the exact A0 architecture and analytical formula records; freeze the deterministic finite A0 width selection before outcomes and publish complete architecture/formula hashes, parameter-role, optimizer-ID, phase-FLOP, dimension, and margin tables. The selected width cannot change because Flash is unavailable; that condition fails readiness.
@@ -865,7 +1019,7 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 - [ ] **Step 1: Write failing engine tests.** Use tiny injected arms to prove phase order, block freezing, reverse-mode scope, complete ELBO term equality, snapshot clone/detach/nonalias/hash, acceptance and exact rollback of parameters/optimizers/schedulers, finite/gradient/SPD checks, A0 absence of recognition, and failure classification. Prove an `adam_proposal` never reports monotonicity or exact/MM/GEM status.
 - [ ] **Step 2: Write failing recording tests.** Require every metric family and raw numerator/denominator listed above, exact ordinals/hash chain, fsync seam, deterministic CSV columns/decimal strings, incomplete-final-fragment recovery, and hard failure on a malformed complete record/chain. Assert effective source count is exactly `exp(entropy_sum/source_row_count)` and zero rows are explicit `not_applicable`; every update records learning rate, scheduler ordinal/state, AMP scale/overflow/applicability, clipping threshold/pre/post norm/clipped flag, and all effective AdamW parameters. A0 complete-ELBO/recognition/source/SPD fields must be explicit `not_applicable`, never fabricated zero. Force a metric-write failure and prove the independent failure ledger retains the terminal event.
 - [ ] **Step 3: Run focused RED.** Run `python -m pytest tests/unit/test_training_engine.py tests/unit/test_training_metrics.py -q`. Expected: FAIL on missing engine/recorders.
-- [ ] **Step 4: Implement only typed phase execution.** A0 runs its one phase; A5 runs recognition proposal, frozen snapshot, then model proposal. Centralize complete ELBO assembly, proposal labels, acceptance, rollback, gradient instrumentation, target-blind validation boundaries, and exact counted-target accumulation.
+- [ ] **Step 4: Implement only typed phase execution.** Dispatch only from `WT103ArmSpec.update_phases`: A0 and no-latent run their one CE/model phase, while each latent row runs recognition proposal, frozen snapshot, then its objective-bound model proposal. Centralize complete-ELBO assembly for applicable rows, the separately bound emission-only non-ELBO path, proposal labels, acceptance, rollback, gradient instrumentation, target-blind validation boundaries, and exact counted-target accumulation. A family label never adds an absent phase.
 - [ ] **Step 5: Implement canonical logs and exports.** Keep JSONL authoritative, use one schema/field order, store raw terms, numerator/denominator state, exact update controls, applicability, and timing/resource counters, and derive CSV only after full validation. Define the checkpoint scientific metric projection separately from UTC/duration/artifact fields. Do not round away source values.
 - [ ] **Step 6: Run focused GREEN.** Run the Step 3 command. Expected: PASS.
 - [ ] **Step 7: Review and commit.** Reviewer checks objective completeness, autograd terminology, rollback completeness, metric denominators, and failure durability. Commit `feat(training): add typed engine and metric ledger`.
@@ -903,8 +1057,8 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 **Interfaces:** Produce `score_prior_nll`, `aggregate_a5_smc`, `paired_prediction_decision`, `reserve_test_opening`, and exact raw/test result records.
 
 - [ ] **Step 1: Write failing target-blind/corpus tests.** Use fake predictors to prove the exact public signature, no recognition/target/suffix import path, ascending complete evaluation windows, `-100` exclusion, `math.fsum` corpus numerator, exact denominator, PPL derivation, cache cold/warm/reverse equality, and separation of emission-only diagnostics. Perturb current targets/suffixes under GPT-2 vocabulary and require identical raw predictions/cache records for fixed prefix/stream.
-- [ ] **Step 2: Write failing one-opening tests.** Require all 16 checkpoints to be post-pass `terminal_scoring` identities, a complete run group, analysis/figure/estimator/data hashes, no prior reservation, and no active verification marker before the durability backend's exclusive create. Substitute any rolling `resume_only` checkpoint and fail before test capability or scoring. Require durable reservation replacement/reopen before issuing capability. Prove training/tuning cannot map test, a second open fails, and any crash after reservation is terminal.
-- [ ] **Step 3: Write failing statistics tests.** Hand-author A0/A5 eight-seed, 64-stream, four-level tables. Assert exact inventory, Q0/Q1/Q2/R1/R2 and H6 bounds, common-stream covariance, A5 error radius, 256 corners, frozen constants/delta, primary status rules, and no batch-mean averaging. Missing/duplicate/nonfinite records force INCONCLUSIVE; completed partial endpoint records remain durably inspectable but cannot enter any aggregation, promotion, or scientific result.
+- [ ] **Step 2: Write failing one-opening tests.** Require the exact terminal-checkpoint logical keys and count derived from the frozen `EndpointInventory`, every checkpoint role exactly `terminal_scoring`, a complete run group, analysis/figure/estimator/data/inventory hashes, no prior reservation, and no active verification marker before the durability backend's exclusive create. Substitute any rolling `resume_only` checkpoint, omit or duplicate any derived key, or alter a role and fail before test capability or scoring. Require durable reservation replacement/reopen before issuing capability. Prove training/tuning cannot map test, a second open fails, and any crash after reservation is terminal.
+- [ ] **Step 3: Write failing statistics tests.** Hand-author the complete five-arm, eight-seed table with scorer-kind-derived exact or 64-stream/four-particle raw records. Assert exact inventory, ordered gate roles, Q0/Q1/Q2/R1/R2 and H6 bounds for weighted arms, common-stream covariance, parent-specific-complete estimator error radius, 256 PRIMARY corners, frozen constants/delta, objective-before-primary status rules, and no batch-mean averaging. Missing/duplicate/nonfinite records force the associated gate INCONCLUSIVE; completed partial endpoint records remain durably inspectable but cannot enter any aggregation, promotion, or scientific result.
 - [ ] **Step 4: Run focused RED.** Run `python -m pytest tests/unit/test_training_evaluation.py tests/property/test_training_prefix_safety.py -q`. Expected: FAIL on missing evaluation APIs.
 - [ ] **Step 5: Implement target-blind scoring and exclusive opening.** Keep the unsealer private to `test_opening.py`, pass only `DurableTestOpeningCapability`, append and validate every completed raw endpoint record independently, and never reopen after reservation. A crash preserves partial records and sets terminal INCONCLUSIVE rather than pretending no scoring occurred.
 - [ ] **Step 6: Implement exact frozen aggregation.** Aggregate only a complete, unique, finite frozen inventory. Reuse the H6 algorithm and constants by public API where identity-compatible, but create a new WT103 protocol/hash and record that the dataset/tokenizer/checkpoint evidence is new. A0 exact scores remain exact and do not acquire fake Monte Carlo variance.
@@ -924,7 +1078,7 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 **Interfaces:** Produce `reserve_run`, `publish_experiment_plan`, `finalize_run`, `validate_run_manifest`, `publish_experiment_index`, `capture_environment`, `forecast_resources`, `ResourceForecast`, `ResourceUsageLedger`, and `run_allocation_preflight`.
 
 - [ ] **Step 1: Write failing lifecycle tests.** Assert the run manager durably publishes immutable `experiment-plan.json` before any attempt, reserves exclusively with no overwrite/newest selection, resumes explicitly, atomically closes success/failure, consumes typed generic integrity records, preserves crashed attempts, publishes a terminal manifest from returned checkpoint identities, and then publishes the experiment index. Inject failures at every create/write/replace/reopen/manifest/index boundary and prove checkpoint I/O never publishes or rewrites a parent manifest.
-- [ ] **Step 2: Write failing provenance/resource tests.** Require all git/dependency/hardware/runtime/data/evidence identities; distinguish clean and dirty; use exact byte forecast formula; reject insufficient disk/host/device/checkpoint-duplicate headroom; and require independent shape-identical A0/A5 allocation and PASS training-sparsity records. Benchmark every frozen preparation/tuning/confirmation/validation/checkpoint/test/table/figure component with the specified warmups/samples, minimum throughput, maximum duration/power, `1.25` headroom, and exact work counts. Require a provenance-bound `100 ms` power provider, complete GPU-hour/wall/energy formulas, hard `720 h`/`840 h`/`500 kWh` ceilings, and pre-test remaining-budget recomputation. Missing power evidence is INCONCLUSIVE; H8 endpoints cannot populate either training preflight.
+- [ ] **Step 2: Write failing provenance/resource tests.** Require all git/dependency/hardware/runtime/data/evidence/inventory identities; distinguish clean and dirty; use the exact byte forecast formula; reject insufficient disk/host/device/checkpoint-duplicate headroom; and require independent shape-identical allocation records for every distinct arm path plus a PASS training-sparsity record. Benchmark every frozen preparation/tuning/confirmation/validation/checkpoint/test/table/figure component with the specified warmups/samples, minimum throughput, maximum duration/power, `1.25` headroom, and work counts derived only from `EndpointInventory`. Require a provenance-bound `100 ms` power provider, complete GPU-hour/wall/energy formulas, hard `720 h`/`840 h`/`500 kWh` ceilings, and pre-test remaining-budget recomputation. Missing power evidence is INCONCLUSIVE; H8 endpoints cannot populate either training preflight.
 - [ ] **Step 3: Run focused RED.** Run `python -m pytest tests/unit/test_training_artifacts.py -q`. Expected: FAIL on missing lifecycle/provenance APIs.
 - [ ] **Step 4: Implement the run-manager lifecycle above generic integrity.** Consume Task 2 primitives without adding domain imports to them, use explicit paths and content-addressed identities, publish the pre-run plan before attempts, retain terminal failure artifacts, append resume lineage separately, and never delete another attempt as cleanup. The run manager alone publishes terminal run/experiment manifests after receiving checkpoint identities.
 - [ ] **Step 5: Implement environment, capacity, forecast, and usage records.** Capture values before device work; measure the exact shape-identical allocation path and every throughput/power component; enforce the independent 85% device caps, disk formula, forecast headroom, immutable ceilings, and actual-usage debits. Require enough remaining forecast and disk headroom before test reservation. Any insufficiency requires an explicit config/preregistration/user-authorization revision rather than an automatic shrink.
@@ -946,10 +1100,10 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 **Interfaces:** Produce eight explicit plot functions, `render_figure_set`, `FigureSpec`, `FigureSetManifest`, and import-safe figure `CONFIG` resolution.
 
 - [ ] **Step 1: Write failing import/dependency tests.** Import the launcher and every figure module while blocking CUDA/data/model/training/checkpoint calls. Assert no side effects and statically reject forbidden imports. Require one explicit manifest path and reject newest/glob/path escape/unknown config.
-- [ ] **Step 2: Write failing figure-schema tests.** Build terminal-manifest-validated finalized JSONL plus frozen final result-table JSON for two arms/eight seeds. Require all eight figures, exact ordered series/aggregations/uncertainty/labels/units/applicability, SVG+PNG+PDF, plotted CSV+JSON, caption+alt text, stable spec/input/output hashes, and a content-addressed figure set. Regenerate published `metrics.csv` from JSONL and require byte equality before rendering. Delete one required finalized numerator, substitute a partial run, alter CSV, or mark an A0 ELBO/source/SPD row applicable and prove rendering fails rather than opening a checkpoint, trusting CSV, recomputing, or fabricating zero.
+- [ ] **Step 2: Write failing figure-schema tests.** Build terminal-manifest-validated finalized JSONL plus frozen final result-table JSON for the exact `EndpointInventory`. Require exact equality with its derived `figure_panel_keys` and ordered `figure_series_keys`, plus the frozen required-figure registry, aggregations, uncertainty, labels, units, applicability, SVG+PNG+PDF, plotted CSV+JSON, caption+alt text, stable spec/input/output hashes, and a content-addressed figure set. Regenerate published `metrics.csv` from JSONL and require byte equality before rendering. Delete one required finalized numerator, panel key, or series key; substitute a partial run; alter CSV; collapse controls into one VFE series; or mark an inapplicable field applicable and prove rendering fails rather than opening a checkpoint, trusting CSV, recomputing, or fabricating zero.
 - [ ] **Step 3: Run focused RED.** Run `python -m pytest tests/unit/test_training_figures.py tests/integration/test_generate_vfe4_figures.py -q`. Expected: FAIL on missing figure package/launcher.
 - [ ] **Step 4: Implement deterministic style and readers.** Use `Agg`, fixed fonts/rcParams/hashsalt/metadata, sorted identities, terminal-manifest-validated finalized JSONL plus frozen result-table JSON as the only semantic inputs, explicit functions, and no registry/signature discovery. Regenerate CSV solely as an audit projection and require byte equality with the published export.
-- [ ] **Step 5: Implement and render the eight required specs.** Put raw seed traces beside uncertainty summaries, label A5 complete ELBO and emission-only as distinct quantities, keep NLL and PPL axes distinct, show resource/conditioning allowances next to their endpoints, and render A0-only CE/NLL versus explicit A0 `not_applicable` ELBO/recognition/source/SPD fields without fake zeros. Reject every partial attempt/result set. Write sidecars before image publication and validate all formats before indexing.
+- [ ] **Step 5: Implement and render the frozen required specs.** Put raw seed traces beside uncertainty summaries; keep each ordered arm and result role distinct; label complete ELBO and the emission-only non-ELBO objective as different quantities; keep NLL and PPL axes distinct; show resource/conditioning allowances next to their endpoints; and render every inapplicable recognition/source/SPD/ELBO field with its explicit reason rather than a fake zero. Reject every partial attempt/result set. Write sidecars before image publication and validate all formats before indexing.
 - [ ] **Step 6: Run focused GREEN twice.** Run the Step 3 command twice in separate temporary output roots. Expected: PASS and byte-identical spec/data/semantic hashes; image byte hashes must match within the same pinned environment.
 - [ ] **Step 7: Review and commit.** Reviewer checks no training/checkpoint import, metric authority, statistical labeling, accessibility text, and atomic output. Commit `feat(figures): add reproducible VFE4 run figures`.
 
@@ -960,11 +1114,11 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 - Create: `tests/integration/test_train_vfe4.py`
 - Modify: `README.md`
 
-**Interfaces:** The launcher orchestrates resolver, exact refs, acquisition/readiness, arm factories, training/evaluation/checkpoint/recording/artifacts, and optional pure figure renderer. It owns no probability/data/metric logic.
+**Interfaces:** The launcher orchestrates resolver, exact refs, acquisition/readiness, the immutable arm inventory, training/evaluation/checkpoint/recording/artifacts, and no figure logic. `generate_vfe4_figures.py` is the separate pure figure launcher. Neither owns probability/data/metric logic.
 
-- [ ] **Step 1: Write failing launcher tests.** Install blockers for `tiktoken`, live distribution/RECORD discovery, and live tokenizer tables/golden vectors; inject only synthetic tokenizer adapters. Import the live editable dictionary with every external side effect mocked and require none. Assert the complete literal `WT103ExperimentProfile`/`A0ArchitectureProfile`, explicit `source_lock|train|resume|figures` modes, durability roots, and resource ceilings resolve without hidden defaults. Replace only paths/data sizes/arm dimensions/steps through a typed test helper, and run generated smoke data through A0/A5 train, interruption from a `resume_only` checkpoint, validation, terminal `terminal_scoring` scientific/artifact identity, stable metrics CSV, and figure regeneration. Unknown live key, unresolved source-lock fact in training mode, stale H8/sparsity ref, failed durability probe, or failed forecast fails before reservation.
+- [ ] **Step 1: Write failing launcher tests.** Install blockers for `tiktoken`, live distribution/RECORD discovery, and live tokenizer tables/golden vectors; inject only synthetic tokenizer adapters. Import the live editable dictionary with every external side effect mocked and require none. Assert the complete literal `WT103ExperimentProfile`/`A0ArchitectureProfile`, exact five-arm/gate inventory, explicit `source_lock|readiness|train|resume` modes, durability roots, and resource ceilings resolve without hidden defaults. Replace only paths/data sizes/arm dimensions/steps through a typed test helper, and run generated smoke data through every distinct arm path, interruption from a `resume_only` checkpoint, validation, terminal `terminal_scoring` scientific/artifact identity, and stable metrics CSV. Separately import and exercise the pure figure launcher from finalized tiny artifacts. Unknown live key, unresolved source-lock fact in training mode, stale H8/sparsity/inventory ref, failed durability probe, or failed forecast fails before reservation.
 - [ ] **Step 2: Run focused RED.** Run `python -m pytest tests/integration/test_train_vfe4.py -q`. Expected: FAIL on missing launcher.
-- [ ] **Step 3: Implement one click orchestration.** Keep one dictionary, one main, one guard, clear editable constants for cache/run/figure roots, and explicit operation modes inside the dictionary. Source-lock mode builds all derived manifests before exposing their hashes; train/resume modes require the literal profile, frozen source/schedule identities, durability probes, training-sparsity certificate, capacity preflight, and resource authorization. Print resolved run identity, predecessor statuses, data/tokenizer/schedule identities, forecast/actual usage, arm/seed progress, terminal status, and artifact path. Add no argparse/env-required setting or hidden fallback.
+- [ ] **Step 3: Implement one-click orchestration.** Keep one editable dictionary, one main, one guard, clear constants for cache/run roots, `operation="idle"` by default, and exact `source_lock|readiness|train|resume` operation values. Source-lock mode builds all derived manifests before exposing their hashes; readiness creates no corpus optimizer update; train/resume modes require the literal profile, frozen source/schedule/inventory identities, durability probes, training-sparsity certificate, capacity preflight, and resource authorization. Print resolved run identity, predecessor statuses, data/tokenizer/schedule/inventory identities, forecast/actual usage, arm/seed progress, terminal status, and artifact path. Add no argparse/env-required setting or hidden fallback. Keep figure roots and figure operations exclusively in the separate editable `generate_vfe4_figures.py` dictionary.
 - [ ] **Step 4: Document operator workflow and V3 boundary.** README gives click Run instructions for source lock, training, resume, and figure regeneration; exact disk/device preflights; one-opening warning; cache location; and explicit statements that V3 files are only design references and H8 is not training-memory evidence.
 - [ ] **Step 5: Run focused GREEN.** Run the Step 2 command. Expected: PASS on generated smoke data only.
 - [ ] **Step 6: Review and commit.** Reviewer checks click UX, import safety, no real data access, no CLI, and artifact paths. Commit `feat(training): add click-run VFE4 experiment`.
@@ -995,7 +1149,7 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 - [ ] **Step 1: Freeze one clean exact revision.** Require full 40-character HEAD, no tracked/index diff, no nonignored untracked source, exact source/prereg/dependency/config hashes, no active verification marker, and immutable prior ledgers. Bind bootstrap H5/H6/H7/H8 refs.
 - [ ] **Step 2: Run one full suite exactly once.** Run `python -m pytest -q --junitxml=C:\tmp\vfe4-post-h8-wikitext103-integration.xml`. Expected: exit 0. Parse tests/failures/errors/skips/duration only from XML. A source defect requires a new commit and one replacement XML; never combine revisions or run another broad suite for confidence.
 - [ ] **Step 3: Reproduce same-candidate prerequisite compatibility without real training.** Through pure config projections, validate H5 update schema, H6 target-blind scorer/estimator, H7 covariance dependency, and rerun H8 at the exact candidate if required by its freshness contract. Validate each artifact/ledger and record why any immutable H6-Prediction one-opening artifact remains compatible and unreachable from append-only training branches.
-- [ ] **Step 4: Run same-revision predictor, sparsity, capacity, durability, and resource readiness.** Produce the exact `WT103-Predictor-Safety` certificate, A0 architecture/parameter/FLOP reconstruction and finite match report, and proof that the frozen API context selected `SDPBackend.FLASH_ATTENTION` exactly with every alternative/fallback disabled and no attention materialization. Bind the observed PyTorch/API/backend identities into the A0 architecture hash, then produce typed source/token/window/permutation/cadence/checkpoint-role integrity records, revision-bound `TrainingSparsityCertificate`, independent shape-identical A0/A5 85%-capacity/checkpoint preflight, durability probes, disk forecast, and component-level throughput/power/GPU-hour/wall/energy forecast under the hard ceilings. The sparsity trace executes synthetic forward/E-proposal/snapshot/backward/optimizer/evaluation/checkpoint paths but no corpus optimizer step or held-out score.
+- [ ] **Step 4: Run same-revision predictor, sparsity, capacity, durability, and resource readiness.** Produce the exact `WT103-Predictor-Safety` certificate, A0 architecture/parameter/FLOP reconstruction and finite training-match report, and proof that the frozen API context selected `SDPBackend.FLASH_ATTENTION` exactly with every alternative/fallback disabled and no attention materialization. Bind the observed PyTorch/API/backend identities into the A0 architecture hash, then produce typed source/token/window/permutation/cadence/checkpoint-role/endpoint-inventory integrity records, revision-bound `TrainingSparsityCertificate`, independent shape-identical 85%-capacity/checkpoint preflight for every distinct arm path, durability probes, disk forecast, and component-level throughput/power/GPU-hour/wall/energy forecast under the hard ceilings. The sparsity trace executes synthetic forward/applicable E-proposal/snapshot/backward/optimizer/evaluation/checkpoint paths but no corpus optimizer step or held-out score.
 - [ ] **Step 5: Review and validate the integration ledger.** One reviewer checks data/split/token/window/cache safety; one checks model/update/autograd/checkpoint/resume; one checks evaluation/statistics/opening; one checks artifacts/metrics/figures/resources. Ledger claims bind exact eligible evidence; missing evidence is INCONCLUSIVE, never LLM consensus.
 - [ ] **Step 6: Recheck immutability.** Recompute HEAD/diffs/source/config/manifests/JUnit/predecessor/ledger hashes. No tracked edit is permitted after readiness. Report exact candidate, XML totals, prerequisite identities, tokenizer/data/window identities, preflight maxima/allowances, and readiness status.
 
@@ -1007,12 +1161,12 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 
 **Precondition:** Task 14 readiness and its claim ledger are PASS at unchanged revision/config/source/token/window/permutation/cadence/profile/factory/sparsity/capacity/durability/resource identities, and the user separately authorizes real WikiText-103 training with the published GPU-hour/wall/energy/disk forecast.
 
-- [ ] **Step 1: Publish the immutable experiment plan, then reserve the group.** Before any attempt, durably publish `experiment-plan.json` with both arms, six tuning cells and 12 tuning attempts per arm across two seeds, 16 confirmatory endpoints, exact source/token/window/permutation/cadence/profile/factory/checkpoint/estimator/opening/analysis/figure identities, resource ceilings/forecast, and expected artifact inventory. Every checkpoint binds this plan hash. Only after reopen validation may the run manager reserve attempts; existing identity blocks, with no overwrite or newest selection.
-- [ ] **Step 2: Run equal tuning only.** Execute every two-seed quarter-pass grid cell with the same pass-0 permutation prefix and validation scorer. Revalidate readiness/source/token/window/permutation/cadence/profile/factory/sparsity/resource identities before each launch and resume. Publish all metrics/failures and debit actual GPU seconds, wall seconds, sampled energy, and disk before selecting by the frozen rule.
-- [ ] **Step 3: Freeze tuning selections and the confirmatory plan.** Atomically publish selection inputs, means, tie trace, selected settings, the exact 16 expected endpoint logical keys plus checkpoint schema/experiment-plan identities, and the one-opening plan. Runtime scientific/artifact hashes are intentionally unknown until each checkpoint closes. No confirmatory/test value can change selection.
-- [ ] **Step 4: Run all paired confirmation attempts.** Execute A0/A5 for seeds `2026072101..2026072108`, two full passes, frozen pass-0/pass-1 permutations and validation/checkpoint boundaries, no early/best selection, and exact data order. Label every boundary checkpoint `resume_only`; it may restore that attempt but cannot be evaluated or promoted. After the complete passes, publish exactly one `terminal_scoring` checkpoint per arm/seed. Each checkpoint/resume and metric append revalidates experiment-plan/parent/scientific/artifact identities; the run manager separately appends lineage and publishes terminal manifests. Debit actual resource use after every durable component.
+- [ ] **Step 1: Publish the immutable experiment plan, then reserve the group.** Before any attempt, create the canonical `EndpointInventory` from the exact five ordered `WT103ArmSpec` rows, ordered gates, six tuning cells, two tuning seeds, eight confirmatory seeds, and scorer protocol. Durably publish `experiment-plan.json` with that inventory and only its derived tuning-attempt, terminal-checkpoint, validation/test-record, result-row, and figure-series counts; independently entered counts are forbidden. Bind the exact source/token/window/permutation/cadence/profile/factory/checkpoint/estimator/opening/analysis/figure identities, resource ceilings/forecast, and expected artifact inventory. Every checkpoint binds both plan and endpoint-inventory hashes. Only after reopen validation may the run manager reserve attempts; existing identity blocks, with no overwrite or newest selection.
+- [ ] **Step 2: Run equal tuning only.** Execute every inventory-derived two-seed quarter-pass grid cell for every trainable arm with the same pass-0 permutation prefix and the scorer selected by that arm's `scorer_kind`. Revalidate readiness/source/token/window/permutation/cadence/profile/factory/sparsity/resource/inventory identities before each launch and resume. Publish all metrics/failures and debit actual GPU seconds, wall seconds, sampled energy, and disk before selecting by the frozen per-arm rule.
+- [ ] **Step 3: Freeze tuning selections and the confirmatory plan.** Atomically publish every arm's selection inputs, means, tie trace, selected settings, the exact terminal endpoint logical keys derived by `EndpointInventory` plus checkpoint schema/experiment-plan identities, and the one-opening plan. Runtime scientific/artifact hashes are intentionally unknown until each checkpoint closes. No confirmatory/test value can change selection.
+- [ ] **Step 4: Run all inventory confirmation attempts.** Execute every ordered inventory arm for seeds `2026072101..2026072108`, two full passes, frozen pass-0/pass-1 permutations and validation/checkpoint boundaries, no early/best selection, and exact data order. Label every boundary checkpoint `resume_only`; it may restore that attempt but cannot be evaluated or promoted. After the complete passes, publish exactly one `terminal_scoring` checkpoint per arm/seed. Each checkpoint/resume and metric append revalidates experiment-plan/endpoint-inventory/parent/scientific/artifact identities; the run manager separately appends lineage and publishes terminal manifests. Debit actual resource use after every durable component. Pairing is used for the PRIMARY contrast only; controls retain their distinct result roles.
 - [ ] **Step 5: Apply the frozen failure policy.** Retain every attempt. Permit only the one proved infrastructure retry; never replace a seed or modify config. If any required terminal checkpoint is missing, publish INCONCLUSIVE and stop before test opening.
-- [ ] **Step 6: Freeze all 16 terminal checkpoints.** Validate distinct checkpoint scientific/artifact identities, model/optimizer/scheduler/AMP/RNG/data-cursor/update-trace/metric-numerator-denominator/config/evidence hashes, counted targets/update opportunities, capacity/FLOP/optimizer access, resume lineage, and the final run-group manifest. Recompute conservative test-only throughput/power/GPU-hour/wall/energy and disk headroom from actual validation evidence; require at least `1.25*test_transaction_forecast` remaining before test authorization.
+- [ ] **Step 6: Freeze the complete derived terminal-checkpoint inventory.** Validate exact agreement with `EndpointInventory` and distinct checkpoint scientific/artifact identities, model/optimizer/scheduler/AMP/RNG/data-cursor/update-trace/metric-numerator-denominator/config/evidence hashes, counted targets/update opportunities, capacity/FLOP/optimizer access, resume lineage, and the final run-group manifest. Recompute conservative test-only throughput/power/GPU-hour/wall/energy and disk headroom from actual validation evidence; require at least `1.25*test_transaction_forecast` remaining before test authorization.
 
 ### Task 16: Perform the Single Test Opening, Publish Results, and Regenerate Figures
 
@@ -1020,11 +1174,11 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 - Modify: none.
 - Produce: immutable reservation, raw test estimator records, final result tables, figure set/sidecars, experiment manifest/index, and `.verification/post-h8-wt103-result-<FULL_HEAD>-<EXPERIMENT_SHA>-ledger.json`.
 
-- [ ] **Step 1: Preflight the complete one-opening transaction.** Require unchanged Task 14 readiness/ledger/source/schedules, complete Task 15 group and exactly 16 post-pass `terminal_scoring` checkpoints, zero resume-only checkpoint in the endpoint inventory, exact sealed test identity, 64 streams/four particle levels, analysis/statistics/figure hashes, no prior reservation, and no active marker. Recompute test-only forecast from actual validation throughput/power and require remaining GPU-hour/wall/energy ceilings and disk each exceed `1.25*test_transaction_forecast`. Mechanically prove no training/tuning process mapped test.
+- [ ] **Step 1: Preflight the complete one-opening transaction.** Require unchanged Task 14 readiness/ledger/source/schedules, complete Task 15 group, and exact equality between all post-pass `terminal_scoring` checkpoint keys and the canonical `EndpointInventory`; require zero resume-only checkpoint in that inventory, exact sealed test identity, scorer-kind-derived stream/particle applicability, analysis/statistics/figure hashes, no prior reservation, and no active marker. Recompute test-only forecast from actual validation throughput/power and require remaining GPU-hour/wall/energy ceilings and disk each exceed `1.25*test_transaction_forecast`. Mechanically prove no training/tuning process mapped test.
 - [ ] **Step 2: Durably reserve and open once.** Use the probed platform `DurabilityBackend` exclusive-create primitive (POSIX `O_CREAT|O_EXCL`; Windows `CreateFileW(CREATE_NEW, FILE_FLAG_WRITE_THROUGH)`), write/flush/reopen-validate exact identities and `state="RESERVED"`, durably publish without deleting or rewriting it, issue the sole capability, and open the sealed test tokens. A later crash is terminal INCONCLUSIVE.
-- [ ] **Step 3: Attempt the complete fixed inventory and retain honest partial evidence.** Append and durability-validate eight exact A0 corpus totals and exactly 2,048 A5 seed/stream/particle corpus records, including every numerator/denominator/cache/counter/failure. If execution stops, preserve every completed endpoint and failure record, mark the terminal transaction INCONCLUSIVE, never aggregate or promote the partial set, and never reopen. Missing/duplicate/nonfinite records cannot be repaired.
+- [ ] **Step 3: Attempt the complete fixed inventory and retain honest partial evidence.** Append and durability-validate every raw score record derived from each arm's `scorer_kind`, the eight confirmatory seeds, 64 stream IDs, and applicable particle ladder. Exact-autoregressive arms contribute one exact corpus total per seed; weighted-SMC arms contribute the full seed/stream/particle inventory. Every record binds `endpoint_inventory_sha256` and includes its numerator/denominator/cache/counter/failure fields. If execution stops, preserve every completed endpoint and failure record, mark the terminal transaction INCONCLUSIVE, never aggregate or promote the partial set, and never reopen. Missing/duplicate/nonfinite records cannot be repaired.
 - [ ] **Step 4: Aggregate only a complete frozen inventory.** If and only if all required endpoint records are unique, finite, manifest-valid, and finalized, compute Q2/error bounds, eight paired seed effects, all 256 corners, inflated interval, PASS/FAIL/INCONCLUSIVE rule, NLL/PPL, ELBO/source/update/SPD/gradient/throughput/memory summaries, and frozen result-table JSON. Regenerate stable CSV projections from authoritative JSONL and require byte equality with every published CSV. State every nonclaim and applicability reason beside the result.
-- [ ] **Step 5: Render all required figures from finalized immutable inputs.** Run `generate_vfe4_figures.py` by click or direct file execution with the explicit experiment manifest. Its only semantic inputs are finalized manifest-validated `metrics.jsonl` and frozen result-table JSON; it regenerates/checks CSV but never trusts it semantically, opens checkpoints/data, imports training, uses partial attempts, or fabricates inapplicable A0 ELBO/source/SPD values. Validate all eight SVG/PNG/PDF outputs, data sidecars, captions, alt text, spec/input/output hashes, and content-addressed figure index.
+- [ ] **Step 5: Render all required figures from finalized immutable inputs.** Run `generate_vfe4_figures.py` by click or direct file execution with the explicit experiment manifest. Its only semantic inputs are finalized manifest-validated `metrics.jsonl` and frozen result-table JSON; it regenerates/checks CSV but never trusts it semantically, opens checkpoints/data, imports training, uses partial attempts, or fabricates inapplicable fields. Validate every registry- and inventory-derived SVG/PNG/PDF output, data sidecar, caption, alt text, spec/input/output hash, and the content-addressed figure index.
 - [ ] **Step 6: Have fresh reviewers consume artifacts only.** Review one-opening completeness, raw corpus sums/estimator aggregation/statistics, metric numerator/denominator integrity, figure-to-sidecar agreement, provenance/resources, and claim scope. They do not rerun training, tests, scoring, or opening.
 - [ ] **Step 7: Close and validate the result ledger.** Use one claim per data/tokenizer/window/schedule, predictor safety, training sparsity, capacity, durability, update/autograd, checkpoint scientific/artifact identity, resume, metric, opening, endpoint completeness, score/statistic, figure, artifact, and forecast/actual resource check. Evidence is revision/config/data/environment specific. Missing eligible evidence is INCONCLUSIVE.
 - [ ] **Step 8: Report the evidence revision.** Report exact HEAD/config/experiment/reservation/result/figure/ledger hashes, JUnit totals, source/token/window identities, every arm/seed disposition, raw estimator uncertainty, inflated interval, measured training memory/allocation endpoints beside allowances, final artifact paths, and nonclaims. Do not edit tracked docs after closure.
@@ -1046,8 +1200,8 @@ Do not copy or consume V3 `BeliefState`, moving-peer/free-energy objective, targ
 
 ## Final Self-Review Checklist
 
-- [ ] **Spec coverage:** Exact H8 PASS precondition and nontransfer; candidate-to-verified URL/source/license/distribution/table lock with synthetic-only Tasks 1--12; archive/member SHA/size/CRC/compression/path safety; offline/V3-cache isolation; pinned GPT-2 tokenizer and H6 nontransfer; deterministic windows/masks/counts/shuffle/full eval/final pad/cursor; literal A5 profile and exact A0 full-causal architecture/formulas/nonmaterialized Flash backend; H5 labels/H6 scorer/H7-H8 identities; explicit autograd/snapshot policy; revision-bound training sparsity plus independent capacity; resume-only rolling versus terminal-scoring checkpoints; safe scientific-artifact resume/migration; every required metric with numerator/denominator/update controls/applicability; H6-refrozen seeds/tuning/stopping/statistics/opening; finalized-input figures/sidecars/captions/alt text and all eight minimum plots; generic integrity and tested POSIX/Windows durability; atomic runs/manifests/environment/failures/index; click launchers; disk/GPU-hour/wall/energy safeguards; TDD/commits/one JUnit/authorization boundaries; evidence/nonclaims; V3 boundary.
-- [ ] **Type consistency:** Every interface name and field used by later tasks is owned in the file/interface map; `WT103ExperimentProfile`, `A0ArchitectureProfile`, `A0FormulaRecord`, `TrainingConfig`, `CandidateTokenizerContract`, `TokenizerSpec`, `WindowManifest`, `PermutationManifest`, `DataCursor`, `TrainingSparsityCertificate`, `PostH8ReadinessToken`, `PriorPredictor`, `CheckpointBundle`, `CheckpointIdentity`, `LoadedCheckpoint`, `MetricRecord`, `NllTotals`, `FigureSpec`, and manifests retain one meaning.
+- [ ] **Spec coverage:** Exact H8 PASS precondition and nontransfer; candidate-to-verified URL/source/license/distribution/table lock with synthetic-only Tasks 1--12; archive/member SHA/size/CRC/compression/path safety; offline/V3-cache isolation; pinned GPT-2 tokenizer and H6 nontransfer; deterministic windows/masks/counts/shuffle/full eval/final pad/cursor; shared-only experiment profile, exact ordered five-arm/seven-gate inventory, and exact A0 full-causal architecture/formulas/nonmaterialized Flash backend; per-arm H5 labels/objective/prior/recognition/scorer/result roles; H6/H7/H8 identities; explicit autograd/snapshot policy; revision-bound training sparsity plus independent capacity; resume-only rolling versus terminal-scoring checkpoints; safe scientific-artifact resume/migration; every required metric with numerator/denominator/update controls/applicability; H6-refrozen seeds/tuning/stopping/statistics/opening; finalized-input figures/sidecars/captions/alt text and the frozen required-figure registry with inventory-derived panels/series; generic integrity and tested POSIX/Windows durability; atomic runs/manifests/environment/failures/index; click launchers; disk/GPU-hour/wall/energy safeguards; TDD/commits/one JUnit/authorization boundaries; evidence/nonclaims; V3 boundary.
+- [ ] **Type consistency:** Every interface name and field used by later tasks is owned in the file/interface map; `WT103ArmSpec`, `WT103GateSpec`, `EndpointInventory`, `WT103ExperimentProfile`, `A0ArchitectureProfile`, `A0FormulaRecord`, `TrainingConfig`, `CandidateTokenizerContract`, `TokenizerSpec`, `WindowManifest`, `PermutationManifest`, `DataCursor`, `TrainingSparsityCertificate`, `PostH8ReadinessToken`, `PriorPredictor`, `CheckpointBundle`, `CheckpointIdentity`, `LoadedCheckpoint`, `MetricRecord`, `NllTotals`, `FigureSpec`, and manifests retain one meaning. No count or derived endpoint key is accepted outside `EndpointInventory.create`.
 - [ ] **Data arithmetic:** For every split `counted_targets=n_tokens-1`; final padding contributes zero; no batch mean enters corpus NLL; train/validation/test schedules and capabilities are distinct.
 - [ ] **Evidence audit:** H6 byte and H8 synthetic evidence never close GPT-2/training claims; one exact candidate/JUnit, one revision-bound sparsity certificate, independent capacity and resource records, one irreversible test opening, raw/partial endpoint records, manifest integrity, and revision-specific ledgers are required. Partial endpoints force INCONCLUSIVE and are never aggregated.
 - [ ] **Figure audit:** No training/checkpoint/data import; explicit run-group input; finalized manifest-validated JSONL and frozen result-table JSON authoritative; CSV regenerated and byte-checked only; deterministic formats/style/specs; explicit applicability; data/caption/alt-text sidecars; all required plots.

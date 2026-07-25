@@ -347,6 +347,7 @@ def _h7_reference(name: str) -> H7PredecessorReference:
         git_head="a" * 40,
         dirty_digest="b" * 64,
         junit_sha256="c" * 64,
+        junit_path=f".verification/{name}-junit.xml",
         manifest_sha256=digest,
         payload_hashes={f"validation/{name}.json": digest},
         ledger_path=f".verification/{name}-ledger.json",

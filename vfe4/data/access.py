@@ -683,11 +683,27 @@ def _build_access_api():
         store: BlindedCorpusStore,
         opening: DurableTestOpeningCapability,
     ) -> CausalWindows:
+        windows, _ = _open_test_with_receipt(store, opening)
+        return windows
+
+    def _open_test_with_receipt(
+        store: BlindedCorpusStore,
+        opening: DurableTestOpeningCapability,
+    ) -> tuple[CausalWindows, ValidatedTestOpening]:
         state = _state_for(store)
         validated = _validate(store, opening)
         if type(validated) is not ValidatedOpening:
             raise OpeningCapabilityError("test opening was not privately validated")
-        return _read_split(store, state, "test")
+        return _read_split(store, state, "test"), validated
+
+    def _validated_opening_identity(
+        opening: ValidatedTestOpening,
+    ) -> str:
+        if type(opening) is not ValidatedOpening:
+            raise OpeningCapabilityError(
+                "validated test-opening receipt is forged"
+            )
+        return opening.proof_identity_sha256
 
     return (
         _register_production,
@@ -697,6 +713,8 @@ def _build_access_api():
         _issue,
         _validate,
         _open_test,
+        _open_test_with_receipt,
+        _validated_opening_identity,
     )
 
 
@@ -708,6 +726,8 @@ def _build_access_api():
     reserve_and_issue_durable_test_opening_capability,
     validate_durable_test_opening_capability,
     open_test_for_scoring,
+    open_test_for_scoring_with_receipt,
+    validated_test_opening_identity,
 ) = _build_access_api()
 del _build_access_api
 
@@ -718,6 +738,8 @@ __all__ = [
     "materialize_prediction_train",
     "materialize_validation_safety_fixture",
     "open_test_for_scoring",
+    "open_test_for_scoring_with_receipt",
     "reserve_and_issue_durable_test_opening_capability",
     "validate_durable_test_opening_capability",
+    "validated_test_opening_identity",
 ]

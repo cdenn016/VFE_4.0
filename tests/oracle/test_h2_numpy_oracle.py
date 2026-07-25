@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import math
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -220,3 +221,136 @@ def test_h2_oracle_rejects_nonfrozen_order_and_non_json_bytes(tmp_path: Path) ->
     bad.write_bytes(b"not-json")
     with np.testing.assert_raises(ValueError):
         evaluate_h2_moment_oracle(bad)
+
+
+def test_rectangular_information_assembly_matches_independent_dense_oracle() -> None:
+    import importlib
+
+    import torch
+
+    fixture_module = importlib.import_module(
+        "vfe4.validation.h2_h5_rectangular_fixture"
+    )
+    linear_gaussian = importlib.import_module("vfe4.numerics.linear_gaussian")
+    rectangular_oracle = importlib.import_module(
+        "verification.numpy_oracles.h2_h5_rectangular"
+    )
+
+    source_path = (
+        REPO_ROOT / "verification" / "numpy_oracles" / "h2_h5_rectangular.py"
+    )
+    tree = ast.parse(source_path.read_text(encoding="utf-8"))
+    production_modules = {
+        "vfe4.numerics.linear_gaussian",
+        "vfe4.inference.h5_updates",
+    }
+    assert all(
+        not (
+            isinstance(node, ast.ImportFrom)
+            and node.module in production_modules
+        )
+        for node in ast.walk(tree)
+    )
+
+    fixture = fixture_module.load_h2_h5_rectangular_fixture()
+    assert (
+        fixture.seed,
+        fixture.horizon,
+        fixture.d_z,
+        fixture.d_m,
+        fixture.observation_dimension,
+    ) == (31337, 3, 2, 3, 2)
+    assert fixture.dense_parents == ((0,), (0, 1), (0, 1, 2))
+    assert fixture.raw_sha256 == fixture_module.H2_H5_RECTANGULAR_RAW_SHA256
+    assert (
+        fixture.canonical_sha256
+        == fixture_module.H2_H5_RECTANGULAR_CANONICAL_SHA256
+    )
+    assert (
+        fixture_module.h2_h5_rectangular_raw_bytes(fixture)
+        == fixture_module.h2_h5_rectangular_raw_bytes(
+            fixture_module.load_h2_h5_rectangular_fixture()
+        )
+    )
+    assert (
+        fixture_module.h2_h5_rectangular_canonical_bytes(fixture)
+        == fixture_module.h2_h5_rectangular_canonical_bytes(
+            fixture_module.load_h2_h5_rectangular_fixture()
+        )
+    )
+
+    oracle = rectangular_oracle.evaluate_rectangular_update_oracle(
+        fixture, time_index=2
+    )
+    assert oracle.fixture_raw_sha256 == (
+        "6925ffe08e4d8acbc7790b6318f3e26a0509a8208ebf062f62f721332d194aa5"
+    )
+    assert oracle.fixture_canonical_sha256 == (
+        "02add1038f70cedd2cb5b0adad0c3b23696960f9fe2a0c4942df7eea77e3f58c"
+    )
+    for channel in ("state", "model"):
+        probe_objective = getattr(oracle, f"{channel}_probe_objective")
+        solved_objective = getattr(oracle, f"{channel}_solved_objective")
+        completion_gap = getattr(
+            oracle, f"{channel}_completion_square_gap"
+        )
+        assert probe_objective > solved_objective
+        assert completion_gap > 0.0
+        assert math.isclose(
+            probe_objective - solved_objective,
+            completion_gap,
+            rel_tol=2.0e-13,
+            abs_tol=2.0e-13,
+        )
+        assert (
+            getattr(oracle, f"{channel}_solution_gradient_max_abs")
+            <= 5.0e-13
+        )
+    forged_offsets = tuple(
+        (
+            (row[0] + 0.125,) + row[1:]
+            if index == 1
+            else row
+        )
+        for index, row in enumerate(fixture.state_offsets)
+    )
+    forged = replace(fixture, state_offsets=forged_offsets)
+    with np.testing.assert_raises_regex(ValueError, "frozen rectangular C5"):
+        rectangular_oracle.evaluate_rectangular_update_oracle(
+            forged, time_index=2
+        )
+    state_precision = torch.tensor(
+        fixture.state_precisions[1], dtype=torch.float64
+    )
+    state_model_map = torch.tensor(
+        fixture.state_model_maps[1], dtype=torch.float64
+    )
+    model_recoil_residual = torch.tensor(
+        oracle.model_recoil_residual, dtype=torch.float64
+    )
+    production = linear_gaussian.assemble_rectangular_information(
+        state_precision=state_precision,
+        state_model_map=state_model_map,
+        model_recoil_residual=model_recoil_residual,
+    )
+
+    assert tuple(production.model_precision_pullback.shape) == (3, 3)
+    assert tuple(production.model_recoil_natural.shape) == (3,)
+    np.testing.assert_allclose(
+        production.model_precision_pullback.numpy(),
+        np.asarray(oracle.model_precision_pullback),
+        rtol=0.0,
+        atol=2.0e-14,
+    )
+    np.testing.assert_allclose(
+        production.model_recoil_natural.numpy(),
+        np.asarray(oracle.model_recoil_natural),
+        rtol=0.0,
+        atol=2.0e-14,
+    )
+    with np.testing.assert_raises_regex(ValueError, "transposed"):
+        linear_gaussian.assemble_rectangular_information(
+            state_precision=state_precision,
+            state_model_map=state_model_map.T,
+            model_recoil_residual=model_recoil_residual,
+        )

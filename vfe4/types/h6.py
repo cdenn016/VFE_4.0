@@ -22,10 +22,11 @@ import torch
 from .results import GateStatus
 
 if TYPE_CHECKING:
+    from vfe4.artifacts.h6_matching import H6MatchingSetRecord
     from vfe4.generative.source_priors import (
         FixedSourcePrior,
         NormalizedSourceFactor,
-        PrefixConditionedSourcePrior,
+        ParentSpecificPooledPrefixSourcePrior,
     )
 
 
@@ -44,6 +45,9 @@ H6_PREFIX_REQUIRED_CHECKS = (
     "case_inventory",
     "artifact_identity",
     "data_safety",
+)
+H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256 = (
+    "0ab33d1cc790711eee82c598bb853d46ab52662eb31e9433e973978e77d9e375"
 )
 
 
@@ -319,11 +323,21 @@ _H6_RECOGNITION_CONDITIONINGS = frozenset(
     {"absent", "filtering", "smoothing"}
 )
 _H6_PRIOR_VARIANTS = frozenset(
-    {"absent", "fixed", "prefix_conditioned"}
+    {
+        "absent",
+        "fixed",
+        "parent_specific_pooled_prefix",
+        "pooled_history_conditioned",
+        "prefix_conditioned",
+    }
 )
 _H6_MIXTURE_MODES = frozenset({"absent", "exact", "moment_projection"})
 _H6_OBJECTIVE_KINDS = frozenset(
     {"cross_entropy", "complete_elbo", "emission_only_ablation_non_elbo"}
+)
+_H6_PARENT_SPECIFIC_EMISSION_CONFIG_ID = (
+    "h6-a5-structured-parent-specific-prefix-exact-emission-"
+    "latent-smoothing-v2"
 )
 _H6_ARM_PROFILE_BY_CONFIG_ID = {
     "h6-a0-transformer-v2": (
@@ -363,6 +377,23 @@ _H6_ARM_PROFILE_BY_CONFIG_ID = {
         ArmId.A5, True, True, True, "categorical",
         "shared_vertex_coboundary", "structured", "smoothing",
         "prefix_conditioned", "exact", "complete_elbo",
+    ),
+    (
+        "h6-a5-structured-parent-specific-prefix-exact-complete-"
+        "latent-smoothing-v2"
+    ): (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "structured", "smoothing",
+        "parent_specific_pooled_prefix", "exact", "complete_elbo",
+    ),
+    (
+        "h6-a5-structured-parent-specific-prefix-exact-emission-"
+        "latent-smoothing-v2"
+    ): (
+        ArmId.A5, True, True, True, "categorical",
+        "shared_vertex_coboundary", "structured", "smoothing",
+        "parent_specific_pooled_prefix", "exact",
+        "emission_only_ablation_non_elbo",
     ),
     "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1": (
         ArmId.A5, True, True, True, "categorical",
@@ -629,7 +660,11 @@ class ArmConfig:
             raise ValueError(
                 "recognition conditioning must match recognition applicability"
             )
-        prefix_prior = self.prior_variant == "prefix_conditioned"
+        prefix_prior = self.prior_variant in (
+            "parent_specific_pooled_prefix",
+            "pooled_history_conditioned",
+            "prefix_conditioned",
+        )
         if prefix_prior != (
             self.capacity_allocation.prior_context_width is not None
         ):
@@ -961,6 +996,139 @@ class FlopTerm:
             cls,
             **values,
             term_sha256=_owned_hash("vfe4.h6.flop-term.v1", values),
+        )  # type: ignore[return-value]
+
+
+H6_INFERENCE_PARTICLE_COUNTS = (128, 256, 512, 1024)
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class InferenceComputeRecord:
+    """Inference FLOPs kept strictly outside training-match eligibility.
+
+    ``scoring_flops`` is the aggregate scoring arithmetic for the declared
+    ``replicate_count``.  ``total_flops`` adds the one-time checkpoint-load
+    and prefix-cache construction arithmetic for this exact scorer row.
+    """
+
+    endpoint_id: str
+    scorer_kind: Literal["exact_autoregressive", "weighted_smc"]
+    particle_count: int | None
+    replicate_count: int
+    prefix_cache_mode: str
+    checkpoint_load_flops: int
+    cache_build_flops: int
+    scoring_flops: int
+    total_flops: int
+    wall_time_seconds: float | None
+    record_sha256: str
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            name: getattr(self, name)
+            for name in tuple(self.__dataclass_fields__)[:-1]
+        }
+
+    def __post_init__(self) -> None:
+        _require_nonempty(self.endpoint_id, "endpoint_id")
+        if self.scorer_kind not in (
+            "exact_autoregressive",
+            "weighted_smc",
+        ):
+            raise ValueError("unsupported inference scorer_kind")
+        if self.endpoint_id == "h6-a0-transformer-v2" and (
+            self.scorer_kind != "exact_autoregressive"
+            or self.particle_count is not None
+        ):
+            raise ValueError(
+                "H6 A0 requires exact autoregressive scoring with "
+                "particle_count=None"
+            )
+        if self.scorer_kind == "exact_autoregressive":
+            if self.particle_count is not None:
+                raise ValueError(
+                    "exact autoregressive scoring requires particle_count=None"
+                )
+        elif (
+            type(self.particle_count) is not int
+            or self.particle_count not in H6_INFERENCE_PARTICLE_COUNTS
+        ):
+            raise ValueError(
+                "weighted SMC particle_count must be one of "
+                "128, 256, 512, or 1024"
+            )
+        if type(self.replicate_count) is not int or self.replicate_count <= 0:
+            raise ValueError("replicate_count must be a positive integer")
+        _require_nonempty(self.prefix_cache_mode, "prefix_cache_mode")
+        for name in (
+            "checkpoint_load_flops",
+            "cache_build_flops",
+            "scoring_flops",
+            "total_flops",
+        ):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{name} must be a nonnegative integer")
+        if self.scoring_flops <= 0:
+            raise ValueError("scoring_flops must be positive")
+        if self.total_flops != (
+            self.checkpoint_load_flops
+            + self.cache_build_flops
+            + self.scoring_flops
+        ):
+            raise ValueError(
+                "total_flops must equal checkpoint load, cache build, and "
+                "aggregate scoring FLOPs"
+            )
+        if self.wall_time_seconds is not None and (
+            type(self.wall_time_seconds) is not float
+            or not math.isfinite(self.wall_time_seconds)
+            or self.wall_time_seconds <= 0.0
+        ):
+            raise ValueError(
+                "wall_time_seconds must be None or a positive finite float"
+            )
+        expected = _owned_hash(
+            "vfe4.h6.inference-compute-record.v1",
+            self.canonical_payload(),
+        )
+        if self.record_sha256 != expected:
+            raise ValueError("inference compute record digest is stale")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        endpoint_id: str,
+        scorer_kind: Literal["exact_autoregressive", "weighted_smc"],
+        particle_count: int | None,
+        replicate_count: int,
+        prefix_cache_mode: str,
+        checkpoint_load_flops: int,
+        cache_build_flops: int,
+        scoring_flops: int,
+        total_flops: int,
+        wall_time_seconds: float | None,
+    ) -> "InferenceComputeRecord":
+        values: dict[str, object] = {
+            "endpoint_id": endpoint_id,
+            "scorer_kind": scorer_kind,
+            "particle_count": particle_count,
+            "replicate_count": replicate_count,
+            "prefix_cache_mode": prefix_cache_mode,
+            "checkpoint_load_flops": checkpoint_load_flops,
+            "cache_build_flops": cache_build_flops,
+            "scoring_flops": scoring_flops,
+            "total_flops": total_flops,
+            "wall_time_seconds": wall_time_seconds,
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            record_sha256=_owned_hash(
+                "vfe4.h6.inference-compute-record.v1",
+                values,
+            ),
         )  # type: ignore[return-value]
 
 
@@ -2078,14 +2246,49 @@ class H6LanguageElboTerms:
         return cls(**values, canonical_sha256=digest)
 
 
+def _is_parent_specific_emission_endpoint(config: ArmConfig) -> bool:
+    return (
+        config.arm is ArmId.A5
+        and config.config_id == _H6_PARENT_SPECIFIC_EMISSION_CONFIG_ID
+        and config.latent_enabled
+        and config.state_channel_enabled
+        and config.model_channel_enabled
+        and config.source_mode == "categorical"
+        and config.map_mode == "shared_vertex_coboundary"
+        and config.recognition_family == "structured"
+        and config.recognition_conditioning == "smoothing"
+        and config.prior_variant == "parent_specific_pooled_prefix"
+        and config.mixture_mode == "exact"
+        and config.objective_kind == "emission_only_ablation_non_elbo"
+    )
+
+
+def _supports_live_source_prior_trace(config: ArmConfig) -> bool:
+    complete_endpoint = (
+        config.arm in (ArmId.A2, ArmId.A5)
+        and config.objective_kind == "complete_elbo"
+        and config.prior_variant in ("fixed", "parent_specific_pooled_prefix")
+        and config.mixture_mode in ("exact", "moment_projection")
+    )
+    return complete_endpoint or _is_parent_specific_emission_endpoint(config)
+
+
+H6_EMISSION_ONLY_ABLATION_HASH_DOMAIN = (
+    "vfe4.h6.emission-only-ablation.v3"
+)
+
+
 @dataclass(frozen=True, slots=True, init=False)
 class H6SourcePriorTrace:
     """Live-prior provenance sealed by ``BuiltArm`` before ELBO evaluation."""
 
     endpoint_config: ArmConfig
     model_family_sha256: str
-    prior_variant: Literal["fixed", "prefix_conditioned"]
-    prior_type: Literal["FixedSourcePrior", "PrefixConditionedSourcePrior"]
+    prior_variant: Literal["fixed", "parent_specific_pooled_prefix"]
+    prior_type: Literal[
+        "FixedSourcePrior",
+        "ParentSpecificPooledPrefixSourcePrior",
+    ]
     prior_model_state_sha256: str
     ordered_source_factor_identities: tuple[
         tuple[Literal["model_source", "state_source"], int, str], ...
@@ -2114,15 +2317,10 @@ class H6SourcePriorTrace:
         if type(self.endpoint_config) is not ArmConfig:
             raise ValueError("trace endpoint_config must be exact")
         self.endpoint_config.__post_init__()
-        if (
-            self.endpoint_config.arm not in (ArmId.A2, ArmId.A5)
-            or self.endpoint_config.objective_kind != "complete_elbo"
-            or self.endpoint_config.prior_variant
-            not in ("fixed", "prefix_conditioned")
-        ):
+        if not _supports_live_source_prior_trace(self.endpoint_config):
             raise ValueError(
-                "source-prior trace requires a complete categorical A2/A5 "
-                "endpoint"
+                "source-prior trace requires a supported complete A2/A5 "
+                "endpoint or the literal parent-specific OBJECTIVE endpoint"
             )
         _require_sha256(self.model_family_sha256, "model_family_sha256")
         _require_sha256(
@@ -2132,7 +2330,7 @@ class H6SourcePriorTrace:
         expected_type = (
             "FixedSourcePrior"
             if self.endpoint_config.prior_variant == "fixed"
-            else "PrefixConditionedSourcePrior"
+            else "ParentSpecificPooledPrefixSourcePrior"
         )
         if (
             self.prior_variant != self.endpoint_config.prior_variant
@@ -2177,13 +2375,15 @@ class H6SourcePriorTrace:
         cls,
         *,
         endpoint_config: ArmConfig,
-        source_prior: FixedSourcePrior | PrefixConditionedSourcePrior,
+        source_prior: (
+            FixedSourcePrior | ParentSpecificPooledPrefixSourcePrior
+        ),
         ordered_source_factors: tuple[NormalizedSourceFactor, ...],
     ) -> "H6SourcePriorTrace":
         from vfe4.generative.source_priors import (
             FixedSourcePrior,
             NormalizedSourceFactor,
-            PrefixConditionedSourcePrior,
+            ParentSpecificPooledPrefixSourcePrior,
         )
         from vfe4.predictive.identities import canonical_model_state_sha256
 
@@ -2191,25 +2391,22 @@ class H6SourcePriorTrace:
             raise ValueError("trace endpoint_config must be exact")
         endpoint_config.__post_init__()
         if (
-            endpoint_config.arm not in (ArmId.A2, ArmId.A5)
-            or endpoint_config.objective_kind != "complete_elbo"
-            or endpoint_config.prior_variant
-            not in ("fixed", "prefix_conditioned")
+            not _supports_live_source_prior_trace(endpoint_config)
         ):
             raise ValueError(
-                "source-prior trace requires a complete categorical A2/A5 "
-                "endpoint"
+                "source-prior trace requires a supported complete A2/A5 "
+                "endpoint or the literal parent-specific OBJECTIVE endpoint"
             )
         expected_prior_type = (
             FixedSourcePrior
             if endpoint_config.prior_variant == "fixed"
-            else PrefixConditionedSourcePrior
+            else ParentSpecificPooledPrefixSourcePrior
         )
         if type(source_prior) is not expected_prior_type:
             raise ValueError(
                 "live source-prior type does not match endpoint prior_variant"
             )
-        expected_model_family_sha256 = _arm_model_family_sha256(endpoint_config)
+        expected_model_family_sha256 = arm_model_family_sha256(endpoint_config)
         expected_receivers = tuple(range(1, endpoint_config.horizon + 1))
         source_prior.structure.__post_init__()
         source_prior.vocabulary.__post_init__()
@@ -2278,11 +2475,12 @@ class H6SourcePriorTrace:
                 "or order"
             )
         prior_type: Literal[
-            "FixedSourcePrior", "PrefixConditionedSourcePrior"
+            "FixedSourcePrior",
+            "ParentSpecificPooledPrefixSourcePrior",
         ] = (
             "FixedSourcePrior"
             if type(source_prior) is FixedSourcePrior
-            else "PrefixConditionedSourcePrior"
+            else "ParentSpecificPooledPrefixSourcePrior"
         )
         prior_model_state_sha256 = canonical_model_state_sha256(source_prior)
         values: dict[str, object] = {
@@ -2326,16 +2524,10 @@ def h6_source_law_marker_identity(
     if type(endpoint_config) is not ArmConfig:
         raise ValueError("endpoint_config must be an exact ArmConfig")
     endpoint_config.__post_init__()
-    if (
-        endpoint_config.arm not in (ArmId.A2, ArmId.A5)
-        or endpoint_config.objective_kind != "complete_elbo"
-        or endpoint_config.prior_variant
-        not in ("fixed", "prefix_conditioned")
-        or endpoint_config.mixture_mode
-        not in ("exact", "moment_projection")
-    ):
+    if not _supports_live_source_prior_trace(endpoint_config):
         raise ValueError(
-            "source law requires a complete categorical A2/A5 endpoint"
+            "source law requires a supported complete A2/A5 endpoint or the "
+            "literal parent-specific OBJECTIVE endpoint"
         )
     if endpoint_config.mixture_mode == "exact":
         if projection_error is not None:
@@ -2403,7 +2595,7 @@ class H6EndpointLanguageElboTerms:
     """Complete ELBO bound to one actual endpoint and source-law trace."""
 
     endpoint_config: ArmConfig
-    prior_variant: Literal["fixed", "prefix_conditioned"]
+    prior_variant: Literal["fixed", "parent_specific_pooled_prefix"]
     mixture_mode: Literal["exact", "moment_projection"]
     source_prior_trace: H6SourcePriorTrace
     projection_error: FrozenTensorSnapshot | None
@@ -2492,7 +2684,7 @@ class H6EndpointLanguageElboTerms:
             self.endpoint_config.arm not in (ArmId.A2, ArmId.A5)
             or self.endpoint_config.objective_kind != "complete_elbo"
             or self.endpoint_config.prior_variant
-            not in ("fixed", "prefix_conditioned")
+            not in ("fixed", "parent_specific_pooled_prefix")
             or self.endpoint_config.mixture_mode
             not in ("exact", "moment_projection")
         ):
@@ -2557,7 +2749,7 @@ class H6EndpointLanguageElboTerms:
         cls,
         *,
         endpoint_config: ArmConfig,
-        prior_variant: Literal["fixed", "prefix_conditioned"],
+        prior_variant: Literal["fixed", "parent_specific_pooled_prefix"],
         mixture_mode: Literal["exact", "moment_projection"],
         source_prior_trace: H6SourcePriorTrace,
         projection_error: FrozenTensorSnapshot | None,
@@ -2593,67 +2785,172 @@ class H6EndpointLanguageElboTerms:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, init=False)
 class EmissionOnlyAblationTerms:
     objective_kind: Literal["emission_only_ablation_non_elbo"]
+    endpoint_config: ArmConfig
+    model_family_sha256: str
+    canonical_model_state_sha256: str
+    prior_variant: Literal["parent_specific_pooled_prefix"]
+    source_prior_trace: H6SourcePriorTrace
+    source_law_marker_identity_sha256: str
+    source_law_identity_sha256: str
     ordered_emission_terms: tuple[H6FactorTerm, ...]
     total: FrozenTensorSnapshot
     canonical_sha256: str
 
+    def __init__(self) -> None:
+        raise TypeError(
+            "EmissionOnlyAblationTerms is BuiltArm-only; use the live arm "
+            "evaluation seam"
+        )
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        raise TypeError("EmissionOnlyAblationTerms is sealed")
+
+    @property
+    def endpoint_config_sha256(self) -> str:
+        return self.endpoint_config.config_sha256
+
+    @property
+    def source_prior_trace_sha256(self) -> str:
+        return self.source_prior_trace.trace_sha256
+
+    @property
+    def is_elbo(self) -> Literal[False]:
+        return False
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "objective_kind": self.objective_kind,
+            "endpoint_config_sha256": self.endpoint_config.config_sha256,
+            "model_family_sha256": self.model_family_sha256,
+            "canonical_model_state_sha256": (
+                self.canonical_model_state_sha256
+            ),
+            "prior_variant": self.prior_variant,
+            "source_prior_trace_sha256": self.source_prior_trace.trace_sha256,
+            "source_law_marker_identity_sha256": (
+                self.source_law_marker_identity_sha256
+            ),
+            "source_law_identity_sha256": self.source_law_identity_sha256,
+            "ordered_emission_terms": tuple(
+                _factor_payload(term) for term in self.ordered_emission_terms
+            ),
+            "total": _snapshot_payload(self.total),
+        }
+
     def __post_init__(self) -> None:
         if self.objective_kind != "emission_only_ablation_non_elbo":
             raise ValueError("emission-only terms must remain a non-ELBO ablation")
-        if any(term.partition != "emission" for term in self.ordered_emission_terms):
-            raise ValueError("emission-only ablation accepts only emission factors")
+        if type(self.endpoint_config) is not ArmConfig:
+            raise ValueError("emission-only endpoint_config must be exact")
+        self.endpoint_config.__post_init__()
+        if not _is_parent_specific_emission_endpoint(self.endpoint_config):
+            raise ValueError(
+                "emission-only training is authorized only for the literal "
+                "parent-specific OBJECTIVE endpoint"
+            )
+        expected_model_family_sha256 = arm_model_family_sha256(
+            self.endpoint_config
+        )
+        _require_sha256(self.model_family_sha256, "model_family_sha256")
+        if self.model_family_sha256 != expected_model_family_sha256:
+            raise ValueError(
+                "emission-only model family does not match its literal endpoint"
+            )
+        _require_sha256(
+            self.canonical_model_state_sha256,
+            "canonical_model_state_sha256",
+        )
+        if self.prior_variant != "parent_specific_pooled_prefix":
+            raise ValueError(
+                "emission-only OBJECTIVE endpoint requires the parent-specific "
+                "pooled-prefix prior"
+            )
+        if type(self.source_prior_trace) is not H6SourcePriorTrace:
+            raise ValueError("emission-only source-prior trace must be exact")
+        self.source_prior_trace.__post_init__()
+        if (
+            self.source_prior_trace.endpoint_config != self.endpoint_config
+            or self.source_prior_trace.model_family_sha256
+            != self.model_family_sha256
+            or self.source_prior_trace.prior_variant != self.prior_variant
+            or self.source_prior_trace.prior_type
+            != "ParentSpecificPooledPrefixSourcePrior"
+        ):
+            raise ValueError(
+                "emission-only source-prior trace belongs to another endpoint, "
+                "model family, or prior"
+            )
+        expected_marker = h6_source_law_marker_identity(
+            endpoint_config=self.endpoint_config,
+            projection_error=None,
+        )
+        expected_law = h6_source_law_identity(
+            endpoint_config=self.endpoint_config,
+            source_prior_trace=self.source_prior_trace,
+            projection_error=None,
+        )
+        if (
+            self.source_law_marker_identity_sha256 != expected_marker
+            or self.source_law_identity_sha256 != expected_law
+        ):
+            raise ValueError(
+                "emission-only source-law identity is stale or belongs to "
+                "another live prior"
+            )
+        expected_receivers = tuple(range(1, self.endpoint_config.horizon + 1))
+        if tuple(
+            term.receiver_t for term in self.ordered_emission_terms
+        ) != expected_receivers:
+            raise ValueError(
+                "emission-only terms must cover the literal endpoint horizon "
+                "exactly once and in order"
+            )
+        for term in self.ordered_emission_terms:
+            term.__post_init__()
+            if term.partition != "emission":
+                raise ValueError(
+                    "emission-only ablation accepts only emission factors"
+                )
         self.total.assert_intact()
+        total = self.ordered_emission_terms[0].value.value()
+        for term in self.ordered_emission_terms[1:]:
+            total = total + term.value.value()
+        if not torch.equal(total, self.total.value()):
+            raise ValueError(
+                "emission-only total does not equal its ordered emission terms"
+            )
         expected = _owned_hash(
-            "vfe4.h6.emission-only-ablation.v1",
-            {
-                "objective_kind": self.objective_kind,
-                "ordered_emission_terms": tuple(
-                    _factor_payload(term) for term in self.ordered_emission_terms
-                ),
-                "total": _snapshot_payload(self.total),
-            },
+            H6_EMISSION_ONLY_ABLATION_HASH_DOMAIN,
+            self._payload(),
         )
         if self.canonical_sha256 != expected:
             raise ValueError("canonical_sha256 does not match emission-only terms")
 
-    @classmethod
-    def create(
-        cls, *, ordered_emission_terms: tuple[H6FactorTerm, ...]
-    ) -> "EmissionOnlyAblationTerms":
-        terms = tuple(ordered_emission_terms)
-        if not terms:
-            raise ValueError("ordered_emission_terms must be nonempty")
-        total = terms[0].value.value()
-        for term in terms[1:]:
-            total = total + term.value.value()
-        snapshot = FrozenTensorSnapshot.capture(total)
-        payload = {
-            "objective_kind": "emission_only_ablation_non_elbo",
-            "ordered_emission_terms": tuple(_factor_payload(term) for term in terms),
-            "total": _snapshot_payload(snapshot),
-        }
-        return cls(
-            "emission_only_ablation_non_elbo",
-            terms,
-            snapshot,
-            _owned_hash("vfe4.h6.emission-only-ablation.v1", payload),
-        )
-
-
-def _arm_model_family_sha256(config: ArmConfig) -> str:
+def arm_model_family_sha256(config: ArmConfig) -> str:
     """Reproduce the exact H6 arm-factory family identity without building a model."""
 
     if type(config) is not ArmConfig:
         raise ValueError("config must be an exact ArmConfig")
     config.__post_init__()
-    factory = (
-        "build_a0@h6-arm-v2"
-        if config.arm is ArmId.A0
-        else f"build_{config.arm.value.lower()}@h6-arm-v1"
-    )
+    v2_a5_configs = {
+        (
+            "h6-a5-structured-parent-specific-prefix-exact-complete-"
+            "latent-smoothing-v2"
+        ),
+        (
+            "h6-a5-structured-parent-specific-prefix-exact-emission-"
+            "latent-smoothing-v2"
+        ),
+    }
+    if config.arm is ArmId.A0:
+        factory = "build_a0@h6-arm-v2"
+    elif config.arm is ArmId.A5 and config.config_id in v2_a5_configs:
+        factory = "build_a5@h6-arm-v2"
+    else:
+        factory = f"build_{config.arm.value.lower()}@h6-arm-v1"
     return _owned_hash(
         "vfe4.h6.arm-model-family.v1",
         {
@@ -2755,12 +3052,12 @@ class H6PrefixProfilePair:
             raise ValueError(
                 "Prefix profiles require weighted SMC at 4, 128, 256, 512, or 1024 particles"
             )
-        if self.small_model_family_sha256 != _arm_model_family_sha256(small):
+        if self.small_model_family_sha256 != arm_model_family_sha256(small):
             raise ValueError(
                 "small_model_family_sha256 does not match its exact arm factory"
             )
         if self.production_model_family_sha256 != (
-            _arm_model_family_sha256(production)
+            arm_model_family_sha256(production)
         ):
             raise ValueError(
                 "production_model_family_sha256 does not match its exact arm factory"
@@ -3638,12 +3935,18 @@ class H6TrainingSchedule:
 
 @dataclass(frozen=True, init=False)
 class H6PredictionReadinessToken:
-    readiness_schema: Literal["h6-prediction-readiness-v1"]
+    readiness_schema: Literal[
+        "h6-prediction-readiness-v1",
+        "h6-prediction-readiness-v2",
+    ]
     git_head: str
     dirty_digest: str
     experiment_config_sha256: str
     correctness_manifests: tuple[tuple[str, str], ...]
     h1_prefix_prior_manifest_sha256: str
+    h1_prefix_prior_generative_factor_schema_sha256: str | None
+    smc_bias_semantics_sha256: str | None
+    objective_gate_spec_sha256: str | None
     h5_update_binding_sha256: str
     h6_training_schedule_sha256: str
     smc_validation_manifest_sha256: str
@@ -3666,6 +3969,14 @@ class H6PredictionReadinessToken:
     _h5_update_binding: H5UpdateBinding = field(repr=False, compare=False)
     _endpoint_smc_protocol: "EndpointSmcProtocol" = field(repr=False, compare=False)
     _data_identity: DataIdentity = field(repr=False, compare=False)
+    _matching_set: "H6MatchingSetRecord | None" = field(
+        repr=False,
+        compare=False,
+    )
+    _objective_gate_spec: ObjectiveGateSpec | None = field(
+        repr=False,
+        compare=False,
+    )
 
     _SHA_FIELDS: ClassVar[tuple[str, ...]] = (
         "dirty_digest", "experiment_config_sha256", "h5_update_binding_sha256",
@@ -3676,12 +3987,98 @@ class H6PredictionReadinessToken:
     )
 
     def __post_init__(self) -> None:
-        if self.readiness_schema != "h6-prediction-readiness-v1" or self.status != "PASS":
-            raise ValueError("readiness token must be the PASS v1 schema")
+        if (
+            self.readiness_schema
+            not in (
+                "h6-prediction-readiness-v1",
+                "h6-prediction-readiness-v2",
+            )
+            or self.status != "PASS"
+        ):
+            raise ValueError("readiness token must be a supported PASS schema")
         _require_git_head(self.git_head)
         for name in self._SHA_FIELDS:
             _require_sha256(getattr(self, name), name)
         _require_sha256(self.h1_prefix_prior_manifest_sha256, "h1_prefix_prior_manifest_sha256")
+        if self.readiness_schema == "h6-prediction-readiness-v1":
+            if (
+                self.h1_prefix_prior_generative_factor_schema_sha256
+                is not None
+                or self.smc_bias_semantics_sha256 is not None
+                or self.objective_gate_spec_sha256 is not None
+                or self._objective_gate_spec is not None
+                or self._matching_set is not None
+            ):
+                raise ValueError("legacy readiness cannot carry amended bindings")
+        else:
+            from vfe4.evaluation.smc_uncertainty import SMC_BIAS_SEMANTICS
+
+            if (
+                self.h1_prefix_prior_generative_factor_schema_sha256
+                != H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256
+            ):
+                raise ValueError(
+                    "amended readiness requires the production scorer-v2 schema"
+                )
+            if (
+                self.smc_bias_semantics_sha256
+                != SMC_BIAS_SEMANTICS.semantics_sha256
+            ):
+                raise ValueError(
+                    "amended readiness requires the frozen SMC bias semantics"
+                )
+            _require_sha256(
+                self.objective_gate_spec_sha256,
+                "objective_gate_spec_sha256",
+            )
+            if type(self._objective_gate_spec) is not ObjectiveGateSpec:
+                raise ValueError("amended readiness requires the typed OBJECTIVE spec")
+            self._objective_gate_spec.__post_init__()
+            if (
+                self._objective_gate_spec.spec_sha256
+                != self.objective_gate_spec_sha256
+            ):
+                raise ValueError("amended readiness OBJECTIVE binding is stale")
+            from vfe4.artifacts.h6_matching import H6MatchingSetRecord
+
+            if type(self._matching_set) is not H6MatchingSetRecord:
+                raise ValueError(
+                    "amended readiness requires the typed eligible matching set"
+                )
+            self._matching_set.__post_init__()
+            if (
+                self._matching_set.status != "ELIGIBLE"
+                or self._matching_set.obligations
+                or self._matching_set.matching_set_sha256
+                != self.matching_set_sha256
+                or self._matching_set.git_head != self.git_head
+                or self._matching_set.dirty_digest != self.dirty_digest
+            ):
+                raise ValueError(
+                    "amended readiness matching evidence is stale or ineligible"
+                )
+            if type(self._training_schedule) is not H6TrainingSchedule:
+                raise ValueError("typed H6 training schedule is required")
+            self._training_schedule.__post_init__()
+            scheduled = tuple(
+                (
+                    item.endpoint_config_sha256,
+                    item.latent_enabled,
+                )
+                for item in self._training_schedule.endpoint_phases
+            )
+            selected = tuple(
+                (
+                    item.config.config_sha256,
+                    item.config.latent_enabled,
+                )
+                for item in self._matching_set.ownership_inventories
+            )
+            if scheduled != selected:
+                raise ValueError(
+                    "training schedule endpoints differ from selected matching "
+                    "ownership inventories"
+                )
         gates = tuple(gate for gate, _ in self.correctness_manifests)
         if gates != ("H1", "H2", "H3", "H5"):
             raise ValueError("correctness manifests must be exactly H1, H2, H3, H5")
@@ -3715,6 +4112,12 @@ class H6PredictionReadinessToken:
             != self.h1_prefix_prior_manifest_sha256
         ):
             raise ValueError("H1-prefix-prior artifact must be a current exact PASS record")
+        if (
+            self.readiness_schema == "h6-prediction-readiness-v2"
+            and self._h1_prefix_prior_artifact.generative_factor_schema_sha256
+            != self.h1_prefix_prior_generative_factor_schema_sha256
+        ):
+            raise ValueError("amended readiness H1 scorer-v2 binding is stale")
         if type(self._smc_accuracy_artifact) is not SmcAccuracyArtifactRef:
             raise ValueError("typed SMC accuracy artifact is required")
         self._smc_accuracy_artifact.__post_init__()
@@ -3763,7 +4166,12 @@ class H6PredictionReadinessToken:
             self._prefix_certificates
         ):
             raise ValueError("prefix certificate set identity does not match certificates")
-        expected = _owned_hash("vfe4.h6.prediction-readiness.v1", self._payload())
+        domain = (
+            "vfe4.h6.prediction-readiness.v1"
+            if self.readiness_schema == "h6-prediction-readiness-v1"
+            else "vfe4.h6.prediction-readiness.v2"
+        )
+        expected = _owned_hash(domain, self._payload())
         if self.readiness_sha256 != expected:
             raise ValueError("readiness_sha256 does not match readiness fields")
 
@@ -3774,6 +4182,21 @@ class H6PredictionReadinessToken:
             **{name: getattr(self, name) for name in self._SHA_FIELDS},
             "correctness_manifests": self.correctness_manifests,
             "h1_prefix_prior_manifest_sha256": self.h1_prefix_prior_manifest_sha256,
+            **(
+                {}
+                if self.readiness_schema == "h6-prediction-readiness-v1"
+                else {
+                    "h1_prefix_prior_generative_factor_schema_sha256": (
+                        self.h1_prefix_prior_generative_factor_schema_sha256
+                    ),
+                    "smc_bias_semantics_sha256": (
+                        self.smc_bias_semantics_sha256
+                    ),
+                    "objective_gate_spec_sha256": (
+                        self.objective_gate_spec_sha256
+                    ),
+                }
+            ),
             "status": self.status,
         }
 
@@ -3847,6 +4270,9 @@ def issue_prediction_readiness(
             (artifact.gate, artifact.manifest_sha256) for artifact in correctness
         ),
         "h1_prefix_prior_manifest_sha256": h1_prefix_prior_artifact.manifest_sha256,
+        "h1_prefix_prior_generative_factor_schema_sha256": None,
+        "smc_bias_semantics_sha256": None,
+        "objective_gate_spec_sha256": None,
         "h5_update_binding_sha256": h5_update_binding.binding_sha256,
         "h6_training_schedule_sha256": h6_training_schedule.schedule_sha256,
         "smc_validation_manifest_sha256": smc_accuracy_artifact.manifest_sha256,
@@ -3866,6 +4292,8 @@ def issue_prediction_readiness(
         "_h5_update_binding": h5_update_binding,
         "_endpoint_smc_protocol": endpoint_smc_protocol,
         "_data_identity": data_identity,
+        "_matching_set": None,
+        "_objective_gate_spec": None,
     }
     payload = {
         "readiness_schema": values["readiness_schema"],
@@ -3879,6 +4307,130 @@ def issue_prediction_readiness(
         "vfe4.h6.prediction-readiness.v1", payload
     )
     return _new_frozen(H6PredictionReadinessToken, **values)  # type: ignore[return-value]
+
+
+def issue_prediction_readiness_v2(
+    *,
+    git_head: str,
+    dirty_digest: str,
+    experiment_config_sha256: str,
+    correctness_artifacts: tuple[PredictionCorrectnessArtifactRef, ...],
+    h1_prefix_prior_artifact: H1PrefixPriorArtifactRef,
+    h1_prefix_prior_generative_factor_schema_sha256: str,
+    smc_bias_semantics_sha256: str,
+    objective_gate_spec: ObjectiveGateSpec,
+    h5_update_binding: H5UpdateBinding,
+    h6_training_schedule: H6TrainingSchedule,
+    smc_accuracy_artifact: SmcAccuracyArtifactRef,
+    critical_values_sha256: str,
+    endpoint_smc_protocol: "EndpointSmcProtocol",
+    attribution_matrix_sha256: str,
+    matching_set_sha256: str,
+    prefix_certificates: Mapping[PrefixCaseKey, PrefixCertificate],
+    data_identity: DataIdentity,
+    matching_set: "H6MatchingSetRecord",
+) -> H6PredictionReadinessToken:
+    """Issue amended readiness with scorer-v2 and OBJECTIVE bindings."""
+
+    if type(objective_gate_spec) is not ObjectiveGateSpec:
+        raise ValueError("typed OBJECTIVE gate specification is required")
+    objective_gate_spec.__post_init__()
+    if type(h1_prefix_prior_artifact) is not H1PrefixPriorArtifactRef:
+        raise ValueError("typed H1 prefix-prior artifact is required")
+    from vfe4.artifacts.h6_matching import H6MatchingSetRecord
+
+    if type(matching_set) is not H6MatchingSetRecord:
+        raise ValueError("typed H6 matching set is required")
+    matching_set.__post_init__()
+    if (
+        matching_set.status != "ELIGIBLE"
+        or matching_set.obligations
+        or matching_set.matching_set_sha256 != matching_set_sha256
+    ):
+        raise ValueError("H6 matching set is stale or ineligible")
+    if (
+        h1_prefix_prior_generative_factor_schema_sha256
+        != H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256
+    ):
+        raise ValueError(
+            "H1 prefix-prior scorer schema must equal the production v2 schema"
+        )
+    from vfe4.evaluation.smc_uncertainty import SMC_BIAS_SEMANTICS
+
+    if (
+        smc_bias_semantics_sha256
+        != SMC_BIAS_SEMANTICS.semantics_sha256
+    ):
+        raise ValueError(
+            "SMC bias semantics must equal the frozen production semantics"
+        )
+    if (
+        h1_prefix_prior_artifact.generative_factor_schema_sha256
+        != h1_prefix_prior_generative_factor_schema_sha256
+    ):
+        raise ValueError("H1 prefix-prior artifact is not the configured scorer-v2")
+    legacy = issue_prediction_readiness(
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+        experiment_config_sha256=experiment_config_sha256,
+        correctness_artifacts=correctness_artifacts,
+        h1_prefix_prior_artifact=h1_prefix_prior_artifact,
+        h5_update_binding=h5_update_binding,
+        h6_training_schedule=h6_training_schedule,
+        smc_accuracy_artifact=smc_accuracy_artifact,
+        critical_values_sha256=critical_values_sha256,
+        endpoint_smc_protocol=endpoint_smc_protocol,
+        attribution_matrix_sha256=attribution_matrix_sha256,
+        matching_set_sha256=matching_set_sha256,
+        prefix_certificates=prefix_certificates,
+        data_identity=data_identity,
+    )
+    values: dict[str, object] = {
+        "readiness_schema": "h6-prediction-readiness-v2",
+        "git_head": legacy.git_head,
+        "dirty_digest": legacy.dirty_digest,
+        "experiment_config_sha256": legacy.experiment_config_sha256,
+        "correctness_manifests": legacy.correctness_manifests,
+        "h1_prefix_prior_manifest_sha256": (
+            legacy.h1_prefix_prior_manifest_sha256
+        ),
+        "h1_prefix_prior_generative_factor_schema_sha256": (
+            h1_prefix_prior_generative_factor_schema_sha256
+        ),
+        "smc_bias_semantics_sha256": smc_bias_semantics_sha256,
+        "objective_gate_spec_sha256": objective_gate_spec.spec_sha256,
+        **{
+            name: getattr(legacy, name)
+            for name in H6PredictionReadinessToken._SHA_FIELDS
+            if name
+            not in {
+                "dirty_digest",
+                "experiment_config_sha256",
+            }
+        },
+        "status": "PASS",
+        "_correctness_artifacts": legacy._correctness_artifacts,
+        "_h1_prefix_prior_artifact": legacy._h1_prefix_prior_artifact,
+        "_smc_accuracy_artifact": legacy._smc_accuracy_artifact,
+        "_prefix_certificates": legacy._prefix_certificates,
+        "_training_schedule": legacy._training_schedule,
+        "_h5_update_binding": legacy._h5_update_binding,
+        "_endpoint_smc_protocol": legacy._endpoint_smc_protocol,
+        "_data_identity": legacy._data_identity,
+        "_matching_set": matching_set,
+        "_objective_gate_spec": objective_gate_spec,
+    }
+    provisional = object.__new__(H6PredictionReadinessToken)
+    for name, value in values.items():
+        object.__setattr__(provisional, name, value)
+    values["readiness_sha256"] = _owned_hash(
+        "vfe4.h6.prediction-readiness.v2",
+        provisional._payload(),
+    )
+    return _new_frozen(
+        H6PredictionReadinessToken,
+        **values,
+    )  # type: ignore[return-value]
 
 
 @dataclass(frozen=True)
@@ -4036,6 +4588,167 @@ class NllTotals:
 
 
 H6_PREDICTION_DELTA = 0.01005033585350145
+H6_OBJECTIVE_DELTA = 0.01005033585350145
+H6_OBJECTIVE_COMPLETE_ARM_ID = (
+    "h6-a5-structured-parent-specific-prefix-exact-complete-"
+    "latent-smoothing-v2"
+)
+H6_OBJECTIVE_EMISSION_ARM_ID = _H6_PARENT_SPECIFIC_EMISSION_CONFIG_ID
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectiveGateSpec:
+    schema_version: Literal["h6-objective-gate-v1"]
+    complete_arm_id: str
+    emission_arm_id: str
+    orientation: Literal["nll_complete_minus_nll_emission"]
+    delta_obj: Literal[0.01005033585350145]
+    opening_policy: Literal["single_all_or_none"]
+    evaluation_order: Literal["OBJECTIVE_then_PRIMARY"]
+    spec_sha256: str
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != "h6-objective-gate-v1"
+            or self.complete_arm_id != H6_OBJECTIVE_COMPLETE_ARM_ID
+            or self.emission_arm_id != H6_OBJECTIVE_EMISSION_ARM_ID
+            or self.complete_arm_id == self.emission_arm_id
+            or self.orientation != "nll_complete_minus_nll_emission"
+            or self.delta_obj != H6_OBJECTIVE_DELTA
+            or self.opening_policy != "single_all_or_none"
+            or self.evaluation_order != "OBJECTIVE_then_PRIMARY"
+        ):
+            raise ValueError("objective gate specification differs from the amendment")
+        _require_sha256(self.spec_sha256, "spec_sha256")
+        if self.spec_sha256 != _owned_hash(
+            "vfe4.h6.objective-gate.v1",
+            self.canonical_payload(),
+        ):
+            raise ValueError("spec_sha256 does not match objective gate fields")
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "complete_arm_id": self.complete_arm_id,
+            "emission_arm_id": self.emission_arm_id,
+            "orientation": self.orientation,
+            "delta_obj": self.delta_obj.hex(),
+            "opening_policy": self.opening_policy,
+            "evaluation_order": self.evaluation_order,
+        }
+
+    @classmethod
+    def create(cls) -> "ObjectiveGateSpec":
+        values = {
+            "schema_version": "h6-objective-gate-v1",
+            "complete_arm_id": H6_OBJECTIVE_COMPLETE_ARM_ID,
+            "emission_arm_id": H6_OBJECTIVE_EMISSION_ARM_ID,
+            "orientation": "nll_complete_minus_nll_emission",
+            "delta_obj": H6_OBJECTIVE_DELTA,
+            "opening_policy": "single_all_or_none",
+            "evaluation_order": "OBJECTIVE_then_PRIMARY",
+        }
+        return cls(
+            **values,  # type: ignore[arg-type]
+            spec_sha256=_owned_hash(
+                "vfe4.h6.objective-gate.v1",
+                {
+                    **values,
+                    "delta_obj": H6_OBJECTIVE_DELTA.hex(),
+                },
+            ),
+        )
+
+
+@dataclass(frozen=True, init=False)
+class ObjectiveGateDecision:
+    status: EvidenceStatus
+    objective_interval: tuple[float, float]
+    estimator_complete: bool
+    interval_eligible: bool
+    obligations: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, EvidenceStatus):
+            raise ValueError("status must be an EvidenceStatus")
+        if (
+            type(self.objective_interval) is not tuple
+            or len(self.objective_interval) != 2
+            or any(
+                type(value) is not float or not math.isfinite(value)
+                for value in self.objective_interval
+            )
+            or self.objective_interval[0] > self.objective_interval[1]
+        ):
+            raise ValueError("objective_interval must be an ordered finite pair")
+        if (
+            type(self.estimator_complete) is not bool
+            or type(self.interval_eligible) is not bool
+        ):
+            raise ValueError("objective estimator flags must be boolean")
+        lower, upper = self.objective_interval
+        if not self.estimator_complete:
+            expected_status = EvidenceStatus.INCONCLUSIVE
+            expected_obligations = (
+                "objective actual-endpoint estimator evidence incomplete",
+            )
+        elif not self.interval_eligible:
+            expected_status = EvidenceStatus.INCONCLUSIVE
+            expected_obligations = (
+                "objective estimator interval is ineligible",
+            )
+        elif upper <= H6_OBJECTIVE_DELTA:
+            expected_status = EvidenceStatus.PASS
+            expected_obligations = ()
+        elif lower > H6_OBJECTIVE_DELTA:
+            expected_status = EvidenceStatus.FAIL
+            expected_obligations = ()
+        else:
+            expected_status = EvidenceStatus.INCONCLUSIVE
+            expected_obligations = (
+                "objective interval does not cross the frozen upper-bound decision",
+            )
+        if self.status is not expected_status or self.obligations != expected_obligations:
+            raise ValueError("objective decision does not match the frozen interval rule")
+
+    @classmethod
+    def classify(
+        cls,
+        *,
+        objective_interval: tuple[float, float],
+        estimator_complete: bool,
+        interval_eligible: bool,
+    ) -> "ObjectiveGateDecision":
+        if type(estimator_complete) is not bool or type(interval_eligible) is not bool:
+            raise ValueError("objective estimator flags must be boolean")
+        lower, upper = objective_interval
+        if not estimator_complete:
+            status = EvidenceStatus.INCONCLUSIVE
+            obligations = (
+                "objective actual-endpoint estimator evidence incomplete",
+            )
+        elif not interval_eligible:
+            status = EvidenceStatus.INCONCLUSIVE
+            obligations = ("objective estimator interval is ineligible",)
+        elif upper <= H6_OBJECTIVE_DELTA:
+            status = EvidenceStatus.PASS
+            obligations = ()
+        elif lower > H6_OBJECTIVE_DELTA:
+            status = EvidenceStatus.FAIL
+            obligations = ()
+        else:
+            status = EvidenceStatus.INCONCLUSIVE
+            obligations = (
+                "objective interval does not cross the frozen upper-bound decision",
+            )
+        return _new_frozen(
+            cls,
+            status=status,
+            objective_interval=objective_interval,
+            estimator_complete=estimator_complete,
+            interval_eligible=interval_eligible,
+            obligations=obligations,
+        )  # type: ignore[return-value]
 
 
 @dataclass(frozen=True, init=False)
@@ -4116,23 +4829,190 @@ class PredictionDecision:
         )  # type: ignore[return-value]
 
 
+def _ordered_primary_disposition(
+    *,
+    primary_interval: tuple[float, float] | None,
+    estimator_complete: bool,
+    interval_eligible: bool,
+) -> tuple[EvidenceStatus, str, tuple[str, ...]]:
+    if not estimator_complete:
+        return (
+            EvidenceStatus.INCONCLUSIVE,
+            "INCONCLUSIVE",
+            ("actual-endpoint estimator evidence incomplete",),
+        )
+    if not interval_eligible:
+        return (
+            EvidenceStatus.INCONCLUSIVE,
+            "INCONCLUSIVE",
+            ("primary estimator interval is ineligible",),
+        )
+    raw = PredictionDecision.classify(
+        primary_interval=primary_interval,
+        estimator_complete=True,
+    )
+    return raw.status, raw.status.value, raw.obligations
+
+
+@dataclass(frozen=True, init=False)
+class OrderedPredictionDecision:
+    """One-opening H6 disposition with OBJECTIVE logically before PRIMARY."""
+
+    status: EvidenceStatus
+    objective_gate_spec_sha256: str
+    objective: ObjectiveGateDecision
+    primary_interval: tuple[float, float] | None
+    primary_estimator_complete: bool
+    primary_interval_eligible: bool
+    primary_disposition: Literal[
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_EVALUATED_AFTER_OBJECTIVE_GATE",
+    ]
+    opening_count: Literal[1]
+    test_opening_sha256: str
+    raw_endpoint_inventory_sha256: str
+    obligations: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        expected_spec = ObjectiveGateSpec.create()
+        _require_sha256(
+            self.objective_gate_spec_sha256,
+            "objective_gate_spec_sha256",
+        )
+        if self.objective_gate_spec_sha256 != expected_spec.spec_sha256:
+            raise ValueError("ordered prediction binds the wrong OBJECTIVE spec")
+        if type(self.objective) is not ObjectiveGateDecision:
+            raise ValueError("ordered prediction requires an OBJECTIVE decision")
+        self.objective.__post_init__()
+        if (
+            type(self.primary_estimator_complete) is not bool
+            or type(self.primary_interval_eligible) is not bool
+        ):
+            raise ValueError("primary estimator flags must be boolean")
+        if self.primary_interval is not None and (
+            type(self.primary_interval) is not tuple
+            or len(self.primary_interval) != 2
+            or any(
+                type(value) is not float or not math.isfinite(value)
+                for value in self.primary_interval
+            )
+            or self.primary_interval[0] > self.primary_interval[1]
+        ):
+            raise ValueError("raw PRIMARY interval must be an ordered finite pair")
+        if self.primary_estimator_complete and self.primary_interval is None:
+            raise ValueError("complete PRIMARY evidence requires its raw interval")
+        if self.opening_count != 1:
+            raise ValueError("ordered prediction requires exactly one test opening")
+        _require_sha256(self.test_opening_sha256, "test_opening_sha256")
+        _require_sha256(
+            self.raw_endpoint_inventory_sha256,
+            "raw_endpoint_inventory_sha256",
+        )
+        if self.objective.status is EvidenceStatus.PASS:
+            (
+                expected_status,
+                expected_disposition,
+                expected_obligations,
+            ) = _ordered_primary_disposition(
+                primary_interval=self.primary_interval,
+                estimator_complete=self.primary_estimator_complete,
+                interval_eligible=self.primary_interval_eligible,
+            )
+        else:
+            expected_status = self.objective.status
+            expected_disposition = "NOT_EVALUATED_AFTER_OBJECTIVE_GATE"
+            expected_obligations = self.objective.obligations
+        if (
+            self.status is not expected_status
+            or self.primary_disposition != expected_disposition
+            or self.obligations != expected_obligations
+        ):
+            raise ValueError("ordered prediction does not follow OBJECTIVE_then_PRIMARY")
+
+    @classmethod
+    def classify(
+        cls,
+        *,
+        objective_gate_spec: ObjectiveGateSpec,
+        objective: ObjectiveGateDecision,
+        primary_interval: tuple[float, float] | None,
+        primary_estimator_complete: bool,
+        primary_interval_eligible: bool,
+        opening_count: int,
+        test_opening_sha256: str,
+        raw_endpoint_inventory_sha256: str,
+    ) -> "OrderedPredictionDecision":
+        if type(objective_gate_spec) is not ObjectiveGateSpec:
+            raise ValueError("ordered prediction requires the exact OBJECTIVE spec")
+        objective_gate_spec.__post_init__()
+        if type(objective) is not ObjectiveGateDecision:
+            raise ValueError("ordered prediction requires an OBJECTIVE decision")
+        objective.__post_init__()
+        if (
+            type(primary_estimator_complete) is not bool
+            or type(primary_interval_eligible) is not bool
+        ):
+            raise ValueError("primary estimator flags must be boolean")
+        if opening_count != 1:
+            raise ValueError("ordered prediction requires exactly one test opening")
+        if objective.status is EvidenceStatus.PASS:
+            (
+                status,
+                primary_disposition,
+                obligations,
+            ) = _ordered_primary_disposition(
+                primary_interval=primary_interval,
+                estimator_complete=primary_estimator_complete,
+                interval_eligible=primary_interval_eligible,
+            )
+        else:
+            status = objective.status
+            primary_disposition = "NOT_EVALUATED_AFTER_OBJECTIVE_GATE"
+            obligations = objective.obligations
+        return _new_frozen(
+            cls,
+            status=status,
+            objective_gate_spec_sha256=objective_gate_spec.spec_sha256,
+            objective=objective,
+            primary_interval=primary_interval,
+            primary_estimator_complete=primary_estimator_complete,
+            primary_interval_eligible=primary_interval_eligible,
+            primary_disposition=primary_disposition,
+            opening_count=1,
+            test_opening_sha256=test_opening_sha256,
+            raw_endpoint_inventory_sha256=raw_endpoint_inventory_sha256,
+            obligations=obligations,
+        )  # type: ignore[return-value]
+
+
 __all__ = [
     "ArmId", "CausalDag", "CausalDagRow", "CheckpointIdentity", "DataIdentity",
     "DurableTestOpeningCapability", "EmissionOnlyAblationTerms",
     "EncodedTokenStorageIdentity", "EndpointSmcProtocol", "EstimatorSpec",
     "EvidenceStatus", "ExperimentIdentity", "FrozenBatchSchedule", "FrozenTensorSnapshot",
+    "H6_INFERENCE_PARTICLE_COUNTS",
     "H1PrefixPriorArtifactRef", "H5UpdateBinding", "H6ArmPhaseSchedule",
     "H6EndpointLanguageElboTerms", "H6FactorTerm", "H6LanguageElboTerms",
     "H6SourcePriorTrace",
     "H6LanguageStructure", "H6OuterSchedule",
     "H6PrefixProfilePair",
-    "H6PredictionReadinessToken", "H6TrainingSchedule", "H6_PREFIX_REQUIRED_CHECKS",
-    "H6_PREDICTION_DELTA", "NllTotals", "PredictionCorrectnessArtifactRef",
-    "PredictionDecision", "PrefixCaseKey", "PrefixCertificate",
+    "H6PredictionReadinessToken", "H6TrainingSchedule",
+    "H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256",
+    "H6_PREFIX_REQUIRED_CHECKS",
+    "H6_EMISSION_ONLY_ABLATION_HASH_DOMAIN",
+    "H6_OBJECTIVE_COMPLETE_ARM_ID", "H6_OBJECTIVE_DELTA",
+    "H6_OBJECTIVE_EMISSION_ARM_ID", "H6_PREDICTION_DELTA",
+    "InferenceComputeRecord", "NllTotals",
+    "ObjectiveGateDecision", "ObjectiveGateSpec", "OrderedPredictionDecision",
+    "PredictionCorrectnessArtifactRef", "PredictionDecision", "PrefixCaseKey",
+    "PrefixCertificate",
     "PrefixReportBinding", "SealedSplitHandle",
     "SmcAccuracyArtifactRef", "TrainingPhase", "ValidatedTestOpening",
     "ValidationSafetyFixture", "VocabularyIdentity", "ZeroDimensionalBase",
-    "canonical_json_bytes", "h6_source_law_identity",
+    "arm_model_family_sha256", "canonical_json_bytes", "h6_source_law_identity",
     "h6_source_law_marker_identity",
-    "issue_prediction_readiness", "require_prefix_pass",
+    "issue_prediction_readiness", "issue_prediction_readiness_v2",
+    "require_prefix_pass",
 ]

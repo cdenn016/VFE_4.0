@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import math
-from dataclasses import dataclass
-from typing import Literal
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from typing import Iterator, Literal
 
 import torch
 from torch import Tensor, nn
@@ -15,11 +16,15 @@ from vfe4.generative.source_priors import (
     FixedSourceFactorContext,
     FixedSourcePrior,
     NormalizedSourceFactor,
+    ParentSpecificPooledPrefixSourcePrior,
     PrefixConditionedSourceFactorContext,
-    PrefixConditionedSourcePrior,
 )
 from vfe4.objective.language_elbo import (
+    ExpectationEvaluationMethod,
     LanguageElboExpectation,
+    LiveEmissionExpectation,
+    LiveEmissionExpectationContext,
+    _evaluate_emission_only_ablation,
     _evaluate_language_elbo,
 )
 from vfe4.predictive import (
@@ -40,13 +45,16 @@ from vfe4.types.h6 import (
     ArmId,
     CausalDag,
     CausalDagRow,
+    EmissionOnlyAblationTerms,
     EstimatorSpec,
     H6EndpointLanguageElboTerms,
+    H6_OBJECTIVE_EMISSION_ARM_ID,
     H6SourcePriorTrace,
     H6LanguageStructure,
     TrainingPhase,
     VocabularyIdentity,
     ZeroDimensionalBase,
+    arm_model_family_sha256,
     canonical_json_bytes,
 )
 
@@ -88,6 +96,54 @@ ElboPartition = Literal[
 H6_TARGET_FREE_DATA_SAFETY_SHA256 = hashlib.sha256(
     b"VFE4-H6-TARGET-FREE-PREDICTIVE-BOUNDARY-V1"
 ).hexdigest()
+
+
+@dataclass(slots=True)
+class _SharedFrameEvaluationCache:
+    """One live-forward-graph cache for shared vertex frames and inverses."""
+
+    owner: "LatentLanguageArmModel"
+    frames: dict[tuple[Channel, int], Tensor] = field(default_factory=dict)
+    source_inverses: dict[tuple[Channel, int], Tensor] = field(
+        default_factory=dict
+    )
+    _parameter_versions: tuple[tuple[int, int], ...] = field(init=False)
+    _closed: bool = field(default=False, init=False)
+
+    def __post_init__(self) -> None:
+        if type(self.owner) is not LatentLanguageArmModel:
+            raise ValueError("shared-frame cache owner must be one exact model")
+        self._parameter_versions = self._current_parameter_versions()
+
+    def _current_parameter_versions(self) -> tuple[tuple[int, int], ...]:
+        parameters = (
+            tuple(self.owner.state_vertex_phi)
+            + tuple(getattr(self.owner, "model_vertex_phi", ()))
+        )
+        return tuple((id(parameter), parameter._version) for parameter in parameters)
+
+    @property
+    def frame_count(self) -> int:
+        return len(self.frames)
+
+    @property
+    def source_inverse_count(self) -> int:
+        return len(self.source_inverses)
+
+    def assert_owner(self, model: "LatentLanguageArmModel") -> None:
+        if self._closed:
+            raise ValueError("shared-frame cache is closed")
+        if self.owner is not model:
+            raise ValueError("shared-frame cache belongs to another model")
+        if self._parameter_versions != self._current_parameter_versions():
+            raise ValueError(
+                "shared-frame parameters changed during the live forward graph"
+            )
+
+    def close(self) -> None:
+        self.frames.clear()
+        self.source_inverses.clear()
+        self._closed = True
 
 _SEMANTIC_FIELDS = (
     "latent_enabled",
@@ -143,6 +199,21 @@ _A5_PROFILES: dict[str, tuple[object, ...]] = {
     ),
     "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1": (
         *_A5_BASE[:7], "prefix_conditioned", *_A5_BASE[8:]
+    ),
+    (
+        "h6-a5-structured-parent-specific-prefix-exact-complete-"
+        "latent-smoothing-v2"
+    ): (
+        *_A5_BASE[:7], "parent_specific_pooled_prefix", *_A5_BASE[8:]
+    ),
+    (
+        "h6-a5-structured-parent-specific-prefix-exact-emission-"
+        "latent-smoothing-v2"
+    ): (
+        *_A5_BASE[:7],
+        "parent_specific_pooled_prefix",
+        _A5_BASE[8],
+        "emission_only_ablation_non_elbo",
     ),
     "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1": (
         *_A5_BASE[:8], "moment_projection", _A5_BASE[9]
@@ -298,7 +369,9 @@ class LatentLanguageArmModel(nn.Module):
             "generic_fixed_frame_non_coboundary",
             "shared_vertex_coboundary",
         ],
-        prior_variant: Literal["absent", "fixed", "prefix_conditioned"],
+        prior_variant: Literal[
+            "absent", "fixed", "parent_specific_pooled_prefix"
+        ],
         prior_context_width: int | None,
         predictor_config_sha256: str,
         model_family_sha256: str,
@@ -325,13 +398,17 @@ class LatentLanguageArmModel(nn.Module):
             "shared_vertex_coboundary",
         ):
             raise ValueError("unsupported map mode")
-        if prior_variant not in ("absent", "fixed", "prefix_conditioned"):
+        if prior_variant not in (
+            "absent",
+            "fixed",
+            "parent_specific_pooled_prefix",
+        ):
             raise ValueError("unsupported source-prior variant")
         if (source_mode == "categorical") != (prior_variant != "absent"):
             raise ValueError(
                 "categorical source variables require one live source prior"
             )
-        if (prior_variant == "prefix_conditioned") != (
+        if (prior_variant == "parent_specific_pooled_prefix") != (
             prior_context_width is not None
         ):
             raise ValueError(
@@ -440,7 +517,9 @@ class LatentLanguageArmModel(nn.Module):
             )
 
         self.source_prior: (
-            FixedSourcePrior | PrefixConditionedSourcePrior | None
+            FixedSourcePrior
+            | ParentSpecificPooledPrefixSourcePrior
+            | None
         ) = None
         if source_mode == "categorical":
             structure = _dense_source_structure(horizon)
@@ -458,12 +537,12 @@ class LatentLanguageArmModel(nn.Module):
                     state_logits=zero_rows,
                     model_logits=zero_rows if model_channel_enabled else None,
                 )
-            elif prior_variant == "prefix_conditioned":
+            elif prior_variant == "parent_specific_pooled_prefix":
                 if prior_context_width is None:
                     raise ValueError(
                         "prefix-conditioned source prior requires context width"
                     )
-                self.source_prior = PrefixConditionedSourcePrior(
+                self.source_prior = ParentSpecificPooledPrefixSourcePrior(
                     structure=structure,
                     vocabulary=vocabulary,
                     fixture_sha256=structure.structure_sha256,
@@ -565,7 +644,30 @@ class LatentLanguageArmModel(nn.Module):
     def _edge_index(receiver_t: int, source_j: int) -> int:
         return receiver_t * (receiver_t - 1) // 2 + source_j
 
-    def vertex_frame(self, channel: Channel, vertex_t: int) -> Tensor:
+    def _new_shared_frame_cache(self) -> _SharedFrameEvaluationCache:
+        if self.map_mode != "shared_vertex_coboundary":
+            raise ValueError("shared-frame cache requires a coboundary arm")
+        return _SharedFrameEvaluationCache(self)
+
+    @contextmanager
+    def shared_frame_evaluation(
+        self,
+    ) -> Iterator[_SharedFrameEvaluationCache]:
+        """Own one cache across every receiver in one live forward graph."""
+
+        cache = self._new_shared_frame_cache()
+        try:
+            yield cache
+        finally:
+            cache.close()
+
+    def vertex_frame(
+        self,
+        channel: Channel,
+        vertex_t: int,
+        *,
+        frame_cache: _SharedFrameEvaluationCache | None = None,
+    ) -> Tensor:
         if self.map_mode != "shared_vertex_coboundary":
             raise ValueError("vertex frames exist only for coboundary arms")
         if type(vertex_t) is not int or not 0 <= vertex_t <= self.horizon:
@@ -576,16 +678,35 @@ class LatentLanguageArmModel(nn.Module):
             parameters = self.model_vertex_phi
         else:
             raise ValueError("requested channel is structurally absent")
+        key = (channel, vertex_t)
+        if frame_cache is not None:
+            if type(frame_cache) is not _SharedFrameEvaluationCache:
+                raise ValueError(
+                    "frame_cache must be an exact managed shared-frame cache"
+                )
+            frame_cache.assert_owner(self)
+            cached = frame_cache.frames.get(key)
+            if cached is not None:
+                return cached
         if vertex_t == 0:
-            return torch.eye(
+            result = torch.eye(
                 self.latent_width,
                 dtype=parameters[0].dtype,
                 device=parameters[0].device,
             )
-        return torch.matrix_exp(parameters[vertex_t - 1])
+        else:
+            result = torch.matrix_exp(parameters[vertex_t - 1])
+        if frame_cache is not None:
+            frame_cache.frames[key] = result
+        return result
 
     def edge_map(
-        self, channel: Channel, receiver_t: int, source_j: int
+        self,
+        channel: Channel,
+        receiver_t: int,
+        source_j: int,
+        *,
+        frame_cache: _SharedFrameEvaluationCache | None = None,
     ) -> Tensor:
         self._receiver_source(receiver_t, source_j)
         if self.map_mode == "generic_fixed_frame_non_coboundary":
@@ -596,9 +717,23 @@ class LatentLanguageArmModel(nn.Module):
                 return self.generic_fixed_frame_model_edge_maps[index]
             raise ValueError("requested channel is structurally absent")
         if self.map_mode == "shared_vertex_coboundary":
-            receiver_frame = self.vertex_frame(channel, receiver_t)
-            source_frame = self.vertex_frame(channel, source_j)
-            return receiver_frame @ torch.linalg.inv(source_frame)
+            receiver_frame = self.vertex_frame(
+                channel, receiver_t, frame_cache=frame_cache
+            )
+            inverse_key = (channel, source_j)
+            source_inverse = (
+                frame_cache.source_inverses.get(inverse_key)
+                if frame_cache is not None
+                else None
+            )
+            if source_inverse is None:
+                source_frame = self.vertex_frame(
+                    channel, source_j, frame_cache=frame_cache
+                )
+                source_inverse = torch.linalg.inv(source_frame)
+                if frame_cache is not None:
+                    frame_cache.source_inverses[inverse_key] = source_inverse
+            return receiver_frame @ source_inverse
         raise ValueError("ordinary A1 has no internal map sector")
 
     def _source_factor(
@@ -712,11 +847,17 @@ class LatentLanguageArmModel(nn.Module):
         receiver_t: int,
         source_j: int,
         source_model: Tensor,
+        frame_cache: _SharedFrameEvaluationCache | None = None,
     ) -> Tensor:
         if not self.model_channel_enabled:
             raise ValueError("model channel is structurally absent")
         source = self._vector(source_model, "source_model")
-        transport = self.edge_map("model", receiver_t, source_j)
+        transport = self.edge_map(
+            "model",
+            receiver_t,
+            source_j,
+            frame_cache=frame_cache,
+        )
         return transport @ source + self.model_transition_bias
 
     def state_transition_mean(
@@ -726,6 +867,7 @@ class LatentLanguageArmModel(nn.Module):
         source_j: int,
         source_state: Tensor,
         current_model: Tensor | None,
+        frame_cache: _SharedFrameEvaluationCache | None = None,
     ) -> Tensor:
         source = self._vector(source_state, "source_state")
         if self.arm is ArmId.A1:
@@ -737,7 +879,13 @@ class LatentLanguageArmModel(nn.Module):
             )
         else:
             mean = (
-                self.edge_map("state", receiver_t, source_j) @ source
+                self.edge_map(
+                    "state",
+                    receiver_t,
+                    source_j,
+                    frame_cache=frame_cache,
+                )
+                @ source
                 + self.state_transition_bias
             )
         if self.arm in (ArmId.A2, ArmId.A5):
@@ -807,6 +955,7 @@ class ArmTargetFreeProposalAdapter:
         )
         self.model_family_sha256 = model_family_sha256
         self.model_state_sha256 = canonical_model_state_sha256(model)
+        self._active_frame_cache: _SharedFrameEvaluationCache | None = None
         self.proposal_identity_sha256 = _owned_hash(
             "vfe4.h6.arm-target-free-proposal.v1",
             {
@@ -822,6 +971,26 @@ class ArmTargetFreeProposalAdapter:
             raise ValueError(
                 "arm proposal model state changed; rebuild the predictive boundary"
             )
+
+    @contextmanager
+    def live_forward_graph(self) -> Iterator[None]:
+        """Share exact frame subexpressions until this evaluation returns."""
+
+        self.assert_current_state()
+        if self._active_frame_cache is not None:
+            raise ValueError("arm proposal forward graph is already active")
+        if (
+            type(self.model) is LatentLanguageArmModel
+            and self.model.map_mode == "shared_vertex_coboundary"
+        ):
+            with self.model.shared_frame_evaluation() as cache:
+                self._active_frame_cache = cache
+                try:
+                    yield
+                finally:
+                    self._active_frame_cache = None
+            return
+        yield
 
     @staticmethod
     def _key(
@@ -957,7 +1126,8 @@ class ArmTargetFreeProposalAdapter:
             else CounterPurpose.MODEL_SOURCE_CATEGORICAL
         )
         conditional = (
-            type(self.model.source_prior) is PrefixConditionedSourcePrior
+            type(self.model.source_prior)
+            is ParentSpecificPooledPrefixSourcePrior
         )
         inputs = {
             "prefix": prefix if conditional else None,
@@ -1048,6 +1218,14 @@ class ArmTargetFreeProposalAdapter:
         current_states: list[Tensor] = []
         current_models: list[Tensor] = []
         emission_rows: list[Tensor] = []
+        frame_cache = self._active_frame_cache
+        if (
+            self.model.map_mode == "shared_vertex_coboundary"
+            and frame_cache is None
+        ):
+            raise ValueError(
+                "shared-frame propagation requires one managed live forward graph"
+            )
         for particle_index in range(population.particle_count):
             state_source = (
                 self._categorical_source(
@@ -1089,6 +1267,7 @@ class ArmTargetFreeProposalAdapter:
                     receiver_t=position,
                     source_j=model_source,
                     source_model=model_history[particle_index, model_source],
+                    frame_cache=frame_cache,
                 ) + torch.exp(self.model.model_transition_log_scale) * model_noise
                 current_models.append(current_model)
 
@@ -1109,6 +1288,7 @@ class ArmTargetFreeProposalAdapter:
                 source_j=state_source,
                 source_state=state_history[particle_index, state_source],
                 current_model=current_model,
+                frame_cache=frame_cache,
             ) + torch.exp(self.model.state_transition_log_scale) * state_noise
             current_states.append(current_state)
             emission_rows.append(
@@ -1244,32 +1424,75 @@ class BuiltArm:
             estimator_spec=estimator_spec,
         )
 
-    def evaluate_complete_language_elbo(
+    def issue_emission_expectation_context(
+        self,
+        *,
+        receiver_t: int,
+        observed_token_id: int,
+        state_support: Tensor,
+        model_support: Tensor,
+        normalized_weights: Tensor,
+        evaluation_method: ExpectationEvaluationMethod,
+    ) -> LiveEmissionExpectationContext:
+        """Own one graph-live weighted emission context under this arm state."""
+
+        if type(self.model) is not LatentLanguageArmModel:
+            raise ValueError(
+                "emission expectation contexts require a latent arm model"
+            )
+        if (
+            self.config.arm is not ArmId.A5
+            or self.config.config_id != H6_OBJECTIVE_EMISSION_ARM_ID
+            or self.config.objective_kind
+            != "emission_only_ablation_non_elbo"
+            or self.config.prior_variant
+            != "parent_specific_pooled_prefix"
+            or self.config.mixture_mode != "exact"
+        ):
+            raise ValueError(
+                "emission expectation contexts are authorized only for the "
+                "literal parent-specific OBJECTIVE endpoint"
+            )
+        model_state_before = canonical_model_state_sha256(self.model)
+        context = LiveEmissionExpectationContext._from_live_arm(
+            endpoint_config=self.config,
+            model_family_sha256=self.model_family_sha256,
+            canonical_model_state_sha256=model_state_before,
+            evaluation_method=evaluation_method,
+            receiver_t=receiver_t,
+            observed_token_id=observed_token_id,
+            state_support=state_support,
+            model_support=model_support,
+            normalized_weights=normalized_weights,
+        )
+        if canonical_model_state_sha256(self.model) != model_state_before:
+            raise ValueError(
+                "live arm model state changed while issuing emission context"
+            )
+        return context
+
+    def _live_source_prior_trace(
         self,
         expectation: LanguageElboExpectation,
-    ) -> H6EndpointLanguageElboTerms:
-        """Bind the A2/A5 complete objective to its configured mixture law."""
+    ) -> H6SourcePriorTrace:
+        """Recompute exact source factors from this arm's live source prior."""
 
         if not isinstance(expectation, LanguageElboExpectation):
             raise ValueError(
                 "expectation must implement LanguageElboExpectation"
             )
-        if (
-            self.config.arm not in (ArmId.A2, ArmId.A5)
-            or self.config.objective_kind != "complete_elbo"
-            or self.config.mixture_mode not in ("exact", "moment_projection")
-        ):
-            raise ValueError(
-                "complete source-mixture ELBO is available only for "
-                "complete A2/A5 endpoints"
-            )
         if type(self.model) is not LatentLanguageArmModel:
-            raise ValueError("complete source-mixture ELBO requires a latent arm")
+            raise ValueError("source-prior tracing requires a latent arm")
         source_prior = self.model.source_prior
         if self.config.prior_variant == "fixed":
             expected_prior_type = FixedSourcePrior
+        elif self.config.prior_variant == "parent_specific_pooled_prefix":
+            expected_prior_type = ParentSpecificPooledPrefixSourcePrior
         else:
-            expected_prior_type = PrefixConditionedSourcePrior
+            raise ValueError(
+                "live source-prior tracing does not authorize this historical "
+                "prior variant"
+            )
         if (
             type(source_prior) is not expected_prior_type
             or source_prior.model_family_sha256 != self.model_family_sha256
@@ -1371,11 +1594,32 @@ class BuiltArm:
                         "live-prior recomputation from its typed context"
                     )
                 recomputed_source_factors.append(recomputed_factor)
-        source_prior_trace = H6SourcePriorTrace._from_live_prior(
+        return H6SourcePriorTrace._from_live_prior(
             endpoint_config=self.config,
             source_prior=source_prior,
             ordered_source_factors=tuple(recomputed_source_factors),
         )
+
+    def evaluate_complete_language_elbo(
+        self,
+        expectation: LanguageElboExpectation,
+    ) -> H6EndpointLanguageElboTerms:
+        """Bind the A2/A5 complete objective to its configured mixture law."""
+
+        if not isinstance(expectation, LanguageElboExpectation):
+            raise ValueError(
+                "expectation must implement LanguageElboExpectation"
+            )
+        if (
+            self.config.arm not in (ArmId.A2, ArmId.A5)
+            or self.config.objective_kind != "complete_elbo"
+            or self.config.mixture_mode not in ("exact", "moment_projection")
+        ):
+            raise ValueError(
+                "complete source-mixture ELBO is available only for "
+                "complete A2/A5 endpoints"
+            )
+        source_prior_trace = self._live_source_prior_trace(expectation)
         return _evaluate_language_elbo(
             expectation,
             endpoint_config=self.config,
@@ -1383,6 +1627,46 @@ class BuiltArm:
             mixture_mode=self.config.mixture_mode,
             source_prior_trace=source_prior_trace,
         )
+
+    def evaluate_emission_only_ablation(
+        self,
+        expectation: LiveEmissionExpectation,
+    ) -> EmissionOnlyAblationTerms:
+        """Bind OBJECTIVE emission training to this live v2 A5 endpoint."""
+
+        if not isinstance(expectation, LiveEmissionExpectation):
+            raise ValueError(
+                "expectation must provide LanguageElboExpectation metadata "
+                "and BuiltArm-issued live emission contexts"
+            )
+        if (
+            self.config.arm is not ArmId.A5
+            or self.config.config_id != H6_OBJECTIVE_EMISSION_ARM_ID
+            or self.config.objective_kind
+            != "emission_only_ablation_non_elbo"
+            or self.config.prior_variant
+            != "parent_specific_pooled_prefix"
+            or self.config.mixture_mode != "exact"
+        ):
+            raise ValueError(
+                "emission-only training is authorized only for the literal "
+                "parent-specific OBJECTIVE endpoint"
+            )
+        model_state_before = canonical_model_state_sha256(self.model)
+        source_prior_trace = self._live_source_prior_trace(expectation)
+        result = _evaluate_emission_only_ablation(
+            expectation,
+            endpoint_config=self.config,
+            model_family_sha256=self.model_family_sha256,
+            model=self.model,
+            canonical_model_state_sha256=model_state_before,
+            source_prior_trace=source_prior_trace,
+        )
+        if canonical_model_state_sha256(self.model) != model_state_before:
+            raise ValueError(
+                "live arm model state changed during emission-only evaluation"
+            )
+        return result
 
 
 def _semantic_role(config: ArmConfig, qualified_name: str) -> str:
@@ -1554,18 +1838,7 @@ def _training_flop_obligations(
 
 
 def _model_family_sha256(config: ArmConfig) -> str:
-    factory = (
-        "build_a0@h6-arm-v2"
-        if config.arm is ArmId.A0
-        else f"build_{config.arm.value.lower()}@h6-arm-v1"
-    )
-    return _owned_hash(
-        "vfe4.h6.arm-model-family.v1",
-        {
-            "config_sha256": config.config_sha256,
-            "factory": factory,
-        },
-    )
+    return arm_model_family_sha256(config)
 
 
 def literal_arm_semantic_payload(config: ArmConfig) -> dict[str, object]:

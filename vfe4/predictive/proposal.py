@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping, Protocol, runtime_checkable
@@ -12,7 +13,11 @@ import torch
 from torch import Tensor
 
 from vfe4.data.windows import CausalPrefix
-from vfe4.generative import LanguageGenerativeModel, PrefixConditionedSourcePrior
+from vfe4.generative import (
+    LanguageGenerativeModel,
+    ParentSpecificPooledPrefixSourcePrior,
+    PooledHistoryConditionedSourcePrior,
+)
 from vfe4.types.h6 import (
     FrozenTensorSnapshot,
     VocabularyIdentity,
@@ -591,6 +596,13 @@ class TargetFreeProposalAdapter(Protocol):
     ) -> ProposalStep: ...
 
 
+@runtime_checkable
+class ManagedForwardGraphProposal(Protocol):
+    """Optional proposal lifecycle spanning every receiver in one evaluation."""
+
+    def live_forward_graph(self) -> AbstractContextManager[None]: ...
+
+
 class LanguageGenerativeProposalAdapter:
     """Explicit bootstrap sampler for Task-3 normalized generative factors."""
 
@@ -736,7 +748,10 @@ class LanguageGenerativeProposalAdapter:
         earlier_latents: Tensor,
     ) -> Tensor:
         kwargs: dict[str, object] = {"receiver_t": prefix.receiver_t}
-        if type(self.model.source_prior) is PrefixConditionedSourcePrior:
+        if type(self.model.source_prior) in (
+            ParentSpecificPooledPrefixSourcePrior,
+            PooledHistoryConditionedSourcePrior,
+        ):
             kwargs.update(
                 {"prefix": prefix, "earlier_latents": earlier_latents}
             )
@@ -927,6 +942,7 @@ __all__ = [
     "CounterPurpose",
     "EstimatorStream",
     "LanguageGenerativeProposalAdapter",
+    "ManagedForwardGraphProposal",
     "PopulationComponent",
     "ProposalPopulation",
     "ProposalStep",

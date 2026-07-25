@@ -11,7 +11,13 @@ from vfe4.training.h6_readiness import (
     PREDICTION_READINESS_SOURCE_BLOCKERS,
     ProducerCompatibilityError,
     _load_prediction_correctness_artifact,
+    adjudicate_h6_prediction_opening,
 )
+from vfe4.evaluation.smc_uncertainty import (
+    SMC_BIAS_SEMANTICS,
+    inflate_paired_interval,
+)
+from vfe4.types.h6 import EvidenceStatus
 
 
 def test_prediction_readiness_roots_exclude_h4_and_current_gate_payload_blocks(
@@ -93,4 +99,77 @@ def test_prediction_readiness_roots_exclude_h4_and_current_gate_payload_blocks(
             expected_manifest_sha256=hashlib.sha256(manifest).hexdigest(),
             expected_git_head="b" * 40,
             expected_dirty_digest="c" * 64,
+        )
+
+
+def test_objective_gate_blocks_primary_without_a_second_opening() -> None:
+    def interval(value: float, *, error_radius: float = 0.0):
+        return inflate_paired_interval(
+            (value,) * 8,
+            (error_radius,) * 8,
+            (0.0,) * 8,
+            (0.0,) * 8,
+        )
+
+    objective = interval(0.02)
+    raw_primary = interval(0.03)
+    decision, metrics_bytes = adjudicate_h6_prediction_opening(
+        objective_interval=objective,
+        primary_interval=raw_primary,
+        objective_estimator_complete=True,
+        primary_estimator_complete=True,
+        test_opening_sha256="d" * 64,
+        raw_endpoint_inventory_sha256="e" * 64,
+        opening_count=1,
+    )
+    assert decision.status is EvidenceStatus.FAIL
+    assert (
+        decision.primary_disposition
+        == "NOT_EVALUATED_AFTER_OBJECTIVE_GATE"
+    )
+    assert decision.primary_interval == (raw_primary.lower, raw_primary.upper)
+    assert decision.opening_count == 1
+
+    payload = json.loads(metrics_bytes)
+    assert payload["schema"] == "h6-prediction-metrics-v2"
+    assert (
+        payload["smc_bias_semantics_sha256"]
+        == SMC_BIAS_SEMANTICS.semantics_sha256
+    )
+    assert payload["opening_count"] == 1
+    assert payload["test_opening_sha256"] == "d" * 64
+    assert payload["raw_endpoint_inventory_sha256"] == "e" * 64
+    assert payload["primary_interval"] == {
+        "lower": raw_primary.lower,
+        "upper": raw_primary.upper,
+    }
+    assert (
+        payload["primary_disposition"]
+        == "NOT_EVALUATED_AFTER_OBJECTIVE_GATE"
+    )
+
+    ineligible_primary, _ = adjudicate_h6_prediction_opening(
+        objective_interval=interval(0.0),
+        primary_interval=interval(0.03, error_radius=0.02),
+        objective_estimator_complete=True,
+        primary_estimator_complete=True,
+        test_opening_sha256="d" * 64,
+        raw_endpoint_inventory_sha256="e" * 64,
+        opening_count=1,
+    )
+    assert ineligible_primary.status is EvidenceStatus.INCONCLUSIVE
+    assert ineligible_primary.primary_disposition == "INCONCLUSIVE"
+    assert ineligible_primary.obligations == (
+        "primary estimator interval is ineligible",
+    )
+
+    with pytest.raises(ValueError, match="exactly one test opening"):
+        adjudicate_h6_prediction_opening(
+            objective_interval=objective,
+            primary_interval=raw_primary,
+            objective_estimator_complete=True,
+            primary_estimator_complete=True,
+            test_opening_sha256="d" * 64,
+            raw_endpoint_inventory_sha256="e" * 64,
+            opening_count=2,
         )

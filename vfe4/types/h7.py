@@ -4148,6 +4148,7 @@ class H7PredecessorReference(_H7IntegrityRecord):
     git_head: str
     dirty_digest: str
     junit_sha256: str
+    junit_path: str
     manifest_sha256: str
     payload_hashes: Mapping[str, str]
     ledger_path: str
@@ -4156,6 +4157,7 @@ class H7PredecessorReference(_H7IntegrityRecord):
 
     def __post_init__(self) -> None:
         _require_nonempty(self.artifact_path, "artifact_path")
+        _require_nonempty(self.junit_path, "junit_path")
         _require_nonempty(self.ledger_path, "ledger_path")
         if (
             type(self.git_head) is not str

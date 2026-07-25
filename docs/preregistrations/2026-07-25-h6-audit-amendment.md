@@ -118,6 +118,15 @@ Its independent NumPy route must verify:
 Only a PASS artifact bound to the scorer-v2 schema can satisfy the new H6
 primary prerequisite. Ordinary scalar `h1-v1` remains unchanged.
 
+The scorer-v2 producer keeps `h1-prefix-prior-config-v2` but publishes the
+versioned `h1-prefix-prior-validation-v3` payload. Version 3 adds the exact
+candidate JUnit SHA-256 (or an explicit `null` outside a candidate-evidence
+lifecycle) to the immutable validation bytes. H7 may accept this predecessor
+only when the config, fixture, scorer, generative-factor schema, source
+identity, and non-null JUnit identity all match the same candidate. Historical
+validation v1/v2 artifacts remain readable where applicable but cannot
+authorize amended H6/H7 promotion.
+
 ## 4. Matching remains jointly fail-closed
 
 The primary scientific match is whole-schedule training-arithmetic matching,
@@ -173,6 +182,32 @@ recomputation, fake phases, no-op optimizer work, or wider tolerances.
 Prediction, particle, cache, checkpoint-load, and scoring costs are reported
 in a separate inference-inclusive ledger and never change training-match
 eligibility.
+
+The two hard gates authorize only the amended `PRIMARY` comparison:
+`h6-a0-transformer-v2` versus the jointly selected parent-specific complete
+A5 endpoint. This clause supersedes the earlier blanket requirement that every
+descriptive/component endpoint must close both gates before PRIMARY can be
+eligible. The frozen component inventories and selectors are not widened.
+Each component retains its exact predeclared active endpoint, ownership,
+whole-schedule training ledger, formula-selection status, and obligations as a
+disclosure. When its formula selection is INCONCLUSIVE, the associated matrix
+record is explicitly unauthorized for a matched component conclusion and
+cannot promote or demote PRIMARY. No unmatched component result may be cited
+as a compute-matched attribution.
+
+The `OBJECTIVE` endpoints are not a second training-compute match. Both are
+derived only from the exact eligible PRIMARY selection, share its selected A5
+nuisance allocation and ownership, and differ only in `objective_kind`. Their
+intended complete-versus-emission computation difference may leave the generic
+five-percent matrix report INCONCLUSIVE; that arithmetic status neither
+authorizes a compute-matched OBJECTIVE claim nor blocks the separately
+preregistered logical OBJECTIVE gate.
+
+Scorer authorization is derived from each exact selected endpoint config:
+every `latent_enabled=True` endpoint carries the full weighted-SMC
+`(128,256,512,1024)` table, while A0 and the explicit no-latent A5 control
+carry one exact particle-free row. Config-ID prefixes or caller-supplied
+scorer labels cannot authorize either path.
 
 ## 5. Raw SMC bias and Richardson Q2 are distinct
 
@@ -239,6 +274,12 @@ INCONCLUSIVE, PRIMARY is recorded as
 confirmatory training or test-scoring compute.
 
 The emission-only arm remains explicitly `is_elbo=false`.
+Its ordered emission factors must be recomputed by the exact live `BuiltArm`
+model from typed observation/latent expectation contexts. The record binds the
+complete live model-state SHA-256 captured across that evaluation. Arbitrary
+caller-provided scalar contributions, factor identities, config-only model
+family hashes, or a state hash that changes during evaluation cannot authorize
+the OBJECTIVE endpoint.
 
 ## 7. Controls, risk, and downstream boundaries
 

@@ -63,59 +63,119 @@ def _h8_current_refs(head: str, dirty: str, junit: str):
     )
 
     digest = "a" * 64
-    common = {
-        "artifact_path": "artifact",
+    compatibility = {
+        key: H7PredecessorReference.create(
+            artifact_path=f"C:/immutable/{key}-artifact",
+            git_head=head,
+            dirty_digest=dirty,
+            junit_sha256=junit,
+            junit_path=f"C:/immutable/{key}-junit.xml",
+            manifest_sha256=digest,
+            payload_hashes={f"{key}.json": digest},
+            ledger_path=f"C:/immutable/{key}-ledger",
+            ledger_sha256=digest,
+        )
+        for key in ("h1_h5", "h1_prefix_prior", "h6_prefix")
+    }
+
+    def common(key: str) -> dict[str, object]:
+        transitive = compatibility[key]
+        return {
+            "artifact_path": transitive.artifact_path,
+            "manifest_sha256": transitive.manifest_sha256,
+            "result_path": f"C:/immutable/{key}-result",
+            "result_sha256": digest,
+            "content_hashes": {f"{key}-content.json": digest},
+            "payload_hashes": dict(transitive.payload_hashes),
+            "ledger_path": transitive.ledger_path,
+            "ledger_sha256": transitive.ledger_sha256,
+            "producer_head": transitive.git_head,
+            "producer_dirty_digest": transitive.dirty_digest,
+            "candidate_junit_sha256": transitive.junit_sha256,
+            "status": "pass",
+        }
+
+    h7_common = {
+        "artifact_path": "C:/immutable/h7-artifact",
         "manifest_sha256": digest,
-        "result_path": "result",
+        "result_path": "C:/immutable/h7-result",
         "result_sha256": digest,
-        "content_hashes": {"content.json": digest},
-        "payload_hashes": {"validation.json": digest},
-        "ledger_path": "ledger",
+        "content_hashes": {"h7-content.json": digest},
+        "payload_hashes": {"h7.json": digest},
+        "ledger_path": "C:/immutable/h7-ledger",
         "ledger_sha256": digest,
         "producer_head": head,
         "producer_dirty_digest": dirty,
         "candidate_junit_sha256": junit,
         "status": "pass",
     }
-    compatibility = {
-        key: H7PredecessorReference.create(
-            artifact_path=f"{key}-artifact",
-            git_head=head,
-            dirty_digest=dirty,
-            junit_sha256=junit,
-            manifest_sha256=digest,
-            payload_hashes={f"{key}.json": digest},
-            ledger_path=f"{key}-ledger",
-            ledger_sha256=digest,
-        )
-        for key in ("h1_h5", "h1_prefix_prior", "h6_prefix")
+    prediction_common = {
+        **h7_common,
+        "artifact_path": "C:/immutable/prediction-artifact",
+        "result_path": "C:/immutable/prediction-result",
+        "content_hashes": {"prediction-content.json": digest},
+        "payload_hashes": {"prediction.json": digest},
+        "ledger_path": "C:/immutable/prediction-ledger",
+        "candidate_junit_sha256": junit,
     }
     base = CurrentH8PrerequisiteRefs(
         candidate_head=head,
         candidate_dirty_digest=dirty,
         candidate_junit_sha256=junit,
         h7_compatibility_refs=compatibility,
-        h1_h5=H8H1H5Reference(kind="h1_h5", **common),  # type: ignore[arg-type]
+        h1_h5=H8H1H5Reference(
+            kind="h1_h5", **common("h1_h5")  # type: ignore[arg-type]
+        ),
         h1_prefix_prior=H8H1PrefixPriorReference(
-            kind="h1_prefix_prior", **common,  # type: ignore[arg-type]
+            kind="h1_prefix_prior",
+            **common("h1_prefix_prior"),  # type: ignore[arg-type]
         ),
         h6_prefix=H8H6PrefixReference(
             kind="h6_prefix",
             certificate_set_sha256=digest,
             certificate_hashes={"certificate.json": digest},
-            **common,  # type: ignore[arg-type]
+            **common("h6_prefix"),  # type: ignore[arg-type]
         ),
         h7=H8H7Reference(
             kind="h7",
             result_pointer_path="h7-pointer",
             result_pointer_sha256=digest,
             fixture_set_sha256=digest,
-            **common,  # type: ignore[arg-type]
+            **h7_common,  # type: ignore[arg-type]
         ),
         h6_prediction=H8H6PredictionReference(
             kind="h6_prediction",
+            prediction_schema="h6-prediction-amended-v2",
+            config_schema="h6-prediction-config-v2",
+            readiness_schema="h6-prediction-readiness-v2",
+            metrics_schema="h6-prediction-metrics-v2",
+            result_schema="h6-prediction-result-v2",
             experiment_sha256=digest,
-            **common,  # type: ignore[arg-type]
+            config_sha256=digest,
+            readiness_artifact_path="C:/immutable/prediction-readiness",
+            readiness_manifest_sha256=digest,
+            readiness_sha256=digest,
+            correctness_artifact_paths={
+                gate: f"C:/immutable/prediction-{gate.lower()}-correctness"
+                for gate in ("H1", "H2", "H3", "H5")
+            },
+            h1_prefix_prior_artifact_path=(
+                "C:/immutable/prediction-h1-prefix-prior"
+            ),
+            smc_accuracy_artifact_path="C:/immutable/prediction-smc-accuracy",
+            smc_accuracy_manifest_sha256=digest,
+            h6_prefix_artifact_path="C:/immutable/prediction-h6-prefix",
+            h6_prefix_manifest_sha256=digest,
+            blinded_data_artifact_path="C:/immutable/prediction-blinded-data",
+            blinded_data_manifest_sha256=digest,
+            matching_artifact_path="C:/immutable/prediction-matching",
+            matching_manifest_sha256=digest,
+            matching_set_sha256=digest,
+            h1_prefix_prior_generative_factor_schema_sha256=digest,
+            smc_bias_semantics_sha256=digest,
+            objective_gate_spec_sha256=digest,
+            metrics_sha256=digest,
+            **prediction_common,  # type: ignore[arg-type]
         ),
         registry_sha256=digest,
     )
@@ -129,6 +189,64 @@ def _h8_current_refs(head: str, dirty: str, junit: str):
         ),
         registry_bytes,
     )
+
+
+def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
+    import verification.h8_gate as h8_gate
+    import verification.run_gates as gates
+
+    _refs, registry_bytes = _h8_current_refs("1" * 40, "2" * 64, "3" * 64)
+    payload = json.loads(registry_bytes)
+    payload["schema_version"] = "h8-current-candidate-refs-v1"
+    h6_prediction = payload["references"]["h6_prediction"]
+    legacy_fields = {
+        "kind",
+        "artifact_path",
+        "manifest_sha256",
+        "result_path",
+        "result_sha256",
+        "content_hashes",
+        "payload_hashes",
+        "experiment_sha256",
+        "ledger_path",
+        "ledger_sha256",
+        "producer_head",
+        "producer_dirty_digest",
+        "candidate_junit_sha256",
+        "status",
+    }
+    payload["references"]["h6_prediction"] = {
+        key: value
+        for key, value in h6_prediction.items()
+        if key in legacy_fields
+    }
+    legacy_bytes = h8_gate.canonical_h8_json_bytes(payload)
+
+    parsed = gates.parse_h8_reference_registry_bytes(legacy_bytes)
+
+    assert type(parsed.h6_prediction).__name__ == "H8LegacyH6PredictionReference"
+    assert parsed.registry_schema_version == "h8-current-candidate-refs-v1"
+    assert parsed.prerequisite_obligations == (
+        "h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2",
+    )
+    assert (
+        h8_gate.canonical_h8_json_bytes(
+            h8_gate.h8_current_refs_registry_payload(parsed)
+        )
+        == legacy_bytes
+    )
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="4" * 64,
+        current_refs=parsed,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="5" * 64,
+        preregistration_sha256="6" * 64,
+    )
+    assert evaluation.result.status is GateStatus.INCONCLUSIVE
+    assert parsed.prerequisite_obligations[0] in evaluation.result.obligations
 
 
 def test_launcher_import_is_safe_and_has_no_cli_framework(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -208,6 +326,7 @@ def test_h7_main_publishes_only_reference_records_and_h7_validation(
         references[key] = gates.candidate_artifact_reference_to_h7_reference(
             candidate,
             junit_sha256=junit,
+            junit_path=tmp_path / "candidate-junit.xml",
             ledger_path=tmp_path / ".verification" / f"{key}-ledger.json",
             ledger_sha256=digest,
         )

@@ -27,9 +27,11 @@ from vfe4.types.h6 import (
     H6ArmPhaseSchedule,
     H6EndpointLanguageElboTerms,
     H6FactorTerm,
+    H6_OBJECTIVE_EMISSION_ARM_ID,
     MatchingReport,
     OptimizerBinding,
     TrainingPhase,
+    arm_model_family_sha256,
     canonical_json_bytes,
 )
 
@@ -458,6 +460,15 @@ class ArmTrainingObjectiveAdapter:
             != self.inventory.latent_enabled
         ):
             raise ValueError("objective adapter endpoint bindings are inconsistent")
+        if (
+            self.inventory.objective_kind
+            == "emission_only_ablation_non_elbo"
+            and self.config_id != H6_OBJECTIVE_EMISSION_ARM_ID
+        ):
+            raise ValueError(
+                "historical emission-only configs are readable but cannot "
+                "authorize training"
+            )
         if self.adapter_sha256 != _owned_hash(
             "vfe4.h6.arm-objective-adapter.v2", self.canonical_payload()
         ):
@@ -474,6 +485,14 @@ class ArmTrainingObjectiveAdapter:
         if type(config) is not ArmConfig:
             raise ValueError("config must be an exact ArmConfig")
         config.__post_init__()
+        if (
+            config.objective_kind == "emission_only_ablation_non_elbo"
+            and config.config_id != H6_OBJECTIVE_EMISSION_ARM_ID
+        ):
+            raise ValueError(
+                "historical emission-only configs are readable but cannot "
+                "authorize training"
+            )
         if inventory != ArmObjectiveInventory.for_config(config=config):
             raise ValueError("inventory does not match endpoint config")
         if phase_schedule.endpoint_config_sha256 != config.config_sha256:
@@ -515,6 +534,25 @@ class ArmTrainingObjectiveAdapter:
             if type(objective) is not EmissionOnlyAblationTerms:
                 raise ValueError("endpoint requires emission-only ablation terms")
             objective.__post_init__()
+            if (
+                objective.endpoint_config_sha256
+                != self.endpoint_config_sha256
+                or objective.endpoint_config.config_id != self.config_id
+                or objective.model_family_sha256
+                != arm_model_family_sha256(objective.endpoint_config)
+                or objective.source_prior_trace.endpoint_config
+                != objective.endpoint_config
+                or objective.source_prior_trace.model_family_sha256
+                != objective.model_family_sha256
+                or objective.source_prior_trace.prior_variant
+                != "parent_specific_pooled_prefix"
+                or objective.source_prior_trace.prior_type
+                != "ParentSpecificPooledPrefixSourcePrior"
+            ):
+                raise ValueError(
+                    "emission-only objective source treatment or live-prior "
+                    "trace belongs to another endpoint"
+                )
             terms = objective.ordered_emission_terms
             producer_sha = objective.canonical_sha256
             total = objective.total
@@ -546,7 +584,7 @@ class ArmTrainingObjectiveAdapter:
                 != (
                     "FixedSourcePrior"
                     if objective.endpoint_config.prior_variant == "fixed"
-                    else "PrefixConditionedSourcePrior"
+                    else "ParentSpecificPooledPrefixSourcePrior"
                 )
             ):
                 raise ValueError(

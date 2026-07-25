@@ -24,26 +24,13 @@ from vfe4.types.results import GateStatus
 def _current_refs(*, registry_sha256: str | None = None) -> CurrentH8PrerequisiteRefs:
     digest = "a" * 64
     head = "1" * 40
-    common: dict[str, object] = {
-        "artifact_path": "artifact",
-        "manifest_sha256": digest,
-        "result_path": "result",
-        "result_sha256": digest,
-        "content_hashes": {"content.json": digest},
-        "payload_hashes": {"validation.json": digest},
-        "ledger_path": "ledger",
-        "ledger_sha256": digest,
-        "producer_head": head,
-        "producer_dirty_digest": digest,
-        "candidate_junit_sha256": digest,
-        "status": "pass",
-    }
     compatibility = {
         key: H7PredecessorReference.create(
             artifact_path=f"{key}-artifact",
             git_head=head,
             dirty_digest=digest,
             junit_sha256=digest,
+            junit_path=f"{key}-junit.xml",
             manifest_sha256=digest,
             payload_hashes={f"{key}.json": digest},
             ledger_path=f"{key}-ledger",
@@ -51,33 +38,103 @@ def _current_refs(*, registry_sha256: str | None = None) -> CurrentH8Prerequisit
         )
         for key in ("h1_h5", "h1_prefix_prior", "h6_prefix")
     }
+
+    def common(key: str) -> dict[str, object]:
+        transitive = compatibility[key]
+        return {
+            "artifact_path": transitive.artifact_path,
+            "manifest_sha256": transitive.manifest_sha256,
+            "result_path": f"{key}-result",
+            "result_sha256": digest,
+            "content_hashes": {f"{key}-content.json": digest},
+            "payload_hashes": dict(transitive.payload_hashes),
+            "ledger_path": transitive.ledger_path,
+            "ledger_sha256": transitive.ledger_sha256,
+            "producer_head": transitive.git_head,
+            "producer_dirty_digest": transitive.dirty_digest,
+            "candidate_junit_sha256": transitive.junit_sha256,
+            "status": "pass",
+        }
+
+    h7_common: dict[str, object] = {
+        "artifact_path": "h7-artifact",
+        "manifest_sha256": digest,
+        "result_path": "h7-result",
+        "result_sha256": digest,
+        "content_hashes": {"h7-content.json": digest},
+        "payload_hashes": {"h7.json": digest},
+        "ledger_path": "h7-ledger",
+        "ledger_sha256": digest,
+        "producer_head": head,
+        "producer_dirty_digest": digest,
+        "candidate_junit_sha256": digest,
+        "status": "pass",
+    }
+    prediction_common = {
+        **h7_common,
+        "artifact_path": "prediction-artifact",
+        "result_path": "prediction-result",
+        "content_hashes": {"prediction-content.json": digest},
+        "payload_hashes": {"prediction.json": digest},
+        "ledger_path": "prediction-ledger",
+        "candidate_junit_sha256": digest,
+    }
     return CurrentH8PrerequisiteRefs(
         candidate_head=head,
         candidate_dirty_digest=digest,
         candidate_junit_sha256=digest,
         h7_compatibility_refs=compatibility,
-        h1_h5=H8H1H5Reference(kind="h1_h5", **common),  # type: ignore[arg-type]
+        h1_h5=H8H1H5Reference(
+            kind="h1_h5", **common("h1_h5")  # type: ignore[arg-type]
+        ),
         h1_prefix_prior=H8H1PrefixPriorReference(
             kind="h1_prefix_prior",
-            **common,  # type: ignore[arg-type]
+            **common("h1_prefix_prior"),  # type: ignore[arg-type]
         ),
         h6_prefix=H8H6PrefixReference(
             kind="h6_prefix",
             certificate_set_sha256=digest,
             certificate_hashes={"certificate.json": digest},
-            **common,  # type: ignore[arg-type]
+            **common("h6_prefix"),  # type: ignore[arg-type]
         ),
         h7=H8H7Reference(
             kind="h7",
             result_pointer_path="h7-result-pointer",
             result_pointer_sha256=digest,
             fixture_set_sha256=digest,
-            **common,  # type: ignore[arg-type]
+            **h7_common,  # type: ignore[arg-type]
         ),
         h6_prediction=H8H6PredictionReference(
             kind="h6_prediction",
+            prediction_schema="h6-prediction-amended-v2",
+            config_schema="h6-prediction-config-v2",
+            readiness_schema="h6-prediction-readiness-v2",
+            metrics_schema="h6-prediction-metrics-v2",
+            result_schema="h6-prediction-result-v2",
             experiment_sha256=digest,
-            **common,  # type: ignore[arg-type]
+            config_sha256=digest,
+            readiness_artifact_path="prediction-readiness",
+            readiness_manifest_sha256=digest,
+            readiness_sha256=digest,
+            correctness_artifact_paths={
+                gate: f"prediction-{gate.lower()}-correctness"
+                for gate in ("H1", "H2", "H3", "H5")
+            },
+            h1_prefix_prior_artifact_path="prediction-h1-prefix-prior",
+            smc_accuracy_artifact_path="prediction-smc-accuracy",
+            smc_accuracy_manifest_sha256=digest,
+            h6_prefix_artifact_path="prediction-h6-prefix",
+            h6_prefix_manifest_sha256=digest,
+            blinded_data_artifact_path="prediction-blinded-data",
+            blinded_data_manifest_sha256=digest,
+            matching_artifact_path="prediction-matching",
+            matching_manifest_sha256=digest,
+            matching_set_sha256=digest,
+            h1_prefix_prior_generative_factor_schema_sha256=digest,
+            smc_bias_semantics_sha256=digest,
+            objective_gate_spec_sha256=digest,
+            metrics_sha256=digest,
+            **prediction_common,  # type: ignore[arg-type]
         ),
         registry_sha256=registry_sha256 or digest,
     )
@@ -105,6 +162,38 @@ def test_h8_preflight_keeps_optional_hashes_and_failure_dominates() -> None:
         )
         is GateStatus.FAIL
     )
+
+
+def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs() -> None:
+    refs = _current_refs()
+
+    validation = h8_gate.validate_h8_prerequisite_artifacts(refs)
+    obligations = validation.obligations
+
+    assert obligations == (
+        "h8_prerequisite_h7_transitive_junit_artifact_revalidation_required",
+        "h8_prerequisite_h1_h5_immutable_artifact_revalidation_required",
+        "h8_prerequisite_h1_prefix_prior_immutable_artifact_revalidation_required",
+        "h8_prerequisite_h6_prefix_immutable_artifact_revalidation_required",
+        "h8_prerequisite_h7_immutable_artifact_revalidation_required",
+        "h8_prerequisite_h6_prediction_v2_artifact_revalidation_required",
+    )
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="b" * 64,
+        current_refs=refs,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+        prerequisite_validation=validation,
+    )
+    payload = h8_gate.h8_validation_payload(evaluation)
+    assert payload["status"] == "inconclusive"
+    assert payload["prerequisites"]["obligations"] == list(obligations)
+    assert payload["prerequisites"]["all_current_and_pass"] is False
+    assert payload["invariants"]["prerequisites_current_and_pass"] is False
 
 
 def test_h8_payload_inventories_are_exact_and_private() -> None:

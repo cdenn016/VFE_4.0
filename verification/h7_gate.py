@@ -17,6 +17,10 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Literal, cast
 
+from vfe4.artifacts.provenance import source_candidate_sha256
+from vfe4.types.h6 import (
+    H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256,
+)
 from vfe4.types.h7 import (
     H7_CONTROL_IDS,
     H7_MATRIX_TRIAL_IDS,
@@ -41,6 +45,13 @@ from vfe4.types.results import (
 
 H7_VERIFICATION_PREFIX = ("H1", "H2", "H3", "H4", "H5", "H6-Prefix", "H7")
 H7_PREDECESSOR_KEYS = H7GateResult.predecessor_keys
+H7_PREDECESSOR_CLAIM_IDS: Mapping[str, str] = MappingProxyType(
+    {
+        "h1_h5": "h7-predecessor-h1-h5-closure",
+        "h1_prefix_prior": "h7-predecessor-h1-prefix-prior-closure",
+        "h6_prefix": "h7-predecessor-h6-prefix-closure",
+    }
+)
 H7_ACTIVE_SCORER_PROFILE = "h7-linear-history-source-v1"
 H7_VALIDATION_SCHEMA = "h7-frame-covariance-validation-v1"
 H7_SOURCE_ONLY_OBLIGATIONS = (
@@ -98,6 +109,12 @@ H7_CAPTURED_FIXTURE_PATHS = (
     "vfe4/validation/fixtures/h1_v1.json",
     "vfe4/validation/fixtures/h7_v1.json",
 )
+H7_H1_PREFIX_PRIOR_V2_FIXTURE_SHA256 = (
+    "6b0e855482b8f335bec73e4b0976a1317d7ce4cf3ff050670b3950e271c57fde"
+)
+H7_H1_PREFIX_PRIOR_BASE_FIXTURE_SHA256 = (
+    "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+)
 
 _LOWER_HEX = frozenset("0123456789abcdef")
 
@@ -120,6 +137,175 @@ def _require_git_head(value: object) -> str:
     ):
         raise ValueError("git_head must be a full lowercase Git object ID")
     return value
+
+
+def _candidate_path(
+    value: object,
+    *,
+    repo_root: Path,
+    name: str,
+    require_inside_repo: bool,
+) -> Path:
+    if type(value) is not str or not value:
+        raise ValueError(f"{name} must be a nonempty path string")
+    raw = Path(value)
+    if not raw.is_absolute() and any(part in ("", ".", "..") for part in raw.parts):
+        raise ValueError(f"{name} relative path is not canonical")
+    candidate = raw if raw.is_absolute() else repo_root / raw
+    probe = candidate
+    while True:
+        if probe.is_symlink():
+            raise ValueError(f"{name} cannot traverse a symlink")
+        if probe == repo_root or probe.parent == probe:
+            break
+        probe = probe.parent
+    resolved = candidate.resolve(strict=True)
+    if require_inside_repo:
+        try:
+            resolved.relative_to(repo_root)
+        except ValueError as error:
+            raise ValueError(
+                f"{name} must remain inside the candidate repository"
+            ) from error
+    return resolved
+
+
+def h7_predecessor_closure_binding_sha256(
+    key: str,
+    *,
+    repo_root: Path,
+    artifact_path: str,
+    git_head: str,
+    dirty_digest: str,
+    junit_path: str,
+    junit_sha256: str,
+    manifest_sha256: str,
+    payload_hashes: Mapping[str, str],
+) -> str:
+    """Bind one predecessor's candidate, payload, and JUnit preimages."""
+
+    if key not in H7_PREDECESSOR_KEYS:
+        raise ValueError("predecessor closure key is outside the frozen inventory")
+    if not isinstance(repo_root, Path):
+        raise ValueError("repo_root must be a Path")
+    root = repo_root.resolve(strict=True)
+    if not root.is_dir() or root.is_symlink():
+        raise ValueError("repo_root must be a real directory")
+    artifact_root = _candidate_path(
+        artifact_path,
+        repo_root=root,
+        name="predecessor artifact",
+        require_inside_repo=False,
+    )
+    junit_file = _candidate_path(
+        junit_path,
+        repo_root=root,
+        name="candidate JUnit",
+        require_inside_repo=False,
+    )
+    if not artifact_root.is_dir() or artifact_root.is_symlink():
+        raise ValueError("predecessor artifact must be a real directory")
+    if not junit_file.is_file() or junit_file.is_symlink():
+        raise ValueError("candidate JUnit must be a regular file")
+    _require_git_head(git_head)
+    _require_sha256(dirty_digest, "dirty_digest")
+    _require_sha256(junit_sha256, "junit_sha256")
+    _require_sha256(manifest_sha256, "manifest_sha256")
+    if (
+        not isinstance(payload_hashes, Mapping)
+        or not payload_hashes
+        or any(type(name) is not str or not name for name in payload_hashes)
+    ):
+        raise ValueError("payload_hashes must be a nonempty string-keyed mapping")
+    normalized_payload_hashes: dict[str, str] = {}
+    for name, digest in sorted(payload_hashes.items()):
+        normalized_payload_hashes[name] = _require_sha256(
+            digest,
+            f"payload_hashes[{name!r}]",
+        )
+    semantic = {
+        "key": key,
+        "artifact_path": artifact_root.as_posix(),
+        "git_head": git_head,
+        "dirty_digest": dirty_digest,
+        "junit_path": junit_file.as_posix(),
+        "junit_sha256": junit_sha256,
+        "manifest_sha256": manifest_sha256,
+        "payload_hashes": normalized_payload_hashes,
+    }
+    return h7_owned_sha256(
+        "vfe4.h7.predecessor-closure-claim.v1",
+        semantic,
+    )
+
+
+def h7_predecessor_closure_claim_contract(
+    key: str,
+    *,
+    repo_root: Path,
+    artifact_path: str,
+    git_head: str,
+    dirty_digest: str,
+    junit_path: str,
+    junit_sha256: str,
+    manifest_sha256: str,
+    payload_hashes: Mapping[str, str],
+) -> dict[str, object]:
+    """Return the exact noncircular ledger claim fields H7 consumes."""
+
+    binding_sha256 = h7_predecessor_closure_binding_sha256(
+        key,
+        repo_root=repo_root,
+        artifact_path=artifact_path,
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+        junit_path=junit_path,
+        junit_sha256=junit_sha256,
+        manifest_sha256=manifest_sha256,
+        payload_hashes=payload_hashes,
+    )
+    root = repo_root.resolve(strict=True)
+    artifact_root = _candidate_path(
+        artifact_path,
+        repo_root=root,
+        name="predecessor artifact",
+        require_inside_repo=False,
+    )
+    junit_file = _candidate_path(
+        junit_path,
+        repo_root=root,
+        name="candidate JUnit",
+        require_inside_repo=False,
+    )
+    claim_id = H7_PREDECESSOR_CLAIM_IDS[key]
+    return {
+        "id": claim_id,
+        "domain": "code",
+        "statement": (
+            "H7 predecessor closure binding sha256:"
+            f"{binding_sha256}"
+        ),
+        "evidence": (
+            {
+                "id": f"e-{claim_id}-artifact-manifest",
+                "kind": "mechanical",
+                "location": (artifact_root / "manifest.sha256").as_posix(),
+            },
+            {
+                "id": f"e-{claim_id}-candidate-junit",
+                "kind": "mechanical",
+                "location": junit_file.as_posix(),
+            },
+        ),
+    }
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _ordered_unique(values: tuple[str, ...], name: str) -> tuple[str, ...]:
@@ -408,6 +594,7 @@ def validate_h7_predecessor_registry(
         if set(references) == set(H7_PREDECESSOR_KEYS):
             obligations.append("predecessor registry order is not exact")
 
+    candidate_junit_path: Path | None = None
     for key in H7_PREDECESSOR_KEYS:
         reference = references.get(key)
         if reference is None:
@@ -420,6 +607,19 @@ def validate_h7_predecessor_registry(
                 or reference.junit_sha256 != junit_sha256
             ):
                 obligations.append(f"stale predecessor candidate identity: {key}")
+                continue
+            resolved_junit_path = _candidate_path(
+                reference.junit_path,
+                repo_root=root,
+                name="candidate JUnit",
+                require_inside_repo=False,
+            )
+            if candidate_junit_path is None:
+                candidate_junit_path = resolved_junit_path
+            elif resolved_junit_path != candidate_junit_path:
+                obligations.append(
+                    f"predecessor references do not share one candidate JUnit: {key}"
+                )
                 continue
             _validate_predecessor_files(
                 key,
@@ -436,6 +636,185 @@ def validate_h7_predecessor_registry(
     )
 
 
+def _validate_h1_prefix_prior_v2_payloads(
+    payloads: Mapping[str, object],
+    *,
+    repo_root: Path,
+    git_head: str,
+    dirty_digest: str,
+    junit_sha256: str,
+) -> None:
+    """Require H7's H1 predecessor to be the exact scorer-v2 producer."""
+
+    expected_names = {
+        "config.json",
+        "schemas/generative_factor.json",
+        "validation/h1_prefix_prior.json",
+    }
+    if set(payloads) != expected_names:
+        raise ValueError("H1 prefix-prior artifact inventory is not scorer-v2")
+    config_payload = payloads["config.json"]
+    schema_payload = payloads["schemas/generative_factor.json"]
+    validation = payloads["validation/h1_prefix_prior.json"]
+    if (
+        type(config_payload) is not dict
+        or type(schema_payload) is not dict
+        or type(validation) is not dict
+    ):
+        raise ValueError("H1 scorer-v2 payloads must be JSON objects")
+
+    from vfe4.config import resolve_h1_prefix_prior_v2_config
+
+    try:
+        resolved = resolve_h1_prefix_prior_v2_config(
+            config_payload,
+            repo_root=repo_root,
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError("H1 predecessor config is not exact scorer-v2") from error
+    expected_validation_fields = {
+        "schema_version",
+        "gate",
+        "status",
+        "obligations",
+        "git_head",
+        "dirty_digest",
+        "source_sha256",
+        "config_sha256",
+        "junit_sha256",
+        "fixture_id",
+        "fixture_sha256",
+        "base_fixture_sha256",
+        "generative_factor_schema_sha256",
+        "scorer_schema",
+        "latent_projection_policy",
+        "parent_history_policy",
+        "invariants",
+        "computation",
+    }
+    schema_sha256 = hashlib.sha256(
+        canonical_h7_bytes(schema_payload)
+    ).hexdigest()
+    expected_source_sha256 = source_candidate_sha256(
+        git_head_value=git_head,
+        dirty_digest_value=dirty_digest,
+    )
+    if (
+        set(validation) != expected_validation_fields
+        or validation["schema_version"]
+        != "h1-prefix-prior-validation-v3"
+        or validation["gate"] != "H1-Prefix-Prior"
+        or validation["status"] != "pass"
+        or validation["obligations"] != []
+        or validation["git_head"] != git_head
+        or validation["dirty_digest"] != dirty_digest
+        or validation["junit_sha256"] != junit_sha256
+        or validation["source_sha256"] != expected_source_sha256
+        or resolved.source.source_sha256 != expected_source_sha256
+        or validation["config_sha256"] != resolved.config_sha256
+        or validation["fixture_id"] != "h1-prefix-prior-scorer-v2"
+        or validation["fixture_sha256"]
+        != H7_H1_PREFIX_PRIOR_V2_FIXTURE_SHA256
+        or validation["fixture_sha256"] != resolved.fixture_sha256
+        or validation["base_fixture_sha256"]
+        != H7_H1_PREFIX_PRIOR_BASE_FIXTURE_SHA256
+        or validation["base_fixture_sha256"]
+        != resolved.base_fixture_sha256
+        or validation["generative_factor_schema_sha256"]
+        != H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256
+        or resolved.generative_factor_schema_sha256
+        != H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256
+        or schema_sha256
+        != H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256
+        or validation["scorer_schema"]
+        != "parent-specific-pooled-prefix-bilinear-v1"
+        or resolved.scorer_schema
+        != "parent-specific-pooled-prefix-bilinear-v1"
+        or validation["latent_projection_policy"]
+        != "nonzero_bank_projections"
+        or validation["parent_history_policy"]
+        != "active_swapped_distinct_nonzero"
+        or resolved.source.git_head != git_head
+        or resolved.source.dirty_digest != dirty_digest
+    ):
+        raise ValueError(
+            "H1 predecessor lacks exact scorer-v2 fixture, scorer, schema, "
+            "source, and JUnit bindings"
+        )
+
+
+def _validate_predecessor_closure_claim(
+    key: str,
+    reference: H7PredecessorReference,
+    *,
+    repo_root: Path,
+    claims: list[object],
+    live_artifact_revision: str,
+) -> None:
+    contract = h7_predecessor_closure_claim_contract(
+        key,
+        repo_root=repo_root,
+        artifact_path=reference.artifact_path,
+        git_head=reference.git_head,
+        dirty_digest=reference.dirty_digest,
+        junit_path=reference.junit_path,
+        junit_sha256=reference.junit_sha256,
+        manifest_sha256=reference.manifest_sha256,
+        payload_hashes=reference.payload_hashes,
+    )
+    matches = tuple(
+        claim
+        for claim in claims
+        if isinstance(claim, Mapping)
+        and claim.get("id") == contract["id"]
+    )
+    if len(matches) != 1:
+        raise ValueError(
+            "predecessor ledger lacks one exact predecessor-closure claim"
+        )
+    claim = matches[0]
+    if (
+        claim.get("domain") != contract["domain"]
+        or claim.get("statement") != contract["statement"]
+        or claim.get("artifact_revision") != live_artifact_revision
+        or claim.get("state") != "EVIDENCE_VERIFIED"
+        or claim.get("open_obligations") != []
+        or claim.get("evidence_invalidated") is not False
+    ):
+        raise ValueError(
+            "predecessor-closure claim does not bind this artifact and JUnit"
+        )
+    evidence = claim.get("evidence")
+    if not isinstance(evidence, list):
+        raise ValueError("predecessor-closure claim lacks typed evidence")
+    by_id: dict[str, Mapping[str, object]] = {}
+    for record in evidence:
+        if not isinstance(record, Mapping):
+            continue
+        evidence_id = record.get("id")
+        if type(evidence_id) is str:
+            if evidence_id in by_id:
+                raise ValueError(
+                    "predecessor-closure claim duplicates an evidence ID"
+                )
+            by_id[evidence_id] = record
+    for expected in contract["evidence"]:
+        if not isinstance(expected, Mapping):
+            raise RuntimeError("internal predecessor claim contract is invalid")
+        evidence_id = expected["id"]
+        record = by_id.get(evidence_id)
+        if (
+            record is None
+            or record.get("kind") != expected["kind"]
+            or record.get("location") != expected["location"]
+            or record.get("artifact_revision") != live_artifact_revision
+        ):
+            raise ValueError(
+                "predecessor-closure claim evidence does not bind its "
+                "artifact manifest and candidate JUnit"
+            )
+
+
 def _validate_predecessor_files(
     key: str,
     reference: H7PredecessorReference,
@@ -444,7 +823,12 @@ def _validate_predecessor_files(
     validator_api: _VerificationGateApi,
     live_artifact_revision: str | None,
 ) -> None:
-    root = Path(reference.artifact_path).resolve(strict=True)
+    root = _candidate_path(
+        reference.artifact_path,
+        repo_root=repo_root,
+        name="predecessor artifact",
+        require_inside_repo=False,
+    )
     manifest_path = root / "manifest.sha256"
     if not root.is_dir() or root.is_symlink() or manifest_path.is_symlink():
         raise ValueError("artifact root or manifest is not a regular owned path")
@@ -478,6 +862,19 @@ def _validate_predecessor_files(
         if name.endswith(".json"):
             payloads[name] = json.loads(raw)
 
+    if key == "h1_prefix_prior":
+        _validate_h1_prefix_prior_v2_payloads(
+            payloads,
+            repo_root=repo_root,
+            git_head=reference.git_head,
+            dirty_digest=reference.dirty_digest,
+            junit_sha256=reference.junit_sha256,
+        )
+
+    expected_source_sha256 = source_candidate_sha256(
+        git_head_value=reference.git_head,
+        dirty_digest_value=reference.dirty_digest,
+    )
     expected_gate = {
         "h1_h5": "H5",
         "h1_prefix_prior": "H1-Prefix-Prior",
@@ -485,7 +882,7 @@ def _validate_predecessor_files(
     }[key]
     expected_schema: object = {
         "h1_h5": 1,
-        "h1_prefix_prior": "h1-prefix-prior-validation-v1",
+        "h1_prefix_prior": "h1-prefix-prior-validation-v3",
         "h6_prefix": "h6-prefix-validation-set-v1",
     }[key]
     validation_values = tuple(
@@ -505,6 +902,7 @@ def _validate_predecessor_files(
     for field, expected in (
         ("git_head", reference.git_head),
         ("dirty_digest", reference.dirty_digest),
+        ("source_sha256", expected_source_sha256),
         ("junit_sha256", reference.junit_sha256),
     ):
         values = _field_values(payloads, field)
@@ -518,13 +916,24 @@ def _validate_predecessor_files(
             if _nonempty_predecessor_mapping(value):
                 raise ValueError("H6-Prefix contains forbidden predecessor identity")
 
-    ledger_path = Path(reference.ledger_path).resolve(strict=True)
-    try:
-        ledger_path.relative_to(repo_root)
-    except ValueError as error:
-        raise ValueError(
-            "predecessor ledger must remain inside the candidate repository"
-        ) from error
+    junit_path = _candidate_path(
+        reference.junit_path,
+        repo_root=repo_root,
+        name="candidate JUnit",
+        require_inside_repo=False,
+    )
+    if (
+        not junit_path.is_file()
+        or junit_path.is_symlink()
+        or _sha256_file(junit_path) != reference.junit_sha256
+    ):
+        raise ValueError("candidate JUnit preimage hash mismatch")
+    ledger_path = _candidate_path(
+        reference.ledger_path,
+        repo_root=repo_root,
+        name="predecessor ledger",
+        require_inside_repo=True,
+    )
     if not ledger_path.is_file() or ledger_path.is_symlink():
         raise ValueError("predecessor ledger is unavailable")
     ledger_bytes = ledger_path.read_bytes()
@@ -560,6 +969,13 @@ def _validate_predecessor_files(
         )
     ):
         raise ValueError("predecessor ledger is not validated at this candidate")
+    _validate_predecessor_closure_claim(
+        key,
+        reference,
+        repo_root=repo_root,
+        claims=claims,
+        live_artifact_revision=live_artifact_revision,
+    )
 
 
 def _manifest_hashes(data: bytes) -> dict[str, str]:
@@ -901,6 +1317,7 @@ __all__ = [
     "H7DependencyClosure",
     "H7_FROZEN_SOURCE_FIXTURE_HASHES",
     "H7_NONCLAIMS",
+    "H7_PREDECESSOR_CLAIM_IDS",
     "H7_PREDECESSOR_KEYS",
     "H7_REQUIRED_DEPENDENCY_PATHS",
     "H7_SOURCE_ONLY_OBLIGATIONS",
@@ -910,6 +1327,8 @@ __all__ = [
     "assemble_h7_gate_evaluation",
     "capture_h7_dependency_closure",
     "classify_h7_status",
+    "h7_predecessor_closure_binding_sha256",
+    "h7_predecessor_closure_claim_contract",
     "h7_validation_payload",
     "validate_h7_predecessor_registry",
 ]

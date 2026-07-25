@@ -393,7 +393,7 @@
 
 - [ ] **Step 4: Promote the new variant in H1 and H6.**
 
-  Add an H1-Prefix scorer-v2 sibling fixture with `T=2`, `d_z=d_m=1`, `V=3`, nonzero bank projections, distinct nonzero parent latents, and active/swapped histories under one fixed target-free prefix. Extend the independent NumPy oracle/projector to recheck production probabilities, active/swapped complete-ELBO decompositions, normalization, and target blindness of the changed joint. In H6, make parent-specific pooled-prefix complete A5 the PRIMARY right arm and fixed complete the PRIOR control. Use versioned config/factory/model-family hashes and reject fallback to fixed or pooled-history rows.
+  Add an H1-Prefix scorer-v2 sibling fixture with `T=2`, `d_z=d_m=1`, `V=3`, nonzero bank projections, distinct nonzero parent latents, and active/swapped histories under one fixed target-free prefix. Extend the independent NumPy oracle/projector to recheck production probabilities, active/swapped complete-ELBO decompositions, normalization, and target blindness of the changed joint. Keep its config at `h1-prefix-prior-config-v2`, version its JUnit-bound producer payload as `h1-prefix-prior-validation-v3`, and require H7 to revalidate the exact v2 config, fixture, scorer, generative-factor schema, source, and same-candidate JUnit bytes. Validation v1/v2 cannot authorize the amended chain. In H6, make parent-specific pooled-prefix complete A5 the PRIMARY right arm and fixed complete the PRIOR control. Use versioned config/factory/model-family hashes and reject fallback to fixed or pooled-history rows.
 
 - [ ] **Step 5: Remove exact shared-frame redundancy before matching.**
 
@@ -424,6 +424,22 @@
   closes both gates, PRIMARY is ineligible/INCONCLUSIVE; do not add redundant
   recomputation, dormant parameters, fake phases, no-op optimizer work, or a
   wider tolerance.
+
+  PRIMARY is the sole hard-match authorization. Do not make its eligibility
+  depend on the legacy component selectors. Keep every component's unchanged
+  predeclared active template, exact ownership, analytical training ledger,
+  selection status, and obligations as disclosure evidence. Bind each matrix
+  record to both its arithmetic `MatchingReport` and its relevant component
+  selection obligations; authorize a matched component conclusion only when
+  both are clear. An unmatched component record remains serializable and
+  nonauthorizing and cannot promote or demote PRIMARY.
+
+  Derive both OBJECTIVE configs only from the exact eligible PRIMARY candidate
+  and require the same selected A5 nuisance allocation and ownership, with
+  `objective_kind` as the only semantic difference. OBJECTIVE is a logical
+  gate, not a second training-compute match: its generic five-percent report
+  may remain INCONCLUSIVE without blocking PRIMARY, and it may never be labeled
+  `training-compute-matched`.
 
 - [ ] **Step 7: Run four tiny GREEN nodes once.**
 
@@ -486,6 +502,13 @@
   ```
 
   Keep prior variant, latent path, capacity allocation, data order, seed, optimizer policy, checkpoint role, scorer, particle streams, and terminal opening identical. Preserve `is_elbo=False` on the emission arm.
+
+  Seal the emission-only evaluator behind the exact live `BuiltArm`. Recompute
+  every emission expectation from that arm's model and typed latent/observation
+  context, bind the complete model-state SHA-256 before and after evaluation,
+  and reject arbitrary protocol-supplied contribution values or factor
+  identities. A config/factory-only model-family hash is necessary but not
+  sufficient evidence for this OBJECTIVE record.
 
 - [ ] **Step 4: Enforce logical ordering without a second test opening.**
 
@@ -579,7 +602,7 @@
 
 - [ ] **Step 1: Add one failing ledger-separation node.**
 
-  Require the training match result to be byte-identical when inference records are added or changed. Require A5 scoring FLOPs to increase monotonically over `(128,256,512,1024)` particles and require exact A0 to carry `particle_count=None`.
+  Require the training match result to be byte-identical when inference records are added or changed. Every `latent_enabled=True` endpoint, including latent A5 variants, uses weighted SMC with scoring FLOPs increasing monotonically over `(128,256,512,1024)` particles. A0 and the explicit `latent_enabled=False` A5 control are exact, each with one `particle_count=None` row; a latent A1--A5 endpoint may never use that exact-row authorization.
 
 - [ ] **Step 2: Implement the separate inference-inclusive table.**
 
@@ -770,6 +793,8 @@
 
 - [ ] A1 uses H6 `L_max=32`, even `h=52`, exact `61,982`, and no dormant position rows.
 - [ ] No A5 allocation is frozen from parameter proximity alone; `(89,2,113,6)`/`62,112` remains provisional until the cached whole-schedule FLOP ledger closes.
+- [ ] PRIMARY eligibility depends only on its exact joint hard match; unmatched component disclosures remain nonauthorizing and do not block it.
+- [ ] OBJECTIVE shares the exact selected A5 allocation/ownership, differs only by `objective_kind`, and is never mislabeled training-compute-matched.
 - [ ] C3 recognizes the current operand-local source repair and requests only fresh evidence.
 - [ ] A2 signs raw `log Z_hat`/NLL but keeps Richardson Q2 two-sided absent a proof.
 - [ ] B2 freezes `delta_obj`, exact interval rules, single opening, and logical-not-compute ordering.

@@ -43,7 +43,6 @@ from vfe4.types.updates import (
     H5_RULE_CONTRACTS,
     H5CandidateSnapshot,
     H5UpdateRule,
-    UpdateLabel,
     UpdateRequest,
     initial_live,
 )
@@ -734,3 +733,100 @@ def test_gem_records_the_first_resolved_damping_after_all_earlier_unresolved() -
     assert evaluator.candidate_calls == 3
     assert result.outcome.line_search_step == 2
     assert result.outcome.damping.hex() == request.damping_schedule[2].hex()
+
+
+def test_rectangular_state_and_model_updates_match_independent_oracle() -> None:
+    import importlib
+
+    import numpy as np
+
+    fixture_module = importlib.import_module(
+        "vfe4.validation.h2_h5_rectangular_fixture"
+    )
+    rectangular_oracle = importlib.import_module(
+        "verification.numpy_oracles.h2_h5_rectangular"
+    )
+    rectangular_gate = importlib.import_module(
+        "verification.h2_h5_rectangular_gate"
+    )
+
+    fixture = fixture_module.load_h2_h5_rectangular_fixture()
+    oracle = rectangular_oracle.evaluate_rectangular_update_oracle(
+        fixture, time_index=2
+    )
+    result = rectangular_gate.evaluate_h2_h5_rectangular_gate(
+        fixture, time_index=2
+    )
+    forged_offsets = tuple(
+        (
+            (row[0] + 0.125,) + row[1:]
+            if index == 1
+            else row
+        )
+        for index, row in enumerate(fixture.state_offsets)
+    )
+    forged = replace(fixture, state_offsets=forged_offsets)
+    with pytest.raises(ValueError, match="frozen rectangular C5"):
+        rectangular_gate.evaluate_h2_h5_rectangular_gate(
+            forged, time_index=2
+        )
+
+    assert result.fixture_raw_sha256 == fixture.raw_sha256
+    assert result.fixture_canonical_sha256 == fixture.canonical_sha256
+    assert result.oracle_report_sha256 == oracle.report_sha256
+    for production, independent, shape in (
+        (result.production_state_precision, oracle.state_precision, (2, 2)),
+        (result.production_state_natural, oracle.state_natural, (2,)),
+        (result.production_state_solution, oracle.state_solution, (2,)),
+        (result.production_model_precision, oracle.model_precision, (3, 3)),
+        (result.production_model_natural, oracle.model_natural, (3,)),
+        (result.production_model_solution, oracle.model_solution, (3,)),
+    ):
+        actual = np.asarray(production)
+        expected = np.asarray(independent)
+        assert actual.shape == shape
+        np.testing.assert_allclose(actual, expected, rtol=0.0, atol=5.0e-13)
+    assert result.information_transpose_rejected
+    assert result.state_update_transpose_rejected
+    assert result.model_update_transpose_rejected
+    assert result.state_minimum_witness_passed
+    assert result.model_minimum_witness_passed
+    for channel in ("state", "model"):
+        production_probe = getattr(
+            result, f"production_{channel}_probe_objective"
+        )
+        production_solved = getattr(
+            result, f"production_{channel}_solved_objective"
+        )
+        production_gap = getattr(
+            result, f"production_{channel}_completion_square_gap"
+        )
+        assert production_probe > production_solved
+        assert production_gap > 0.0
+        assert production_probe - production_solved == pytest.approx(
+            production_gap,
+            rel=5.0e-13,
+            abs=5.0e-13,
+        )
+        assert (
+            getattr(
+                result,
+                f"production_{channel}_solution_gradient_max_abs",
+            )
+            <= 5.0e-13
+        )
+        for suffix in (
+            "probe_objective",
+            "solved_objective",
+            "completion_square_gap",
+            "solution_gradient_max_abs",
+        ):
+            assert getattr(
+                result, f"production_{channel}_{suffix}"
+            ) == pytest.approx(
+                getattr(oracle, f"{channel}_{suffix}"),
+                rel=5.0e-13,
+                abs=5.0e-13,
+            )
+    assert result.maximum_absolute_error <= 5.0e-13
+    assert result.passed

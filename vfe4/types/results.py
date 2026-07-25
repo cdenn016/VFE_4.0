@@ -158,6 +158,54 @@ class GateStatus(str, Enum):
     INCONCLUSIVE = "inconclusive"
 
 
+_H1_PREFIX_PRIOR_V2_TERM_NAMES = (
+    "expected_log_emission[0]",
+    "expected_log_emission[1]",
+    "initial_model_kl",
+    "initial_state_kl",
+    "model_source_kl[0]",
+    "model_source_kl[1]",
+    "model_transition_kl[0]",
+    "model_transition_kl[1]",
+    "state_source_kl[0]",
+    "state_source_kl[1]",
+    "state_transition_kl[0]",
+    "state_transition_kl[1]",
+    "joint_recognition_entropy",
+    "complete_elbo",
+)
+H1_PREFIX_PRIOR_V2_INVARIANT_NAMES = (
+    *(
+        name
+        for history_id in ("active", "swapped")
+        for name in (
+            *(
+                item
+                for bank in ("state", "model")
+                for item in (
+                    f"source_prior.{bank}.production_vs_oracle.{history_id}",
+                    f"source_prior.{bank}.normalized.{history_id}",
+                    f"source_prior.{bank}.support.{history_id}",
+                )
+            ),
+            f"objective.{history_id}.monolithic_vs_local",
+            f"objective.{history_id}.monolithic_vs_identity",
+            f"objective.{history_id}.local_vs_independent_local",
+            f"objective.{history_id}.independent_local_vs_identity",
+            *(
+                f"objective.{history_id}.term.{term_name}"
+                for term_name in _H1_PREFIX_PRIOR_V2_TERM_NAMES
+            ),
+        )
+    ),
+    "source_prior.state.parent_assignment_swaps",
+    "source_prior.model.parent_assignment_swaps",
+    "joint.current_target_and_suffix_blind",
+    "joint.parent_swap_changes_complete_objective",
+    "schema.parent_specific_scorer_v2",
+)
+
+
 @dataclass(frozen=True)
 class GateResult:
     gate: Literal["H1", "H2"]
@@ -295,6 +343,68 @@ class H1PrefixPriorGateResult:
         )
 
 
+@dataclass(frozen=True)
+class H1PrefixPriorV2GateResult:
+    """Result of the parent-specific scorer-v2 H1 prerequisite."""
+
+    gate: Literal["H1-Prefix-Prior"]
+    status: GateStatus
+    fixture_id: Literal["h1-prefix-prior-scorer-v2"]
+    scorer_schema: Literal["parent-specific-pooled-prefix-bilinear-v1"]
+    fixture_sha256: str
+    generative_factor_schema_sha256: str
+    invariants: tuple[InvariantResult, ...]
+    obligations: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            self.gate != "H1-Prefix-Prior"
+            or self.fixture_id != "h1-prefix-prior-scorer-v2"
+            or self.scorer_schema
+            != "parent-specific-pooled-prefix-bilinear-v1"
+        ):
+            raise ValueError("H1 scorer-v2 identity is not exact")
+        if not isinstance(self.status, GateStatus):
+            raise ValueError("status must be a GateStatus")
+        _require_sha256(self.fixture_sha256, "fixture_sha256")
+        _require_sha256(
+            self.generative_factor_schema_sha256,
+            "generative_factor_schema_sha256",
+        )
+        if (
+            type(self.invariants) is not tuple
+            or not self.invariants
+            or not all(
+                isinstance(item, InvariantResult)
+                for item in self.invariants
+            )
+            or len({item.name for item in self.invariants})
+            != len(self.invariants)
+        ):
+            raise ValueError("H1 scorer-v2 invariants must be unique and nonempty")
+        _require_obligations(self.obligations)
+        invariant_names = tuple(item.name for item in self.invariants)
+        if (
+            self.status is not GateStatus.INCONCLUSIVE
+            and invariant_names != H1_PREFIX_PRIOR_V2_INVARIANT_NAMES
+        ):
+            raise ValueError(
+                "conclusive H1 scorer-v2 requires the exact invariant inventory"
+            )
+        if self.status is GateStatus.PASS:
+            if self.obligations or not all(
+                item.passed for item in self.invariants
+            ):
+                raise ValueError("H1 scorer-v2 PASS requires every invariant")
+        elif self.status is GateStatus.FAIL:
+            if self.obligations or not any(
+                not item.passed for item in self.invariants
+            ):
+                raise ValueError("H1 scorer-v2 FAIL requires a failed invariant")
+        elif not self.obligations:
+            raise ValueError("H1 scorer-v2 INCONCLUSIVE requires an obligation")
+
+
 @dataclass(frozen=True, init=False)
 class H6PrefixGateResult:
     """Result of the independent H6 Prefix safety gate."""
@@ -406,6 +516,7 @@ class H6PredictionResult:
     gate: Literal["H6-Prediction"]
     status: GateStatus
     readiness_sha256: str
+    smc_bias_semantics_sha256: str | None
     metrics_sha256: str | None
     obligations: tuple[str, ...]
     _readiness: object = field(repr=False, compare=False)
@@ -418,6 +529,11 @@ class H6PredictionResult:
         if not isinstance(self.status, GateStatus):
             raise ValueError("status must be a GateStatus")
         _require_sha256(self.readiness_sha256, "readiness_sha256")
+        if self.smc_bias_semantics_sha256 is not None:
+            _require_sha256(
+                self.smc_bias_semantics_sha256,
+                "smc_bias_semantics_sha256",
+            )
         if self.metrics_sha256 is not None:
             _require_sha256(self.metrics_sha256, "metrics_sha256")
         _require_obligations(self.obligations)
@@ -429,12 +545,38 @@ class H6PredictionResult:
                 raise ValueError("conclusive H6-Prediction cannot retain obligations")
             if self.metrics_sha256 is None:
                 raise ValueError("conclusive H6-Prediction requires metrics")
-        from .h6 import EvidenceStatus, H6PredictionReadinessToken, PredictionDecision
+        from .h6 import (
+            EvidenceStatus,
+            H6PredictionReadinessToken,
+            OrderedPredictionDecision,
+            PredictionDecision,
+        )
 
         if type(self._readiness) is not H6PredictionReadinessToken:
             raise ValueError("typed H6 Prediction readiness is required")
-        if type(self._decision) is not PredictionDecision:
-            raise ValueError("typed PredictionDecision is required")
+        if type(self._decision) not in (
+            PredictionDecision,
+            OrderedPredictionDecision,
+        ):
+            raise ValueError("typed H6 prediction decision is required")
+        if type(self._decision) is OrderedPredictionDecision:
+            if (
+                self._readiness.readiness_schema
+                != "h6-prediction-readiness-v2"
+                or self.smc_bias_semantics_sha256
+                != self._readiness.smc_bias_semantics_sha256
+                or self._readiness.objective_gate_spec_sha256
+                != self._decision.objective_gate_spec_sha256
+            ):
+                raise ValueError(
+                    "amended metrics require readiness bound to the same OBJECTIVE spec"
+                )
+        elif (
+            self._readiness.readiness_schema
+            != "h6-prediction-readiness-v1"
+            or self.smc_bias_semantics_sha256 is not None
+        ):
+            raise ValueError("legacy metrics cannot close amended readiness")
         self._readiness.__post_init__()
         self._decision.__post_init__()
         if self.readiness_sha256 != self._readiness.readiness_sha256:
@@ -457,6 +599,16 @@ class H6PredictionResult:
         derived_decision = _prediction_decision_from_metrics(self._metrics_bytes)
         if derived_decision != self._decision:
             raise ValueError("PredictionDecision does not match metrics bytes")
+        metrics_payload = json.loads(self._metrics_bytes)
+        metrics_semantics_sha256 = (
+            metrics_payload["smc_bias_semantics_sha256"]
+            if metrics_payload["schema"] == "h6-prediction-metrics-v2"
+            else None
+        )
+        if metrics_semantics_sha256 != self.smc_bias_semantics_sha256:
+            raise ValueError(
+                "H6 Prediction result does not bind the metrics SMC bias semantics"
+            )
 
     @classmethod
     def from_metrics(
@@ -472,11 +624,18 @@ class H6PredictionResult:
         if type(metrics_bytes) is not bytes:
             raise ValueError("metrics_bytes must be immutable bytes")
         decision = _prediction_decision_from_metrics(metrics_bytes)
+        metrics_payload = json.loads(metrics_bytes)
+        smc_bias_semantics_sha256 = (
+            metrics_payload["smc_bias_semantics_sha256"]
+            if metrics_payload["schema"] == "h6-prediction-metrics-v2"
+            else None
+        )
         instance = object.__new__(cls)
         values = {
             "gate": "H6-Prediction",
             "status": GateStatus[decision.status.name],
             "readiness_sha256": readiness.readiness_sha256,
+            "smc_bias_semantics_sha256": smc_bias_semantics_sha256,
             "metrics_sha256": hashlib.sha256(metrics_bytes).hexdigest(),
             "obligations": decision.obligations,
             "_readiness": readiness,
@@ -973,7 +1132,12 @@ def _freeze_h7_predecessors(
 
 
 def _prediction_decision_from_metrics(metrics_bytes: bytes) -> object:
-    from .h6 import PredictionDecision
+    from .h6 import (
+        ObjectiveGateDecision,
+        ObjectiveGateSpec,
+        OrderedPredictionDecision,
+        PredictionDecision,
+    )
 
     try:
         payload = json.loads(metrics_bytes)
@@ -991,8 +1155,93 @@ def _prediction_decision_from_metrics(metrics_bytes: bytes) -> object:
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise ValueError("metrics bytes contain unsupported values") from exc
-    if canonical != metrics_bytes or payload.get("schema") != "h6-prediction-metrics-v1":
+    if canonical != metrics_bytes:
         raise ValueError("metrics bytes do not match the canonical H6 schema")
+    schema = payload.get("schema")
+    if schema == "h6-prediction-metrics-v2":
+        expected_keys = {
+            "schema",
+            "objective_gate_spec_sha256",
+            "smc_bias_semantics_sha256",
+            "opening_policy",
+            "evaluation_order",
+            "opening_count",
+            "test_opening_sha256",
+            "raw_endpoint_inventory_sha256",
+            "objective_estimator_complete",
+            "objective_interval_eligible",
+            "objective_interval",
+            "objective_status",
+            "primary_estimator_complete",
+            "primary_interval_eligible",
+            "primary_interval",
+            "primary_disposition",
+        }
+        if set(payload) != expected_keys:
+            raise ValueError("v2 metrics field inventory is not exact")
+        spec = ObjectiveGateSpec.create()
+        from vfe4.evaluation.smc_uncertainty import SMC_BIAS_SEMANTICS
+
+        if (
+            payload["objective_gate_spec_sha256"] != spec.spec_sha256
+            or payload["smc_bias_semantics_sha256"]
+            != SMC_BIAS_SEMANTICS.semantics_sha256
+            or payload["opening_policy"] != spec.opening_policy
+            or payload["evaluation_order"] != spec.evaluation_order
+            or payload["opening_count"] != 1
+        ):
+            raise ValueError(
+                "v2 metrics do not bind the frozen SMC semantics and "
+                "one-opening OBJECTIVE spec"
+            )
+        raw_inventory = payload["raw_endpoint_inventory_sha256"]
+        test_opening_sha256 = payload["test_opening_sha256"]
+        _require_sha256(test_opening_sha256, "test_opening_sha256")
+        _require_sha256(raw_inventory, "raw_endpoint_inventory_sha256")
+        objective_complete = payload["objective_estimator_complete"]
+        objective_eligible = payload["objective_interval_eligible"]
+        primary_complete = payload["primary_estimator_complete"]
+        primary_eligible = payload["primary_interval_eligible"]
+        if (
+            type(objective_complete) is not bool
+            or type(objective_eligible) is not bool
+            or type(primary_complete) is not bool
+            or type(primary_eligible) is not bool
+        ):
+            raise ValueError("v2 metrics estimator flags must be boolean")
+        objective_interval = _prediction_metrics_interval(
+            payload["objective_interval"],
+            name="objective_interval",
+            required=True,
+        )
+        primary_interval = _prediction_metrics_interval(
+            payload["primary_interval"],
+            name="primary_interval",
+            required=primary_complete,
+        )
+        objective = ObjectiveGateDecision.classify(
+            objective_interval=objective_interval,
+            estimator_complete=objective_complete,
+            interval_eligible=objective_eligible,
+        )
+        decision = OrderedPredictionDecision.classify(
+            objective_gate_spec=spec,
+            objective=objective,
+            primary_interval=primary_interval,
+            primary_estimator_complete=primary_complete,
+            primary_interval_eligible=primary_eligible,
+            opening_count=1,
+            test_opening_sha256=test_opening_sha256,
+            raw_endpoint_inventory_sha256=raw_inventory,
+        )
+        if (
+            payload["objective_status"] != objective.status.value
+            or payload["primary_disposition"] != decision.primary_disposition
+        ):
+            raise ValueError("v2 metrics dispositions are not derived from intervals")
+        return decision
+    if schema != "h6-prediction-metrics-v1":
+        raise ValueError("metrics bytes do not match a supported H6 schema")
     estimator_complete = payload.get("estimator_complete")
     if type(estimator_complete) is not bool:
         raise ValueError("metrics estimator_complete must be boolean")
@@ -1011,6 +1260,31 @@ def _prediction_decision_from_metrics(metrics_bytes: bytes) -> object:
         primary_interval=interval,
         estimator_complete=estimator_complete,
     )
+
+
+def _prediction_metrics_interval(
+    payload: object,
+    *,
+    name: str,
+    required: bool,
+) -> tuple[float, float] | None:
+    if payload is None:
+        if required:
+            raise ValueError(f"metrics {name} is required")
+        return None
+    if (
+        type(payload) is not dict
+        or set(payload) != {"lower", "upper"}
+        or any(type(payload[key]) is not float for key in ("lower", "upper"))
+    ):
+        raise ValueError(f"metrics {name} must be an exact finite float pair")
+    interval = (payload["lower"], payload["upper"])
+    if (
+        not all(math.isfinite(value) for value in interval)
+        or interval[0] > interval[1]
+    ):
+        raise ValueError(f"metrics {name} must be an ordered finite pair")
+    return interval
 
 
 def _require_allowance_pair(value: object, name: str) -> None:

@@ -10,7 +10,8 @@ from vfe4.generative import (
     FixedSourcePrior,
     MaskCaseKey,
     NormalizedSourceFactor,
-    PrefixConditionedSourcePrior,
+    ParentSpecificPooledPrefixSourcePrior,
+    PooledHistoryConditionedSourcePrior,
 )
 from vfe4.numerics import (
     AllInvalidSourceRowError,
@@ -44,6 +45,38 @@ def _structure() -> H6LanguageStructure:
         base=ZeroDimensionalBase.create(),
         dag=dag,
         receiver_labels=(1, 2, 3, 4),
+    )
+
+
+def _parent_addressable_structure() -> H6LanguageStructure:
+    dag = CausalDag.create(
+        node_labels=(0, 1, 2, 3),
+        rows=(
+            CausalDagRow(1, (0,)),
+            CausalDagRow(2, (0, 1)),
+            CausalDagRow(3, (0, 2)),
+        ),
+    )
+    return H6LanguageStructure.create(
+        base=ZeroDimensionalBase.create(),
+        dag=dag,
+        receiver_labels=(1, 2, 3),
+    )
+
+
+def _sparse_legacy_structure() -> H6LanguageStructure:
+    dag = CausalDag.create(
+        node_labels=(0, 1, 2, 3),
+        rows=(
+            CausalDagRow(1, (0,)),
+            CausalDagRow(2, (1,)),
+            CausalDagRow(3, (0, 2)),
+        ),
+    )
+    return H6LanguageStructure.create(
+        base=ZeroDimensionalBase.create(),
+        dag=dag,
+        receiver_labels=(1, 2, 3),
     )
 
 
@@ -205,7 +238,7 @@ def test_normalized_source_factor_clone_preserves_autograd() -> None:
 
 def test_prefix_prior_uses_only_typed_prior_tokens_and_earlier_latents() -> None:
     vocabulary = _vocabulary(3)
-    prior = PrefixConditionedSourcePrior(
+    prior = PooledHistoryConditionedSourcePrior(
         structure=_structure(),
         vocabulary=vocabulary,
         fixture_sha256=SHA_A,
@@ -259,6 +292,215 @@ def test_prefix_prior_uses_only_typed_prior_tokens_and_earlier_latents() -> None
         prior.state_source_log_probs(
             prefix=first, earlier_latents=torch.zeros((4, 2), dtype=torch.float64)
         )
+
+
+def test_parent_specific_prior_addresses_each_candidate_without_target_leakage() -> None:
+    vocabulary = _vocabulary(3)
+    prior = ParentSpecificPooledPrefixSourcePrior(
+        structure=_parent_addressable_structure(),
+        vocabulary=vocabulary,
+        fixture_sha256=SHA_A,
+        predictor_config_sha256=SHA_B,
+        model_family_sha256=SHA_C,
+        latent_dim=2,
+        context_dim=2,
+    )
+    with torch.no_grad():
+        prior.token_embedding.weight.zero_()
+        prior.token_embedding.weight[1].copy_(
+            torch.tensor([1.0, 0.0], dtype=torch.float64)
+        )
+        prior.state_latent_projection.weight.copy_(torch.eye(2, dtype=torch.float64))
+        prior.model_latent_projection.weight.copy_(
+            torch.tensor([[2.0, 0.0], [0.0, 1.0]], dtype=torch.float64)
+        )
+        for parameter_list in (
+            prior.state_source_free_parent_keys,
+            prior.model_source_free_parent_keys,
+            prior.state_source_free_biases,
+            prior.model_source_free_biases,
+        ):
+            for parameter in parameter_list:
+                parameter.zero_()
+
+    prefix = CausalPrefix.create(
+        receiver_t=2,
+        vocabulary=vocabulary,
+        token_ids=torch.tensor([1], dtype=torch.int64),
+    )
+    active = torch.tensor([[2.0, 0.0], [-1.0, 0.0]], dtype=torch.float64)
+    swapped = active.flip(0).contiguous()
+
+    active_state = prior.state_source_log_probs(
+        prefix=prefix, earlier_latents=active
+    )
+    swapped_state = prior.state_source_log_probs(
+        prefix=prefix, earlier_latents=swapped
+    )
+    active_model = prior.model_source_log_probs(
+        prefix=prefix, earlier_latents=active
+    )
+    swapped_model = prior.model_source_log_probs(
+        prefix=prefix, earlier_latents=swapped
+    )
+
+    assert prior.scorer_schema == "parent-specific-pooled-prefix-bilinear-v1"
+    assert active_state.mask_case_key.prior_variant == (
+        "parent_specific_pooled_prefix"
+    )
+    assert active_state.log_probs.value().exp().tolist() == pytest.approx(
+        torch.softmax(torch.tensor([3.0, 0.0], dtype=torch.float64), dim=0).tolist(),
+        abs=1e-15,
+    )
+    assert swapped_state.log_probs.value().tolist() == pytest.approx(
+        active_state.log_probs.value().flip(0).tolist(),
+        abs=1e-15,
+    )
+    assert active_model.log_probs.value().exp().tolist() == pytest.approx(
+        torch.softmax(torch.tensor([6.0, 0.0], dtype=torch.float64), dim=0).tolist(),
+        abs=1e-15,
+    )
+    assert swapped_model.log_probs.value().tolist() == pytest.approx(
+        active_model.log_probs.value().flip(0).tolist(),
+        abs=1e-15,
+    )
+
+    with torch.no_grad():
+        prior.state_source_free_parent_keys[0][0].copy_(
+            torch.tensor([0.5, 0.0], dtype=torch.float64)
+        )
+        prior.state_source_free_biases[0][0] = 0.25
+        prior.model_source_free_parent_keys[0][0].copy_(
+            torch.tensor([-0.25, 0.0], dtype=torch.float64)
+        )
+        prior.model_source_free_biases[0][0] = 0.5
+    keyed_state = prior.state_source_log_probs(
+        prefix=prefix,
+        earlier_latents=active,
+    )
+    keyed_model = prior.model_source_log_probs(
+        prefix=prefix,
+        earlier_latents=active,
+    )
+    assert keyed_state.log_probs.value().exp().tolist() == pytest.approx(
+        torch.softmax(
+            torch.tensor([3.75, 0.0], dtype=torch.float64),
+            dim=0,
+        ).tolist(),
+        abs=1e-15,
+    )
+    assert keyed_model.log_probs.value().exp().tolist() == pytest.approx(
+        torch.softmax(
+            torch.tensor([6.25, 0.0], dtype=torch.float64),
+            dim=0,
+        ).tolist(),
+        abs=1e-15,
+    )
+    assert prior.state_source_free_parent_keys[0].shape == (1, 2)
+    assert prior.state_source_free_biases[0].shape == (1,)
+
+    full_with_target_and_suffix_a = torch.tensor(
+        [1, 0, 2, 2], dtype=torch.int64
+    )
+    full_with_target_and_suffix_b = torch.tensor(
+        [1, 2, 0, 0], dtype=torch.int64
+    )
+    target_blind_a = CausalPrefix.create(
+        receiver_t=2,
+        vocabulary=vocabulary,
+        token_ids=full_with_target_and_suffix_a[:1].contiguous(),
+    )
+    target_blind_b = CausalPrefix.create(
+        receiver_t=2,
+        vocabulary=vocabulary,
+        token_ids=full_with_target_and_suffix_b[:1].contiguous(),
+    )
+    target_blind_factor_a = prior.state_source_log_probs(
+        prefix=target_blind_a, earlier_latents=active
+    )
+    target_blind_factor_b = prior.state_source_log_probs(
+        prefix=target_blind_b, earlier_latents=active
+    )
+    assert (
+        target_blind_factor_a.mask_case_key.context_sha256
+        == target_blind_factor_b.mask_case_key.context_sha256
+    )
+    assert (
+        target_blind_factor_a.log_probs.raw_bytes_sha256
+        == target_blind_factor_b.log_probs.raw_bytes_sha256
+    )
+
+    sparse_prefix = CausalPrefix.create(
+        receiver_t=3,
+        vocabulary=vocabulary,
+        token_ids=torch.tensor([1, 0], dtype=torch.int64),
+    )
+    sparse_latents = torch.tensor(
+        [[2.0, 0.0], [10.0, -10.0], [-1.0, 0.0]],
+        dtype=torch.float64,
+    )
+    changed_off_support = sparse_latents.clone()
+    changed_off_support[1] = torch.tensor(
+        [-1_000.0, 1_000.0], dtype=torch.float64
+    )
+    sparse_a = prior.state_source_log_probs(
+        prefix=sparse_prefix, earlier_latents=sparse_latents
+    )
+    sparse_b = prior.state_source_log_probs(
+        prefix=sparse_prefix, earlier_latents=changed_off_support
+    )
+    assert sparse_a.log_probs.raw_bytes_sha256 == sparse_b.log_probs.raw_bytes_sha256
+    assert (
+        sparse_a.mask_case_key.context_sha256
+        == sparse_b.mask_case_key.context_sha256
+    )
+
+    legacy = PooledHistoryConditionedSourcePrior(
+        structure=_sparse_legacy_structure(),
+        vocabulary=vocabulary,
+        fixture_sha256=SHA_A,
+        predictor_config_sha256=SHA_B,
+        model_family_sha256=SHA_C,
+        latent_dim=2,
+        context_dim=2,
+    )
+    legacy_factor = legacy.state_source_log_probs(
+        prefix=sparse_prefix,
+        earlier_latents=sparse_latents,
+    )
+    assert legacy_factor.mask_case_key.prior_variant == (
+        "pooled_history_conditioned"
+    )
+    assert legacy_factor.log_probs.value().shape == (3,)
+    assert legacy_factor.support_mask == (True, False, True)
+
+    singleton_prefix = CausalPrefix.create(
+        receiver_t=2,
+        vocabulary=vocabulary,
+        token_ids=torch.tensor([1], dtype=torch.int64),
+    )
+    singleton_latents = sparse_latents[:2].contiguous()
+    singleton_legacy = legacy.state_source_log_probs(
+        prefix=singleton_prefix,
+        earlier_latents=singleton_latents,
+    )
+    assert singleton_legacy.support_mask == (False, True)
+
+    fixed_sparse = FixedSourcePrior(
+        structure=_sparse_legacy_structure(),
+        vocabulary=vocabulary,
+        fixture_sha256=SHA_A,
+        predictor_config_sha256=SHA_B,
+        model_family_sha256=SHA_C,
+        state_logits=(
+            torch.zeros(1, dtype=torch.float64),
+            torch.zeros(2, dtype=torch.float64),
+            torch.zeros(3, dtype=torch.float64),
+        ),
+        model_logits=None,
+    )
+    singleton_fixed = fixed_sparse.state_source_log_probs(receiver_t=2)
+    assert singleton_fixed.support_mask == (False, True)
 
 
 def test_frozen_mask_inventory_arithmetic_is_exact_without_large_enumeration() -> None:

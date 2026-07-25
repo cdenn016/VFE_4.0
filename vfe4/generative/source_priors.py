@@ -20,7 +20,11 @@ from vfe4.types.h6 import (
 )
 
 
-PriorVariant = Literal["fixed", "prefix_conditioned"]
+PriorVariant = Literal[
+    "fixed",
+    "parent_specific_pooled_prefix",
+    "pooled_history_conditioned",
+]
 SourceBank = Literal["state", "model"]
 
 
@@ -107,7 +111,11 @@ class MaskCaseKey:
             "context_sha256",
         ):
             _require_sha256(getattr(self, name), name)
-        if self.prior_variant not in ("fixed", "prefix_conditioned"):
+        if self.prior_variant not in (
+            "fixed",
+            "parent_specific_pooled_prefix",
+            "pooled_history_conditioned",
+        ):
             raise ValueError("unsupported source-prior variant")
         if self.bank not in ("state", "model"):
             raise ValueError("unsupported source bank")
@@ -385,6 +393,7 @@ def _checked_gauge_anchored_rows(
 def _free_row(
     parameters: nn.ParameterList,
     *,
+    structure: H6LanguageStructure,
     receiver_t: int,
     dtype: torch.dtype = torch.float64,
     device: torch.device | None = None,
@@ -393,9 +402,16 @@ def _free_row(
 
     if type(receiver_t) is not int or receiver_t <= 0:
         raise ValueError("receiver_t must be a positive integer")
-    if receiver_t == 1:
+    receiver_labels = structure.receiver_labels
+    if receiver_t not in receiver_labels:
+        raise ValueError("receiver_t is absent from the source structure")
+    row_index = receiver_labels.index(receiver_t)
+    if len(structure.dag.rows[row_index].parents) == 1:
         return torch.empty(0, dtype=dtype, device=device)
-    parameter_index = receiver_t - 2
+    parameter_index = sum(
+        len(row.parents) > 1
+        for row in structure.dag.rows[:row_index]
+    )
     if not 0 <= parameter_index < len(parameters):
         raise ValueError("receiver_t has no gauge-anchored free row")
     return parameters[parameter_index]
@@ -410,7 +426,7 @@ def _gauge_anchored_logits(
     """Expand free supported logits while keeping one exact zero anchor."""
 
     if (
-        type(free_logits) is not Tensor
+        not isinstance(free_logits, Tensor)
         or free_logits.dtype is not torch.float64
         or free_logits.ndim != 1
         or free_logits.shape != (len(parents) - 1,)
@@ -471,6 +487,7 @@ class FixedSourcePrior(_SourcePriorBase):
         row = self.structure.dag.rows[index]
         free_logits = _free_row(
             self.state_source_free_logits,
+            structure=self.structure,
             receiver_t=receiver_t,
         )
         return self._normalized(
@@ -492,6 +509,7 @@ class FixedSourcePrior(_SourcePriorBase):
         row = self.structure.dag.rows[index]
         free_logits = _free_row(
             self.model_source_free_logits,
+            structure=self.structure,
             receiver_t=receiver_t,
         )
         return self._normalized(
@@ -507,8 +525,8 @@ class FixedSourcePrior(_SourcePriorBase):
         )
 
 
-class PrefixConditionedSourcePrior(_SourcePriorBase):
-    """Normalized priors conditioned only on prior tokens and generated history."""
+class _PooledPrefixSourcePriorParameters(_SourcePriorBase):
+    """Shared parameterization for the two distinct pooled-prefix scorers."""
 
     def __init__(
         self,
@@ -647,6 +665,15 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
                         )
                     )
 
+    def _free_parameter_index(self, receiver_t: int) -> int:
+        row_index = self._row_index(receiver_t)
+        if len(self.structure.dag.rows[row_index].parents) == 1:
+            raise ValueError("singleton source row has no free parameter")
+        return sum(
+            len(row.parents) > 1
+            for row in self.structure.dag.rows[:row_index]
+        )
+
     def _checked_context(
         self, *, prefix: CausalPrefix, earlier_latents: Tensor, bank: SourceBank
     ) -> tuple[int, Tensor, str]:
@@ -685,7 +712,7 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
         latent_context = projection(earlier_latents).mean(dim=0)
         context = token_context + latent_context
         context_sha256 = _owned_hash(
-            "vfe4.h6.prefix-source-context.v1",
+            self.context_hash_domain,
             {
                 "prefix_sha256": prefix.prefix_sha256,
                 "latent_dtype": str(earlier_latents.dtype).removeprefix("torch."),
@@ -703,12 +730,12 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
         )
         index = self._row_index(receiver_t)
         row = self.structure.dag.rows[index]
-        if receiver_t == 1:
+        if len(row.parents) == 1:
             free_logits = torch.empty(
                 0, dtype=context.dtype, device=context.device
             )
         else:
-            free_index = receiver_t - 2
+            free_index = self._free_parameter_index(receiver_t)
             free_logits = (
                 self.state_source_free_parent_keys[free_index] @ context
                 + self.state_source_free_biases[free_index]
@@ -720,7 +747,7 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
         )
         return self._normalized(
             logits=logits,
-            prior_variant="prefix_conditioned",
+            prior_variant="pooled_history_conditioned",
             bank="state",
             receiver_t=receiver_t,
             context_sha256=context_sha256,
@@ -734,12 +761,12 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
         )
         index = self._row_index(receiver_t)
         row = self.structure.dag.rows[index]
-        if receiver_t == 1:
+        if len(row.parents) == 1:
             free_logits = torch.empty(
                 0, dtype=context.dtype, device=context.device
             )
         else:
-            free_index = receiver_t - 2
+            free_index = self._free_parameter_index(receiver_t)
             free_logits = (
                 self.model_source_free_parent_keys[free_index] @ context
                 + self.model_source_free_biases[free_index]
@@ -751,10 +778,208 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
         )
         return self._normalized(
             logits=logits,
-            prior_variant="prefix_conditioned",
+            prior_variant="pooled_history_conditioned",
             bank="model",
             receiver_t=receiver_t,
             context_sha256=context_sha256,
+        )
+
+
+class PooledHistoryConditionedSourcePrior(
+    _PooledPrefixSourcePriorParameters
+):
+    """Legacy scorer using one pooled token-plus-latent context for every slot."""
+
+    scorer_schema = "pooled-history-conditioned-v1"
+    context_hash_domain = "vfe4.h6.pooled-history-source-context.v1"
+
+
+class ParentSpecificPooledPrefixSourcePrior(
+    _PooledPrefixSourcePriorParameters
+):
+    """Parent-specific categorical source prior with a pooled token query.
+
+    This scorer is target blind and normalized, but its token summary is mean
+    pooled. It is therefore a generative source selector, not transformer
+    self-attention.
+    """
+
+    scorer_schema = "parent-specific-pooled-prefix-bilinear-v1"
+    token_summary_schema = "mean-prior-token-embeddings-v1"
+    parent_content_schema = "bank-projection-of-candidate-row-v1"
+    anchor_schema = "last-declared-parent-complete-score-subtraction-v1"
+    normalization_schema = "masked-log-softmax-from-declared-parents-v1"
+    context_hash_domain = "vfe4.h6.prefix-source-context.v2"
+
+    def _checked_parent_specific_inputs(
+        self,
+        *,
+        prefix: CausalPrefix,
+        earlier_latents: Tensor,
+        bank: SourceBank,
+    ) -> tuple[int, Tensor, Tensor, tuple[int, ...], str]:
+        if type(prefix) is not CausalPrefix:
+            raise ValueError("prefix must be an exact target-free CausalPrefix")
+        prefix.__post_init__()
+        if prefix.vocabulary != self.vocabulary:
+            raise ValueError(
+                "CausalPrefix vocabulary does not match the source prior"
+            )
+        receiver_t = prefix.receiver_t
+        row_index = self._row_index(receiver_t)
+        parents = self.structure.dag.rows[row_index].parents
+        projection = (
+            self.state_latent_projection
+            if bank == "state"
+            else self.model_latent_projection
+        )
+        if (
+            type(earlier_latents) is not Tensor
+            or earlier_latents.dtype is not torch.float64
+            or earlier_latents.ndim != 2
+            or earlier_latents.shape != (receiver_t, self.latent_dim)
+            or earlier_latents.device != projection.weight.device
+            or not bool(torch.isfinite(earlier_latents).all())
+        ):
+            raise ValueError(
+                "earlier_latents must be finite float64 shape "
+                "(receiver_t, latent_dim)"
+            )
+        token_ids = prefix.token_ids.to(
+            device=self.token_embedding.weight.device
+        )
+        if token_ids.numel():
+            query = self.token_embedding(token_ids).mean(dim=0)
+        else:
+            query = torch.zeros(
+                self.context_dim,
+                dtype=torch.float64,
+                device=self.token_embedding.weight.device,
+            )
+        parent_indices = torch.tensor(
+            parents, dtype=torch.int64, device=earlier_latents.device
+        )
+        supported_latents = earlier_latents.index_select(0, parent_indices)
+        context_sha256 = _owned_hash(
+            self.context_hash_domain,
+            {
+                "scorer_schema": self.scorer_schema,
+                "token_summary": self.token_summary_schema,
+                "parent_content": self.parent_content_schema,
+                "anchor": self.anchor_schema,
+                "normalization": self.normalization_schema,
+                "prefix_sha256": prefix.prefix_sha256,
+                "receiver_t": receiver_t,
+                "parents": parents,
+                "supported_latent_dtype": str(
+                    supported_latents.dtype
+                ).removeprefix("torch."),
+                "supported_latent_shape": tuple(
+                    int(size) for size in supported_latents.shape
+                ),
+                "supported_latent_raw_sha256": _tensor_raw_sha256(
+                    supported_latents
+                ),
+            },
+        )
+        return (
+            receiver_t,
+            query,
+            supported_latents,
+            parents,
+            context_sha256,
+        )
+
+    def _parent_specific_free_logits(
+        self,
+        *,
+        receiver_t: int,
+        query: Tensor,
+        supported_latents: Tensor,
+        parents: tuple[int, ...],
+        bank: SourceBank,
+    ) -> Tensor:
+        if len(parents) == 1:
+            return torch.empty(
+                0, dtype=query.dtype, device=query.device
+            )
+        projection = (
+            self.state_latent_projection
+            if bank == "state"
+            else self.model_latent_projection
+        )
+        keys = (
+            self.state_source_free_parent_keys
+            if bank == "state"
+            else self.model_source_free_parent_keys
+        )
+        biases = (
+            self.state_source_free_biases
+            if bank == "state"
+            else self.model_source_free_biases
+        )
+        parameter_index = self._free_parameter_index(receiver_t)
+        projected_content = projection(supported_latents)
+        free_raw_scores = (
+            projected_content[:-1] + keys[parameter_index]
+        ) @ query + biases[parameter_index]
+        complete_anchor_score = projected_content[-1] @ query
+        return free_raw_scores - complete_anchor_score
+
+    def _parent_specific_source_log_probs(
+        self,
+        *,
+        prefix: CausalPrefix,
+        earlier_latents: Tensor,
+        bank: SourceBank,
+    ) -> NormalizedSourceFactor:
+        (
+            receiver_t,
+            query,
+            supported_latents,
+            parents,
+            context_sha256,
+        ) = self._checked_parent_specific_inputs(
+            prefix=prefix,
+            earlier_latents=earlier_latents,
+            bank=bank,
+        )
+        free_logits = self._parent_specific_free_logits(
+            receiver_t=receiver_t,
+            query=query,
+            supported_latents=supported_latents,
+            parents=parents,
+            bank=bank,
+        )
+        logits = _gauge_anchored_logits(
+            free_logits=free_logits,
+            receiver_t=receiver_t,
+            parents=parents,
+        )
+        return self._normalized(
+            logits=logits,
+            prior_variant="parent_specific_pooled_prefix",
+            bank=bank,
+            receiver_t=receiver_t,
+            context_sha256=context_sha256,
+        )
+
+    def state_source_log_probs(
+        self, *, prefix: CausalPrefix, earlier_latents: Tensor
+    ) -> NormalizedSourceFactor:
+        return self._parent_specific_source_log_probs(
+            prefix=prefix,
+            earlier_latents=earlier_latents,
+            bank="state",
+        )
+
+    def model_source_log_probs(
+        self, *, prefix: CausalPrefix, earlier_latents: Tensor
+    ) -> NormalizedSourceFactor:
+        return self._parent_specific_source_log_probs(
+            prefix=prefix,
+            earlier_latents=earlier_latents,
+            bank="model",
         )
 
 
@@ -763,7 +988,8 @@ __all__ = [
     "FixedSourceFactorContext",
     "MaskCaseKey",
     "NormalizedSourceFactor",
+    "ParentSpecificPooledPrefixSourcePrior",
+    "PooledHistoryConditionedSourcePrior",
     "PrefixConditionedSourceFactorContext",
-    "PrefixConditionedSourcePrior",
     "SourceFactorContext",
 ]

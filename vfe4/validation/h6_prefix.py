@@ -37,7 +37,7 @@ from vfe4.types import (
     ValidationSafetyFixture,
     VocabularyIdentity,
 )
-from vfe4.types.h6 import canonical_json_bytes
+from vfe4.types.h6 import arm_model_family_sha256, canonical_json_bytes
 
 
 SMALL_EXPECTED_BY_POSITION = (6561, 2187, 729, 243)
@@ -1408,18 +1408,7 @@ def _signature_and_identity_assessment(
         estimator_identity.__post_init__()
     except ValueError as exc:
         return EvidenceStatus.FAIL, f"predictor identity integrity failed: {exc}"
-    factory = (
-        "build_a0@h6-arm-v2"
-        if arm_config.arm is ArmId.A0
-        else f"build_{arm_config.arm.value.lower()}@h6-arm-v1"
-    )
-    expected_family_sha256 = _owned_hash(
-        "vfe4.h6.arm-model-family.v1",
-        {
-            "config_sha256": arm_config.config_sha256,
-            "factory": factory,
-        },
-    )
+    expected_family_sha256 = arm_model_family_sha256(arm_config)
     if arm_config.latent_enabled:
         model_matches = (
             type(model) is LatentLanguageArmModel

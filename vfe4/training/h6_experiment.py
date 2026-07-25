@@ -6,20 +6,21 @@ import hashlib
 import hmac
 import json
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast
 
 from vfe4.config.schema import (
     H6DataConfig,
-    H6PredictionResolvedConfig,
+    H6PredictionV2ResolvedConfig,
     H6SourceIdentity,
 )
 from vfe4.types.h6 import (
     EndpointSmcProtocol,
     H6PredictionReadinessToken,
     H6TrainingSchedule,
+    ObjectiveGateSpec,
     canonical_json_bytes,
 )
 
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from vfe4.training.h6_readiness import CurrentPredictionPrerequisiteRefs
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 H6ExperimentOperation = Literal[
     "plan",
     "train",
@@ -192,16 +194,20 @@ def _completed_result(
     return result
 
 
-def _revalidate_config(config: object) -> H6PredictionResolvedConfig:
-    if type(config) is not H6PredictionResolvedConfig:
-        raise ValueError("config must be an exact H6PredictionResolvedConfig")
+def _revalidate_config(config: object) -> H6PredictionV2ResolvedConfig:
+    if type(config) is not H6PredictionV2ResolvedConfig:
+        raise ValueError(
+            "amended H6 dispatch requires an exact "
+            "H6PredictionV2ResolvedConfig"
+        )
     if (
-        config.schema_version != "h6-prediction-config-v1"
+        config.schema_version != "h6-prediction-config-v2"
         or config.operation != "H6-Prediction"
         or type(config.source) is not H6SourceIdentity
         or type(config.data) is not H6DataConfig
         or type(config.training_schedule) is not H6TrainingSchedule
         or type(config.endpoint_smc_protocol) is not EndpointSmcProtocol
+        or type(config.objective_gate) is not ObjectiveGateSpec
         or not isinstance(config.artifact_root, Path)
     ):
         raise ValueError("H6 Prediction configuration surface is stale")
@@ -227,6 +233,8 @@ def _revalidate_config(config: object) -> H6PredictionResolvedConfig:
         _require_sha256(digest, f"correctness_manifests[{gate}]")
     for name in (
         "h1_prefix_prior_manifest_sha256",
+        "h1_prefix_prior_generative_factor_schema_sha256",
+        "smc_bias_semantics_sha256",
         "smc_validation_manifest_sha256",
         "prefix_certificate_set_sha256",
         "h5_update_binding_sha256",
@@ -242,58 +250,35 @@ def _revalidate_config(config: object) -> H6PredictionResolvedConfig:
         phase_schedule.__post_init__()
     config.training_schedule.__post_init__()
     config.endpoint_smc_protocol.__post_init__()
+    config.objective_gate.__post_init__()
+    from vfe4.evaluation.smc_uncertainty import SMC_BIAS_SEMANTICS
+
+    if (
+        config.smc_bias_semantics_sha256
+        != SMC_BIAS_SEMANTICS.semantics_sha256
+    ):
+        raise ValueError(
+            "H6 Prediction SMC bias semantics identity is stale"
+        )
     if (
         type(config.canonical_json) is not str
         or _require_sha256(config.config_sha256, "config_sha256")
         != hashlib.sha256(config.canonical_json.encode("utf-8")).hexdigest()
     ):
         raise ValueError("H6 Prediction configuration identity is stale")
-    expected_payload = {
-        "schema_version": config.schema_version,
-        "operation": config.operation,
-        "source": {
-            "git_head": config.source.git_head,
-            "dirty_digest": config.source.dirty_digest,
-            "source_sha256": config.source.source_sha256,
-        },
-        "data": asdict(config.data),
-        "prerequisites": {
-            "correctness_manifests": dict(config.correctness_manifests),
-            "h1_prefix_prior_manifest_sha256": (
-                config.h1_prefix_prior_manifest_sha256
-            ),
-            "smc_validation_manifest_sha256": (
-                config.smc_validation_manifest_sha256
-            ),
-            "prefix_certificate_set_sha256": (
-                config.prefix_certificate_set_sha256
-            ),
-        },
-        "h5_update_binding_sha256": config.h5_update_binding_sha256,
-        "training_schedule": {
-            "schedule_schema": config.training_schedule.schedule_schema,
-            "outer_schedule_sha256": (
-                config.training_schedule.outer.outer_schedule_sha256
-            ),
-            "phase_schedule_sha256": tuple(
-                phase.phase_schedule_sha256
-                for phase in config.training_schedule.endpoint_phases
-            ),
-            "schedule_sha256": config.training_schedule.schedule_sha256,
-        },
-        "critical_values_sha256": config.critical_values_sha256,
-        "endpoint_smc_protocol_sha256": (
-            config.endpoint_smc_protocol.protocol_sha256
-        ),
-        "attribution_matrix_sha256": config.attribution_matrix_sha256,
-        "matching_set_sha256": config.matching_set_sha256,
-        "data_identity_sha256": config.data_identity_sha256,
-        "access_policy_sha256": config.access_policy_sha256,
-        "artifact_root": config.artifact_root.as_posix(),
-    }
-    if config.canonical_json.encode("utf-8") != canonical_json_bytes(
-        expected_payload
-    ):
+    from vfe4.config import resolve_h6_prediction_v2_config
+
+    try:
+        raw = json.loads(config.canonical_json)
+        canonical = resolve_h6_prediction_v2_config(
+            raw,
+            repo_root=_REPO_ROOT,
+        )
+    except (TypeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(
+            "H6 Prediction configuration is not canonical v2"
+        ) from exc
+    if canonical != config:
         raise ValueError(
             "H6 Prediction typed fields differ from the resolved canonical config"
         )
@@ -320,6 +305,8 @@ def _revalidate_operation_inputs(
             "prerequisite_refs must be exact CurrentPredictionPrerequisiteRefs"
         )
     readiness.__post_init__()
+    if readiness.readiness_schema != "h6-prediction-readiness-v2":
+        raise ValueError("legacy v1 readiness cannot dispatch amended H6")
     expected = {
         "git_head": typed_config.source.git_head,
         "dirty_digest": typed_config.source.dirty_digest,
@@ -327,6 +314,15 @@ def _revalidate_operation_inputs(
         "correctness_manifests": typed_config.correctness_manifests,
         "h1_prefix_prior_manifest_sha256": (
             typed_config.h1_prefix_prior_manifest_sha256
+        ),
+        "h1_prefix_prior_generative_factor_schema_sha256": (
+            typed_config.h1_prefix_prior_generative_factor_schema_sha256
+        ),
+        "smc_bias_semantics_sha256": (
+            typed_config.smc_bias_semantics_sha256
+        ),
+        "objective_gate_spec_sha256": (
+            typed_config.objective_gate.spec_sha256
         ),
         "h5_update_binding_sha256": typed_config.h5_update_binding_sha256,
         "h6_training_schedule_sha256": (typed_config.training_schedule.schedule_sha256),
@@ -362,7 +358,7 @@ def _revalidate_operation_inputs(
 
 def run_h6_experiment(
     *,
-    config: H6PredictionResolvedConfig,
+    config: H6PredictionV2ResolvedConfig,
     readiness: H6PredictionReadinessToken,
     prerequisite_refs: CurrentPredictionPrerequisiteRefs,
     operation: Literal[

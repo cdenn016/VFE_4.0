@@ -2034,3 +2034,126 @@ def test_torch_eye_full_rhs_child_control_witnesses_both_channels() -> None:
     assert summary["status"] == "pass"
     assert summary["observed_channels"] == ["dispatch", "backend"]
     assert result["evidence"]["backend"]["detected"] is True
+
+
+def test_post_h8_protocol_is_inventory_derived_and_click_run() -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    plan = (
+        repository_root
+        / "docs"
+        / "superpowers"
+        / "plans"
+        / "2026-07-21-vfe4-post-h8-wikitext103-training.md"
+    ).read_text(encoding="utf-8")
+    amendment = (
+        repository_root
+        / "docs"
+        / "preregistrations"
+        / "2026-07-25-post-h8-arm-gate-amendment.md"
+    ).read_text(encoding="utf-8")
+
+    arm_ids = (
+        "WT103-A0-AR-v1",
+        "WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1",
+        "WT103-A5-FIXED-COMPLETE-v1",
+        "WT103-A5-PARENT-SPECIFIC-PREFIX-EMISSION-v1",
+        "WT103-A5-NOLATENT-v1",
+    )
+    for document in (plan, amendment):
+        offsets = tuple(document.index(arm_id) for arm_id in arm_ids)
+        assert offsets == tuple(sorted(offsets))
+        assert "EndpointInventory" in document
+        assert "`source_lock|readiness|train|resume`" in document
+        assert 'operation="idle"' in document
+        assert "generate_vfe4_figures.py" in document
+
+    for stale_literal in (
+        "all 16 checkpoints",
+        "exact 16 expected endpoint",
+        "Freeze all 16 terminal",
+        "exactly 16 post-pass",
+        "exactly 2,048 A5",
+        "source_lock|train|resume|figures",
+    ):
+        assert stale_literal not in plan
+
+    role_rows = (
+        "| `WT103-A0-AR-v1` | `build_wt103_a0@wt103-arm-v1` "
+        "| `cross_entropy` | `absent` | false / false "
+        "| `exact_autoregressive` | `PRIMARY_REFERENCE` |",
+        "| `WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1` "
+        "| `build_wt103_a5_parent_specific@wt103-arm-v1` "
+        "| `complete_elbo` | `parent_specific_pooled_prefix` "
+        "| true / true | `weighted_smc` | `PRIMARY_ENDPOINT` |",
+        "| `WT103-A5-FIXED-COMPLETE-v1` "
+        "| `build_wt103_a5_fixed@wt103-arm-v1` | `complete_elbo` "
+        "| `fixed` | true / true | `weighted_smc` | `PRIOR_CONTROL` |",
+        "| `WT103-A5-PARENT-SPECIFIC-PREFIX-EMISSION-v1` "
+        "| `build_wt103_a5_parent_specific@wt103-arm-v1` "
+        "| `emission_only_ablation_non_elbo` "
+        "| `parent_specific_pooled_prefix` | true / true "
+        "| `weighted_smc` | `OBJECTIVE_GATE` |",
+        "| `WT103-A5-NOLATENT-v1` "
+        "| `build_wt103_a5_nolatent@wt103-arm-v1` | `cross_entropy` "
+        "| `absent` | false / false | `exact_autoregressive` "
+        "| `LATENT_PATH_CONTROL` |",
+    )
+    for row in role_rows:
+        assert row in plan
+        assert row in amendment
+
+    gate_order = "\n".join(
+        (
+            "SOURCE_LOCK",
+            "H8_EXACT_REVISION",
+            "POST_H8_READINESS",
+            "OBJECTIVE",
+            "PRIMARY",
+            "PRIOR_CONTROL",
+            "LATENT_PATH_CONTROL",
+        )
+    )
+    assert gate_order in amendment
+    assert "`OBJECTIVE` must precede and be a prerequisite of `PRIMARY`" in plan
+
+    for required_inventory_field in (
+        "tuning_attempt_keys:",
+        "terminal_checkpoint_keys:",
+        "validation_endpoint_keys:",
+        "test_endpoint_keys:",
+        "raw_score_record_keys:",
+        "result_row_keys:",
+        "figure_panel_keys:",
+        "figure_series_keys:",
+        "endpoint_inventory_sha256:",
+    ):
+        assert required_inventory_field in plan
+    inventory_schema = plan.split("class EndpointInventory:", 1)[1].split(
+        "@dataclass", 1
+    )[0]
+    for forbidden_count_field in (
+        "arm_count:",
+        "tuning_attempt_count:",
+        "terminal_checkpoint_count:",
+        "raw_score_record_count:",
+        "result_row_count:",
+        "figure_panel_count:",
+        "figure_series_count:",
+    ):
+        assert forbidden_count_field not in inventory_schema
+    assert "counts are read-only `len(...)` properties" in plan
+    assert "No consumer may accept a separately entered arm count" in amendment
+
+    for geometry_literal in (
+        "training population dimension D = L*b = 5,120",
+        "H8 synthetic population dimension = 5,160",
+        "A5 direct source lookback W = 20",
+        "A0 direct attention reach = full causal 128",
+    ):
+        assert geometry_literal in amendment
+    assert "No WikiText-103 loader, download, cache creation" in amendment
+    assert "until an exact H8 PASS exists for the same implementation revision" in (
+        amendment
+    )
+    assert "No implementation task, data acquisition, source-lock operation" in plan
+    assert "Figure generation uses a separate editable dictionary" in amendment

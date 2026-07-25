@@ -7,11 +7,15 @@ corpus, evaluates a model, inspects gradients, or reads a predictive metric.
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from vfe4.config.schema import H6ArmMatchingResolvedConfig
+from vfe4.config.schema import (
+    H6ArmMatchingResolvedConfig,
+    H6PrimaryMatchingResolvedConfig,
+)
 from vfe4.types.h6 import (
     AdamWPolicyRecord,
     ArmConfig,
@@ -32,7 +36,7 @@ from .parameter_counts import (
     PROPOSED_PREFIX_PRIOR_CONTEXT_WIDTH,
     arm_parameter_count,
     fixed_source_prior_parameter_count,
-    prefix_conditioned_source_prior_parameter_count,
+    parent_specific_pooled_prefix_source_prior_parameter_count,
     recognition_parameter_count,
 )
 
@@ -43,6 +47,12 @@ A5_REFERENCE_ALLOCATION = CapacityAllocation.create(
     latent_width=16,
     recognition_width=64,
 )
+
+PRIMARY_LATENT_WIDTH_CANDIDATES = (2, 4, 8)
+PRIMARY_PRIOR_CONTEXT_WIDTH_CANDIDATES = (4, 6, 8)
+PRIMARY_EMISSION_WIDTH_CANDIDATES = (84, 85, 86, 87, 88, 89)
+PRIMARY_RECOGNITION_WIDTH_CANDIDATES = (113, 114, 115, 116, 117, 118)
+PRIMARY_JOINT_CANDIDATE_COUNT = 324
 
 
 def _hash(domain: bytes, payload: object) -> str:
@@ -441,7 +451,9 @@ class EndpointFormulaProfile:
     recognition_conditioning: Literal[
         "absent", "filtering", "smoothing"
     ]
-    prior_variant: Literal["absent", "fixed", "prefix_conditioned"]
+    prior_variant: Literal[
+        "absent", "fixed", "parent_specific_pooled_prefix"
+    ]
     mixture_mode: Literal["absent", "exact", "moment_projection"]
     objective_kind: Literal[
         "cross_entropy",
@@ -467,7 +479,8 @@ class EndpointFormulaProfile:
         ):
             raise ValueError("recognition profile does not match latent applicability")
         if (self.source_mode == "categorical") != (
-            self.prior_variant in ("fixed", "prefix_conditioned")
+            self.prior_variant
+            in ("fixed", "parent_specific_pooled_prefix")
             and self.mixture_mode in ("exact", "moment_projection")
         ):
             raise ValueError("categorical source profile is incomplete")
@@ -509,20 +522,26 @@ _ENDPOINT_PROFILE_FIELDS: dict[str, tuple[object, ...]] = {
         "A5", True, 2, "categorical", "shared_vertex_coboundary",
         "factorized", "smoothing", "fixed", "exact", "complete_elbo",
     ),
-    "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1": (
+    (
+        "h6-a5-structured-parent-specific-prefix-exact-complete-"
+        "latent-smoothing-v2"
+    ): (
         "A5", True, 2, "categorical", "shared_vertex_coboundary",
-        "structured", "smoothing", "prefix_conditioned", "exact",
+        "structured", "smoothing", "parent_specific_pooled_prefix", "exact",
         "complete_elbo",
+    ),
+    (
+        "h6-a5-structured-parent-specific-prefix-exact-emission-"
+        "latent-smoothing-v2"
+    ): (
+        "A5", True, 2, "categorical", "shared_vertex_coboundary",
+        "structured", "smoothing", "parent_specific_pooled_prefix", "exact",
+        "emission_only_ablation_non_elbo",
     ),
     "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1": (
         "A5", True, 2, "categorical", "shared_vertex_coboundary",
         "structured", "smoothing", "fixed", "moment_projection",
         "complete_elbo",
-    ),
-    "h6-a5-structured-fixed-exact-emission-latent-smoothing-v1": (
-        "A5", True, 2, "categorical", "shared_vertex_coboundary",
-        "structured", "smoothing", "fixed", "exact",
-        "emission_only_ablation_non_elbo",
     ),
     (
         "h6-a5-structured-fixed-exact-complete-"
@@ -623,10 +642,19 @@ def _require_matching_config(
         )
     return matching_config
 
-_A5_CONFIG_ID = (
+_A5_FIXED_CONFIG_ID = (
     "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1"
 )
+_A5_PRIMARY_CONFIG_ID = (
+    "h6-a5-structured-parent-specific-prefix-exact-complete-"
+    "latent-smoothing-v2"
+)
+_A5_OBJECTIVE_ABLATION_CONFIG_ID = (
+    "h6-a5-structured-parent-specific-prefix-exact-emission-"
+    "latent-smoothing-v2"
+)
 _A5_FACTORY_ID = "build_a5@h6-arm-v1"
+_A5_PRIMARY_FACTORY_ID = "build_a5@h6-arm-v2"
 _CHECKPOINT_TEMPLATE = (
     "checkpoints/{config_sha256}/{seed}/terminal.pt"
 )
@@ -661,6 +689,7 @@ def _matrix_row(
             "emission_width",
             "latent_width",
             "recognition_width",
+            "prior_context_width",
         ),
         tuning_estimand=tuning_estimand,
         interpretation=interpretation,
@@ -676,8 +705,8 @@ ARM_MATRIX_ROWS = (
         row_id="PRIMARY",
         left_config_id="h6-a0-transformer-v2",
         left_factory_id="build_a0@h6-arm-v2",
-        right_config_id=_A5_CONFIG_ID,
-        right_factory_id=_A5_FACTORY_ID,
+        right_config_id=_A5_PRIMARY_CONFIG_ID,
+        right_factory_id=_A5_PRIMARY_FACTORY_ID,
         named_factor="whole_declared_architecture",
         tuning_estimand="equal_grid",
         interpretation="primary",
@@ -687,7 +716,7 @@ ARM_MATRIX_ROWS = (
         row_id="MAP",
         left_config_id="h6-a2-generic-map-v1",
         left_factory_id="build_a2@h6-arm-v1",
-        right_config_id=_A5_CONFIG_ID,
+        right_config_id=_A5_FIXED_CONFIG_ID,
         right_factory_id=_A5_FACTORY_ID,
         named_factor="map_mode",
         tuning_estimand="equal_grid",
@@ -704,7 +733,7 @@ ARM_MATRIX_ROWS = (
             "h6-a5-factorized-fixed-exact-complete-latent-smoothing-v1"
         ),
         left_factory_id=_A5_FACTORY_ID,
-        right_config_id=_A5_CONFIG_ID,
+        right_config_id=_A5_FIXED_CONFIG_ID,
         right_factory_id=_A5_FACTORY_ID,
         named_factor="recognition_family",
         tuning_estimand="shared_a5",
@@ -713,12 +742,12 @@ ARM_MATRIX_ROWS = (
     ),
     _matrix_row(
         row_id="PRIOR",
-        left_config_id=_A5_CONFIG_ID,
+        left_config_id=_A5_FIXED_CONFIG_ID,
         left_factory_id=_A5_FACTORY_ID,
         right_config_id=(
-            "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1"
+            _A5_PRIMARY_CONFIG_ID
         ),
-        right_factory_id=_A5_FACTORY_ID,
+        right_factory_id=_A5_PRIMARY_FACTORY_ID,
         named_factor="prior_variant",
         tuning_estimand="shared_a5",
         interpretation="descriptive",
@@ -726,7 +755,7 @@ ARM_MATRIX_ROWS = (
     ),
     _matrix_row(
         row_id="MIXTURE",
-        left_config_id=_A5_CONFIG_ID,
+        left_config_id=_A5_FIXED_CONFIG_ID,
         left_factory_id=_A5_FACTORY_ID,
         right_config_id=(
             "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1"
@@ -739,12 +768,12 @@ ARM_MATRIX_ROWS = (
     ),
     _matrix_row(
         row_id="OBJECTIVE",
-        left_config_id=_A5_CONFIG_ID,
-        left_factory_id=_A5_FACTORY_ID,
+        left_config_id=_A5_PRIMARY_CONFIG_ID,
+        left_factory_id=_A5_PRIMARY_FACTORY_ID,
         right_config_id=(
-            "h6-a5-structured-fixed-exact-emission-latent-smoothing-v1"
+            _A5_OBJECTIVE_ABLATION_CONFIG_ID
         ),
-        right_factory_id=_A5_FACTORY_ID,
+        right_factory_id=_A5_PRIMARY_FACTORY_ID,
         named_factor="objective_kind",
         tuning_estimand="shared_a5",
         interpretation="conditional",
@@ -752,7 +781,7 @@ ARM_MATRIX_ROWS = (
     ),
     _matrix_row(
         row_id="LATENT",
-        left_config_id=_A5_CONFIG_ID,
+        left_config_id=_A5_FIXED_CONFIG_ID,
         left_factory_id=_A5_FACTORY_ID,
         right_config_id=(
             "h6-a5-structured-fixed-exact-complete-"
@@ -766,7 +795,7 @@ ARM_MATRIX_ROWS = (
     ),
     _matrix_row(
         row_id="RECOGNITION",
-        left_config_id=_A5_CONFIG_ID,
+        left_config_id=_A5_FIXED_CONFIG_ID,
         left_factory_id=_A5_FACTORY_ID,
         right_config_id=(
             "h6-a5-structured-fixed-exact-complete-latent-filtering-v1"
@@ -904,8 +933,8 @@ def matrix_exp_pade13_flops(dimension: int) -> int:
 
     This is the preregistered analytical convention used for every
     ``torch.matrix_exp`` invocation in the live endpoint.  Call
-    multiplicities are derived from the uncached per-edge implementation;
-    this is not a claim about backend instruction counts.
+    multiplicities are derived from the live-forward-graph cache scope; this
+    is not a claim about backend instruction counts.
     """
 
     d = _positive_dimension(dimension, "dimension")
@@ -1079,7 +1108,7 @@ def _parameter_components(
         recognition_width=allocation.recognition_width,
         recognition_family=profile.recognition_family,  # type: ignore[arg-type]
     )
-    if profile.prior_variant == "prefix_conditioned":
+    if profile.prior_variant == "parent_specific_pooled_prefix":
         if allocation.prior_context_width is None:
             raise ValueError("prefix prior requires prior_context_width")
         total = (
@@ -1087,7 +1116,7 @@ def _parameter_components(
             - fixed_source_prior_parameter_count(
                 horizon=horizon, bank_count=2
             )
-            + prefix_conditioned_source_prior_parameter_count(
+            + parent_specific_pooled_prefix_source_prior_parameter_count(
                 vocabulary_size=vocabulary_size,
                 horizon=horizon,
                 latent_width=allocation.latent_width,
@@ -1139,19 +1168,19 @@ def _ar_objective_costs(
     }
 
 
-def _a0_transformer_objective_costs(
+def _a0_transformer_operator_costs(
     *,
     vocabulary_size: int,
     horizon: int,
     hidden_width: int,
     attention_heads: int = 2,
-) -> dict[str, int]:
-    """Return the amended one-block A0 forward arithmetic per window."""
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Return frozen A0 forward and backward arithmetic per window."""
 
     if hidden_width % attention_heads:
         raise ValueError("H6 A0 requires equal-width attention heads")
     causal_pairs = horizon * (horizon + 1) // 2
-    return {
+    forward_costs = {
         "a0_bos_token_lookup_and_position_addition": (
             horizon * hidden_width
         ),
@@ -1161,10 +1190,13 @@ def _a0_transformer_objective_costs(
         "a0_biased_qkv_projection": (
             horizon * (6 * hidden_width**2 + 3 * hidden_width)
         ),
-        "a0_causal_qk_and_av": 4 * causal_pairs * hidden_width,
+        "a0_sdpa_qk": 2 * causal_pairs * hidden_width,
+        "a0_sdpa_head_width_rsqrt": 1,
+        "a0_sdpa_score_scale": attention_heads * causal_pairs,
         "a0_two_head_causal_softmax": (
             attention_heads * (4 * causal_pairs - horizon)
         ),
+        "a0_sdpa_av": 2 * causal_pairs * hidden_width,
         "a0_biased_attention_output": (
             horizon * (2 * hidden_width**2 + hidden_width)
         ),
@@ -1186,6 +1218,41 @@ def _a0_transformer_objective_costs(
         "a0_log_softmax": horizon * (5 * vocabulary_size - 1),
         "a0_target_nll": horizon,
     }
+    generic_backward_operations = (
+        "a0_three_affine_layer_norms",
+        "a0_biased_qkv_projection",
+        "a0_biased_attention_output",
+        "a0_two_residual_additions",
+        "a0_biased_mlp_input",
+        "a0_tanh_gelu",
+        "a0_biased_mlp_output",
+        "a0_biased_untied_decoder",
+        "a0_log_softmax",
+        "a0_target_nll",
+    )
+    # Lookup/indexing is zero-FLOP in the frozen convention, but its VJP
+    # scatter-adds L position rows and L-1 non-BOS token rows.  Each QK/AV
+    # VJP owns two triangular matmuls.  The softmax VJP
+    # y * (g - sum(g * y)) has the same 4t-1 row cost as its forward pass.
+    backward_costs = {
+        "a0_embedding_scatter_add_vjp": (
+            (2 * horizon - 1) * hidden_width
+        ),
+        "a0_position_addition_vjp": 0,
+        "a0_sdpa_qk_vjp": 4 * causal_pairs * hidden_width,
+        "a0_sdpa_score_scale_vjp": attention_heads * causal_pairs,
+        "a0_sdpa_softmax_vjp": (
+            attention_heads * (4 * causal_pairs - horizon)
+        ),
+        "a0_sdpa_av_vjp": 4 * causal_pairs * hidden_width,
+    }
+    backward_costs.update(
+        {
+            f"{operation}_vjp": backward_flops(forward_costs[operation])
+            for operation in generic_backward_operations
+        }
+    )
+    return forward_costs, backward_costs
 
 
 def _latent_objective_costs(
@@ -1215,28 +1282,25 @@ def _latent_objective_costs(
     costs["initial_diagonal_gaussian"] = 9 * channels * latent_width
     if profile.source_mode == "immediate_predecessor":
         edge_count = horizon
-        nonanchor_source_edge_count = max(0, horizon - 1)
     elif profile.source_mode == "categorical":
         edge_count = horizon * (horizon + 1) // 2
-        nonanchor_source_edge_count = horizon * (horizon - 1) // 2
     else:
         edge_count = horizon
-        nonanchor_source_edge_count = 0
     if profile.map_mode == "shared_vertex_coboundary":
-        costs["shared_coboundary_receiver_matrix_exp_pade13"] = (
+        # One managed cache spans receiver vertices 1..T.  Vertex zero is the
+        # exact identity, so only vertices 1..T call matrix_exp.  Source
+        # vertices 0..T-1 each incur one inverse per live channel.
+        costs["shared_coboundary_graph_cached_matrix_exp_pade13"] = (
             channels
-            * edge_count
+            * horizon
             * matrix_exp_pade13_flops(latent_width)
         )
-        costs["shared_coboundary_source_matrix_exp_pade13"] = (
+        costs["shared_coboundary_graph_cached_source_inverse_lu"] = (
             channels
-            * nonanchor_source_edge_count
-            * matrix_exp_pade13_flops(latent_width)
+            * horizon
+            * matrix_solve_lu_flops(latent_width)
         )
-        costs["shared_coboundary_source_inverse_lu"] = (
-            channels * edge_count * matrix_solve_lu_flops(latent_width)
-        )
-        costs["shared_coboundary_frame_product_dense_matmul"] = (
+        costs["shared_coboundary_edge_frame_product_dense_matmul"] = (
             channels
             * edge_count
             * dense_matmul_flops(
@@ -1280,7 +1344,9 @@ def _latent_objective_costs(
                     + (receiver_t - 1)
                     + (5 * receiver_t - 1)
                 )
-            costs["prefix_conditioned_source_prior"] = banks * prefix_cost
+            costs["parent_specific_pooled_prefix_source_prior"] = (
+                banks * prefix_cost
+            )
         if profile.mixture_mode == "exact":
             costs["exact_source_mixture_reduction"] = banks * sum(
                 5 * receiver_t
@@ -1320,6 +1386,7 @@ def _phase_terms(
     *,
     phase: TrainingPhase,
     costs_per_window: dict[str, int],
+    backward_costs_per_window: dict[str, int] | None = None,
     parameter_count: int,
     workload: H6TrainingWorkload,
 ) -> list[FlopTerm]:
@@ -1336,15 +1403,29 @@ def _phase_terms(
                     bytes_copied_per_repetition=0,
                 )
             )
-            terms.append(
-                FlopTerm.create(
-                    phase=phase.value,
-                    operation=f"backward::{operation}::{batch_label}",
-                    repetitions=repetitions,
-                    arithmetic_flops_per_repetition=backward_flops(forward),
-                    bytes_copied_per_repetition=0,
+            if backward_costs_per_window is None:
+                terms.append(
+                    FlopTerm.create(
+                        phase=phase.value,
+                        operation=f"backward::{operation}::{batch_label}",
+                        repetitions=repetitions,
+                        arithmetic_flops_per_repetition=(
+                            backward_flops(forward)
+                        ),
+                        bytes_copied_per_repetition=0,
+                    )
                 )
-            )
+        if backward_costs_per_window is not None:
+            for operation, cost in backward_costs_per_window.items():
+                terms.append(
+                    FlopTerm.create(
+                        phase=phase.value,
+                        operation=f"backward::{operation}::{batch_label}",
+                        repetitions=repetitions,
+                        arithmetic_flops_per_repetition=batch_size * cost,
+                        bytes_copied_per_repetition=0,
+                    )
+                )
         terms.append(
             FlopTerm.create(
                 phase=phase.value,
@@ -1393,15 +1474,12 @@ def analytical_training_flop_ledger(
     obligations: tuple[str, ...] = ()
     if not profile.latent_enabled:
         if profile.arm == "A0":
-            objective_costs = _a0_transformer_objective_costs(
-                vocabulary_size=vocabulary_size,
-                horizon=horizon,
-                hidden_width=allocation.emission_width,
-            )
-            obligations = (
-                "freeze SDPA score-scale arithmetic in the production ledger",
-                "replace generic two-times-forward backward accounting with "
-                "operator-specific embedding and SDPA backward terms",
+            objective_costs, backward_costs = (
+                _a0_transformer_operator_costs(
+                    vocabulary_size=vocabulary_size,
+                    horizon=horizon,
+                    hidden_width=allocation.emission_width,
+                )
             )
         else:
             objective_costs = _ar_objective_costs(
@@ -1409,10 +1487,12 @@ def analytical_training_flop_ledger(
                 horizon=horizon,
                 emission_width=allocation.emission_width,
             )
+            backward_costs = None
         terms.extend(
             _phase_terms(
                 phase=TrainingPhase.MODEL_CE_ADAMW,
                 costs_per_window=objective_costs,
+                backward_costs_per_window=backward_costs,
                 parameter_count=model_parameters,
                 workload=workload,
             )
@@ -1485,6 +1565,12 @@ def analytical_training_flop_ledger(
 
 @dataclass(frozen=True, slots=True)
 class H6FormulaSelection:
+    """Outcome-blind component match decision and disclosure preimages.
+
+    ``INCONCLUSIVE`` forbids a matched component claim but does not alter the
+    independently selected PRIMARY authorization.
+    """
+
     config_id: str
     endpoint_template: ArmConfig
     reference_config: ArmConfig
@@ -1724,6 +1810,458 @@ class H6FormulaSelection:
             raise ValueError("formula selection digest does not match")
 
 
+@dataclass(frozen=True, slots=True)
+class H6PrimaryJointCandidate:
+    """One outcome-blind A5 allocation compared with the fixed A0 endpoint."""
+
+    ordinal: int
+    latent_width: int
+    prior_context_width: int
+    emission_width: int
+    recognition_width: int
+    a0_parameter_count: int
+    a5_parameter_count: int
+    a0_training_flops: int
+    a5_training_flops: int
+    parameter_relative_difference: float
+    flop_relative_difference: float
+    parameter_gate_pass: bool
+    flop_gate_pass: bool
+    formula_complete: bool
+    a0_ledger_sha256: str
+    a5_ledger_sha256: str
+    obligations: tuple[str, ...]
+    candidate_sha256: str
+
+    @property
+    def hard_gate_eligible(self) -> bool:
+        return self.parameter_gate_pass and self.flop_gate_pass
+
+    @property
+    def selection_key(self) -> tuple[float, float, int, int, int, int]:
+        return (
+            abs(math.log(self.a5_parameter_count / self.a0_parameter_count)),
+            abs(math.log(self.a5_training_flops / self.a0_training_flops)),
+            self.latent_width,
+            self.prior_context_width,
+            self.emission_width,
+            self.recognition_width,
+        )
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            name: getattr(self, name)
+            for name in tuple(self.__dataclass_fields__)[:-1]
+        }
+
+    def __post_init__(self) -> None:
+        if type(self.ordinal) is not int or not 0 <= self.ordinal < 324:
+            raise ValueError("primary candidate ordinal is outside 0..323")
+        if self.latent_width not in PRIMARY_LATENT_WIDTH_CANDIDATES:
+            raise ValueError("primary candidate latent width is outside D")
+        if (
+            self.prior_context_width
+            not in PRIMARY_PRIOR_CONTEXT_WIDTH_CANDIDATES
+        ):
+            raise ValueError("primary candidate context width is outside C")
+        if self.emission_width not in PRIMARY_EMISSION_WIDTH_CANDIDATES:
+            raise ValueError("primary candidate emission width is outside E")
+        if (
+            self.recognition_width
+            not in PRIMARY_RECOGNITION_WIDTH_CANDIDATES
+        ):
+            raise ValueError(
+                "primary candidate recognition width is outside R"
+            )
+        for name in (
+            "a0_parameter_count",
+            "a5_parameter_count",
+            "a0_training_flops",
+            "a5_training_flops",
+        ):
+            if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        expected_parameter_difference = abs(
+            self.a5_parameter_count / self.a0_parameter_count - 1.0
+        )
+        expected_flop_difference = abs(
+            self.a5_training_flops / self.a0_training_flops - 1.0
+        )
+        if (
+            self.parameter_relative_difference
+            != expected_parameter_difference
+            or self.flop_relative_difference != expected_flop_difference
+            or self.parameter_gate_pass
+            is not (expected_parameter_difference <= 0.01)
+            or self.flop_gate_pass is not (expected_flop_difference <= 0.05)
+        ):
+            raise ValueError("primary candidate hard-gate arithmetic is stale")
+        for name in ("a0_ledger_sha256", "a5_ledger_sha256"):
+            value = getattr(self, name)
+            if (
+                type(value) is not str
+                or len(value) != 64
+                or any(character not in "0123456789abcdef" for character in value)
+            ):
+                raise ValueError(f"{name} must be lowercase SHA-256")
+        if self.formula_complete != (not self.obligations):
+            raise ValueError(
+                "primary candidate formula status and obligations disagree"
+            )
+        if self.candidate_sha256 != _hash(
+            b"vfe4.h6.primary-joint-candidate.v1",
+            self.canonical_payload(),
+        ):
+            raise ValueError("primary candidate digest is stale")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        ordinal: int,
+        allocation: CapacityAllocation,
+        a0_parameter_count: int,
+        a5_parameter_count: int,
+        a0_ledger: H6AnalyticalFlopLedger,
+        a5_ledger: H6AnalyticalFlopLedger,
+    ) -> "H6PrimaryJointCandidate":
+        if (
+            allocation.latent_width is None
+            or allocation.prior_context_width is None
+            or allocation.recognition_width is None
+        ):
+            raise ValueError(
+                "primary joint candidate requires all four nuisance widths"
+            )
+        obligations = tuple(
+            dict.fromkeys(a0_ledger.obligations + a5_ledger.obligations)
+        )
+        parameter_difference = abs(
+            a5_parameter_count / a0_parameter_count - 1.0
+        )
+        flop_difference = abs(
+            a5_ledger.total_arithmetic_flops
+            / a0_ledger.total_arithmetic_flops
+            - 1.0
+        )
+        values: dict[str, object] = {
+            "ordinal": ordinal,
+            "latent_width": allocation.latent_width,
+            "prior_context_width": allocation.prior_context_width,
+            "emission_width": allocation.emission_width,
+            "recognition_width": allocation.recognition_width,
+            "a0_parameter_count": a0_parameter_count,
+            "a5_parameter_count": a5_parameter_count,
+            "a0_training_flops": a0_ledger.total_arithmetic_flops,
+            "a5_training_flops": a5_ledger.total_arithmetic_flops,
+            "parameter_relative_difference": parameter_difference,
+            "flop_relative_difference": flop_difference,
+            "parameter_gate_pass": parameter_difference <= 0.01,
+            "flop_gate_pass": flop_difference <= 0.05,
+            "formula_complete": not obligations,
+            "a0_ledger_sha256": a0_ledger.ledger_sha256,
+            "a5_ledger_sha256": a5_ledger.ledger_sha256,
+            "obligations": obligations,
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        return cls(
+            **values,  # type: ignore[arg-type]
+            candidate_sha256=_hash(
+                b"vfe4.h6.primary-joint-candidate.v1",
+                provisional.canonical_payload(),
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class H6PrimaryJointSelection:
+    """Complete 324-row primary matching inventory and fail-closed decision."""
+
+    schema_version: Literal["h6-primary-joint-selection-v1"]
+    matching_config_sha256: str
+    matching_policy_sha256: str
+    a0_config_sha256: str
+    a5_template_config_sha256: str
+    workload_sha256: str
+    candidates: tuple[H6PrimaryJointCandidate, ...]
+    candidate_inventory_sha256: str
+    status: Literal["ELIGIBLE", "INCONCLUSIVE"]
+    selected_candidate_sha256: str | None
+    obligations: tuple[str, ...]
+    selection_sha256: str
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "matching_config_sha256": self.matching_config_sha256,
+            "matching_policy_sha256": self.matching_policy_sha256,
+            "a0_config_sha256": self.a0_config_sha256,
+            "a5_template_config_sha256": self.a5_template_config_sha256,
+            "workload_sha256": self.workload_sha256,
+            "candidate_inventory_sha256": self.candidate_inventory_sha256,
+            "candidate_count": len(self.candidates),
+            "status": self.status,
+            "selected_candidate_sha256": self.selected_candidate_sha256,
+            "obligations": self.obligations,
+        }
+
+    @property
+    def selected_candidate(self) -> H6PrimaryJointCandidate | None:
+        if self.selected_candidate_sha256 is None:
+            return None
+        return next(
+            candidate
+            for candidate in self.candidates
+            if candidate.candidate_sha256 == self.selected_candidate_sha256
+        )
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "h6-primary-joint-selection-v1":
+            raise ValueError("primary joint-selection schema is frozen")
+        for name in (
+            "matching_config_sha256",
+            "matching_policy_sha256",
+            "a0_config_sha256",
+            "a5_template_config_sha256",
+            "workload_sha256",
+            "candidate_inventory_sha256",
+            "selection_sha256",
+        ):
+            value = getattr(self, name)
+            if (
+                type(value) is not str
+                or len(value) != 64
+                or any(character not in "0123456789abcdef" for character in value)
+            ):
+                raise ValueError(f"{name} must be lowercase SHA-256")
+        expected_axes = tuple(
+            (d, c, e, r)
+            for d in PRIMARY_LATENT_WIDTH_CANDIDATES
+            for c in PRIMARY_PRIOR_CONTEXT_WIDTH_CANDIDATES
+            for e in PRIMARY_EMISSION_WIDTH_CANDIDATES
+            for r in PRIMARY_RECOGNITION_WIDTH_CANDIDATES
+        )
+        observed_axes = tuple(
+            (
+                candidate.latent_width,
+                candidate.prior_context_width,
+                candidate.emission_width,
+                candidate.recognition_width,
+            )
+            for candidate in self.candidates
+        )
+        if (
+            type(self.candidates) is not tuple
+            or len(self.candidates) != PRIMARY_JOINT_CANDIDATE_COUNT
+            or observed_axes != expected_axes
+            or tuple(candidate.ordinal for candidate in self.candidates)
+            != tuple(range(PRIMARY_JOINT_CANDIDATE_COUNT))
+        ):
+            raise ValueError(
+                "primary candidate inventory is not the frozen ordered product"
+            )
+        expected_inventory_sha256 = _hash(
+            b"vfe4.h6.primary-joint-candidate-inventory.v1",
+            tuple(candidate.candidate_sha256 for candidate in self.candidates),
+        )
+        if self.candidate_inventory_sha256 != expected_inventory_sha256:
+            raise ValueError("primary candidate inventory digest is stale")
+        eligible = tuple(
+            candidate
+            for candidate in self.candidates
+            if candidate.hard_gate_eligible and candidate.formula_complete
+        )
+        expected_selected = (
+            min(eligible, key=lambda candidate: candidate.selection_key)
+            if eligible
+            else None
+        )
+        if expected_selected is None:
+            if (
+                self.status != "INCONCLUSIVE"
+                or self.selected_candidate_sha256 is not None
+                or not self.obligations
+            ):
+                raise ValueError(
+                    "empty primary eligible set must fail closed"
+                )
+        elif (
+            self.status != "ELIGIBLE"
+            or self.selected_candidate_sha256
+            != expected_selected.candidate_sha256
+            or self.obligations
+        ):
+            raise ValueError("primary selection does not use the frozen key")
+        if self.selection_sha256 != _hash(
+            b"vfe4.h6.primary-joint-selection.v1",
+            self.canonical_payload(),
+        ):
+            raise ValueError("primary joint-selection digest is stale")
+
+
+def select_parent_specific_primary_allocation(
+    *,
+    matching_config: H6PrimaryMatchingResolvedConfig,
+    a0_config: ArmConfig,
+    a5_template: ArmConfig,
+    workload: H6TrainingWorkload,
+) -> H6PrimaryJointSelection:
+    """Enumerate exactly D x C x E x R and select only complete hard-eligible formulas."""
+
+    if type(matching_config) is not H6PrimaryMatchingResolvedConfig:
+        raise ValueError("matching_config must be exact H6 primary matching")
+    matching_config.__post_init__()
+    if (
+        matching_config.a0_config != a0_config
+        or matching_config.a5_template != a5_template
+        or matching_config.latent_width_candidates
+        != PRIMARY_LATENT_WIDTH_CANDIDATES
+        or matching_config.prior_context_width_candidates
+        != PRIMARY_PRIOR_CONTEXT_WIDTH_CANDIDATES
+        or matching_config.emission_width_candidates
+        != PRIMARY_EMISSION_WIDTH_CANDIDATES
+        or matching_config.recognition_width_candidates
+        != PRIMARY_RECOGNITION_WIDTH_CANDIDATES
+        or matching_config.parameter_relative_tolerance != 0.01
+        or matching_config.flop_relative_tolerance != 0.05
+    ):
+        raise ValueError("primary matching config does not bind this search")
+    if (
+        a0_config.config_id != "h6-a0-transformer-v2"
+        or a0_config.capacity_allocation.emission_width != 52
+        or a0_config.latent_enabled
+    ):
+        raise ValueError("primary matching requires the fixed h=52 A0")
+    if (
+        a5_template.config_id
+        != (
+            "h6-a5-structured-parent-specific-prefix-exact-complete-"
+            "latent-smoothing-v2"
+        )
+        or a5_template.prior_variant != "parent_specific_pooled_prefix"
+        or not a5_template.latent_enabled
+    ):
+        raise ValueError(
+            "primary matching requires the parent-specific A5 template"
+        )
+    if (
+        a0_config.vocabulary != a5_template.vocabulary
+        or a0_config.horizon != a5_template.horizon
+    ):
+        raise ValueError("primary endpoints must share vocabulary and horizon")
+    a0_profile = _profile_for_config(a0_config)
+    a5_profile = _profile_for_config(a5_template)
+    a0_model, a0_recognition = _parameter_components(
+        a0_profile,
+        a0_config.capacity_allocation,
+        vocabulary_size=a0_config.vocabulary.size,
+        horizon=a0_config.horizon,
+    )
+    a0_parameter_count = a0_model + a0_recognition
+    if a0_parameter_count != 61_982:
+        raise ValueError("fixed A0 parameter witness is not 61,982")
+    a0_ledger = analytical_training_flop_ledger(
+        endpoint_config=a0_config,
+        workload=workload,
+    )
+    candidates: list[H6PrimaryJointCandidate] = []
+    for d in PRIMARY_LATENT_WIDTH_CANDIDATES:
+        for c in PRIMARY_PRIOR_CONTEXT_WIDTH_CANDIDATES:
+            for e in PRIMARY_EMISSION_WIDTH_CANDIDATES:
+                for r in PRIMARY_RECOGNITION_WIDTH_CANDIDATES:
+                    allocation = CapacityAllocation.create(
+                        emission_width=e,
+                        latent_width=d,
+                        recognition_width=r,
+                        prior_context_width=c,
+                    )
+                    candidate_config = _config_with_allocation(
+                        a5_template,
+                        allocation,
+                    )
+                    model_count, recognition_count = _parameter_components(
+                        a5_profile,
+                        allocation,
+                        vocabulary_size=candidate_config.vocabulary.size,
+                        horizon=candidate_config.horizon,
+                    )
+                    a5_ledger = analytical_training_flop_ledger(
+                        endpoint_config=candidate_config,
+                        workload=workload,
+                    )
+                    candidates.append(
+                        H6PrimaryJointCandidate.create(
+                            ordinal=len(candidates),
+                            allocation=allocation,
+                            a0_parameter_count=a0_parameter_count,
+                            a5_parameter_count=(
+                                model_count + recognition_count
+                            ),
+                            a0_ledger=a0_ledger,
+                            a5_ledger=a5_ledger,
+                        )
+                    )
+    records = tuple(candidates)
+    eligible = tuple(
+        candidate
+        for candidate in records
+        if candidate.hard_gate_eligible and candidate.formula_complete
+    )
+    selected = (
+        min(eligible, key=lambda candidate: candidate.selection_key)
+        if eligible
+        else None
+    )
+    obligations = (
+        ()
+        if selected is not None
+        else tuple(
+            dict.fromkeys(
+                (
+                    "no complete candidate closes both primary hard gates",
+                    *a0_ledger.obligations,
+                    *(
+                        obligation
+                        for candidate in records
+                        for obligation in candidate.obligations
+                    ),
+                )
+            )
+        )
+    )
+    inventory_sha256 = _hash(
+        b"vfe4.h6.primary-joint-candidate-inventory.v1",
+        tuple(candidate.candidate_sha256 for candidate in records),
+    )
+    values: dict[str, object] = {
+        "schema_version": "h6-primary-joint-selection-v1",
+        "matching_config_sha256": matching_config.config_sha256,
+        "matching_policy_sha256": matching_config.matching_policy_sha256,
+        "a0_config_sha256": a0_config.config_sha256,
+        "a5_template_config_sha256": a5_template.config_sha256,
+        "workload_sha256": workload.workload_sha256,
+        "candidates": records,
+        "candidate_inventory_sha256": inventory_sha256,
+        "status": "ELIGIBLE" if selected is not None else "INCONCLUSIVE",
+        "selected_candidate_sha256": (
+            None if selected is None else selected.candidate_sha256
+        ),
+        "obligations": obligations,
+    }
+    provisional = object.__new__(H6PrimaryJointSelection)
+    for name, value in values.items():
+        object.__setattr__(provisional, name, value)
+    return H6PrimaryJointSelection(
+        **values,  # type: ignore[arg-type]
+        selection_sha256=_hash(
+            b"vfe4.h6.primary-joint-selection.v1",
+            provisional.canonical_payload(),
+        ),
+    )
+
+
 def _amended_candidate_allocations(
     profile: EndpointFormulaProfile,
 ) -> Iterator[CapacityAllocation]:
@@ -1744,7 +2282,8 @@ def _amended_candidate_allocations(
                     recognition_width=recognition_width,
                     prior_context_width=(
                         PROPOSED_PREFIX_PRIOR_CONTEXT_WIDTH
-                        if profile.prior_variant == "prefix_conditioned"
+                        if profile.prior_variant
+                        == "parent_specific_pooled_prefix"
                         else None
                     ),
                 )
@@ -1781,7 +2320,7 @@ def select_outcome_blind_allocation(
     reference_config: ArmConfig,
     workload: H6TrainingWorkload,
 ) -> H6FormulaSelection:
-    """Select the first hard-eligible amended candidate without outcome inputs."""
+    """Select a component match without outcome inputs or PRIMARY authority."""
 
     profile = _profile_for_config(endpoint_template)
     reference_profile = _profile_for_config(reference_config)
@@ -1874,7 +2413,8 @@ def select_outcome_blind_allocation(
             "reference_ledger": reference_ledger,
             "status": "INCONCLUSIVE",
             "obligations": (
-                "no amended predeclared allocation satisfies both hard gates",
+                "component remains unmatched because no amended predeclared "
+                "allocation satisfies both hard gates",
             ),
         }
     else:
@@ -1947,7 +2487,8 @@ def candidate_allocations(
                     recognition_width=recognition_width,
                     prior_context_width=(
                         config.capacity_allocation.prior_context_width
-                        if config.prior_variant == "prefix_conditioned"
+                        if config.prior_variant
+                        == "parent_specific_pooled_prefix"
                         else None
                     ),
                 )
@@ -2137,6 +2678,7 @@ def _capacity_differences(
             "emission_width",
             "latent_width",
             "recognition_width",
+            "prior_context_width",
         )
         if getattr(endpoint, name) != getattr(reference, name)
     )
@@ -2365,6 +2907,11 @@ __all__ = [
     "H6_ADAMW_POLICY",
     "LATENT_WIDTH_CANDIDATES",
     "MATCHING_SCHEDULE_POLICY",
+    "PRIMARY_EMISSION_WIDTH_CANDIDATES",
+    "PRIMARY_JOINT_CANDIDATE_COUNT",
+    "PRIMARY_LATENT_WIDTH_CANDIDATES",
+    "PRIMARY_PRIOR_CONTEXT_WIDTH_CANDIDATES",
+    "PRIMARY_RECOGNITION_WIDTH_CANDIDATES",
     "RECOGNITION_WIDTH_CANDIDATES",
     "AdamWPolicyRecord",
     "AmendedMatchingSchedulePolicy",
@@ -2376,6 +2923,8 @@ __all__ = [
     "H6AnalyticalFlopLedger",
     "MatchingReport",
     "H6FormulaSelection",
+    "H6PrimaryJointCandidate",
+    "H6PrimaryJointSelection",
     "H6TrainingWorkload",
     "OptimizerBinding",
     "ParameterRoleRecord",
@@ -2397,5 +2946,6 @@ __all__ = [
     "matrix_solve_lu_flops",
     "scalar_flops",
     "select_outcome_blind_allocation",
+    "select_parent_specific_primary_allocation",
     "stable_parameter_key",
 ]

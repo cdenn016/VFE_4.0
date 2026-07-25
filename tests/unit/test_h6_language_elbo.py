@@ -14,18 +14,25 @@ from vfe4.generative.source_priors import (
     MaskCaseKey,
     NormalizedSourceFactor,
     PrefixConditionedSourceFactorContext,
-    PrefixConditionedSourcePrior,
+    ParentSpecificPooledPrefixSourcePrior,
 )
+from vfe4.predictive import canonical_model_state_sha256
 from vfe4.training.arms import BuiltArm, LatentLanguageArmModel, build_a5
+from vfe4.training.language import (
+    ArmObjectiveInventory,
+    ArmTrainingObjectiveAdapter,
+)
 from vfe4.types.h6 import (
     ArmConfig,
     ArmId,
     CapacityAllocation,
     EmissionOnlyAblationTerms,
     FrozenTensorSnapshot,
+    H6ArmPhaseSchedule,
     H6EndpointLanguageElboTerms,
     H6LanguageElboTerms,
     H6SourcePriorTrace,
+    TrainingPhase,
     VocabularyIdentity,
 )
 
@@ -75,15 +82,22 @@ class SyntheticExpectation:
     source_law: object
     endpoint_config: ArmConfig
     arm: BuiltArm
-    source_prior: FixedSourcePrior | PrefixConditionedSourcePrior
+    source_prior: FixedSourcePrior | ParentSpecificPooledPrefixSourcePrior
     source_factors: dict[tuple[str, int], NormalizedSourceFactor]
     source_contexts: dict[
         tuple[str, int],
         FixedSourceFactorContext | PrefixConditionedSourceFactorContext,
     ]
+    emission_contexts: dict[int, object]
+    emission_context_leaves: tuple[torch.Tensor, ...]
     values: dict[tuple[str, int], torch.Tensor]
     independent_value: torch.Tensor
+    factor_identity_overrides: dict[tuple[str, int], str] = field(
+        default_factory=dict
+    )
     calls: list[tuple[str, int]] = field(default_factory=list)
+    identity_calls: list[tuple[str, int]] = field(default_factory=list)
+    mutate_model_on_emission_context: bool = False
 
     def contribution(self, partition: str, receiver_t: int) -> torch.Tensor:
         key = (partition, receiver_t)
@@ -93,11 +107,23 @@ class SyntheticExpectation:
     def normalized_factor_identity(
         self, partition: str, receiver_t: int
     ) -> str:
+        key = (partition, receiver_t)
+        self.identity_calls.append(key)
+        if key in self.factor_identity_overrides:
+            return self.factor_identity_overrides[key]
         if partition in ("model_source", "state_source"):
             return self.source_factors[
                 (partition, receiver_t)
             ].factor_identity_sha256
         return hashlib.sha256(f"{partition}:{receiver_t}".encode()).hexdigest()
+
+    def emission_expectation_context(self, receiver_t: int) -> object:
+        if self.mutate_model_on_emission_context:
+            assert type(self.arm.model) is LatentLanguageArmModel
+            with torch.no_grad():
+                self.arm.model.normalized_emission_bias.add_(0.125)
+            self.mutate_model_on_emission_context = False
+        return self.emission_contexts[receiver_t]
 
     def normalized_source_factor(
         self, partition: str, receiver_t: int
@@ -122,10 +148,24 @@ def _endpoint_config(
     horizon: int,
     prior_variant: str = "fixed",
     mixture_mode: str = "exact",
+    objective_kind: str = "complete_elbo",
 ) -> ArmConfig:
-    if prior_variant == "prefix_conditioned":
+    if (
+        prior_variant == "parent_specific_pooled_prefix"
+        and objective_kind == "emission_only_ablation_non_elbo"
+    ):
         config_id = (
-            "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1"
+            "h6-a5-structured-parent-specific-prefix-exact-emission-"
+            "latent-smoothing-v2"
+        )
+    elif prior_variant == "parent_specific_pooled_prefix":
+        config_id = (
+            "h6-a5-structured-parent-specific-prefix-exact-complete-"
+            "latent-smoothing-v2"
+        )
+    elif objective_kind == "emission_only_ablation_non_elbo":
+        config_id = (
+            "h6-a5-structured-fixed-exact-emission-latent-smoothing-v1"
         )
     elif mixture_mode == "moment_projection":
         config_id = (
@@ -154,13 +194,15 @@ def _endpoint_config(
         recognition_conditioning="smoothing",
         prior_variant=prior_variant,
         mixture_mode=mixture_mode,
-        objective_kind="complete_elbo",
+        objective_kind=objective_kind,
         capacity_allocation=CapacityAllocation.create(
             emission_width=4,
             latent_width=2,
             recognition_width=4,
             prior_context_width=(
-                2 if prior_variant == "prefix_conditioned" else None
+                2
+                if prior_variant == "parent_specific_pooled_prefix"
+                else None
             ),
         ),
     )
@@ -168,7 +210,7 @@ def _endpoint_config(
 
 def _source_factors_and_contexts(
     config: ArmConfig,
-    prior: FixedSourcePrior | PrefixConditionedSourcePrior,
+    prior: FixedSourcePrior | ParentSpecificPooledPrefixSourcePrior,
 ) -> tuple[
     dict[tuple[str, int], NormalizedSourceFactor],
     dict[
@@ -327,12 +369,50 @@ def _expectation(
     source_prior = arm.model.source_prior
     assert type(source_prior) in (
         FixedSourcePrior,
-        PrefixConditionedSourcePrior,
+        ParentSpecificPooledPrefixSourcePrior,
     )
     source_factors, source_contexts = _source_factors_and_contexts(
         resolved_config,
         source_prior,
     )
+    emission_contexts: dict[int, object] = {}
+    emission_context_leaves: list[torch.Tensor] = []
+    if (
+        resolved_config.objective_kind
+        == "emission_only_ablation_non_elbo"
+    ):
+        for receiver_t in range(1, resolved_config.horizon + 1):
+            sample_count = 2
+            state_support = torch.linspace(
+                0.1 * receiver_t,
+                0.4 * receiver_t,
+                steps=sample_count * arm.model.latent_width,
+                dtype=torch.float64,
+            ).reshape(sample_count, arm.model.latent_width).requires_grad_()
+            model_support = torch.linspace(
+                -0.3 * receiver_t,
+                0.2 * receiver_t,
+                steps=sample_count * arm.model.latent_width,
+                dtype=torch.float64,
+            ).reshape(sample_count, arm.model.latent_width).requires_grad_()
+            normalized_weights = torch.tensor(
+                (0.25, 0.75),
+                dtype=torch.float64,
+                requires_grad=True,
+            )
+            emission_contexts[receiver_t] = (
+                arm.issue_emission_expectation_context(
+                    receiver_t=receiver_t,
+                    observed_token_id=receiver_t,
+                    state_support=state_support,
+                    model_support=model_support,
+                    normalized_weights=normalized_weights,
+                    evaluation_method=evaluation_method,
+                )
+            )
+            emission_context_leaves.extend(
+                (state_support, model_support, normalized_weights)
+            )
     return (
         SyntheticExpectation(
             horizon=horizon,
@@ -348,6 +428,8 @@ def _expectation(
             source_prior=source_prior,
             source_factors=source_factors,
             source_contexts=source_contexts,
+            emission_contexts=emission_contexts,
+            emission_context_leaves=tuple(emission_context_leaves),
             values=values,
             independent_value=total,
         ),
@@ -381,7 +463,7 @@ def test_source_prior_trace_is_issued_only_from_matching_exact_objects() -> None
         ),
         _rekey_source_factor(
             base,
-            prior_variant="prefix_conditioned",
+            prior_variant="parent_specific_pooled_prefix",
         ),
         _rekey_source_factor(
             base,
@@ -422,7 +504,7 @@ def test_built_arm_recomputes_source_factors_from_exact_typed_contexts() -> None
 
     prefix_config = _endpoint_config(
         horizon=2,
-        prior_variant="prefix_conditioned",
+        prior_variant="parent_specific_pooled_prefix",
     )
     prefix, _ = _expectation(
         horizon=2,
@@ -533,7 +615,7 @@ def test_expectation_method_and_projection_treatment_are_explicit_and_distinct(
     object.__setattr__(
         forged_trace,
         "prior_variant",
-        "prefix_conditioned",
+        "parent_specific_pooled_prefix",
     )
     with pytest.raises(ValueError, match="relabels"):
         forged_trace.__post_init__()
@@ -659,15 +741,230 @@ def test_language_elbo_rejects_wrong_totals_non_scalars_and_non_protocol_inputs(
 
 def test_emission_only_is_a_distinct_non_elbo_record() -> None:
     _, _, _, evaluate_ablation = _objective_api()
-    expectation, _ = _expectation()
+    emission_config = _endpoint_config(
+        horizon=2,
+        prior_variant="parent_specific_pooled_prefix",
+        objective_kind="emission_only_ablation_non_elbo",
+    )
+    expectation, _ = _expectation(endpoint_config=emission_config)
 
-    result = evaluate_ablation(expectation)
+    baseline = evaluate_ablation(expectation, arm=expectation.arm)
+    expectation.calls.clear()
+    expectation.identity_calls.clear()
+    for receiver_t in range(1, emission_config.horizon + 1):
+        expectation.values[("emission", receiver_t)] = torch.tensor(
+            1_000_000.0 + receiver_t,
+            dtype=torch.float64,
+            requires_grad=True,
+        )
+        expectation.factor_identity_overrides[("emission", receiver_t)] = (
+            hashlib.sha256(
+                f"synthetic-emission:{receiver_t}".encode()
+            ).hexdigest()
+        )
+    result = evaluate_ablation(expectation, arm=expectation.arm)
 
     assert type(result) is EmissionOnlyAblationTerms
     assert result.objective_kind == "emission_only_ablation_non_elbo"
+    assert result.is_elbo is False
+    assert result.endpoint_config == emission_config
+    assert result.endpoint_config_sha256 == emission_config.config_sha256
+    assert result.model_family_sha256 == expectation.arm.model_family_sha256
+    assert result.canonical_model_state_sha256 == (
+        canonical_model_state_sha256(expectation.arm.model)
+    )
+    assert result.canonical_sha256 == baseline.canonical_sha256
+    assert tuple(
+        term.factor_identity_sha256
+        for term in result.ordered_emission_terms
+    ) == tuple(
+        term.factor_identity_sha256
+        for term in baseline.ordered_emission_terms
+    )
+    assert result.total.raw_bytes_sha256 == baseline.total.raw_bytes_sha256
+    assert not any(
+        partition == "emission" for partition, _ in expectation.calls
+    )
+    assert not any(
+        partition == "emission"
+        for partition, _ in expectation.identity_calls
+    )
+    assert (
+        result.source_prior_trace.endpoint_config
+        == emission_config
+    )
+    assert (
+        result.source_prior_trace.model_family_sha256
+        == expectation.arm.model_family_sha256
+    )
+    assert (
+        result.source_prior_trace.prior_type
+        == "ParentSpecificPooledPrefixSourcePrior"
+    )
+    assert (
+        result.source_law_marker_identity_sha256
+        == expectation.source_law.law_identity_sha256
+    )
     assert tuple(
         (term.partition, term.receiver_t) for term in result.ordered_emission_terms
     ) == (("emission", 1), ("emission", 2))
+    assert type(expectation.arm.model) is LatentLanguageArmModel
+    expected_values = []
+    with torch.no_grad():
+        for receiver_t in range(1, emission_config.horizon + 1):
+            context = expectation.emission_contexts[receiver_t]
+            state_support = context.state_support.value()
+            model_support = context.model_support.value()
+            normalized_weights = context.normalized_weights.value()
+            sample_values = torch.stack(
+                tuple(
+                    expectation.arm.model.emission_log_probs(
+                        state=state_support[index],
+                        model=model_support[index],
+                    )[context.observed_token_id]
+                    for index in range(normalized_weights.numel())
+                )
+            )
+            expected_values.append(
+                torch.sum(normalized_weights * sample_values)
+            )
+    assert torch.equal(
+        result.total.value(),
+        torch.stack(tuple(expected_values)).sum(),
+    )
+    result.total.value().backward()
+    emission_parameters = (
+        expectation.arm.model.emission_state_projection,
+        expectation.arm.model.emission_model_projection,
+        expectation.arm.model.normalized_emission_head,
+        expectation.arm.model.normalized_emission_bias,
+    )
+    assert all(parameter.grad is not None for parameter in emission_parameters)
+    assert expectation.arm.model.normalized_emission_bias.grad is not None
+    assert bool(
+        torch.any(
+            expectation.arm.model.normalized_emission_bias.grad != 0.0
+        )
+    )
+    assert all(
+        leaf.grad is not None for leaf in expectation.emission_context_leaves
+    )
+    assert any(
+        bool(torch.any(leaf.grad != 0.0))
+        for leaf in expectation.emission_context_leaves
+    )
+    phases = (
+        TrainingPhase.RECOGNITION_ADAMW,
+        TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT,
+        TrainingPhase.MODEL_ADAMW,
+    )
+    phase_schedule = H6ArmPhaseSchedule.create(
+        endpoint_config_sha256=emission_config.config_sha256,
+        latent_enabled=True,
+        phases=phases,
+    )
+    inventory = ArmObjectiveInventory.for_config(config=emission_config)
+    adapter = ArmTrainingObjectiveAdapter.create(
+        config=emission_config,
+        inventory=inventory,
+        phase_schedule=phase_schedule,
+    )
+    terms, producer_sha256, total = adapter.validate_objective(result)
+    assert terms == result.ordered_emission_terms
+    assert producer_sha256 == result.canonical_sha256
+    assert total is result.total
+
+    complete_parent_config = _endpoint_config(
+        horizon=2,
+        prior_variant="parent_specific_pooled_prefix",
+    )
+    complete_parent, _ = _expectation(
+        endpoint_config=complete_parent_config,
+    )
+    fixed_complete, _ = _expectation()
+    for foreign_expectation in (complete_parent, fixed_complete):
+        with pytest.raises(
+            ValueError,
+            match="match|another|recomputation|prefix-conditioned",
+        ):
+            evaluate_ablation(
+                foreign_expectation,
+                arm=expectation.arm,
+            )
+
+    historical_fixed_config = _endpoint_config(
+        horizon=2,
+        objective_kind="emission_only_ablation_non_elbo",
+    )
+    historical_fixed_arm = build_a5(historical_fixed_config)
+    with pytest.raises(ValueError, match="authorized only"):
+        evaluate_ablation(expectation, arm=historical_fixed_arm)
+    with pytest.raises(ValueError, match="exact live BuiltArm"):
+        evaluate_ablation(expectation, arm=object())
+    with pytest.raises(TypeError, match="BuiltArm-only"):
+        EmissionOnlyAblationTerms()
+    assert "_from_live_model" not in EmissionOnlyAblationTerms.__dict__
+
+    foreign_expectation, _ = _expectation(endpoint_config=emission_config)
+    assert type(foreign_expectation.arm.model) is LatentLanguageArmModel
+    with torch.no_grad():
+        foreign_expectation.arm.model.normalized_emission_bias[0].add_(0.5)
+    foreign_expectation.emission_contexts = {
+        receiver_t: foreign_expectation.arm.issue_emission_expectation_context(
+            receiver_t=receiver_t,
+            observed_token_id=context.observed_token_id,
+            state_support=context.state_support.value(),
+            model_support=context.model_support.value(),
+            normalized_weights=context.normalized_weights.value(),
+            evaluation_method=foreign_expectation.evaluation_method,
+        )
+        for receiver_t, context in foreign_expectation.emission_contexts.items()
+    }
+    with pytest.raises(ValueError, match="model state"):
+        evaluate_ablation(foreign_expectation, arm=expectation.arm)
+
+    mutating_expectation, _ = _expectation(endpoint_config=emission_config)
+    mutating_expectation.mutate_model_on_emission_context = True
+    with pytest.raises(ValueError, match="changed during"):
+        evaluate_ablation(
+            mutating_expectation,
+            arm=mutating_expectation.arm,
+        )
+    with pytest.raises(ValueError, match="normalized_weights must be a vector"):
+        expectation.arm.issue_emission_expectation_context(
+            receiver_t=1,
+            observed_token_id=1,
+            state_support=torch.ones(
+                (1, 2),
+                dtype=torch.float64,
+                requires_grad=True,
+            ),
+            model_support=torch.ones(
+                (1, 2),
+                dtype=torch.float64,
+                requires_grad=True,
+            ),
+            normalized_weights=torch.tensor(
+                1.0,
+                dtype=torch.float64,
+                requires_grad=True,
+            ),
+            evaluation_method="exact_enumeration",
+        )
+    historical_phase_schedule = H6ArmPhaseSchedule.create(
+        endpoint_config_sha256=historical_fixed_config.config_sha256,
+        latent_enabled=True,
+        phases=phases,
+    )
+    historical_inventory = ArmObjectiveInventory.for_config(
+        config=historical_fixed_config,
+    )
+    with pytest.raises(ValueError, match="readable"):
+        ArmTrainingObjectiveAdapter.create(
+            config=historical_fixed_config,
+            inventory=historical_inventory,
+            phase_schedule=historical_phase_schedule,
+        )
 
 
 def test_private_snapshot_mutation_fails_before_elbo_reuse() -> None:

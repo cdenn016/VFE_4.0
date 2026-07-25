@@ -13,7 +13,13 @@ from vfe4.numerics.critical_values import (
     ENDPOINT_T_DF63,
     TRAINING_T_DF7,
 )
-from vfe4.types import EvidenceStatus, PredictionDecision
+from vfe4.types import (
+    EvidenceStatus,
+    ObjectiveGateDecision,
+    ObjectiveGateSpec,
+    OrderedPredictionDecision,
+    PredictionDecision,
+)
 
 
 ENDPOINT_PARTICLE_COUNTS = (128, 256, 512, 1024)
@@ -27,6 +33,7 @@ PAIRED_ERROR_RADIUS_LIMIT = 0.001005033585350145
 PAIRED_SEED_COUNT = 8
 PAIRED_DEGREES_OF_FREEDOM = 7
 PAIRED_CORNER_COUNT = 256
+H6_OBJECTIVE_GATE_SPEC = ObjectiveGateSpec.create()
 
 
 @dataclass(frozen=True, slots=True)
@@ -802,6 +809,70 @@ def decide_primary_prediction(
     )
 
 
+def decide_objective_gate(
+    inflated_interval: InflatedPairedInterval,
+    spec: ObjectiveGateSpec,
+    *,
+    estimator_complete: bool,
+) -> ObjectiveGateDecision:
+    """Adjudicate complete-minus-emission NLL before PRIMARY."""
+
+    if type(inflated_interval) is not InflatedPairedInterval:
+        raise ValueError("OBJECTIVE decision requires an inflated interval")
+    inflated_interval.__post_init__()
+    if type(spec) is not ObjectiveGateSpec:
+        raise ValueError("OBJECTIVE decision requires the exact typed specification")
+    spec.__post_init__()
+    if spec != H6_OBJECTIVE_GATE_SPEC:
+        raise ValueError("OBJECTIVE specification differs from the frozen amendment")
+    if type(estimator_complete) is not bool:
+        raise ValueError("estimator_complete must be boolean")
+    return ObjectiveGateDecision.classify(
+        objective_interval=(
+            float(inflated_interval.lower),
+            float(inflated_interval.upper),
+        ),
+        estimator_complete=estimator_complete,
+        interval_eligible=inflated_interval.eligible,
+    )
+
+
+def decide_ordered_prediction(
+    *,
+    objective_interval: InflatedPairedInterval,
+    primary_interval: InflatedPairedInterval,
+    objective_estimator_complete: bool,
+    primary_estimator_complete: bool,
+    test_opening_sha256: str,
+    raw_endpoint_inventory_sha256: str,
+    opening_count: int,
+    objective_gate_spec: ObjectiveGateSpec = H6_OBJECTIVE_GATE_SPEC,
+) -> OrderedPredictionDecision:
+    """Preserve both raw intervals while applying OBJECTIVE_then_PRIMARY."""
+
+    objective = decide_objective_gate(
+        objective_interval,
+        objective_gate_spec,
+        estimator_complete=objective_estimator_complete,
+    )
+    if type(primary_interval) is not InflatedPairedInterval:
+        raise ValueError("ordered prediction requires a raw PRIMARY interval")
+    primary_interval.__post_init__()
+    return OrderedPredictionDecision.classify(
+        objective_gate_spec=objective_gate_spec,
+        objective=objective,
+        primary_interval=(
+            float(primary_interval.lower),
+            float(primary_interval.upper),
+        ),
+        primary_estimator_complete=primary_estimator_complete,
+        primary_interval_eligible=primary_interval.eligible,
+        opening_count=opening_count,
+        test_opening_sha256=test_opening_sha256,
+        raw_endpoint_inventory_sha256=raw_endpoint_inventory_sha256,
+    )
+
+
 __all__ = [
     "ENDPOINT_BIAS_LIMIT",
     "ENDPOINT_DEGREES_OF_FREEDOM",
@@ -812,7 +883,11 @@ __all__ = [
     "EndpointSmcAggregate",
     "EndpointSmcFailure",
     "EndpointSmcObservation",
+    "H6_OBJECTIVE_GATE_SPEC",
     "InflatedPairedInterval",
+    "ObjectiveGateDecision",
+    "ObjectiveGateSpec",
+    "OrderedPredictionDecision",
     "PAIRED_CORNER_COUNT",
     "PAIRED_DEGREES_OF_FREEDOM",
     "PAIRED_ERROR_RADIUS_LIMIT",
@@ -822,6 +897,8 @@ __all__ = [
     "SMC_BIAS_SEMANTICS",
     "SmcBiasSemantics",
     "aggregate_endpoint_smc",
+    "decide_objective_gate",
+    "decide_ordered_prediction",
     "decide_primary_prediction",
     "inflate_paired_interval",
     "paired_t_interval",

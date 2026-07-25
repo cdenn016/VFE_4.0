@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Literal
 
 import torch
 from torch import Tensor
@@ -153,3 +155,136 @@ def _require_scalar(value: object, device: torch.device, name: str) -> Tensor:
     if not bool(torch.isfinite(checked)):
         raise ValueError(f"{name} must be a finite scalar")
     return checked
+
+
+@dataclass(frozen=True, slots=True)
+class RectangularInformationAssembly:
+    """Owned model-channel terms induced by one rectangular state factor."""
+
+    schema_version: Literal["rectangular-information-assembly-v1"]
+    state_dimension: int
+    model_dimension: int
+    model_precision_pullback: Tensor
+    model_recoil_natural: Tensor
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "rectangular-information-assembly-v1":
+            raise ValueError("unsupported rectangular information schema")
+        if (
+            type(self.state_dimension) is not int
+            or self.state_dimension < 1
+            or type(self.model_dimension) is not int
+            or self.model_dimension < 1
+        ):
+            raise ValueError("rectangular information dimensions must be positive")
+        precision = self.model_precision_pullback
+        natural = self.model_recoil_natural
+        if (
+            not isinstance(precision, Tensor)
+            or not isinstance(natural, Tensor)
+            or precision.dtype is not torch.float64
+            or natural.dtype is not torch.float64
+            or precision.shape != (self.model_dimension, self.model_dimension)
+            or natural.shape != (self.model_dimension,)
+            or precision.device != natural.device
+            or not bool(torch.isfinite(precision).all())
+            or not bool(torch.isfinite(natural).all())
+        ):
+            raise ValueError("rectangular information tensors have invalid metadata")
+        object.__setattr__(
+            self,
+            "model_precision_pullback",
+            precision.detach().clone(),
+        )
+        object.__setattr__(
+            self,
+            "model_recoil_natural",
+            natural.detach().clone(),
+        )
+
+
+def assemble_rectangular_information(
+    *,
+    state_precision: Tensor,
+    state_model_map: Tensor,
+    model_recoil_residual: Tensor,
+) -> RectangularInformationAssembly:
+    """Assemble ``B.T @ P_z @ B`` and ``B.T @ P_z @ residual``.
+
+    ``state_model_map`` is a morphism from the model channel to the state
+    channel and therefore has shape ``(d_z, d_m)``.  The historical scalar
+    conditional API remains unchanged.
+    """
+
+    if (
+        not isinstance(state_precision, Tensor)
+        or state_precision.dtype is not torch.float64
+        or state_precision.ndim != 2
+        or state_precision.shape[0] != state_precision.shape[1]
+        or state_precision.shape[0] < 1
+        or not bool(torch.isfinite(state_precision).all())
+    ):
+        raise ValueError("state_precision must be a finite float64 square matrix")
+    d_z = state_precision.shape[0]
+    if not isinstance(state_model_map, Tensor) or state_model_map.ndim != 2:
+        raise ValueError("state_model_map must be a float64 matrix")
+    if (
+        state_model_map.shape[0] != d_z
+        and state_model_map.shape[1] == d_z
+    ):
+        raise ValueError(
+            "state_model_map is transposed; expected (d_z,d_m), not (d_m,d_z)"
+        )
+    if state_model_map.shape[0] != d_z or state_model_map.shape[1] < 1:
+        raise ValueError("state_model_map must have shape (d_z,d_m)")
+    d_m = state_model_map.shape[1]
+    if (
+        state_model_map.dtype is not torch.float64
+        or state_model_map.device != state_precision.device
+        or not bool(torch.isfinite(state_model_map).all())
+    ):
+        raise ValueError(
+            "state_model_map must be finite float64 on the precision device"
+        )
+    if (
+        not isinstance(model_recoil_residual, Tensor)
+        or model_recoil_residual.dtype is not torch.float64
+        or model_recoil_residual.shape != (d_z,)
+        or model_recoil_residual.device != state_precision.device
+        or not bool(torch.isfinite(model_recoil_residual).all())
+    ):
+        raise ValueError(
+            "model_recoil_residual must be a finite float64 state vector"
+        )
+    if not bool(
+        torch.allclose(
+            state_precision,
+            state_precision.transpose(0, 1),
+            rtol=0.0,
+            atol=1.0e-14,
+        )
+    ):
+        raise ValueError("state_precision must be symmetric")
+    symmetric_precision = 0.5 * (
+        state_precision + state_precision.transpose(0, 1)
+    )
+    _, info = torch.linalg.cholesky_ex(symmetric_precision, check_errors=False)
+    if int(info.item()) != 0:
+        raise ValueError("state_precision must be positive definite")
+
+    checked_precision = state_precision.detach().clone()
+    checked_map = state_model_map.detach().clone()
+    checked_residual = model_recoil_residual.detach().clone()
+    return RectangularInformationAssembly(
+        schema_version="rectangular-information-assembly-v1",
+        state_dimension=d_z,
+        model_dimension=d_m,
+        model_precision_pullback=(
+            checked_map.transpose(0, 1) @ checked_precision @ checked_map
+        ),
+        model_recoil_natural=(
+            checked_map.transpose(0, 1)
+            @ checked_precision
+            @ checked_residual
+        ),
+    )

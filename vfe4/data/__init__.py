@@ -6,8 +6,10 @@ from .access import (
     materialize_prediction_train,
     materialize_validation_safety_fixture,
     open_test_for_scoring,
+    open_test_for_scoring_with_receipt,
     reserve_and_issue_durable_test_opening_capability,
     validate_durable_test_opening_capability,
+    validated_test_opening_identity,
 )
 from .byte_tokenizer import (
     BOS_ID,
@@ -77,9 +79,11 @@ __all__ = [
     "materialize_prediction_train",
     "materialize_validation_safety_fixture",
     "open_test_for_scoring",
+    "open_test_for_scoring_with_receipt",
     "publish_blinded_binary_directory",
     "quarter_pass_batches",
     "reserve_and_issue_durable_test_opening_capability",
     "schedule_batches",
     "validate_durable_test_opening_capability",
+    "validated_test_opening_identity",
 ]

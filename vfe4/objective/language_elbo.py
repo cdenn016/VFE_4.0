@@ -23,8 +23,12 @@ from vfe4.types.h6 import (
     H6EndpointLanguageElboTerms,
     H6FactorTerm,
     H6LanguageElboTerms,
+    H6_EMISSION_ONLY_ABLATION_HASH_DOMAIN,
+    H6_OBJECTIVE_EMISSION_ARM_ID,
     H6SourcePriorTrace,
+    arm_model_family_sha256,
     canonical_json_bytes,
+    h6_source_law_identity,
     h6_source_law_marker_identity,
 )
 
@@ -48,7 +52,7 @@ RecognitionFamily = Literal[
 ]
 RecognitionConditioningMode = Literal["filtering", "smoothing"]
 MixtureMode = Literal["exact", "moment_projection"]
-PriorVariant = Literal["fixed", "prefix_conditioned"]
+PriorVariant = Literal["fixed", "parent_specific_pooled_prefix"]
 
 _EVALUATION_METHODS = {
     "exact_enumeration",
@@ -69,6 +73,13 @@ _PER_RECEIVER_PARTITIONS: tuple[FactorPartition, ...] = (
     "entropy",
 )
 _TERM_IDENTITY_DOMAIN = b"vfe4.h6.language-elbo-factor.v1\x00"
+_LIVE_EMISSION_CONTEXT_DOMAIN = (
+    b"vfe4.h6.live-emission-expectation-context.v1\x00"
+)
+_LIVE_EMISSION_FACTOR_DOMAIN = b"vfe4.h6.live-emission-factor.v1\x00"
+_EMISSION_ONLY_RECORD_DOMAIN = (
+    H6_EMISSION_ONLY_ABLATION_HASH_DOMAIN.encode("ascii") + b"\x00"
+)
 _H7_COMPLETE_TRACE_DOMAIN = b"vfe4.h7.complete-language-elbo-factor-trace.v1\x00"
 
 
@@ -201,6 +212,215 @@ class MomentProjectedLaw:
         return instance
 
 
+@final
+@dataclass(frozen=True, slots=True, init=False)
+class LiveEmissionExpectationContext:
+    """Arm-issued, graph-live support for one observed emission expectation."""
+
+    endpoint_config: ArmConfig
+    model_family_sha256: str
+    canonical_model_state_sha256: str
+    evaluation_method: ExpectationEvaluationMethod
+    receiver_t: int
+    observed_token_id: int
+    state_support: FrozenTensorSnapshot
+    model_support: FrozenTensorSnapshot
+    normalized_weights: FrozenTensorSnapshot
+    context_sha256: str
+
+    def __init__(self) -> None:
+        raise TypeError(
+            "LiveEmissionExpectationContext is BuiltArm-only; use "
+            "BuiltArm.issue_emission_expectation_context"
+        )
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        raise TypeError("LiveEmissionExpectationContext is sealed")
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "endpoint_config_sha256": self.endpoint_config.config_sha256,
+            "model_family_sha256": self.model_family_sha256,
+            "canonical_model_state_sha256": (
+                self.canonical_model_state_sha256
+            ),
+            "evaluation_method": self.evaluation_method,
+            "receiver_t": self.receiver_t,
+            "observed_token_id": self.observed_token_id,
+            "state_support": _snapshot_payload(self.state_support),
+            "model_support": _snapshot_payload(self.model_support),
+            "normalized_weights": _snapshot_payload(
+                self.normalized_weights
+            ),
+        }
+
+    def __post_init__(self) -> None:
+        endpoint_config = _validate_source_endpoint(self.endpoint_config)
+        if (
+            endpoint_config.config_id != H6_OBJECTIVE_EMISSION_ARM_ID
+            or endpoint_config.objective_kind
+            != "emission_only_ablation_non_elbo"
+        ):
+            raise ValueError(
+                "live emission context requires the literal OBJECTIVE endpoint"
+            )
+        _require_sha256(self.model_family_sha256, "model_family_sha256")
+        if (
+            self.model_family_sha256
+            != arm_model_family_sha256(endpoint_config)
+        ):
+            raise ValueError(
+                "live emission context model family does not match its endpoint"
+            )
+        _require_sha256(
+            self.canonical_model_state_sha256,
+            "canonical_model_state_sha256",
+        )
+        if self.evaluation_method not in _EVALUATION_METHODS:
+            raise ValueError(
+                "live emission context has an unsupported evaluation_method"
+            )
+        if (
+            type(self.receiver_t) is not int
+            or self.receiver_t < 1
+            or self.receiver_t > endpoint_config.horizon
+        ):
+            raise ValueError(
+                "live emission context receiver is outside the endpoint horizon"
+            )
+        if (
+            type(self.observed_token_id) is not int
+            or self.observed_token_id < 0
+            or self.observed_token_id >= endpoint_config.vocabulary.size
+        ):
+            raise ValueError(
+                "live emission context observed_token_id is outside vocabulary"
+            )
+        snapshots = (
+            self.state_support,
+            self.model_support,
+            self.normalized_weights,
+        )
+        if any(type(snapshot) is not FrozenTensorSnapshot for snapshot in snapshots):
+            raise ValueError(
+                "live emission context tensors must be exact frozen snapshots"
+            )
+        for snapshot in snapshots:
+            snapshot.assert_intact()
+        expected_width = endpoint_config.capacity_allocation.latent_width
+        if len(self.normalized_weights.shape) != 1:
+            raise ValueError(
+                "live emission context normalized_weights must be a vector"
+            )
+        sample_count = self.normalized_weights.shape[0]
+        if (
+            expected_width is None
+            or len(self.state_support.shape) != 2
+            or self.state_support.shape
+            != (sample_count, expected_width)
+            or self.model_support.shape
+            != (sample_count, expected_width)
+            or self.normalized_weights.shape != (sample_count,)
+            or sample_count <= 0
+        ):
+            raise ValueError(
+                "live emission context support shapes do not match the "
+                "endpoint latent width"
+            )
+        if (
+            self.state_support.dtype != "float64"
+            or self.model_support.dtype != "float64"
+            or self.normalized_weights.dtype != "float64"
+            or len(
+                {
+                    self.state_support.device,
+                    self.model_support.device,
+                    self.normalized_weights.device,
+                }
+            )
+            != 1
+        ):
+            raise ValueError(
+                "live emission context tensors must be same-device float64"
+            )
+        state_support = self.state_support.value()
+        model_support = self.model_support.value()
+        normalized_weights = self.normalized_weights.value()
+        if (
+            not bool(torch.all(torch.isfinite(state_support)))
+            or not bool(torch.all(torch.isfinite(model_support)))
+            or not bool(torch.all(torch.isfinite(normalized_weights)))
+            or not bool(torch.all(normalized_weights >= 0.0))
+        ):
+            raise ValueError(
+                "live emission context tensors must be finite with "
+                "nonnegative weights"
+            )
+        one = torch.ones(
+            (),
+            dtype=normalized_weights.dtype,
+            device=normalized_weights.device,
+        )
+        if not bool(
+            torch.isclose(
+                normalized_weights.sum(),
+                one,
+                rtol=0.0,
+                atol=1e-12,
+            )
+        ):
+            raise ValueError(
+                "live emission context weights must sum to one"
+            )
+        expected = hashlib.sha256(
+            _LIVE_EMISSION_CONTEXT_DOMAIN
+            + canonical_json_bytes(self.canonical_payload())
+        ).hexdigest()
+        if self.context_sha256 != expected:
+            raise ValueError("live emission context identity is stale")
+
+    @classmethod
+    def _from_live_arm(
+        cls,
+        *,
+        endpoint_config: ArmConfig,
+        model_family_sha256: str,
+        canonical_model_state_sha256: str,
+        evaluation_method: ExpectationEvaluationMethod,
+        receiver_t: int,
+        observed_token_id: int,
+        state_support: Tensor,
+        model_support: Tensor,
+        normalized_weights: Tensor,
+    ) -> "LiveEmissionExpectationContext":
+        values: dict[str, object] = {
+            "endpoint_config": endpoint_config,
+            "model_family_sha256": model_family_sha256,
+            "canonical_model_state_sha256": canonical_model_state_sha256,
+            "evaluation_method": evaluation_method,
+            "receiver_t": receiver_t,
+            "observed_token_id": observed_token_id,
+            "state_support": FrozenTensorSnapshot.capture(state_support),
+            "model_support": FrozenTensorSnapshot.capture(model_support),
+            "normalized_weights": FrozenTensorSnapshot.capture(
+                normalized_weights
+            ),
+        }
+        instance = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(instance, name, value)
+        object.__setattr__(
+            instance,
+            "context_sha256",
+            hashlib.sha256(
+                _LIVE_EMISSION_CONTEXT_DOMAIN
+                + canonical_json_bytes(instance.canonical_payload())
+            ).hexdigest(),
+        )
+        instance.__post_init__()
+        return instance
+
+
 @runtime_checkable
 class LanguageElboExpectation(Protocol):
     """Explicit provider of one evaluated, differentiable ELBO estimator.
@@ -239,6 +459,16 @@ class LanguageElboExpectation(Protocol):
     ) -> FixedSourceFactorContext | PrefixConditionedSourceFactorContext: ...
 
     def independently_accumulated_total(self) -> Tensor: ...
+
+
+@runtime_checkable
+class LiveEmissionExpectation(LanguageElboExpectation, Protocol):
+    """Expectation provider whose emission support was issued by ``BuiltArm``."""
+
+    def emission_expectation_context(
+        self,
+        receiver_t: int,
+    ) -> LiveEmissionExpectationContext: ...
 
 
 def _canonical_slots(horizon: int) -> tuple[tuple[FactorPartition, int], ...]:
@@ -288,14 +518,26 @@ def _validate_source_endpoint(endpoint_config: object) -> ArmConfig:
     if type(endpoint_config) is not ArmConfig:
         raise ValueError("source law requires an exact ArmConfig")
     endpoint_config.__post_init__()
-    if (
-        endpoint_config.arm not in (ArmId.A2, ArmId.A5)
-        or endpoint_config.objective_kind != "complete_elbo"
-        or endpoint_config.prior_variant not in ("fixed", "prefix_conditioned")
-        or endpoint_config.mixture_mode not in ("exact", "moment_projection")
-    ):
+    complete_endpoint = (
+        endpoint_config.arm in (ArmId.A2, ArmId.A5)
+        and endpoint_config.objective_kind == "complete_elbo"
+        and endpoint_config.prior_variant
+        in ("fixed", "parent_specific_pooled_prefix")
+        and endpoint_config.mixture_mode in ("exact", "moment_projection")
+    )
+    emission_endpoint = (
+        endpoint_config.arm is ArmId.A5
+        and endpoint_config.config_id == H6_OBJECTIVE_EMISSION_ARM_ID
+        and endpoint_config.objective_kind
+        == "emission_only_ablation_non_elbo"
+        and endpoint_config.prior_variant
+        == "parent_specific_pooled_prefix"
+        and endpoint_config.mixture_mode == "exact"
+    )
+    if not (complete_endpoint or emission_endpoint):
         raise ValueError(
-            "source law requires a complete categorical A2/A5 endpoint"
+            "source law requires a supported complete categorical endpoint or "
+            "the literal parent-specific OBJECTIVE endpoint"
         )
     return endpoint_config
 
@@ -384,7 +626,11 @@ def require_source_law_for_endpoint(
     """Bind both configured source choices to one typed, traced law."""
 
     checked_config = _validate_source_endpoint(endpoint_config)
-    if prior_variant not in ("fixed", "prefix_conditioned"):
+    if checked_config.objective_kind != "complete_elbo":
+        raise ValueError(
+            "complete ELBO source-law binding requires a complete endpoint"
+        )
+    if prior_variant not in ("fixed", "parent_specific_pooled_prefix"):
         raise ValueError("unsupported source-prior variant")
     if prior_variant != checked_config.prior_variant:
         raise ValueError("prior_variant does not match endpoint_config")
@@ -484,33 +730,19 @@ def _term(
     )
 
 
-def _evaluate_language_elbo(
+def _ordered_source_factor_identities(
     expectation: LanguageElboExpectation,
-    *,
-    endpoint_config: ArmConfig,
-    prior_variant: PriorVariant,
-    mixture_mode: MixtureMode,
-    source_prior_trace: H6SourcePriorTrace,
-) -> H6EndpointLanguageElboTerms:
-    """Evaluate the sole complete-ELBO seam with both source choices bound."""
-
-    checked = _validate_expectation(expectation)
-    source_law = require_source_law_for_endpoint(
-        checked.source_law,
-        endpoint_config=endpoint_config,
-        prior_variant=prior_variant,
-        mixture_mode=mixture_mode,
-    )
-    if type(source_prior_trace) is not H6SourcePriorTrace:
-        raise ValueError("source_prior_trace must be BuiltArm-derived")
-    source_prior_trace.__post_init__()
-    observed_source_identities: list[
+) -> tuple[
+    tuple[Literal["model_source", "state_source"], int, str],
+    ...,
+]:
+    observed: list[
         tuple[Literal["model_source", "state_source"], int, str]
     ] = []
-    for receiver_t in range(1, checked.horizon + 1):
+    for receiver_t in range(1, expectation.horizon + 1):
         for partition in ("model_source", "state_source"):
             try:
-                source_factor = checked.normalized_source_factor(
+                source_factor = expectation.normalized_source_factor(
                     partition,
                     receiver_t,
                 )
@@ -535,7 +767,7 @@ def _evaluate_language_elbo(
                     "normalized source factor has a mismatched bank or receiver"
                 )
             reported_identity = _require_sha256(
-                checked.normalized_factor_identity(
+                expectation.normalized_factor_identity(
                     partition,
                     receiver_t,
                 ),
@@ -546,18 +778,42 @@ def _evaluate_language_elbo(
                     "normalized source factor identity does not match the "
                     "exact source record"
                 )
-            observed_source_identities.append(
+            observed.append(
                 (
                     partition,
                     receiver_t,
                     source_factor.factor_identity_sha256,
                 )
             )
+    return tuple(observed)
+
+
+def _evaluate_language_elbo(
+    expectation: LanguageElboExpectation,
+    *,
+    endpoint_config: ArmConfig,
+    prior_variant: PriorVariant,
+    mixture_mode: MixtureMode,
+    source_prior_trace: H6SourcePriorTrace,
+) -> H6EndpointLanguageElboTerms:
+    """Evaluate the sole complete-ELBO seam with both source choices bound."""
+
+    checked = _validate_expectation(expectation)
+    source_law = require_source_law_for_endpoint(
+        checked.source_law,
+        endpoint_config=endpoint_config,
+        prior_variant=prior_variant,
+        mixture_mode=mixture_mode,
+    )
+    if type(source_prior_trace) is not H6SourcePriorTrace:
+        raise ValueError("source_prior_trace must be BuiltArm-derived")
+    source_prior_trace.__post_init__()
+    observed_source_identities = _ordered_source_factor_identities(checked)
     if (
         source_prior_trace.endpoint_config != endpoint_config
         or source_prior_trace.prior_variant != prior_variant
         or source_prior_trace.ordered_source_factor_identities
-        != tuple(observed_source_identities)
+        != observed_source_identities
     ):
         raise ValueError(
             "source-prior trace does not match the endpoint and exact ordered "
@@ -635,21 +891,215 @@ def _evaluate_language_elbo(
     )
 
 
-def evaluate_emission_only_ablation(
-    expectation: LanguageElboExpectation,
+def _evaluate_emission_only_ablation(
+    expectation: LiveEmissionExpectation,
+    *,
+    endpoint_config: ArmConfig,
+    model_family_sha256: str,
+    model: object,
+    canonical_model_state_sha256: str,
+    source_prior_trace: H6SourcePriorTrace,
 ) -> EmissionOnlyAblationTerms:
-    """Assemble the separately typed non-ELBO emission-only objective."""
+    """Recompute one provenance-bound non-ELBO through the exact live model."""
 
     checked = _validate_expectation(expectation)
-    terms = tuple(
-        _term(checked, partition="emission", receiver_t=receiver_t)[0]
-        for receiver_t in range(1, checked.horizon + 1)
+    if not isinstance(expectation, LiveEmissionExpectation):
+        raise ValueError(
+            "emission-only expectation must provide BuiltArm-issued live "
+            "emission contexts"
+        )
+    validated_config = _validate_source_endpoint(endpoint_config)
+    if (
+        validated_config.config_id != H6_OBJECTIVE_EMISSION_ARM_ID
+        or validated_config.objective_kind
+        != "emission_only_ablation_non_elbo"
+        or validated_config.prior_variant
+        != "parent_specific_pooled_prefix"
+        or validated_config.mixture_mode != "exact"
+    ):
+        raise ValueError(
+            "emission-only evaluation requires the literal parent-specific "
+            "OBJECTIVE endpoint"
+        )
+    _require_sha256(model_family_sha256, "model_family_sha256")
+    if model_family_sha256 != arm_model_family_sha256(validated_config):
+        raise ValueError(
+            "emission-only model family does not match its literal endpoint"
+        )
+    _require_sha256(
+        canonical_model_state_sha256,
+        "canonical_model_state_sha256",
     )
+    from vfe4.predictive import (
+        canonical_model_state_sha256 as hash_model_state,
+    )
+    from vfe4.training.arms import LatentLanguageArmModel
+
+    if type(model) is not LatentLanguageArmModel:
+        raise ValueError(
+            "emission-only evaluation requires the exact live latent arm model"
+        )
+    if hash_model_state(model) != canonical_model_state_sha256:
+        raise ValueError(
+            "emission-only canonical model state does not match the live arm"
+        )
+    if type(checked.source_law) is not ExactSourceMixtureLaw:
+        raise ValueError(
+            "emission-only OBJECTIVE endpoint requires its exact source law"
+        )
+    checked.source_law.__post_init__()
+    if checked.source_law.endpoint_config != validated_config:
+        raise ValueError(
+            "emission-only expectation source law belongs to another endpoint"
+        )
+    if type(source_prior_trace) is not H6SourcePriorTrace:
+        raise ValueError(
+            "emission-only source_prior_trace must be BuiltArm-derived"
+        )
+    source_prior_trace.__post_init__()
+    observed_source_identities = _ordered_source_factor_identities(checked)
+    if (
+        source_prior_trace.endpoint_config != validated_config
+        or source_prior_trace.model_family_sha256 != model_family_sha256
+        or source_prior_trace.prior_variant
+        != "parent_specific_pooled_prefix"
+        or source_prior_trace.prior_type
+        != "ParentSpecificPooledPrefixSourcePrior"
+        or source_prior_trace.ordered_source_factor_identities
+        != observed_source_identities
+    ):
+        raise ValueError(
+            "emission-only live-prior trace does not match the endpoint, "
+            "model family, or exact ordered source factors"
+        )
+    terms: list[H6FactorTerm] = []
+    for receiver_t in range(1, checked.horizon + 1):
+        try:
+            context = expectation.emission_expectation_context(receiver_t)
+        except (AttributeError, KeyError, IndexError) as exc:
+            raise ValueError(
+                "expectation lacks one BuiltArm-issued emission context"
+            ) from exc
+        if type(context) is not LiveEmissionExpectationContext:
+            raise ValueError(
+                "emission expectation context must be the exact sealed type"
+            )
+        context.__post_init__()
+        if (
+            context.endpoint_config != validated_config
+            or context.model_family_sha256 != model_family_sha256
+            or context.canonical_model_state_sha256
+            != canonical_model_state_sha256
+            or context.evaluation_method != checked.evaluation_method
+            or context.receiver_t != receiver_t
+        ):
+            raise ValueError(
+                "emission context belongs to another endpoint, model state, "
+                "evaluation method, or receiver"
+            )
+        state_support = context.state_support.value()
+        model_support = context.model_support.value()
+        normalized_weights = context.normalized_weights.value()
+        sample_log_probabilities = torch.stack(
+            tuple(
+                model.emission_log_probs(
+                    state=state_support[sample_index],
+                    model=model_support[sample_index],
+                )[context.observed_token_id]
+                for sample_index in range(normalized_weights.numel())
+            )
+        )
+        live_value = _require_live_scalar(
+            torch.sum(normalized_weights * sample_log_probabilities),
+            f"live emission@{receiver_t}",
+        )
+        snapshot = FrozenTensorSnapshot.capture(live_value)
+        factor_payload = {
+            "endpoint_config_sha256": validated_config.config_sha256,
+            "model_family_sha256": model_family_sha256,
+            "canonical_model_state_sha256": (
+                canonical_model_state_sha256
+            ),
+            "source_law": _source_law_payload(
+                checked.source_law,
+                source_prior_trace,
+            ),
+            "emission_context_sha256": context.context_sha256,
+            "partition": "emission",
+            "receiver_t": receiver_t,
+            "contribution": _snapshot_payload(snapshot),
+        }
+        terms.append(
+            H6FactorTerm(
+                receiver_t=receiver_t,
+                partition="emission",
+                factor_identity_sha256=hashlib.sha256(
+                    _LIVE_EMISSION_FACTOR_DOMAIN
+                    + canonical_json_bytes(factor_payload)
+                ).hexdigest(),
+                value=snapshot,
+            )
+        )
+    ordered_terms = tuple(terms)
     if tuple(term.receiver_t for term in terms) != tuple(
         range(1, checked.horizon + 1)
     ):
         raise ValueError("emission terms do not cover the canonical horizon")
-    return EmissionOnlyAblationTerms.create(ordered_emission_terms=terms)
+    total = ordered_terms[0].value.value()
+    for term in ordered_terms[1:]:
+        total = total + term.value.value()
+    total_snapshot = FrozenTensorSnapshot.capture(total)
+    source_law_marker_identity_sha256 = (
+        checked.source_law.law_identity_sha256
+    )
+    source_law_identity_sha256 = h6_source_law_identity(
+        endpoint_config=validated_config,
+        source_prior_trace=source_prior_trace,
+        projection_error=None,
+    )
+    values: dict[str, object] = {
+        "objective_kind": "emission_only_ablation_non_elbo",
+        "endpoint_config": validated_config,
+        "model_family_sha256": model_family_sha256,
+        "canonical_model_state_sha256": canonical_model_state_sha256,
+        "prior_variant": "parent_specific_pooled_prefix",
+        "source_prior_trace": source_prior_trace,
+        "source_law_marker_identity_sha256": (
+            source_law_marker_identity_sha256
+        ),
+        "source_law_identity_sha256": source_law_identity_sha256,
+        "ordered_emission_terms": ordered_terms,
+        "total": total_snapshot,
+    }
+    result = object.__new__(EmissionOnlyAblationTerms)
+    for name, value in values.items():
+        object.__setattr__(result, name, value)
+    object.__setattr__(
+        result,
+        "canonical_sha256",
+        hashlib.sha256(
+            _EMISSION_ONLY_RECORD_DOMAIN
+            + canonical_json_bytes(result._payload())
+        ).hexdigest(),
+    )
+    result.__post_init__()
+    return result
+
+
+def evaluate_emission_only_ablation(
+    expectation: LiveEmissionExpectation,
+    *,
+    arm: object,
+) -> EmissionOnlyAblationTerms:
+    """Route emission-only training through the exact live ``BuiltArm``."""
+
+    from vfe4.training.arms import BuiltArm
+
+    if type(arm) is not BuiltArm:
+        raise ValueError(
+            "emission-only evaluation requires an exact live BuiltArm"
+        )
+    return arm.evaluate_emission_only_ablation(expectation)
 
 
 @final
