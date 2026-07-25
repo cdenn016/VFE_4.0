@@ -10,6 +10,20 @@ from .h3_fixture import (
     validate_independent_control,
 )
 from .h1_fixture import enumerate_source_paths, label_to_index, load_h1_fixture
+from .h7_fixture import (
+    H1_FIXTURE_RAW_SHA256,
+    H7_DENSITY_PROBE_EXPANSION,
+    H7_DENSITY_PROBE_SET_SHA256,
+    H7_DENSITY_PROBE_TABLE_PATH,
+    H7_DENSITY_PROBE_TABLE_RAW_SHA256,
+    H7_FIXTURE_PATH,
+    H7_FIXTURE_RAW_SHA256,
+    adapt_optional_h1_fixture_bytes,
+    h7_scalar_trial_specs,
+    h7_trial_specs_from_config,
+    h7_validation_config_mapping,
+    parse_h7_fixture_bytes,
+)
 
 _H6_PREFIX_EXPORTS = frozenset(
     {
@@ -51,16 +65,28 @@ __all__ = [
     "H3_EXPECTED_SHA256_BY_FIXTURE_ID",
     "H3_ZERO_CONTROL_FIXTURE_PATH",
     "H3_ZERO_CONTROL_SHA256",
+    "H1_FIXTURE_RAW_SHA256",
+    "H7_DENSITY_PROBE_EXPANSION",
+    "H7_DENSITY_PROBE_SET_SHA256",
+    "H7_DENSITY_PROBE_TABLE_PATH",
+    "H7_DENSITY_PROBE_TABLE_RAW_SHA256",
+    "H7_FIXTURE_PATH",
+    "H7_FIXTURE_RAW_SHA256",
     "MAX_FOCUSED_CASES",
     "PairSideHarness",
     "SourceMaskObservation",
     "ValidationPerturbationRecord",
     "enumerate_source_paths",
+    "adapt_optional_h1_fixture_bytes",
+    "h7_scalar_trial_specs",
+    "h7_trial_specs_from_config",
+    "h7_validation_config_mapping",
     "label_to_index",
     "load_h1_fixture",
     "load_frozen_validation_perturbations",
     "observe_all_invalid_source_rejection",
     "parse_h3_fixture_bytes",
+    "parse_h7_fixture_bytes",
     "validate_independent_control",
     "run_dynamic_prefix_checks",
 ]

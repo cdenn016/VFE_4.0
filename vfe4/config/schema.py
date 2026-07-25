@@ -1,4 +1,4 @@
-"""Frozen records for the supported ordered H1--H5 verification prefixes."""
+"""Frozen records for supported ordered verification prefixes through H8."""
 
 from __future__ import annotations
 
@@ -42,8 +42,41 @@ from vfe4.types.h6 import (
     H6PrefixProfilePair,
     H6TrainingSchedule,
 )
+from vfe4.types.h7 import (
+    H7_CONTROL_IDS,
+    H7_REQUIRED_TRIAL_IDS,
+    H7ControlId,
+    H7TrialSpec,
+)
+from vfe4.types.h8 import (
+    CurrentH8PrerequisiteRefs,
+    H8_CORRECTNESS_CASES,
+    H8_H7_PLAN_SHA256,
+    H8_INTERPRETATION_SHA256,
+    H8_PROBLEM_DRAW_SCHEMA_SHA256,
+    H8_PRODUCTION_SAMPLE_SEED_PAIRS,
+    H8_PRODUCTION_SEEDS,
+    H8_PROFILER_API_CONTRACT_SHA256,
+    H8_PROFILER_MEMORY_SOURCE_SHA256,
+    H8_PROFILER_SOURCE_SHA256,
+)
+
 from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
+
+
+_H7_H1_FIXTURE_RAW_SHA256 = (
+    "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
+)
+_H7_FIXTURE_RAW_SHA256 = (
+    "d2ed126c3deab3eafc7b94f81f13152be63eb854e3e62e03f1494dea163666d4"
+)
+_H7_DENSITY_PROBE_TABLE_RAW_SHA256 = (
+    "4857af296e84a33f47964c3bca65e0d42967009aa5c79a52bcc98d6db04382c6"
+)
+_H7_DENSITY_PROBE_SET_SHA256 = (
+    "f002618a32270846c83fedf9888bc06a01d755019edc6421526aee33f89fb42f"
+)
 
 
 @dataclass(frozen=True)
@@ -64,6 +97,16 @@ class ValidationConfig:
         | tuple[
             Literal["H1"], Literal["H2"], Literal["H3"],
             Literal["H4"], Literal["H5"],
+        ]
+        | tuple[
+            Literal["H1"], Literal["H2"], Literal["H3"],
+            Literal["H4"], Literal["H5"], Literal["H6-Prefix"],
+            Literal["H7"],
+        ]
+        | tuple[
+            Literal["H1"], Literal["H2"], Literal["H3"],
+            Literal["H4"], Literal["H5"], Literal["H6-Prefix"],
+            Literal["H7"], Literal["H8"],
         ]
     )
     fixture_id: Literal["h1-v1"]
@@ -742,6 +785,473 @@ class H6ArmMatchingResolvedConfig:
             )
 
 
+def _h7_trial_payload(spec: H7TrialSpec) -> dict[str, object]:
+    return {
+        "trial_id": spec.trial_id,
+        "role": spec.role,
+        "expected_predicate": spec.expected_predicate,
+        "fixture_id": spec.fixture_id,
+        "frame_profile": spec.frame_profile,
+        "decoder_policy": spec.decoder_policy,
+        "action": {
+            "kind": spec.action.kind,
+            "dimension": spec.action.dimension,
+            "group": spec.action.group,
+            "representation": spec.action.representation,
+            "elements": [
+                {
+                    "dtype": item.dtype,
+                    "shape": item.shape,
+                    "device": item.device,
+                    "raw_bytes_hex": item.raw_bytes.hex(),
+                    "raw_bytes_sha256": item.raw_bytes_sha256,
+                    "snapshot_sha256": item.snapshot_sha256,
+                }
+                for item in spec.action.elements
+            ],
+            "action_sha256": spec.action.action_sha256,
+        },
+        "action_sha256": spec.action_sha256,
+        "trial_sha256": spec.trial_sha256,
+    }
+
+
+def _h7_validation_payload(
+    *,
+    schema_version: str,
+    required_trial_specs: tuple[H7TrialSpec, ...],
+    required_control_ids: tuple[H7ControlId, ...],
+    recognition_families: tuple[str, str],
+    h1_fixture_raw_sha256: str,
+    h7_fixture_raw_sha256: str,
+    density_probe_table_raw_sha256: str,
+    density_probe_set_sha256: str,
+    oracle_decimal_precision: int,
+    gauss_hermite_orders: tuple[int, int],
+    group_norm_limit: float,
+    group_inverse_norm_limit: float,
+    spd_condition_limit: float,
+    predecessor_keys: tuple[str, str, str],
+) -> dict[str, object]:
+    return {
+        "schema_version": schema_version,
+        "required_trial_specs": [
+            _h7_trial_payload(spec) for spec in required_trial_specs
+        ],
+        "required_control_ids": required_control_ids,
+        "recognition_families": recognition_families,
+        "h1_fixture_raw_sha256": h1_fixture_raw_sha256,
+        "h7_fixture_raw_sha256": h7_fixture_raw_sha256,
+        "density_probe_table_raw_sha256": (
+            density_probe_table_raw_sha256
+        ),
+        "density_probe_set_sha256": density_probe_set_sha256,
+        "oracle_decimal_precision": oracle_decimal_precision,
+        "gauss_hermite_orders": gauss_hermite_orders,
+        "group_norm_limit": group_norm_limit,
+        "group_inverse_norm_limit": group_inverse_norm_limit,
+        "spd_condition_limit": spd_condition_limit,
+        "predecessor_keys": predecessor_keys,
+    }
+
+
+@dataclass(frozen=True)
+class H7ValidationConfig:
+    schema_version: Literal["h7-validation-config-v1"]
+    required_trial_specs: tuple[H7TrialSpec, ...]
+    required_control_ids: tuple[H7ControlId, ...]
+    recognition_families: tuple[
+        Literal["structured_full_block"],
+        Literal["factorized_diagonal_within_fiber"],
+    ]
+    h1_fixture_raw_sha256: str
+    h7_fixture_raw_sha256: str
+    density_probe_table_raw_sha256: str
+    density_probe_set_sha256: str
+    oracle_decimal_precision: Literal[100]
+    gauss_hermite_orders: tuple[Literal[41], Literal[51]]
+    group_norm_limit: float
+    group_inverse_norm_limit: float
+    spd_condition_limit: float
+    predecessor_keys: tuple[
+        Literal["h1_h5"],
+        Literal["h1_prefix_prior"],
+        Literal["h6_prefix"],
+    ]
+    canonical_json: str
+    config_sha256: str
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        required_trial_specs: tuple[H7TrialSpec, ...],
+        required_control_ids: tuple[H7ControlId, ...],
+        recognition_families: tuple[
+            Literal["structured_full_block"],
+            Literal["factorized_diagonal_within_fiber"],
+        ],
+        h1_fixture_raw_sha256: str,
+        h7_fixture_raw_sha256: str,
+        density_probe_table_raw_sha256: str,
+        density_probe_set_sha256: str,
+        oracle_decimal_precision: Literal[100],
+        gauss_hermite_orders: tuple[Literal[41], Literal[51]],
+        group_norm_limit: float,
+        group_inverse_norm_limit: float,
+        spd_condition_limit: float,
+        predecessor_keys: tuple[
+            Literal["h1_h5"],
+            Literal["h1_prefix_prior"],
+            Literal["h6_prefix"],
+        ],
+    ) -> "H7ValidationConfig":
+        payload = _h7_validation_payload(
+            schema_version="h7-validation-config-v1",
+            required_trial_specs=required_trial_specs,
+            required_control_ids=required_control_ids,
+            recognition_families=recognition_families,
+            h1_fixture_raw_sha256=h1_fixture_raw_sha256,
+            h7_fixture_raw_sha256=h7_fixture_raw_sha256,
+            density_probe_table_raw_sha256=(
+                density_probe_table_raw_sha256
+            ),
+            density_probe_set_sha256=density_probe_set_sha256,
+            oracle_decimal_precision=oracle_decimal_precision,
+            gauss_hermite_orders=gauss_hermite_orders,
+            group_norm_limit=group_norm_limit,
+            group_inverse_norm_limit=group_inverse_norm_limit,
+            spd_condition_limit=spd_condition_limit,
+            predecessor_keys=predecessor_keys,
+        )
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        return cls(
+            schema_version="h7-validation-config-v1",
+            required_trial_specs=required_trial_specs,
+            required_control_ids=required_control_ids,
+            recognition_families=recognition_families,
+            h1_fixture_raw_sha256=h1_fixture_raw_sha256,
+            h7_fixture_raw_sha256=h7_fixture_raw_sha256,
+            density_probe_table_raw_sha256=(
+                density_probe_table_raw_sha256
+            ),
+            density_probe_set_sha256=density_probe_set_sha256,
+            oracle_decimal_precision=oracle_decimal_precision,
+            gauss_hermite_orders=gauss_hermite_orders,
+            group_norm_limit=group_norm_limit,
+            group_inverse_norm_limit=group_inverse_norm_limit,
+            spd_condition_limit=spd_condition_limit,
+            predecessor_keys=predecessor_keys,
+            canonical_json=canonical,
+            config_sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        )
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.schema_version) is not str
+            or self.schema_version != "h7-validation-config-v1"
+            or type(self.required_trial_specs) is not tuple
+            or any(
+                type(spec) is not H7TrialSpec
+                for spec in self.required_trial_specs
+            )
+            or tuple(
+                spec.trial_id for spec in self.required_trial_specs
+            )
+            != H7_REQUIRED_TRIAL_IDS
+            or type(self.required_control_ids) is not tuple
+            or self.required_control_ids != H7_CONTROL_IDS
+            or type(self.recognition_families) is not tuple
+            or self.recognition_families
+            != (
+                "structured_full_block",
+                "factorized_diagonal_within_fiber",
+            )
+            or type(self.oracle_decimal_precision) is not int
+            or self.oracle_decimal_precision != 100
+            or type(self.gauss_hermite_orders) is not tuple
+            or any(type(order) is not int for order in self.gauss_hermite_orders)
+            or self.gauss_hermite_orders != (41, 51)
+            or type(self.group_norm_limit) is not float
+            or self.group_norm_limit != 2.0
+            or type(self.group_inverse_norm_limit) is not float
+            or self.group_inverse_norm_limit != 2.0
+            or type(self.spd_condition_limit) is not float
+            or self.spd_condition_limit != 1000.0
+            or type(self.predecessor_keys) is not tuple
+            or self.predecessor_keys
+            != ("h1_h5", "h1_prefix_prior", "h6_prefix")
+            or self.h1_fixture_raw_sha256
+            != _H7_H1_FIXTURE_RAW_SHA256
+            or self.h7_fixture_raw_sha256 != _H7_FIXTURE_RAW_SHA256
+            or self.density_probe_table_raw_sha256
+            != _H7_DENSITY_PROBE_TABLE_RAW_SHA256
+            or self.density_probe_set_sha256
+            != _H7_DENSITY_PROBE_SET_SHA256
+        ):
+            raise ValueError("H7 validation configuration is frozen")
+        for name in (
+            "h1_fixture_raw_sha256",
+            "h7_fixture_raw_sha256",
+            "density_probe_table_raw_sha256",
+            "density_probe_set_sha256",
+            "config_sha256",
+        ):
+            value = getattr(self, name)
+            if (
+                type(value) is not str
+                or len(value) != 64
+                or any(character not in "0123456789abcdef" for character in value)
+            ):
+                raise ValueError(f"{name} must be lowercase SHA-256")
+        payload = _h7_validation_payload(
+            schema_version=self.schema_version,
+            required_trial_specs=self.required_trial_specs,
+            required_control_ids=self.required_control_ids,
+            recognition_families=self.recognition_families,
+            h1_fixture_raw_sha256=self.h1_fixture_raw_sha256,
+            h7_fixture_raw_sha256=self.h7_fixture_raw_sha256,
+            density_probe_table_raw_sha256=(
+                self.density_probe_table_raw_sha256
+            ),
+            density_probe_set_sha256=self.density_probe_set_sha256,
+            oracle_decimal_precision=self.oracle_decimal_precision,
+            gauss_hermite_orders=self.gauss_hermite_orders,
+            group_norm_limit=self.group_norm_limit,
+            group_inverse_norm_limit=self.group_inverse_norm_limit,
+            spd_condition_limit=self.spd_condition_limit,
+            predecessor_keys=self.predecessor_keys,
+        )
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        if self.canonical_json != canonical:
+            raise ValueError("H7 canonical JSON does not match fields")
+        if self.config_sha256 != hashlib.sha256(
+            canonical.encode("utf-8")
+        ).hexdigest():
+            raise ValueError("H7 config SHA-256 does not match fields")
+
+
+H8_PROBLEM_DRAW_DESCRIPTOR = (
+    "numpy.Generator(numpy.PCG64(problem_seed))"
+    "|method=standard_normal|dtype=float64|order=C"
+    "|initial:mu0[b],Q0[b,b]"
+    "|transition:t=1..T:{A_m[K,K],c_m[K],Q_m[K,K],A_z[K,K],B[K,K],"
+    "c_z[K],Q_z[K,K]}"
+    "|recognition_initial:mu_q0[b],Q_q0[b,b]"
+    "|recognition_transition:t=1..T:{A_q[b,b],c_q[b],Q_q[b,b]}"
+    "|emission:t=1..T:{w[b],beta[V]}"
+    "|normal_map_variance=1/dim=>multiply_standard_normal_by_1/sqrt(dim)"
+    "|serialize=after_all_problem_draws_before_sample_rng"
+    "|bytes=little-endian-f8-C-contiguous"
+)
+
+
+def _h8_validation_payload(
+    *,
+    schema_version: str,
+    operation: str,
+    choice_kind: str,
+    k_semantics: str,
+    coordinate_order: str,
+    T: int,
+    N: int,
+    K: int,
+    d_z: int,
+    d_m: int,
+    b: int,
+    D: int,
+    V: int,
+    generator_schema: str,
+    sample_schema: str,
+    problem_draw_descriptor: str,
+    problem_draw_schema_sha256: str,
+    serialization_point: str,
+    seeds: tuple[int, ...],
+    production_sample_seed_pairs: tuple[tuple[int, int], ...],
+    cold_repetitions: int,
+    correctness_seed_table: tuple[tuple[int, int, int, int], ...],
+    max_seconds: float,
+    max_process_incremental_mib: int,
+    max_torch_population_mib: int,
+    max_rhs_width: int,
+    sample_width: int,
+    torch_version: str,
+    profiler_memory_source_sha256: str,
+    profiler_source_sha256: str,
+    profiler_api_contract_sha256: str,
+    interpretation_sha256: str,
+    h7_plan_sha256: str,
+) -> dict[str, object]:
+    return {
+        "schema_version": schema_version,
+        "operation": operation,
+        "choice_kind": choice_kind,
+        "k_semantics": k_semantics,
+        "coordinate_order": coordinate_order,
+        "T": T,
+        "N": N,
+        "K": K,
+        "d_z": d_z,
+        "d_m": d_m,
+        "b": b,
+        "D": D,
+        "V": V,
+        "generator_schema": generator_schema,
+        "sample_schema": sample_schema,
+        "problem_draw_descriptor": problem_draw_descriptor,
+        "problem_draw_schema_sha256": problem_draw_schema_sha256,
+        "serialization_point": serialization_point,
+        "seeds": seeds,
+        "production_sample_seed_pairs": production_sample_seed_pairs,
+        "cold_repetitions": cold_repetitions,
+        "correctness_seed_table": correctness_seed_table,
+        "max_seconds": max_seconds,
+        "max_process_incremental_mib": max_process_incremental_mib,
+        "max_torch_population_mib": max_torch_population_mib,
+        "max_rhs_width": max_rhs_width,
+        "sample_width": sample_width,
+        "torch_version": torch_version,
+        "profiler_memory_source_sha256": profiler_memory_source_sha256,
+        "profiler_source_sha256": profiler_source_sha256,
+        "profiler_api_contract_sha256": profiler_api_contract_sha256,
+        "interpretation_sha256": interpretation_sha256,
+        "h7_plan_sha256": h7_plan_sha256,
+    }
+
+
+def _h8_frozen_values() -> dict[str, object]:
+    return {
+        "schema_version": "h8-validation-config-v1",
+        "operation": "H8",
+        "choice_kind": "operational_preregistration_not_manuscript_theorem",
+        "k_semantics": "each_channel_dimension",
+        "coordinate_order": "[z_0,m_0,...,z_T,m_T]",
+        "T": 128,
+        "N": 129,
+        "K": 20,
+        "d_z": 20,
+        "d_m": 20,
+        "b": 40,
+        "D": 5160,
+        "V": 3,
+        "generator_schema": "h8-synthetic-chain-v1",
+        "sample_schema": "h8-pcg64-sample-v1",
+        "problem_draw_descriptor": H8_PROBLEM_DRAW_DESCRIPTOR,
+        "problem_draw_schema_sha256": H8_PROBLEM_DRAW_SCHEMA_SHA256,
+        "serialization_point": "after_all_problem_draws_before_sample_rng",
+        "seeds": H8_PRODUCTION_SEEDS,
+        "production_sample_seed_pairs": H8_PRODUCTION_SAMPLE_SEED_PAIRS,
+        "cold_repetitions": 5,
+        "correctness_seed_table": H8_CORRECTNESS_CASES,
+        "max_seconds": 60.0,
+        "max_process_incremental_mib": 128,
+        "max_torch_population_mib": 64,
+        "max_rhs_width": 40,
+        "sample_width": 1,
+        "torch_version": "2.9.1",
+        "profiler_memory_source_sha256": H8_PROFILER_MEMORY_SOURCE_SHA256,
+        "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
+        "profiler_api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
+        "interpretation_sha256": H8_INTERPRETATION_SHA256,
+        "h7_plan_sha256": H8_H7_PLAN_SHA256,
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class H8ValidationConfig:
+    """Frozen, unmeasured H8 synthetic systems protocol."""
+
+    schema_version: Literal["h8-validation-config-v1"]
+    operation: Literal["H8"]
+    choice_kind: Literal["operational_preregistration_not_manuscript_theorem"]
+    k_semantics: Literal["each_channel_dimension"]
+    coordinate_order: Literal["[z_0,m_0,...,z_T,m_T]"]
+    T: Literal[128]
+    N: Literal[129]
+    K: Literal[20]
+    d_z: Literal[20]
+    d_m: Literal[20]
+    b: Literal[40]
+    D: Literal[5160]
+    V: Literal[3]
+    generator_schema: Literal["h8-synthetic-chain-v1"]
+    sample_schema: Literal["h8-pcg64-sample-v1"]
+    problem_draw_descriptor: str
+    problem_draw_schema_sha256: str
+    serialization_point: Literal[
+        "after_all_problem_draws_before_sample_rng"
+    ]
+    seeds: tuple[Literal[20260721], Literal[20260722], Literal[20260723]]
+    production_sample_seed_pairs: tuple[
+        tuple[Literal[20260721], Literal[20261721]],
+        tuple[Literal[20260722], Literal[20261722]],
+        tuple[Literal[20260723], Literal[20261723]],
+    ]
+    cold_repetitions: Literal[5]
+    correctness_seed_table: tuple[tuple[int, int, int, int], ...]
+    max_seconds: float
+    max_process_incremental_mib: Literal[128]
+    max_torch_population_mib: Literal[64]
+    max_rhs_width: Literal[40]
+    sample_width: Literal[1]
+    torch_version: Literal["2.9.1"]
+    profiler_memory_source_sha256: str
+    profiler_source_sha256: str
+    profiler_api_contract_sha256: str
+    interpretation_sha256: str
+    h7_plan_sha256: str
+    canonical_json: str
+    config_sha256: str
+
+    @classmethod
+    def create(cls) -> "H8ValidationConfig":
+        values = _h8_frozen_values()
+        canonical = json.dumps(
+            _h8_validation_payload(**values),
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        return cls(
+            **values,
+            canonical_json=canonical,
+            config_sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        )
+
+    def __post_init__(self) -> None:
+        expected = _h8_frozen_values()
+        for name in self.__dataclass_fields__:
+            if name in ("canonical_json", "config_sha256"):
+                continue
+            if (
+                type(getattr(self, name)) is not type(expected[name])
+                or getattr(self, name) != expected[name]
+            ):
+                raise ValueError("H8 validation configuration is frozen")
+        payload = _h8_validation_payload(
+            **{
+                name: getattr(self, name)
+                for name in self.__dataclass_fields__
+                if name not in ("canonical_json", "config_sha256")
+            }
+        )
+        canonical = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        if self.canonical_json != canonical:
+            raise ValueError("H8 canonical JSON does not match fields")
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if self.config_sha256 != digest:
+            raise ValueError("H8 config SHA-256 does not match fields")
+
+
 @dataclass(frozen=True)
 class ResolvedConfig:
     schema_version: Literal[1]
@@ -761,3 +1271,6 @@ class ResolvedConfig:
     h5: H5ValidationConfig | None = None
     h6_prefix: H6PrefixResolvedConfig | None = None
     h6_prediction: H6PredictionResolvedConfig | None = None
+    h7: H7ValidationConfig | None = None
+    h8: H8ValidationConfig | None = None
+    h8_current_refs: CurrentH8PrerequisiteRefs | None = None

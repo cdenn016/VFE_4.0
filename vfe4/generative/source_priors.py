@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 import torch
@@ -62,6 +62,14 @@ def _tensor_raw_sha256(value: Tensor) -> str:
         .tolist()
     )
     return hashlib.sha256(raw).hexdigest()
+
+
+def _deterministic_matrix(rows: int, columns: int, *, scale: float) -> Tensor:
+    values = torch.arange(rows * columns, dtype=torch.float64).reshape(
+        rows, columns
+    )
+    centered = values - 0.5 * max(0, rows * columns - 1)
+    return scale * centered / max(1, rows * columns)
 
 
 def _snapshot_payload(snapshot: FrozenTensorSnapshot) -> dict[str, object]:
@@ -123,6 +131,65 @@ class MaskCaseKey:
         return _owned_hash("vfe4.h6.mask-case-key.v1", self.canonical_payload())
 
 
+@dataclass(frozen=True, slots=True)
+class FixedSourceFactorContext:
+    """Exact source slot proving that a fixed prior consumes no context."""
+
+    bank: SourceBank
+    receiver_t: int
+
+    def __post_init__(self) -> None:
+        if self.bank not in ("state", "model"):
+            raise ValueError("unsupported fixed source-context bank")
+        if type(self.receiver_t) is not int or self.receiver_t <= 0:
+            raise ValueError(
+                "fixed source-context receiver_t must be positive"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class PrefixConditionedSourceFactorContext:
+    """Exact live inputs needed to recompute one prefix-conditioned factor."""
+
+    bank: SourceBank
+    receiver_t: int
+    prefix: CausalPrefix
+    earlier_latents: Tensor = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self.bank not in ("state", "model"):
+            raise ValueError("unsupported prefix source-context bank")
+        if type(self.receiver_t) is not int or self.receiver_t <= 0:
+            raise ValueError(
+                "prefix source-context receiver_t must be positive"
+            )
+        if type(self.prefix) is not CausalPrefix:
+            raise ValueError(
+                "prefix source context requires an exact CausalPrefix"
+            )
+        self.prefix.__post_init__()
+        if self.prefix.receiver_t != self.receiver_t:
+            raise ValueError(
+                "prefix source-context receiver does not match its prefix"
+            )
+        if (
+            type(self.earlier_latents) is not Tensor
+            or self.earlier_latents.dtype is not torch.float64
+            or self.earlier_latents.ndim != 2
+            or self.earlier_latents.shape[0] != self.receiver_t
+            or not bool(torch.isfinite(self.earlier_latents).all())
+        ):
+            raise ValueError(
+                "prefix source-context earlier_latents must be finite "
+                "float64 shape (receiver_t, latent_dim)"
+            )
+
+
+SourceFactorContext = (
+    FixedSourceFactorContext | PrefixConditionedSourceFactorContext
+)
+
+
 @dataclass(frozen=True)
 class NormalizedSourceFactor:
     """One normalized source row with immutable value and support identities."""
@@ -131,6 +198,14 @@ class NormalizedSourceFactor:
     support_mask: tuple[bool, ...]
     log_probs: FrozenTensorSnapshot
     factor_identity_sha256: str
+
+    def canonical_payload(self) -> dict[str, object]:
+        self.log_probs.assert_intact()
+        return {
+            "mask_case_sha256": self.mask_case_key.canonical_sha256,
+            "support_mask": self.support_mask,
+            "log_probs": _snapshot_payload(self.log_probs),
+        }
 
     def __post_init__(self) -> None:
         if type(self.mask_case_key) is not MaskCaseKey:
@@ -165,11 +240,7 @@ class NormalizedSourceFactor:
         _require_sha256(self.factor_identity_sha256, "factor_identity_sha256")
         expected = _owned_hash(
             "vfe4.h6.normalized-source-factor.v1",
-            {
-                "mask_case_sha256": self.mask_case_key.canonical_sha256,
-                "support_mask": self.support_mask,
-                "log_probs": _snapshot_payload(self.log_probs),
-            },
+            self.canonical_payload(),
         )
         if self.factor_identity_sha256 != expected:
             raise ValueError("source factor identity does not match the normalized record")
@@ -281,9 +352,11 @@ class _SourcePriorBase(nn.Module):
         )
 
 
-def _checked_rows(
+def _checked_gauge_anchored_rows(
     rows: tuple[Tensor, ...], structure: H6LanguageStructure, name: str
 ) -> nn.ParameterList:
+    """Own supported source logits modulo one fixed-zero softmax anchor."""
+
     if type(rows) is not tuple or len(rows) != len(structure.dag.rows):
         raise ValueError(f"{name} must contain one row per DAG receiver")
     parameters: list[nn.Parameter] = []
@@ -298,12 +371,66 @@ def _checked_rows(
             raise ValueError(
                 f"{name} rows must be finite float64 vectors of receiver_t length"
             )
-        parameters.append(nn.Parameter(row.detach().clone()))
+        free_parents = dag_row.parents[:-1]
+        anchor_parent = dag_row.parents[-1]
+        if not free_parents:
+            continue
+        canonical_free = (
+            row[list(free_parents)] - row[anchor_parent]
+        )
+        parameters.append(nn.Parameter(canonical_free.detach().clone()))
     return nn.ParameterList(parameters)
 
 
+def _free_row(
+    parameters: nn.ParameterList,
+    *,
+    receiver_t: int,
+    dtype: torch.dtype = torch.float64,
+    device: torch.device | None = None,
+) -> Tensor:
+    """Return the receiver's free logits without a zero-size Parameter."""
+
+    if type(receiver_t) is not int or receiver_t <= 0:
+        raise ValueError("receiver_t must be a positive integer")
+    if receiver_t == 1:
+        return torch.empty(0, dtype=dtype, device=device)
+    parameter_index = receiver_t - 2
+    if not 0 <= parameter_index < len(parameters):
+        raise ValueError("receiver_t has no gauge-anchored free row")
+    return parameters[parameter_index]
+
+
+def _gauge_anchored_logits(
+    *,
+    free_logits: Tensor,
+    receiver_t: int,
+    parents: tuple[int, ...],
+) -> Tensor:
+    """Expand free supported logits while keeping one exact zero anchor."""
+
+    if (
+        type(free_logits) is not Tensor
+        or free_logits.dtype is not torch.float64
+        or free_logits.ndim != 1
+        or free_logits.shape != (len(parents) - 1,)
+    ):
+        raise ValueError("free source logits do not match the supported-parent gauge")
+    logits = torch.zeros(
+        receiver_t,
+        dtype=free_logits.dtype,
+        device=free_logits.device,
+    )
+    if len(parents) == 1:
+        return logits
+    free_indices = torch.tensor(
+        parents[:-1], dtype=torch.int64, device=free_logits.device
+    )
+    return logits.index_copy(0, free_indices, free_logits)
+
+
 class FixedSourcePrior(_SourcePriorBase):
-    """Trainable prefix-independent normalized priors for both source banks."""
+    """Prefix-independent priors with a fixed-zero categorical gauge anchor."""
 
     def __init__(
         self,
@@ -314,7 +441,7 @@ class FixedSourcePrior(_SourcePriorBase):
         predictor_config_sha256: str,
         model_family_sha256: str,
         state_logits: tuple[Tensor, ...],
-        model_logits: tuple[Tensor, ...],
+        model_logits: tuple[Tensor, ...] | None,
     ) -> None:
         super().__init__(
             structure=structure,
@@ -323,8 +450,16 @@ class FixedSourcePrior(_SourcePriorBase):
             predictor_config_sha256=predictor_config_sha256,
             model_family_sha256=model_family_sha256,
         )
-        self.state_logits = _checked_rows(state_logits, structure, "state_logits")
-        self.model_logits = _checked_rows(model_logits, structure, "model_logits")
+        self.state_source_free_logits = _checked_gauge_anchored_rows(
+            state_logits, structure, "state_logits"
+        )
+        self.model_source_free_logits = (
+            _checked_gauge_anchored_rows(
+                model_logits, structure, "model_logits"
+            )
+            if model_logits is not None
+            else None
+        )
 
     def _context_sha256(self, receiver_t: int) -> str:
         return _owned_hash(
@@ -333,8 +468,17 @@ class FixedSourcePrior(_SourcePriorBase):
 
     def state_source_log_probs(self, *, receiver_t: int) -> NormalizedSourceFactor:
         index = self._row_index(receiver_t)
+        row = self.structure.dag.rows[index]
+        free_logits = _free_row(
+            self.state_source_free_logits,
+            receiver_t=receiver_t,
+        )
         return self._normalized(
-            logits=self.state_logits[index],
+            logits=_gauge_anchored_logits(
+                free_logits=free_logits,
+                receiver_t=receiver_t,
+                parents=row.parents,
+            ),
             prior_variant="fixed",
             bank="state",
             receiver_t=receiver_t,
@@ -342,9 +486,20 @@ class FixedSourcePrior(_SourcePriorBase):
         )
 
     def model_source_log_probs(self, *, receiver_t: int) -> NormalizedSourceFactor:
+        if self.model_source_free_logits is None:
+            raise ValueError("model source bank is structurally absent")
         index = self._row_index(receiver_t)
+        row = self.structure.dag.rows[index]
+        free_logits = _free_row(
+            self.model_source_free_logits,
+            receiver_t=receiver_t,
+        )
         return self._normalized(
-            logits=self.model_logits[index],
+            logits=_gauge_anchored_logits(
+                free_logits=free_logits,
+                receiver_t=receiver_t,
+                parents=row.parents,
+            ),
             prior_variant="fixed",
             bank="model",
             receiver_t=receiver_t,
@@ -388,30 +543,109 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
         self.model_latent_projection = nn.Linear(
             latent_dim, context_dim, bias=False, dtype=torch.float64
         )
-        self.state_parent_keys = nn.ParameterList(
+        self.state_source_free_parent_keys = nn.ParameterList(
             [
-                nn.Parameter(torch.zeros((row.receiver_t, context_dim), dtype=torch.float64))
+                nn.Parameter(
+                    torch.zeros(
+                        (len(row.parents) - 1, context_dim),
+                        dtype=torch.float64,
+                    )
+                )
                 for row in structure.dag.rows
+                if len(row.parents) > 1
             ]
         )
-        self.model_parent_keys = nn.ParameterList(
+        self.model_source_free_parent_keys = nn.ParameterList(
             [
-                nn.Parameter(torch.zeros((row.receiver_t, context_dim), dtype=torch.float64))
+                nn.Parameter(
+                    torch.zeros(
+                        (len(row.parents) - 1, context_dim),
+                        dtype=torch.float64,
+                    )
+                )
                 for row in structure.dag.rows
+                if len(row.parents) > 1
             ]
         )
-        self.state_biases = nn.ParameterList(
+        self.state_source_free_biases = nn.ParameterList(
             [
-                nn.Parameter(torch.zeros(row.receiver_t, dtype=torch.float64))
+                nn.Parameter(
+                    torch.zeros(len(row.parents) - 1, dtype=torch.float64)
+                )
                 for row in structure.dag.rows
+                if len(row.parents) > 1
             ]
         )
-        self.model_biases = nn.ParameterList(
+        self.model_source_free_biases = nn.ParameterList(
             [
-                nn.Parameter(torch.zeros(row.receiver_t, dtype=torch.float64))
+                nn.Parameter(
+                    torch.zeros(len(row.parents) - 1, dtype=torch.float64)
+                )
                 for row in structure.dag.rows
+                if len(row.parents) > 1
             ]
         )
+        with torch.no_grad():
+            self.token_embedding.weight.copy_(
+                _deterministic_matrix(
+                    vocabulary.size, context_dim, scale=0.125
+                )
+            )
+            self.state_latent_projection.weight.copy_(
+                _deterministic_matrix(
+                    context_dim, latent_dim, scale=0.1
+                )
+            )
+            self.model_latent_projection.weight.copy_(
+                _deterministic_matrix(
+                    context_dim, latent_dim, scale=0.075
+                )
+            )
+            for row_index, (
+                state_keys,
+                model_keys,
+                state_bias,
+                model_bias,
+            ) in enumerate(
+                zip(
+                    self.state_source_free_parent_keys,
+                    self.model_source_free_parent_keys,
+                    self.state_source_free_biases,
+                    self.model_source_free_biases,
+                    strict=True,
+                )
+            ):
+                state_keys.copy_(
+                    _deterministic_matrix(
+                        state_keys.shape[0],
+                        context_dim,
+                        scale=0.05 * (row_index + 1),
+                    )
+                )
+                model_keys.copy_(
+                    _deterministic_matrix(
+                        model_keys.shape[0],
+                        context_dim,
+                        scale=0.04 * (row_index + 1),
+                    )
+                )
+                if state_bias.numel():
+                    state_bias.copy_(
+                        torch.linspace(
+                            -0.01,
+                            0.01,
+                            state_bias.numel(),
+                            dtype=torch.float64,
+                        )
+                    )
+                    model_bias.copy_(
+                        torch.linspace(
+                            0.01,
+                            -0.01,
+                            model_bias.numel(),
+                            dtype=torch.float64,
+                        )
+                    )
 
     def _checked_context(
         self, *, prefix: CausalPrefix, earlier_latents: Tensor, bank: SourceBank
@@ -468,7 +702,22 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
             prefix=prefix, earlier_latents=earlier_latents, bank="state"
         )
         index = self._row_index(receiver_t)
-        logits = self.state_parent_keys[index] @ context + self.state_biases[index]
+        row = self.structure.dag.rows[index]
+        if receiver_t == 1:
+            free_logits = torch.empty(
+                0, dtype=context.dtype, device=context.device
+            )
+        else:
+            free_index = receiver_t - 2
+            free_logits = (
+                self.state_source_free_parent_keys[free_index] @ context
+                + self.state_source_free_biases[free_index]
+            )
+        logits = _gauge_anchored_logits(
+            free_logits=free_logits,
+            receiver_t=receiver_t,
+            parents=row.parents,
+        )
         return self._normalized(
             logits=logits,
             prior_variant="prefix_conditioned",
@@ -484,7 +733,22 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
             prefix=prefix, earlier_latents=earlier_latents, bank="model"
         )
         index = self._row_index(receiver_t)
-        logits = self.model_parent_keys[index] @ context + self.model_biases[index]
+        row = self.structure.dag.rows[index]
+        if receiver_t == 1:
+            free_logits = torch.empty(
+                0, dtype=context.dtype, device=context.device
+            )
+        else:
+            free_index = receiver_t - 2
+            free_logits = (
+                self.model_source_free_parent_keys[free_index] @ context
+                + self.model_source_free_biases[free_index]
+            )
+        logits = _gauge_anchored_logits(
+            free_logits=free_logits,
+            receiver_t=receiver_t,
+            parents=row.parents,
+        )
         return self._normalized(
             logits=logits,
             prior_variant="prefix_conditioned",
@@ -496,7 +760,10 @@ class PrefixConditionedSourcePrior(_SourcePriorBase):
 
 __all__ = [
     "FixedSourcePrior",
+    "FixedSourceFactorContext",
     "MaskCaseKey",
     "NormalizedSourceFactor",
+    "PrefixConditionedSourceFactorContext",
     "PrefixConditionedSourcePrior",
+    "SourceFactorContext",
 ]

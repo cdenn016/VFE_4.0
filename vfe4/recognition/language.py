@@ -10,6 +10,11 @@ import torch
 from torch import Tensor
 
 from vfe4.types.h6 import FrozenTensorSnapshot
+from vfe4.types.h7 import (
+    H7RawTensorIdentity,
+    H7SourceBank,
+    H7SourceContextView,
+)
 
 
 RecognitionMode = Literal["filtering", "smoothing"]
@@ -164,6 +169,190 @@ def _rsample(
     return result
 
 
+def _require_h7_float64_tensor(
+    value: object,
+    *,
+    name: str,
+    shape: tuple[int, ...] | None = None,
+    ndim: int | None = None,
+) -> Tensor:
+    if (
+        not isinstance(value, Tensor)
+        or value.dtype is not torch.float64
+        or (shape is not None and tuple(value.shape) != shape)
+        or (ndim is not None and value.ndim != ndim)
+        or not bool(torch.isfinite(value).all())
+    ):
+        raise ValueError(f"{name} is not a finite float64 H7 tensor")
+    return value
+
+
+@dataclass(frozen=True, eq=False)
+class H7RecognitionAffineTrace:
+    """One complete live source-conditioned receiver factor."""
+
+    component_id: str
+    bank: H7SourceBank
+    receiver_t: int
+    source_j: int
+    parent_map: Tensor
+    same_receiver_model_map: Tensor | None
+    offset: Tensor
+    covariance: Tensor
+    precision: Tensor
+
+    def __post_init__(self) -> None:
+        if type(self.component_id) is not str or not self.component_id:
+            raise ValueError("H7 recognition component_id is invalid")
+        if (
+            self.bank not in ("model", "state")
+            or type(self.receiver_t) is not int
+            or self.receiver_t not in (1, 2)
+            or type(self.source_j) is not int
+            or self.source_j < 0
+            or self.source_j >= self.receiver_t
+        ):
+            raise ValueError("H7 recognition receiver/source identity is invalid")
+        offset = _require_h7_float64_tensor(
+            self.offset, name="offset", ndim=1
+        )
+        dimension = offset.numel()
+        if dimension not in (1, 2):
+            raise ValueError("H7 recognition width must be one or two")
+        shape = (dimension, dimension)
+        parent = _require_h7_float64_tensor(
+            self.parent_map, name="parent_map", shape=shape
+        )
+        covariance = _require_h7_float64_tensor(
+            self.covariance, name="covariance", shape=shape
+        )
+        precision = _require_h7_float64_tensor(
+            self.precision, name="precision", shape=shape
+        )
+        if self.bank == "model":
+            if self.same_receiver_model_map is not None:
+                raise ValueError("model trace cannot carry a state-model map")
+        else:
+            _require_h7_float64_tensor(
+                self.same_receiver_model_map,
+                name="same_receiver_model_map",
+                shape=shape,
+            )
+        eps = torch.finfo(torch.float64).eps
+        identity = torch.eye(
+            dimension, dtype=torch.float64, device=offset.device
+        )
+        if (
+            parent.device != offset.device
+            or covariance.device != offset.device
+            or precision.device != offset.device
+            or not torch.equal(covariance, covariance.T)
+            or not torch.equal(precision, precision.T)
+            or not torch.allclose(
+                precision @ covariance,
+                identity,
+                rtol=256.0 * eps,
+                atol=256.0 * eps,
+            )
+        ):
+            raise ValueError("H7 recognition Gaussian trace is inconsistent")
+
+
+@dataclass(frozen=True, eq=False)
+class H7RecognitionCompleteTrace:
+    """Additional complete-factor trace not retained by the H6 Gaussian API."""
+
+    initial_covariance: Tensor
+    model_conditionals: tuple[
+        H7RecognitionAffineTrace, H7RecognitionAffineTrace
+    ]
+    state_conditionals: tuple[
+        H7RecognitionAffineTrace, H7RecognitionAffineTrace
+    ]
+    source_context: H7SourceContextView
+
+    def __post_init__(self) -> None:
+        for name, bank, values in (
+            ("model_conditionals", "model", self.model_conditionals),
+            ("state_conditionals", "state", self.state_conditionals),
+        ):
+            if (
+                type(values) is not tuple
+                or len(values) != 2
+                or tuple(
+                    (item.bank, item.receiver_t, item.source_j)
+                    for item in values
+                    if type(item) is H7RecognitionAffineTrace
+                )
+                != ((bank, 1, 0), (bank, 2, 1))
+            ):
+                raise ValueError(f"H7 {name} inventory is invalid")
+            for item in values:
+                item.__post_init__()
+        dimension = self.model_conditionals[0].offset.numel()
+        _require_h7_float64_tensor(
+            self.initial_covariance,
+            name="initial_covariance",
+            shape=(2 * dimension, 2 * dimension),
+        )
+        if (
+            type(self.source_context) is not H7SourceContextView
+            or dimension != 2
+        ):
+            raise ValueError(
+                "matrix H7 recognition trace requires a source context"
+            )
+        self.source_context.assert_live()
+
+
+@dataclass(frozen=True, eq=False)
+class H7LanguageRecognitionTrace:
+    """Direct live Gaussian references exported by an exact H6 law."""
+
+    initial_mean: Tensor
+    initial_precision_cholesky: Tensor
+    complete: H7RecognitionCompleteTrace
+
+    def __post_init__(self) -> None:
+        self.complete.__post_init__()
+        dimension = self.complete.model_conditionals[0].offset.numel()
+        mean = _require_h7_float64_tensor(
+            self.initial_mean,
+            name="initial_mean",
+            shape=(2 * dimension,),
+        )
+        cholesky = _require_h7_float64_tensor(
+            self.initial_precision_cholesky,
+            name="initial_precision_cholesky",
+            shape=(2 * dimension, 2 * dimension),
+        )
+        if not torch.equal(cholesky, torch.tril(cholesky)) or not bool(
+            torch.all(torch.diagonal(cholesky) > 0.0)
+        ):
+            raise ValueError("initial precision Cholesky is invalid")
+        precision = cholesky @ cholesky.T
+        eps = torch.finfo(torch.float64).eps
+        identity = torch.eye(
+            mean.numel(), dtype=torch.float64, device=mean.device
+        )
+        if (
+            self.complete.initial_covariance.device != mean.device
+            or not torch.allclose(
+                precision @ self.complete.initial_covariance,
+                identity,
+                rtol=256.0 * eps,
+                atol=256.0 * eps,
+            )
+        ):
+            raise ValueError(
+                "initial recognition covariance/precision disagree"
+            )
+
+    def initial_precision(self) -> Tensor:
+        self.__post_init__()
+        return self.initial_precision_cholesky @ self.initial_precision_cholesky.T
+
+
 @dataclass(frozen=True, eq=False)
 class StructuredLanguageRecognition:
     """One normalized full-SPD Gaussian recognition component."""
@@ -171,6 +360,21 @@ class StructuredLanguageRecognition:
     conditioning: RecognitionConditioning
     mean: FrozenTensorSnapshot
     precision_cholesky: FrozenTensorSnapshot
+    h7_trace: H7RecognitionCompleteTrace | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_live_mean: Tensor | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_live_precision_cholesky: Tensor | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_mean_identity: H7RawTensorIdentity | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_cholesky_identity: H7RawTensorIdentity | None = field(
+        default=None, repr=False, compare=False
+    )
     family: Literal["structured_full_spd"] = field(
         default="structured_full_spd", init=False
     )
@@ -187,13 +391,48 @@ class StructuredLanguageRecognition:
         conditioning: RecognitionConditioning,
         mean: Tensor,
         precision_cholesky: Tensor,
+        h7_trace: H7RecognitionCompleteTrace | None = None,
     ) -> "StructuredLanguageRecognition":
         owned = _capture_gaussian(
             conditioning=conditioning,
             mean=mean,
             precision_cholesky=precision_cholesky,
         )
-        return cls(*owned)
+        live = (
+            (mean, precision_cholesky)
+            if h7_trace is not None
+            else (None, None)
+        )
+        identities = (
+            (
+                H7RawTensorIdentity.capture(mean),
+                H7RawTensorIdentity.capture(precision_cholesky),
+            )
+            if h7_trace is not None
+            else (None, None)
+        )
+        return cls(*owned, h7_trace, *live, *identities)
+
+    def export_h7_trace(self) -> H7LanguageRecognitionTrace:
+        if (
+            type(self.h7_trace) is not H7RecognitionCompleteTrace
+            or not isinstance(self._h7_live_mean, Tensor)
+            or not isinstance(self._h7_live_precision_cholesky, Tensor)
+            or self._h7_mean_identity
+            != H7RawTensorIdentity.capture(self._h7_live_mean)
+            or self._h7_cholesky_identity
+            != H7RawTensorIdentity.capture(
+                self._h7_live_precision_cholesky
+            )
+        ):
+            raise ValueError(
+                "StructuredLanguageRecognition has no intact complete H7 trace"
+            )
+        return H7LanguageRecognitionTrace(
+            self._h7_live_mean,
+            self._h7_live_precision_cholesky,
+            self.h7_trace,
+        )
 
     def mean_value(self) -> Tensor:
         self.__post_init__()
@@ -224,6 +463,21 @@ class FactorizedLanguageRecognition:
     mean: FrozenTensorSnapshot
     precision_cholesky: FrozenTensorSnapshot
     block_sizes: tuple[int, ...]
+    h7_trace: H7RecognitionCompleteTrace | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_live_mean: Tensor | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_live_precision_cholesky: Tensor | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_mean_identity: H7RawTensorIdentity | None = field(
+        default=None, repr=False, compare=False
+    )
+    _h7_cholesky_identity: H7RawTensorIdentity | None = field(
+        default=None, repr=False, compare=False
+    )
     family: Literal["population_factorized_block_spd"] = field(
         default="population_factorized_block_spd", init=False
     )
@@ -256,13 +510,54 @@ class FactorizedLanguageRecognition:
         mean: Tensor,
         precision_cholesky: Tensor,
         block_sizes: tuple[int, ...],
+        h7_trace: H7RecognitionCompleteTrace | None = None,
     ) -> "FactorizedLanguageRecognition":
         owned = _capture_gaussian(
             conditioning=conditioning,
             mean=mean,
             precision_cholesky=precision_cholesky,
         )
-        return cls(*owned, tuple(block_sizes))
+        live = (
+            (mean, precision_cholesky)
+            if h7_trace is not None
+            else (None, None)
+        )
+        identities = (
+            (
+                H7RawTensorIdentity.capture(mean),
+                H7RawTensorIdentity.capture(precision_cholesky),
+            )
+            if h7_trace is not None
+            else (None, None)
+        )
+        return cls(
+            *owned,
+            tuple(block_sizes),
+            h7_trace,
+            *live,
+            *identities,
+        )
+
+    def export_h7_trace(self) -> H7LanguageRecognitionTrace:
+        if (
+            type(self.h7_trace) is not H7RecognitionCompleteTrace
+            or not isinstance(self._h7_live_mean, Tensor)
+            or not isinstance(self._h7_live_precision_cholesky, Tensor)
+            or self._h7_mean_identity
+            != H7RawTensorIdentity.capture(self._h7_live_mean)
+            or self._h7_cholesky_identity
+            != H7RawTensorIdentity.capture(
+                self._h7_live_precision_cholesky
+            )
+        ):
+            raise ValueError(
+                "FactorizedLanguageRecognition has no intact complete H7 trace"
+            )
+        return H7LanguageRecognitionTrace(
+            self._h7_live_mean,
+            self._h7_live_precision_cholesky,
+            self.h7_trace,
+        )
 
     def mean_value(self) -> Tensor:
         self.__post_init__()
@@ -287,8 +582,10 @@ class FactorizedLanguageRecognition:
 
 __all__ = [
     "FactorizedLanguageRecognition",
+    "H7LanguageRecognitionTrace",
+    "H7RecognitionAffineTrace",
+    "H7RecognitionCompleteTrace",
     "RecognitionConditioning",
     "RecognitionMode",
     "StructuredLanguageRecognition",
 ]
-

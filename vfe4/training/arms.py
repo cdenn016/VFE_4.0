@@ -11,7 +11,17 @@ import torch
 from torch import Tensor, nn
 
 from vfe4.data.windows import CausalPrefix
-from vfe4.numerics.categorical import masked_log_softmax_from_parents
+from vfe4.generative.source_priors import (
+    FixedSourceFactorContext,
+    FixedSourcePrior,
+    NormalizedSourceFactor,
+    PrefixConditionedSourceFactorContext,
+    PrefixConditionedSourcePrior,
+)
+from vfe4.objective.language_elbo import (
+    LanguageElboExpectation,
+    _evaluate_language_elbo,
+)
 from vfe4.predictive import (
     BootstrapSmcPredictor,
     CounterConsumption,
@@ -19,8 +29,6 @@ from vfe4.predictive import (
     CounterPurpose,
     EstimatorIdentity,
     EstimatorStream,
-    PrefixCache,
-    PriorPrediction,
     ProposalPopulation,
     ProposalStep,
     TargetFreeProposalAdapter,
@@ -30,9 +38,15 @@ from vfe4.predictive import (
 from vfe4.recognition.parameter_store import LanguageRecognitionParameterStore
 from vfe4.types.h6 import (
     ArmId,
+    CausalDag,
+    CausalDagRow,
     EstimatorSpec,
+    H6EndpointLanguageElboTerms,
+    H6SourcePriorTrace,
+    H6LanguageStructure,
     TrainingPhase,
     VocabularyIdentity,
+    ZeroDimensionalBase,
     canonical_json_bytes,
 )
 
@@ -44,10 +58,14 @@ from .matching import (
     ArmMatrixRow,
     CapacityAllocation,
     FlopTerm,
+    H6AnalyticalFlopLedger,
+    H6TrainingWorkload,
     MatchingReport,
     OptimizerBinding,
     ParameterRoleRecord,
+    analytical_training_flop_ledger,
     arm_matrix_sha256,
+    stable_parameter_key,
 )
 
 
@@ -119,10 +137,10 @@ _A5_PROFILES: dict[str, tuple[object, ...]] = {
         *_A5_BASE[:5], "factorized", *_A5_BASE[6:]
     ),
     "h6-a5-structured-prefix-exact-complete-latent-smoothing-v1": (
-        *_A5_BASE[:7], "learned", *_A5_BASE[8:]
+        *_A5_BASE[:7], "prefix_conditioned", *_A5_BASE[8:]
     ),
     "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1": (
-        *_A5_BASE[:8], "moment_projected", _A5_BASE[9]
+        *_A5_BASE[:8], "moment_projection", _A5_BASE[9]
     ),
     "h6-a5-structured-fixed-exact-emission-latent-smoothing-v1": (
         *_A5_BASE[:9], "emission_only_ablation_non_elbo"
@@ -156,6 +174,20 @@ def _deterministic_matrix(rows: int, columns: int, *, scale: float) -> Tensor:
 def _identity_perturbation(dimension: int, ordinal: int) -> Tensor:
     return torch.eye(dimension, dtype=torch.float64) + _deterministic_matrix(
         dimension, dimension, scale=0.01 * (ordinal + 1)
+    )
+
+
+def _dense_source_structure(horizon: int) -> H6LanguageStructure:
+    labels = tuple(range(horizon + 1))
+    rows = tuple(
+        CausalDagRow(receiver_t, tuple(range(receiver_t)))
+        for receiver_t in range(1, horizon + 1)
+    )
+    dag = CausalDag.create(node_labels=labels, rows=rows)
+    return H6LanguageStructure.create(
+        base=ZeroDimensionalBase.create(),
+        dag=dag,
+        receiver_labels=labels[1:],
     )
 
 
@@ -261,6 +293,10 @@ class LatentLanguageArmModel(nn.Module):
             "generic_fixed_frame_non_coboundary",
             "shared_vertex_coboundary",
         ],
+        prior_variant: Literal["absent", "fixed", "prefix_conditioned"],
+        prior_context_width: int | None,
+        predictor_config_sha256: str,
+        model_family_sha256: str,
     ) -> None:
         super().__init__()
         if arm not in (ArmId.A1, ArmId.A2, ArmId.A3, ArmId.A4, ArmId.A5):
@@ -284,6 +320,18 @@ class LatentLanguageArmModel(nn.Module):
             "shared_vertex_coboundary",
         ):
             raise ValueError("unsupported map mode")
+        if prior_variant not in ("absent", "fixed", "prefix_conditioned"):
+            raise ValueError("unsupported source-prior variant")
+        if (source_mode == "categorical") != (prior_variant != "absent"):
+            raise ValueError(
+                "categorical source variables require one live source prior"
+            )
+        if (prior_variant == "prefix_conditioned") != (
+            prior_context_width is not None
+        ):
+            raise ValueError(
+                "prefix-conditioned source prior requires context width"
+            )
 
         self.arm = arm
         self.vocabulary = vocabulary
@@ -294,6 +342,8 @@ class LatentLanguageArmModel(nn.Module):
         self.model_channel_enabled = model_channel_enabled
         self.source_mode = source_mode
         self.map_mode = map_mode
+        self.prior_variant = prior_variant
+        self.prior_context_width = prior_context_width
 
         self.initial_state_mean = nn.Parameter(
             torch.zeros(latent_width, dtype=torch.float64)
@@ -384,26 +434,41 @@ class LatentLanguageArmModel(nn.Module):
                 ]
             )
 
+        self.source_prior: (
+            FixedSourcePrior | PrefixConditionedSourcePrior | None
+        ) = None
         if source_mode == "categorical":
-            # One fixed zero anchor removes the categorical additive-shift
-            # null direction. Receiver one has no trainable source scalar.
-            self.state_source_free_logits = nn.ParameterList(
-                [
-                    nn.Parameter(
-                        torch.zeros(receiver_t - 1, dtype=torch.float64)
-                    )
-                    for receiver_t in range(2, horizon + 1)
-                ]
-            )
-            if model_channel_enabled:
-                self.model_source_free_logits = nn.ParameterList(
-                    [
-                        nn.Parameter(
-                            torch.zeros(receiver_t - 1, dtype=torch.float64)
-                        )
-                        for receiver_t in range(2, horizon + 1)
-                    ]
+            structure = _dense_source_structure(horizon)
+            if prior_variant == "fixed":
+                zero_rows = tuple(
+                    torch.zeros(receiver_t, dtype=torch.float64)
+                    for receiver_t in range(1, horizon + 1)
                 )
+                self.source_prior = FixedSourcePrior(
+                    structure=structure,
+                    vocabulary=vocabulary,
+                    fixture_sha256=structure.structure_sha256,
+                    predictor_config_sha256=predictor_config_sha256,
+                    model_family_sha256=model_family_sha256,
+                    state_logits=zero_rows,
+                    model_logits=zero_rows if model_channel_enabled else None,
+                )
+            elif prior_variant == "prefix_conditioned":
+                if prior_context_width is None:
+                    raise ValueError(
+                        "prefix-conditioned source prior requires context width"
+                    )
+                self.source_prior = PrefixConditionedSourcePrior(
+                    structure=structure,
+                    vocabulary=vocabulary,
+                    fixture_sha256=structure.structure_sha256,
+                    predictor_config_sha256=predictor_config_sha256,
+                    model_family_sha256=model_family_sha256,
+                    latent_dim=latent_width,
+                    context_dim=prior_context_width,
+                )
+            else:
+                raise ValueError("categorical source prior is absent")
 
         self.emission_state_projection = nn.Parameter(
             _deterministic_matrix(
@@ -531,46 +596,79 @@ class LatentLanguageArmModel(nn.Module):
             return receiver_frame @ torch.linalg.inv(source_frame)
         raise ValueError("ordinary A1 has no internal map sector")
 
-    def state_source_log_probs(self, receiver_t: int) -> Tensor:
-        if self.source_mode != "categorical":
-            raise ValueError("state source categorical variable is absent")
-        self._receiver_source(receiver_t, 0)
-        logits = self._canonical_source_logits(
-            receiver_t=receiver_t,
-            free_rows=self.state_source_free_logits,
-        )
-        return masked_log_softmax_from_parents(
-            logits, tuple(range(receiver_t)), receiver_t
-        ).log_probs
-
-    def model_source_log_probs(self, receiver_t: int) -> Tensor:
-        if self.source_mode != "categorical" or not self.model_channel_enabled:
+    def _source_factor(
+        self,
+        *,
+        bank: Channel,
+        receiver_t: int,
+        prefix: CausalPrefix | None,
+        earlier_latents: Tensor | None,
+    ) -> NormalizedSourceFactor:
+        if self.source_mode != "categorical" or self.source_prior is None:
+            raise ValueError(f"{bank} source categorical variable is absent")
+        if bank == "model" and not self.model_channel_enabled:
             raise ValueError("model source categorical variable is absent")
         self._receiver_source(receiver_t, 0)
-        logits = self._canonical_source_logits(
-            receiver_t=receiver_t,
-            free_rows=self.model_source_free_logits,
-        )
-        return masked_log_softmax_from_parents(
-            logits, tuple(range(receiver_t)), receiver_t
-        ).log_probs
-
-    @staticmethod
-    def _canonical_source_logits(
-        *,
-        receiver_t: int,
-        free_rows: nn.ParameterList,
-    ) -> Tensor:
-        if receiver_t == 1:
-            if len(free_rows):
-                exemplar = free_rows[0]
-                return torch.zeros(
-                    1, dtype=exemplar.dtype, device=exemplar.device
+        if type(self.source_prior) is FixedSourcePrior:
+            if prefix is not None or earlier_latents is not None:
+                raise ValueError(
+                    "fixed source prior does not accept prefix-conditioned inputs"
                 )
-            return torch.zeros(1, dtype=torch.float64)
-        free = free_rows[receiver_t - 2]
-        anchor = torch.zeros(1, dtype=free.dtype, device=free.device)
-        return torch.cat((free, anchor))
+            return (
+                self.source_prior.state_source_log_probs(
+                    receiver_t=receiver_t
+                )
+                if bank == "state"
+                else self.source_prior.model_source_log_probs(
+                    receiver_t=receiver_t
+                )
+            )
+        if type(prefix) is not CausalPrefix or type(earlier_latents) is not Tensor:
+            raise ValueError(
+                "prefix-conditioned source prior requires a typed prefix "
+                "and earlier latent history"
+            )
+        if prefix.receiver_t != receiver_t:
+            raise ValueError("prefix receiver does not match source receiver")
+        return (
+            self.source_prior.state_source_log_probs(
+                prefix=prefix,
+                earlier_latents=earlier_latents,
+            )
+            if bank == "state"
+            else self.source_prior.model_source_log_probs(
+                prefix=prefix,
+                earlier_latents=earlier_latents,
+            )
+        )
+
+    def state_source_log_probs(
+        self,
+        receiver_t: int,
+        *,
+        prefix: CausalPrefix | None = None,
+        earlier_latents: Tensor | None = None,
+    ) -> Tensor:
+        return self._source_factor(
+            bank="state",
+            receiver_t=receiver_t,
+            prefix=prefix,
+            earlier_latents=earlier_latents,
+        ).log_probs.value()
+
+    def model_source_log_probs(
+        self,
+        receiver_t: int,
+        *,
+        prefix: CausalPrefix | None = None,
+        earlier_latents: Tensor | None = None,
+    ) -> Tensor:
+        return self._source_factor(
+            bank="model",
+            receiver_t=receiver_t,
+            prefix=prefix,
+            earlier_latents=earlier_latents,
+        ).log_probs.value()
 
     @staticmethod
     def _diagonal_gaussian_log_prob(
@@ -834,6 +932,7 @@ class ArmTargetFreeProposalAdapter:
         *,
         bank: Channel,
         prefix: CausalPrefix,
+        earlier_latents: Tensor,
         stream: EstimatorStream,
         particle_index: int,
     ) -> int:
@@ -844,10 +943,23 @@ class ArmTargetFreeProposalAdapter:
             if bank == "state"
             else CounterPurpose.MODEL_SOURCE_CATEGORICAL
         )
+        conditional = (
+            type(self.model.source_prior) is PrefixConditionedSourcePrior
+        )
+        inputs = {
+            "prefix": prefix if conditional else None,
+            "earlier_latents": earlier_latents if conditional else None,
+        }
         log_probs = (
-            self.model.state_source_log_probs(prefix.receiver_t)
+            self.model.state_source_log_probs(
+                prefix.receiver_t,
+                **inputs,
+            )
             if bank == "state"
-            else self.model.model_source_log_probs(prefix.receiver_t)
+            else self.model.model_source_log_probs(
+                prefix.receiver_t,
+                **inputs,
+            )
         )
         return stream.categorical(
             self._key(stream, prefix, purpose, particle_index), log_probs
@@ -927,6 +1039,7 @@ class ArmTargetFreeProposalAdapter:
                 self._categorical_source(
                     bank="state",
                     prefix=checked,
+                    earlier_latents=state_history[particle_index],
                     stream=estimator_rng,
                     particle_index=particle_index,
                 )
@@ -939,6 +1052,7 @@ class ArmTargetFreeProposalAdapter:
                     self._categorical_source(
                         bank="model",
                         prefix=checked,
+                        earlier_latents=model_history[particle_index],
                         stream=estimator_rng,
                         particle_index=particle_index,
                     )
@@ -1093,6 +1207,16 @@ class BuiltArm:
     training_flop_ledger_complete: Literal[False]
     training_flop_obligations: tuple[str, ...]
 
+    def analytical_training_flop_ledger(
+        self, workload: H6TrainingWorkload
+    ) -> H6AnalyticalFlopLedger:
+        """Bind this endpoint to the complete frozen whole-workload ledger."""
+
+        return analytical_training_flop_ledger(
+            endpoint_config=self.config,
+            workload=workload,
+        )
+
     def rebuild_predictive_boundary(
         self,
         estimator_spec: EstimatorSpec | None = None,
@@ -1106,8 +1230,154 @@ class BuiltArm:
             estimator_spec=estimator_spec,
         )
 
+    def evaluate_complete_language_elbo(
+        self,
+        expectation: LanguageElboExpectation,
+    ) -> H6EndpointLanguageElboTerms:
+        """Bind the A2/A5 complete objective to its configured mixture law."""
+
+        if not isinstance(expectation, LanguageElboExpectation):
+            raise ValueError(
+                "expectation must implement LanguageElboExpectation"
+            )
+        if (
+            self.config.arm not in (ArmId.A2, ArmId.A5)
+            or self.config.objective_kind != "complete_elbo"
+            or self.config.mixture_mode not in ("exact", "moment_projection")
+        ):
+            raise ValueError(
+                "complete source-mixture ELBO is available only for "
+                "complete A2/A5 endpoints"
+            )
+        if type(self.model) is not LatentLanguageArmModel:
+            raise ValueError("complete source-mixture ELBO requires a latent arm")
+        source_prior = self.model.source_prior
+        if self.config.prior_variant == "fixed":
+            expected_prior_type = FixedSourcePrior
+        else:
+            expected_prior_type = PrefixConditionedSourcePrior
+        if (
+            type(source_prior) is not expected_prior_type
+            or source_prior.model_family_sha256 != self.model_family_sha256
+            or source_prior.predictor_config_sha256
+            != self.config.config_sha256
+        ):
+            raise ValueError(
+                "live source prior does not match the endpoint/model family"
+            )
+        if expectation.horizon != self.config.horizon:
+            raise ValueError("expectation horizon does not match the endpoint")
+        recomputed_source_factors: list[NormalizedSourceFactor] = []
+        for receiver_t in range(1, self.config.horizon + 1):
+            for partition in ("model_source", "state_source"):
+                try:
+                    expected_factor = expectation.normalized_source_factor(
+                        partition,
+                        receiver_t,
+                    )
+                    context = expectation.source_factor_context(
+                        partition,
+                        receiver_t,
+                    )
+                except (AttributeError, KeyError, IndexError) as exc:
+                    raise ValueError(
+                        "expectation lacks one exact source factor or context"
+                    ) from exc
+                if type(expected_factor) is not NormalizedSourceFactor:
+                    raise ValueError(
+                        "expectation source factors must be exact "
+                        "NormalizedSourceFactor records"
+                    )
+                expected_factor.__post_init__()
+                expected_bank = (
+                    "model" if partition == "model_source" else "state"
+                )
+                if type(source_prior) is FixedSourcePrior:
+                    if type(context) is not FixedSourceFactorContext:
+                        raise ValueError(
+                            "fixed prior requires a context record proving "
+                            "that prefix and latent inputs are absent"
+                        )
+                    context.__post_init__()
+                    if (
+                        context.bank != expected_bank
+                        or context.receiver_t != receiver_t
+                    ):
+                        raise ValueError(
+                            "fixed source context has a mismatched bank or "
+                            "receiver"
+                        )
+                    recomputed_factor = (
+                        source_prior.model_source_log_probs(
+                            receiver_t=receiver_t
+                        )
+                        if partition == "model_source"
+                        else source_prior.state_source_log_probs(
+                            receiver_t=receiver_t
+                        )
+                    )
+                else:
+                    if (
+                        type(context)
+                        is not PrefixConditionedSourceFactorContext
+                    ):
+                        raise ValueError(
+                            "prefix-conditioned prior requires exact prefix "
+                            "and earlier-latent context"
+                        )
+                    context.__post_init__()
+                    if (
+                        context.bank != expected_bank
+                        or context.receiver_t != receiver_t
+                    ):
+                        raise ValueError(
+                            "prefix source context has a mismatched bank or "
+                            "receiver"
+                        )
+                    recomputed_factor = (
+                        source_prior.model_source_log_probs(
+                            prefix=context.prefix,
+                            earlier_latents=context.earlier_latents,
+                        )
+                        if partition == "model_source"
+                        else source_prior.state_source_log_probs(
+                            prefix=context.prefix,
+                            earlier_latents=context.earlier_latents,
+                        )
+                    )
+                recomputed_factor.__post_init__()
+                if (
+                    recomputed_factor.factor_identity_sha256
+                    != expected_factor.factor_identity_sha256
+                    or recomputed_factor.canonical_payload()
+                    != expected_factor.canonical_payload()
+                ):
+                    raise ValueError(
+                        "expectation source factor does not exactly match "
+                        "live-prior recomputation from its typed context"
+                    )
+                recomputed_source_factors.append(recomputed_factor)
+        source_prior_trace = H6SourcePriorTrace._from_live_prior(
+            endpoint_config=self.config,
+            source_prior=source_prior,
+            ordered_source_factors=tuple(recomputed_source_factors),
+        )
+        return _evaluate_language_elbo(
+            expectation,
+            endpoint_config=self.config,
+            prior_variant=self.config.prior_variant,  # type: ignore[arg-type]
+            mixture_mode=self.config.mixture_mode,
+            source_prior_trace=source_prior_trace,
+        )
+
 
 def _semantic_role(config: ArmConfig, qualified_name: str) -> str:
+    if qualified_name.startswith("source_prior."):
+        if "state_source" in qualified_name:
+            return f"{config.prior_variant}_categorical_state_source_bank"
+        if "model_source" in qualified_name:
+            return f"{config.prior_variant}_categorical_model_source_bank"
+        return f"{config.prior_variant}_source_prior_context"
     if "generic_fixed_frame" in qualified_name:
         return "generic_fixed_frame_non_coboundary_edge_map"
     if "vertex_phi" in qualified_name:
@@ -1145,29 +1415,37 @@ def _parameter_records(
         else TrainingPhase.MODEL_CE_ADAMW.value
     )
     roles: list[ParameterRoleRecord] = []
-    model_ids: list[int] = []
+    model_keys: list[str] = []
     for name, parameter in model.named_parameters():
-        parameter_id = id(parameter)
-        model_ids.append(parameter_id)
+        qualified_name = f"model.{name}"
+        parameter_key = stable_parameter_key(
+            qualified_name=qualified_name,
+            phase=model_phase,
+        )
+        model_keys.append(parameter_key)
         roles.append(
             ParameterRoleRecord.create(
-                qualified_name=f"model.{name}",
-                parameter_id=parameter_id,
+                qualified_name=qualified_name,
+                parameter_key=parameter_key,
                 role=_semantic_role(config, name),
                 phase=model_phase,
                 scalar_count=parameter.numel(),
             )
         )
 
-    recognition_ids: list[int] = []
+    recognition_keys: list[str] = []
     if recognition_store is not None:
         for name, parameter in recognition_store.named_parameters():
-            parameter_id = id(parameter)
-            recognition_ids.append(parameter_id)
+            qualified_name = f"recognition_store.{name}"
+            parameter_key = stable_parameter_key(
+                qualified_name=qualified_name,
+                phase=TrainingPhase.RECOGNITION_ADAMW.value,
+            )
+            recognition_keys.append(parameter_key)
             roles.append(
                 ParameterRoleRecord.create(
-                    qualified_name=f"recognition_store.{name}",
-                    parameter_id=parameter_id,
+                    qualified_name=qualified_name,
+                    parameter_key=parameter_key,
                     role="recognition_parameter_store",
                     phase=TrainingPhase.RECOGNITION_ADAMW.value,
                     scalar_count=parameter.numel(),
@@ -1175,7 +1453,7 @@ def _parameter_records(
             )
 
     bindings: list[OptimizerBinding] = []
-    if recognition_ids:
+    if recognition_keys:
         bindings.append(
             OptimizerBinding.create(
                 phase=TrainingPhase.RECOGNITION_ADAMW.value,
@@ -1183,7 +1461,7 @@ def _parameter_records(
                 optimizer_policy_sha256=(
                     H6_ADAMW_POLICY.optimizer_policy_sha256
                 ),
-                parameter_ids=tuple(recognition_ids),
+                parameter_keys=tuple(recognition_keys),
             )
         )
     bindings.append(
@@ -1191,7 +1469,7 @@ def _parameter_records(
             phase=model_phase,
             optimizer_class="AdamW",
             optimizer_policy_sha256=H6_ADAMW_POLICY.optimizer_policy_sha256,
-            parameter_ids=tuple(model_ids),
+            parameter_keys=tuple(model_keys),
         )
     )
 
@@ -1209,7 +1487,7 @@ def _parameter_records(
                     "recognition_parameter_update_arithmetic"
                 ),
                 repetitions=1,
-                arithmetic_flops_per_repetition=24 * recognition_scalars + 3,
+                arithmetic_flops_per_repetition=21 * recognition_scalars + 3,
                 bytes_copied_per_repetition=0,
             )
         )
@@ -1231,7 +1509,7 @@ def _parameter_records(
             phase=model_phase,
             operation="INCOMPLETE_LOWER_BOUND_model_parameter_update_arithmetic",
             repetitions=1,
-            arithmetic_flops_per_repetition=24 * model_scalars + 3,
+            arithmetic_flops_per_repetition=21 * model_scalars + 3,
             bytes_copied_per_repetition=0,
         )
     )
@@ -1314,6 +1592,7 @@ def _require_builder_arm(config: ArmConfig, arm: ArmId) -> None:
 
 def _construct(config: ArmConfig) -> BuiltArm:
     allocation = config.capacity_allocation
+    family_sha256 = _model_family_sha256(config)
     if not config.latent_enabled:
         model: ArmModel = CausalAutoregressiveModel(
             vocabulary=config.vocabulary,
@@ -1338,6 +1617,10 @@ def _construct(config: ArmConfig) -> BuiltArm:
             model_channel_enabled=config.model_channel_enabled,
             source_mode=config.source_mode,
             map_mode=config.map_mode,
+            prior_variant=config.prior_variant,
+            prior_context_width=allocation.prior_context_width,
+            predictor_config_sha256=config.config_sha256,
+            model_family_sha256=family_sha256,
         )
         if (
             allocation.recognition_width is None
@@ -1354,7 +1637,6 @@ def _construct(config: ArmConfig) -> BuiltArm:
             conditioning_mode=config.recognition_conditioning,
         )
 
-    family_sha256 = _model_family_sha256(config)
     proposal, predictor = _predictive_boundary(
         config=config, model=model, model_family_sha256=family_sha256
     )

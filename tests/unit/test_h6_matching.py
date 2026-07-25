@@ -40,6 +40,7 @@ from vfe4.training.matching import (
     l2_clip_scale_flops,
     log_softmax_flops,
     scalar_flops,
+    stable_parameter_key,
 )
 from vfe4.types import ArmId, TrainingPhase, VocabularyIdentity
 
@@ -243,27 +244,42 @@ def test_parameter_ownership_is_exact_and_rejects_every_forbidden_case() -> None
     arm = build_a5(_config(ArmId.A5))
     assert audit_parameter_ownership(arm) is None
 
-    active = tuple(arm.model.parameters()) + tuple(
-        arm.recognition_store.parameters()
-    )
-    active_ids = {id(parameter) for parameter in active if parameter.requires_grad}
-    assert active_ids == {record.parameter_id for record in arm.parameter_roles}
+    active = {
+        **{
+            f"model.{name}": parameter
+            for name, parameter in arm.model.named_parameters()
+        },
+        **{
+            f"recognition_store.{name}": parameter
+            for name, parameter in arm.recognition_store.named_parameters()
+        },
+    }
+    active_keys = {
+        stable_parameter_key(
+            qualified_name=name,
+            phase=(
+                TrainingPhase.RECOGNITION_ADAMW.value
+                if name.startswith("recognition_store.")
+                else TrainingPhase.MODEL_ADAMW.value
+            ),
+        )
+        for name in active
+    }
+    assert active_keys == {
+        record.parameter_key for record in arm.parameter_roles
+    }
     assert all(
         record.scalar_count
-        == next(
-            parameter.numel()
-            for parameter in active
-            if id(parameter) == record.parameter_id
-        )
+        == active[record.qualified_name].numel()
         for record in arm.parameter_roles
     )
-    bound_ids = [
-        parameter_id
+    bound_keys = [
+        parameter_key
         for binding in arm.optimizer_bindings
-        for parameter_id in binding.parameter_ids
+        for parameter_key in binding.parameter_keys
     ]
-    assert len(bound_ids) == len(set(bound_ids))
-    assert set(bound_ids) == active_ids
+    assert len(bound_keys) == len(set(bound_keys))
+    assert set(bound_keys) == active_keys
 
     model_binding = next(
         binding
@@ -275,12 +291,12 @@ def test_parameter_ownership_is_exact_and_rejects_every_forbidden_case() -> None
         for binding in arm.optimizer_bindings
         if binding.phase == TrainingPhase.RECOGNITION_ADAMW.value
     )
-    removed_id = model_binding.parameter_ids[0]
+    removed_key = model_binding.parameter_keys[0]
     shortened = OptimizerBinding.create(
         phase=model_binding.phase,
         optimizer_class="AdamW",
         optimizer_policy_sha256=model_binding.optimizer_policy_sha256,
-        parameter_ids=model_binding.parameter_ids[1:],
+        parameter_keys=model_binding.parameter_keys[1:],
     )
     unbound = replace(
         arm,
@@ -289,14 +305,14 @@ def test_parameter_ownership_is_exact_and_rejects_every_forbidden_case() -> None
             for binding in arm.optimizer_bindings
         ),
     )
-    with pytest.raises(ValueError, match=f"unbound|{removed_id}"):
+    with pytest.raises(ValueError, match=f"unbound|{removed_key}"):
         audit_parameter_ownership(unbound)
 
     duplicated = OptimizerBinding.create(
         phase=recognition_binding.phase,
         optimizer_class="AdamW",
         optimizer_policy_sha256=recognition_binding.optimizer_policy_sha256,
-        parameter_ids=recognition_binding.parameter_ids + (removed_id,),
+        parameter_keys=recognition_binding.parameter_keys + (removed_key,),
     )
     duplicate = replace(
         arm,
@@ -336,7 +352,7 @@ def test_parameter_ownership_is_exact_and_rejects_every_forbidden_case() -> None
             phase=TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT.value,
             optimizer_class="AdamW",
             optimizer_policy_sha256=model_binding.optimizer_policy_sha256,
-            parameter_ids=(removed_id,),
+            parameter_keys=(removed_key,),
         )
 
 

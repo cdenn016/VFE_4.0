@@ -7,6 +7,7 @@ import pytest
 import torch
 
 from vfe4.data.windows import CausalPrefix
+from vfe4.generative import FixedSourcePrior, PrefixConditionedSourcePrior
 from vfe4.predictive import (
     EstimatorStream,
     PrefixCache,
@@ -36,6 +37,7 @@ from vfe4.training.arms import (
     build_arm,
     shared_a2_a5_semantic_payload,
 )
+from vfe4.training.matching import stable_parameter_key
 from vfe4.types import ArmId, TrainingPhase, VocabularyIdentity
 
 
@@ -149,6 +151,9 @@ def _config(arm: ArmId, **changes: object) -> ArmConfig:
         emission_width=48,
         latent_width=8 if latent else None,
         recognition_width=32 if recognized else None,
+        prior_context_width=(
+            2 if values["prior_variant"] == "prefix_conditioned" else None
+        ),
     )
     return ArmConfig.create(
         arm=arm,
@@ -207,8 +212,9 @@ def test_explicit_factories_construct_the_six_literal_families(
 
     for arm in (a2, a5):
         assert arm.model.model_channel_enabled
-        assert hasattr(arm.model, "state_source_free_logits")
-        assert hasattr(arm.model, "model_source_free_logits")
+        assert type(arm.model.source_prior) is FixedSourcePrior
+        assert hasattr(arm.model.source_prior, "state_source_free_logits")
+        assert hasattr(arm.model.source_prior, "model_source_free_logits")
         assert hasattr(arm.model, "full_same_receiver_b")
         assert arm.config.prior_variant == "fixed"
         assert arm.config.mixture_mode == "exact"
@@ -232,9 +238,10 @@ def test_explicit_factories_construct_the_six_literal_families(
 
     assert not a4.model.model_channel_enabled
     assert hasattr(a4.model, "state_vertex_phi")
-    assert hasattr(a4.model, "state_source_free_logits")
+    assert type(a4.model.source_prior) is FixedSourcePrior
+    assert hasattr(a4.model.source_prior, "state_source_free_logits")
     assert not hasattr(a4.model, "model_vertex_phi")
-    assert not hasattr(a4.model, "model_source_free_logits")
+    assert a4.model.source_prior.model_source_free_logits is None
     assert not hasattr(a4.model, "full_same_receiver_b")
     assert len(a3.model.state_vertex_phi) == a3.config.horizon
     assert len(a5.model.model_vertex_phi) == a5.config.horizon
@@ -243,11 +250,24 @@ def test_explicit_factories_construct_the_six_literal_families(
         torch.eye(8, dtype=torch.float64),
     )
     assert "masked_log_softmax_from_parents" in inspect.getsource(
-        type(a5.model).state_source_log_probs
+        type(a5.model.source_prior)._normalized
     )
     assert "torch.log_softmax" not in inspect.getsource(
-        type(a5.model).state_source_log_probs
+        type(a5.model.source_prior)._normalized
     )
+
+    prefix_a5 = build_a5(
+        _config(
+            ArmId.A5,
+            config_id=(
+                "h6-a5-structured-prefix-exact-complete-"
+                "latent-smoothing-v1"
+            ),
+            prior_variant="prefix_conditioned",
+        )
+    )
+    assert type(prefix_a5.model.source_prior) is PrefixConditionedSourcePrior
+    assert prefix_a5.model.source_prior.context_dim == 2
 
     for builder, arm_id, change in (
         (build_a0, ArmId.A0, {"latent_enabled": True}),
@@ -315,23 +335,30 @@ def test_recognition_store_owns_parameters_and_emits_normalized_task4_laws(
     for arm, law_type in cases:
         store = arm.recognition_store
         assert isinstance(store, LanguageRecognitionParameterStore)
-        store_ids = {id(parameter) for parameter in store.parameters()}
-        assert store_ids
-        assert store_ids.isdisjoint(
-            id(parameter) for parameter in arm.model.parameters()
-        )
-        role_ids = {
-            row.parameter_id
+        store_names = {
+            f"recognition_store.{name}"
+            for name, _ in store.named_parameters()
+        }
+        assert store_names
+        role_keys = {
+            row.parameter_key
             for row in arm.parameter_roles
             if row.phase == TrainingPhase.RECOGNITION_ADAMW.value
         }
-        binding_ids = {
-            parameter_id
+        binding_keys = {
+            parameter_key
             for binding in arm.optimizer_bindings
             if binding.phase == TrainingPhase.RECOGNITION_ADAMW.value
-            for parameter_id in binding.parameter_ids
+            for parameter_key in binding.parameter_keys
         }
-        assert role_ids == binding_ids == store_ids
+        expected_keys = {
+            stable_parameter_key(
+                qualified_name=name,
+                phase=TrainingPhase.RECOGNITION_ADAMW.value,
+            )
+            for name in store_names
+        }
+        assert role_keys == binding_keys == expected_keys
 
         law = store.recognition_law(conditioning)
         assert type(law) is law_type

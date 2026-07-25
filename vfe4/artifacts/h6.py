@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import Literal
+from typing import Callable, Literal
 
 from .atomic import ArtifactPublicationError, canonical_json_bytes
 
@@ -33,6 +33,25 @@ _EXPECTED_PAYLOADS = {
         "validation/h6_prefix.json",
     ),
 }
+_ProjectedGateRunner = Callable[
+    [Literal["H1-Prefix-Prior", "H6-Prefix"], object, str | None],
+    tuple[object, Path],
+]
+_PROJECTED_CURRENT_CANDIDATE_RUNNER: _ProjectedGateRunner | None = None
+
+
+def _install_projected_current_candidate_runner(
+    runner: _ProjectedGateRunner,
+) -> None:
+    """Install one external execution callback exactly once."""
+
+    if not callable(runner):
+        raise ValueError("projected current-candidate runner must be callable")
+    global _PROJECTED_CURRENT_CANDIDATE_RUNNER
+    current = _PROJECTED_CURRENT_CANDIDATE_RUNNER
+    if current is not None and current is not runner:
+        raise RuntimeError("another projected current-candidate runner is installed")
+    _PROJECTED_CURRENT_CANDIDATE_RUNNER = runner
 
 
 def _require_lower_hex(value: object, length: int, location: str) -> str:
@@ -580,17 +599,12 @@ def run_projected_current_candidate(
     ):
         raise ValueError("projected config changed after projection")
 
-    if config.operation == "H1-Prefix-Prior":
-        from verification.h1_prefix_prior_gate import run_h1_prefix_prior
-
-        output = run_h1_prefix_prior(resolved)
-    else:
-        from verification.h6_prefix_gate import run_h6_prefix
-
-        output = run_h6_prefix(
-            config=resolved,
-            junit_sha256=validated_junit,
+    runner = _PROJECTED_CURRENT_CANDIDATE_RUNNER
+    if runner is None:
+        raise ArtifactPublicationError(
+            "no eligible projected current-candidate runner is installed"
         )
+    output = runner(config.operation, resolved, validated_junit)
     if type(output) is not tuple or len(output) != 2:
         raise ArtifactPublicationError(
             "projected gate runner did not return its exact result/path pair"

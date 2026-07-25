@@ -133,6 +133,42 @@ def test_coupled_h1_h5_manifest_has_exact_eight_json_entries(tmp_path: Path) -> 
     ]
 
 
+def test_h7_reference_adapter_is_canonical_owned_and_lossless(
+    tmp_path: Path,
+) -> None:
+    from verification.run_gates import (
+        candidate_artifact_reference_to_h7_reference,
+        h7_reference_registry_bytes,
+        parse_h7_reference_registry_bytes,
+    )
+    from vfe4.artifacts.h6 import CandidateArtifactReference
+
+    references = {}
+    for key in ("h1_h5", "h1_prefix_prior", "h6_prefix"):
+        digest = hashlib.sha256(key.encode("ascii")).hexdigest()
+        candidate = CandidateArtifactReference(
+            tmp_path / "artifacts" / key,
+            "a" * 40,
+            "b" * 64,
+            digest,
+            {f"validation/{key}.json": digest},
+        )
+        references[key] = candidate_artifact_reference_to_h7_reference(
+            candidate,
+            junit_sha256="c" * 64,
+            ledger_path=tmp_path / ".verification" / f"{key}-ledger.json",
+            ledger_sha256=digest,
+        )
+
+    encoded = h7_reference_registry_bytes(references)
+    decoded = parse_h7_reference_registry_bytes(encoded)
+
+    assert tuple(key for key, _reference in decoded) == tuple(references)
+    assert h7_reference_registry_bytes(dict(decoded)) == encoded
+    assert b"validation/h7.json" not in encoded
+    assert b"certificate" not in encoded and b"ledger_path" in encoded
+
+
 def test_environment_records_timing_cpu_backend_and_thread_environment() -> None:
     config = SimpleNamespace(
         run=SimpleNamespace(
@@ -195,7 +231,7 @@ def test_environment_records_null_when_shared_affinity_provider_is_unavailable(
     assert provenance.build_environment(config)["process_cpu_affinity"] is None
 
 
-def test_publish_run_cleans_staging_and_temporary_files_after_injected_failure(
+def test_publish_run_retains_owned_stage_after_injected_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import vfe4.artifacts.atomic as atomic
@@ -217,11 +253,54 @@ def test_publish_run_cleans_staging_and_temporary_files_after_injected_failure(
             tmp_path / "runs",
             "verify-h1-frozen",
             {"config.json": {}, "validation/h1.json": {}},
-        )
+    )
 
     assert not (tmp_path / "runs" / "verify-h1-frozen").exists()
-    assert list((tmp_path / "runs").glob(".*staging*")) == []
+    assert len(list((tmp_path / "runs").glob(".staging-*"))) == 1
     assert list((tmp_path / "runs").rglob("*.tmp")) == []
+    assert atomic.ATOMIC_FAILURE_CLEANUP_OBLIGATIONS == (
+        (
+            "failed staging directories are retained because portable "
+            "handle-bound recursive deletion of the captured top directory "
+            "cannot be proven race-free"
+        ),
+    )
+
+
+def test_publish_run_preserves_replacement_at_owned_staging_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import vfe4.artifacts.atomic as atomic
+
+    replacement: dict[str, Path] = {}
+
+    def replace_owned_stage(path: Path, _content: bytes) -> None:
+        staging = path.parent
+        moved_owner = staging.with_name(".moved-owned-stage")
+        staging.rename(moved_owner)
+        staging.mkdir()
+        (staging / "competitor.txt").write_text(
+            "competitor owns this replacement", encoding="utf-8"
+        )
+        replacement["staging"] = staging
+        replacement["moved_owner"] = moved_owner
+        raise OSError("injected competitor replacement")
+
+    monkeypatch.setattr(atomic, "_atomic_write_bytes", replace_owned_stage)
+    with pytest.raises(
+        ArtifactPublicationError, match="injected competitor replacement"
+    ):
+        publish_run_directory(
+            tmp_path / "runs",
+            "verify-h1-replaced-stage",
+            {"config.json": {}},
+        )
+
+    staging = replacement["staging"]
+    assert (staging / "competitor.txt").read_text(encoding="utf-8") == (
+        "competitor owns this replacement"
+    )
+    assert replacement["moved_owner"].is_dir()
 
 
 def test_publish_run_never_overwrites_an_existing_run(tmp_path: Path) -> None:
@@ -233,6 +312,80 @@ def test_publish_run_never_overwrites_an_existing_run(tmp_path: Path) -> None:
         publish_run_directory(root, "verify-h1-frozen", {"config.json": {"n": 2}})
 
     assert {path.relative_to(first): path.read_bytes() for path in first.rglob("*") if path.is_file()} == before
+
+
+def test_publish_run_refuses_destination_created_at_commit_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import vfe4.artifacts.atomic as atomic
+
+    real_commit = atomic._rename_directory_no_replace
+
+    def create_competing_destination(source: Path, destination: Path) -> None:
+        destination.mkdir()
+        (destination / "competitor.txt").write_text(
+            "owned by competing publisher", encoding="utf-8"
+        )
+        real_commit(source, destination)
+
+    monkeypatch.setattr(
+        atomic,
+        "_rename_directory_no_replace",
+        create_competing_destination,
+    )
+    root = tmp_path / "runs"
+    with pytest.raises(ArtifactPublicationError, match="already exists"):
+        publish_run_directory(
+            root,
+            "verify-h1-raced",
+            {"config.json": {"publisher": "loser"}},
+        )
+
+    final = root / "verify-h1-raced"
+    assert (final / "competitor.txt").read_text(encoding="utf-8") == (
+        "owned by competing publisher"
+    )
+    assert not (final / "config.json").exists()
+    assert len(list(root.glob(".staging-*"))) == 1
+
+
+def test_publish_run_rejects_wrong_directory_installed_by_commit_hook(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import vfe4.artifacts.atomic as atomic
+
+    real_commit = atomic._rename_directory_no_replace
+    paths: dict[str, Path] = {}
+
+    def substitute_source(source: Path, destination: Path) -> None:
+        moved_owner = source.with_name(".moved-owned-before-commit")
+        source.rename(moved_owner)
+        source.mkdir()
+        (source / "competitor.txt").write_text(
+            "different source directory", encoding="utf-8"
+        )
+        real_commit(source, destination)
+        paths["moved_owner"] = moved_owner
+        paths["final"] = destination
+
+    monkeypatch.setattr(
+        atomic, "_rename_directory_no_replace", substitute_source
+    )
+    with pytest.raises(
+        ArtifactPublicationError,
+        match="final directory identity differs",
+    ):
+        publish_run_directory(
+            tmp_path / "runs",
+            "verify-h1-wrong-source",
+            {"config.json": {"publisher": "expected"}},
+        )
+
+    assert (paths["final"] / "competitor.txt").read_text(
+        encoding="utf-8"
+    ) == "different source directory"
+    assert paths["moved_owner"].is_dir()
+    assert not (paths["final"] / "config.json").exists()
 
 
 def test_publish_run_rejects_manifest_path_and_non_json_payload_names(tmp_path: Path) -> None:
@@ -533,24 +686,46 @@ def test_provenance_rejects_untruthful_closed_fixture_identity(
 
 
 @pytest.mark.parametrize("phase", ["fsync", "final_rename"])
-def test_publish_run_cleans_staging_for_durability_and_rename_failures(
+def test_publish_run_retains_stage_for_durability_and_rename_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str
 ) -> None:
     import vfe4.artifacts.atomic as atomic
 
+    captured_identities: list[object] = []
+    real_capture = atomic._capture_owned_directory
+
+    def capture_before_marker(path: Path) -> object:
+        identity = real_capture(path)
+        captured_identities.append(identity)
+        return identity
+
+    monkeypatch.setattr(
+        atomic, "_capture_owned_directory", capture_before_marker
+    )
     if phase == "fsync":
         monkeypatch.setattr(atomic.os, "fsync", lambda fd: (_ for _ in ()).throw(OSError("fsync failure")))
     else:
-        monkeypatch.setattr(atomic.os, "rename", lambda source, target: (_ for _ in ()).throw(OSError("rename failure")))
+        monkeypatch.setattr(
+            atomic,
+            "_rename_directory_no_replace",
+            lambda source, target: (_ for _ in ()).throw(
+                OSError("rename failure")
+            ),
+        )
 
     with pytest.raises(ArtifactPublicationError, match="failure"):
         publish_run_directory(tmp_path / "runs", "verify-h1-frozen", {"config.json": {}})
 
     assert not (tmp_path / "runs" / "verify-h1-frozen").exists()
-    assert list((tmp_path / "runs").glob(".staging-*")) == []
+    stages = list((tmp_path / "runs").glob(".staging-*"))
+    assert len(stages) == 1
+    assert len(captured_identities) == 1
+    captured = captured_identities[0]
+    assert getattr(captured, "device") == stages[0].lstat().st_dev
+    assert getattr(captured, "inode") == stages[0].lstat().st_ino
 
 
-def test_manifest_write_failure_cleans_all_staging_debris(
+def test_manifest_write_failure_retains_owned_stage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import vfe4.artifacts.atomic as atomic
@@ -565,4 +740,4 @@ def test_manifest_write_failure_cleans_all_staging_debris(
     monkeypatch.setattr(atomic, "_atomic_write_bytes", fail_manifest)
     with pytest.raises(ArtifactPublicationError, match="manifest failure"):
         publish_run_directory(tmp_path / "runs", "verify-h1-frozen", {"config.json": {}})
-    assert list((tmp_path / "runs").iterdir()) == []
+    assert len(list((tmp_path / "runs").glob(".staging-*"))) == 1

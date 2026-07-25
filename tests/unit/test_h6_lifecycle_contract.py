@@ -10,6 +10,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
+from verification.projected_runner import run_projected_current_candidate
 from vfe4.artifacts import (
     ArtifactPublicationError,
     CandidateArtifactReference,
@@ -17,7 +18,9 @@ from vfe4.artifacts import (
     canonical_json_bytes,
     project_h1_prefix_prior_config,
     project_h6_prefix_config,
-    run_projected_current_candidate,
+)
+from vfe4.artifacts.h6 import (
+    run_projected_current_candidate as production_run_projected_current_candidate,
 )
 from vfe4.types.h6 import (
     ArmConfig,
@@ -327,6 +330,9 @@ def test_h6_lifecycle_adapters_match_the_frozen_h7_h8_consumer_contract(
         == "ProjectedCurrentCandidateConfig"
     )
     runner_signature = inspect.signature(run_projected_current_candidate)
+    assert runner_signature == inspect.signature(
+        production_run_projected_current_candidate
+    )
     assert tuple(runner_signature.parameters) == (
         "config",
         "junit_sha256",
@@ -444,6 +450,23 @@ def test_h6_lifecycle_adapters_match_the_frozen_h7_h8_consumer_contract(
     h6_module.run_h6_prefix = run_h6  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, h1_module.__name__, h1_module)
     monkeypatch.setitem(sys.modules, h6_module.__name__, h6_module)
+
+    import vfe4.artifacts.h6 as h6_artifacts
+
+    monkeypatch.setattr(
+        h6_artifacts,
+        "_PROJECTED_CURRENT_CANDIDATE_RUNNER",
+        None,
+    )
+    with pytest.raises(
+        ArtifactPublicationError,
+        match="no eligible projected current-candidate runner",
+    ):
+        production_run_projected_current_candidate(
+            config=projected_h1,
+            junit_sha256=None,
+            predecessor_refs={},
+        )
 
     h1_reference = run_projected_current_candidate(
         config=projected_h1,

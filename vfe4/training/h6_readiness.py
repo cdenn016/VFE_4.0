@@ -59,9 +59,7 @@ _H5_INTRINSIC_PREIMAGE_FIELDS = (
     "model_state_sha256",
     "validation_payload_sha256",
 )
-PREDICTION_READINESS_SOURCE_BLOCKERS = (
-    "arm matching lacks an immutable manifest-linked matching-set publisher",
-)
+PREDICTION_READINESS_SOURCE_BLOCKERS: tuple[()] = ()
 
 
 class ProducerCompatibilityError(RuntimeError):
@@ -706,18 +704,41 @@ def _load_blinded_data_identity(
     )
 
 
-def _validate_matching_artifact(root: Path, *, expected_set_sha256: str) -> str:
+def _validate_matching_artifact(
+    root: Path,
+    *,
+    expected_set_sha256: str,
+    expected_git_head: str,
+    expected_dirty_digest: str,
+) -> str:
     _require_sha256(expected_set_sha256, "matching_set_sha256")
-    if not root.exists():
-        raise ProducerCompatibilityError(
-            "matching artifact root is absent; Task 7 has no immutable matching-set "
-            "publisher for Prediction readiness"
-        )
-    raise ProducerCompatibilityError(
-        "matching producer schema is undefined: Task 7 exposes typed in-memory "
-        "MatchingReport records but no manifest-linked matching-set artifact that "
-        "readiness can reproduce"
+    _require_git_head(expected_git_head, "matching artifact git_head")
+    _require_sha256(
+        expected_dirty_digest, "matching artifact dirty_digest"
     )
+    from vfe4.artifacts.h6_matching import read_h6_matching_set
+
+    try:
+        record = read_h6_matching_set(
+            root,
+            expected_set_sha256=expected_set_sha256,
+            expected_git_head=expected_git_head,
+            expected_dirty_digest=expected_dirty_digest,
+        )
+    except (OSError, TypeError, ValueError, RuntimeError) as exc:
+        raise ProducerCompatibilityError(
+            "H6 matching artifact is not an eligible exact v2 evidence set"
+        ) from exc
+    if record.matching_set_sha256 != expected_set_sha256:
+        raise ValueError("matching artifact differs from Prediction config")
+    if (
+        record.git_head != expected_git_head
+        or record.dirty_digest != expected_dirty_digest
+    ):
+        raise ValueError(
+            "matching artifact source differs from the current candidate"
+        )
+    return record.matching_set_sha256
 
 
 def _current_source_identity(
@@ -817,6 +838,8 @@ def _revalidate_h6_prediction_readiness_inputs(
     matching_set_sha256 = _validate_matching_artifact(
         prerequisite_refs.matching_artifact_root,
         expected_set_sha256=config.matching_set_sha256,
+        expected_git_head=git_head_value,
+        expected_dirty_digest=dirty_digest,
     )
     return issue_prediction_readiness(
         git_head=git_head_value,

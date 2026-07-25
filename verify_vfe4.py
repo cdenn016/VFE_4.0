@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import copy
 import hmac
+import json
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -16,6 +18,8 @@ from vfe4.types.h5_schema import (
     H5_RECOGNITION_COORDINATE_UNIVERSE,
 )
 from vfe4.types.updates import H5UpdateRule, UpdateLabel
+from vfe4.config import H8ValidationConfig
+from vfe4.validation.h7_fixture import h7_validation_config_mapping
 
 
 CONFIG: dict[str, object] = {
@@ -303,6 +307,37 @@ CONFIG: dict[str, object] = {
     },
 }
 
+_h7_scientific_config = copy.deepcopy(
+    CONFIG["operations"]["h1_h5"]["config"]  # type: ignore[index]
+)
+_h7_scientific_config["validation"]["gates"] = [  # type: ignore[index]
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6-Prefix",
+    "H7",
+]
+_h7_scientific_config["h7"] = h7_validation_config_mapping()
+CONFIG["operations"]["h7"] = {  # type: ignore[index]
+    "enabled": False,
+    "authorization": None,
+    "config": _h7_scientific_config,
+}
+_h8_scientific_config = copy.deepcopy(_h7_scientific_config)
+_h8_scientific_config["validation"]["gates"].append("H8")  # type: ignore[index]
+_h8_scientific_config["h8"] = json.loads(
+    H8ValidationConfig.create().canonical_json
+)
+CONFIG["operations"]["h8"] = {  # type: ignore[index]
+    "enabled": False,
+    "authorization": None,
+    "config": _h8_scientific_config,
+}
+del _h8_scientific_config
+del _h7_scientific_config
+
 
 _REPO_ROOT = Path(__file__).resolve().parent
 _VERIFY_AUTHORIZATIONS = {
@@ -310,6 +345,8 @@ _VERIFY_AUTHORIZATIONS = {
     "h1_prefix_prior": "AUTHORIZE_VFE4_H1_PREFIX_PRIOR_V1",
     "h6_prefix": "AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1",
     "h6_smc_accuracy": "AUTHORIZE_VFE4_H6_SMC_ACCURACY_FULL_GRID_V1",
+    "h7": "AUTHORIZE_VFE4_H7_FRAME_COVARIANCE_V1",
+    "h8": "AUTHORIZE_VFE4_H8_SPARSE_SCALE_SOURCE_ONLY_V1",
 }
 _VERIFY_OPERATION_NAMES = tuple(_VERIFY_AUTHORIZATIONS)
 
@@ -320,6 +357,49 @@ def _mapping(value: object, location: str) -> Mapping[str, object]:
     ):
         raise ValueError(f"{location} must be a string-keyed mapping")
     return value
+
+
+def project_h1_h5_compatibility_config(
+    config: Mapping[str, object] = CONFIG,
+) -> Mapping[str, object]:
+    """Purely project the H7 scientific config onto the legacy H1--H5 prefix."""
+
+    operations = _mapping(_mapping(config, "CONFIG")["operations"], "operations")
+    h7_entry = _mapping(operations["h7"], "operations.h7")
+    raw_h7 = copy.deepcopy(dict(_mapping(h7_entry["config"], "operations.h7.config")))
+    from vfe4.config import resolve_config
+
+    resolved_h7 = resolve_config(raw_h7, repo_root=_REPO_ROOT)
+    resolved_h7_validation = getattr(resolved_h7, "validation", None)
+    if resolved_h7_validation is None or resolved_h7_validation.gates != (
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6-Prefix",
+        "H7",
+    ):
+        raise ValueError("H1--H5 projection requires the exact H7 config")
+    raw_h7["validation"]["gates"] = [  # type: ignore[index]
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+    ]
+    raw_h7.pop("h7")
+    projected = resolve_config(raw_h7, repo_root=_REPO_ROOT)
+    projected_validation = getattr(projected, "validation", None)
+    if projected_validation is None or projected_validation.gates != (
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+    ):
+        raise ValueError("H1--H5 compatibility projection changed its prefix")
+    return raw_h7
 
 
 def _selected_operation(
@@ -348,7 +428,7 @@ def _selected_operation(
             raise ValueError(
                 "operations.h1_h5.publish_prediction_correctness must be boolean"
             )
-        scientific = _mapping(entry["config"], f"operations.{name}.config")
+        _mapping(entry["config"], f"operations.{name}.config")
         if entry["enabled"]:
             enabled.append((name, entry))
     if not enabled:
@@ -407,11 +487,74 @@ def _run_projected(
     operation: str,
     scientific: Mapping[str, object],
 ) -> object:
+    if operation == "h8":
+        from verification.run_gates import (
+            parse_h8_reference_registry_bytes,
+            run_h8_verification,
+        )
+        from vfe4.artifacts import current_source_identity
+        from vfe4.config import bind_h8_current_refs, resolve_config
+
+        unbound = resolve_config(scientific, repo_root=_REPO_ROOT)
+        git_head, dirty_digest, _ = current_source_identity(
+            _REPO_ROOT,
+            unbound.artifacts.run_root,
+        )
+        registry_path = (
+            _REPO_ROOT
+            / ".verification"
+            / f"h8-current-candidate-{git_head}-refs.json"
+        )
+        if (
+            not registry_path.is_file()
+            or registry_path.is_symlink()
+            or registry_path.parent.resolve(strict=False)
+            != (_REPO_ROOT / ".verification").resolve(strict=False)
+        ):
+            raise ValueError(
+                "the exact current-HEAD H8 reference registry is unavailable"
+            )
+        registry_bytes = registry_path.read_bytes()
+        refs = parse_h8_reference_registry_bytes(registry_bytes)
+        if (
+            refs.candidate_head != git_head
+            or refs.candidate_dirty_digest != dirty_digest
+        ):
+            raise ValueError("the exact current-HEAD H8 registry is stale")
+        resolved = bind_h8_current_refs(scientific, refs)
+        result = run_h8_verification(
+            resolved,
+            registry_path=registry_path,
+            registry_bytes=registry_bytes,
+        )
+        for name in (
+            "h1_h5",
+            "h1_prefix_prior",
+            "h6_prefix",
+            "h7",
+            "h6_prediction",
+        ):
+            print(f"{name}: {getattr(refs, name).status}")
+        print(f"H8: {result.gate_results[0].status.value}")
+        print(f"artifact: {result.run_directory}")
+        return result
+
+    if operation == "h7":
+        from verification.run_gates import run_h7_verification
+        from vfe4.config import resolve_config
+
+        resolved = resolve_config(scientific, repo_root=_REPO_ROOT)
+        result = run_h7_verification(resolved)  # type: ignore[arg-type]
+        for gate_result in result.gate_results:
+            print(f"{gate_result.gate}: {gate_result.status.value}")
+        print(f"artifact: {result.run_directory}")
+        return result
+
     from vfe4.artifacts.h6 import (
         project_h1_prefix_prior_config,
         project_h6_prefix_config,
-        run_projected_current_candidate,
     )
+    from verification.projected_runner import run_projected_current_candidate
 
     projected = (
         project_h1_prefix_prior_config(scientific)

@@ -164,6 +164,99 @@ class NormalizedLanguageFactor:
 SourcePrior = FixedSourcePrior | PrefixConditionedSourcePrior
 
 
+@dataclass(frozen=True, eq=False)
+class H7LanguageGenerativeGeometry:
+    """Additive live H7 geometry absent from the H6 training arithmetic."""
+
+    frames: tuple[Tensor, Tensor, Tensor]
+    support_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_sha256(self.support_sha256, "support_sha256")
+        if type(self.frames) is not tuple or len(self.frames) != 3:
+            raise ValueError("H7 geometry requires exactly three frames")
+        first = self.frames[0]
+        if (
+            not isinstance(first, Tensor)
+            or first.dtype is not torch.float64
+            or first.ndim != 2
+            or first.shape[0] != first.shape[1]
+            or first.shape[0] not in (1, 2)
+        ):
+            raise ValueError("H7 frames must be float64 GL+(1) or GL+(2)")
+        for frame in self.frames:
+            if (
+                not isinstance(frame, Tensor)
+                or frame.dtype is not torch.float64
+                or tuple(frame.shape) != tuple(first.shape)
+                or not bool(torch.isfinite(frame).all())
+            ):
+                raise ValueError("H7 frames must share one finite shape")
+            sign, logabsdet = torch.linalg.slogdet(frame)
+            if not bool(torch.isfinite(logabsdet)) or not bool(sign > 0):
+                raise ValueError("H7 frames must have positive determinant")
+
+
+@dataclass(frozen=True, eq=False)
+class H7LanguageGenerativeTrace:
+    """Immutable references to the exact live tensors used by H6 factors."""
+
+    frames: tuple[Tensor, Tensor, Tensor]
+    receiver_labels: tuple[int, int]
+    support_sha256: str
+    initial_mean: Tensor
+    initial_log_scale: Tensor
+    model_transition_weight: Tensor
+    model_transition_bias: Tensor
+    model_transition_log_scale: Tensor
+    state_transition_weight: Tensor
+    state_model_weight: Tensor
+    state_transition_bias: Tensor
+    state_transition_log_scale: Tensor
+    emission_state_weight: Tensor
+    emission_model_weight: Tensor
+    emission_bias: Tensor
+
+    def __post_init__(self) -> None:
+        geometry = H7LanguageGenerativeGeometry(
+            self.frames, self.support_sha256
+        )
+        dimension = geometry.frames[0].shape[0]
+        if self.receiver_labels != (1, 2):
+            raise ValueError("H7 live trace requires receiver labels (1, 2)")
+        if (
+            not isinstance(self.emission_bias, Tensor)
+            or self.emission_bias.ndim != 1
+            or self.emission_bias.numel() < 2
+        ):
+            raise ValueError("H7 live trace emission bias is invalid")
+        expected_shapes = {
+            "initial_mean": (2 * dimension,),
+            "initial_log_scale": (2 * dimension,),
+            "model_transition_weight": (dimension, dimension),
+            "model_transition_bias": (dimension,),
+            "model_transition_log_scale": (dimension,),
+            "state_transition_weight": (dimension, dimension),
+            "state_model_weight": (dimension, dimension),
+            "state_transition_bias": (dimension,),
+            "state_transition_log_scale": (dimension,),
+            "emission_state_weight": (self.emission_bias.numel(), dimension),
+            "emission_model_weight": (self.emission_bias.numel(), dimension),
+            "emission_bias": (self.emission_bias.numel(),),
+        }
+        for name, shape in expected_shapes.items():
+            value = getattr(self, name)
+            if (
+                not isinstance(value, Tensor)
+                or value.dtype is not torch.float64
+                or tuple(value.shape) != shape
+                or not bool(torch.isfinite(value).all())
+            ):
+                raise ValueError(
+                    f"H7 live generative tensor {name} is invalid"
+                )
+
+
 class LanguageGenerativeModel(nn.Module):
     """Normalized initial, transition, source, and categorical emission factors."""
 
@@ -175,6 +268,7 @@ class LanguageGenerativeModel(nn.Module):
         model_family_sha256: str,
         latent_dim: int,
         source_prior: SourcePrior | None,
+        h7_geometry: H7LanguageGenerativeGeometry | None = None,
     ) -> None:
         super().__init__()
         if type(structure) is not H6LanguageStructure:
@@ -188,6 +282,12 @@ class LanguageGenerativeModel(nn.Module):
             PrefixConditionedSourcePrior,
         ):
             raise ValueError("source_prior must be a supported exact source-prior type")
+        if h7_geometry is not None and type(
+            h7_geometry
+        ) is not H7LanguageGenerativeGeometry:
+            raise ValueError(
+                "h7_geometry must be an exact H7LanguageGenerativeGeometry"
+            )
         structure.__post_init__()
         vocabulary.__post_init__()
         checked_model_family_sha256 = _require_sha256(
@@ -215,6 +315,13 @@ class LanguageGenerativeModel(nn.Module):
         self.vocabulary_sha256 = _vocabulary_sha256(vocabulary)
         self.latent_dim = latent_dim
         self.source_prior = source_prior
+        self.h7_geometry = h7_geometry
+        if h7_geometry is not None:
+            h7_geometry.__post_init__()
+            if h7_geometry.frames[0].shape != (latent_dim, latent_dim):
+                raise ValueError(
+                    "h7_geometry frame width must equal latent_dim"
+                )
 
         pair_dim = 2 * latent_dim
         self.initial_mean = nn.Parameter(torch.zeros(pair_dim, dtype=torch.float64))
@@ -248,6 +355,32 @@ class LanguageGenerativeModel(nn.Module):
         )
         self.emission_bias = nn.Parameter(
             torch.zeros(vocabulary.size, dtype=torch.float64)
+        )
+
+    def export_h7_trace(self) -> H7LanguageGenerativeTrace:
+        """Return direct live references; no H7 tensor is cloned here."""
+
+        if type(self.h7_geometry) is not H7LanguageGenerativeGeometry:
+            raise ValueError(
+                "LanguageGenerativeModel has no complete H7 geometry trace"
+            )
+        self.h7_geometry.__post_init__()
+        return H7LanguageGenerativeTrace(
+            frames=self.h7_geometry.frames,
+            receiver_labels=self.structure.receiver_labels,  # type: ignore[arg-type]
+            support_sha256=self.h7_geometry.support_sha256,
+            initial_mean=self.initial_mean,
+            initial_log_scale=self.initial_log_scale,
+            model_transition_weight=self.model_transition_weight,
+            model_transition_bias=self.model_transition_bias,
+            model_transition_log_scale=self.model_transition_log_scale,
+            state_transition_weight=self.state_transition_weight,
+            state_model_weight=self.state_model_weight,
+            state_transition_bias=self.state_transition_bias,
+            state_transition_log_scale=self.state_transition_log_scale,
+            emission_state_weight=self.emission_state_weight,
+            emission_model_weight=self.emission_model_weight,
+            emission_bias=self.emission_bias,
         )
 
     def _receiver_row(self, receiver_t: int) -> tuple[int, ...]:
@@ -454,4 +587,9 @@ class LanguageGenerativeModel(nn.Module):
         )
 
 
-__all__ = ["LanguageGenerativeModel", "NormalizedLanguageFactor"]
+__all__ = [
+    "H7LanguageGenerativeGeometry",
+    "H7LanguageGenerativeTrace",
+    "LanguageGenerativeModel",
+    "NormalizedLanguageFactor",
+]

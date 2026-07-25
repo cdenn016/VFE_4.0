@@ -1180,11 +1180,12 @@ Status precedence is exact:
 
 - Create: `verification/mp_oracles/__init__.py`
 - Create: `verification/mp_oracles/h7_covariance.py`
+- Create: `verification/mp_oracles/h7_budget_protocol.py`
 - Create: `verification/h7_budget.py`
 - Create: `tests/oracle/test_h7_mp_oracle.py`
 - Modify: `docs/preregistrations/2026-07-21-h7-frame-covariance.md`
 
-**Consumes:** raw H1/H7 JSON bytes only. **Produces:** independent original/transformed tensor/law/local/monolithic/density/oracle values and exact budget records.
+**Consumes:** raw H1/H7 JSON bytes only. **Produces:** independent original/transformed tensor/law/local/monolithic/density/oracle values and exact budget records. The complete transitive oracle closure is restricted to the Python standard library plus `mpmath`; it imports no `vfe4`, Torch, NumPy, or general verification budget module.
 
 - [ ] **Step 1: Write failing oracle/budget tests.** Require no `vfe4`, torch, or NumPy imports in the oracle module. Verify the 100-decimal Jacobi-matrix Gauss--Hermite construction: the physicists-Hermite Jacobi matrix has zero diagonal and off-diagonal entry `sqrt(k/2)` between zero-based rows `k-1` and `k` for `k=1..n-1`; mpmath `eigsy` returns nodes `x_i` and orthonormal eigenvectors; standard-normal nodes are `sqrt(2)*x_i`; normalized weights are the squared first eigenvector components and sum to one. Test exact polynomial moments through degree 12.
 
@@ -1211,7 +1212,7 @@ Status precedence is exact:
 - [ ] **Step 8: Commit Task 6.**
 
   ```powershell
-  git add verification/mp_oracles/__init__.py verification/mp_oracles/h7_covariance.py verification/h7_budget.py tests/oracle/test_h7_mp_oracle.py docs/preregistrations/2026-07-21-h7-frame-covariance.md
+  git add verification/mp_oracles/__init__.py verification/mp_oracles/h7_covariance.py verification/mp_oracles/h7_budget_protocol.py verification/h7_budget.py tests/oracle/test_h7_mp_oracle.py docs/preregistrations/2026-07-21-h7-frame-covariance.md
   git commit -m "test: add the H7 high precision oracle"
   ```
 

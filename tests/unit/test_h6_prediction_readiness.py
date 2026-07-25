@@ -11,25 +11,13 @@ from vfe4.training.h6_readiness import (
     PREDICTION_READINESS_SOURCE_BLOCKERS,
     ProducerCompatibilityError,
     _load_prediction_correctness_artifact,
-    _revalidate_h6_prediction_readiness_inputs,
 )
 
 
 def test_prediction_readiness_roots_exclude_h4_and_current_gate_payload_blocks(
     tmp_path: Path,
 ) -> None:
-    assert PREDICTION_READINESS_SOURCE_BLOCKERS == (
-        "arm matching lacks an immutable manifest-linked matching-set publisher",
-    )
-    with pytest.raises(ProducerCompatibilityError) as unavailable:
-        _revalidate_h6_prediction_readiness_inputs(
-            config=object(),  # type: ignore[arg-type]
-            prerequisite_refs=object(),  # type: ignore[arg-type]
-        )
-    assert all(
-        blocker in str(unavailable.value)
-        for blocker in PREDICTION_READINESS_SOURCE_BLOCKERS
-    )
+    assert PREDICTION_READINESS_SOURCE_BLOCKERS == ()
 
     roots = {gate: tmp_path / gate.lower() for gate in ("H1", "H2", "H3", "H5")}
     refs = CurrentPredictionPrerequisiteRefs.from_mapping(

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import ctypes
 import dataclasses
+import errno
 import hashlib
 import json
 import math
 import os
-import shutil
+import stat
+import sys
 import unicodedata
 import uuid
 from collections.abc import Mapping
@@ -21,6 +24,15 @@ import torch
 
 class ArtifactPublicationError(RuntimeError):
     """A run could not be durably published as one complete directory."""
+
+
+ATOMIC_FAILURE_CLEANUP_OBLIGATIONS = (
+    (
+        "failed staging directories are retained because portable "
+        "handle-bound recursive deletion of the captured top directory "
+        "cannot be proven race-free"
+    ),
+)
 
 
 def _json_value(value: object) -> Any:
@@ -178,10 +190,239 @@ def _run_component(name: str) -> str:
         raise ArtifactPublicationError(f"run_name is invalid: {exc}") from exc
 
 
+def _destination_entry_exists(path: Path) -> bool:
+    """Return whether the directory entry exists, including dangling links."""
+
+    return os.path.lexists(os.fspath(path))
+
+
+def _is_redirect_or_reparse(path: Path, status: os.stat_result) -> bool:
+    if stat.S_ISLNK(status.st_mode):
+        return True
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if getattr(status, "st_file_attributes", 0) & reparse_flag:
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(is_junction is not None and is_junction())
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _OwnedDirectoryIdentity:
+    device: int
+    inode: int
+    marker_name: str | None = None
+    marker_token: bytes | None = None
+    marker_device: int | None = None
+    marker_inode: int | None = None
+
+    def matches(self, path: Path, *, require_marker: bool) -> bool:
+        try:
+            directory_status = path.lstat()
+        except OSError:
+            return False
+        if (
+            not stat.S_ISDIR(directory_status.st_mode)
+            or _is_redirect_or_reparse(path, directory_status)
+            or directory_status.st_dev != self.device
+            or directory_status.st_ino != self.inode
+        ):
+            return False
+        if (
+            self.marker_name is None
+            or self.marker_token is None
+            or self.marker_device is None
+            or self.marker_inode is None
+        ):
+            return not require_marker
+        marker = path / self.marker_name
+        try:
+            marker_status = marker.lstat()
+        except FileNotFoundError:
+            return not require_marker
+        except OSError:
+            return False
+        if not require_marker:
+            return False
+        if (
+            not stat.S_ISREG(marker_status.st_mode)
+            or _is_redirect_or_reparse(marker, marker_status)
+            or marker_status.st_dev != self.marker_device
+            or marker_status.st_ino != self.marker_inode
+        ):
+            return False
+        try:
+            return marker.read_bytes() == self.marker_token
+        except OSError:
+            return False
+
+
+def _capture_owned_directory(path: Path) -> _OwnedDirectoryIdentity:
+    status = path.lstat()
+    if (
+        not stat.S_ISDIR(status.st_mode)
+        or _is_redirect_or_reparse(path, status)
+        or status.st_ino == 0
+    ):
+        raise ArtifactPublicationError(
+            "exclusive staging directory lacks a stable safe identity"
+        )
+    return _OwnedDirectoryIdentity(
+        device=status.st_dev,
+        inode=status.st_ino,
+    )
+
+
+def _install_ownership_marker(
+    path: Path,
+    identity: _OwnedDirectoryIdentity,
+) -> _OwnedDirectoryIdentity:
+    if not identity.matches(path, require_marker=False):
+        raise ArtifactPublicationError(
+            "exclusive staging ownership changed before marker creation"
+        )
+    marker_name = f".owner-{uuid.uuid4().hex}"
+    marker_token = uuid.uuid4().hex.encode("ascii")
+    marker = path / marker_name
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(marker, flags, 0o600)
+    try:
+        if os.write(descriptor, marker_token) != len(marker_token):
+            raise ArtifactPublicationError(
+                "exclusive staging ownership marker write was incomplete"
+            )
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    marker_status = marker.lstat()
+    if (
+        not stat.S_ISREG(marker_status.st_mode)
+        or _is_redirect_or_reparse(marker, marker_status)
+        or marker_status.st_ino == 0
+    ):
+        raise ArtifactPublicationError(
+            "exclusive staging ownership marker is not a safe regular file"
+        )
+    marked_identity = _OwnedDirectoryIdentity(
+        device=identity.device,
+        inode=identity.inode,
+        marker_name=marker_name,
+        marker_token=marker_token,
+        marker_device=marker_status.st_dev,
+        marker_inode=marker_status.st_ino,
+    )
+    if not marked_identity.matches(path, require_marker=True):
+        raise ArtifactPublicationError(
+            "exclusive staging ownership identity changed during capture"
+        )
+    return marked_identity
+
+
+def _rename_directory_no_replace(source: Path, destination: Path) -> None:
+    """Atomically move one directory while refusing any existing destination.
+
+    Python's portable ``os.rename`` permits replacement of an empty directory
+    on some POSIX systems.  Publication needs the stronger no-replace
+    primitive supplied by Windows, Linux, and Darwin.  Unsupported POSIX
+    kernels fail closed instead of falling back to a racy exists/rename pair.
+    """
+
+    if os.name == "nt":
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        move_file_ex = kernel32.MoveFileExW
+        move_file_ex.argtypes = (
+            ctypes.c_wchar_p,
+            ctypes.c_wchar_p,
+            ctypes.c_uint32,
+        )
+        move_file_ex.restype = ctypes.c_int
+        if move_file_ex(os.fspath(source), os.fspath(destination), 0):
+            return
+        error_code = ctypes.get_last_error()
+        if _destination_entry_exists(destination):
+            raise ArtifactPublicationError(
+                f"run directory already exists: {destination}"
+            )
+        raise OSError(
+            error_code,
+            f"atomic no-replace directory move failed: {destination}",
+        )
+
+    if os.name != "posix":
+        raise ArtifactPublicationError(
+            "atomic no-replace directory publication is unsupported "
+            f"on platform {os.name!r}"
+        )
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    source_bytes = os.fsencode(source)
+    destination_bytes = os.fsencode(destination)
+    result: int
+    if sys.platform.startswith("linux"):
+        try:
+            renameat2 = libc.renameat2
+        except AttributeError as exc:
+            raise ArtifactPublicationError(
+                "Linux libc lacks atomic renameat2(RENAME_NOREPLACE)"
+            ) from exc
+        renameat2.argtypes = (
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        )
+        renameat2.restype = ctypes.c_int
+        result = renameat2(
+            -100,
+            source_bytes,
+            -100,
+            destination_bytes,
+            1,
+        )
+    elif sys.platform == "darwin":
+        try:
+            renamex_np = libc.renamex_np
+        except AttributeError as exc:
+            raise ArtifactPublicationError(
+                "Darwin libc lacks atomic renamex_np(RENAME_EXCL)"
+            ) from exc
+        renamex_np.argtypes = (
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        )
+        renamex_np.restype = ctypes.c_int
+        result = renamex_np(source_bytes, destination_bytes, 0x00000004)
+    else:
+        raise ArtifactPublicationError(
+            "this POSIX platform lacks a configured atomic no-replace "
+            "directory primitive"
+        )
+    if result == 0:
+        return
+    error_code = ctypes.get_errno()
+    if error_code in (errno.EEXIST, errno.ENOTEMPTY) or (
+        _destination_entry_exists(destination)
+    ):
+        raise ArtifactPublicationError(
+            f"run directory already exists: {destination}"
+        )
+    raise OSError(
+        error_code,
+        f"atomic no-replace directory move failed: {destination}",
+    )
+
+
 def publish_run_directory(
     run_root: Path, run_name: str, payloads: Mapping[str, object]
 ) -> Path:
-    """Publish every JSON plus a final manifest by one absent-directory rename."""
+    """Publish every JSON plus a manifest by one absent-directory rename.
+
+    Failed stages are retained under their private names; see
+    ``ATOMIC_FAILURE_CLEANUP_OBLIGATIONS``.
+    """
     if not isinstance(run_root, Path):
         raise ArtifactPublicationError("run_root and run_name are required")
     if not isinstance(payloads, Mapping) or not payloads:
@@ -189,6 +430,7 @@ def publish_run_directory(
     safe_run_name = _run_component(run_name)
     paths = _validated_payloads(payloads)
     staging: Path | None = None
+    staging_identity: _OwnedDirectoryIdentity | None = None
     try:
         root = run_root.resolve()
         final = (root / safe_run_name).resolve()
@@ -214,9 +456,13 @@ def publish_run_directory(
             target_aliases.add(target_alias)
             targets.append((relative, target, value))
         root.mkdir(parents=True, exist_ok=True)
-        if final.exists():
+        if _destination_entry_exists(final):
             raise ArtifactPublicationError(f"run directory already exists: {final}")
         staging.mkdir()
+        staging_identity = _capture_owned_directory(staging)
+        staging_identity = _install_ownership_marker(
+            staging, staging_identity
+        )
         for _, target, value in targets:
             _atomic_write_bytes(target, canonical_json_bytes(value))
         manifest_lines = []
@@ -226,17 +472,28 @@ def publish_run_directory(
         _atomic_write_bytes(
             staging / "manifest.sha256", "".join(manifest_lines).encode("utf-8")
         )
-        if final.exists():
-            raise ArtifactPublicationError(f"run directory already exists: {final}")
-        os.rename(staging, final)
+        if not staging_identity.matches(staging, require_marker=True):
+            raise ArtifactPublicationError(
+                "exclusive staging ownership changed before commit"
+            )
+        marker_name = staging_identity.marker_name
+        if marker_name is None:
+            raise ArtifactPublicationError(
+                "exclusive staging ownership marker is unavailable"
+            )
+        (staging / marker_name).unlink()
+        if not staging_identity.matches(staging, require_marker=False):
+            raise ArtifactPublicationError(
+                "exclusive staging ownership changed before final commit"
+            )
+        _rename_directory_no_replace(staging, final)
+        if not staging_identity.matches(final, require_marker=False):
+            raise ArtifactPublicationError(
+                "installed final directory identity differs from the "
+                "captured staging directory"
+            )
         return final
     except ArtifactPublicationError:
         raise
     except (OSError, RuntimeError, UnicodeError, ValueError, TypeError) as exc:
         raise ArtifactPublicationError(f"artifact publication failed: {exc}") from exc
-    finally:
-        if staging is not None and staging.exists():
-            try:
-                shutil.rmtree(staging)
-            except OSError:
-                pass

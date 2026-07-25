@@ -9,7 +9,16 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
-from typing import Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
+
+if TYPE_CHECKING:
+    from .h7 import (
+        H7ControlResult,
+        H7GateOutcome,
+        H7PredecessorReference,
+        H7TrialResult,
+    )
+    from .h8 import H8ChildResult, H8ControlResult, H8CorrectnessCell
 
 
 @dataclass(frozen=True)
@@ -478,6 +487,489 @@ class H6PredictionResult:
             object.__setattr__(instance, name, value)
         instance.__post_init__()
         return instance
+
+
+_H7_FIXTURE_HASH_KEYS = (
+    "h1_fixture_raw_sha256",
+    "h7_fixture_raw_sha256",
+    "density_probe_table_raw_sha256",
+    "density_probe_set_sha256",
+    "scalar_probe_table_raw_sha256",
+    "scalar_probe_set_sha256",
+    "precision_operand_table_raw_sha256",
+    "precision_operand_set_sha256",
+    "oracle_inventory_sha256",
+)
+_H7_PREDECESSOR_KEYS = ("h1_h5", "h1_prefix_prior", "h6_prefix")
+_H7ExpectedNegativeState = Literal[
+    "success",
+    "false_acceptance",
+    "inconclusive",
+]
+
+
+def _h7_expected_negative_state(
+    trial: "H7TrialResult",
+) -> _H7ExpectedNegativeState:
+    """Classify the outside-stabilizer result from its complete owned evidence."""
+
+    from .h7 import H7ResidualRecord, H7TrialResult
+
+    if type(trial) is not H7TrialResult:
+        raise ValueError("expected-negative evidence must be an exact H7TrialResult")
+    trial.__post_init__()
+    if trial.spec.role != "expected_negative":
+        raise ValueError("expected-negative evidence has the wrong trial role")
+    if not trial.envelope.passed:
+        return "inconclusive"
+    if trial.predicate_satisfied:
+        return "success"
+
+    objective_residuals = tuple(
+        residual
+        for objective in trial.objective_by_recognition_family.values()
+        for residual in (
+            objective.initial_joint_kl.residual,
+            *(item.residual for item in objective.local_terms),
+            *(
+                observation.residual
+                for evaluation in objective.density_probe_evaluations
+                for observation in evaluation.observations
+            ),
+            *objective.scorer_residuals,
+            objective.complete_local,
+            objective.complete_monolithic,
+            objective.p_density_shift,
+            objective.q_density_shift,
+            objective.log_ratio,
+            objective.entropy_shift,
+            *(
+                item
+                for item in (objective.evidence, objective.posterior_kl)
+                if type(item) is H7ResidualRecord
+            ),
+        )
+    )
+    covariance_accepted = (
+        trial.r_abs.passed
+        and trial.r_rel.passed
+        and trial.r_back_max.passed
+        and all(item.passed for item in trial.backward_by_operand)
+        and all(item.passed for item in trial.residuals)
+        and all(item.passed for item in objective_residuals)
+    )
+    return "false_acceptance" if covariance_accepted else "inconclusive"
+
+
+@dataclass(frozen=True)
+class H7GateResult:
+    """Sole fail-closed result record for the H7 covariance gate."""
+
+    fixture_hash_keys: ClassVar[tuple[str, ...]] = _H7_FIXTURE_HASH_KEYS
+    predecessor_keys: ClassVar[tuple[str, ...]] = _H7_PREDECESSOR_KEYS
+
+    gate: Literal["H7"]
+    status: GateStatus
+    fixture_hashes: Mapping[str, str]
+    predecessor_references: Mapping[str, "H7PredecessorReference"]
+    trials: tuple["H7TrialResult", ...]
+    controls: tuple["H7ControlResult", ...]
+    outcome: "H7GateOutcome"
+    obligations: tuple[str, ...]
+    result_sha256: str
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        gate: Literal["H7"],
+        status: GateStatus,
+        fixture_hashes: Mapping[str, str],
+        predecessor_references: Mapping[str, "H7PredecessorReference"],
+        trials: tuple["H7TrialResult", ...],
+        controls: tuple["H7ControlResult", ...],
+        outcome: "H7GateOutcome",
+        obligations: tuple[str, ...],
+    ) -> "H7GateResult":
+        """Defensively own mappings and bind all semantic fields."""
+
+        from .h7 import h7_owned_sha256
+
+        owned_fixtures = _freeze_h7_digest_mapping(
+            fixture_hashes,
+            allowed_keys=_H7_FIXTURE_HASH_KEYS,
+            name="fixture_hashes",
+        )
+        owned_predecessors = _freeze_h7_predecessors(predecessor_references)
+        semantic = {
+            "gate": gate,
+            "status": status,
+            "fixture_hashes": owned_fixtures,
+            "predecessor_references": owned_predecessors,
+            "trials": tuple(trials),
+            "controls": tuple(controls),
+            "outcome": outcome,
+            "obligations": tuple(obligations),
+        }
+        return cls(
+            **semantic,
+            result_sha256=h7_owned_sha256(
+                "vfe4.h7.gate-result.v1",
+                semantic,
+            ),
+        )
+
+    def __post_init__(self) -> None:
+        from .h7 import (
+            H7_CONTROL_IDS,
+            H7_REQUIRED_TRIAL_IDS,
+            H7_SCALAR_TRIAL_IDS,
+            H7ControlResult,
+            H7FailOutcome,
+            H7InconclusiveOutcome,
+            H7PassOutcome,
+            H7PredecessorReference,
+            H7TrialResult,
+            h7_owned_sha256,
+        )
+
+        if self.gate != "H7":
+            raise ValueError("H7 gate result must declare gate H7")
+        if not isinstance(self.status, GateStatus):
+            raise ValueError("H7 status must be a GateStatus")
+        _require_obligations(self.obligations)
+        if len(set(self.obligations)) != len(self.obligations):
+            raise ValueError("H7 obligations must be unique")
+
+        fixtures = _freeze_h7_digest_mapping(
+            self.fixture_hashes,
+            allowed_keys=_H7_FIXTURE_HASH_KEYS,
+            name="fixture_hashes",
+        )
+        predecessors = _freeze_h7_predecessors(self.predecessor_references)
+        object.__setattr__(self, "fixture_hashes", fixtures)
+        object.__setattr__(self, "predecessor_references", predecessors)
+
+        if type(self.trials) is not tuple or any(
+            type(item) is not H7TrialResult for item in self.trials
+        ):
+            raise ValueError("H7 trials must be an exact tuple of H7TrialResult")
+        if type(self.controls) is not tuple or any(
+            type(item) is not H7ControlResult for item in self.controls
+        ):
+            raise ValueError("H7 controls must be an exact tuple of H7ControlResult")
+        for predecessor in predecessors.values():
+            if type(predecessor) is not H7PredecessorReference:
+                raise ValueError(
+                    "H7 predecessor mappings require exact predecessor records"
+                )
+            predecessor.__post_init__()
+        for trial in self.trials:
+            trial.__post_init__()
+        for control in self.controls:
+            control.__post_init__()
+        if type(self.outcome) not in (
+            H7PassOutcome,
+            H7FailOutcome,
+            H7InconclusiveOutcome,
+        ):
+            raise ValueError("H7 outcome must use the closed outcome union")
+        self.outcome.__post_init__()
+
+        trial_ids = tuple(item.spec.trial_id for item in self.trials)
+        control_ids = tuple(item.control_id for item in self.controls)
+        if (
+            len(set(trial_ids)) != len(trial_ids)
+            or any(item not in H7_REQUIRED_TRIAL_IDS for item in trial_ids)
+        ):
+            raise ValueError(
+                "H7 trial IDs must be unique members of the closed inventory"
+            )
+        if (
+            len(set(control_ids)) != len(control_ids)
+            or any(item not in H7_CONTROL_IDS for item in control_ids)
+        ):
+            raise ValueError(
+                "H7 control IDs must be unique members of the closed inventory"
+            )
+
+        complete_inventory = (
+            tuple(fixtures) == _H7_FIXTURE_HASH_KEYS
+            and tuple(predecessors) == _H7_PREDECESSOR_KEYS
+            and trial_ids == H7_REQUIRED_TRIAL_IDS
+            and control_ids == H7_CONTROL_IDS
+        )
+        scalar_or_positive = tuple(
+            item
+            for item in self.trials
+            if item.spec.role in ("scalar_regression", "positive_covariance")
+        )
+        expected_negative = tuple(
+            item for item in self.trials if item.spec.role == "expected_negative"
+        )
+        expected_negative_state: _H7ExpectedNegativeState = (
+            _h7_expected_negative_state(expected_negative[0])
+            if len(expected_negative) == 1
+            else "inconclusive"
+        )
+        incomplete_runtime_evidence = (
+            not complete_inventory
+            or any(not item.envelope.passed for item in self.trials)
+            or len(expected_negative) != 1
+            or expected_negative_state == "inconclusive"
+            or any(not item.detected for item in self.controls)
+        )
+        finite_refutation_ids = tuple(
+            f"{item.spec.trial_id}:{item.spec.expected_predicate}"
+            for item in scalar_or_positive
+            if item.envelope.passed and not item.predicate_satisfied
+        )
+        finite_refutation = bool(finite_refutation_ids)
+
+        if self.status is GateStatus.INCONCLUSIVE:
+            if (
+                type(self.outcome) is not H7InconclusiveOutcome
+                or not self.obligations
+                or self.outcome.obligations != self.obligations
+            ):
+                raise ValueError(
+                    "INCONCLUSIVE H7 requires one matching nonempty obligation set"
+                )
+        elif self.status is GateStatus.FAIL:
+            if (
+                type(self.outcome) is not H7FailOutcome
+                or self.obligations
+                or incomplete_runtime_evidence
+                or self.outcome.failed_invariant_ids != finite_refutation_ids
+                or self.outcome.expected_negative_false_acceptance
+                != (expected_negative_state == "false_acceptance")
+                or not (
+                    finite_refutation
+                    or expected_negative_state == "false_acceptance"
+                )
+            ):
+                raise ValueError(
+                    "FAIL H7 requires complete evidence and a finite refutation"
+                )
+        elif (
+            type(self.outcome) is not H7PassOutcome
+            or self.obligations
+            or incomplete_runtime_evidence
+            or finite_refutation
+            or tuple(item.spec.trial_id for item in scalar_or_positive)
+            != (*H7_SCALAR_TRIAL_IDS, *H7_REQUIRED_TRIAL_IDS[2:-1])
+            or not all(item.predicate_satisfied for item in self.trials)
+            or expected_negative_state != "success"
+        ):
+            raise ValueError("PASS H7 requires the exact completely closed inventory")
+
+        semantic = {
+            "gate": self.gate,
+            "status": self.status,
+            "fixture_hashes": self.fixture_hashes,
+            "predecessor_references": self.predecessor_references,
+            "trials": self.trials,
+            "controls": self.controls,
+            "outcome": self.outcome,
+            "obligations": self.obligations,
+        }
+        _require_sha256(self.result_sha256, "result_sha256")
+        if self.result_sha256 != h7_owned_sha256(
+            "vfe4.h7.gate-result.v1",
+            semantic,
+        ):
+            raise ValueError("result_sha256 does not match the complete H7 result")
+
+
+@dataclass(frozen=True)
+class H8GateResult:
+    """Fail-closed result for the bounded H8 sparse-scale systems gate."""
+
+    gate: Literal["H8"]
+    status: GateStatus
+    config_sha256: str
+    candidate_junit_sha256: str | None
+    current_refs_registry_sha256: str | None
+    h7_manifest_sha256: str | None
+    h6_prediction_manifest_sha256: str | None
+    correctness: tuple["H8CorrectnessCell", ...]
+    production_runs: tuple["H8ChildResult", ...]
+    profiler_runs: tuple["H8ChildResult", ...]
+    controls: tuple["H8ControlResult", ...]
+    obligations: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        from .h8 import (
+            H8_CORRECTNESS_CASES,
+            H8_NEGATIVE_CONTROL_IDS,
+            H8_PRODUCTION_SEEDS,
+            H8ChildResult,
+            H8ControlResult,
+            H8CorrectnessCell,
+        )
+
+        if self.gate != "H8":
+            raise ValueError("H8 gate result must declare gate H8")
+        if not isinstance(self.status, GateStatus):
+            raise ValueError("H8 status must be a GateStatus")
+        _require_sha256(self.config_sha256, "config_sha256")
+        prerequisite_hash_names = (
+            "candidate_junit_sha256",
+            "current_refs_registry_sha256",
+            "h7_manifest_sha256",
+            "h6_prediction_manifest_sha256",
+        )
+        for name in prerequisite_hash_names:
+            value = getattr(self, name)
+            if value is not None:
+                _require_sha256(value, name)
+        missing_prerequisite_hashes = tuple(
+            name for name in prerequisite_hash_names if getattr(self, name) is None
+        )
+        _require_obligations(self.obligations)
+        if len(set(self.obligations)) != len(self.obligations):
+            raise ValueError("H8 obligations must be unique")
+        if self.status is GateStatus.INCONCLUSIVE:
+            if not self.obligations:
+                raise ValueError("INCONCLUSIVE H8 requires an open obligation")
+        else:
+            if self.obligations:
+                raise ValueError("conclusive H8 cannot retain obligations")
+            if missing_prerequisite_hashes:
+                raise ValueError(
+                    "conclusive H8 requires every canonical prerequisite hash"
+                )
+
+        typed_inventories = (
+            ("correctness", self.correctness, H8CorrectnessCell),
+            ("production_runs", self.production_runs, H8ChildResult),
+            ("profiler_runs", self.profiler_runs, H8ChildResult),
+            ("controls", self.controls, H8ControlResult),
+        )
+        for name, values, expected_type in typed_inventories:
+            if type(values) is not tuple or any(
+                type(item) is not expected_type for item in values
+            ):
+                raise ValueError(f"{name} must retain exact typed records")
+            for item in values:
+                item.__post_init__()
+
+        correctness_ids = tuple(item.cell_id for item in self.correctness)
+        expected_correctness_ids = tuple(
+            range(1, len(H8_CORRECTNESS_CASES) + 1)
+        )
+        _require_h8_inventory_prefix(
+            correctness_ids,
+            expected_correctness_ids,
+            "correctness cells",
+        )
+        production_ids = tuple(
+            (item.seed, item.repetition) for item in self.production_runs
+        )
+        expected_production_ids = tuple(
+            (seed, repetition)
+            for seed in H8_PRODUCTION_SEEDS
+            for repetition in range(5)
+        )
+        _require_h8_inventory_prefix(
+            production_ids,
+            expected_production_ids,
+            "production runs",
+        )
+        if any(item.mode != "production" for item in self.production_runs):
+            raise ValueError("production_runs may contain only production results")
+        profiler_ids = tuple(item.seed for item in self.profiler_runs)
+        _require_h8_inventory_prefix(
+            profiler_ids,
+            H8_PRODUCTION_SEEDS,
+            "profiler runs",
+        )
+        if any(
+            item.mode != "profiler" or item.repetition is not None
+            for item in self.profiler_runs
+        ):
+            raise ValueError("profiler_runs may contain only profiler results")
+        control_ids = tuple(item.control_id for item in self.controls)
+        _require_h8_inventory_prefix(
+            control_ids,
+            H8_NEGATIVE_CONTROL_IDS,
+            "controls",
+        )
+
+        retained_statuses = (
+            *(item.status for item in self.correctness),
+            *(item.status for item in self.controls),
+            *(
+                invariant.status
+                for child in (*self.production_runs, *self.profiler_runs)
+                for invariant in child.invariants
+            ),
+        )
+        witnessed_fail = GateStatus.FAIL in retained_statuses
+        complete_pass = (
+            correctness_ids == expected_correctness_ids
+            and production_ids == expected_production_ids
+            and profiler_ids == H8_PRODUCTION_SEEDS
+            and control_ids == H8_NEGATIVE_CONTROL_IDS
+            and retained_statuses
+            and all(status is GateStatus.PASS for status in retained_statuses)
+        )
+        if self.status is GateStatus.PASS and not complete_pass:
+            raise ValueError("PASS H8 requires the exact completely passing inventory")
+        if self.status is GateStatus.FAIL and not witnessed_fail:
+            raise ValueError("FAIL H8 requires retained witnessed-failure evidence")
+        if self.status is GateStatus.INCONCLUSIVE and witnessed_fail:
+            raise ValueError("a witnessed H8 failure cannot be masked as INCONCLUSIVE")
+
+
+def _require_h8_inventory_prefix(
+    observed: tuple[object, ...],
+    expected: tuple[object, ...],
+    name: str,
+) -> None:
+    if len(set(observed)) != len(observed):
+        raise ValueError(f"{name} cannot contain duplicate identities")
+    if observed != expected[: len(observed)]:
+        raise ValueError(f"{name} must retain frozen order without gaps")
+
+
+def _freeze_h7_digest_mapping(
+    value: Mapping[str, str],
+    *,
+    allowed_keys: tuple[str, ...],
+    name: str,
+) -> Mapping[str, str]:
+    if not isinstance(value, Mapping) or any(
+        type(key) is not str for key in value
+    ):
+        raise ValueError(f"{name} must be a string-keyed mapping")
+    unexpected = set(value).difference(allowed_keys)
+    if unexpected:
+        raise ValueError(f"{name} contains keys outside the closed H7 inventory")
+    owned: dict[str, str] = {}
+    for key in allowed_keys:
+        if key in value:
+            digest = value[key]
+            _require_sha256(digest, f"{name}[{key!r}]")
+            owned[key] = digest
+    return MappingProxyType(owned)
+
+
+def _freeze_h7_predecessors(
+    value: Mapping[str, "H7PredecessorReference"],
+) -> Mapping[str, "H7PredecessorReference"]:
+    if not isinstance(value, Mapping) or any(
+        type(key) is not str for key in value
+    ):
+        raise ValueError("predecessor_references must be a string-keyed mapping")
+    unexpected = set(value).difference(_H7_PREDECESSOR_KEYS)
+    if unexpected:
+        raise ValueError(
+            "predecessor_references contains keys outside the H7 registry"
+        )
+    return MappingProxyType(
+        {key: value[key] for key in _H7_PREDECESSOR_KEYS if key in value}
+    )
 
 
 def _prediction_decision_from_metrics(metrics_bytes: bytes) -> object:

@@ -7,6 +7,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -29,11 +30,105 @@ def _load_launcher():
 
 
 def _h3_compatibility_config(module: object) -> dict[str, object]:
-    raw = copy.deepcopy(module.CONFIG)
+    raw = copy.deepcopy(module.CONFIG["operations"]["h1_h5"]["config"])
     raw["validation"]["gates"] = ["H1", "H2", "H3"]
     raw.pop("h4")
     raw.pop("h5")
     return raw
+
+
+def _h1_h5_scientific_config(module: object) -> dict[str, object]:
+    return copy.deepcopy(module.CONFIG["operations"]["h1_h5"]["config"])
+
+
+def _run_h1_h5_scientific(module: object, scientific: dict[str, object]):
+    launcher = copy.deepcopy(module.CONFIG)
+    operation = launcher["operations"]["h1_h5"]
+    operation["enabled"] = True
+    operation["authorization"] = module._VERIFY_AUTHORIZATIONS["h1_h5"]
+    operation["config"] = scientific
+    return module.main(launcher)
+
+
+def _h8_current_refs(head: str, dirty: str, junit: str):
+    import verification.h8_gate as h8_gate
+    from vfe4.types.h7 import H7PredecessorReference
+    from vfe4.types.h8 import (
+        CurrentH8PrerequisiteRefs,
+        H8H1H5Reference,
+        H8H1PrefixPriorReference,
+        H8H6PredictionReference,
+        H8H6PrefixReference,
+        H8H7Reference,
+    )
+
+    digest = "a" * 64
+    common = {
+        "artifact_path": "artifact",
+        "manifest_sha256": digest,
+        "result_path": "result",
+        "result_sha256": digest,
+        "content_hashes": {"content.json": digest},
+        "payload_hashes": {"validation.json": digest},
+        "ledger_path": "ledger",
+        "ledger_sha256": digest,
+        "producer_head": head,
+        "producer_dirty_digest": dirty,
+        "candidate_junit_sha256": junit,
+        "status": "pass",
+    }
+    compatibility = {
+        key: H7PredecessorReference.create(
+            artifact_path=f"{key}-artifact",
+            git_head=head,
+            dirty_digest=dirty,
+            junit_sha256=junit,
+            manifest_sha256=digest,
+            payload_hashes={f"{key}.json": digest},
+            ledger_path=f"{key}-ledger",
+            ledger_sha256=digest,
+        )
+        for key in ("h1_h5", "h1_prefix_prior", "h6_prefix")
+    }
+    base = CurrentH8PrerequisiteRefs(
+        candidate_head=head,
+        candidate_dirty_digest=dirty,
+        candidate_junit_sha256=junit,
+        h7_compatibility_refs=compatibility,
+        h1_h5=H8H1H5Reference(kind="h1_h5", **common),  # type: ignore[arg-type]
+        h1_prefix_prior=H8H1PrefixPriorReference(
+            kind="h1_prefix_prior", **common,  # type: ignore[arg-type]
+        ),
+        h6_prefix=H8H6PrefixReference(
+            kind="h6_prefix",
+            certificate_set_sha256=digest,
+            certificate_hashes={"certificate.json": digest},
+            **common,  # type: ignore[arg-type]
+        ),
+        h7=H8H7Reference(
+            kind="h7",
+            result_pointer_path="h7-pointer",
+            result_pointer_sha256=digest,
+            fixture_set_sha256=digest,
+            **common,  # type: ignore[arg-type]
+        ),
+        h6_prediction=H8H6PredictionReference(
+            kind="h6_prediction",
+            experiment_sha256=digest,
+            **common,  # type: ignore[arg-type]
+        ),
+        registry_sha256=digest,
+    )
+    registry_bytes = h8_gate.canonical_h8_json_bytes(
+        h8_gate.h8_current_refs_registry_payload(base)
+    )
+    return (
+        replace(
+            base,
+            registry_sha256=hashlib.sha256(registry_bytes).hexdigest(),
+        ),
+        registry_bytes,
+    )
 
 
 def test_launcher_import_is_safe_and_has_no_cli_framework(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -44,9 +139,24 @@ def test_launcher_import_is_safe_and_has_no_cli_framework(monkeypatch: pytest.Mo
     )
     module = _load_launcher()
     assert type(module.CONFIG) is dict
-    assert module.CONFIG["validation"]["gates"] == ["H1", "H2", "H3", "H4", "H5"]
-    assert set(module.CONFIG) >= {"h4", "h5"}
-    h3 = module.CONFIG["h3"]
+    assert tuple(module.CONFIG["operations"]) == (
+        "h1_h5",
+        "h1_prefix_prior",
+        "h6_prefix",
+        "h6_smc_accuracy",
+        "h7",
+        "h8",
+    )
+    h7_config = module.CONFIG["operations"]["h7"]["config"]
+    assert h7_config["validation"]["gates"] == [
+        "H1", "H2", "H3", "H4", "H5", "H6-Prefix", "H7"
+    ]
+    assert "h8" not in h7_config
+    h8_config = module.CONFIG["operations"]["h8"]["config"]
+    assert h8_config["validation"]["gates"] == [
+        "H1", "H2", "H3", "H4", "H5", "H6-Prefix", "H7", "H8"
+    ]
+    h3 = module.CONFIG["operations"]["h1_h5"]["config"]["h3"]
     assert h3["recognition_families"] == [
         "structured_full_spd",
         "fine_factorized_diagonal",
@@ -66,6 +176,113 @@ def test_launcher_import_is_safe_and_has_no_cli_framework(monkeypatch: pytest.Mo
     tree = ast.parse(LAUNCHER.read_text(encoding="utf-8"))
     imported = {alias.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
     assert imported.isdisjoint({"argparse", "click", "typer", "hydra"})
+
+
+def test_h7_main_publishes_only_reference_records_and_h7_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import verification.run_gates as gates
+    from vfe4.artifacts.h6 import CandidateArtifactReference
+    from vfe4.types.h7 import H7InconclusiveOutcome
+    from vfe4.types.results import H7GateResult
+
+    module = _load_launcher()
+    launcher = copy.deepcopy(module.CONFIG)
+    h7_entry = launcher["operations"]["h7"]
+    h7_entry["enabled"] = True
+    h7_entry["authorization"] = module._VERIFY_AUTHORIZATIONS["h7"]
+    h7_entry["config"]["artifacts"]["run_root"] = str(tmp_path / "runs")
+
+    head, dirty, junit = "a" * 40, "b" * 64, "c" * 64
+    references = {}
+    for key in ("h1_h5", "h1_prefix_prior", "h6_prefix"):
+        digest = hashlib.sha256(key.encode("ascii")).hexdigest()
+        candidate = CandidateArtifactReference(
+            tmp_path / "predecessors" / key,
+            head,
+            dirty,
+            digest,
+            {f"validation/{key}.json": digest},
+        )
+        references[key] = gates.candidate_artifact_reference_to_h7_reference(
+            candidate,
+            junit_sha256=junit,
+            ledger_path=tmp_path / ".verification" / f"{key}-ledger.json",
+            ledger_sha256=digest,
+        )
+    registry = gates.h7_reference_registry_bytes(references)
+    registry_root = tmp_path / ".verification"
+    registry_root.mkdir()
+    (registry_root / f"h7-current-candidate-{head}-refs.json").write_bytes(registry)
+    h1_path = tmp_path / "h1.json"
+    h7_path = tmp_path / "h7.json"
+    h1_path.write_bytes(b"h1")
+    h7_path.write_bytes(b"h7")
+
+    obligations = ("source-only H7 runtime evidence is unavailable",)
+    result = H7GateResult.create(
+        gate="H7",
+        status=GateStatus.INCONCLUSIVE,
+        fixture_hashes={},
+        predecessor_references=references,
+        trials=(),
+        controls=(),
+        outcome=H7InconclusiveOutcome.create(
+            kind="INCONCLUSIVE",
+            obligations=obligations,
+        ),
+        obligations=obligations,
+    )
+    evaluation = SimpleNamespace(result=result)
+    monkeypatch.setattr(gates, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(gates, "FIXTURE_PATH", h1_path)
+    monkeypatch.setattr(gates, "H7_FIXTURE_PATH", h7_path)
+    monkeypatch.setattr(
+        gates,
+        "current_source_identity",
+        lambda *_args: (head, dirty, "d" * 64),
+    )
+    monkeypatch.setattr(
+        gates,
+        "assemble_h7_gate_evaluation",
+        lambda **_kwargs: evaluation,
+    )
+    monkeypatch.setattr(
+        gates,
+        "build_h7_provenance",
+        lambda **_kwargs: {"schema_version": "vfe4-h7-provenance-v1"},
+    )
+    monkeypatch.setattr(gates, "build_environment", lambda _config: {"device": "cpu"})
+    monkeypatch.setattr(
+        gates,
+        "h7_validation_payload",
+        lambda _evaluation: {
+            "gate": "H7",
+            "status": "inconclusive",
+            "obligations": list(obligations),
+        },
+    )
+
+    published = module.main(launcher)
+
+    assert tuple(item.gate for item in published.gate_results) == ("H7",)
+    files = sorted(
+        path.relative_to(published.run_directory).as_posix()
+        for path in published.run_directory.rglob("*")
+        if path.is_file()
+    )
+    assert files == [
+        "config.json",
+        "environment.json",
+        "manifest.sha256",
+        "provenance.json",
+        "references/h1_h5.json",
+        "references/h1_prefix_prior.json",
+        "references/h6_prefix.json",
+        "validation/h7.json",
+    ]
+    assert not any("validation/h1" in name or "h8" in name for name in files)
 
 
 def test_editable_mapping_runs_three_gates_once_from_one_fixture_snapshot_set(
@@ -136,7 +353,7 @@ def test_editable_mapping_runs_three_gates_once_from_one_fixture_snapshot_set(
     monkeypatch.setattr(gates, "evaluate_h2", evaluate_h2)
     monkeypatch.setattr(gates, "evaluate_h3", evaluate_h3)
 
-    result = module.main(raw)
+    result = _run_h1_h5_scientific(module, raw)
 
     assert tuple(item.gate for item in result.gate_results) == ("H1", "H2", "H3")
     assert all(item.status is GateStatus.PASS for item in result.gate_results)
@@ -199,7 +416,7 @@ def test_coupled_click_run_captures_once_orders_five_gates_and_publishes_eight_j
     from vfe4.types import H3GateResult, H4GateResult
 
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h1_h5_scientific_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
     fixture_paths = {
         "h1": gates.FIXTURE_PATH,
@@ -299,7 +516,7 @@ def test_coupled_click_run_captures_once_orders_five_gates_and_publishes_eight_j
         },
     )
 
-    result = module.main(raw)
+    result = _run_h1_h5_scientific(module, raw)
 
     assert order == ["H1", "H2", "H3", "H4", "H5"]
     assert reads == {"h1": 1, "coupled": 1, "zero": 1, "h5": 1}
@@ -334,7 +551,7 @@ def test_coupled_runner_prechecks_h5_digest_then_publishes_typed_inconclusive(
     from vfe4.types import H3GateResult, H4GateResult, H5_NONCLAIM_IDS
 
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h1_h5_scientific_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
     wrong_bytes = bytes(bytearray(b'{"wrong":"must-not-decode"}\n'))
     original_sha256 = hashlib.sha256
@@ -504,7 +721,7 @@ def test_coupled_runner_prechecks_h5_digest_then_publishes_typed_inconclusive(
         gates, "h4_validation_payload", lambda value: value.validation_payload
     )
 
-    result = module.main(raw)
+    result = _run_h1_h5_scientific(module, raw)
 
     assert reads == 1
     assert h5_capture == [wrong_bytes]
@@ -644,7 +861,7 @@ def test_compatibility_prefixes_never_touch_or_publish_h3(
     import verification.run_gates as run_gates
 
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h1_h5_scientific_config(module)
     raw["validation"]["gates"] = list(gates)
     del raw["h3"]
     del raw["h4"]
@@ -672,7 +889,7 @@ def test_compatibility_prefixes_never_touch_or_publish_h3(
         lambda *_args, **_kwargs: pytest.fail("compatibility prefix evaluated H5"),
     )
 
-    result = module.main(raw)
+    result = _run_h1_h5_scientific(module, raw)
 
     assert tuple(item.gate for item in result.gate_results) == gates
     run_dir = result.run_directory
@@ -693,12 +910,12 @@ def test_compatibility_prefixes_never_touch_or_publish_h3(
 
 def test_invalid_raw_mapping_fails_resolution_and_creates_no_run(tmp_path: Path) -> None:
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h1_h5_scientific_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
     raw["model"]["horizon"] = 3
 
     with pytest.raises(ValueError):
-        module.main(raw)
+        _run_h1_h5_scientific(module, raw)
 
     assert not (tmp_path / "runs").exists()
 
@@ -721,15 +938,17 @@ def test_invalid_raw_mapping_fails_resolution_and_creates_no_run(tmp_path: Path)
 def test_launcher_rejects_control_tree_run_root_before_evaluation(
     monkeypatch: pytest.MonkeyPatch, control: str
 ) -> None:
+    import verification.run_gates as gates
+
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h1_h5_scientific_config(module)
     forbidden = REPO_ROOT / control / "task6-forbidden-publication"
     raw["artifacts"]["run_root"] = str(forbidden)
-    monkeypatch.setattr(module, "run_verification", lambda config: pytest.fail("evaluated"))
+    monkeypatch.setattr(gates, "run_verification", lambda config: pytest.fail("evaluated"))
 
     assert not forbidden.exists()
     with pytest.raises(ValueError, match="control tree"):
-        module.main(raw)
+        _run_h1_h5_scientific(module, raw)
     assert not forbidden.exists()
 
 
@@ -737,29 +956,33 @@ def test_launcher_rejects_control_tree_run_root_before_evaluation(
 def test_launcher_rejects_explicit_extended_control_path_before_evaluation(
     monkeypatch: pytest.MonkeyPatch, control: str
 ) -> None:
+    import verification.run_gates as gates
+
     module = _load_launcher()
-    raw = copy.deepcopy(module.CONFIG)
+    raw = _h1_h5_scientific_config(module)
     forbidden = REPO_ROOT / control / "task6-extended-forbidden"
     raw["artifacts"]["run_root"] = "\\\\?\\" + str(forbidden)
-    monkeypatch.setattr(module, "run_verification", lambda config: pytest.fail("evaluated"))
+    monkeypatch.setattr(gates, "run_verification", lambda config: pytest.fail("evaluated"))
 
     assert not forbidden.exists()
     with pytest.raises(ValueError, match="control tree"):
-        module.main(raw)
+        _run_h1_h5_scientific(module, raw)
     assert not forbidden.exists()
 
 
 def test_launcher_rejects_extended_repository_and_parent_before_evaluation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import verification.run_gates as gates
+
     module = _load_launcher()
-    monkeypatch.setattr(module, "run_verification", lambda config: pytest.fail("evaluated"))
+    monkeypatch.setattr(gates, "run_verification", lambda config: pytest.fail("evaluated"))
 
     for unsafe in (REPO_ROOT, REPO_ROOT.parent):
-        raw = copy.deepcopy(module.CONFIG)
+        raw = _h1_h5_scientific_config(module)
         raw["artifacts"]["run_root"] = "\\\\?\\" + str(unsafe)
         with pytest.raises(ValueError, match="contain the repository"):
-            module.main(raw)
+            _run_h1_h5_scientific(module, raw)
 
 
 def test_launcher_resolves_repo_paths_from_file_not_cwd_with_spaces(tmp_path: Path) -> None:
@@ -769,9 +992,12 @@ def test_launcher_resolves_repo_paths_from_file_not_cwd_with_spaces(tmp_path: Pa
     code = (
         f"import sys; sys.path.insert(0, {str(REPO_ROOT)!r}); "
         "import verify_vfe4; "
-        "verify_vfe4.CONFIG['validation']['gates'] = ['H1','H2','H3']; "
-        "verify_vfe4.CONFIG.pop('h4'); verify_vfe4.CONFIG.pop('h5'); "
-        f"verify_vfe4.CONFIG['artifacts']['run_root'] = {str(run_root)!r}; "
+        "op=verify_vfe4.CONFIG['operations']['h1_h5']; "
+        "op['enabled']=True; "
+        "op['authorization']=verify_vfe4._VERIFY_AUTHORIZATIONS['h1_h5']; "
+        "op['config']['validation']['gates']=['H1','H2','H3']; "
+        "op['config'].pop('h4'); op['config'].pop('h5'); "
+        f"op['config']['artifacts']['run_root']={str(run_root)!r}; "
         "raise SystemExit(verify_vfe4._script_main())"
     )
     completed = subprocess.run([sys.executable, "-c", code], cwd=working, text=True, capture_output=True, timeout=120)
@@ -785,9 +1011,23 @@ def test_launcher_resolves_repo_paths_from_file_not_cwd_with_spaces(tmp_path: Pa
 def test_publication_error_prints_artifact_unavailable_and_returns_nonzero(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    module = _load_launcher()
-    monkeypatch.setattr(module, "run_verification", lambda config: (_ for _ in ()).throw(ArtifactPublicationError("disk")))
+    import verification.run_gates as gates
 
+    module = _load_launcher()
+    monkeypatch.setattr(
+        gates,
+        "run_verification",
+        lambda config, **_kwargs: (_ for _ in ()).throw(
+            ArtifactPublicationError("disk")
+        ),
+    )
+    h1_h5 = module.CONFIG["operations"]["h1_h5"]
+    monkeypatch.setitem(h1_h5, "enabled", True)
+    monkeypatch.setitem(
+        h1_h5,
+        "authorization",
+        module._VERIFY_AUTHORIZATIONS["h1_h5"],
+    )
     assert module._script_main() != 0
     assert "artifact unavailable" in capsys.readouterr().err
 
@@ -846,13 +1086,13 @@ def test_repeated_frozen_clock_collision_preserves_first_run_bytes(
     raw = _h3_compatibility_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
     monkeypatch.setattr(gates, "_utc_now", lambda: "2026-07-21T23-59-58.000000Z")
-    first = module.main(raw)
+    first = _run_h1_h5_scientific(module, raw)
     assert all(item.status is GateStatus.PASS for item in first.gate_results)
     run_dir = next((tmp_path / "runs").iterdir())
     before = {path.relative_to(run_dir): path.read_bytes() for path in run_dir.rglob("*") if path.is_file()}
 
     with pytest.raises(ArtifactPublicationError, match="already exists"):
-        module.main(raw)
+        _run_h1_h5_scientific(module, raw)
 
     after = {path.relative_to(run_dir): path.read_bytes() for path in run_dir.rglob("*") if path.is_file()}
     assert after == before
@@ -862,7 +1102,7 @@ def test_provenance_schema_is_frozen_and_content_hashes_recompute(tmp_path: Path
     module = _load_launcher()
     raw = _h3_compatibility_config(module)
     raw["artifacts"]["run_root"] = str(tmp_path / "runs")
-    module.main(raw)
+    _run_h1_h5_scientific(module, raw)
     run_dir = next((tmp_path / "runs").iterdir())
     provenance = json.loads((run_dir / "provenance.json").read_text(encoding="utf-8"))
     assert set(provenance) == {
@@ -898,3 +1138,111 @@ def test_provenance_schema_is_frozen_and_content_hashes_recompute(tmp_path: Path
         "H3": ["h3-coupled-v1", "h3-zero-control-v1"],
     }
     assert provenance["h3_profile"] == raw["h3"]
+
+
+def test_h8_click_run_captures_once_and_publishes_only_source_record(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import verification.run_gates as gates
+    import vfe4.artifacts as artifact_api
+    import vfe4.config as config_api
+    from vfe4.artifacts import source_candidate_sha256
+
+    module = _load_launcher()
+    head, dirty, junit = "1" * 40, "2" * 64, "3" * 64
+    refs, registry_bytes = _h8_current_refs(head, dirty, junit)
+    refs_root = tmp_path / ".verification"
+    refs_root.mkdir()
+    registry_path = refs_root / f"h8-current-candidate-{head}-refs.json"
+    registry_path.write_bytes(registry_bytes)
+    preregistration = tmp_path / "h8-preregistration.md"
+    preregistration.write_bytes(b"source-only H8 preregistration\n")
+    run_root = tmp_path / "runs"
+
+    launcher = copy.deepcopy(module.CONFIG)
+    h8_entry = launcher["operations"]["h8"]
+    h8_entry["enabled"] = True
+    h8_entry["authorization"] = module._VERIFY_AUTHORIZATIONS["h8"]
+    h8_entry["config"]["artifacts"]["run_root"] = str(run_root)
+
+    counts = {"read": 0, "parse": 0, "bind": 0, "launch": 0}
+    original_read_bytes = Path.read_bytes
+    original_parse = gates.parse_h8_reference_registry_bytes
+    original_bind = config_api.bind_h8_current_refs
+
+    def counted_read_bytes(path: Path) -> bytes:
+        if path.resolve(strict=False) == registry_path.resolve(strict=False):
+            counts["read"] += 1
+        return original_read_bytes(path)
+
+    def counted_parse(value: bytes):
+        counts["parse"] += 1
+        assert value == registry_bytes
+        return original_parse(value)
+
+    def counted_bind(scientific: object, current_refs: object):
+        counts["bind"] += 1
+        assert current_refs == refs
+        return original_bind(scientific, current_refs)  # type: ignore[arg-type]
+
+    def forbidden_launch(*_args: object, **_kwargs: object) -> object:
+        counts["launch"] += 1
+        raise AssertionError("H8 source-only integration launched runtime work")
+
+    source_identity = (
+        head,
+        dirty,
+        source_candidate_sha256(
+            git_head_value=head,
+            dirty_digest_value=dirty,
+        ),
+    )
+    timestamps = iter(
+        ("2026-07-23T00:00:00.000000Z", "2026-07-23T00:00:00.000001Z")
+    )
+    monkeypatch.setattr(module, "_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(gates, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(gates, "H8_PREREGISTRATION_PATH", preregistration)
+    monkeypatch.setattr(Path, "read_bytes", counted_read_bytes)
+    monkeypatch.setattr(gates, "parse_h8_reference_registry_bytes", counted_parse)
+    monkeypatch.setattr(config_api, "bind_h8_current_refs", counted_bind)
+    monkeypatch.setattr(
+        artifact_api, "current_source_identity", lambda *_args: source_identity
+    )
+    monkeypatch.setattr(gates, "current_source_identity", lambda *_args: source_identity)
+    monkeypatch.setattr(gates, "_utc_now", lambda: next(timestamps))
+    monkeypatch.setattr(gates, "run_verification", forbidden_launch)
+    monkeypatch.setattr(gates, "run_h7_verification", forbidden_launch)
+    monkeypatch.setattr(subprocess, "run", forbidden_launch)
+    monkeypatch.setattr(subprocess, "Popen", forbidden_launch)
+
+    published = module.main(launcher)
+
+    assert counts == {"read": 1, "parse": 1, "bind": 1, "launch": 0}
+    result = published.gate_results[0]
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert result.correctness == result.production_runs == result.profiler_runs == ()
+    assert result.controls == ()
+    files = sorted(
+        path.relative_to(published.run_directory).as_posix()
+        for path in published.run_directory.rglob("*")
+        if path.is_file()
+    )
+    assert files == [
+        "config.json",
+        "environment.json",
+        "manifest.sha256",
+        "provenance.json",
+        "references/h6_prediction.json",
+        "references/h7.json",
+        "validation/h8.json",
+    ]
+    manifest_names = [
+        line.split("  ", 1)[1]
+        for line in (published.run_directory / "manifest.sha256")
+        .read_text(encoding="ascii")
+        .splitlines()
+    ]
+    assert manifest_names == sorted(name for name in files if name != "manifest.sha256")
+    assert sorted(path.name for path in refs_root.iterdir()) == [registry_path.name]

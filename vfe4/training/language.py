@@ -25,8 +25,8 @@ from vfe4.types.h6 import (
     FlopTerm,
     FrozenTensorSnapshot,
     H6ArmPhaseSchedule,
+    H6EndpointLanguageElboTerms,
     H6FactorTerm,
-    H6LanguageElboTerms,
     MatchingReport,
     OptimizerBinding,
     TrainingPhase,
@@ -419,7 +419,7 @@ class H6ReducedLanguageElboTerms:
 H6TypedTrainingObjective = (
     H6CrossEntropyTerms
     | H6ReducedLanguageElboTerms
-    | H6LanguageElboTerms
+    | H6EndpointLanguageElboTerms
     | EmissionOnlyAblationTerms
 )
 
@@ -531,9 +531,28 @@ class ArmTrainingObjectiveAdapter:
             producer_sha = objective.canonical_sha256
             total = objective.total
         else:
-            if type(objective) is not H6LanguageElboTerms:
-                raise ValueError("endpoint requires the complete typed ELBO")
+            if type(objective) is not H6EndpointLanguageElboTerms:
+                raise ValueError(
+                    "endpoint requires an endpoint-bound complete typed ELBO"
+                )
             objective.__post_init__()
+            if (
+                objective.endpoint_config_sha256
+                != self.endpoint_config_sha256
+                or objective.endpoint_config.config_id != self.config_id
+                or objective.source_prior_trace.prior_variant
+                != objective.endpoint_config.prior_variant
+                or objective.source_prior_trace.prior_type
+                != (
+                    "FixedSourcePrior"
+                    if objective.endpoint_config.prior_variant == "fixed"
+                    else "PrefixConditionedSourcePrior"
+                )
+            ):
+                raise ValueError(
+                    "complete ELBO source treatment or live-prior trace belongs "
+                    "to another endpoint"
+                )
             terms = objective.ordered_factor_terms
             producer_sha = objective.canonical_sha256
             total = objective.total_language_elbo

@@ -122,6 +122,15 @@ def test_fixed_source_prior_normalizes_both_banks_and_returns_bound_identities()
     assert state.mask_case_key.context_sha256 == model.mask_case_key.context_sha256
     assert state.factor_identity_sha256 != model.factor_identity_sha256
     assert state.support_mask == (True, True, True)
+    assert len(prior.state_source_free_logits) == 3
+    assert prior.state_source_free_logits[1].shape == (2,)
+    assert prior.model_source_free_logits is not None
+    assert len(prior.model_source_free_logits) == 3
+    assert prior.model_source_free_logits[1].shape == (2,)
+    assert all(
+        parameter.numel() > 0
+        for parameter in prior.parameters()
+    )
     assert torch.logsumexp(state.log_probs.value(), dim=0).item() == pytest.approx(
         0.0, abs=1e-15
     )
@@ -190,8 +199,8 @@ def test_normalized_source_factor_clone_preserves_autograd() -> None:
 
     factor.log_probs.value()[0].backward()
 
-    assert prior.state_logits[2].grad is not None
-    assert torch.isfinite(prior.state_logits[2].grad).all()
+    assert prior.state_source_free_logits[1].grad is not None
+    assert torch.isfinite(prior.state_source_free_logits[1].grad).all()
 
 
 def test_prefix_prior_uses_only_typed_prior_tokens_and_earlier_latents() -> None:
@@ -209,11 +218,11 @@ def test_prefix_prior_uses_only_typed_prior_tokens_and_earlier_latents() -> None
         prior.token_embedding.weight.copy_(
             torch.tensor([[0.0, 0.0], [1.0, -1.0], [-0.5, 0.75]], dtype=torch.float64)
         )
-        prior.state_parent_keys[2].copy_(
-            torch.tensor([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]], dtype=torch.float64)
+        prior.state_source_free_parent_keys[1].copy_(
+            torch.tensor([[1.0, 0.0], [0.0, 1.0]], dtype=torch.float64)
         )
-        prior.model_parent_keys[2].copy_(
-            torch.tensor([[0.5, 0.0], [0.0, 0.5], [0.5, 0.5]], dtype=torch.float64)
+        prior.model_source_free_parent_keys[1].copy_(
+            torch.tensor([[0.5, 0.0], [0.0, 0.5]], dtype=torch.float64)
         )
 
     first = CausalPrefix.create(

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import sys
+from collections.abc import Mapping
 from types import MappingProxyType
+from typing import get_type_hints
 
 import pytest
 import torch
@@ -10,8 +12,18 @@ import torch
 from vfe4.types import (
     ElboTermAllowances,
     ElboTerms,
+    CurrentH8PrerequisiteRefs,
     GateResult,
     GateStatus,
+    H7PredecessorReference,
+    H8GateResult,
+    H8H1H5Reference,
+    H8H1PrefixPriorReference,
+    H8H6PredictionReference,
+    H8H6PrefixReference,
+    H8H7Reference,
+    H8_H7_PLAN_SHA256,
+    H8_INTERPRETATION_SHA256,
     InvariantResult,
     NumericalAllowance,
     PopulationFrames,
@@ -249,4 +261,145 @@ def test_inconclusive_gate_rejects_nonfinite_optional_scalars(
             measurements={"elbo": None},
             invariants=(),
             obligations=("obtain the unavailable measurement",),
+        )
+
+
+def _current_h8_refs() -> tuple[
+    CurrentH8PrerequisiteRefs,
+    dict[str, H7PredecessorReference],
+]:
+    digest = "a" * 64
+    head = "1" * 40
+    common: dict[str, object] = {
+        "artifact_path": "artifact",
+        "manifest_sha256": digest,
+        "result_path": "result",
+        "result_sha256": digest,
+        "content_hashes": {"content": digest},
+        "payload_hashes": {"payload": digest},
+        "ledger_path": "ledger",
+        "ledger_sha256": digest,
+        "producer_head": head,
+        "producer_dirty_digest": digest,
+        "candidate_junit_sha256": digest,
+        "status": "pass",
+    }
+    h7_compatibility_refs = {
+        key: H7PredecessorReference.create(
+            artifact_path=f"{key}-artifact",
+            git_head=head,
+            dirty_digest=digest,
+            junit_sha256=digest,
+            manifest_sha256=digest,
+            payload_hashes={f"{key}.json": digest},
+            ledger_path=f"{key}-ledger",
+            ledger_sha256=digest,
+        )
+        for key in ("h1_h5", "h1_prefix_prior", "h6_prefix")
+    }
+    refs = CurrentH8PrerequisiteRefs(
+        candidate_head=head,
+        candidate_dirty_digest=digest,
+        candidate_junit_sha256=digest,
+        h7_compatibility_refs=h7_compatibility_refs,
+        h1_h5=H8H1H5Reference(kind="h1_h5", **common),  # type: ignore[arg-type]
+        h1_prefix_prior=H8H1PrefixPriorReference(
+            kind="h1_prefix_prior",
+            **common,  # type: ignore[arg-type]
+        ),
+        h6_prefix=H8H6PrefixReference(
+            kind="h6_prefix",
+            certificate_set_sha256=digest,
+            certificate_hashes={"certificate": digest},
+            **common,  # type: ignore[arg-type]
+        ),
+        h7=H8H7Reference(
+            kind="h7",
+            result_pointer_path="h7-result-pointer",
+            result_pointer_sha256=digest,
+            fixture_set_sha256=digest,
+            **common,  # type: ignore[arg-type]
+        ),
+        h6_prediction=H8H6PredictionReference(
+            kind="h6_prediction",
+            experiment_sha256=digest,
+            **common,  # type: ignore[arg-type]
+        ),
+        registry_sha256=digest,
+    )
+    return refs, h7_compatibility_refs
+
+
+def test_current_h8_h7_references_are_exact_lossless_and_immutable() -> None:
+    refs, source = _current_h8_refs()
+    original = tuple(source.items())
+
+    assert (
+        get_type_hints(CurrentH8PrerequisiteRefs)["h7_compatibility_refs"]
+        == Mapping[str, H7PredecessorReference]
+    )
+    assert tuple(refs.h7_compatibility_refs.items()) == original
+    assert all(
+        retained is supplied
+        and retained.reference_sha256 == supplied.reference_sha256
+        and retained.payload_hashes == supplied.payload_hashes
+        for (_, retained), (_, supplied) in zip(
+            refs.h7_compatibility_refs.items(),
+            original,
+            strict=True,
+        )
+    )
+
+    source.clear()
+    assert tuple(refs.h7_compatibility_refs.items()) == original
+    with pytest.raises(TypeError):
+        refs.h7_compatibility_refs["h1_h5"] = original[0][1]  # type: ignore[index]
+    with pytest.raises(TypeError):
+        original[0][1].payload_hashes["replacement"] = "b" * 64  # type: ignore[index]
+
+
+def test_current_h8_rejects_a_lossy_untyped_h7_reference() -> None:
+    refs, source = _current_h8_refs()
+    source["h6_prefix"] = {"reference_sha256": "a" * 64}  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="exact types"):
+        dataclasses.replace(refs, h7_compatibility_refs=source)
+
+
+def test_h8_task7_result_and_pins_are_fail_closed() -> None:
+    digest = "a" * 64
+    result = H8GateResult(
+        gate="H8",
+        status=GateStatus.INCONCLUSIVE,
+        config_sha256=digest,
+        candidate_junit_sha256=None,
+        current_refs_registry_sha256=None,
+        h7_manifest_sha256=None,
+        h6_prediction_manifest_sha256=None,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        obligations=("produce current prerequisite evidence",),
+    )
+    assert dataclasses.is_dataclass(result)
+    assert H8GateResult.__dataclass_params__.frozen
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert (
+        H8_H7_PLAN_SHA256,
+        H8_INTERPRETATION_SHA256,
+    ) == (
+        "3549153ac123b26f1d2372c59e80db93a78ed451fd4724781280dd7f413f1242",
+        "e3fd048126c8133384e026826cf00bbea08280f4e248bc4cd5689e8f9f26e865",
+    )
+
+    with pytest.raises(ValueError, match="witnessed-failure evidence"):
+        dataclasses.replace(
+            result,
+            status=GateStatus.FAIL,
+            candidate_junit_sha256=digest,
+            current_refs_registry_sha256=digest,
+            h7_manifest_sha256=digest,
+            h6_prediction_manifest_sha256=digest,
+            obligations=(),
         )

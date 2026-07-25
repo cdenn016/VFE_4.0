@@ -15,11 +15,18 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path, PurePosixPath
-from typing import ClassVar, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, runtime_checkable
 
 import torch
 
 from .results import GateStatus
+
+if TYPE_CHECKING:
+    from vfe4.generative.source_priors import (
+        FixedSourcePrior,
+        NormalizedSourceFactor,
+        PrefixConditionedSourcePrior,
+    )
 
 
 _LOWER_HEX = frozenset("0123456789abcdef")
@@ -281,6 +288,7 @@ _H6_CAPACITY_FIELDS = (
     "emission_width",
     "latent_width",
     "recognition_width",
+    "prior_context_width",
 )
 _H6_ARM_SEMANTIC_FIELDS = (
     "latent_enabled",
@@ -311,9 +319,9 @@ _H6_RECOGNITION_CONDITIONINGS = frozenset(
     {"absent", "filtering", "smoothing"}
 )
 _H6_PRIOR_VARIANTS = frozenset(
-    {"absent", "fixed", "learned", "prefix_conditioned"}
+    {"absent", "fixed", "prefix_conditioned"}
 )
-_H6_MIXTURE_MODES = frozenset({"absent", "exact", "moment_projected"})
+_H6_MIXTURE_MODES = frozenset({"absent", "exact", "moment_projection"})
 _H6_OBJECTIVE_KINDS = frozenset(
     {"cross_entropy", "complete_elbo", "emission_only_ablation_non_elbo"}
 )
@@ -359,7 +367,7 @@ _H6_ARM_PROFILE_BY_CONFIG_ID = {
     "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1": (
         ArmId.A5, True, True, True, "categorical",
         "shared_vertex_coboundary", "structured", "smoothing", "fixed",
-        "moment_projected", "complete_elbo",
+        "moment_projection", "complete_elbo",
     ),
     "h6-a5-structured-fixed-exact-emission-latent-smoothing-v1": (
         ArmId.A5, True, True, True, "categorical",
@@ -483,18 +491,27 @@ class CapacityAllocation:
     emission_width: int
     latent_width: int | None
     recognition_width: int | None
+    prior_context_width: int | None
     allocation_sha256: str
 
     def __post_init__(self) -> None:
         if type(self.emission_width) is not int or self.emission_width <= 0:
             raise ValueError("emission_width must be a positive integer")
-        for name in ("latent_width", "recognition_width"):
+        for name in (
+            "latent_width",
+            "recognition_width",
+            "prior_context_width",
+        ):
             value = getattr(self, name)
             if value is not None and (type(value) is not int or value <= 0):
                 raise ValueError(f"{name} must be None or a positive integer")
         if self.latent_width is None and self.recognition_width is not None:
             raise ValueError(
                 "recognition_width requires an applicable latent allocation"
+            )
+        if self.latent_width is None and self.prior_context_width is not None:
+            raise ValueError(
+                "prior_context_width requires an applicable latent allocation"
             )
         expected = _owned_hash(
             "vfe4.h6.capacity-allocation.v1",
@@ -515,11 +532,13 @@ class CapacityAllocation:
         emission_width: int,
         latent_width: int | None,
         recognition_width: int | None,
+        prior_context_width: int | None = None,
     ) -> "CapacityAllocation":
         values = {
             "emission_width": emission_width,
             "latent_width": latent_width,
             "recognition_width": recognition_width,
+            "prior_context_width": prior_context_width,
         }
         return _new_frozen(
             cls,
@@ -609,6 +628,13 @@ class ArmConfig:
         if (self.recognition_conditioning != "absent") != recognition_enabled:
             raise ValueError(
                 "recognition conditioning must match recognition applicability"
+            )
+        prefix_prior = self.prior_variant == "prefix_conditioned"
+        if prefix_prior != (
+            self.capacity_allocation.prior_context_width is not None
+        ):
+            raise ValueError(
+                "prefix-conditioned priors require one live prior_context_width"
             )
         if not self.latent_enabled:
             forbidden = (
@@ -717,7 +743,7 @@ class ParameterRoleRecord:
     qualified_name: str
     role: str
     phase: str
-    parameter_id: int
+    parameter_key: str
     scalar_count: int
     record_sha256: str
 
@@ -730,17 +756,16 @@ class ParameterRoleRecord:
             raise ValueError("phase is not an H6 training phase") from exc
         if phase is TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT:
             raise ValueError("snapshot phase cannot own trainable parameters")
-        if type(self.parameter_id) is not int or self.parameter_id <= 0:
-            raise ValueError("parameter_id must be a positive object identity")
+        _require_sha256(self.parameter_key, "parameter_key")
         if type(self.scalar_count) is not int or self.scalar_count <= 0:
             raise ValueError("scalar_count must be a positive integer")
         expected = _owned_hash(
-            "vfe4.h6.parameter-role.v1",
+            "vfe4.h6.parameter-role.v2",
             {
                 "qualified_name": self.qualified_name,
                 "role": self.role,
                 "phase": self.phase,
-                "parameter_id": self.parameter_id,
+                "parameter_key": self.parameter_key,
                 "scalar_count": self.scalar_count,
             },
         )
@@ -754,21 +779,21 @@ class ParameterRoleRecord:
         qualified_name: str,
         role: str,
         phase: str,
-        parameter_id: int,
+        parameter_key: str,
         scalar_count: int,
     ) -> "ParameterRoleRecord":
         values = {
             "qualified_name": qualified_name,
             "role": role,
             "phase": phase,
-            "parameter_id": parameter_id,
+            "parameter_key": parameter_key,
             "scalar_count": scalar_count,
         }
         return _new_frozen(
             cls,
             **values,
             record_sha256=_owned_hash(
-                "vfe4.h6.parameter-role.v1", values
+                "vfe4.h6.parameter-role.v2", values
             ),
         )  # type: ignore[return-value]
 
@@ -778,7 +803,7 @@ class OptimizerBinding:
     phase: str
     optimizer_class: Literal["AdamW"]
     optimizer_policy_sha256: str
-    parameter_ids: tuple[int, ...]
+    parameter_keys: tuple[str, ...]
     binding_sha256: str
 
     def __post_init__(self) -> None:
@@ -794,22 +819,29 @@ class OptimizerBinding:
             self.optimizer_policy_sha256, "optimizer_policy_sha256"
         )
         _require_exact_type_tuple(
-            self.parameter_ids, int, "parameter_ids", nonempty=True
+            self.parameter_keys, str, "parameter_keys", nonempty=True
         )
         if (
-            any(parameter_id <= 0 for parameter_id in self.parameter_ids)
-            or len(set(self.parameter_ids)) != len(self.parameter_ids)
+            any(
+                len(parameter_key) != 64
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in parameter_key
+                )
+                for parameter_key in self.parameter_keys
+            )
+            or len(set(self.parameter_keys)) != len(self.parameter_keys)
         ):
             raise ValueError(
-                "parameter_ids must contain unique positive object identities"
+                "parameter_keys must contain unique lowercase SHA-256 keys"
             )
         expected = _owned_hash(
-            "vfe4.h6.optimizer-binding.v1",
+            "vfe4.h6.optimizer-binding.v2",
             {
                 "phase": self.phase,
                 "optimizer_class": self.optimizer_class,
                 "optimizer_policy_sha256": self.optimizer_policy_sha256,
-                "parameter_ids": self.parameter_ids,
+                "parameter_keys": self.parameter_keys,
             },
         )
         if self.binding_sha256 != expected:
@@ -822,19 +854,19 @@ class OptimizerBinding:
         phase: str,
         optimizer_class: str,
         optimizer_policy_sha256: str,
-        parameter_ids: tuple[int, ...],
+        parameter_keys: tuple[str, ...],
     ) -> "OptimizerBinding":
         values = {
             "phase": phase,
             "optimizer_class": optimizer_class,
             "optimizer_policy_sha256": optimizer_policy_sha256,
-            "parameter_ids": tuple(parameter_ids),
+            "parameter_keys": tuple(parameter_keys),
         }
         return _new_frozen(
             cls,
             **values,
             binding_sha256=_owned_hash(
-                "vfe4.h6.optimizer-binding.v1", values
+                "vfe4.h6.optimizer-binding.v2", values
             ),
         )  # type: ignore[return-value]
 
@@ -2044,6 +2076,521 @@ class H6LanguageElboTerms:
             object.__setattr__(provisional, name, value)
         digest = _owned_hash("vfe4.h6.language-elbo-terms.v1", provisional._payload())
         return cls(**values, canonical_sha256=digest)
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class H6SourcePriorTrace:
+    """Live-prior provenance sealed by ``BuiltArm`` before ELBO evaluation."""
+
+    endpoint_config: ArmConfig
+    model_family_sha256: str
+    prior_variant: Literal["fixed", "prefix_conditioned"]
+    prior_type: Literal["FixedSourcePrior", "PrefixConditionedSourcePrior"]
+    prior_model_state_sha256: str
+    ordered_source_factor_identities: tuple[
+        tuple[Literal["model_source", "state_source"], int, str], ...
+    ]
+    trace_sha256: str
+
+    def __init__(self) -> None:
+        raise TypeError(
+            "H6SourcePriorTrace is BuiltArm-only; use the live arm "
+            "evaluation seam"
+        )
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "endpoint_config_sha256": self.endpoint_config.config_sha256,
+            "model_family_sha256": self.model_family_sha256,
+            "prior_variant": self.prior_variant,
+            "prior_type": self.prior_type,
+            "prior_model_state_sha256": self.prior_model_state_sha256,
+            "ordered_source_factor_identities": (
+                self.ordered_source_factor_identities
+            ),
+        }
+
+    def __post_init__(self) -> None:
+        if type(self.endpoint_config) is not ArmConfig:
+            raise ValueError("trace endpoint_config must be exact")
+        self.endpoint_config.__post_init__()
+        if (
+            self.endpoint_config.arm not in (ArmId.A2, ArmId.A5)
+            or self.endpoint_config.objective_kind != "complete_elbo"
+            or self.endpoint_config.prior_variant
+            not in ("fixed", "prefix_conditioned")
+        ):
+            raise ValueError(
+                "source-prior trace requires a complete categorical A2/A5 "
+                "endpoint"
+            )
+        _require_sha256(self.model_family_sha256, "model_family_sha256")
+        _require_sha256(
+            self.prior_model_state_sha256,
+            "prior_model_state_sha256",
+        )
+        expected_type = (
+            "FixedSourcePrior"
+            if self.endpoint_config.prior_variant == "fixed"
+            else "PrefixConditionedSourcePrior"
+        )
+        if (
+            self.prior_variant != self.endpoint_config.prior_variant
+            or self.prior_type != expected_type
+        ):
+            raise ValueError(
+                "source-prior trace relabels the configured prior variant"
+            )
+        expected_slots = tuple(
+            (partition, receiver_t)
+            for receiver_t in range(1, self.endpoint_config.horizon + 1)
+            for partition in ("model_source", "state_source")
+        )
+        observed_slots = tuple(
+            (partition, receiver_t)
+            for partition, receiver_t, _ in (
+                self.ordered_source_factor_identities
+            )
+        )
+        identities = tuple(
+            identity
+            for _, _, identity in self.ordered_source_factor_identities
+        )
+        if (
+            observed_slots != expected_slots
+            or len(set(identities)) != len(identities)
+        ):
+            raise ValueError(
+                "source-prior trace identities are absent, duplicated, or "
+                "reordered"
+            )
+        for identity in identities:
+            _require_sha256(identity, "source_factor_identity_sha256")
+        if self.trace_sha256 != _owned_hash(
+            "vfe4.h6.source-prior-trace.v1",
+            self.canonical_payload(),
+        ):
+            raise ValueError("source-prior trace identity is stale")
+
+    @classmethod
+    def _from_live_prior(
+        cls,
+        *,
+        endpoint_config: ArmConfig,
+        source_prior: FixedSourcePrior | PrefixConditionedSourcePrior,
+        ordered_source_factors: tuple[NormalizedSourceFactor, ...],
+    ) -> "H6SourcePriorTrace":
+        from vfe4.generative.source_priors import (
+            FixedSourcePrior,
+            NormalizedSourceFactor,
+            PrefixConditionedSourcePrior,
+        )
+        from vfe4.predictive.identities import canonical_model_state_sha256
+
+        if type(endpoint_config) is not ArmConfig:
+            raise ValueError("trace endpoint_config must be exact")
+        endpoint_config.__post_init__()
+        if (
+            endpoint_config.arm not in (ArmId.A2, ArmId.A5)
+            or endpoint_config.objective_kind != "complete_elbo"
+            or endpoint_config.prior_variant
+            not in ("fixed", "prefix_conditioned")
+        ):
+            raise ValueError(
+                "source-prior trace requires a complete categorical A2/A5 "
+                "endpoint"
+            )
+        expected_prior_type = (
+            FixedSourcePrior
+            if endpoint_config.prior_variant == "fixed"
+            else PrefixConditionedSourcePrior
+        )
+        if type(source_prior) is not expected_prior_type:
+            raise ValueError(
+                "live source-prior type does not match endpoint prior_variant"
+            )
+        expected_model_family_sha256 = _arm_model_family_sha256(endpoint_config)
+        expected_receivers = tuple(range(1, endpoint_config.horizon + 1))
+        source_prior.structure.__post_init__()
+        source_prior.vocabulary.__post_init__()
+        if (
+            source_prior.predictor_config_sha256
+            != endpoint_config.config_sha256
+            or source_prior.model_family_sha256
+            != expected_model_family_sha256
+            or source_prior.vocabulary != endpoint_config.vocabulary
+            or source_prior.structure.receiver_labels != expected_receivers
+        ):
+            raise ValueError(
+                "live source prior does not match the endpoint config, "
+                "model family, vocabulary, or horizon"
+            )
+        if type(ordered_source_factors) is not tuple:
+            raise ValueError("ordered_source_factors must be an exact tuple")
+        expected_slots = tuple(
+            (bank, receiver_t)
+            for receiver_t in expected_receivers
+            for bank in ("model", "state")
+        )
+        observed_slots: list[tuple[str, int]] = []
+        ordered_source_factor_identities: list[
+            tuple[Literal["model_source", "state_source"], int, str]
+        ] = []
+        for factor in ordered_source_factors:
+            if type(factor) is not NormalizedSourceFactor:
+                raise ValueError(
+                    "ordered_source_factors must contain exact "
+                    "NormalizedSourceFactor records"
+                )
+            factor.__post_init__()
+            key = factor.mask_case_key
+            observed_slots.append((key.bank, key.receiver_t))
+            expected_support = tuple(
+                source_t
+                in source_prior.structure.dag.rows[
+                    expected_receivers.index(key.receiver_t)
+                ].parents
+                for source_t in range(key.receiver_t)
+            ) if key.receiver_t in expected_receivers else ()
+            if (
+                key.predictor_config_sha256
+                != endpoint_config.config_sha256
+                or key.model_family_sha256
+                != expected_model_family_sha256
+                or key.prior_variant != endpoint_config.prior_variant
+                or key.fixture_sha256 != source_prior.fixture_sha256
+                or key.vocabulary_sha256 != source_prior.vocabulary_sha256
+                or factor.support_mask != expected_support
+            ):
+                raise ValueError(
+                    "normalized source factor does not match the live prior "
+                    "config, family, variant, vocabulary, fixture, or support"
+                )
+            partition: Literal["model_source", "state_source"] = (
+                "model_source" if key.bank == "model" else "state_source"
+            )
+            ordered_source_factor_identities.append(
+                (partition, key.receiver_t, factor.factor_identity_sha256)
+            )
+        if tuple(observed_slots) != expected_slots:
+            raise ValueError(
+                "normalized source factors have a mismatched bank, receiver, "
+                "or order"
+            )
+        prior_type: Literal[
+            "FixedSourcePrior", "PrefixConditionedSourcePrior"
+        ] = (
+            "FixedSourcePrior"
+            if type(source_prior) is FixedSourcePrior
+            else "PrefixConditionedSourcePrior"
+        )
+        prior_model_state_sha256 = canonical_model_state_sha256(source_prior)
+        values: dict[str, object] = {
+            "endpoint_config": endpoint_config,
+            "model_family_sha256": expected_model_family_sha256,
+            "prior_variant": endpoint_config.prior_variant,
+            "prior_type": prior_type,
+            "prior_model_state_sha256": prior_model_state_sha256,
+            "ordered_source_factor_identities": tuple(
+                ordered_source_factor_identities
+            ),
+        }
+        instance = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(instance, name, value)
+        object.__setattr__(
+            instance,
+            "trace_sha256",
+            _owned_hash("vfe4.h6.source-prior-trace.v1", {
+                "endpoint_config_sha256": endpoint_config.config_sha256,
+                "model_family_sha256": expected_model_family_sha256,
+                "prior_variant": endpoint_config.prior_variant,
+                "prior_type": prior_type,
+                "prior_model_state_sha256": prior_model_state_sha256,
+                "ordered_source_factor_identities": tuple(
+                    ordered_source_factor_identities
+                ),
+            }),
+        )
+        instance.__post_init__()
+        return instance
+
+
+def h6_source_law_marker_identity(
+    *,
+    endpoint_config: ArmConfig,
+    projection_error: FrozenTensorSnapshot | None,
+) -> str:
+    """Derive the typed exact/projected source-law marker identity."""
+
+    if type(endpoint_config) is not ArmConfig:
+        raise ValueError("endpoint_config must be an exact ArmConfig")
+    endpoint_config.__post_init__()
+    if (
+        endpoint_config.arm not in (ArmId.A2, ArmId.A5)
+        or endpoint_config.objective_kind != "complete_elbo"
+        or endpoint_config.prior_variant
+        not in ("fixed", "prefix_conditioned")
+        or endpoint_config.mixture_mode
+        not in ("exact", "moment_projection")
+    ):
+        raise ValueError(
+            "source law requires a complete categorical A2/A5 endpoint"
+        )
+    if endpoint_config.mixture_mode == "exact":
+        if projection_error is not None:
+            raise ValueError("exact source law cannot carry projection error")
+        kind = "exact_source_mixture"
+        projection_payload = None
+    else:
+        if type(projection_error) is not FrozenTensorSnapshot:
+            raise ValueError(
+                "moment-projected source law requires projection error"
+            )
+        projection_error.assert_intact()
+        error = projection_error.value()
+        if (
+            error.ndim != 0
+            or not error.is_floating_point()
+            or not bool(torch.isfinite(error))
+            or not bool(error >= 0.0)
+        ):
+            raise ValueError(
+                "projection error must be a finite nonnegative scalar"
+            )
+        kind = "moment_projection"
+        projection_payload = _snapshot_payload(projection_error)
+    return _owned_hash(
+        "vfe4.h6.source-law-marker.v1",
+        {
+            "kind": kind,
+            "endpoint_config_sha256": endpoint_config.config_sha256,
+            "prior_variant": endpoint_config.prior_variant,
+            "mixture_mode": endpoint_config.mixture_mode,
+            "projection_error": projection_payload,
+        },
+    )
+
+
+def h6_source_law_identity(
+    *,
+    endpoint_config: ArmConfig,
+    source_prior_trace: H6SourcePriorTrace,
+    projection_error: FrozenTensorSnapshot | None,
+) -> str:
+    """Bind one typed source-law marker to the live-prior trace."""
+
+    if type(source_prior_trace) is not H6SourcePriorTrace:
+        raise ValueError("source_prior_trace must be exact")
+    source_prior_trace.__post_init__()
+    if source_prior_trace.endpoint_config != endpoint_config:
+        raise ValueError("source-prior trace belongs to another endpoint")
+    marker_sha256 = h6_source_law_marker_identity(
+        endpoint_config=endpoint_config,
+        projection_error=projection_error,
+    )
+    return _owned_hash(
+        "vfe4.h6.source-law.v3",
+        {
+            "source_law_marker_identity_sha256": marker_sha256,
+            "source_prior_trace_sha256": source_prior_trace.trace_sha256,
+        },
+    )
+
+
+@dataclass(frozen=True)
+class H6EndpointLanguageElboTerms:
+    """Complete ELBO bound to one actual endpoint and source-law trace."""
+
+    endpoint_config: ArmConfig
+    prior_variant: Literal["fixed", "prefix_conditioned"]
+    mixture_mode: Literal["exact", "moment_projection"]
+    source_prior_trace: H6SourcePriorTrace
+    projection_error: FrozenTensorSnapshot | None
+    source_law_marker_identity_sha256: str
+    source_law_identity_sha256: str
+    terms: H6LanguageElboTerms
+    canonical_sha256: str
+
+    @property
+    def endpoint_config_sha256(self) -> str:
+        return self.endpoint_config.config_sha256
+
+    @property
+    def source_prior_trace_sha256(self) -> str:
+        return self.source_prior_trace.trace_sha256
+
+    @property
+    def horizon(self) -> int:
+        return self.terms.horizon
+
+    @property
+    def ordered_factor_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.ordered_factor_terms
+
+    @property
+    def total_language_elbo(self) -> FrozenTensorSnapshot:
+        return self.terms.total_language_elbo
+
+    @property
+    def complete_decomposition(self) -> FrozenTensorSnapshot:
+        return self.terms.complete_decomposition
+
+    @property
+    def emission_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.emission_terms
+
+    @property
+    def initial_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.initial_terms
+
+    @property
+    def state_source_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.state_source_terms
+
+    @property
+    def model_source_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.model_source_terms
+
+    @property
+    def state_transition_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.state_transition_terms
+
+    @property
+    def model_transition_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.model_transition_terms
+
+    @property
+    def entropy_terms(self) -> tuple[H6FactorTerm, ...]:
+        return self.terms.entropy_terms
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "endpoint_config_sha256": self.endpoint_config.config_sha256,
+            "prior_variant": self.prior_variant,
+            "mixture_mode": self.mixture_mode,
+            "source_prior_trace_sha256": (
+                self.source_prior_trace.trace_sha256
+            ),
+            "projection_error": (
+                None
+                if self.projection_error is None
+                else _snapshot_payload(self.projection_error)
+            ),
+            "source_law_marker_identity_sha256": (
+                self.source_law_marker_identity_sha256
+            ),
+            "source_law_identity_sha256": self.source_law_identity_sha256,
+            "language_elbo_terms_sha256": self.terms.canonical_sha256,
+        }
+
+    def __post_init__(self) -> None:
+        if type(self.endpoint_config) is not ArmConfig:
+            raise ValueError("endpoint_config must be an exact ArmConfig")
+        self.endpoint_config.__post_init__()
+        if (
+            self.endpoint_config.arm not in (ArmId.A2, ArmId.A5)
+            or self.endpoint_config.objective_kind != "complete_elbo"
+            or self.endpoint_config.prior_variant
+            not in ("fixed", "prefix_conditioned")
+            or self.endpoint_config.mixture_mode
+            not in ("exact", "moment_projection")
+        ):
+            raise ValueError(
+                "endpoint-bound complete ELBO requires a categorical A2/A5 "
+                "endpoint"
+            )
+        if (
+            self.prior_variant != self.endpoint_config.prior_variant
+            or self.mixture_mode != self.endpoint_config.mixture_mode
+        ):
+            raise ValueError(
+                "ELBO source treatment does not match the endpoint config"
+            )
+        if type(self.source_prior_trace) is not H6SourcePriorTrace:
+            raise ValueError("source_prior_trace must be exact")
+        self.source_prior_trace.__post_init__()
+        if (
+            self.source_prior_trace.endpoint_config != self.endpoint_config
+            or self.source_prior_trace.prior_variant != self.prior_variant
+        ):
+            raise ValueError(
+                "source-prior trace belongs to another endpoint or prior"
+            )
+        _require_sha256(
+            self.source_law_marker_identity_sha256,
+            "source_law_marker_identity_sha256",
+        )
+        _require_sha256(
+            self.source_law_identity_sha256,
+            "source_law_identity_sha256",
+        )
+        if (
+            self.source_law_marker_identity_sha256
+            != h6_source_law_marker_identity(
+                endpoint_config=self.endpoint_config,
+                projection_error=self.projection_error,
+            )
+        ):
+            raise ValueError("source-law marker identity is stale")
+        if self.source_law_identity_sha256 != h6_source_law_identity(
+            endpoint_config=self.endpoint_config,
+            source_prior_trace=self.source_prior_trace,
+            projection_error=self.projection_error,
+        ):
+            raise ValueError("source-law identity does not match its trace")
+        if type(self.terms) is not H6LanguageElboTerms:
+            raise ValueError("terms must be exact H6LanguageElboTerms")
+        self.terms.__post_init__()
+        if self.terms.horizon != self.endpoint_config.horizon:
+            raise ValueError("ELBO horizon does not match the endpoint config")
+        if self.canonical_sha256 != _owned_hash(
+            "vfe4.h6.endpoint-language-elbo-terms.v1",
+            self._payload(),
+        ):
+            raise ValueError(
+                "canonical_sha256 does not match endpoint-bound ELBO terms"
+            )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        endpoint_config: ArmConfig,
+        prior_variant: Literal["fixed", "prefix_conditioned"],
+        mixture_mode: Literal["exact", "moment_projection"],
+        source_prior_trace: H6SourcePriorTrace,
+        projection_error: FrozenTensorSnapshot | None,
+        source_law_marker_identity_sha256: str,
+        terms: H6LanguageElboTerms,
+    ) -> "H6EndpointLanguageElboTerms":
+        source_law_identity_sha256 = h6_source_law_identity(
+            endpoint_config=endpoint_config,
+            source_prior_trace=source_prior_trace,
+            projection_error=projection_error,
+        )
+        values: dict[str, object] = {
+            "endpoint_config": endpoint_config,
+            "prior_variant": prior_variant,
+            "mixture_mode": mixture_mode,
+            "source_prior_trace": source_prior_trace,
+            "projection_error": projection_error,
+            "source_law_marker_identity_sha256": (
+                source_law_marker_identity_sha256
+            ),
+            "source_law_identity_sha256": source_law_identity_sha256,
+            "terms": terms,
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        return cls(
+            **values,  # type: ignore[arg-type]
+            canonical_sha256=_owned_hash(
+                "vfe4.h6.endpoint-language-elbo-terms.v1",
+                provisional._payload(),
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -3565,7 +4112,9 @@ __all__ = [
     "EncodedTokenStorageIdentity", "EndpointSmcProtocol", "EstimatorSpec",
     "EvidenceStatus", "ExperimentIdentity", "FrozenBatchSchedule", "FrozenTensorSnapshot",
     "H1PrefixPriorArtifactRef", "H5UpdateBinding", "H6ArmPhaseSchedule",
-    "H6FactorTerm", "H6LanguageElboTerms", "H6LanguageStructure", "H6OuterSchedule",
+    "H6EndpointLanguageElboTerms", "H6FactorTerm", "H6LanguageElboTerms",
+    "H6SourcePriorTrace",
+    "H6LanguageStructure", "H6OuterSchedule",
     "H6PrefixProfilePair",
     "H6PredictionReadinessToken", "H6TrainingSchedule", "H6_PREFIX_REQUIRED_CHECKS",
     "H6_PREDICTION_DELTA", "NllTotals", "PredictionCorrectnessArtifactRef",
@@ -3573,5 +4122,7 @@ __all__ = [
     "PrefixReportBinding", "SealedSplitHandle",
     "SmcAccuracyArtifactRef", "TrainingPhase", "ValidatedTestOpening",
     "ValidationSafetyFixture", "VocabularyIdentity", "ZeroDimensionalBase",
-    "canonical_json_bytes", "issue_prediction_readiness", "require_prefix_pass",
+    "canonical_json_bytes", "h6_source_law_identity",
+    "h6_source_law_marker_identity",
+    "issue_prediction_readiness", "require_prefix_pass",
 ]

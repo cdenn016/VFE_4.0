@@ -3,13 +3,44 @@
 This repository implements the bounded H1 foundation, H2 information--moment
 representation gate, H3 structured-recognition adequacy gate, and one coupled
 H1--H5 verification prefix that integrates the already frozen H4 cost artifact
-with the H5 update-coherence gate. The implemented ordered prefixes are H1,
-H1/H2, H1/H2/H3, and H1/H2/H3/H4/H5. H4 is not available as a standalone
-prefix, and H6 through H8 and training remain deferred.
+with the H5 update-coherence gate, plus a separate reference-only H7
+publication path. The implemented compatibility prefixes remain H1, H1/H2,
+H1/H2/H3, and H1/H2/H3/H4/H5. H4 is not available as a standalone prefix.
+H7 does not rerun those gates; H6-Prediction, H8, and training remain outside
+its frozen frame-covariance claim.
 
 The user-facing surface is `verify_vfe4.py`. Its top-level `CONFIG` dictionary
 is editable, and the file can be run directly from an IDE or file association;
 there are no command-line flags or parser. Importing it performs no work.
+
+The separate H8 selection reads only
+`.verification/h8-current-candidate-<FULL_HEAD>-refs.json`, binds its exact
+current-candidate prerequisite variants, and publishes six JSON payloads plus
+one manifest through the generic artifact publisher. This source-only path
+injects no correctness, child, profiler, or control records, so its H8 result
+is explicitly `INCONCLUSIVE`; it reports no measured value and cannot report
+PASS. It does not rerun or copy H1--H7 or H6-Prediction evidence, and it writes
+no external current-candidate pointer inside the artifact.
+
+The selectable H7 operation accepts only
+`("H1","H2","H3","H4","H5","H6-Prefix","H7")`. It derives the exact
+`.verification/h7-current-candidate-<FULL_HEAD>-refs.json` registry, validates
+the ordered H1--H5, H1-Prefix-Prior, and predecessor-free H6-Prefix sibling
+references, captures the raw H1 and H7 fixture bytes, and publishes only
+`config.json`, `provenance.json`, `environment.json`, the three reference
+records, and `validation/h7.json` under one manifest. It never reruns or copies
+a predecessor payload, certificate, or ledger.
+
+H7's scalar `GL+(1,R)` replay is a complete-law regression only. The primary
+claim is limited to the preregistered direct `GL+(2,R)` matrix elements and
+does not cover `det(g)<0`. The frozen source scorer is
+`alpha_b,t,j(prefix)+r_z^T z_j+r_m^T m_j`; both covectors use the source-frame
+inverse transpose, and `history_scorer_wrong_source_inverse` is its exact
+control. A fixed decoder is positive only on
+`C_V W g^-1=C_V W`. Continuous recognition entropy shifts by `+logJ_G`; it is
+not invariant. This source-only Task-8 surface is `INCONCLUSIVE`: no H7 test
+totals, residuals, or PASS result have been measured. Optimizer/training
+equivariance, H6-Prediction, predictive benefit, and H8 scale remain open.
 
 H1 evaluates one frozen `T=2`, scalar-state, scalar-model fixture in three
 separately assembled ways:

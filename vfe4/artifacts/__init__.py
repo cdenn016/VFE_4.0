@@ -12,6 +12,13 @@ from .h6 import (
     project_h6_prefix_config,
     run_projected_current_candidate,
 )
+from .h6_matching import (
+    H6MatchingOwnershipRecord,
+    H6MatchingSetRecord,
+    derive_h6_matrix_reports,
+    publish_h6_matching_set,
+    read_h6_matching_set,
+)
 from .provenance import (
     build_environment,
     build_provenance,
@@ -25,6 +32,8 @@ from .provenance import (
 __all__ = [
     "ArtifactPublicationError",
     "CandidateArtifactReference",
+    "H6MatchingOwnershipRecord",
+    "H6MatchingSetRecord",
     "ProjectedCurrentCandidateConfig",
     "canonical_json_bytes",
     "publish_run_directory",
@@ -35,7 +44,10 @@ __all__ = [
     "build_provenance",
     "current_source_identity",
     "dirty_content_digest",
+    "derive_h6_matrix_reports",
     "git_head",
     "process_cpu_affinity",
+    "publish_h6_matching_set",
+    "read_h6_matching_set",
     "source_candidate_sha256",
 ]

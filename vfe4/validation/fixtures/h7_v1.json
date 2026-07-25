@@ -1,0 +1,113 @@
+{
+  "fixture_schema_version": 1,
+  "fixture_id": "h7-v1",
+  "group": "GL+(2,R)",
+  "representations": {"state": "standard", "model": "standard"},
+  "horizon": 2,
+  "dimensions": {"d_z": 2, "d_m": 2, "D": 12, "V": 3},
+  "continuous_order": ["z0[0]", "z0[1]", "m0[0]", "m0[1]", "z1[0]", "z1[1]", "m1[0]", "m1[1]", "z2[0]", "z2[1]", "m2[0]", "m2[1]"],
+  "state_parent_sets": [[0], [1]],
+  "model_parent_sets": [[0], [1]],
+  "state_source_support": [[0], [1]],
+  "model_source_support": [[0], [1]],
+  "observation_label_base": 0,
+  "observation_labels": [0, 2],
+  "frame_profiles": {
+    "identity": [[[1.0, 0.0], [0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]],
+    "nonidentity": [[[1.0, 0.0], [0.0, 1.0]], [[1.1, 0.15], [-0.05, 0.95]], [[0.9, -0.1], [0.2, 1.05]]]
+  },
+  "actions": {
+    "diagonal": [[[1.2, 0.2], [-0.1, 0.9]], [[1.2, 0.2], [-0.1, 0.9]], [[1.2, 0.2], [-0.1, 0.9]]],
+    "internal": [[[1.25, 0.1], [0.05, 0.95]], [[0.85, -0.2], [0.1, 1.15]], [[1.05, 0.25], [-0.15, 0.9]]],
+    "fixed_decoder_stabilizer": [[[1.0, 0.0], [0.2, 1.1]], [[1.0, 0.0], [0.2, 1.1]], [[1.0, 0.0], [0.2, 1.1]]]
+  },
+  "generative": {
+    "initial_mean": [0.2, -0.1, 0.15, 0.05],
+    "initial_covariance": [[0.9, 0.12, 0.08, -0.03], [0.12, 0.75, 0.02, 0.04], [0.08, 0.02, 0.8, 0.1], [-0.03, 0.04, 0.1, 0.7]],
+    "model_source_probabilities": [[1.0], [1.0]],
+    "state_source_probabilities": [[1.0], [1.0]],
+    "source_scorer_profile": {
+      "profile_id": "h7-linear-history-source-v1",
+      "law": "alpha(prefix)+r_z^T z_j+r_m^T m_j",
+      "prefix_tokens": [0, 2],
+      "alpha_bias": {"model": [0.17, -0.09], "state": [-0.04, 0.13]},
+      "alpha_token_scale": {"model": [0.03, -0.02], "state": [0.01, 0.025]},
+      "z_history": [[0.3, -0.2], [-0.15, 0.25]],
+      "m_history": [[0.1, 0.4], [0.2, -0.3]],
+      "r_z": {
+        "model": [[0.2, -0.15], [-0.1, 0.25]],
+        "state": [[-0.12, 0.09], [0.16, 0.07]]
+      },
+      "r_m": {
+        "model": [[0.05, 0.18], [0.22, -0.08]],
+        "state": [[0.14, -0.06], [-0.05, 0.19]]
+      }
+    },
+    "model_offsets": [[0.1, -0.05], [-0.08, 0.12]],
+    "model_receiver_covariances": [[[0.5, 0.07], [0.07, 0.4]], [[0.45, -0.05], [-0.05, 0.55]]],
+    "state_offsets": [[0.04, 0.09], [-0.06, 0.03]],
+    "state_receiver_covariances": [[[0.38, 0.04], [0.04, 0.42]], [[0.52, 0.06], [0.06, 0.47]]],
+    "B": [[[0.35, -0.1], [0.2, 0.25]], [[-0.15, 0.3], [0.1, 0.4]]],
+    "decoder": [
+      {"W_z": [[-0.1, -0.2], [0.4, -0.2], [0.6, -0.2]], "W_m": [[0.05, 0.25], [-0.5, 0.25], [0.0, 0.25]], "bias": [0.05, -0.08, 0.03]},
+      {"W_z": [[0.0, 0.1], [-0.35, 0.1], [-0.4, 0.1]], "W_m": [[-0.1, -0.15], [0.6, -0.15], [0.1, -0.15]], "bias": [-0.02, 0.11, -0.09]}
+    ]
+  },
+  "recognition": {
+    "family_id": "structured-full-block-v1",
+    "initial_mean": [-0.05, 0.12, 0.2, -0.08],
+    "initial_covariance": [[0.72, 0.06, 0.04, 0.01], [0.06, 0.68, -0.02, 0.05], [0.04, -0.02, 0.74, 0.08], [0.01, 0.05, 0.08, 0.66]],
+    "model_source_probabilities": [[1.0], [1.0]],
+    "state_source_probabilities_given_model_source": [[[1.0]], [[1.0]]],
+    "model_parent_maps": [[[0.82, 0.1], [-0.05, 0.9]], [[0.88, -0.08], [0.12, 0.84]]],
+    "model_offsets": [[-0.04, 0.07], [0.03, -0.09]],
+    "model_receiver_covariances": [[[0.6, 0.05], [0.05, 0.48]], [[0.55, -0.04], [-0.04, 0.5]]],
+    "state_parent_maps": [[[0.78, 0.06], [-0.09, 0.86]], [[0.81, 0.11], [0.04, 0.79]]],
+    "state_model_maps": [[[0.22, -0.05], [0.13, 0.18]], [[-0.1, 0.2], [0.07, 0.26]]],
+    "state_offsets": [[0.06, -0.02], [-0.05, 0.08]],
+    "state_receiver_covariances": [[[0.5, 0.03], [0.03, 0.46]], [[0.58, 0.02], [0.02, 0.44]]],
+    "factorized_fixture": {
+      "family_id": "factorized-diagonal-within-fiber-v1",
+      "representation": "factorized_diagonal_within_fiber",
+      "shared_fields": ["model_source_probabilities", "state_source_probabilities_given_model_source", "model_parent_maps", "model_offsets", "state_parent_maps", "state_model_maps", "state_offsets"],
+      "initial_mean": [-0.05, 0.12, 0.2, -0.08],
+      "initial_diagonal_covariance": [0.72, 0.68, 0.74, 0.66],
+      "model_receiver_diagonal_covariances": [[0.6, 0.48], [0.55, 0.5]],
+      "state_receiver_diagonal_covariances": [[0.5, 0.46], [0.58, 0.44]],
+      "generic_gl_plus_2_output_representation": "unrestricted_full_block_pushforward"
+    }
+  },
+  "density_probes": {
+    "probe_set_schema": "h7-density-probe-pairs-v1",
+    "whitened_scale": 0.25,
+    "anchor_policy": "original_component_mean",
+    "anchor_provenance": "raw_fixture_component_mean_and_lower_cholesky_v1",
+    "pair_law": "x=anchor+L@(scale*direction);x_prime=G_component@x",
+    "direction_ids_by_dimension": {
+      "2": ["zero", "+e0", "-e0", "+e1", "-e1"],
+      "4": ["zero", "+e0", "-e0", "+e1", "-e1", "+e2", "-e2", "+e3", "-e3"],
+      "12": ["zero", "+e0", "-e0", "+e1", "-e1", "+e2", "-e2", "+e3", "-e3", "+e4", "-e4", "+e5", "-e5", "+e6", "-e6", "+e7", "-e7", "+e8", "-e8", "+e9", "-e9", "+e10", "-e10", "+e11", "-e11"]
+    },
+    "components": [
+      {"component_id": "p.initial_joint", "source_id": "initial", "dimension": 4, "shift_scope": "initial_joint"},
+      {"component_id": "p.model.receiver_1", "source_id": "model:1<-0", "dimension": 2, "shift_scope": "receiver_model"},
+      {"component_id": "p.model.receiver_2", "source_id": "model:2<-1", "dimension": 2, "shift_scope": "receiver_model"},
+      {"component_id": "p.state.receiver_1", "source_id": "state:1<-0", "dimension": 2, "shift_scope": "receiver_state"},
+      {"component_id": "p.state.receiver_2", "source_id": "state:2<-1", "dimension": 2, "shift_scope": "receiver_state"},
+      {"component_id": "q.structured.initial_joint", "source_id": "initial", "dimension": 4, "shift_scope": "initial_joint"},
+      {"component_id": "q.structured.model.receiver_1", "source_id": "model:1<-0", "dimension": 2, "shift_scope": "receiver_model"},
+      {"component_id": "q.structured.model.receiver_2", "source_id": "model:2<-1", "dimension": 2, "shift_scope": "receiver_model"},
+      {"component_id": "q.structured.state.receiver_1", "source_id": "state:1<-0", "dimension": 2, "shift_scope": "receiver_state"},
+      {"component_id": "q.structured.state.receiver_2", "source_id": "state:2<-1", "dimension": 2, "shift_scope": "receiver_state"},
+      {"component_id": "q.factorized.initial_joint", "source_id": "initial", "dimension": 4, "shift_scope": "initial_joint"},
+      {"component_id": "q.factorized.model.receiver_1", "source_id": "model:1<-0", "dimension": 2, "shift_scope": "receiver_model"},
+      {"component_id": "q.factorized.model.receiver_2", "source_id": "model:2<-1", "dimension": 2, "shift_scope": "receiver_model"},
+      {"component_id": "q.factorized.state.receiver_1", "source_id": "state:1<-0", "dimension": 2, "shift_scope": "receiver_state"},
+      {"component_id": "q.factorized.state.receiver_2", "source_id": "state:2<-1", "dimension": 2, "shift_scope": "receiver_state"},
+      {"component_id": "p.global", "source_id": "matrix-singleton-path", "dimension": 12, "shift_scope": "global"},
+      {"component_id": "q.structured.global", "source_id": "matrix-singleton-path", "dimension": 12, "shift_scope": "global"},
+      {"component_id": "q.factorized.global", "source_id": "matrix-singleton-path", "dimension": 12, "shift_scope": "global"}
+    ]
+  },
+  "oracle": {"decimal_precision": 100, "gauss_hermite_orders": [41, 51]}
+}

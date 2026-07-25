@@ -1,12 +1,16 @@
 """Strict configuration types and resolution for VFE 4.0."""
 
 from .resolve import (
+    bind_h8_current_refs,
+    project_h7_compatibility_config,
     resolve_config,
     resolve_h4_validation_config,
     resolve_h1_prefix_prior_config,
     resolve_h6_arm_matching_config,
     resolve_h6_prediction_config,
     resolve_h6_prefix_config,
+    resolve_h7_validation_config,
+    resolve_h8_validation_config,
 )
 from .schema import (
     ArtifactConfig,
@@ -28,6 +32,8 @@ from .schema import (
     H6PredictionResolvedConfig,
     H6PrefixResolvedConfig,
     H6SourceIdentity,
+    H7ValidationConfig,
+    H8ValidationConfig,
     InferenceConfig,
     ModelConfig,
     OptimizationConfig,
@@ -57,6 +63,8 @@ __all__ = [
     "H6PredictionResolvedConfig",
     "H6PrefixResolvedConfig",
     "H6SourceIdentity",
+    "H7ValidationConfig",
+    "H8ValidationConfig",
     "InferenceConfig",
     "ModelConfig",
     "OptimizationConfig",
@@ -64,10 +72,14 @@ __all__ = [
     "ResolvedConfig",
     "RunConfig",
     "ValidationConfig",
+    "bind_h8_current_refs",
+    "project_h7_compatibility_config",
     "resolve_config",
     "resolve_h4_validation_config",
     "resolve_h1_prefix_prior_config",
     "resolve_h6_arm_matching_config",
     "resolve_h6_prediction_config",
     "resolve_h6_prefix_config",
+    "resolve_h7_validation_config",
+    "resolve_h8_validation_config",
 ]

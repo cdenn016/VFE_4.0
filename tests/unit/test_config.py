@@ -3,9 +3,10 @@ from __future__ import annotations
 import copy
 import dataclasses
 import hashlib
+import inspect
 import json
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 import pytest
 
@@ -13,9 +14,14 @@ from vfe4.config import (
     H3ValidationConfig,
     H4ValidationConfig,
     H5ValidationConfig,
+    H7ValidationConfig,
+    H8ValidationConfig,
     ResolvedConfig,
+    bind_h8_current_refs,
+    project_h7_compatibility_config,
     resolve_config,
     resolve_h4_validation_config,
+    resolve_h8_validation_config,
 )
 from vfe4.config.control_paths import is_repository_control_path
 from vfe4.types.h3 import (
@@ -32,8 +38,20 @@ from vfe4.types.h5_schema import (
     H5_OBJECTIVE_SCHEMA_SHA256,
     H5_RECOGNITION_COORDINATE_UNIVERSE,
 )
+from vfe4.types.h7 import H7PredecessorReference
+from vfe4.types.h8 import (
+    H8_CORRECTNESS_CASES,
+    H8_H7_PLAN_SHA256,
+    H8_INTERPRETATION_SHA256,
+    H8_PRODUCTION_SEEDS,
+    H8_PROFILER_API_CONTRACT_SHA256,
+)
 from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
+from vfe4.validation.h7_fixture import (
+    H7_DENSITY_PROBE_TABLE_RAW_SHA256,
+    h7_validation_config_mapping,
+)
 
 
 def _raw_h4_section() -> dict[str, object]:
@@ -291,6 +309,203 @@ def _raw_h5_config() -> dict[str, object]:
     raw["h4"] = _raw_h4_section()
     raw["h5"] = _raw_h5_section()
     return raw
+
+
+def _raw_h7_config() -> dict[str, object]:
+    raw = _raw_h5_config()
+    raw["validation"]["gates"] = [  # type: ignore[index]
+        "H1", "H2", "H3", "H4", "H5", "H6-Prefix", "H7"
+    ]
+    raw["h7"] = h7_validation_config_mapping()
+    return raw
+
+
+def _raw_h8_section() -> dict[str, object]:
+    return json.loads(H8ValidationConfig.create().canonical_json)
+
+
+def _raw_h8_config() -> dict[str, object]:
+    raw = _raw_h7_config()
+    raw["validation"]["gates"] = [  # type: ignore[index]
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6-Prefix",
+        "H7",
+        "H8",
+    ]
+    raw["h8"] = _raw_h8_section()
+    return raw
+
+
+def _h7_reference(name: str) -> H7PredecessorReference:
+    digest = hashlib.sha256(name.encode("ascii")).hexdigest()
+    return H7PredecessorReference.create(
+        artifact_path=f"runs/{name}",
+        git_head="a" * 40,
+        dirty_digest="b" * 64,
+        junit_sha256="c" * 64,
+        manifest_sha256=digest,
+        payload_hashes={f"validation/{name}.json": digest},
+        ledger_path=f".verification/{name}-ledger.json",
+        ledger_sha256=digest,
+    )
+
+
+def test_h8_static_protocol_and_h7_projection_are_exact_and_pure() -> None:
+    raw = _raw_h8_config()
+    before = copy.deepcopy(raw)
+    resolved = resolve_h8_validation_config(raw["h8"])  # type: ignore[arg-type]
+    refs = {
+        "h1_h5": _h7_reference("h1_h5"),
+        "h1_prefix_prior": _h7_reference("h1_prefix_prior"),
+        "h6_prefix": _h7_reference("h6_prefix"),
+    }
+    projected = project_h7_compatibility_config(raw, refs)
+
+    assert resolved.T == 128
+    assert (resolved.N, resolved.K, resolved.d_z, resolved.d_m) == (
+        129,
+        20,
+        20,
+        20,
+    )
+    assert (resolved.b, resolved.D, resolved.V) == (40, 5160, 3)
+    assert resolved.seeds == H8_PRODUCTION_SEEDS
+    assert resolved.cold_repetitions == 5
+    assert resolved.max_seconds == 60.0
+    assert resolved.max_process_incremental_mib == 128
+    assert resolved.max_torch_population_mib == 64
+    assert (resolved.max_rhs_width, resolved.sample_width) == (40, 1)
+    assert resolved.correctness_seed_table == H8_CORRECTNESS_CASES
+    assert resolved.profiler_api_contract_sha256 == (
+        H8_PROFILER_API_CONTRACT_SHA256
+    )
+    assert resolved.interpretation_sha256 == H8_INTERPRETATION_SHA256
+    assert resolved.h7_plan_sha256 == H8_H7_PLAN_SHA256
+    assert projected == _raw_h7_config()
+    assert raw == before
+    assert tuple(inspect.signature(bind_h8_current_refs).parameters) == (
+        "raw_h8_config",
+        "refs",
+    )
+
+
+def test_h8_static_protocol_rejects_drift_and_earlier_prefix_section() -> None:
+    for field, changed_value in (
+        ("K", 40),
+        ("d_m", 19),
+        ("cold_repetitions", 6),
+        ("torch_version", "2.9.0"),
+        ("correctness_seed_table", list(reversed(H8_CORRECTNESS_CASES))),
+        ("interpretation_sha256", "0" * 64),
+    ):
+        raw_h8 = _raw_h8_section()
+        raw_h8[field] = changed_value
+        with pytest.raises(ValueError, match="h8|H8"):
+            resolve_h8_validation_config(raw_h8)
+
+    earlier = _raw_config()
+    earlier["h8"] = _raw_h8_section()
+    with pytest.raises(ValueError, match="config|h8"):
+        resolve_config(earlier, repo_root=Path("C:/repo"))
+
+
+def test_h7_config_is_exact_and_shorter_prefixes_do_not_read_h7_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = _raw_h7_config()
+    resolved = resolve_config(raw, repo_root=tmp_path)
+    assert resolved.validation.gates == (
+        "H1", "H2", "H3", "H4", "H5", "H6-Prefix", "H7"
+    )
+    assert isinstance(resolved.h7, H7ValidationConfig)
+    assert tuple(spec.trial_id for spec in resolved.h7.required_trial_specs) == (
+        "scalar-base-transformed",
+        "scalar-internal-transformed",
+        "matrix-identity-base-transformed",
+        "matrix-identity-internal-transformed",
+        "matrix-nonidentity-base-transformed",
+        "matrix-nonidentity-internal-transformed",
+        "matrix-fixed-decoder-centered-stabilizer",
+        "matrix-fixed-decoder-outside-stabilizer",
+    )
+    assert resolved.h7.predecessor_keys == (
+        "h1_h5", "h1_prefix_prior", "h6_prefix"
+    )
+    assert (
+        resolved.h7.density_probe_table_raw_sha256
+        == H7_DENSITY_PROBE_TABLE_RAW_SHA256
+    )
+
+    changed = copy.deepcopy(raw)
+    changed["h7"]["actions"]["internal"][0][0][0] = 1.2500000001  # type: ignore[index]
+    with pytest.raises(ValueError):
+        resolve_config(changed, repo_root=tmp_path)
+    changed = copy.deepcopy(raw)
+    changed["h7"]["oracle_decimal_precision"] = 100.0  # type: ignore[index]
+    with pytest.raises(ValueError):
+        resolve_config(changed, repo_root=tmp_path)
+    changed = copy.deepcopy(raw)
+    changed["h7"]["gauss_hermite_orders"][0] = 41.0  # type: ignore[index]
+    with pytest.raises(ValueError):
+        resolve_config(changed, repo_root=tmp_path)
+    changed = copy.deepcopy(raw)
+    changed["validation"]["gates"].append("H8")  # type: ignore[index]
+    with pytest.raises(ValueError):
+        resolve_config(changed, repo_root=tmp_path)
+
+    import pathlib
+
+    shorter = _raw_h5_config()
+    monkeypatch.setattr(
+        pathlib.Path,
+        "read_bytes",
+        lambda _path: pytest.fail("shorter prefix read H7 fixture bytes"),
+    )
+    shorter_resolved = resolve_config(shorter, repo_root=tmp_path)
+    assert shorter_resolved.h7 is None
+    assert '"h7"' not in shorter_resolved.canonical_json
+
+
+def test_h7_launcher_projection_is_pure_and_h6_interfaces_remain_frozen() -> None:
+    import verify_vfe4
+    from vfe4.artifacts.h6 import (
+        CandidateArtifactReference,
+        project_h6_prefix_config,
+        run_projected_current_candidate,
+    )
+
+    before = copy.deepcopy(verify_vfe4.CONFIG)
+    projected = verify_vfe4.project_h1_h5_compatibility_config(
+        verify_vfe4.CONFIG
+    )
+
+    assert projected["validation"]["gates"] == [
+        "H1", "H2", "H3", "H4", "H5"
+    ]
+    assert "h7" not in projected and "h8" not in projected
+    assert verify_vfe4.CONFIG == before
+    assert "h8" not in verify_vfe4.CONFIG["operations"]
+    assert tuple(inspect.signature(project_h6_prefix_config).parameters) == (
+        "raw_config",
+    )
+    runner = inspect.signature(run_projected_current_candidate)
+    assert tuple(runner.parameters) == (
+        "config",
+        "junit_sha256",
+        "predecessor_refs",
+    )
+    assert all(
+        parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        for parameter in runner.parameters.values()
+    )
+    assert runner.return_annotation in (
+        CandidateArtifactReference,
+        "CandidateArtifactReference",
+    )
 
 
 def test_coupled_h1_h5_config_reuses_h4_and_freezes_h5_without_fixture_io(

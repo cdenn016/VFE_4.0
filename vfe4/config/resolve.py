@@ -1,13 +1,15 @@
-"""Strict resolution of the frozen ordered H1--H5 configuration prefixes."""
+"""Strict resolution of frozen ordered configuration prefixes through H8."""
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
-from dataclasses import asdict
+from dataclasses import asdict, fields, is_dataclass, replace
 from collections.abc import Mapping
+from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from vfe4.types.h3 import (
     H3DecisionConfig,
@@ -44,6 +46,8 @@ from vfe4.types.h6 import (
     VocabularyIdentity,
     ZeroDimensionalBase,
 )
+from vfe4.types.h7 import H7PredecessorReference
+from vfe4.types.h8 import CurrentH8PrerequisiteRefs
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
 
 from .schema import (
@@ -70,6 +74,8 @@ from .schema import (
     H6DataConfig,
     H6ObservedArchive,
     H6SourceIdentity,
+    H7ValidationConfig,
+    H8ValidationConfig,
     ModelConfig,
     OptimizationConfig,
     RecognitionConfig,
@@ -96,6 +102,8 @@ _ROOT_KEYS = frozenset(
 )
 _ROOT_KEYS_WITH_H3 = _ROOT_KEYS | {"h3"}
 _ROOT_KEYS_WITH_H4_H5 = _ROOT_KEYS | {"h3", "h4", "h5"}
+_ROOT_KEYS_WITH_H7 = _ROOT_KEYS_WITH_H4_H5 | {"h7"}
+_ROOT_KEYS_WITH_H8 = _ROOT_KEYS_WITH_H7 | {"h8"}
 _RUN_KEYS = frozenset({"mode", "seed", "device", "dtype", "deterministic"})
 _DATA_KEYS = frozenset({"kind", "identity"})
 _MODEL_KEYS = frozenset(
@@ -184,9 +192,78 @@ _H5_KEYS = frozenset({
     "control_ids", "quadrature_orders", "allowance_policy", "rounding_constant",
     "stochastic_contribution", "epsilon_delta_formula", "mm_proof_artifact",
 })
+_H7_KEYS = frozenset(
+    {
+        "schema_version",
+        "operation",
+        "group",
+        "representations",
+        "actions",
+        "required_trials",
+        "required_control_ids",
+        "recognition_families",
+        "h1_fixture_raw_sha256",
+        "h7_fixture_raw_sha256",
+        "density_probe_table_raw_sha256",
+        "density_probe_set_sha256",
+        "oracle_decimal_precision",
+        "gauss_hermite_orders",
+        "group_norm_limit",
+        "group_inverse_norm_limit",
+        "spd_condition_limit",
+        "predecessor_keys",
+    }
+)
+_H8_KEYS = frozenset(
+    {
+        "schema_version",
+        "operation",
+        "choice_kind",
+        "k_semantics",
+        "coordinate_order",
+        "T",
+        "N",
+        "K",
+        "d_z",
+        "d_m",
+        "b",
+        "D",
+        "V",
+        "generator_schema",
+        "sample_schema",
+        "problem_draw_descriptor",
+        "problem_draw_schema_sha256",
+        "serialization_point",
+        "seeds",
+        "production_sample_seed_pairs",
+        "cold_repetitions",
+        "correctness_seed_table",
+        "max_seconds",
+        "max_process_incremental_mib",
+        "max_torch_population_mib",
+        "max_rhs_width",
+        "sample_width",
+        "torch_version",
+        "profiler_memory_source_sha256",
+        "profiler_source_sha256",
+        "profiler_api_contract_sha256",
+        "interpretation_sha256",
+        "h7_plan_sha256",
+    }
+)
 _PARENT_SETS = ((0,), (0, 1))
 _H3_GATES = ("H1", "H2", "H3")
 _H5_GATES = ("H1", "H2", "H3", "H4", "H5")
+_H7_GATES = (
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6-Prefix",
+    "H7",
+)
+_H8_GATES = (*_H7_GATES, "H8")
 _H3_FAMILIES = ("structured_full_spd", "fine_factorized_diagonal")
 _H3_ZERO_MEAN = (0.0, 0.0, 0.0, 0.0)
 _H3_IDENTITY_PRECISION = (
@@ -903,7 +980,14 @@ def _resolve_h6_prefix_arm_config(
     )
     _validate_keys(
         allocation_raw,
-        frozenset({"emission_width", "latent_width", "recognition_width"}),
+        frozenset(
+            {
+                "emission_width",
+                "latent_width",
+                "recognition_width",
+                "prior_context_width",
+            }
+        ),
         f"{location}.capacity_allocation",
     )
     emission_width = _require_int(
@@ -912,6 +996,7 @@ def _resolve_h6_prefix_arm_config(
     )
     latent_width = allocation_raw["latent_width"]
     recognition_width = allocation_raw["recognition_width"]
+    prior_context_width = allocation_raw["prior_context_width"]
     if latent_width is not None:
         latent_width = _require_int(
             latent_width, f"{location}.capacity_allocation.latent_width"
@@ -920,6 +1005,11 @@ def _resolve_h6_prefix_arm_config(
         recognition_width = _require_int(
             recognition_width,
             f"{location}.capacity_allocation.recognition_width",
+        )
+    if prior_context_width is not None:
+        prior_context_width = _require_int(
+            prior_context_width,
+            f"{location}.capacity_allocation.prior_context_width",
         )
     booleans: dict[str, bool] = {}
     for name in (
@@ -948,6 +1038,7 @@ def _resolve_h6_prefix_arm_config(
             emission_width=emission_width,
             latent_width=latent_width,
             recognition_width=recognition_width,
+            prior_context_width=prior_context_width,
         ),
         **booleans,
         **string_values,
@@ -1685,7 +1776,7 @@ def resolve_config(
     | H6PredictionResolvedConfig
     | H6ArmMatchingResolvedConfig
 ):
-    """Resolve one frozen H1--H5 or separately discriminated H6 operation."""
+    """Resolve one ordered gate prefix or separately discriminated H6 operation."""
 
     root = _require_mapping(raw, "config")
     discriminator = (root.get("schema_version"), root.get("operation"))
@@ -1758,12 +1849,126 @@ def resolve_h6_arm_matching_config(
     return resolved
 
 
+def _require_h7_compatibility_refs(
+    current_h7_refs: Mapping[str, H7PredecessorReference],
+) -> None:
+    if not isinstance(current_h7_refs, Mapping):
+        raise ValueError("current_h7_refs must be a mapping")
+    if tuple(current_h7_refs) != (
+        "h1_h5",
+        "h1_prefix_prior",
+        "h6_prefix",
+    ):
+        raise ValueError("current_h7_refs must preserve exact key order")
+    if any(
+        type(reference) is not H7PredecessorReference
+        for reference in current_h7_refs.values()
+    ):
+        raise ValueError("current_h7_refs must retain exact H7 reference types")
+    identities = {
+        (
+            reference.git_head,
+            reference.dirty_digest,
+            reference.junit_sha256,
+        )
+        for reference in current_h7_refs.values()
+    }
+    if len(identities) != 1:
+        raise ValueError("current H7 references must bind one candidate")
+
+
+def project_h7_compatibility_config(
+    raw_h8_config: Mapping[str, object],
+    current_h7_refs: Mapping[str, H7PredecessorReference],
+) -> Mapping[str, object]:
+    """Purely strip H8 while validating the exact in-memory H7 references.
+
+    The returned mapping is the pinned H7 scientific configuration. The
+    caller remains responsible for passing the same ``current_h7_refs``
+    object to the H7 lifecycle; this projection neither copies predecessor
+    payloads nor serializes them into H7's already-frozen config schema.
+    """
+
+    root = _require_mapping(raw_h8_config, "config")
+    _validate_keys(root, _ROOT_KEYS_WITH_H8, "config")
+    validation = _section(root, "validation", _VALIDATION_KEYS)
+    if _require_gates(validation["gates"]) != _H8_GATES:
+        raise ValueError("H7 projection requires the exact H8 prefix")
+    resolve_h8_validation_config(_require_mapping(root["h8"], "h8"))
+    _require_h7_compatibility_refs(current_h7_refs)
+    projected = copy.deepcopy(dict(root))
+    projected.pop("h8")
+    projected_validation = cast(
+        dict[str, object],
+        projected["validation"],
+    )
+    projected_validation["gates"] = list(_H7_GATES)
+    return projected
+
+
+def bind_h8_current_refs(
+    raw_h8_config: Mapping[str, object],
+    refs: CurrentH8PrerequisiteRefs,
+) -> ResolvedConfig:
+    """Bind one already validated in-memory reference registry to H8.
+
+    Registry discovery, artifact reopening, ledger validation, and external
+    result-pointer validation are deliberately Task 7 responsibilities. This
+    function accepts only the lossless typed records produced by that layer.
+    """
+
+    if type(refs) is not CurrentH8PrerequisiteRefs:
+        raise ValueError("refs must be CurrentH8PrerequisiteRefs")
+    refs.__post_init__()
+    project_h7_compatibility_config(
+        raw_h8_config,
+        refs.h7_compatibility_refs,  # type: ignore[arg-type]
+    )
+    repository_root = Path(__file__).resolve().parents[2]
+    resolved = _resolve_h1_h5_config(
+        raw_h8_config,
+        repo_root=repository_root,
+    )
+    if resolved.validation.gates != _H8_GATES or resolved.h8 is None:
+        raise ValueError("current references can bind only the H8 prefix")
+    canonical_json = _canonical_json(
+        schema_version=resolved.schema_version,
+        objective_schema_version=resolved.objective_schema_version,
+        run=resolved.run,
+        data=resolved.data,
+        model=resolved.model,
+        recognition=resolved.recognition,
+        inference=resolved.inference,
+        optimization=resolved.optimization,
+        validation=resolved.validation,
+        artifacts=resolved.artifacts,
+        h3=resolved.h3,
+        h4=resolved.h4,
+        h5=resolved.h5,
+        h7=resolved.h7,
+        h8=resolved.h8,
+        h8_current_refs=refs,
+    )
+    return replace(
+        resolved,
+        canonical_json=canonical_json,
+        config_sha256=hashlib.sha256(
+            canonical_json.encode("utf-8")
+        ).hexdigest(),
+        h8_current_refs=refs,
+    )
+
+
 def _resolve_h1_h5_config(
     raw: Mapping[str, object], *, repo_root: Path
 ) -> ResolvedConfig:
-    """Validate and freeze one implemented ordered H1--H5 gate prefix."""
+    """Validate and freeze one implemented ordered prefix through H8."""
     root = _require_mapping(raw, "config")
-    if "h4" in root or "h5" in root:
+    if "h8" in root:
+        expected_root_keys = _ROOT_KEYS_WITH_H8
+    elif "h7" in root:
+        expected_root_keys = _ROOT_KEYS_WITH_H7
+    elif "h4" in root or "h5" in root:
         expected_root_keys = _ROOT_KEYS_WITH_H4_H5
     else:
         expected_root_keys = _ROOT_KEYS_WITH_H3 if "h3" in root else _ROOT_KEYS
@@ -1877,7 +2082,7 @@ def _resolve_h1_h5_config(
     )
 
     h3 = _resolve_h3(root, validation.gates)
-    coupled = validation.gates == _H5_GATES
+    coupled = validation.gates in (_H5_GATES, _H7_GATES, _H8_GATES)
     if coupled:
         if "h4" not in root or "h5" not in root:
             raise ValueError(
@@ -1896,6 +2101,30 @@ def _resolve_h1_h5_config(
             )
         h4 = None
         h5 = None
+    h7_requested = validation.gates in (_H7_GATES, _H8_GATES)
+    if h7_requested != ("h7" in root):
+        raise ValueError(
+            "h7 must be present exactly for the full ordered H7 prefix"
+        )
+    h7 = (
+        resolve_h7_validation_config(
+            _require_mapping(root["h7"], "h7")
+        )
+        if h7_requested
+        else None
+    )
+    h8_requested = validation.gates == _H8_GATES
+    if h8_requested != ("h8" in root):
+        raise ValueError(
+            "h8 must be present exactly for the full ordered H8 prefix"
+        )
+    h8 = (
+        resolve_h8_validation_config(
+            _require_mapping(root["h8"], "h8")
+        )
+        if h8_requested
+        else None
+    )
 
     artifacts_raw = _section(root, "artifacts", _ARTIFACT_KEYS)
     artifacts = ArtifactConfig(
@@ -1916,6 +2145,9 @@ def _resolve_h1_h5_config(
         h3=h3,
         h4=h4,
         h5=h5,
+        h7=h7,
+        h8=h8,
+        h8_current_refs=None,
     )
     if h4 is not None:
         projected_h4 = json.dumps(
@@ -1951,6 +2183,9 @@ def _resolve_h1_h5_config(
         h3=h3,
         h4=h4,
         h5=h5,
+        h7=h7,
+        h8=h8,
+        h8_current_refs=None,
     )
 
 
@@ -2029,6 +2264,63 @@ def _resolve_h5_validation_config(raw_h5: Mapping[str, object]) -> H5ValidationC
     )
 
 
+def resolve_h7_validation_config(
+    raw_h7: Mapping[str, object],
+) -> H7ValidationConfig:
+    """Resolve H7 from frozen declarations without reading fixture bytes."""
+
+    from vfe4.types.h7 import H7_CONTROL_IDS
+    from vfe4.validation.h7_fixture import (
+        H1_FIXTURE_RAW_SHA256,
+        H7_DENSITY_PROBE_SET_SHA256,
+        H7_DENSITY_PROBE_TABLE_RAW_SHA256,
+        H7_FIXTURE_RAW_SHA256,
+        h7_trial_specs_from_config,
+        h7_validation_config_mapping,
+    )
+
+    root = _require_mapping(raw_h7, "h7")
+    _validate_keys(root, _H7_KEYS, "h7")
+    expected = h7_validation_config_mapping()
+    if not _same_exact_structure(root, expected):
+        raise ValueError("h7 must equal the exact frozen validation mapping")
+    ordinary = {key: root[key] for key in root}
+    trial_specs = h7_trial_specs_from_config(ordinary)
+    return H7ValidationConfig.create(
+        required_trial_specs=trial_specs,
+        required_control_ids=H7_CONTROL_IDS,
+        recognition_families=(
+            "structured_full_block",
+            "factorized_diagonal_within_fiber",
+        ),
+        h1_fixture_raw_sha256=H1_FIXTURE_RAW_SHA256,
+        h7_fixture_raw_sha256=H7_FIXTURE_RAW_SHA256,
+        density_probe_table_raw_sha256=(
+            H7_DENSITY_PROBE_TABLE_RAW_SHA256
+        ),
+        density_probe_set_sha256=H7_DENSITY_PROBE_SET_SHA256,
+        oracle_decimal_precision=100,
+        gauss_hermite_orders=(41, 51),
+        group_norm_limit=2.0,
+        group_inverse_norm_limit=2.0,
+        spd_condition_limit=1000.0,
+        predecessor_keys=("h1_h5", "h1_prefix_prior", "h6_prefix"),
+    )
+
+
+def resolve_h8_validation_config(
+    raw_h8: Mapping[str, object],
+) -> H8ValidationConfig:
+    """Resolve the frozen H8 protocol without reading evidence or fixtures."""
+
+    root = _require_mapping(raw_h8, "h8")
+    _validate_keys(root, _H8_KEYS, "h8")
+    expected = json.loads(H8ValidationConfig.create().canonical_json)
+    if not _same_exact_structure(root, expected):
+        raise ValueError("h8 must equal the exact frozen validation mapping")
+    return H8ValidationConfig.create()
+
+
 def _require_mapping(value: object, location: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{location} must be a mapping")
@@ -2063,6 +2355,35 @@ def _require_exact(value: object, expected: Any, location: str) -> Any:
     return value
 
 
+def _same_exact_structure(value: object, expected: object) -> bool:
+    """Compare nested config values without Python's bool/int coercions."""
+
+    if type(value) is not type(expected):
+        return False
+    if type(expected) is dict:
+        actual_mapping = cast(dict[object, object], value)
+        expected_mapping = cast(dict[object, object], expected)
+        return (
+            actual_mapping.keys() == expected_mapping.keys()
+            and all(
+                _same_exact_structure(actual_mapping[key], expected_item)
+                for key, expected_item in expected_mapping.items()
+            )
+        )
+    if type(expected) in (list, tuple):
+        actual_sequence = cast(list[object] | tuple[object, ...], value)
+        expected_sequence = cast(
+            list[object] | tuple[object, ...], expected
+        )
+        return len(actual_sequence) == len(expected_sequence) and all(
+            _same_exact_structure(actual_item, expected_item)
+            for actual_item, expected_item in zip(
+                actual_sequence, expected_sequence, strict=True
+            )
+        )
+    return value == expected
+
+
 def _require_int(value: object, location: str) -> int:
     if type(value) is not int:
         raise ValueError(f"{location} must be an integer")
@@ -2094,16 +2415,28 @@ def _require_gates(
     | tuple[
         Literal["H1"], Literal["H2"], Literal["H3"], Literal["H4"], Literal["H5"]
     ]
+    | tuple[
+        Literal["H1"], Literal["H2"], Literal["H3"], Literal["H4"], Literal["H5"],
+        Literal["H6-Prefix"], Literal["H7"],
+    ]
+    | tuple[
+        Literal["H1"], Literal["H2"], Literal["H3"], Literal["H4"], Literal["H5"],
+        Literal["H6-Prefix"], Literal["H7"], Literal["H8"],
+    ]
 ):
     if type(value) is not list or value not in (
         ["H1"],
         ["H1", "H2"],
         ["H1", "H2", "H3"],
         ["H1", "H2", "H3", "H4", "H5"],
+        ["H1", "H2", "H3", "H4", "H5", "H6-Prefix", "H7"],
+        ["H1", "H2", "H3", "H4", "H5", "H6-Prefix", "H7", "H8"],
     ):
         raise ValueError(
             "validation.gates must equal ['H1'], ['H1', 'H2'], or "
-            "['H1', 'H2', 'H3'], or ['H1', 'H2', 'H3', 'H4', 'H5']"
+            "['H1', 'H2', 'H3'], ['H1', 'H2', 'H3', 'H4', 'H5'], or "
+            "['H1', 'H2', 'H3', 'H4', 'H5', 'H6-Prefix', 'H7'], or "
+            "['H1', 'H2', 'H3', 'H4', 'H5', 'H6-Prefix', 'H7', 'H8']"
         )
     return tuple(value)  # type: ignore[return-value]
 
@@ -2356,6 +2689,32 @@ def _resolve_run_root(value: object, repo_root: Path) -> Path:
     return resolved
 
 
+def _json_compatible_record(value: object) -> object:
+    """Losslessly project immutable reference records into canonical JSON."""
+
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, Path):
+        return value.as_posix()
+    if isinstance(value, Mapping):
+        return {
+            str(key): _json_compatible_record(item)
+            for key, item in value.items()
+        }
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            item.name: _json_compatible_record(getattr(value, item.name))
+            for item in fields(value)
+        }
+    if type(value) in (tuple, list):
+        return [_json_compatible_record(item) for item in value]
+    if type(value) in (str, int, float, bool) or value is None:
+        return value
+    raise ValueError(
+        f"unsupported canonical reference value {type(value).__name__}"
+    )
+
+
 def _canonical_json(
     *,
     schema_version: int,
@@ -2371,6 +2730,9 @@ def _canonical_json(
     h3: H3ValidationConfig | None,
     h4: H4ValidationConfig | None,
     h5: H5ValidationConfig | None,
+    h7: H7ValidationConfig | None,
+    h8: H8ValidationConfig | None,
+    h8_current_refs: CurrentH8PrerequisiteRefs | None,
 ) -> str:
     payload = {
         "schema_version": schema_version,
@@ -2495,4 +2857,16 @@ def _canonical_json(
     if h4 is not None and h5 is not None:
         payload["h4"] = json.loads(h4.canonical_json)
         payload["h5"] = json.loads(h5.canonical_json)
+    if h7 is not None:
+        if h4 is None or h5 is None:
+            raise ValueError("canonical H7 requires H4/H5 sections")
+        payload["h7"] = json.loads(h7.canonical_json)
+    if h8 is not None:
+        if h7 is None:
+            raise ValueError("canonical H8 requires the pinned H7 section")
+        payload["h8"] = json.loads(h8.canonical_json)
+    if h8_current_refs is not None:
+        if h8 is None:
+            raise ValueError("H8 references cannot bind an earlier prefix")
+        payload["h8_current_refs"] = _json_compatible_record(h8_current_refs)
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)

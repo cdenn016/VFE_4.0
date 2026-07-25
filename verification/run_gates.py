@@ -33,18 +33,69 @@ from verification.h5_gate import (
     h5_update_binding_preimages,
     h5_validation_payload,
 )
+from verification.h7_budget import (
+    CONTROL_ALLOWANCE_MULTIPLE,
+    CONTROL_MINIMUM_RELATIVE_RESIDUAL,
+    EPS64,
+    MAX_ORACLE_RELATIVE_DELTA,
+    ROUNDING_CONSTANT,
+)
+from verification.h7_gate import (
+    H7_ACTIVE_SCORER_PROFILE,
+    H7_CAPTURED_FIXTURE_PATHS,
+    H7_FROZEN_SOURCE_FIXTURE_HASHES,
+    H7_NONCLAIMS,
+    H7_PREDECESSOR_KEYS,
+    H7_SOURCE_ONLY_OBLIGATIONS,
+    H7_VERIFICATION_PREFIX,
+    assemble_h7_gate_evaluation,
+    h7_validation_payload,
+)
+from verification.h8_gate import (
+    H8_PUBLICATION_PAYLOAD_KEYS,
+    H8_VERIFIER_PREFIX,
+    assemble_h8_gate_evaluation,
+    build_h8_publication_payloads,
+    canonical_h8_json_bytes,
+    h8_current_candidate_result_payload,
+    h8_current_refs_registry_payload,
+)
 from vfe4.artifacts import (
+    CandidateArtifactReference,
     build_environment,
     build_provenance,
     canonical_json_bytes,
+    current_source_identity,
     publish_run_directory,
     source_candidate_sha256,
 )
+from vfe4.artifacts.provenance import (
+    build_h7_provenance,
+    build_h8_environment,
+    build_h8_provenance,
+)
 from vfe4.config import ResolvedConfig, resolve_config
-from vfe4.types import GateResult, GateStatus, H3GateResult, H4GateResult
+from vfe4.types import (
+    GateResult,
+    GateStatus,
+    H3GateResult,
+    H4GateResult,
+    H7GateResult,
+    H8GateResult,
+)
+from vfe4.types.h7 import H7PredecessorReference
+from vfe4.types.h8 import (
+    CurrentH8PrerequisiteRefs,
+    H8H1H5Reference,
+    H8H1PrefixPriorReference,
+    H8H6PredictionReference,
+    H8H6PrefixReference,
+    H8H7Reference,
+)
 from vfe4.validation import (
     H3_COUPLED_FIXTURE_PATH,
     H3_ZERO_CONTROL_FIXTURE_PATH,
+    H7_FIXTURE_PATH,
 )
 
 
@@ -52,12 +103,17 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 H5_UPDATE_SPEC_FIXTURE_PATH = (
     REPO_ROOT / "vfe4" / "validation" / "fixtures" / "h5_conditional_update_v1.json"
 )
+H8_PREREGISTRATION_PATH = (
+    REPO_ROOT / "docs" / "preregistrations" / "2026-07-21-h8-sparse-scale.md"
+)
 _ALLOWED_PREFIXES = (
     ("H1",),
     ("H1", "H2"),
     ("H1", "H2", "H3"),
     ("H1", "H2", "H3", "H4", "H5"),
 )
+_ALLOWED_RESULT_PREFIXES = (*_ALLOWED_PREFIXES, ("H7",))
+_ALLOWED_RESULT_PREFIXES = (*_ALLOWED_RESULT_PREFIXES, ("H8",))
 _PREDICTION_CORRECTNESS_GATES: tuple[
     Literal["H1", "H2", "H3", "H5"], ...
 ] = ("H1", "H2", "H3", "H5")
@@ -66,7 +122,15 @@ _LOWER_HEX = frozenset("0123456789abcdef")
 
 @dataclass(frozen=True)
 class VerificationRunResult:
-    gate_results: tuple[GateResult | H3GateResult | H4GateResult | H5GateResult, ...]
+    gate_results: tuple[
+        GateResult
+        | H3GateResult
+        | H4GateResult
+        | H5GateResult
+        | H7GateResult
+        | H8GateResult,
+        ...,
+    ]
     run_directory: Path
     prediction_correctness_artifacts: tuple[
         tuple[Literal["H1", "H2", "H3", "H5"], Path, str], ...
@@ -74,12 +138,22 @@ class VerificationRunResult:
 
     def __post_init__(self) -> None:
         if type(self.gate_results) is not tuple or not all(
-            isinstance(result, (GateResult, H3GateResult, H4GateResult, H5GateResult))
+            isinstance(
+                result,
+                (
+                    GateResult,
+                    H3GateResult,
+                    H4GateResult,
+                    H5GateResult,
+                    H7GateResult,
+                    H8GateResult,
+                ),
+            )
             for result in self.gate_results
         ):
             raise ValueError("gate_results must contain immutable gate results")
         gate_names = tuple(result.gate for result in self.gate_results)
-        if gate_names not in _ALLOWED_PREFIXES:
+        if gate_names not in _ALLOWED_RESULT_PREFIXES:
             raise ValueError("gate_results must contain an implemented ordered prefix")
         if not isinstance(self.run_directory, Path):
             raise ValueError("run_directory must be a Path")
@@ -125,6 +199,221 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace(
         "+00:00", "Z"
     )
+
+
+def candidate_artifact_reference_to_h7_reference(
+    candidate: CandidateArtifactReference,
+    *,
+    junit_sha256: str,
+    ledger_path: Path,
+    ledger_sha256: str,
+) -> H7PredecessorReference:
+    """Losslessly add the candidate JUnit/ledger binding required by H7."""
+
+    if type(candidate) is not CandidateArtifactReference:
+        raise ValueError("candidate must be an exact CandidateArtifactReference")
+    if not isinstance(ledger_path, Path):
+        raise ValueError("ledger_path must be a Path")
+    return H7PredecessorReference.create(
+        artifact_path=candidate.artifact_path.as_posix(),
+        git_head=candidate.git_head,
+        dirty_digest=candidate.dirty_digest,
+        junit_sha256=junit_sha256,
+        manifest_sha256=candidate.manifest_sha256,
+        payload_hashes=candidate.payload_hashes,
+        ledger_path=ledger_path.resolve(strict=False).as_posix(),
+        ledger_sha256=ledger_sha256,
+    )
+
+
+def h7_reference_registry_bytes(
+    references: Mapping[str, H7PredecessorReference],
+) -> bytes:
+    """Serialize the exact ordered H7 reference registry canonically."""
+
+    if (
+        not isinstance(references, Mapping)
+        or tuple(references) != H7_PREDECESSOR_KEYS
+        or any(
+            type(reference) is not H7PredecessorReference
+            for reference in references.values()
+        )
+    ):
+        raise ValueError("H7 registry must contain exact ordered references")
+    for reference in references.values():
+        reference.__post_init__()
+    return canonical_json_bytes(
+        {key: references[key] for key in H7_PREDECESSOR_KEYS}
+    )
+
+
+def parse_h7_reference_registry_bytes(
+    registry_bytes: bytes,
+) -> tuple[tuple[str, H7PredecessorReference], ...]:
+    """Decode once through CandidateArtifactReference and reject lossy bytes."""
+
+    if type(registry_bytes) is not bytes or not registry_bytes:
+        raise ValueError("H7 reference registry must be nonempty bytes")
+    try:
+        payload = json.loads(registry_bytes.decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("H7 reference registry is not UTF-8 JSON") from exc
+    if (
+        not isinstance(payload, dict)
+        or tuple(payload) != H7_PREDECESSOR_KEYS
+        or canonical_json_bytes(payload) != registry_bytes
+    ):
+        raise ValueError("H7 reference registry is not exact ordered canonical JSON")
+    expected_fields = {
+        "artifact_path",
+        "git_head",
+        "dirty_digest",
+        "junit_sha256",
+        "manifest_sha256",
+        "payload_hashes",
+        "ledger_path",
+        "ledger_sha256",
+        "reference_sha256",
+    }
+    entries: list[tuple[str, H7PredecessorReference]] = []
+    for key in H7_PREDECESSOR_KEYS:
+        raw = payload[key]
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != expected_fields
+            or not isinstance(raw["payload_hashes"], dict)
+        ):
+            raise ValueError(f"H7 reference registry entry is malformed: {key}")
+        candidate = CandidateArtifactReference(
+            artifact_path=Path(raw["artifact_path"]),
+            git_head=raw["git_head"],
+            dirty_digest=raw["dirty_digest"],
+            manifest_sha256=raw["manifest_sha256"],
+            payload_hashes=raw["payload_hashes"],
+        )
+        reference = candidate_artifact_reference_to_h7_reference(
+            candidate,
+            junit_sha256=raw["junit_sha256"],
+            ledger_path=Path(raw["ledger_path"]),
+            ledger_sha256=raw["ledger_sha256"],
+        )
+        if json.loads(canonical_json_bytes(reference)) != raw:
+            raise ValueError(f"H7 reference registry entry is lossy: {key}")
+        entries.append((key, reference))
+    references = {key: reference for key, reference in entries}
+    if h7_reference_registry_bytes(references) != registry_bytes:
+        raise ValueError("H7 reference registry changed during typed adaptation")
+    return tuple(entries)
+
+
+def parse_h8_reference_registry_bytes(
+    registry_bytes: bytes,
+) -> CurrentH8PrerequisiteRefs:
+    """Decode the exact current-candidate H8 registry without path discovery."""
+
+    if type(registry_bytes) is not bytes or not registry_bytes:
+        raise ValueError("H8 reference registry must be nonempty bytes")
+    try:
+        payload = json.loads(registry_bytes.decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("H8 reference registry is not strict UTF-8 JSON") from exc
+    if (
+        not isinstance(payload, dict)
+        or set(payload)
+        != {
+            "schema_version",
+            "candidate",
+            "h7_compatibility_refs",
+            "references",
+        }
+        or payload["schema_version"] != "h8-current-candidate-refs-v1"
+        or canonical_h8_json_bytes(payload) != registry_bytes
+    ):
+        raise ValueError("H8 reference registry is not exact canonical JSON")
+    candidate = payload["candidate"]
+    raw_compatibility = payload["h7_compatibility_refs"]
+    raw_references = payload["references"]
+    if (
+        not isinstance(candidate, dict)
+        or set(candidate) != {"git_head", "dirty_digest", "junit_sha256"}
+        or not isinstance(raw_compatibility, dict)
+        or not isinstance(raw_references, dict)
+    ):
+        raise ValueError("H8 reference registry has malformed identity sections")
+
+    compatibility_bytes = canonical_json_bytes(raw_compatibility)
+    compatibility = dict(parse_h7_reference_registry_bytes(compatibility_bytes))
+    common_fields = {
+        "kind",
+        "artifact_path",
+        "manifest_sha256",
+        "result_path",
+        "result_sha256",
+        "content_hashes",
+        "payload_hashes",
+        "ledger_path",
+        "ledger_sha256",
+        "producer_head",
+        "producer_dirty_digest",
+        "candidate_junit_sha256",
+        "status",
+    }
+    variants: tuple[tuple[str, type[object], set[str]], ...] = (
+        ("h1_h5", H8H1H5Reference, common_fields),
+        ("h1_prefix_prior", H8H1PrefixPriorReference, common_fields),
+        (
+            "h6_prefix",
+            H8H6PrefixReference,
+            common_fields | {"certificate_set_sha256", "certificate_hashes"},
+        ),
+        (
+            "h7",
+            H8H7Reference,
+            common_fields
+            | {
+                "result_pointer_path",
+                "result_pointer_sha256",
+                "fixture_set_sha256",
+            },
+        ),
+        (
+            "h6_prediction",
+            H8H6PredictionReference,
+            common_fields | {"experiment_sha256"},
+        ),
+    )
+    typed: dict[str, object] = {}
+    if set(raw_references) != {name for name, _, _ in variants}:
+        raise ValueError("H8 reference registry variant inventory is not exact")
+    for name, expected_type, expected_fields in variants:
+        raw = raw_references[name]
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != expected_fields
+            or not isinstance(raw["content_hashes"], dict)
+            or not isinstance(raw["payload_hashes"], dict)
+        ):
+            raise ValueError(f"H8 reference registry entry is malformed: {name}")
+        value = expected_type(**raw)
+        if json.loads(canonical_h8_json_bytes(value)) != raw:
+            raise ValueError(f"H8 reference registry entry is lossy: {name}")
+        typed[name] = value
+
+    refs = CurrentH8PrerequisiteRefs(
+        candidate_head=candidate["git_head"],
+        candidate_dirty_digest=candidate["dirty_digest"],
+        candidate_junit_sha256=candidate["junit_sha256"],
+        h7_compatibility_refs=compatibility,
+        h1_h5=typed["h1_h5"],  # type: ignore[arg-type]
+        h1_prefix_prior=typed["h1_prefix_prior"],  # type: ignore[arg-type]
+        h6_prefix=typed["h6_prefix"],  # type: ignore[arg-type]
+        h7=typed["h7"],  # type: ignore[arg-type]
+        h6_prediction=typed["h6_prediction"],  # type: ignore[arg-type]
+        registry_sha256=hashlib.sha256(registry_bytes).hexdigest(),
+    )
+    if canonical_h8_json_bytes(h8_current_refs_registry_payload(refs)) != registry_bytes:
+        raise ValueError("H8 reference registry changed during typed adaptation")
+    return refs
 
 
 def _run_name(timestamp: str, config_hash: str, gates: tuple[str, ...]) -> str:
@@ -471,6 +760,7 @@ def _combined_provenance(
     h5: H5GateEvaluation | None,
     started_utc: str,
     ended_utc: str,
+    candidate_junit_sha256: str | None,
 ) -> dict[str, object]:
     if h2 is not None and h1.fixture_observed_sha256 != h2.fixture_observed_sha256:
         raise ValueError("ordered legacy gates reported different fixture snapshots")
@@ -490,6 +780,7 @@ def _combined_provenance(
         started_utc=started_utc,
         ended_utc=ended_utc,
         gate_state=_aggregate_state(results).value,
+        candidate_junit_sha256=candidate_junit_sha256,
     )
     provenance["gate_states"] = {
         result.gate: result.status.value for result in results
@@ -626,15 +917,347 @@ def _combined_provenance(
     return provenance
 
 
+def run_h7_verification(config: ResolvedConfig) -> VerificationRunResult:
+    """Publish one reference-only H7 result without running predecessor gates."""
+
+    canonical = _canonical_config(config)
+    if canonical.validation.gates != H7_VERIFICATION_PREFIX or canonical.h7 is None:
+        raise ValueError("run_h7_verification requires the exact H7 operation")
+
+    started = _utc_now()
+    git_head_value, dirty_digest_value, source_sha256_value = current_source_identity(
+        REPO_ROOT,
+        canonical.artifacts.run_root,
+    )
+    registry_path = (
+        REPO_ROOT
+        / ".verification"
+        / f"h7-current-candidate-{git_head_value}-refs.json"
+    )
+    if (
+        not registry_path.is_file()
+        or registry_path.is_symlink()
+        or registry_path.parent.resolve(strict=False)
+        != (REPO_ROOT / ".verification").resolve(strict=False)
+    ):
+        raise ValueError(
+            "the exact current-candidate H7 reference registry is unavailable"
+        )
+    registry_bytes = registry_path.read_bytes()
+    predecessor_entries = parse_h7_reference_registry_bytes(registry_bytes)
+    references = {
+        key: reference for key, reference in predecessor_entries
+    }
+    junit_sha256 = predecessor_entries[0][1].junit_sha256
+
+    h1_fixture_bytes = FIXTURE_PATH.read_bytes()
+    h7_fixture_bytes = H7_FIXTURE_PATH.read_bytes()
+    captured_fixture_bytes = {
+        H7_CAPTURED_FIXTURE_PATHS[0]: h1_fixture_bytes,
+        H7_CAPTURED_FIXTURE_PATHS[1]: h7_fixture_bytes,
+    }
+    fixture_observed_sha256 = {
+        "h1_fixture_raw_sha256": hashlib.sha256(h1_fixture_bytes).hexdigest(),
+        "h7_fixture_raw_sha256": hashlib.sha256(h7_fixture_bytes).hexdigest(),
+        "density_probe_table_raw_sha256": (
+            canonical.h7.density_probe_table_raw_sha256
+        ),
+        "density_probe_set_sha256": canonical.h7.density_probe_set_sha256,
+    }
+    evaluation = assemble_h7_gate_evaluation(
+        repo_root=REPO_ROOT,
+        captured_fixture_bytes=captured_fixture_bytes,
+        predecessor_entries=predecessor_entries,
+        git_head=git_head_value,
+        dirty_digest=dirty_digest_value,
+        junit_sha256=junit_sha256,
+        scorer_profile=H7_ACTIVE_SCORER_PROFILE,
+        fixture_hashes={
+            "density_probe_table_raw_sha256": (
+                canonical.h7.density_probe_table_raw_sha256
+            ),
+            "density_probe_set_sha256": (
+                canonical.h7.density_probe_set_sha256
+            ),
+        },
+        trials=(),
+        controls=(),
+        oracle_obligations=H7_SOURCE_ONLY_OBLIGATIONS,
+    )
+    ended = _utc_now()
+    provenance = build_h7_provenance(
+        config=canonical,
+        evaluation=evaluation,
+        git_head_value=git_head_value,
+        dirty_digest_value=dirty_digest_value,
+        source_sha256_value=source_sha256_value,
+        junit_sha256=junit_sha256,
+        reference_registry_path=registry_path,
+        reference_registry_sha256=hashlib.sha256(registry_bytes).hexdigest(),
+        fixture_expected_sha256=H7_FROZEN_SOURCE_FIXTURE_HASHES,
+        fixture_observed_sha256=fixture_observed_sha256,
+        predecessor_references=references,
+        scorer_profile=H7_ACTIVE_SCORER_PROFILE,
+        nonclaims=H7_NONCLAIMS,
+        budget_constants={
+            "eps64": EPS64,
+            "rounding_constant": ROUNDING_CONSTANT,
+            "maximum_oracle_relative_delta": str(MAX_ORACLE_RELATIVE_DELTA),
+            "control_minimum_relative_residual": (
+                CONTROL_MINIMUM_RELATIVE_RESIDUAL
+            ),
+            "control_allowance_multiple": CONTROL_ALLOWANCE_MULTIPLE,
+            "policy": "category-and-operand-local-v1",
+        },
+        started_utc=started,
+        ended_utc=ended,
+    )
+    reference_payloads = {
+        f"references/{key}.json": json.loads(canonical_json_bytes(reference))
+        for key, reference in predecessor_entries
+    }
+    payloads = {
+        "config.json": _config_payload(canonical),
+        "provenance.json": provenance,
+        "environment.json": build_environment(canonical),
+        **reference_payloads,
+        "validation/h7.json": h7_validation_payload(evaluation),
+    }
+    run_directory = publish_run_directory(
+        canonical.artifacts.run_root,
+        _run_name(started, canonical.config_sha256, ("H7",)),
+        payloads,
+    )
+    return VerificationRunResult((evaluation.result,), run_directory)
+
+
+def _canonical_h8_config(config: object) -> ResolvedConfig:
+    if type(config) is not ResolvedConfig:
+        raise ValueError("H8 config must have exact type ResolvedConfig")
+    refs = config.h8_current_refs
+    if type(refs) is not CurrentH8PrerequisiteRefs:
+        raise ValueError("H8 config requires exact bound current references")
+    try:
+        raw = json.loads(config.canonical_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("H8 canonical config is not JSON") from exc
+    if not isinstance(raw, dict):
+        raise ValueError("H8 canonical config must be one object")
+    if (
+        canonical_h8_json_bytes(raw) != config.canonical_json.encode("utf-8")
+        or hashlib.sha256(config.canonical_json.encode("utf-8")).hexdigest()
+        != config.config_sha256
+        or raw.get("h8_current_refs")
+        != json.loads(canonical_h8_json_bytes(refs))
+    ):
+        raise ValueError("H8 canonical config lost its bound references")
+    refs.__post_init__()
+    return config
+
+
+def _h8_dependency_closure_sha256(
+    *,
+    source_sha256: str,
+    config_sha256: str,
+    registry_sha256: str,
+    preregistration_sha256: str,
+) -> str:
+    return hashlib.sha256(
+        canonical_h8_json_bytes(
+            {
+                "domain": "vfe4.h8.source-only-dependency-closure.v1",
+                "source_sha256": source_sha256,
+                "config_sha256": config_sha256,
+                "registry_sha256": registry_sha256,
+                "preregistration_sha256": preregistration_sha256,
+            }
+        )
+    ).hexdigest()
+
+
+def _h8_published_reference(
+    run_directory: Path,
+    *,
+    git_head_value: str,
+    dirty_digest_value: str,
+) -> CandidateArtifactReference:
+    manifest_path = run_directory / "manifest.sha256"
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise ValueError("published H8 artifact lacks a regular manifest")
+    manifest_bytes = manifest_path.read_bytes()
+    if not manifest_bytes.endswith(b"\n"):
+        raise ValueError("published H8 manifest is not newline terminated")
+    lines = manifest_bytes.decode("ascii", errors="strict").splitlines()
+    manifest_names = tuple(sorted(H8_PUBLICATION_PAYLOAD_KEYS))
+    if len(lines) != len(manifest_names):
+        raise ValueError("published H8 manifest inventory is not exact")
+    payload_hashes: dict[str, str] = {}
+    for expected_name, line in zip(manifest_names, lines, strict=True):
+        digest, separator, name = line.partition("  ")
+        if (
+            separator != "  "
+            or name != expected_name
+            or len(digest) != 64
+            or any(character not in _LOWER_HEX for character in digest)
+        ):
+            raise ValueError("published H8 manifest entry is invalid")
+        payload_path = run_directory / Path(*name.split("/"))
+        if (
+            not payload_path.is_file()
+            or payload_path.is_symlink()
+            or hashlib.sha256(payload_path.read_bytes()).hexdigest() != digest
+        ):
+            raise ValueError(f"published H8 payload hash mismatch: {name}")
+        payload_hashes[name] = digest
+    return CandidateArtifactReference(
+        artifact_path=run_directory,
+        git_head=git_head_value,
+        dirty_digest=dirty_digest_value,
+        manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        payload_hashes=payload_hashes,
+    )
+
+
+def run_h8_verification(
+    config: ResolvedConfig,
+    *,
+    registry_path: Path,
+    registry_bytes: bytes,
+) -> VerificationRunResult:
+    """Publish one H8-only source record without executing any predecessor/runtime."""
+
+    canonical = _canonical_h8_config(config)
+    refs = canonical.h8_current_refs
+    if (
+        canonical.validation.gates != H8_VERIFIER_PREFIX
+        or canonical.h8 is None
+        or type(refs) is not CurrentH8PrerequisiteRefs
+    ):
+        raise ValueError("run_h8_verification requires the exact bound H8 operation")
+
+    started = _utc_now()
+    git_head_value, dirty_digest_value, source_sha256_value = current_source_identity(
+        REPO_ROOT,
+        canonical.artifacts.run_root,
+    )
+    if (
+        refs.candidate_head != git_head_value
+        or refs.candidate_dirty_digest != dirty_digest_value
+    ):
+        raise ValueError("bound H8 references do not describe the current source")
+    expected_registry_path = (
+        REPO_ROOT
+        / ".verification"
+        / f"h8-current-candidate-{git_head_value}-refs.json"
+    ).resolve(strict=False)
+    if (
+        not isinstance(registry_path, Path)
+        or registry_path.resolve(strict=False) != expected_registry_path
+        or type(registry_bytes) is not bytes
+        or not registry_bytes
+        or hashlib.sha256(registry_bytes).hexdigest() != refs.registry_sha256
+        or registry_bytes
+        != canonical_h8_json_bytes(h8_current_refs_registry_payload(refs))
+    ):
+        raise ValueError("captured H8 registry differs from the bound current refs")
+    if (
+        not H8_PREREGISTRATION_PATH.is_file()
+        or H8_PREREGISTRATION_PATH.is_symlink()
+    ):
+        raise ValueError("H8 preregistration is unavailable")
+    preregistration_sha256 = hashlib.sha256(
+        H8_PREREGISTRATION_PATH.read_bytes()
+    ).hexdigest()
+    dependency_closure_sha256 = _h8_dependency_closure_sha256(
+        source_sha256=source_sha256_value,
+        config_sha256=canonical.config_sha256,
+        registry_sha256=refs.registry_sha256,
+        preregistration_sha256=preregistration_sha256,
+    )
+    evaluation = assemble_h8_gate_evaluation(
+        config_sha256=canonical.config_sha256,
+        current_refs=refs,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256=dependency_closure_sha256,
+        preregistration_sha256=preregistration_sha256,
+    )
+    ended = _utc_now()
+    environment = build_h8_environment(
+        config=canonical,
+        validation_environment=json.loads(
+            evaluation.validation_payload_canonical_json
+        )["environment"],
+    )
+    provenance = build_h8_provenance(
+        config=canonical,
+        evaluation=evaluation,
+        git_head_value=git_head_value,
+        dirty_digest_value=dirty_digest_value,
+        source_sha256_value=source_sha256_value,
+        reference_registry_path=registry_path,
+        reference_registry_sha256=refs.registry_sha256,
+        started_utc=started,
+        ended_utc=ended,
+    )
+    payloads = build_h8_publication_payloads(
+        canonical,
+        evaluation,
+        h7_reference=refs.h7,
+        h6_prediction_reference=refs.h6_prediction,
+        provenance=provenance,
+        environment=environment,
+    )
+    run_directory = publish_run_directory(
+        canonical.artifacts.run_root,
+        _run_name(started, canonical.config_sha256, ("H8",)),
+        payloads,
+    )
+    artifact = _h8_published_reference(
+        run_directory,
+        git_head_value=git_head_value,
+        dirty_digest_value=dirty_digest_value,
+    )
+    # Revalidate the complete published reference and construct the external
+    # pointer value in memory only. Task 8 owns its one-time external write.
+    h8_current_candidate_result_payload(
+        artifact,
+        repo_root=REPO_ROOT,
+        config_sha256=canonical.config_sha256,
+        validation_sha256=evaluation.validation_payload_sha256,
+        junit_sha256=refs.candidate_junit_sha256,
+        current_refs=refs,
+        evaluation=evaluation,
+        source_sha256=source_sha256_value,
+        registry_path=registry_path,
+        registry_bytes=registry_bytes,
+    )
+    return VerificationRunResult((evaluation.result,), run_directory)
+
+
 def run_verification(
     config: ResolvedConfig,
     *,
     publish_prediction_correctness: bool = False,
+    candidate_junit_sha256: str | None = None,
 ) -> VerificationRunResult:
     """Evaluate one implemented prefix from one capture set and publish once."""
 
     if type(publish_prediction_correctness) is not bool:
         raise ValueError("publish_prediction_correctness must be a boolean")
+    if candidate_junit_sha256 is not None and (
+        type(candidate_junit_sha256) is not str
+        or len(candidate_junit_sha256) != 64
+        or any(
+            character not in _LOWER_HEX
+            for character in candidate_junit_sha256
+        )
+    ):
+        raise ValueError(
+            "candidate_junit_sha256 must be None or lowercase 64-hex"
+        )
     canonical = _canonical_config(config)
     gates = canonical.validation.gates
     if gates not in _ALLOWED_PREFIXES:
@@ -739,6 +1362,7 @@ def run_verification(
         h5,
         started,
         ended,
+        candidate_junit_sha256,
     )
     payloads = {
         "config.json": _config_payload(canonical),
@@ -790,4 +1414,13 @@ def run_verification(
     )
 
 
-__all__ = ["VerificationRunResult", "run_verification"]
+__all__ = [
+    "VerificationRunResult",
+    "candidate_artifact_reference_to_h7_reference",
+    "h7_reference_registry_bytes",
+    "parse_h8_reference_registry_bytes",
+    "parse_h7_reference_registry_bytes",
+    "run_h7_verification",
+    "run_h8_verification",
+    "run_verification",
+]
