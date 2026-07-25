@@ -82,7 +82,7 @@ def _structure(horizon: int) -> H6LanguageStructure:
 def _arm_config(*, vocabulary: VocabularyIdentity, horizon: int, width: int) -> ArmConfig:
     return ArmConfig.create(
         arm=ArmId.A0,
-        config_id="h6-a0-ar-v1",
+        config_id="h6-a0-transformer-v2",
         vocabulary=vocabulary,
         horizon=horizon,
         latent_enabled=False,
@@ -104,11 +104,16 @@ def _arm_config(*, vocabulary: VocabularyIdentity, horizon: int, width: int) -> 
 
 
 def _model_family_sha256(config: ArmConfig) -> str:
+    factory = (
+        "build_a0@h6-arm-v2"
+        if config.arm is ArmId.A0
+        else f"build_{config.arm.value.lower()}@h6-arm-v1"
+    )
     return _owned_hash(
         "vfe4.h6.arm-model-family.v1",
         {
             "config_sha256": config.config_sha256,
-            "factory": f"build_{config.arm.value.lower()}@h6-arm-v1",
+            "factory": factory,
         },
     )
 
@@ -324,7 +329,7 @@ def test_h6_prefix_reports_bind_status_and_publish_only_the_independent_artifact
         vocabulary=small_vocabulary, horizon=4, width=4
     )
     production_config = _arm_config(
-        vocabulary=production_vocabulary, horizon=32, width=8
+        vocabulary=production_vocabulary, horizon=32, width=52
     )
     estimator = EstimatorSpec.create(
         kind="weighted_smc",

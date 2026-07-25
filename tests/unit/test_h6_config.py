@@ -91,7 +91,7 @@ def _arm_config(*, vocabulary_size: int, horizon: int) -> ArmConfig:
     )
     return ArmConfig.create(
         arm=ArmId.A0,
-        config_id="h6-a0-ar-v1",
+        config_id="h6-a0-transformer-v2",
         vocabulary=vocabulary,
         horizon=horizon,
         latent_enabled=False,
@@ -105,7 +105,7 @@ def _arm_config(*, vocabulary_size: int, horizon: int) -> ArmConfig:
         mixture_mode="absent",
         objective_kind="cross_entropy",
         capacity_allocation=CapacityAllocation.create(
-            emission_width=48 if vocabulary_size == 3 else 64,
+            emission_width=48 if vocabulary_size == 3 else 52,
             latent_width=None,
             recognition_width=None,
         ),
@@ -131,7 +131,7 @@ def _profile(particle_count: int) -> dict[str, object]:
         + canonical_json_bytes(
             {
                 "config_sha256": small.config_sha256,
-                "factory": "build_a0@h6-arm-v1",
+                "factory": "build_a0@h6-arm-v2",
             }
         )
     ).hexdigest()
@@ -140,7 +140,7 @@ def _profile(particle_count: int) -> dict[str, object]:
         + canonical_json_bytes(
             {
                 "config_sha256": production.config_sha256,
-                "factory": "build_a0@h6-arm-v1",
+                "factory": "build_a0@h6-arm-v2",
             }
         )
     ).hexdigest()

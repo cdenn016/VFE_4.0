@@ -38,7 +38,7 @@ def _exact_records() -> tuple[
         dirty_digest=SHA_A,
         readiness_sha256=SHA_B,
         arm=ArmId.A0,
-        config_id="h6-a0-ar-v1",
+        config_id="h6-a0-transformer-v2",
         endpoint_config_sha256=SHA_A,
         latent_enabled=False,
         objective_kind="cross_entropy",

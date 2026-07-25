@@ -24,8 +24,9 @@ from vfe4.predictive import (
 )
 from vfe4.training.arms import (
     ArmConfig,
-    CausalAutoregressiveModel,
+    H6CausalTransformer,
     LatentLanguageArmModel,
+    MeanPooledPrefixFloor,
     literal_arm_semantic_payload,
 )
 from vfe4.types import (
@@ -1407,11 +1408,16 @@ def _signature_and_identity_assessment(
         estimator_identity.__post_init__()
     except ValueError as exc:
         return EvidenceStatus.FAIL, f"predictor identity integrity failed: {exc}"
+    factory = (
+        "build_a0@h6-arm-v2"
+        if arm_config.arm is ArmId.A0
+        else f"build_{arm_config.arm.value.lower()}@h6-arm-v1"
+    )
     expected_family_sha256 = _owned_hash(
         "vfe4.h6.arm-model-family.v1",
         {
             "config_sha256": arm_config.config_sha256,
-            "factory": f"build_{arm_config.arm.value.lower()}@h6-arm-v1",
+            "factory": factory,
         },
     )
     if arm_config.latent_enabled:
@@ -1424,15 +1430,16 @@ def _signature_and_identity_assessment(
             and model.model_channel_enabled is arm_config.model_channel_enabled
         )
     else:
-        expected_label = (
-            "a0_autoregressive"
-            if arm_config.arm is ArmId.A0
-            else "a5_nolatent_norecognition"
-        )
-        model_matches = (
-            type(model) is CausalAutoregressiveModel
-            and model.family_label == expected_label
-        )
+        if arm_config.arm is ArmId.A0:
+            model_matches = (
+                type(model) is H6CausalTransformer
+                and model.family_label == "a0_causal_transformer"
+            )
+        else:
+            model_matches = (
+                type(model) is MeanPooledPrefixFloor
+                and model.family_label == "a5_mean_pooled_nolatent_floor"
+            )
     if (
         not model_matches
         or key.arm is not arm_config.arm

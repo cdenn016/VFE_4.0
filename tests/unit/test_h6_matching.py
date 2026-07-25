@@ -70,9 +70,9 @@ def _config(arm: ArmId, *, emission_width: int = 64) -> ArmConfig:
     if arm is ArmId.A0:
         return ArmConfig.create(
             arm=arm,
-            config_id="h6-a0-ar-v1",
+            config_id="h6-a0-transformer-v2",
             vocabulary=_vocabulary(),
-            horizon=2,
+            horizon=4,
             latent_enabled=False,
             state_channel_enabled=False,
             model_channel_enabled=False,
@@ -85,7 +85,9 @@ def _config(arm: ArmId, *, emission_width: int = 64) -> ArmConfig:
             objective_kind="cross_entropy",
             capacity_allocation=_allocation(
                 latent=False,
-                emission_width=emission_width,
+                emission_width=(
+                    48 if emission_width == 64 else emission_width
+                ),
             ),
         )
     return ArmConfig.create(

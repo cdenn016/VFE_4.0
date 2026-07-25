@@ -479,7 +479,7 @@ class EndpointFormulaProfile:
 
 
 _ENDPOINT_PROFILE_FIELDS: dict[str, tuple[object, ...]] = {
-    "h6-a0-ar-v1": (
+    "h6-a0-transformer-v2": (
         "A0", False, 0, "absent", "absent", "absent", "absent",
         "absent", "absent", "cross_entropy",
     ),
@@ -674,8 +674,8 @@ def _matrix_row(
 ARM_MATRIX_ROWS = (
     _matrix_row(
         row_id="PRIMARY",
-        left_config_id="h6-a0-ar-v1",
-        left_factory_id="build_a0@h6-arm-v1",
+        left_config_id="h6-a0-transformer-v2",
+        left_factory_id="build_a0@h6-arm-v2",
         right_config_id=_A5_CONFIG_ID,
         right_factory_id=_A5_FACTORY_ID,
         named_factor="whole_declared_architecture",
@@ -1139,6 +1139,55 @@ def _ar_objective_costs(
     }
 
 
+def _a0_transformer_objective_costs(
+    *,
+    vocabulary_size: int,
+    horizon: int,
+    hidden_width: int,
+    attention_heads: int = 2,
+) -> dict[str, int]:
+    """Return the amended one-block A0 forward arithmetic per window."""
+
+    if hidden_width % attention_heads:
+        raise ValueError("H6 A0 requires equal-width attention heads")
+    causal_pairs = horizon * (horizon + 1) // 2
+    return {
+        "a0_bos_token_lookup_and_position_addition": (
+            horizon * hidden_width
+        ),
+        "a0_three_affine_layer_norms": (
+            horizon * (21 * hidden_width + 6)
+        ),
+        "a0_biased_qkv_projection": (
+            horizon * (6 * hidden_width**2 + 3 * hidden_width)
+        ),
+        "a0_causal_qk_and_av": 4 * causal_pairs * hidden_width,
+        "a0_two_head_causal_softmax": (
+            attention_heads * (4 * causal_pairs - horizon)
+        ),
+        "a0_biased_attention_output": (
+            horizon * (2 * hidden_width**2 + hidden_width)
+        ),
+        "a0_two_residual_additions": 2 * horizon * hidden_width,
+        "a0_biased_mlp_input": (
+            horizon * (8 * hidden_width**2 + 4 * hidden_width)
+        ),
+        "a0_tanh_gelu": 9 * horizon * 4 * hidden_width,
+        "a0_biased_mlp_output": (
+            horizon * (8 * hidden_width**2 + hidden_width)
+        ),
+        "a0_biased_untied_decoder": (
+            horizon
+            * (
+                2 * vocabulary_size * hidden_width
+                + vocabulary_size
+            )
+        ),
+        "a0_log_softmax": horizon * (5 * vocabulary_size - 1),
+        "a0_target_nll": horizon,
+    }
+
+
 def _latent_objective_costs(
     profile: EndpointFormulaProfile,
     *,
@@ -1341,12 +1390,25 @@ def analytical_training_flop_ledger(
         horizon=horizon,
     )
     terms: list[FlopTerm] = []
+    obligations: tuple[str, ...] = ()
     if not profile.latent_enabled:
-        objective_costs = _ar_objective_costs(
-            vocabulary_size=vocabulary_size,
-            horizon=horizon,
-            emission_width=allocation.emission_width,
-        )
+        if profile.arm == "A0":
+            objective_costs = _a0_transformer_objective_costs(
+                vocabulary_size=vocabulary_size,
+                horizon=horizon,
+                hidden_width=allocation.emission_width,
+            )
+            obligations = (
+                "freeze SDPA score-scale arithmetic in the production ledger",
+                "replace generic two-times-forward backward accounting with "
+                "operator-specific embedding and SDPA backward terms",
+            )
+        else:
+            objective_costs = _ar_objective_costs(
+                vocabulary_size=vocabulary_size,
+                horizon=horizon,
+                emission_width=allocation.emission_width,
+            )
         terms.extend(
             _phase_terms(
                 phase=TrainingPhase.MODEL_CE_ADAMW,
@@ -1417,6 +1479,7 @@ def analytical_training_flop_ledger(
         allocation=allocation,
         workload=workload,
         terms=tuple(terms),
+        obligations=obligations,
     )
 
 

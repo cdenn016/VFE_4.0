@@ -37,6 +37,11 @@ from vfe4.training.arms import (
     build_arm,
     shared_a2_a5_semantic_payload,
 )
+from vfe4.training.h6_transformer import (
+    H6A0ArchitectureProfile,
+    H6CausalTransformer,
+    H6ScaledDotProductAttention,
+)
 from vfe4.training.matching import stable_parameter_key
 from vfe4.types import ArmId, TrainingPhase, VocabularyIdentity
 
@@ -58,7 +63,7 @@ _FIELDS = (
 )
 _SEMANTICS = {
     ArmId.A0: (
-        "h6-a0-ar-v1",
+        "h6-a0-transformer-v2",
         False,
         False,
         False,
@@ -142,13 +147,86 @@ def _vocabulary() -> VocabularyIdentity:
     return VocabularyIdentity("h6-task7-small-v1", 3, _SHA)
 
 
+def _transformer_vocabulary() -> VocabularyIdentity:
+    return VocabularyIdentity("h6-byte-v1", 258, _SHA)
+
+
+def test_a0_transformer_is_order_sensitive_and_future_blind() -> None:
+    model = H6CausalTransformer(
+        vocabulary=_transformer_vocabulary(),
+        profile=H6A0ArchitectureProfile.create(),
+    )
+    model.eval()
+
+    first = CausalPrefix.create(
+        receiver_t=4,
+        vocabulary=_transformer_vocabulary(),
+        token_ids=torch.tensor([1, 2, 1], dtype=torch.int64),
+    )
+    reordered = CausalPrefix.create(
+        receiver_t=4,
+        vocabulary=_transformer_vocabulary(),
+        token_ids=torch.tensor([1, 1, 2], dtype=torch.int64),
+    )
+    order_delta = torch.max(
+        torch.abs(
+            model.prefix_log_probs(first)
+            - model.prefix_log_probs(reordered)
+        )
+    ).item()
+    assert order_delta > 1.0e-8
+
+    left = model.sequence_log_probs(
+        torch.tensor([1, 2, 3, 4, 5], dtype=torch.int64)
+    )
+    right = model.sequence_log_probs(
+        torch.tensor([1, 2, 9, 8, 7], dtype=torch.int64)
+    )
+    assert torch.equal(left[:3], right[:3])
+
+
+def test_a0_transformer_inventory_is_exact() -> None:
+    profile = H6A0ArchitectureProfile.create()
+    model = H6CausalTransformer(
+        vocabulary=_transformer_vocabulary(),
+        profile=profile,
+    )
+
+    assert sum(
+        parameter.numel()
+        for parameter in model.parameters()
+        if parameter.requires_grad
+    ) == 61_982
+    assert profile.hidden_width % profile.attention_heads == 0
+    assert sum(
+        isinstance(module, H6ScaledDotProductAttention)
+        for module in model.modules()
+    ) == 1
+    assert sum(
+        isinstance(module, torch.nn.LayerNorm)
+        for module in model.modules()
+    ) == 3
+    assert model.token_embedding.weight.shape == (258, 52)
+    assert model.position_embedding.weight.shape == (32, 52)
+    assert model.qkv_projection.weight.shape == (156, 52)
+    assert model.attention_output.weight.shape == (52, 52)
+    assert model.mlp_input.weight.shape == (208, 52)
+    assert model.mlp_output.weight.shape == (52, 208)
+    assert model.decoder.weight.shape == (258, 52)
+    assert (
+        model.token_embedding.weight.untyped_storage().data_ptr()
+        != model.decoder.weight.untyped_storage().data_ptr()
+    )
+
+
 def _config(arm: ArmId, **changes: object) -> ArmConfig:
     values = dict(zip(_FIELDS, _SEMANTICS[arm], strict=True))
     values.update(changes)
     latent = values["latent_enabled"] is True
     recognized = values["recognition_family"] != "absent"
+    a0 = arm is ArmId.A0
     allocation = CapacityAllocation.create(
-        emission_width=48,
+        emission_width=52 if a0 else 48,
         latent_width=8 if latent else None,
         recognition_width=32 if recognized else None,
         prior_context_width=(
@@ -157,8 +235,8 @@ def _config(arm: ArmId, **changes: object) -> ArmConfig:
     )
     return ArmConfig.create(
         arm=arm,
-        vocabulary=_vocabulary(),
-        horizon=2,
+        vocabulary=_transformer_vocabulary() if a0 else _vocabulary(),
+        horizon=32 if a0 else 2,
         capacity_allocation=allocation,
         **values,
     )
@@ -197,7 +275,7 @@ def test_explicit_factories_construct_the_six_literal_families(
     a0, a1, a2, a3, a4, a5 = (arms[arm] for arm in ArmId)
     assert a0.recognition_store is None
     assert not a0.config.latent_enabled
-    assert "autoregressive" in _role_text(a0)
+    assert "causal_transformer" in _role_text(a0)
     assert all(
         marker not in _role_text(a0)
         for marker in ("latent", "source_bank", "recognition", "edge_map")
@@ -281,7 +359,7 @@ def test_explicit_factories_construct_the_six_literal_families(
             builder(_config(arm_id, **change))
 
     # Present capacity fields determine live tensor shapes.
-    assert a0.model.token_embedding.weight.shape[1] == 48
+    assert a0.model.token_embedding.weight.shape[1] == 52
     assert a5.model.emission_state_projection.shape == (48, 8)
     assert a5.recognition_store.token_embedding.weight.shape[1] == 32
     assert tuple(a1.elbo_factor_inventory) != tuple(a5.elbo_factor_inventory)
@@ -297,11 +375,11 @@ def test_explicit_factories_construct_the_six_literal_families(
 
     prefix = CausalPrefix.create(
         receiver_t=2,
-        vocabulary=_vocabulary(),
+        vocabulary=_transformer_vocabulary(),
         token_ids=torch.tensor([1], dtype=torch.int64),
     )
     log_probs = a0.model.prefix_log_probs(prefix)
-    assert log_probs.shape == (3,)
+    assert log_probs.shape == (258,)
     assert log_probs.dtype is torch.float64
     assert torch.logsumexp(log_probs, 0).item() == pytest.approx(
         0.0, abs=1e-14
@@ -448,7 +526,7 @@ def test_matrix_rows_freeze_literal_interventions_and_nonclaims() -> None:
     expected = (
         (
             "PRIMARY",
-            "h6-a0-ar-v1",
+            "h6-a0-transformer-v2",
             "whole_declared_architecture",
             "equal_grid",
             "primary",

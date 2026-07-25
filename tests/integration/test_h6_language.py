@@ -17,7 +17,7 @@ from vfe4.predictive import (
 from vfe4.recognition import RecognitionConditioning
 from vfe4.training.arms import (
     ArmTargetFreeProposalAdapter,
-    CausalAutoregressiveModel,
+    MeanPooledPrefixFloor,
     build_a5,
 )
 from vfe4.training.language import (
@@ -104,7 +104,7 @@ _FIELDS = (
 )
 _SEMANTICS = {
     ArmId.A0: (
-        "h6-a0-ar-v1",
+        "h6-a0-transformer-v2",
         False,
         False,
         False,
@@ -323,10 +323,9 @@ class _RecordingPredictor:
 
 def test_tiny_prior_scorer_is_certificate_bound_and_target_blind() -> None:
     vocabulary = VocabularyIdentity("h6-v3-test", 3, SHA_A)
-    model = CausalAutoregressiveModel(
+    model = MeanPooledPrefixFloor(
         vocabulary=vocabulary,
         emission_width=4,
-        family_label="a0_autoregressive",
     )
     proposal = ArmTargetFreeProposalAdapter(
         model=model,
@@ -352,7 +351,7 @@ def test_tiny_prior_scorer_is_certificate_bound_and_target_blind() -> None:
     )
     certificate = PrefixCertificate.create(
         key=PrefixCaseKey(
-            arm=ArmId.A0,
+            arm=ArmId.A5,
             predictor_config_sha256=SHA_B,
             estimator_sha256=estimator_spec.estimator_sha256,
             model_family_sha256=SHA_C,

@@ -67,6 +67,11 @@ from .matching import (
     arm_matrix_sha256,
     stable_parameter_key,
 )
+from .h6_transformer import (
+    H6A0ArchitectureProfile,
+    H6A0ValidationProfile,
+    H6CausalTransformer,
+)
 
 
 Channel = Literal["state", "model"]
@@ -97,7 +102,7 @@ _SEMANTIC_FIELDS = (
     "objective_kind",
 )
 _BASE_PROFILE_IDS = {
-    ArmId.A0: "h6-a0-ar-v1",
+    ArmId.A0: "h6-a0-transformer-v2",
     ArmId.A1: "h6-a1-ordinary-latent-v1",
     ArmId.A2: "h6-a2-generic-map-v1",
     ArmId.A3: "h6-a3-immediate-predecessor-v1",
@@ -207,15 +212,14 @@ def _exact_prefix(
     return prefix
 
 
-class CausalAutoregressiveModel(nn.Module):
-    """Normalized conventional AR categorical model used by A0/no-latent."""
+class MeanPooledPrefixFloor(nn.Module):
+    """Order-invariant no-latent descriptive floor, never primary H6 A0."""
 
     def __init__(
         self,
         *,
         vocabulary: VocabularyIdentity,
         emission_width: int,
-        family_label: str,
     ) -> None:
         super().__init__()
         if type(vocabulary) is not VocabularyIdentity:
@@ -225,7 +229,8 @@ class CausalAutoregressiveModel(nn.Module):
             raise ValueError("emission_width must be a positive integer")
         self.vocabulary = vocabulary
         self.emission_width = emission_width
-        self.family_label = family_label
+        self.arm = ArmId.A5
+        self.family_label = "a5_mean_pooled_nolatent_floor"
         self.token_embedding = nn.Embedding(
             vocabulary.size, emission_width, dtype=torch.float64
         )
@@ -252,7 +257,7 @@ class CausalAutoregressiveModel(nn.Module):
         self.elbo_inventory_sha256 = _owned_hash(
             "vfe4.h6.arm-elbo-inventory.v1",
             {
-                "family": family_label,
+                "family": self.family_label,
                 "partitions": self.elbo_factor_inventory,
             },
         )
@@ -769,7 +774,13 @@ class LatentLanguageArmModel(nn.Module):
         return torch.log_softmax(logits, dim=0)
 
 
-ArmModel = CausalAutoregressiveModel | LatentLanguageArmModel
+ArmModel = (
+    H6CausalTransformer | MeanPooledPrefixFloor | LatentLanguageArmModel
+)
+
+
+def _is_autoregressive_model(model: object) -> bool:
+    return type(model) in (H6CausalTransformer, MeanPooledPrefixFloor)
 
 
 class ArmTargetFreeProposalAdapter:
@@ -784,7 +795,8 @@ class ArmTargetFreeProposalAdapter:
         model_family_sha256: str,
     ) -> None:
         if type(model) not in (
-            CausalAutoregressiveModel,
+            H6CausalTransformer,
+            MeanPooledPrefixFloor,
             LatentLanguageArmModel,
         ):
             raise ValueError("unsupported exact arm model")
@@ -838,7 +850,8 @@ class ArmTargetFreeProposalAdapter:
             vocabulary=self.vocabulary,
             maximum_receiver=(
                 self.model.horizon
-                if type(self.model) is LatentLanguageArmModel
+                if type(self.model)
+                in (H6CausalTransformer, LatentLanguageArmModel)
                 else None
             ),
         )
@@ -849,7 +862,7 @@ class ArmTargetFreeProposalAdapter:
         if type(particle_count) is not int or particle_count <= 0:
             raise ValueError("particle_count must be a positive integer")
 
-        if type(self.model) is CausalAutoregressiveModel:
+        if _is_autoregressive_model(self.model):
             return (
                 ProposalPopulation.create(
                     {
@@ -980,14 +993,15 @@ class ArmTargetFreeProposalAdapter:
             vocabulary=self.vocabulary,
             maximum_receiver=(
                 self.model.horizon
-                if type(self.model) is LatentLanguageArmModel
+                if type(self.model)
+                in (H6CausalTransformer, LatentLanguageArmModel)
                 else None
             ),
         )
         if type(estimator_rng) is not EstimatorStream:
             raise ValueError("estimator_rng must be an exact EstimatorStream")
 
-        if type(self.model) is CausalAutoregressiveModel:
+        if _is_autoregressive_model(self.model):
             marker = population.component("autoregressive_history_marker")
             emissions = self.model.prefix_log_probs(checked).repeat(
                 population.particle_count, 1
@@ -1372,6 +1386,8 @@ class BuiltArm:
 
 
 def _semantic_role(config: ArmConfig, qualified_name: str) -> str:
+    if config.arm is ArmId.A0:
+        return "a0_causal_transformer_parameter"
     if qualified_name.startswith("source_prior."):
         if "state_source" in qualified_name:
             return f"{config.prior_variant}_categorical_state_source_bank"
@@ -1538,11 +1554,16 @@ def _training_flop_obligations(
 
 
 def _model_family_sha256(config: ArmConfig) -> str:
+    factory = (
+        "build_a0@h6-arm-v2"
+        if config.arm is ArmId.A0
+        else f"build_{config.arm.value.lower()}@h6-arm-v1"
+    )
     return _owned_hash(
         "vfe4.h6.arm-model-family.v1",
         {
             "config_sha256": config.config_sha256,
-            "factory": f"build_{config.arm.value.lower()}@h6-arm-v1",
+            "factory": factory,
         },
     )
 
@@ -1593,15 +1614,44 @@ def _require_builder_arm(config: ArmConfig, arm: ArmId) -> None:
 def _construct(config: ArmConfig) -> BuiltArm:
     allocation = config.capacity_allocation
     family_sha256 = _model_family_sha256(config)
-    if not config.latent_enabled:
-        model: ArmModel = CausalAutoregressiveModel(
+    if config.arm is ArmId.A0:
+        primary_profile = H6A0ArchitectureProfile.create()
+        primary_shape = (
+            primary_profile.vocabulary_size,
+            primary_profile.position_capacity,
+            primary_profile.hidden_width,
+        )
+        config_shape = (
+            config.vocabulary.size,
+            config.horizon,
+            allocation.emission_width,
+        )
+        if config_shape == primary_shape:
+            profile = primary_profile
+        elif (
+            config.vocabulary.size in (3, 258)
+            and config.horizon == 4
+            and allocation.emission_width in (4, 48)
+        ):
+            profile = H6A0ValidationProfile.create(
+                vocabulary_size=config.vocabulary.size,
+                position_capacity=config.horizon,
+                hidden_width=allocation.emission_width,
+            )
+        else:
+            raise ValueError(
+                "H6 A0 production config must use V=258, horizon 32, "
+                "and hidden width 52"
+            )
+        model: ArmModel = H6CausalTransformer(
+            vocabulary=config.vocabulary,
+            profile=profile,
+        )
+        recognition_store = None
+    elif not config.latent_enabled:
+        model = MeanPooledPrefixFloor(
             vocabulary=config.vocabulary,
             emission_width=allocation.emission_width,
-            family_label=(
-                "a0_autoregressive"
-                if config.arm is ArmId.A0
-                else "a5_nolatent_norecognition"
-            ),
         )
         recognition_store = None
     else:
@@ -1718,9 +1768,12 @@ __all__ = [
     "ArmTargetFreeProposalAdapter",
     "BuiltArm",
     "CapacityAllocation",
-    "CausalAutoregressiveModel",
+    "H6A0ArchitectureProfile",
+    "H6A0ValidationProfile",
+    "H6CausalTransformer",
     "H6_TARGET_FREE_DATA_SAFETY_SHA256",
     "LatentLanguageArmModel",
+    "MeanPooledPrefixFloor",
     "MatchingReport",
     "arm_matrix_sha256",
     "build_a0",

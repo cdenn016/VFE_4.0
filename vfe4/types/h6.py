@@ -326,7 +326,7 @@ _H6_OBJECTIVE_KINDS = frozenset(
     {"cross_entropy", "complete_elbo", "emission_only_ablation_non_elbo"}
 )
 _H6_ARM_PROFILE_BY_CONFIG_ID = {
-    "h6-a0-ar-v1": (
+    "h6-a0-transformer-v2": (
         ArmId.A0, False, False, False, "absent", "absent", "absent",
         "absent", "absent", "absent", "cross_entropy",
     ),
@@ -2649,11 +2649,16 @@ def _arm_model_family_sha256(config: ArmConfig) -> str:
     if type(config) is not ArmConfig:
         raise ValueError("config must be an exact ArmConfig")
     config.__post_init__()
+    factory = (
+        "build_a0@h6-arm-v2"
+        if config.arm is ArmId.A0
+        else f"build_{config.arm.value.lower()}@h6-arm-v1"
+    )
     return _owned_hash(
         "vfe4.h6.arm-model-family.v1",
         {
             "config_sha256": config.config_sha256,
-            "factory": f"build_{config.arm.value.lower()}@h6-arm-v1",
+            "factory": factory,
         },
     )
 
@@ -2722,9 +2727,14 @@ class H6PrefixProfilePair:
             production.vocabulary.vocabulary_id != "wikitext-2-byte-v1"
             or production.vocabulary.size != 258
             or production.horizon != 32
+            or (
+                production.arm is ArmId.A0
+                and production.capacity_allocation.emission_width != 52
+            )
         ):
             raise ValueError(
-                "production Prefix profile must be exactly V=258,T=32"
+                "production Prefix profile must be exactly V=258,T=32 "
+                "and H6 A0 must use hidden width 52"
             )
         for label, structure, horizon in (
             ("small", self.small_structure, 4),

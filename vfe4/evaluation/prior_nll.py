@@ -104,8 +104,8 @@ def _validate_scoring_contract(
     model_arm = getattr(model, "arm", None)
     if model_arm is None:
         model_arm = {
-            "a0_autoregressive": ArmId.A0,
-            "a5_nolatent_norecognition": ArmId.A5,
+            "a0_causal_transformer": ArmId.A0,
+            "a5_mean_pooled_nolatent_floor": ArmId.A5,
         }.get(getattr(model, "family_label", None))
     if type(model_arm) is not ArmId or key.arm is not model_arm:
         raise ValueError("PrefixCertificate arm does not match the predictor")

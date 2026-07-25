@@ -126,6 +126,46 @@ def prefix_conditioned_source_prior_parameter_count(
     )
 
 
+def h6_a0_parameter_count(
+    *,
+    vocabulary_size: int,
+    position_capacity: int,
+    hidden_width: int,
+) -> int:
+    """Count the amended one-block, two-equal-head H6 A0 Transformer."""
+
+    vocabulary_size = _positive_int(vocabulary_size, "vocabulary_size")
+    position_capacity = _positive_int(
+        position_capacity, "position_capacity"
+    )
+    hidden_width = _positive_int(hidden_width, "hidden_width")
+    if hidden_width % 2:
+        raise ValueError("H6 A0 hidden width must split into two equal heads")
+    return (
+        2 * vocabulary_size * hidden_width
+        + position_capacity * hidden_width
+        + 12 * hidden_width * hidden_width
+        + 15 * hidden_width
+        + vocabulary_size
+    )
+
+
+def mean_pooled_no_latent_parameter_count(
+    *,
+    vocabulary_size: int,
+    emission_width: int,
+) -> int:
+    """Count the descriptive mean-pooled no-latent floor."""
+
+    vocabulary_size = _positive_int(vocabulary_size, "vocabulary_size")
+    emission_width = _positive_int(emission_width, "emission_width")
+    return (
+        2 * vocabulary_size * emission_width
+        + emission_width
+        + vocabulary_size
+    )
+
+
 def arm_parameter_count(
     arm: ArmName,
     *,
@@ -153,15 +193,20 @@ def arm_parameter_count(
         and latent_width is None
         and recognition_width is None
     )
-    if arm == "A0" or no_latent_a5:
+    if arm == "A0":
         if latent_width is not None or recognition_width is not None:
             raise ValueError(
                 "no-latent arms have no latent or recognition width"
             )
-        return (
-            2 * vocabulary_size * emission_width
-            + emission_width
-            + vocabulary_size
+        return h6_a0_parameter_count(
+            vocabulary_size=vocabulary_size,
+            position_capacity=horizon,
+            hidden_width=emission_width,
+        )
+    if no_latent_a5:
+        return mean_pooled_no_latent_parameter_count(
+            vocabulary_size=vocabulary_size,
+            emission_width=emission_width,
         )
     if latent_width is None or recognition_width is None:
         raise ValueError("latent arms require latent and recognition widths")
@@ -358,9 +403,9 @@ def outcome_blind_feasibility_assessments(
     )
     return (
         _available_assessment(
-            config_id="h6-a0-ar-v1",
+            config_id="h6-a0-transformer-v2",
             arm="A0",
-            emission_width=123,
+            emission_width=52,
             latent_width=None,
             recognition_width=None,
         ),
@@ -474,6 +519,8 @@ __all__ = [
     "ParameterCountAssessment",
     "arm_parameter_count",
     "fixed_source_prior_parameter_count",
+    "h6_a0_parameter_count",
+    "mean_pooled_no_latent_parameter_count",
     "outcome_blind_feasibility_assessments",
     "parameter_count_within_tolerance",
     "prefix_conditioned_source_prior_parameter_count",

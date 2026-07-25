@@ -54,7 +54,7 @@ from vfe4.types.h6 import (
 
 
 H6_MATCHING_ENDPOINT_LAYOUT: tuple[tuple[str, str], ...] = (
-    ("h6-a0-ar-v1", "build_a0@h6-arm-v1"),
+    ("h6-a0-transformer-v2", "build_a0@h6-arm-v2"),
     ("h6-a1-ordinary-latent-v1", "build_a1@h6-arm-v1"),
     ("h6-a2-generic-map-v1", "build_a2@h6-arm-v1"),
     ("h6-a3-immediate-predecessor-v1", "build_a3@h6-arm-v1"),

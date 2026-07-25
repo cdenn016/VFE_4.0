@@ -68,7 +68,7 @@ def _arm_config(
     )
     if arm is ArmId.A0:
         semantics = {
-            "config_id": "h6-a0-ar-v1",
+            "config_id": "h6-a0-transformer-v2",
             "latent_enabled": False,
             "state_channel_enabled": False,
             "model_channel_enabled": False,

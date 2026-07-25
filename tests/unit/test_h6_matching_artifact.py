@@ -42,7 +42,7 @@ _GIT_HEAD = "1" * 40
 _DIRTY_DIGEST = "2" * 64
 _REFERENCE_ID = H6_MATCHING_ENDPOINT_LAYOUT[5][0]
 _SEMANTICS = {
-    "h6-a0-ar-v1": (
+    "h6-a0-transformer-v2": (
         ArmId.A0,
         False,
         False,
