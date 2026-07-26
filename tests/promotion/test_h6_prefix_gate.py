@@ -1118,6 +1118,519 @@ def _bounded_dynamic_report(
     )
 
 
+def _bounded_certificate_job(
+    profile: H6PrefixProfilePair,
+    case_family: str,
+    *,
+    key: PrefixCaseKey | None = None,
+) -> SimpleNamespace:
+    workload = H6PrefixWorkloadPlan()
+    representative = profile.estimator.particle_count == 128
+    scope = (
+        "representative_exhaustive"
+        if representative
+        else "estimator_stratified"
+    )
+    selected = (
+        tuple(range(9720 if case_family == "small" else 4096))
+        if representative
+        else (
+            workload.small_global_case_indices
+            if case_family == "small"
+            else workload.validation_global_case_indices
+        )
+    )
+    config = (
+        profile.small_arm_config
+        if case_family == "small"
+        else profile.production_arm_config
+    )
+    model_family_sha256 = (
+        profile.small_model_family_sha256
+        if case_family == "small"
+        else profile.production_model_family_sha256
+    )
+    return SimpleNamespace(
+        profile=profile,
+        case_family=case_family,
+        scope=scope,
+        particle_count=profile.estimator.particle_count,
+        selected_global_indices=selected,
+        report_key=(
+            _key(
+                config=config,
+                estimator=profile.estimator,
+                model_family_sha256=model_family_sha256,
+                data_safety_sha256=profile.data_safety_sha256,
+            )
+            if key is None
+            else key
+        ),
+    )
+
+
+def _bounded_certificate_report(
+    profile: H6PrefixProfilePair,
+    case_family: str,
+    *,
+    mode: str = "pass",
+    key: PrefixCaseKey | None = None,
+    selection_tag: str = "shared",
+    model_tag: str = "shared",
+) -> DynamicPrefixReport:
+    job = _bounded_certificate_job(profile, case_family, key=key)
+    selection_rows = tuple(
+        (
+            index,
+            _owned_hash(
+                "test.h6.bounded-certificate-selection",
+                {
+                    "case_family": case_family,
+                    "global_index": index,
+                    "tag": selection_tag,
+                },
+            ),
+        )
+        for index in job.selected_global_indices
+    )
+    execution_plan = DynamicExecutionPlan.create_scoped(
+        scope=job.scope,
+        case_family=job.case_family,
+        particle_count=job.particle_count,
+        workload_plan=H6PrefixWorkloadPlan(),
+        authorization_sha256=H6_PREFIX_V2_AUTHORIZATION_SHA256,
+        selection_rows=selection_rows,
+    )
+    base = _bounded_dynamic_report(job=job, execution_plan=execution_plan)
+    applicable = base.applicable_check_names or ()
+    checks = []
+    for check in base.checks:
+        status = EvidenceStatus.PASS
+        violation_count = 0
+        counterexample = None
+        obligations: tuple[str, ...] = ()
+        if mode == "fail" and check.name == "dynamic_target_suffix_leakage":
+            status = EvidenceStatus.FAIL
+            violation_count = 1
+            counterexample = "synthetic bounded leakage witness"
+        elif mode == "inconclusive" and check.name == "signature_and_identity":
+            status = EvidenceStatus.INCONCLUSIVE
+            obligations = ("synthetic bounded identity obligation",)
+        checks.append(
+            DynamicCheckResult.create(
+                name=check.name,
+                status=status,
+                expected_count=check.expected_count,
+                completed_count=check.completed_count,
+                violation_count=violation_count,
+                first_counterexample=counterexample,
+                obligations=obligations,
+            )
+            if check.name in applicable
+            else check
+        )
+    estimator_identity = EstimatorIdentity.from_spec(profile.estimator)
+    values = {
+        descriptor.name: getattr(base, descriptor.name)
+        for descriptor in fields(DynamicPrefixReport)
+        if descriptor.name != "report_sha256"
+    }
+    values.update(
+        {
+            "model_state_sha256": _owned_hash(
+                "test.h6.bounded-certificate-model",
+                {"case_family": case_family, "tag": model_tag},
+            ),
+            "proposal_identity_sha256": _owned_hash(
+                "test.h6.bounded-certificate-proposal",
+                {"case_family": case_family, "tag": model_tag},
+            ),
+            "estimator_semantic_sha256": estimator_identity.semantic_sha256,
+            "estimator_artifact_bytes_sha256": (
+                estimator_identity.artifact_bytes_sha256
+            ),
+            "checks": tuple(checks),
+            "status": (
+                EvidenceStatus.FAIL
+                if mode == "fail"
+                else EvidenceStatus.INCONCLUSIVE
+                if mode == "inconclusive"
+                else EvidenceStatus.PASS
+            ),
+            "obligations": (
+                ("synthetic bounded report obligation",)
+                if mode == "inconclusive"
+                else ()
+            ),
+            "first_counterexample": (
+                "synthetic bounded leakage witness"
+                if mode == "fail"
+                else None
+            ),
+        }
+    )
+    provisional = object.__new__(DynamicPrefixReport)
+    for name, value in values.items():
+        object.__setattr__(provisional, name, value)
+    return DynamicPrefixReport(
+        **values,
+        report_sha256=_owned_hash(
+            "vfe4.h6.dynamic-prefix-report.v2",
+            provisional.canonical_payload(),
+        ),
+    )
+
+
+def _bounded_certificate_fixture(
+    *,
+    report_mode: tuple[int, str] | None = None,
+) -> SimpleNamespace:
+    profiles = _bounded_profile_ladder()
+    reports = tuple(
+        _bounded_certificate_report(
+            profile,
+            case_family,
+            mode=(
+                report_mode[1]
+                if report_mode is not None and report_mode[0] == report_index
+                else "pass"
+            ),
+        )
+        for report_index, (profile, case_family) in enumerate(
+            (profile, case_family)
+            for profile in profiles
+            for case_family in ("small", "validation")
+        )
+    )
+    keys = tuple(report.key for report in reports)
+    return SimpleNamespace(
+        profiles=profiles,
+        reports=reports,
+        global_keys=keys,
+        static_report=_static_report(keys),
+        source_sha256="3" * 64,
+    )
+
+
+def _bounded_family_bundle(
+    profiles: tuple[H6PrefixProfilePair, ...],
+    reports: tuple[DynamicPrefixReport, ...],
+) -> object:
+    return h6_prefix_gate.H6BoundedPrefixFamilyBundle(
+        profiles=profiles,
+        reports=reports,
+    )
+
+
+def _chain_structure(horizon: int) -> H6LanguageStructure:
+    base = ZeroDimensionalBase.create()
+    return H6LanguageStructure.create(
+        base=base,
+        dag=CausalDag.create(
+            node_labels=tuple(range(horizon + 1)),
+            rows=tuple(
+                CausalDagRow(receiver, (receiver - 1,))
+                for receiver in range(1, horizon + 1)
+            ),
+        ),
+        receiver_labels=tuple(range(1, horizon + 1)),
+    )
+
+
+def test_bounded_certificate_requires_exact_eight_report_matrix_and_global_static_report() -> None:
+    fixture = _bounded_certificate_fixture()
+    compose = h6_prefix_gate.compose_bounded_prefix_certificate
+    certificate = compose(
+        family_bundle=_bounded_family_bundle(
+            fixture.profiles,
+            fixture.reports,
+        ),
+        static_report=fixture.static_report,
+        global_case_keys=fixture.global_keys,
+        source_sha256=fixture.source_sha256,
+    )
+
+    assert certificate.schema_version == "h6-prefix-certificate-v2"
+    assert certificate.status is EvidenceStatus.PASS
+    assert certificate.obligations == ()
+    assert all(certificate.checks.values())
+    binding = certificate.report_binding
+    assert (
+        binding.schema_version
+        == "h6-bounded-prefix-report-binding-v2"
+    )
+    assert (
+        binding.workload_plan_sha256
+        == H6PrefixWorkloadPlan().workload_plan_sha256
+    )
+    assert binding.profile_pair_sha256s == tuple(
+        profile.profile_pair_sha256 for profile in fixture.profiles
+    )
+    assert tuple(
+        (reference.particle_count, reference.case_family, reference.scope)
+        for reference in binding.report_references
+    ) == (
+        (128, "small", "representative_exhaustive"),
+        (128, "validation", "representative_exhaustive"),
+        (256, "small", "estimator_stratified"),
+        (256, "validation", "estimator_stratified"),
+        (512, "small", "estimator_stratified"),
+        (512, "validation", "estimator_stratified"),
+        (1024, "small", "estimator_stratified"),
+        (1024, "validation", "estimator_stratified"),
+    )
+    assert binding.report_references[1].completed_by_position == (4096,)
+    assert len(
+        {
+            binding.report_references[index].selection_manifest_sha256
+            for index in (2, 4, 6)
+        }
+    ) == 1
+    assert len(
+        {
+            binding.report_references[index].selection_manifest_sha256
+            for index in (3, 5, 7)
+        }
+    ) == 1
+    assert certificate.semantic_family_sha256 == binding.semantic_family_sha256
+    assert binding.git_head == "1" * 40
+    assert binding.dirty_digest == "2" * 64
+    assert binding.source_sha256 == fixture.source_sha256
+    for profile_index, profile in enumerate(fixture.profiles):
+        estimator_identity = EstimatorIdentity.from_spec(profile.estimator)
+        for reference in binding.report_references[
+            2 * profile_index : 2 * profile_index + 2
+        ]:
+            assert (
+                reference.estimator_semantic_sha256
+                == estimator_identity.semantic_sha256
+            )
+            assert (
+                reference.estimator_artifact_bytes_sha256
+                == estimator_identity.artifact_bytes_sha256
+            )
+
+    reports = fixture.reports
+    source_key = PrefixCaseKey(
+        **{
+            **reports[0].key.__dict__,
+            "dirty_digest": "d" * 64,
+        }
+    )
+    cross_source = _bounded_certificate_report(
+        fixture.profiles[0],
+        "small",
+        key=source_key,
+    )
+    wrong_model = _bounded_certificate_report(
+        fixture.profiles[2],
+        "small",
+        model_tag="different",
+    )
+    wrong_selection = _bounded_certificate_report(
+        fixture.profiles[2],
+        "small",
+        selection_tag="different",
+    )
+    structure_profile = H6PrefixProfilePair.create(
+        profile_id=fixture.profiles[0].profile_id,
+        small_arm_config=fixture.profiles[0].small_arm_config,
+        production_arm_config=fixture.profiles[0].production_arm_config,
+        estimator=fixture.profiles[0].estimator,
+        small_structure=_chain_structure(4),
+        production_structure=fixture.profiles[0].production_structure,
+        data_safety_sha256=fixture.profiles[0].data_safety_sha256,
+        small_model_family_sha256=(
+            fixture.profiles[0].small_model_family_sha256
+        ),
+        production_model_family_sha256=(
+            fixture.profiles[0].production_model_family_sha256
+        ),
+    )
+    mutations = (
+        (fixture.profiles, reports[:-1], fixture.static_report, fixture.global_keys),
+        (
+            fixture.profiles,
+            (*reports[:-1], reports[-2]),
+            fixture.static_report,
+            fixture.global_keys,
+        ),
+        (
+            fixture.profiles,
+            (reports[1], reports[0], *reports[2:]),
+            fixture.static_report,
+            fixture.global_keys,
+        ),
+        (
+            fixture.profiles,
+            (reports[2], reports[1], reports[0], *reports[3:]),
+            fixture.static_report,
+            fixture.global_keys,
+        ),
+        (
+            fixture.profiles,
+            (cross_source, *reports[1:]),
+            fixture.static_report,
+            fixture.global_keys,
+        ),
+        (
+            (structure_profile, *fixture.profiles[1:]),
+            reports,
+            fixture.static_report,
+            fixture.global_keys,
+        ),
+        (
+            fixture.profiles,
+            (*reports[:4], wrong_model, *reports[5:]),
+            fixture.static_report,
+            fixture.global_keys,
+        ),
+        (
+            fixture.profiles,
+            (*reports[:4], wrong_selection, *reports[5:]),
+            fixture.static_report,
+            fixture.global_keys,
+        ),
+        (
+            fixture.profiles,
+            reports,
+            _static_report(fixture.global_keys[:-1]),
+            fixture.global_keys,
+        ),
+    )
+    for profiles, mutated_reports, static_report, global_keys in mutations:
+        with pytest.raises(ValueError):
+            compose(
+                family_bundle=_bounded_family_bundle(
+                    profiles,
+                    mutated_reports,
+                ),
+                static_report=static_report,
+                global_case_keys=global_keys,
+                source_sha256=fixture.source_sha256,
+            )
+
+    inconclusive_fixture = _bounded_certificate_fixture(
+        report_mode=(4, "inconclusive")
+    )
+    inconclusive = compose(
+        family_bundle=_bounded_family_bundle(
+            inconclusive_fixture.profiles,
+            inconclusive_fixture.reports,
+        ),
+        static_report=inconclusive_fixture.static_report,
+        global_case_keys=inconclusive_fixture.global_keys,
+        source_sha256=inconclusive_fixture.source_sha256,
+    )
+    assert inconclusive.status is EvidenceStatus.INCONCLUSIVE
+    assert inconclusive.obligations
+    failed_fixture = _bounded_certificate_fixture(report_mode=(6, "fail"))
+    failed = compose(
+        family_bundle=_bounded_family_bundle(
+            failed_fixture.profiles,
+            failed_fixture.reports,
+        ),
+        static_report=failed_fixture.static_report,
+        global_case_keys=failed_fixture.global_keys,
+        source_sha256=failed_fixture.source_sha256,
+    )
+    assert failed.status is EvidenceStatus.FAIL
+    assert failed.obligations == ()
+
+
+def test_scoped_pass_alone_cannot_mint_a_certificate_and_v1_stays_stable() -> None:
+    fixture = _bounded_certificate_fixture()
+    profile = fixture.profiles[0]
+    small_key = fixture.reports[0].key
+    validation_key = fixture.reports[1].key
+    small_v1 = _dynamic_report(
+        key=small_key,
+        expected_by_position=(6561, 2187, 729, 243),
+        expected_total=9720,
+        mode="pass",
+        salt="v1-stability-small",
+    )
+    validation_v1 = _dynamic_report(
+        key=validation_key,
+        expected_by_position=(4096,),
+        expected_total=4096,
+        mode="pass",
+        salt="v1-stability-validation",
+    )
+    static_v1 = _static_report((small_key, validation_key))
+    legacy = compose_prefix_certificate(
+        profile=profile,
+        small_report=small_v1,
+        validation_report=validation_v1,
+        static_report=static_v1,
+    )
+    binding = PrefixReportBinding.create(
+        small_report_sha256=small_v1.report_sha256,
+        small_case_manifest_sha256=small_v1.complete_case_manifest_sha256,
+        validation_report_sha256=validation_v1.report_sha256,
+        validation_case_manifest_sha256=(
+            validation_v1.complete_case_manifest_sha256
+        ),
+        static_report_sha256=static_v1.report_sha256,
+        static_source_manifest_sha256=static_v1.source_manifest_sha256,
+        static_rules_sha256=static_v1.rules_sha256,
+        static_case_key_manifest_sha256=(
+            static_v1.case_key_manifest_sha256
+        ),
+    )
+    expected_bytes = canonical_json_bytes(
+        {
+            "schema_version": "h6-prefix-certificate-validation-v2",
+            "profile": {
+                **profile.canonical_payload(),
+                "profile_pair_sha256": profile.profile_pair_sha256,
+            },
+            "small_key": small_key.canonical_payload(),
+            "key": validation_key.canonical_payload(),
+            "report_binding": binding.canonical_payload(),
+            "checks": {name: True for name in h6_prefix_gate.H6_PREFIX_REQUIRED_CHECKS},
+            "status": EvidenceStatus.PASS.value,
+            "obligations": (),
+        }
+    )
+    assert legacy.validation_payload_canonical_json == expected_bytes
+    assert binding.binding_sha256 == _owned_hash(
+        "vfe4.h6.prefix-report-binding.v1",
+        binding.canonical_payload(include_binding=False),
+    )
+    assert legacy.certificate_sha256 == _owned_hash(
+        "vfe4.h6.prefix-certificate.v1",
+        {
+            "key": validation_key.canonical_payload(),
+            "validation_payload_sha256": hashlib.sha256(
+                expected_bytes
+            ).hexdigest(),
+            "status": EvidenceStatus.PASS.value,
+            "obligations": (),
+        },
+    )
+
+    with pytest.raises(ValueError, match="v2"):
+        compose_prefix_certificate(
+            profile=profile,
+            small_report=fixture.reports[0],
+            validation_report=fixture.reports[1],
+            static_report=fixture.static_report,
+        )
+    compose = h6_prefix_gate.compose_bounded_prefix_certificate
+    for reports in (fixture.reports[:1], fixture.reports[:2]):
+        with pytest.raises(ValueError):
+            compose(
+                family_bundle=_bounded_family_bundle(
+                    fixture.profiles[:1],
+                    reports,
+                ),
+                static_report=fixture.static_report,
+                global_case_keys=fixture.global_keys,
+                source_sha256=fixture.source_sha256,
+            )
+
+
 def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_sixth_call(
     tmp_path: Path,
 ) -> None:

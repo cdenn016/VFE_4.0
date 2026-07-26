@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from enum import Enum
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, runtime_checkable
 
 import torch
@@ -3607,6 +3608,591 @@ class PrefixCertificate:
         return cls(key, payload, payload_sha, status, tuple(obligations), certificate_sha)
 
 
+@dataclass(frozen=True, slots=True, init=False)
+class BoundedPrefixReportReference:
+    """Exact v2 reference to one scoped report in a bounded Prefix matrix."""
+
+    schema_version: Literal["h6-bounded-prefix-report-reference-v2"]
+    profile_pair_sha256: str
+    particle_count: int
+    case_family: Literal["small", "validation"]
+    scope: Literal["representative_exhaustive", "estimator_stratified"]
+    report_key: PrefixCaseKey
+    report_key_sha256: str
+    report_sha256: str
+    execution_plan_sha256: str
+    workload_plan_sha256: str
+    selected_global_indices: tuple[int, ...]
+    selection_manifest_sha256: str
+    completed_by_position: tuple[int, ...]
+    complete_case_manifest_sha256: str | None
+    model_state_sha256: str
+    proposal_identity_sha256: str
+    estimator_semantic_sha256: str
+    estimator_artifact_bytes_sha256: str
+    reference_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self) is not BoundedPrefixReportReference:
+            raise TypeError(
+                "record requires the exact BoundedPrefixReportReference type"
+            )
+        if self.schema_version != "h6-bounded-prefix-report-reference-v2":
+            raise ValueError("bounded Prefix report-reference schema is closed")
+        if (
+            type(self.particle_count) is not int
+            or self.particle_count not in H6_INFERENCE_PARTICLE_COUNTS
+        ):
+            raise ValueError("bounded report particle_count is not on the H6 ladder")
+        if self.case_family not in ("small", "validation"):
+            raise ValueError("bounded report case_family is unsupported")
+        expected_scope = (
+            "representative_exhaustive"
+            if self.particle_count == 128
+            else "estimator_stratified"
+        )
+        if self.scope != expected_scope:
+            raise ValueError("bounded report scope does not match its particle count")
+        if type(self.report_key) is not PrefixCaseKey:
+            raise ValueError("bounded report key must be an exact PrefixCaseKey")
+        self.report_key.__post_init__()
+        for name in (
+            "profile_pair_sha256",
+            "report_key_sha256",
+            "report_sha256",
+            "execution_plan_sha256",
+            "workload_plan_sha256",
+            "selection_manifest_sha256",
+            "model_state_sha256",
+            "proposal_identity_sha256",
+            "estimator_semantic_sha256",
+            "estimator_artifact_bytes_sha256",
+            "reference_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        expected_key_sha256 = _owned_hash(
+            "vfe4.h6.prefix-case-key.v2",
+            self.report_key.canonical_payload(),
+        )
+        if self.report_key_sha256 != expected_key_sha256:
+            raise ValueError("report_key_sha256 does not match the exact report key")
+        if (
+            type(self.selected_global_indices) is not tuple
+            or not self.selected_global_indices
+            or any(type(index) is not int or index < 0 for index in self.selected_global_indices)
+            or len(set(self.selected_global_indices))
+            != len(self.selected_global_indices)
+        ):
+            raise ValueError("selected_global_indices must be exact and duplicate-free")
+        if (
+            type(self.completed_by_position) is not tuple
+            or not self.completed_by_position
+            or any(type(count) is not int or count < 0 for count in self.completed_by_position)
+        ):
+            raise ValueError("completed_by_position must contain exact counts")
+        if self.scope == "representative_exhaustive":
+            _require_sha256(
+                self.complete_case_manifest_sha256,
+                "complete_case_manifest_sha256",
+            )
+        elif self.complete_case_manifest_sha256 is not None:
+            raise ValueError(
+                "stratified report references cannot bind a complete-case manifest"
+            )
+        expected = _owned_hash(
+            "vfe4.h6.bounded-prefix-report-reference.v2",
+            self.canonical_payload(include_reference=False),
+        )
+        if self.reference_sha256 != expected:
+            raise ValueError(
+                "reference_sha256 does not match the bounded report reference"
+            )
+
+    def canonical_payload(
+        self,
+        *,
+        include_reference: bool = True,
+    ) -> dict[str, object]:
+        payload = {
+            "schema_version": self.schema_version,
+            "profile_pair_sha256": self.profile_pair_sha256,
+            "particle_count": self.particle_count,
+            "case_family": self.case_family,
+            "scope": self.scope,
+            "report_key": self.report_key.canonical_payload(),
+            "report_key_sha256": self.report_key_sha256,
+            "report_sha256": self.report_sha256,
+            "execution_plan_sha256": self.execution_plan_sha256,
+            "workload_plan_sha256": self.workload_plan_sha256,
+            "selected_global_indices": self.selected_global_indices,
+            "selection_manifest_sha256": self.selection_manifest_sha256,
+            "completed_by_position": self.completed_by_position,
+            "complete_case_manifest_sha256": self.complete_case_manifest_sha256,
+            "model_state_sha256": self.model_state_sha256,
+            "proposal_identity_sha256": self.proposal_identity_sha256,
+            "estimator_semantic_sha256": self.estimator_semantic_sha256,
+            "estimator_artifact_bytes_sha256": (
+                self.estimator_artifact_bytes_sha256
+            ),
+        }
+        if include_reference:
+            payload["reference_sha256"] = self.reference_sha256
+        return payload
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        profile_pair_sha256: str,
+        particle_count: int,
+        case_family: Literal["small", "validation"],
+        scope: Literal[
+            "representative_exhaustive",
+            "estimator_stratified",
+        ],
+        report_key: PrefixCaseKey,
+        report_sha256: str,
+        execution_plan_sha256: str,
+        workload_plan_sha256: str,
+        selected_global_indices: tuple[int, ...],
+        selection_manifest_sha256: str,
+        completed_by_position: tuple[int, ...],
+        complete_case_manifest_sha256: str | None,
+        model_state_sha256: str,
+        proposal_identity_sha256: str,
+        estimator_semantic_sha256: str,
+        estimator_artifact_bytes_sha256: str,
+    ) -> "BoundedPrefixReportReference":
+        if cls is not BoundedPrefixReportReference:
+            raise TypeError(
+                "factory requires the exact BoundedPrefixReportReference type"
+            )
+        if type(report_key) is not PrefixCaseKey:
+            raise ValueError("report_key must be an exact PrefixCaseKey")
+        report_key_sha256 = _owned_hash(
+            "vfe4.h6.prefix-case-key.v2",
+            report_key.canonical_payload(),
+        )
+        values = {
+            "schema_version": "h6-bounded-prefix-report-reference-v2",
+            "profile_pair_sha256": profile_pair_sha256,
+            "particle_count": particle_count,
+            "case_family": case_family,
+            "scope": scope,
+            "report_key": report_key,
+            "report_key_sha256": report_key_sha256,
+            "report_sha256": report_sha256,
+            "execution_plan_sha256": execution_plan_sha256,
+            "workload_plan_sha256": workload_plan_sha256,
+            "selected_global_indices": selected_global_indices,
+            "selection_manifest_sha256": selection_manifest_sha256,
+            "completed_by_position": completed_by_position,
+            "complete_case_manifest_sha256": complete_case_manifest_sha256,
+            "model_state_sha256": model_state_sha256,
+            "proposal_identity_sha256": proposal_identity_sha256,
+            "estimator_semantic_sha256": estimator_semantic_sha256,
+            "estimator_artifact_bytes_sha256": (
+                estimator_artifact_bytes_sha256
+            ),
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        return _new_frozen(
+            cls,
+            **values,
+            reference_sha256=_owned_hash(
+                "vfe4.h6.bounded-prefix-report-reference.v2",
+                provisional.canonical_payload(include_reference=False),
+            ),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class BoundedPrefixReportBinding:
+    """Owned identity for one complete eight-report bounded Prefix family."""
+
+    schema_version: Literal["h6-bounded-prefix-report-binding-v2"]
+    workload_plan_sha256: str
+    semantic_family_sha256: str
+    git_head: str
+    dirty_digest: str
+    source_sha256: str
+    profile_pair_sha256s: tuple[str, ...]
+    report_references: tuple[BoundedPrefixReportReference, ...]
+    higher_n_small_selection_manifest_sha256: str
+    higher_n_validation_selection_manifest_sha256: str
+    static_report_sha256: str
+    static_source_manifest_sha256: str
+    static_rules_sha256: str
+    static_case_key_manifest_sha256: str
+    binding_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self) is not BoundedPrefixReportBinding:
+            raise TypeError(
+                "record requires the exact BoundedPrefixReportBinding type"
+            )
+        if self.schema_version != "h6-bounded-prefix-report-binding-v2":
+            raise ValueError("bounded Prefix report-binding schema is closed")
+        workload = H6PrefixWorkloadPlan()
+        if self.workload_plan_sha256 != workload.workload_plan_sha256:
+            raise ValueError("bounded report binding has a stale workload plan")
+        _require_git_head(self.git_head)
+        for name in (
+            "workload_plan_sha256",
+            "semantic_family_sha256",
+            "dirty_digest",
+            "source_sha256",
+            "higher_n_small_selection_manifest_sha256",
+            "higher_n_validation_selection_manifest_sha256",
+            "static_report_sha256",
+            "static_source_manifest_sha256",
+            "static_rules_sha256",
+            "static_case_key_manifest_sha256",
+            "binding_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        if (
+            type(self.profile_pair_sha256s) is not tuple
+            or len(self.profile_pair_sha256s) != 4
+        ):
+            raise ValueError("bounded binding requires four profile-pair identities")
+        for digest in self.profile_pair_sha256s:
+            _require_sha256(digest, "profile_pair_sha256")
+        if (
+            type(self.report_references) is not tuple
+            or len(self.report_references) != 8
+            or any(
+                type(reference) is not BoundedPrefixReportReference
+                for reference in self.report_references
+            )
+        ):
+            raise ValueError("bounded binding requires exactly eight report references")
+        expected_order = tuple(
+            (
+                particle_count,
+                case_family,
+                (
+                    "representative_exhaustive"
+                    if particle_count == 128
+                    else "estimator_stratified"
+                ),
+            )
+            for particle_count in H6_INFERENCE_PARTICLE_COUNTS
+            for case_family in ("small", "validation")
+        )
+        observed_order = tuple(
+            (
+                reference.particle_count,
+                reference.case_family,
+                reference.scope,
+            )
+            for reference in self.report_references
+        )
+        if observed_order != expected_order:
+            raise ValueError("bounded report references are missing or out of order")
+        for index, reference in enumerate(self.report_references):
+            reference.__post_init__()
+            if (
+                reference.profile_pair_sha256
+                != self.profile_pair_sha256s[index // 2]
+                or reference.workload_plan_sha256
+                != self.workload_plan_sha256
+                or reference.report_key.git_head != self.git_head
+                or reference.report_key.dirty_digest != self.dirty_digest
+            ):
+                raise ValueError(
+                    "bounded report reference does not match its family binding"
+                )
+        small_refs = self.report_references[2::2]
+        validation_refs = self.report_references[3::2]
+        if (
+            any(
+                reference.selection_manifest_sha256
+                != self.higher_n_small_selection_manifest_sha256
+                for reference in small_refs
+            )
+            or any(
+                reference.selection_manifest_sha256
+                != self.higher_n_validation_selection_manifest_sha256
+                for reference in validation_refs
+            )
+        ):
+            raise ValueError(
+                "higher-N report references do not share their family selection"
+            )
+        for references, label in (
+            (self.report_references[0::2], "small"),
+            (self.report_references[1::2], "production"),
+        ):
+            if (
+                len({item.model_state_sha256 for item in references}) != 1
+                or len({item.proposal_identity_sha256 for item in references})
+                != 1
+            ):
+                raise ValueError(
+                    f"{label} model/proposal identity changes across the N ladder"
+                )
+        expected = _owned_hash(
+            "vfe4.h6.bounded-prefix-report-binding.v2",
+            self.canonical_payload(include_binding=False),
+        )
+        if self.binding_sha256 != expected:
+            raise ValueError(
+                "binding_sha256 does not match the bounded Prefix binding"
+            )
+
+    def canonical_payload(
+        self,
+        *,
+        include_binding: bool = True,
+    ) -> dict[str, object]:
+        payload = {
+            "schema_version": self.schema_version,
+            "workload_plan_sha256": self.workload_plan_sha256,
+            "semantic_family_sha256": self.semantic_family_sha256,
+            "git_head": self.git_head,
+            "dirty_digest": self.dirty_digest,
+            "source_sha256": self.source_sha256,
+            "profile_pair_sha256s": self.profile_pair_sha256s,
+            "report_references": tuple(
+                reference.canonical_payload()
+                for reference in self.report_references
+            ),
+            "higher_n_small_selection_manifest_sha256": (
+                self.higher_n_small_selection_manifest_sha256
+            ),
+            "higher_n_validation_selection_manifest_sha256": (
+                self.higher_n_validation_selection_manifest_sha256
+            ),
+            "static_report_sha256": self.static_report_sha256,
+            "static_source_manifest_sha256": (
+                self.static_source_manifest_sha256
+            ),
+            "static_rules_sha256": self.static_rules_sha256,
+            "static_case_key_manifest_sha256": (
+                self.static_case_key_manifest_sha256
+            ),
+        }
+        if include_binding:
+            payload["binding_sha256"] = self.binding_sha256
+        return payload
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        workload_plan_sha256: str,
+        semantic_family_sha256: str,
+        git_head: str,
+        dirty_digest: str,
+        source_sha256: str,
+        profile_pair_sha256s: tuple[str, ...],
+        report_references: tuple[BoundedPrefixReportReference, ...],
+        higher_n_small_selection_manifest_sha256: str,
+        higher_n_validation_selection_manifest_sha256: str,
+        static_report_sha256: str,
+        static_source_manifest_sha256: str,
+        static_rules_sha256: str,
+        static_case_key_manifest_sha256: str,
+    ) -> "BoundedPrefixReportBinding":
+        if cls is not BoundedPrefixReportBinding:
+            raise TypeError(
+                "factory requires the exact BoundedPrefixReportBinding type"
+            )
+        values = {
+            "schema_version": "h6-bounded-prefix-report-binding-v2",
+            "workload_plan_sha256": workload_plan_sha256,
+            "semantic_family_sha256": semantic_family_sha256,
+            "git_head": git_head,
+            "dirty_digest": dirty_digest,
+            "source_sha256": source_sha256,
+            "profile_pair_sha256s": profile_pair_sha256s,
+            "report_references": report_references,
+            "higher_n_small_selection_manifest_sha256": (
+                higher_n_small_selection_manifest_sha256
+            ),
+            "higher_n_validation_selection_manifest_sha256": (
+                higher_n_validation_selection_manifest_sha256
+            ),
+            "static_report_sha256": static_report_sha256,
+            "static_source_manifest_sha256": static_source_manifest_sha256,
+            "static_rules_sha256": static_rules_sha256,
+            "static_case_key_manifest_sha256": static_case_key_manifest_sha256,
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        return _new_frozen(
+            cls,
+            **values,
+            binding_sha256=_owned_hash(
+                "vfe4.h6.bounded-prefix-report-binding.v2",
+                provisional.canonical_payload(include_binding=False),
+            ),
+        )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class BoundedPrefixCertificate:
+    """Self-validating v2 certificate for one bounded Prefix family."""
+
+    schema_version: Literal["h6-prefix-certificate-v2"]
+    semantic_family_sha256: str
+    report_binding: BoundedPrefixReportBinding
+    validation_payload_canonical_json: bytes
+    validation_payload_sha256: str
+    status: EvidenceStatus
+    obligations: tuple[str, ...]
+    checks: Mapping[str, bool]
+    certificate_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self) is not BoundedPrefixCertificate:
+            raise TypeError(
+                "record requires the exact BoundedPrefixCertificate type"
+            )
+        if self.schema_version != "h6-prefix-certificate-v2":
+            raise ValueError("bounded Prefix certificate schema is closed")
+        _require_sha256(self.semantic_family_sha256, "semantic_family_sha256")
+        if type(self.report_binding) is not BoundedPrefixReportBinding:
+            raise ValueError(
+                "report_binding must be an exact BoundedPrefixReportBinding"
+            )
+        self.report_binding.__post_init__()
+        if (
+            self.semantic_family_sha256
+            != self.report_binding.semantic_family_sha256
+        ):
+            raise ValueError(
+                "certificate semantic family does not match its typed binding"
+            )
+        if type(self.validation_payload_canonical_json) is not bytes:
+            raise ValueError("validation payload must be immutable bytes")
+        _require_sha256(
+            self.validation_payload_sha256,
+            "validation_payload_sha256",
+        )
+        if self.validation_payload_sha256 != hashlib.sha256(
+            self.validation_payload_canonical_json
+        ).hexdigest():
+            raise ValueError(
+                "validation_payload_sha256 does not match retained bytes"
+            )
+        if type(self.status) is not EvidenceStatus:
+            raise ValueError("bounded certificate status must be exact")
+        if (
+            type(self.obligations) is not tuple
+            or any(type(item) is not str or not item for item in self.obligations)
+            or self.obligations != tuple(sorted(set(self.obligations)))
+        ):
+            raise ValueError("bounded certificate obligations are not canonical")
+        if (
+            type(self.checks) is not MappingProxyType
+            or tuple(self.checks) != H6_PREFIX_REQUIRED_CHECKS
+            or any(type(value) is not bool for value in self.checks.values())
+        ):
+            raise ValueError("bounded certificate required-check map is incomplete")
+        if self.status is EvidenceStatus.PASS:
+            if self.obligations or not all(self.checks.values()):
+                raise ValueError(
+                    "PASS bounded certificates require every check and no obligation"
+                )
+        elif self.status is EvidenceStatus.FAIL:
+            if self.obligations or all(self.checks.values()):
+                raise ValueError(
+                    "FAIL bounded certificates require a witnessed failed check"
+                )
+        elif not self.obligations or not all(self.checks.values()):
+            raise ValueError(
+                "INCONCLUSIVE bounded certificates require obligations without failure"
+            )
+        payload = _canonical_json_object(
+            self.validation_payload_canonical_json,
+            "bounded Prefix validation payload",
+        )
+        expected_payload = {
+            "schema_version": self.schema_version,
+            "semantic_family_sha256": self.semantic_family_sha256,
+            "report_binding": self.report_binding.canonical_payload(),
+            "checks": dict(self.checks),
+            "status": self.status.value,
+            "obligations": self.obligations,
+        }
+        if payload != json.loads(canonical_json_bytes(expected_payload)):
+            raise ValueError(
+                "retained validation payload does not match the typed certificate"
+            )
+        expected_certificate_sha256 = _owned_hash(
+            "vfe4.h6.prefix-certificate.v2",
+            {
+                "schema_version": self.schema_version,
+                "semantic_family_sha256": self.semantic_family_sha256,
+                "report_binding_sha256": self.report_binding.binding_sha256,
+                "validation_payload_sha256": self.validation_payload_sha256,
+                "status": self.status.value,
+                "obligations": self.obligations,
+            },
+        )
+        if self.certificate_sha256 != expected_certificate_sha256:
+            raise ValueError(
+                "certificate_sha256 does not match the bounded certificate"
+            )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        semantic_family_sha256: str,
+        report_binding: BoundedPrefixReportBinding,
+        status: EvidenceStatus,
+        obligations: tuple[str, ...],
+        checks: Mapping[str, bool],
+    ) -> "BoundedPrefixCertificate":
+        if cls is not BoundedPrefixCertificate:
+            raise TypeError(
+                "factory requires the exact BoundedPrefixCertificate type"
+            )
+        if not isinstance(checks, Mapping):
+            raise ValueError("checks must be a mapping")
+        frozen_checks = MappingProxyType(dict(checks))
+        frozen_obligations = tuple(sorted(set(obligations)))
+        payload = canonical_json_bytes(
+            {
+                "schema_version": "h6-prefix-certificate-v2",
+                "semantic_family_sha256": semantic_family_sha256,
+                "report_binding": report_binding.canonical_payload(),
+                "checks": dict(frozen_checks),
+                "status": status.value,
+                "obligations": frozen_obligations,
+            }
+        )
+        payload_sha256 = hashlib.sha256(payload).hexdigest()
+        return _new_frozen(
+            cls,
+            schema_version="h6-prefix-certificate-v2",
+            semantic_family_sha256=semantic_family_sha256,
+            report_binding=report_binding,
+            validation_payload_canonical_json=payload,
+            validation_payload_sha256=payload_sha256,
+            status=status,
+            obligations=frozen_obligations,
+            checks=frozen_checks,
+            certificate_sha256=_owned_hash(
+                "vfe4.h6.prefix-certificate.v2",
+                {
+                    "schema_version": "h6-prefix-certificate-v2",
+                    "semantic_family_sha256": semantic_family_sha256,
+                    "report_binding_sha256": report_binding.binding_sha256,
+                    "validation_payload_sha256": payload_sha256,
+                    "status": status.value,
+                    "obligations": frozen_obligations,
+                },
+            ),
+        )  # type: ignore[return-value]
+
+
 def require_prefix_pass(
     key: PrefixCaseKey,
     certificates: Mapping[PrefixCaseKey, PrefixCertificate],
@@ -5268,7 +5854,9 @@ class OrderedPredictionDecision:
 
 
 __all__ = [
-    "ArmId", "CausalDag", "CausalDagRow", "CheckpointIdentity", "DataIdentity",
+    "ArmId", "BoundedPrefixCertificate", "BoundedPrefixReportBinding",
+    "BoundedPrefixReportReference", "CausalDag", "CausalDagRow",
+    "CheckpointIdentity", "DataIdentity",
     "DurableTestOpeningCapability", "EmissionOnlyAblationTerms",
     "EncodedTokenStorageIdentity", "EndpointSmcProtocol", "EstimatorSpec",
     "EvidenceStatus", "ExperimentIdentity", "FrozenBatchSchedule", "FrozenTensorSnapshot",

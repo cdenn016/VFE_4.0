@@ -31,12 +31,16 @@ from vfe4.data.windows import CausalPrefix
 from vfe4.numerics.categorical import masked_log_softmax_from_parents
 from vfe4.predictive import (
     BootstrapSmcPredictor,
+    EstimatorIdentity,
     PriorPrediction,
     vocabulary_identity_sha256,
 )
 from vfe4.training.arms import BuiltArm, LatentLanguageArmModel, build_arm
 from vfe4.types.h6 import (
     ArmConfig,
+    BoundedPrefixCertificate,
+    BoundedPrefixReportBinding,
+    BoundedPrefixReportReference,
     EstimatorSpec,
     H6_PREFIX_REQUIRED_CHECKS,
     EvidenceStatus,
@@ -647,6 +651,13 @@ def compose_prefix_certificate(
         )
     if type(static_report) is not StaticAuditReport:
         raise ValueError("static_report must be an exact StaticAuditReport")
+    if (
+        small_report.schema_version != "h6-dynamic-prefix-report-v1"
+        or validation_report.schema_version != "h6-dynamic-prefix-report-v1"
+    ):
+        raise ValueError(
+            "legacy Prefix composition explicitly rejects v2 dynamic reports"
+        )
     profile.__post_init__()
     small_report.__post_init__()
     validation_report.__post_init__()
@@ -831,6 +842,364 @@ def compose_prefix_certificate(
         status=status,
         obligations=final_obligations,
         certificate_sha256=certificate_sha256,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class H6BoundedPrefixFamilyBundle:
+    """Pure input bundle for one bounded four-profile semantic family."""
+
+    profiles: tuple[H6PrefixProfilePair, ...]
+    reports: tuple[DynamicPrefixReport, ...]
+
+    def __post_init__(self) -> None:
+        if type(self) is not H6BoundedPrefixFamilyBundle:
+            raise TypeError(
+                "bundle requires the exact H6BoundedPrefixFamilyBundle type"
+            )
+        if (
+            type(self.profiles) is not tuple
+            or any(
+                type(profile) is not H6PrefixProfilePair
+                for profile in self.profiles
+            )
+        ):
+            raise ValueError("bounded family profiles must be exact records")
+        if (
+            type(self.reports) is not tuple
+            or any(
+                type(report) is not DynamicPrefixReport
+                for report in self.reports
+            )
+        ):
+            raise ValueError("bounded family reports must be exact records")
+
+
+def _bounded_report_obligations(
+    reports: tuple[DynamicPrefixReport, ...],
+    static_report: StaticAuditReport,
+) -> tuple[str, ...]:
+    obligations: list[str] = []
+    for report in reports:
+        label = f"N{report.particle_count}/{report.case_family}"
+        obligations.extend(
+            f"{label}: {value}" for value in report.obligations
+        )
+        obligations.extend(
+            f"{label}: {value}" for value in report.unresolved_diagnostics
+        )
+        obligations.extend(
+            f"{label}/{check.name}: {value}"
+            for check in report.checks
+            for value in check.obligations
+        )
+    obligations.extend(
+        f"static: {value}" for value in static_report.obligations
+    )
+    obligations.extend(
+        f"static/{check.name}: {value}"
+        for check in static_report.checks
+        for value in check.obligations
+    )
+    return tuple(sorted(set(obligations)))
+
+
+def compose_bounded_prefix_certificate(
+    *,
+    family_bundle: H6BoundedPrefixFamilyBundle,
+    static_report: StaticAuditReport,
+    global_case_keys: tuple[PrefixCaseKey, ...],
+    source_sha256: str,
+) -> BoundedPrefixCertificate:
+    """Compose one certificate from a complete, already-produced v2 matrix."""
+
+    if type(family_bundle) is not H6BoundedPrefixFamilyBundle:
+        raise ValueError(
+            "family_bundle must be an exact H6BoundedPrefixFamilyBundle"
+        )
+    family_bundle.__post_init__()
+    if type(static_report) is not StaticAuditReport:
+        raise ValueError("static_report must be an exact StaticAuditReport")
+    static_report.__post_init__()
+    _require_sha256(source_sha256, "source_sha256")
+    if (
+        type(global_case_keys) is not tuple
+        or not global_case_keys
+        or any(type(key) is not PrefixCaseKey for key in global_case_keys)
+    ):
+        raise ValueError(
+            "global_case_keys must be a nonempty exact ordered key inventory"
+        )
+    for key in global_case_keys:
+        key.__post_init__()
+    encoded_global_keys = tuple(
+        canonical_json_bytes(key.canonical_payload())
+        for key in global_case_keys
+    )
+    if len(set(encoded_global_keys)) != len(encoded_global_keys):
+        raise ValueError("global Prefix key inventory contains duplicates")
+
+    profiles = family_bundle.profiles
+    reports = family_bundle.reports
+    workload = H6PrefixWorkloadPlan()
+    if (
+        len(profiles) != 4
+        or tuple(
+            profile.estimator.particle_count for profile in profiles
+        )
+        != workload.production_particle_counts
+    ):
+        raise ValueError(
+            "bounded family requires the exact ordered four-profile N ladder"
+        )
+    if len(reports) != 8:
+        raise ValueError(
+            "bounded family requires exactly eight ordered dynamic reports"
+        )
+    for profile in profiles:
+        profile.__post_init__()
+    if len({profile.profile_pair_sha256 for profile in profiles}) != 4:
+        raise ValueError("bounded family profile identities must be unique")
+    semantic_payload = _non_particle_profile_payload(profiles[0])
+    semantic_bytes = canonical_json_bytes(semantic_payload)
+    if any(
+        canonical_json_bytes(_non_particle_profile_payload(profile))
+        != semantic_bytes
+        for profile in profiles[1:]
+    ):
+        raise ValueError(
+            "only particle count may vary within a bounded semantic family"
+        )
+    semantic_family_sha256 = _owned_hash(
+        "vfe4.h6.bounded-prefix-semantic-family.v2",
+        semantic_payload,
+    )
+
+    expected_matrix = tuple(
+        (
+            profile,
+            case_family,
+            (
+                "representative_exhaustive"
+                if profile.estimator.particle_count == 128
+                else "estimator_stratified"
+            ),
+        )
+        for profile in profiles
+        for case_family in ("small", "validation")
+    )
+    common_git_head = reports[0].key.git_head
+    common_dirty_digest = reports[0].key.dirty_digest
+    references: list[BoundedPrefixReportReference] = []
+    for report, (profile, case_family, scope) in zip(
+        reports,
+        expected_matrix,
+        strict=True,
+    ):
+        report.__post_init__()
+        if report.schema_version != "h6-dynamic-prefix-report-v2":
+            raise ValueError(
+                "bounded composition rejects mixed v1/v2 dynamic evidence"
+            )
+        small = case_family == "small"
+        _verify_profile_key(
+            profile=profile,
+            key=report.key,
+            small=small,
+        )
+        expected_indices = _bounded_indices(case_family, scope)
+        expected_completed = (
+            SMALL_EXPECTED_BY_POSITION
+            if scope == "representative_exhaustive"
+            and case_family == "small"
+            else (VALIDATION_EXPECTED_TOTAL,)
+            if scope == "representative_exhaustive"
+            else (4, 4, 4, 4)
+            if case_family == "small"
+            else (16,)
+        )
+        if (
+            report.particle_count != profile.estimator.particle_count
+            or report.case_family != case_family
+            or report.scope != scope
+            or report.workload_plan_sha256
+            != workload.workload_plan_sha256
+            or report.selected_global_indices != expected_indices
+            or report.completed_by_position != expected_completed
+            or (
+                scope == "representative_exhaustive"
+                and report.complete_case_manifest_sha256 is None
+            )
+            or (
+                scope == "estimator_stratified"
+                and report.complete_case_manifest_sha256 is not None
+            )
+        ):
+            raise ValueError(
+                "bounded dynamic report does not match its exact matrix slot"
+            )
+        if (
+            report.key.git_head != common_git_head
+            or report.key.dirty_digest != common_dirty_digest
+        ):
+            raise ValueError(
+                "bounded dynamic reports do not bind one source candidate"
+            )
+        estimator_identity = EstimatorIdentity.from_spec(profile.estimator)
+        if (
+            report.estimator_semantic_sha256
+            != estimator_identity.semantic_sha256
+            or report.estimator_artifact_bytes_sha256
+            != estimator_identity.artifact_bytes_sha256
+        ):
+            raise ValueError(
+                "bounded report estimator identity does not match its profile"
+            )
+        references.append(
+            BoundedPrefixReportReference.create(
+                profile_pair_sha256=profile.profile_pair_sha256,
+                particle_count=profile.estimator.particle_count,
+                case_family=case_family,
+                scope=scope,
+                report_key=report.key,
+                report_sha256=report.report_sha256,
+                execution_plan_sha256=report.execution_plan_sha256,
+                workload_plan_sha256=report.workload_plan_sha256,
+                selected_global_indices=report.selected_global_indices,
+                selection_manifest_sha256=report.selection_manifest_sha256,
+                completed_by_position=report.completed_by_position,
+                complete_case_manifest_sha256=(
+                    report.complete_case_manifest_sha256
+                ),
+                model_state_sha256=report.model_state_sha256,
+                proposal_identity_sha256=(
+                    report.proposal_identity_sha256
+                ),
+                estimator_semantic_sha256=(
+                    report.estimator_semantic_sha256
+                ),
+                estimator_artifact_bytes_sha256=(
+                    report.estimator_artifact_bytes_sha256
+                ),
+            )
+        )
+
+    if any(
+        key.git_head != common_git_head
+        or key.dirty_digest != common_dirty_digest
+        for key in global_case_keys
+    ):
+        raise ValueError(
+            "global Prefix key inventory crosses source candidates"
+        )
+    if static_report.case_key_manifest_sha256 != _case_key_manifest(
+        global_case_keys
+    ):
+        raise ValueError(
+            "global static report does not bind the supplied key inventory"
+        )
+    global_key_payloads = set(encoded_global_keys)
+    if any(
+        canonical_json_bytes(report.key.canonical_payload())
+        not in global_key_payloads
+        for report in reports
+    ):
+        raise ValueError(
+            "global static key inventory omits a bounded family report"
+        )
+
+    report_references = tuple(references)
+    higher_n_small_selection = report_references[
+        2
+    ].selection_manifest_sha256
+    higher_n_validation_selection = report_references[
+        3
+    ].selection_manifest_sha256
+    binding = BoundedPrefixReportBinding.create(
+        workload_plan_sha256=workload.workload_plan_sha256,
+        semantic_family_sha256=semantic_family_sha256,
+        git_head=common_git_head,
+        dirty_digest=common_dirty_digest,
+        source_sha256=source_sha256,
+        profile_pair_sha256s=tuple(
+            profile.profile_pair_sha256 for profile in profiles
+        ),
+        report_references=report_references,
+        higher_n_small_selection_manifest_sha256=(
+            higher_n_small_selection
+        ),
+        higher_n_validation_selection_manifest_sha256=(
+            higher_n_validation_selection
+        ),
+        static_report_sha256=static_report.report_sha256,
+        static_source_manifest_sha256=(
+            static_report.source_manifest_sha256
+        ),
+        static_rules_sha256=static_report.rules_sha256,
+        static_case_key_manifest_sha256=(
+            static_report.case_key_manifest_sha256
+        ),
+    )
+
+    dynamic = tuple(_dynamic_checks(report) for report in reports)
+    static = _static_checks(static_report)
+    representative = dynamic[:2]
+    checks: dict[str, bool] = {
+        "signature_import": _no_witnessed_failure(
+            *(item["signature_and_identity"] for item in dynamic),
+            static["import_signature_access"],
+        ),
+        "taint_dataflow": _no_witnessed_failure(
+            static["taint_cache_capability"]
+        ),
+        "dynamic_target_suffix_leakage": _no_witnessed_failure(
+            *(item["dynamic_target_suffix_leakage"] for item in dynamic)
+        ),
+        "source_mask": _no_witnessed_failure(
+            *(item["source_mask"] for item in representative),
+            static["mask_normalization_support"],
+        ),
+        "cache_identity": _no_witnessed_failure(
+            *(item["cache_identity"] for item in dynamic)
+        ),
+        "case_inventory": _no_witnessed_failure(
+            *(item["case_inventory"] for item in representative),
+            static["inventory_identity"],
+        ),
+        "artifact_identity": True,
+        "data_safety": _no_witnessed_failure(
+            *(item["validation_data_safety"] for item in representative)
+        ),
+    }
+    if tuple(checks) != H6_PREFIX_REQUIRED_CHECKS:
+        raise RuntimeError("internal bounded Prefix check mapping is incomplete")
+    obligations = _bounded_report_obligations(reports, static_report)
+    witnessed_failure = (
+        any(not value for value in checks.values())
+        or any(report.status is EvidenceStatus.FAIL for report in reports)
+        or static_report.status is EvidenceStatus.FAIL
+    )
+    unresolved = (
+        bool(obligations)
+        or any(
+            report.status is EvidenceStatus.INCONCLUSIVE
+            for report in reports
+        )
+        or static_report.status is EvidenceStatus.INCONCLUSIVE
+    )
+    status = (
+        EvidenceStatus.FAIL
+        if witnessed_failure
+        else EvidenceStatus.INCONCLUSIVE
+        if unresolved
+        else EvidenceStatus.PASS
+    )
+    return BoundedPrefixCertificate.create(
+        semantic_family_sha256=semantic_family_sha256,
+        report_binding=binding,
+        status=status,
+        obligations=() if status is EvidenceStatus.FAIL else obligations,
+        checks=checks,
     )
 
 
@@ -2260,7 +2629,9 @@ def run_h6_prefix(
 
 
 __all__ = [
+    "H6BoundedPrefixFamilyBundle",
     "H6PrefixReportBundle",
+    "compose_bounded_prefix_certificate",
     "compose_prefix_certificate",
     "h6_prefix_artifact_payloads",
     "publish_h6_prefix_artifact",
