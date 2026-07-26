@@ -27,6 +27,7 @@ from vfe4.numerics.quadrature import probabilists_gauss_hermite
 from vfe4.objective.language_elbo import CompleteLanguageELBOFactorTrace
 from vfe4.types.h7 import (
     H7AffineComponentSnapshot,
+    H7AssembledGlobalPrecisionSnapshot,
     H7BudgetRecord,
     H7CompleteLawSnapshot,
     H7DensityObservationRecord,
@@ -38,7 +39,6 @@ from vfe4.types.h7 import (
     H7GLPlus2Action,
     H7IndependentH1EvidenceRecord,
     H7InitialJointKlRecord,
-    H7InjectedGlobalPrecisionSnapshot,
     H7LawPairSnapshot,
     H7LocalTermRecord,
     H7ObjectiveCovarianceEvaluation,
@@ -51,6 +51,7 @@ from vfe4.types.h7 import (
     H7Task5PrecisionCaptureBatch,
     H7Task5PrecisionOperandSnapshot,
     H7TensorActionSnapshot,
+    H7TrialId,
     H7TrialSpec,
     h7_owned_sha256,
 )
@@ -706,11 +707,8 @@ def capture_h7_task5_precision_batch(
     *,
     trial_spec: H7TrialSpec,
     original_factor_trace: CompleteLanguageELBOFactorTrace,
-    injected_global_precisions: tuple[
-        H7InjectedGlobalPrecisionSnapshot, ...
-    ],
 ) -> H7Task5PrecisionCaptureBatch:
-    """Freeze one original-law precision batch without deriving an inverse."""
+    """Assemble and freeze one original-law Task-5 precision batch."""
 
     _validate_law_pair_action(law_pair, action)
     if type(trial_spec) is not H7TrialSpec:
@@ -747,61 +745,56 @@ def capture_h7_task5_precision_batch(
             source_kind="owned_component",
             covariance=component.covariance,
             precision=component.precision,
+            assembled_global=None,
         )
         for index, component in enumerate(owned_components)
     ]
-    global_moments = (
-        *original_values.q_moments.values(),
-        *original_values.p_moments.values(),
+    global_rows = (
+        *(
+            ("q", path, original_values.q_moments[path.path_id])
+            for path in original_values.paths
+        ),
+        *(
+            ("p", path, original_values.p_moments[path.path_id])
+            for path in original_values.paths
+        ),
     )
     expected_global_ids = gaussian_ids[owned_count:]
-    if (
-        type(injected_global_precisions) is not tuple
-        or len(injected_global_precisions) != len(expected_global_ids)
-        or len(global_moments) != len(expected_global_ids)
-        or any(
-            type(item) is not H7InjectedGlobalPrecisionSnapshot
-            for item in injected_global_precisions
-        )
-    ):
+    if len(global_rows) != len(expected_global_ids):
         raise ValueError(
-            "Task-5 precision capture requires the exact injected global precision "
-            "tuple"
+            "Task-5 global precision path inventory changed"
         )
-    for offset, (gaussian_id, moments, injected) in enumerate(
+    for offset, (gaussian_id, (law_kind, path, moments)) in enumerate(
         zip(
             expected_global_ids,
-            global_moments,
-            injected_global_precisions,
+            global_rows,
             strict=True,
         ),
         start=owned_count,
     ):
-        injected.__post_init__()
-        if (
-            injected.trial_id != trial_spec.trial_id
-            or injected.gaussian_id != gaussian_id
-        ):
-            raise ValueError(
-                "injected global precision changed trial/Gaussian identity/order"
-            )
-        covariance = H7OwnedTensorSnapshot.capture(moments.covariance)
-        if (
-            injected.covariance_snapshot_sha256
-            != covariance.snapshot_sha256
-        ):
-            raise ValueError(
-                "injected global precision does not bind its Task-5 covariance "
-                "snapshot"
-            )
+        components = _task5_selected_global_components(
+            law_pair.original,
+            law_kind,
+            path,
+        )
+        assembled = _assemble_task5_global_canonical(
+            law_pair.original,
+            trial_id=trial_spec.trial_id,
+            gaussian_id=gaussian_id,
+            law_kind=law_kind,
+            path=path,
+            moments=moments,
+            components=components,
+        )
         operands.append(
             H7Task5PrecisionOperandSnapshot.create(
                 trial_id=trial_spec.trial_id,
                 batch_index=offset,
                 gaussian_id=gaussian_id,
-                source_kind="injected_global",
-                covariance=covariance,
-                precision=injected.precision,
+                source_kind="assembled_global",
+                covariance=assembled.covariance,
+                precision=assembled.precision,
+                assembled_global=assembled,
             )
         )
     return H7Task5PrecisionCaptureBatch.create(
@@ -977,6 +970,229 @@ def _task5_precision_gaussian_ids(
         f"{prefix}.q_state.q.{prefix}.state.receiver_2.receiver_offset",
         f"{prefix}.q.global[matrix-singleton-path]",
         f"{prefix}.p.global[matrix-singleton-path]",
+    )
+
+
+def _task5_selected_global_components(
+    law: H7CompleteLawSnapshot,
+    law_kind: Literal["q", "p"],
+    path: _SourcePath,
+) -> tuple[
+    H7GaussianComponentSnapshot,
+    H7AffineComponentSnapshot,
+    H7AffineComponentSnapshot,
+    H7AffineComponentSnapshot,
+    H7AffineComponentSnapshot,
+]:
+    if type(law) is not H7CompleteLawSnapshot or law_kind not in ("q", "p"):
+        raise ValueError("Task-5 global path/component binding is invalid")
+    declared_paths = _source_paths(law)
+    if type(path) is not _SourcePath or path not in declared_paths:
+        raise ValueError("Task-5 global path/component binding changed")
+
+    if law_kind == "q":
+        components = (
+            law.recognition.initial_joint,
+            _find_recognition_model(
+                law.recognition,
+                1,
+                path.b[0],
+            ),
+            _find_recognition_state(
+                law.recognition,
+                1,
+                path.a[0],
+                path.b[0],
+            ),
+            _find_recognition_model(
+                law.recognition,
+                2,
+                path.b[1],
+            ),
+            _find_recognition_state(
+                law.recognition,
+                2,
+                path.a[1],
+                path.b[1],
+            ),
+        )
+    else:
+        components = (
+            law.generative.initial_joint,
+            _find_generative_transition(
+                law.generative,
+                "model",
+                1,
+                path.b[0],
+            ),
+            _find_generative_transition(
+                law.generative,
+                "state",
+                1,
+                path.a[0],
+            ),
+            _find_generative_transition(
+                law.generative,
+                "model",
+                2,
+                path.b[1],
+            ),
+            _find_generative_transition(
+                law.generative,
+                "state",
+                2,
+                path.a[1],
+            ),
+        )
+    components[0].__post_init__()
+    for component in components[1:]:
+        component.__post_init__()
+        component.receiver_law.__post_init__()
+    return components
+
+
+def _assemble_task5_global_canonical(
+    law: H7CompleteLawSnapshot,
+    *,
+    trial_id: H7TrialId,
+    gaussian_id: str,
+    law_kind: Literal["q", "p"],
+    path: _SourcePath,
+    moments: _JointMoments,
+    components: tuple[
+        H7GaussianComponentSnapshot,
+        H7AffineComponentSnapshot,
+        H7AffineComponentSnapshot,
+        H7AffineComponentSnapshot,
+        H7AffineComponentSnapshot,
+    ],
+) -> H7AssembledGlobalPrecisionSnapshot:
+    """Scatter one fixed-path canonical pair from its five owned factors."""
+
+    expected_components = _task5_selected_global_components(
+        law,
+        law_kind,
+        path,
+    )
+    if (
+        type(components) is not tuple
+        or len(components) != 5
+        or type(components[0]) is not H7GaussianComponentSnapshot
+        or any(
+            type(component) is not H7AffineComponentSnapshot
+            for component in components[1:]
+        )
+        or tuple(component.component_sha256 for component in components)
+        != tuple(
+            component.component_sha256 for component in expected_components
+        )
+    ):
+        raise ValueError("Task-5 global path/component binding changed")
+    if type(moments) is not _JointMoments:
+        raise ValueError("Task-5 global propagated moment is invalid")
+    moments.__post_init__()
+
+    initial, model_1, state_1, model_2, state_2 = components
+    dimension = initial.mean.shape[0] // 2
+    global_dimension = 6 * dimension
+    if (
+        dimension <= 0
+        or moments.mean.shape != (global_dimension,)
+        or moments.covariance.shape != (global_dimension, global_dimension)
+    ):
+        raise ValueError("Task-5 global propagated moment shape changed")
+    component_snapshots = (
+        initial.precision,
+        initial.information_vector,
+        model_1.parent_map,
+        model_1.offset,
+        model_1.receiver_law.precision,
+        state_1.parent_map,
+        state_1.same_receiver_model_map,
+        state_1.offset,
+        state_1.receiver_law.precision,
+        model_2.parent_map,
+        model_2.offset,
+        model_2.receiver_law.precision,
+        state_2.parent_map,
+        state_2.same_receiver_model_map,
+        state_2.offset,
+        state_2.receiver_law.precision,
+    )
+    if any(
+        snapshot is None or snapshot.device != "cpu"
+        for snapshot in component_snapshots
+    ):
+        raise ValueError("Task-5 global assembly requires CPU float64 factors")
+
+    precision = torch.zeros(
+        (global_dimension, global_dimension),
+        dtype=torch.float64,
+    )
+    information = torch.zeros(global_dimension, dtype=torch.float64)
+    precision[: 2 * dimension, : 2 * dimension] += initial.precision.value()
+    information[: 2 * dimension] += initial.information_vector.value()
+    identity = torch.eye(dimension, dtype=torch.float64)
+
+    for receiver_t, model, state in (
+        (1, model_1, state_1),
+        (2, model_2, state_2),
+    ):
+        model_residual = torch.zeros(
+            (dimension, global_dimension),
+            dtype=torch.float64,
+        )
+        model_target = _block_indices("m", receiver_t, dimension)
+        model_parent = _block_indices(
+            "m",
+            path.b[receiver_t - 1],
+            dimension,
+        )
+        model_residual[:, list(model_target)] += identity
+        model_residual[:, list(model_parent)] += -model.parent_map.value()
+        model_precision = model.receiver_law.precision.value()
+        precision += model_residual.T @ model_precision @ model_residual
+        information += (
+            model_residual.T @ model_precision @ model.offset.value()
+        )
+
+        state_residual = torch.zeros(
+            (dimension, global_dimension),
+            dtype=torch.float64,
+        )
+        state_target = _block_indices("z", receiver_t, dimension)
+        state_parent = _block_indices(
+            "z",
+            path.a[receiver_t - 1],
+            dimension,
+        )
+        state_residual[:, list(state_target)] += identity
+        state_residual[:, list(state_parent)] += -state.parent_map.value()
+        model_map = state.same_receiver_model_map
+        if model_map is None:
+            raise ValueError(
+                "Task-5 state component lacks its same-receiver model map"
+            )
+        state_residual[:, list(model_target)] += -model_map.value()
+        state_precision = state.receiver_law.precision.value()
+        precision += state_residual.T @ state_precision @ state_residual
+        information += (
+            state_residual.T @ state_precision @ state.offset.value()
+        )
+
+    return H7AssembledGlobalPrecisionSnapshot.create(
+        trial_id=trial_id,
+        gaussian_id=gaussian_id,
+        law_kind=law_kind,
+        path_id=path.path_id,
+        original_law_snapshot_sha256=law.snapshot_sha256,
+        selected_component_sha256s=tuple(
+            component.component_sha256 for component in components
+        ),
+        mean=H7OwnedTensorSnapshot.capture(moments.mean),
+        covariance=H7OwnedTensorSnapshot.capture(moments.covariance),
+        precision=H7OwnedTensorSnapshot.capture(precision),
+        information_vector=H7OwnedTensorSnapshot.capture(information),
     )
 
 

@@ -97,6 +97,85 @@ mean in `(z0,m0,z1,m1,z2,m2)` order. The eight pairs are trial-major, bind
 the raw H1 hash, path ID, action hash, original-anchor profile, transformed
 point, and global log-Jacobian shift in one self-hashing scalar probe set.
 
+## July 26 Task-5 canonical-precision amendment
+
+This amendment authorizes a production-only Task-5 global-precision assembly
+slice. It supersedes the earlier temporary requirement that the 40 global
+joint precisions arrive as injected values. It does not authorize fixture
+generation, precision-table serialization, oracle calibration, trial/control
+execution, or an H7 status decision.
+
+For every fixed source path, assemble the original-law canonical Gaussian in
+the closed global order
+
+```text
+[z_0, m_0, z_1, m_1, z_2, m_2].
+```
+
+Let `E_{c,t}` select channel `c` at population label `t`. For the joint
+initial Gaussian with owned precision `J_0` and information vector `h_0`, add
+`E_0^T J_0 E_0` and `E_0^T h_0`. For each selected model conditional, use
+
+```text
+R_m,t = E_m,t - A_m,t,b_t E_m,b_t.
+```
+
+For each selected state conditional, use the same-receiver model parent
+required by the frozen law:
+
+```text
+R_z,t = E_z,t - A_z,t,a_t E_z,a_t - B_z,t E_m,t.
+```
+
+If a conditional has receiver precision `Lambda` and offset `c`, its exact
+canonical contribution is
+
+```text
+J += R^T Lambda R
+h += R^T Lambda c.
+```
+
+The assembler may use only owned factor precisions, owned information vectors,
+owned affine maps/offsets, matrix multiplication, addition, and block scatter.
+It may not call `inv`, `pinv`, `cholesky_inverse`, solve against an identity
+right-hand side, or derive a global precision from a propagated covariance.
+Source probabilities weight the later discrete path sum and never enter a
+fixed-path `J` or `h`.
+
+The closed global order is recognition `q` before generative `p` within every
+family-local capture batch. The scalar adapter retains its four declared paths
+in their frozen order, producing four `q` and then four `p` globals per scalar
+trial. Every matrix family has the singleton `(a,b)=((0,1),(0,1))` path,
+producing one `q` and then one `p` global. Across two scalar batches and twelve
+matrix-family batches, this yields exactly 40 assembled globals and preserves
+the complete 192-row precision inventory.
+
+Each assembled-global record must bind the trial, `q`/`p` role, path,
+original complete-law snapshot, exact ordered five-factor component identity
+tuple, Task-5 propagated covariance snapshot, assembled precision,
+information vector, and its own canonical assembly hash. The propagated
+moments are independent verification evidence only. Acceptance requires both
+`J Sigma = I` and `Sigma J = I`, `h = J mu`, and agreement between the
+factor-local and global canonical quadratic form within the existing frozen
+float64 validation scale.
+
+This authorization is deliberately scoped to global assembly. The already
+owned local receiver precisions remain inputs to this slice. Their current
+fixture-construction provenance is a separate pre-H7-closure obligation; no
+end-to-end no-materialized-inverse claim may be made until that obligation is
+resolved or the final claim is explicitly narrowed.
+
+The existing `h7-mp-precision-operands-v1` consumer cannot be frozen from this
+production capture because it equates a production covariance hash with an
+independently computed 100-decimal oracle-value hash. Before Task 4B2
+serialization, replace that contract with a versioned v2 schema that carries
+the exact production `covariance_values` and
+`covariance_snapshot_sha256`, plus the exact production `precision_values`
+and precision snapshot hash. The independent oracle must numerically compare
+its separately assembled covariance to those production values; it must not
+require the two representations to have identical serialization hashes. No v2
+raw-file, set, or oracle-inventory hash is frozen by this amendment.
+
 ## Required trials
 
 | Trial ID | Role | Frame/action/decoder | Expected predicate |

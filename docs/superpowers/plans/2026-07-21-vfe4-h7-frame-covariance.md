@@ -1174,6 +1174,67 @@ Status precedence is exact:
   git commit -m "feat: evaluate complete H7 objective covariance"
   ```
 
+### July 26 Task 4B1.5 amendment: assemble global canonical precisions
+
+The original Task-5 implementation did not retain the 40 fixed-path global
+precision matrices needed by the independent precision-operand inventory. A
+temporary capture seam required those matrices as injected owned values. This
+amendment replaces that temporary source with direct production canonical
+assembly; it does not authorize serialization, calibration, trials, controls,
+or an H7 status decision.
+
+For each original-law fixed source path, use exact global order
+`[z0,m0,z1,m1,z2,m2]`. Scatter the joint initial `(J0,h0)`. For model and state
+conditionals respectively, assemble
+
+```text
+R_m,t = E_m,t - A_m,t,b_t E_m,b_t
+R_z,t = E_z,t - A_z,t,a_t E_z,a_t - B_t E_m,t
+J += R^T Lambda R
+h += R^T Lambda offset
+```
+
+using only already-owned component precisions, information vectors, affine
+maps/offsets, multiplication, addition, and block scatter. The new assembler
+must not call `inv`, `pinv`, `cholesky_inverse`, solve against an identity, or
+derive `J` from the propagated covariance. Source probabilities do not enter
+a fixed-path canonical pair.
+
+Capture order is every `q` path followed by every `p` path. Each of the two
+scalar batches contributes eight globals in the frozen four-path order. Each
+of the twelve matrix-family batches contributes singleton `q` then `p`.
+Together with 152 component rows, the 40 globals close the ordered 192-row
+inventory.
+
+- [ ] **Step 4B1.5.1: Write two focused failing tests.** Cover exact scalar and
+  matrix-family path/order/provenance, both `J Sigma` and `Sigma J`, `h=J mu`,
+  factor/global quadratic agreement, defensive ownership, stale factor
+  rejection, and source-scan/runtime bans on inverse APIs in the new assembler.
+- [ ] **Step 4B1.5.2: Add an immutable assembled-global record and direct
+  assembler.** Bind trial, `q`/`p` role, path, original-law snapshot, the exact
+  ordered initial/model-1/state-1/model-2/state-2 component hashes, propagated
+  covariance snapshot, assembled precision/information snapshots, and one
+  domain-separated assembly hash. Global precision operands use
+  `source_kind="assembled_global"`; the live capture accepts no injected global
+  values.
+- [ ] **Step 4B1.5.3: Run only the two exact focused nodes, review, and
+  commit.** Do not run the complete file or suite.
+
+This amendment makes only the bounded claim that the new global assembler
+performs no inverse synthesis. The fixture parser currently materializes
+already-owned local receiver precisions separately; their provenance remains a
+pre-H7-closure obligation if the final claim is end-to-end inverse-free.
+
+Before Task 4B2 serializes any precision table, replace the current
+`h7-mp-precision-operands-v1` covariance-hash equality with a versioned v2
+schema. It must carry exact production `covariance_values` and
+`covariance_snapshot_sha256`, plus production `precision_values` and its
+snapshot hash. The independent 100-decimal oracle numerically compares its
+separately assembled covariance to the production values; production is not
+required to predict the oracle representation's serialization hash. Freeze no
+v2 raw, set, or oracle-inventory hash until that schema and binary64 text
+round-trip policy are implemented and reviewed.
+
 ## Task 6: Add the Independent 100-Decimal Oracle and Operand-Local Budgets
 
 **Files:**

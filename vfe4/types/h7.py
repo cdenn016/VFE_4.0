@@ -2018,6 +2018,125 @@ def _task5_precision_gaussian_ids(
 
 
 @dataclass(frozen=True)
+class H7AssembledGlobalPrecisionSnapshot(_H7IntegrityRecord):
+    _integrity_field: ClassVar[str] = "assembly_sha256"
+    _hash_domain: ClassVar[str] = "vfe4.h7.assembled-global-precision.v1"
+
+    trial_id: H7TrialId
+    gaussian_id: str
+    law_kind: Literal["q", "p"]
+    path_id: str
+    original_law_snapshot_sha256: str
+    selected_component_sha256s: tuple[str, str, str, str, str]
+    mean: H7OwnedTensorSnapshot
+    covariance: H7OwnedTensorSnapshot
+    precision: H7OwnedTensorSnapshot
+    information_vector: H7OwnedTensorSnapshot
+    assembly_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_nonempty(self.gaussian_id, "gaussian_id")
+        _require_nonempty(self.path_id, "path_id")
+        if self.trial_id in H7_SCALAR_TRIAL_IDS:
+            expected_dimension = 6
+            allowed_path_ids = (
+                "h1-path-0:a0-b0",
+                "h1-path-1:a1-b0",
+                "h1-path-2:a0-b1",
+                "h1-path-3:a1-b1",
+            )
+            allowed_prefixes = ("scalar",)
+        elif self.trial_id in H7_MATRIX_TRIAL_IDS:
+            expected_dimension = 12
+            allowed_path_ids = ("matrix-singleton-path",)
+            allowed_prefixes = ("structured", "factorized")
+        else:
+            raise ValueError("assembled global trial identity is invalid")
+        if (
+            self.law_kind not in ("q", "p")
+            or self.path_id not in allowed_path_ids
+            or self.gaussian_id
+            not in tuple(
+                f"{prefix}.{self.law_kind}.global[{self.path_id}]"
+                for prefix in allowed_prefixes
+            )
+        ):
+            raise ValueError(
+                "assembled global path/Gaussian identity is invalid"
+            )
+        _require_sha256(
+            self.original_law_snapshot_sha256,
+            "original_law_snapshot_sha256",
+        )
+        if (
+            type(self.selected_component_sha256s) is not tuple
+            or len(self.selected_component_sha256s) != 5
+        ):
+            raise ValueError(
+                "assembled global must bind exactly five ordered components"
+            )
+        for index, component_sha256 in enumerate(
+            self.selected_component_sha256s
+        ):
+            _require_sha256(
+                component_sha256,
+                f"selected_component_sha256s[{index}]",
+            )
+
+        mean = _require_owned_tensor(
+            self.mean,
+            "assembled global propagated mean",
+            ndim=1,
+        )
+        dimension = mean.numel()
+        if self.mean.device != "cpu" or dimension != expected_dimension:
+            raise ValueError(
+                "assembled global propagated mean has the wrong global dimension"
+            )
+        covariance = _require_task5_precision_matrix(
+            self.covariance,
+            "assembled global propagated covariance",
+        )
+        precision = _require_task5_precision_matrix(
+            self.precision,
+            "assembled global precision",
+        )
+        if covariance.shape != (dimension, dimension):
+            raise ValueError(
+                "assembled global propagated moment shapes disagree"
+            )
+        _require_task5_precision_pair(self.covariance, self.precision)
+        information = _require_owned_tensor(
+            self.information_vector,
+            "assembled global information vector",
+            shape=(dimension,),
+        )
+        if self.information_vector.device != "cpu":
+            raise ValueError(
+                "assembled global information vector must use CPU float64"
+            )
+        eps = torch.finfo(torch.float64).eps
+        with torch.no_grad():
+            expected_information = precision @ mean
+            scale = max(
+                1.0,
+                float(expected_information.abs().max()),
+                float(information.abs().max()),
+            )
+            if not torch.allclose(
+                information,
+                expected_information,
+                rtol=256.0 * eps,
+                atol=256.0 * eps * scale,
+            ):
+                raise ValueError(
+                    "assembled global information vector is inconsistent "
+                    "with its propagated mean"
+                )
+        super().__post_init__()
+
+
+@dataclass(frozen=True)
 class H7InjectedGlobalPrecisionSnapshot(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "input_sha256"
     _hash_domain: ClassVar[str] = "vfe4.h7.injected-global-precision.v1"
@@ -2048,14 +2167,15 @@ class H7InjectedGlobalPrecisionSnapshot(_H7IntegrityRecord):
 @dataclass(frozen=True)
 class H7Task5PrecisionOperandSnapshot(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "operand_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.task5-precision-operand.v1"
+    _hash_domain: ClassVar[str] = "vfe4.h7.task5-precision-operand.v2"
 
     trial_id: H7TrialId
     batch_index: int
     gaussian_id: str
-    source_kind: Literal["owned_component", "injected_global"]
+    source_kind: Literal["owned_component", "assembled_global"]
     covariance: H7OwnedTensorSnapshot
     precision: H7OwnedTensorSnapshot
+    assembled_global: H7AssembledGlobalPrecisionSnapshot | None
     operand_sha256: str
 
     def __post_init__(self) -> None:
@@ -2063,18 +2183,40 @@ class H7Task5PrecisionOperandSnapshot(_H7IntegrityRecord):
             self.trial_id not in H7_REQUIRED_TRIAL_IDS
             or type(self.batch_index) is not int
             or self.batch_index < 0
-            or self.source_kind not in ("owned_component", "injected_global")
+            or self.source_kind not in ("owned_component", "assembled_global")
         ):
             raise ValueError("Task-5 precision operand identity is invalid")
         _require_nonempty(self.gaussian_id, "gaussian_id")
         _require_task5_precision_pair(self.covariance, self.precision)
+        if self.source_kind == "owned_component":
+            if self.assembled_global is not None:
+                raise ValueError(
+                    "owned Task-5 component cannot carry a global assembly"
+                )
+        else:
+            if type(self.assembled_global) is not H7AssembledGlobalPrecisionSnapshot:
+                raise ValueError(
+                    "assembled Task-5 global requires its exact integrity record"
+                )
+            self.assembled_global.__post_init__()
+            if (
+                self.assembled_global.trial_id != self.trial_id
+                or self.assembled_global.gaussian_id != self.gaussian_id
+                or self.assembled_global.covariance.snapshot_sha256
+                != self.covariance.snapshot_sha256
+                or self.assembled_global.precision.snapshot_sha256
+                != self.precision.snapshot_sha256
+            ):
+                raise ValueError(
+                    "Task-5 global operand and assembly provenance disagree"
+                )
         super().__post_init__()
 
 
 @dataclass(frozen=True)
 class H7Task5PrecisionCaptureBatch(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "capture_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.task5-precision-capture-batch.v1"
+    _hash_domain: ClassVar[str] = "vfe4.h7.task5-precision-capture-batch.v2"
 
     trial_id: H7TrialId
     fixture_id: Literal["h1-v1", "h7-v1"]
@@ -2117,7 +2259,7 @@ class H7Task5PrecisionCaptureBatch(_H7IntegrityRecord):
             != (
                 *("owned_component" for _ in range(owned_count)),
                 *(
-                    "injected_global"
+                    "assembled_global"
                     for _ in range(len(expected_ids) - owned_count)
                 ),
             )

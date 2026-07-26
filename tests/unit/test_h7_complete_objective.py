@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import ast
 import dataclasses
 import hashlib
+import inspect
 from pathlib import Path
+import textwrap
 
 import pytest
 import torch
@@ -15,14 +18,16 @@ from vfe4.objective.language_elbo import require_h7_complete_factor_trace
 from vfe4.types.h6 import FrozenTensorSnapshot, H6FactorTerm, H6LanguageElboTerms
 from vfe4.types.h7 import (
     H7AllowanceContribution,
+    H7AssembledGlobalPrecisionSnapshot,
     H7BudgetCategory,
     H7BudgetRecord,
     H7CompleteLawSnapshot,
+    H7GenerativeSnapshot,
     H7IndependentH1EvidenceRecord,
-    H7InjectedGlobalPrecisionSnapshot,
     H7LawPairSnapshot,
     H7OperandRecord,
     H7OwnedTensorSnapshot,
+    h7_owned_sha256,
 )
 from vfe4.validation.h7_fixture import (
     H1_FIXTURE_RAW_SHA256,
@@ -387,135 +392,267 @@ def _matrix_law_pair(recognition_index: int):
     )
 
 
-def _synthetic_global_precision_inputs(
+def _install_task5_moment_only_evaluator(
     monkeypatch: pytest.MonkeyPatch,
-    *,
-    law_pair: H7LawPairSnapshot,
-    trial_spec,
-    factor_trace,
-    expected_ids: tuple[str, ...],
-    owned_count: int,
-) -> tuple[H7InjectedGlobalPrecisionSnapshot, ...]:
-    if law_pair.original.fixture_id == "h1-v1":
-        dimension = 6
-        paths = (
-            covariance._SourcePath(
-                "h1-path-0:a0-b0",
-                (0, 0),
-                (0, 0),
-                0.25,
-                0.25,
-            ),
-            covariance._SourcePath(
-                "h1-path-1:a1-b0",
-                (0, 1),
-                (0, 0),
-                0.25,
-                0.25,
-            ),
-            covariance._SourcePath(
-                "h1-path-2:a0-b1",
-                (0, 0),
-                (0, 1),
-                0.25,
-                0.25,
-            ),
-            covariance._SourcePath(
-                "h1-path-3:a1-b1",
-                (0, 1),
-                (0, 1),
-                0.25,
-                0.25,
-            ),
-        )
-    else:
-        dimension = 12
-        paths = (
-            covariance._SourcePath(
-                "matrix-singleton-path",
-                (0, 1),
-                (0, 1),
-                1.0,
-                1.0,
-            ),
-        )
-    q_moments = {
-        path_id: covariance._JointMoments(
-            mean=torch.zeros(dimension, dtype=torch.float64),
-            covariance=2.0
-            * torch.eye(dimension, dtype=torch.float64),
-        )
-        for path_id in (path.path_id for path in paths)
-    }
-    p_moments = {
-        path_id: covariance._JointMoments(
-            mean=torch.ones(dimension, dtype=torch.float64),
-            covariance=4.0
-            * torch.eye(dimension, dtype=torch.float64),
-        )
-        for path_id in (path.path_id for path in paths)
-    }
-    synthetic_values = covariance._CompleteValues(
-        factor_trace=factor_trace,
-        initial_joint_kl=0.0,
-        initial_factor_ids=("synthetic-initial-joint",),
-        local_terms={
-            term_id: 0.0 for term_id in covariance.H7_COMPLETE_LOCAL_TERM_IDS
-        },
-        local_factor_ids={
-            term_id: (f"synthetic:{term_id}",)
-            for term_id in covariance.H7_COMPLETE_LOCAL_TERM_IDS
-        },
-        complete_local=float(factor_trace.total_value),
-        complete_monolithic=float(factor_trace.total_value),
-        q_moments=q_moments,
-        p_moments=p_moments,
-        paths=paths,
-    )
-
-    def synthetic_evaluator(
-        law,
+) -> None:
+    def moment_only_evaluator(
+        law: H7CompleteLawSnapshot,
         *,
-        factor_trace: object,
+        factor_trace,
         quadrature_order: int,
     ):
-        assert law is law_pair.original
-        assert factor_trace is factor_trace_for_capture
         assert quadrature_order == 51
-        return synthetic_values
+        paths = covariance._source_paths(law)
+        return covariance._CompleteValues(
+            factor_trace=factor_trace,
+            initial_joint_kl=float(factor_trace.ordered_factor_values[0]),
+            initial_factor_ids=(factor_trace.ordered_factor_ids[0],),
+            local_terms={
+                term_id: 0.0
+                for term_id in covariance.H7_COMPLETE_LOCAL_TERM_IDS
+            },
+            local_factor_ids={
+                term_id: (f"task5-moment-only:{term_id}",)
+                for term_id in covariance.H7_COMPLETE_LOCAL_TERM_IDS
+            },
+            complete_local=float(factor_trace.total_value),
+            complete_monolithic=float(factor_trace.total_value),
+            q_moments={
+                path.path_id: covariance._recognition_joint_moments(
+                    law.recognition,
+                    path,
+                )
+                for path in paths
+            },
+            p_moments={
+                path.path_id: covariance._generative_joint_moments(
+                    law.generative,
+                    path,
+                )
+                for path in paths
+            },
+            paths=paths,
+        )
 
-    factor_trace_for_capture = factor_trace
     monkeypatch.setattr(
         covariance,
         "_evaluate_complete_law",
-        synthetic_evaluator,
+        moment_only_evaluator,
     )
-    global_rows = (
-        *(("q", item) for item in q_moments.items()),
-        *(("p", item) for item in p_moments.items()),
-    )
-    assert tuple(expected_ids[owned_count:]) == tuple(
-        f"{expected_ids[0].split('.', 1)[0]}.{role}.global[{path_id}]"
-        for role, (path_id, _moments) in global_rows
-    )
-    return tuple(
-        H7InjectedGlobalPrecisionSnapshot.create(
-            trial_id=trial_spec.trial_id,
-            gaussian_id=gaussian_id,
-            covariance_snapshot_sha256=(
-                H7OwnedTensorSnapshot.capture(moments.covariance).snapshot_sha256
-            ),
-            precision=H7OwnedTensorSnapshot.capture(
-                (0.5 if role == "q" else 0.25)
-                * torch.eye(moments.mean.numel(), dtype=torch.float64)
-            ),
+
+
+def _task5_identity_generative(fixture) -> H7GenerativeSnapshot:
+    dimension = fixture.frame_profiles["identity"][0].shape[0]
+    identity_links = {
+        key: H7OwnedTensorSnapshot.capture(
+            torch.eye(dimension, dtype=torch.float64)
         )
-        for gaussian_id, (role, (_path_id, moments)) in zip(
-            expected_ids[owned_count:],
-            global_rows,
-            strict=True,
-        )
+        for key in fixture.generative.ordered_links
+    }
+    return H7GenerativeSnapshot.create(
+        frames=fixture.frame_profiles["identity"],
+        ordered_links=identity_links,
+        initial_joint=fixture.generative.initial_joint,
+        transitions=fixture.generative.transitions,
+        source_context=fixture.generative.source_context,
+        scalar_source_law=fixture.generative.scalar_source_law,
+        decoders=fixture.generative.decoders,
+        support_sha256=fixture.generative.support_sha256,
+        jacobian=fixture.generative.jacobian,
     )
+
+
+def _task5_capture_cases():
+    scalar_path = (
+        Path(__file__).parents[2]
+        / "vfe4"
+        / "validation"
+        / "fixtures"
+        / "h1_v1.json"
+    )
+    scalar = adapt_optional_h1_fixture_bytes(
+        scalar_path.read_bytes(),
+        required_scalar_trials=(
+            "scalar-base-transformed",
+            "scalar-internal-transformed",
+        ),
+    )
+    assert scalar is not None
+    cases = [
+        (
+            H7LawPairSnapshot.create(
+                original=scalar,
+                transformed=scalar,
+                action_sha256=spec.action_sha256,
+            ),
+            spec.action,
+            spec,
+            _SCALAR_PRECISION_IDS,
+            16,
+        )
+        for spec in h7_scalar_trial_specs()
+    ]
+
+    fixture = parse_h7_fixture_bytes(H7_FIXTURE_PATH.read_bytes())
+    generative_by_frame = {
+        "identity": _task5_identity_generative(fixture),
+        "nonidentity": fixture.generative,
+    }
+    family_contracts = (
+        (fixture.recognition_families[0], _STRUCTURED_PRECISION_IDS),
+        (fixture.recognition_families[1], _FACTORIZED_PRECISION_IDS),
+    )
+    for spec in fixture.matrix_trial_specs:
+        for recognition, expected_ids in family_contracts:
+            original = H7CompleteLawSnapshot.create(
+                fixture_id="h7-v1",
+                generative=generative_by_frame[spec.frame_profile],
+                recognition=recognition,
+                raw_fixture_sha256=fixture.raw_fixture_sha256,
+                scalar_probe_set=None,
+            )
+            cases.append(
+                (
+                    H7LawPairSnapshot.create(
+                        original=original,
+                        transformed=original,
+                        action_sha256=spec.action_sha256,
+                    ),
+                    spec.action,
+                    spec,
+                    expected_ids,
+                    10,
+                )
+            )
+    return tuple(cases)
+
+
+def _task5_expected_components(
+    law: H7CompleteLawSnapshot,
+    law_kind: str,
+    path,
+):
+    if law_kind == "q":
+        selected = [law.recognition.initial_joint]
+        for receiver_t in (1, 2):
+            source_j = path.a[receiver_t - 1]
+            model_source_j = path.b[receiver_t - 1]
+            model = next(
+                item
+                for item in law.recognition.model_conditionals
+                if item.receiver_t == receiver_t
+                and item.source_j == model_source_j
+            )
+            candidates = tuple(
+                item
+                for item in law.recognition.state_conditionals
+                if item.receiver_t == receiver_t
+            )
+            if law.fixture_id == "h1-v1":
+                marker = f".a_{source_j}.b_{model_source_j}."
+                state = next(
+                    item for item in candidates if marker in item.component_id
+                )
+            else:
+                state = next(
+                    item for item in candidates if item.source_j == source_j
+                )
+            selected.extend((model, state))
+    else:
+        selected = [law.generative.initial_joint]
+        for receiver_t in (1, 2):
+            selected.extend(
+                (
+                    next(
+                        item
+                        for item in law.generative.transitions
+                        if item.bank == "model"
+                        and item.receiver_t == receiver_t
+                        and item.source_j == path.b[receiver_t - 1]
+                    ),
+                    next(
+                        item
+                        for item in law.generative.transitions
+                        if item.bank == "state"
+                        and item.receiver_t == receiver_t
+                        and item.source_j == path.a[receiver_t - 1]
+                    ),
+                )
+            )
+    return tuple(selected)
+
+
+def _task5_factor_energy(
+    components,
+    path,
+    point: torch.Tensor,
+) -> torch.Tensor:
+    initial, model_1, state_1, model_2, state_2 = components
+    dimension = initial.mean.shape[0] // 2
+    initial_point = point[: 2 * dimension]
+    value = (
+        0.5
+        * initial_point
+        @ initial.precision.value()
+        @ initial_point
+        - initial.information_vector.value() @ initial_point
+    )
+    for receiver_t, model, state in (
+        (1, model_1, state_1),
+        (2, model_2, state_2),
+    ):
+        model_target = point[
+            list(covariance._block_indices("m", receiver_t, dimension))
+        ]
+        model_parent = point[
+            list(
+                covariance._block_indices(
+                    "m",
+                    path.b[receiver_t - 1],
+                    dimension,
+                )
+            )
+        ]
+        model_residual = (
+            model_target
+            - model.parent_map.value() @ model_parent
+            - model.offset.value()
+        )
+        value = (
+            value
+            + 0.5
+            * model_residual
+            @ model.receiver_law.precision.value()
+            @ model_residual
+        )
+
+        state_target = point[
+            list(covariance._block_indices("z", receiver_t, dimension))
+        ]
+        state_parent = point[
+            list(
+                covariance._block_indices(
+                    "z",
+                    path.a[receiver_t - 1],
+                    dimension,
+                )
+            )
+        ]
+        assert state.same_receiver_model_map is not None
+        state_residual = (
+            state_target
+            - state.parent_map.value() @ state_parent
+            - state.same_receiver_model_map.value() @ model_target
+            - state.offset.value()
+        )
+        value = (
+            value
+            + 0.5
+            * state_residual
+            @ state.receiver_law.precision.value()
+            @ state_residual
+        )
+    return value
 
 
 def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance(
@@ -934,368 +1071,429 @@ def test_matrix_inventory_and_factorized_promotion_fail_closed(
         )
 
 
-def test_task5_precision_capture_has_exact_owned_order_and_cardinality(
+def test_task5_assembles_40_global_canonical_pairs_in_exact_batch_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    scalar_original, scalar_transformed, scalar_action = _scalar_law_pair()
-    scalar_specs = h7_scalar_trial_specs()
-    scalar_spec = scalar_specs[0]
-    assert scalar_original.scalar_probe_set is not None
-    assert scalar_original.scalar_probe_set.scalar_trial_action_sha256 == tuple(
-        spec.action_sha256 for spec in scalar_specs
+    _install_task5_moment_only_evaluator(monkeypatch)
+    cases = _task5_capture_cases()
+    assert len(cases) == 14
+    scalar_path_ids = (
+        "h1-path-0:a0-b0",
+        "h1-path-1:a1-b0",
+        "h1-path-2:a0-b1",
+        "h1-path-3:a1-b1",
     )
-    scalar_source_law = scalar_original.generative.scalar_source_law
-    assert scalar_source_law is not None
-    scalar_global = covariance._global_log_jacobian(scalar_action)
-    scalar_allowance = (
-        64.0
-        * torch.finfo(torch.float64).eps
-        * max(1.0, abs(scalar_global))
-    )
-    for path in scalar_source_law.ordered_paths:
-        generative_ids = (
-            f"h1.p.model.1<-{path.b[0]}",
-            f"h1.p.state.1<-{path.a[0]}",
-            f"h1.p.model.2<-{path.b[1]}",
-            f"h1.p.state.2<-{path.a[1]}",
+    expected_global_order = tuple(
+        (
+            trial_spec.trial_id,
+            law_pair.original.recognition.origin_family,
+            law_kind,
+            path_id,
         )
-        recognition_ids = (
-            f"h1.q.model.1<-{path.b[0]}",
-            (
-                f"h1.q.state.1.a_{path.a[0]}.b_{path.b[0]}."
-                f"row_{path.state_kernel_selectors[0]}"
-            ),
-            f"h1.q.model.2<-{path.b[1]}",
-            (
-                f"h1.q.state.2.a_{path.a[1]}.b_{path.b[1]}."
-                f"row_{path.state_kernel_selectors[1]}"
-            ),
+        for law_pair, _action, trial_spec, _ids, _owned_count in cases
+        for law_kind in ("q", "p")
+        for path_id in (
+            scalar_path_ids
+            if law_pair.original.fixture_id == "h1-v1"
+            else ("matrix-singleton-path",)
         )
-        for metadata, active_ids in (
-            (scalar_transformed.generative.jacobian, generative_ids),
-            (scalar_transformed.recognition.jacobian, recognition_ids),
-        ):
-            selected_total = (
-                metadata.initial_logabsdet.value()
-                + torch.stack(
-                    tuple(
-                        metadata.receiver_logabsdet[component_id].value()
-                        for component_id in active_ids
-                    )
-                ).sum()
-            )
-            assert (
-                float(selected_total.item()),
-                float(metadata.global_logabsdet.value().item()),
-            ) == pytest.approx(
-                (scalar_global, scalar_global),
-                rel=0.0,
-                abs=scalar_allowance,
-            )
-    scalar_pair = H7LawPairSnapshot.create(
-        original=scalar_original,
-        transformed=scalar_transformed,
-        action_sha256=scalar_action.action_sha256,
-    )
-    structured_pair, matrix_action, matrix_spec = _matrix_law_pair(0)
-    factorized_pair, factorized_action, factorized_spec = _matrix_law_pair(1)
-    cases = (
-        (
-            scalar_pair,
-            scalar_action,
-            scalar_spec,
-            _SCALAR_PRECISION_IDS,
-            16,
-            24,
-        ),
-        (
-            structured_pair,
-            matrix_action,
-            matrix_spec,
-            _STRUCTURED_PRECISION_IDS,
-            10,
-            12,
-        ),
-        (
-            factorized_pair,
-            factorized_action,
-            factorized_spec,
-            _FACTORIZED_PRECISION_IDS,
-            10,
-            12,
-        ),
     )
 
+    batches = []
+    assembled_rows = []
+    observed_global_order = []
+    eps = torch.finfo(torch.float64).eps
     for case_index, (
         law_pair,
         action,
         trial_spec,
         expected_ids,
         owned_count,
-        expected_count,
     ) in enumerate(cases):
-        factor_trace = _complete_trace(f"precision-capture-{case_index}")
-        injected = _synthetic_global_precision_inputs(
-            monkeypatch,
-            law_pair=law_pair,
-            trial_spec=trial_spec,
-            factor_trace=factor_trace,
-            expected_ids=expected_ids,
-            owned_count=owned_count,
-        )
+        factor_trace = _complete_trace(f"task5-capture-{case_index}")
         batch = covariance.capture_h7_task5_precision_batch(
             law_pair,
             action,
             trial_spec=trial_spec,
             original_factor_trace=factor_trace,
-            injected_global_precisions=injected,
         )
-
-        owned_components = (
-            law_pair.original.generative.initial_joint,
-            law_pair.original.recognition.initial_joint,
-            *tuple(
-                item.receiver_law
-                for item in law_pair.original.generative.transitions
-            ),
-            *tuple(
-                item.receiver_law
-                for item in law_pair.original.recognition.model_conditionals
-            ),
-            *tuple(
-                item.receiver_law
-                for item in law_pair.original.recognition.state_conditionals
-            ),
-        )
-        assert len(batch.operands) == expected_count
-        assert tuple(item.batch_index for item in batch.operands) == tuple(
-            range(expected_count)
-        )
+        batches.append(batch)
         assert tuple(item.gaussian_id for item in batch.operands) == expected_ids
+        assert tuple(item.batch_index for item in batch.operands) == tuple(
+            range(len(expected_ids))
+        )
         assert tuple(item.source_kind for item in batch.operands) == (
             *("owned_component" for _ in range(owned_count)),
-            *("injected_global" for _ in range(expected_count - owned_count)),
+            *(
+                "assembled_global"
+                for _ in range(len(expected_ids) - owned_count)
+            ),
         )
-        assert batch.trial_id == trial_spec.trial_id
-        assert batch.fixture_id == law_pair.original.fixture_id
-        assert batch.raw_fixture_sha256 == law_pair.original.raw_fixture_sha256
-        assert (
-            batch.recognition_family
-            == law_pair.original.recognition.origin_family
-        )
-        assert tuple(
-            item.precision.snapshot_sha256
+        assert all(
+            item.assembled_global is None
             for item in batch.operands[:owned_count]
-        ) == tuple(
-            item.precision.snapshot_sha256 for item in owned_components
         )
-        assert tuple(
-            item.precision.snapshot_sha256
-            for item in batch.operands[owned_count:]
-        ) == tuple(item.precision.snapshot_sha256 for item in injected)
-        if law_pair.original.fixture_id == "h7-v1":
-            expected_global = covariance._global_log_jacobian(action)
-            allowance = (
-                64.0
-                * torch.finfo(torch.float64).eps
-                * max(1.0, abs(expected_global))
+        paths = {
+            path.path_id: path
+            for path in covariance._source_paths(law_pair.original)
+        }
+        for operand in batch.operands[owned_count:]:
+            assembled = operand.assembled_global
+            assert type(assembled) is H7AssembledGlobalPrecisionSnapshot
+            assert assembled.trial_id == trial_spec.trial_id
+            expected_global_dimension = (
+                6 if law_pair.original.fixture_id == "h1-v1" else 12
             )
-            for metadata in (
-                law_pair.transformed.generative.jacobian,
-                law_pair.transformed.recognition.jacobian,
+            assert assembled.mean.shape == (expected_global_dimension,)
+            assert assembled.covariance.shape == (
+                expected_global_dimension,
+                expected_global_dimension,
+            )
+            assert assembled.precision.shape == (
+                expected_global_dimension,
+                expected_global_dimension,
+            )
+            assert assembled.information_vector.shape == (
+                expected_global_dimension,
+            )
+            assert assembled.original_law_snapshot_sha256 == (
+                law_pair.original.snapshot_sha256
+            )
+            assert operand.covariance.snapshot_sha256 == (
+                assembled.covariance.snapshot_sha256
+            )
+            assert operand.precision.snapshot_sha256 == (
+                assembled.precision.snapshot_sha256
+            )
+            path = paths[assembled.path_id]
+            components = _task5_expected_components(
+                law_pair.original,
+                assembled.law_kind,
+                path,
+            )
+            assert assembled.selected_component_sha256s == tuple(
+                component.component_sha256 for component in components
+            )
+            moments = (
+                covariance._recognition_joint_moments(
+                    law_pair.original.recognition,
+                    path,
+                )
+                if assembled.law_kind == "q"
+                else covariance._generative_joint_moments(
+                    law_pair.original.generative,
+                    path,
+                )
+            )
+            assert assembled.mean.snapshot_sha256 == (
+                H7OwnedTensorSnapshot.capture(moments.mean).snapshot_sha256
+            )
+            precision = assembled.precision.value()
+            covariance_value = assembled.covariance.value()
+            information = assembled.information_vector.value()
+            identity = torch.eye(precision.shape[0], dtype=torch.float64)
+            for observed, expected in (
+                (precision @ covariance_value, identity),
+                (covariance_value @ precision, identity),
+                (precision @ moments.mean, information),
             ):
-                assert len(metadata.receiver_logabsdet) == 4
-                raw_local_total = (
-                    metadata.initial_logabsdet.value()
-                    + torch.stack(
-                        tuple(
-                            value.value()
-                            for value in metadata.receiver_logabsdet.values()
-                        )
-                    ).sum()
+                scale = max(
+                    1.0,
+                    float(observed.abs().max()),
+                    float(expected.abs().max()),
                 )
-                assert (
-                    float(raw_local_total.item()),
-                    float(metadata.global_logabsdet.value().item()),
-                ) == pytest.approx(
-                    (expected_global, expected_global),
-                    rel=0.0,
-                    abs=allowance,
+                assert torch.allclose(
+                    observed,
+                    expected,
+                    rtol=256.0 * eps,
+                    atol=256.0 * eps * scale,
                 )
 
-
-def test_task5_precision_capture_requires_matching_injected_globals_without_inverse_synthesis(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    law_pair, action, trial_spec = _matrix_law_pair(0)
-    factor_trace = _complete_trace("precision-capture-fail-closed")
-    injected = _synthetic_global_precision_inputs(
-        monkeypatch,
-        law_pair=law_pair,
-        trial_spec=trial_spec,
-        factor_trace=factor_trace,
-        expected_ids=_STRUCTURED_PRECISION_IDS,
-        owned_count=10,
-    )
-
-    def forbidden_inverse(*_args, **_kwargs):
-        raise AssertionError("precision capture must not materialize an inverse")
-
-    real_eye = torch.eye
-    real_solve = torch.linalg.solve
-    identity_storages: set[int] = set()
-
-    def recording_eye(*args, **kwargs):
-        value = real_eye(*args, **kwargs)
-        identity_storages.add(int(value.untyped_storage().data_ptr()))
-        return value
-
-    def guarded_solve(left, right, *args, **kwargs):
-        if (
-            isinstance(right, torch.Tensor)
-            and int(right.untyped_storage().data_ptr()) in identity_storages
-        ):
-            raise AssertionError("precision capture solved against an identity RHS")
-        return real_solve(left, right, *args, **kwargs)
-
-    monkeypatch.setattr(torch, "cholesky_inverse", forbidden_inverse)
-    monkeypatch.setattr(torch.linalg, "inv", forbidden_inverse)
-    monkeypatch.setattr(torch.linalg, "pinv", forbidden_inverse)
-    monkeypatch.setattr(torch, "eye", recording_eye)
-    monkeypatch.setattr(torch.linalg, "solve", guarded_solve)
-
-    valid = covariance.capture_h7_task5_precision_batch(
-        law_pair,
-        action,
-        trial_spec=trial_spec,
-        original_factor_trace=factor_trace,
-        injected_global_precisions=injected,
-    )
-    assert len(valid.operands) == 12
-
-    with pytest.raises(ValueError, match="exact injected global precision"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=injected[:-1],
-        )
-    with pytest.raises(ValueError, match="exact injected global precision"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=(*injected, injected[-1]),
-        )
-    with pytest.raises(ValueError, match="identity/order"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=(injected[1], injected[0]),
-        )
-
-    first = injected[0]
-    wrong_trial = H7InjectedGlobalPrecisionSnapshot.create(
-        trial_id="matrix-identity-internal-transformed",
-        gaussian_id=first.gaussian_id,
-        covariance_snapshot_sha256=first.covariance_snapshot_sha256,
-        precision=first.precision,
-    )
-    with pytest.raises(ValueError, match="identity/order"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=(wrong_trial, injected[1]),
-        )
-    wrong_id = H7InjectedGlobalPrecisionSnapshot.create(
-        trial_id=first.trial_id,
-        gaussian_id="structured.q.global[wrong-path]",
-        covariance_snapshot_sha256=first.covariance_snapshot_sha256,
-        precision=first.precision,
-    )
-    with pytest.raises(ValueError, match="identity/order"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=(wrong_id, injected[1]),
-        )
-    wrong_covariance = H7InjectedGlobalPrecisionSnapshot.create(
-        trial_id=first.trial_id,
-        gaussian_id=first.gaussian_id,
-        covariance_snapshot_sha256=_sha("wrong-global-covariance"),
-        precision=first.precision,
-    )
-    with pytest.raises(ValueError, match="covariance snapshot"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=(wrong_covariance, injected[1]),
-        )
-    with pytest.raises(ValueError, match="square float64"):
-        H7InjectedGlobalPrecisionSnapshot.create(
-            trial_id=first.trial_id,
-            gaussian_id=first.gaussian_id,
-            covariance_snapshot_sha256=first.covariance_snapshot_sha256,
-            precision=H7OwnedTensorSnapshot.capture(
-                torch.ones((2, 3), dtype=torch.float64)
-            ),
-        )
-    with pytest.raises(ValueError, match="positive definite"):
-        H7InjectedGlobalPrecisionSnapshot.create(
-            trial_id=first.trial_id,
-            gaussian_id=first.gaussian_id,
-            covariance_snapshot_sha256=first.covariance_snapshot_sha256,
-            precision=H7OwnedTensorSnapshot.capture(
-                torch.diag(torch.tensor((1.0, -1.0), dtype=torch.float64))
-            ),
-        )
-    inconsistent = H7InjectedGlobalPrecisionSnapshot.create(
-        trial_id=first.trial_id,
-        gaussian_id=first.gaussian_id,
-        covariance_snapshot_sha256=first.covariance_snapshot_sha256,
-        precision=H7OwnedTensorSnapshot.capture(
-            0.4
-            * torch.eye(
-                first.precision.shape[0],
+            point = torch.linspace(
+                -0.375,
+                0.625,
+                precision.shape[0],
                 dtype=torch.float64,
             )
-        ),
+            zero = torch.zeros_like(point)
+            factor_delta = _task5_factor_energy(
+                components,
+                path,
+                point,
+            ) - _task5_factor_energy(components, path, zero)
+            global_delta = (
+                0.5 * point @ precision @ point - information @ point
+            )
+            scale = max(
+                1.0,
+                abs(float(factor_delta)),
+                abs(float(global_delta)),
+            )
+            assert torch.allclose(
+                factor_delta,
+                global_delta,
+                rtol=256.0 * eps,
+                atol=256.0 * eps * scale,
+            )
+            assembled_rows.append(assembled)
+            observed_global_order.append(
+                (
+                    batch.trial_id,
+                    batch.recognition_family,
+                    assembled.law_kind,
+                    assembled.path_id,
+                )
+            )
+
+    assert sum(len(batch.operands) for batch in batches) == 192
+    assert sum(
+        sum(item.source_kind == "owned_component" for item in batch.operands)
+        for batch in batches
+    ) == 152
+    assert len(assembled_rows) == 40
+    assert tuple(observed_global_order) == expected_global_order
+
+    first = assembled_rows[0]
+    with pytest.raises(ValueError, match="path/Gaussian identity"):
+        H7AssembledGlobalPrecisionSnapshot.create(
+            trial_id=first.trial_id,
+            gaussian_id="scalar.q.global[wrong-path]",
+            law_kind=first.law_kind,
+            path_id="wrong-path",
+            original_law_snapshot_sha256=(
+                first.original_law_snapshot_sha256
+            ),
+            selected_component_sha256s=first.selected_component_sha256s,
+            mean=first.mean,
+            covariance=first.covariance,
+            precision=first.precision,
+            information_vector=first.information_vector,
+        )
+    for wrong_dimension in (3, 12):
+        wrong_mean = torch.zeros(wrong_dimension, dtype=torch.float64)
+        wrong_matrix = torch.eye(wrong_dimension, dtype=torch.float64)
+        with pytest.raises(ValueError, match="global dimension"):
+            H7AssembledGlobalPrecisionSnapshot.create(
+                trial_id=first.trial_id,
+                gaussian_id=first.gaussian_id,
+                law_kind=first.law_kind,
+                path_id=first.path_id,
+                original_law_snapshot_sha256=(
+                    first.original_law_snapshot_sha256
+                ),
+                selected_component_sha256s=(
+                    first.selected_component_sha256s
+                ),
+                mean=H7OwnedTensorSnapshot.capture(wrong_mean),
+                covariance=H7OwnedTensorSnapshot.capture(wrong_matrix),
+                precision=H7OwnedTensorSnapshot.capture(wrong_matrix),
+                information_vector=H7OwnedTensorSnapshot.capture(wrong_mean),
+            )
+
+    first_matrix = next(
+        item
+        for item in assembled_rows
+        if item.trial_id == "matrix-identity-base-transformed"
     )
-    with pytest.raises(ValueError, match="inverse"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=(inconsistent, injected[1]),
+    for wrong_dimension in (6, 15):
+        wrong_mean = torch.zeros(wrong_dimension, dtype=torch.float64)
+        wrong_matrix = torch.eye(wrong_dimension, dtype=torch.float64)
+        with pytest.raises(ValueError, match="global dimension"):
+            H7AssembledGlobalPrecisionSnapshot.create(
+                trial_id=first_matrix.trial_id,
+                gaussian_id=first_matrix.gaussian_id,
+                law_kind=first_matrix.law_kind,
+                path_id=first_matrix.path_id,
+                original_law_snapshot_sha256=(
+                    first_matrix.original_law_snapshot_sha256
+                ),
+                selected_component_sha256s=(
+                    first_matrix.selected_component_sha256s
+                ),
+                mean=H7OwnedTensorSnapshot.capture(wrong_mean),
+                covariance=H7OwnedTensorSnapshot.capture(wrong_matrix),
+                precision=H7OwnedTensorSnapshot.capture(wrong_matrix),
+                information_vector=H7OwnedTensorSnapshot.capture(wrong_mean),
+            )
+    with pytest.raises(ValueError, match="path/Gaussian identity"):
+        H7AssembledGlobalPrecisionSnapshot.create(
+            trial_id=first.trial_id,
+            gaussian_id=first_matrix.gaussian_id,
+            law_kind=first_matrix.law_kind,
+            path_id=first_matrix.path_id,
+            original_law_snapshot_sha256=(
+                first_matrix.original_law_snapshot_sha256
+            ),
+            selected_component_sha256s=(
+                first_matrix.selected_component_sha256s
+            ),
+            mean=first_matrix.mean,
+            covariance=first_matrix.covariance,
+            precision=first_matrix.precision,
+            information_vector=first_matrix.information_vector,
         )
 
-    mutable_input = H7InjectedGlobalPrecisionSnapshot.create(
+    def semantic_without(record: object, integrity_field: str) -> dict[str, object]:
+        return {
+            field.name: getattr(record, field.name)
+            for field in dataclasses.fields(record)
+            if field.name != integrity_field
+        }
+
+    first_global_operand = next(
+        item
+        for batch in batches
+        for item in batch.operands
+        if item.source_kind == "assembled_global"
+    )
+    assert first_global_operand.operand_sha256 == h7_owned_sha256(
+        "vfe4.h7.task5-precision-operand.v2",
+        semantic_without(first_global_operand, "operand_sha256"),
+    )
+    legacy_operand_sha256 = h7_owned_sha256(
+        "vfe4.h7.task5-precision-operand.v1",
+        semantic_without(first_global_operand, "operand_sha256"),
+    )
+    with pytest.raises(ValueError, match="operand_sha256"):
+        dataclasses.replace(
+            first_global_operand,
+            operand_sha256=legacy_operand_sha256,
+        )
+
+    first_batch = batches[0]
+    assert first_batch.capture_sha256 == h7_owned_sha256(
+        "vfe4.h7.task5-precision-capture-batch.v2",
+        semantic_without(first_batch, "capture_sha256"),
+    )
+    legacy_capture_sha256 = h7_owned_sha256(
+        "vfe4.h7.task5-precision-capture-batch.v1",
+        semantic_without(first_batch, "capture_sha256"),
+    )
+    with pytest.raises(ValueError, match="capture_sha256"):
+        dataclasses.replace(
+            first_batch,
+            capture_sha256=legacy_capture_sha256,
+        )
+
+    defensive = H7AssembledGlobalPrecisionSnapshot.create(
         trial_id=first.trial_id,
         gaussian_id=first.gaussian_id,
-        covariance_snapshot_sha256=first.covariance_snapshot_sha256,
+        law_kind=first.law_kind,
+        path_id=first.path_id,
+        original_law_snapshot_sha256=first.original_law_snapshot_sha256,
+        selected_component_sha256s=first.selected_component_sha256s,
+        mean=H7OwnedTensorSnapshot.capture(first.mean.value()),
+        covariance=H7OwnedTensorSnapshot.capture(first.covariance.value()),
         precision=H7OwnedTensorSnapshot.capture(first.precision.value()),
+        information_vector=H7OwnedTensorSnapshot.capture(
+            first.information_vector.value()
+        ),
     )
     owned = object.__getattribute__(
-        mutable_input.precision,
+        defensive.precision,
         "_H7OwnedTensorSnapshot__owned",
     )
     owned.add_(1.0)
     with pytest.raises(ValueError, match="integrity changed"):
-        covariance.capture_h7_task5_precision_batch(
-            law_pair,
-            action,
-            trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
-            injected_global_precisions=(mutable_input, injected[1]),
+        defensive.__post_init__()
+
+
+def test_task5_assembler_rejects_wrong_bindings_and_inverse_synthesis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = textwrap.dedent(
+        inspect.getsource(covariance._assemble_task5_global_canonical)
+    )
+    tree = ast.parse(source)
+
+    def called_name(node: ast.expr) -> str:
+        parts = []
+        while isinstance(node, ast.Attribute):
+            parts.append(node.attr)
+            node = node.value
+        if isinstance(node, ast.Name):
+            parts.append(node.id)
+        return ".".join(reversed(parts))
+
+    forbidden_terminals = {
+        "cholesky_inverse",
+        "cholesky_solve",
+        "inv",
+        "lu_solve",
+        "pinv",
+        "solve",
+        "solve_triangular",
+    }
+    calls = {
+        called_name(node.func)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+    }
+    assert not {
+        call
+        for call in calls
+        if call.rsplit(".", maxsplit=1)[-1] in forbidden_terminals
+    }
+    assert "injected_global_precisions" not in inspect.signature(
+        covariance.capture_h7_task5_precision_batch
+    ).parameters
+
+    _install_task5_moment_only_evaluator(monkeypatch)
+    law_pair, _action, trial_spec = _matrix_law_pair(0)
+    path = covariance._source_paths(law_pair.original)[0]
+    moments = covariance._recognition_joint_moments(
+        law_pair.original.recognition,
+        path,
+    )
+    components = covariance._task5_selected_global_components(
+        law_pair.original,
+        "q",
+        path,
+    )
+    gaussian_id = "structured.q.global[matrix-singleton-path]"
+
+    wrong_path = dataclasses.replace(path, a=(0, 0))
+    with pytest.raises(ValueError, match="path/component binding"):
+        covariance._assemble_task5_global_canonical(
+            law_pair.original,
+            trial_id=trial_spec.trial_id,
+            gaussian_id=gaussian_id,
+            law_kind="q",
+            path=wrong_path,
+            moments=moments,
+            components=components,
+        )
+    wrong_components = (
+        components[0],
+        components[2],
+        components[1],
+        components[3],
+        components[4],
+    )
+    with pytest.raises(ValueError, match="path/component binding"):
+        covariance._assemble_task5_global_canonical(
+            law_pair.original,
+            trial_id=trial_spec.trial_id,
+            gaussian_id=gaussian_id,
+            law_kind="q",
+            path=path,
+            moments=moments,
+            components=wrong_components,
+        )
+
+    stale_precision = components[1].receiver_law.precision
+    stale_owned = object.__getattribute__(
+        stale_precision,
+        "_H7OwnedTensorSnapshot__owned",
+    )
+    stale_owned.add_(1.0)
+    with pytest.raises(ValueError, match="integrity changed"):
+        covariance._assemble_task5_global_canonical(
+            law_pair.original,
+            trial_id=trial_spec.trial_id,
+            gaussian_id=gaussian_id,
+            law_kind="q",
+            path=path,
+            moments=moments,
+            components=components,
         )
