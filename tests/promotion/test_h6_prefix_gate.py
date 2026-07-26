@@ -867,8 +867,16 @@ def test_h6_prefix_reports_bind_status_and_publish_only_the_independent_artifact
         )
 
 
-def _bounded_profile_ladder() -> tuple[H6PrefixProfilePair, ...]:
+def _bounded_profile_ladder(
+    *,
+    data_safety_sha256: str | None = None,
+) -> tuple[H6PrefixProfilePair, ...]:
     base = _categorical_profile(ArmId.A2)
+    resolved_data_safety_sha256 = (
+        base.data_safety_sha256
+        if data_safety_sha256 is None
+        else data_safety_sha256
+    )
     return tuple(
         H6PrefixProfilePair.create(
             profile_id=f"a2-weighted-smc-{particle_count}",
@@ -881,7 +889,7 @@ def _bounded_profile_ladder() -> tuple[H6PrefixProfilePair, ...]:
             ),
             small_structure=base.small_structure,
             production_structure=base.production_structure,
-            data_safety_sha256=base.data_safety_sha256,
+            data_safety_sha256=resolved_data_safety_sha256,
             small_model_family_sha256=base.small_model_family_sha256,
             production_model_family_sha256=base.production_model_family_sha256,
         )
@@ -889,11 +897,17 @@ def _bounded_profile_ladder() -> tuple[H6PrefixProfilePair, ...]:
     )
 
 
-def _bounded_resolved_config() -> H6PrefixResolvedConfig:
+def _bounded_resolved_config(
+    tmp_path: Path,
+    *,
+    data_safety_sha256: str | None = None,
+) -> H6PrefixResolvedConfig:
     source = H6SourceIdentity("1" * 40, "2" * 64, "3" * 64)
-    profiles = _bounded_profile_ladder()
+    profiles = _bounded_profile_ladder(
+        data_safety_sha256=data_safety_sha256
+    )
     workload = H6PrefixWorkloadPlan()
-    artifact_root = Path("artifacts")
+    artifact_root = (tmp_path / "bounded-artifacts").resolve()
     payload = {
         "schema_version": "h6-prefix-config-v2",
         "operation": "H6-Prefix",
@@ -928,11 +942,16 @@ def _bounded_resolved_config() -> H6PrefixResolvedConfig:
     )
 
 
-def test_bounded_runner_plan_freezes_semantic_groups_jobs_and_call_budget() -> None:
-    config = _bounded_resolved_config()
+def test_bounded_runner_plan_freezes_semantic_groups_jobs_and_call_budget(
+    tmp_path: Path,
+) -> None:
+    config = _bounded_resolved_config(tmp_path)
 
     plan = h6_prefix_gate._build_h6_prefix_runner_plan(config)
 
+    assert plan.config.artifact_root == (
+        tmp_path / "bounded-artifacts"
+    ).resolve()
     assert len(plan.semantic_families) == 1
     family = plan.semantic_families[0]
     assert tuple(
@@ -968,19 +987,164 @@ def test_bounded_runner_plan_freezes_semantic_groups_jobs_and_call_budget() -> N
     assert plan.static_audit_job.report_keys == tuple(
         job.report_key for job in family.dynamic_jobs
     )
+    resolver_invalid = _bounded_resolved_config(
+        tmp_path,
+        data_safety_sha256="e" * 64,
+    )
+    with pytest.raises(
+        ValueError,
+        match="implemented H6 predictor safety boundary",
+    ):
+        h6_prefix_gate._build_h6_prefix_runner_plan(resolver_invalid)
 
 
-def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_sixth_call() -> None:
+def _bounded_execution_plan(job: object) -> DynamicExecutionPlan:
+    selection_rows = tuple(
+        (
+            index,
+            _owned_hash(
+                "test.h6.bounded-selection-case",
+                {
+                    "scope": job.scope,
+                    "case_family": job.case_family,
+                    "particle_count": job.particle_count,
+                    "global_index": index,
+                },
+            ),
+        )
+        for index in job.selected_global_indices
+    )
+    return DynamicExecutionPlan.create_scoped(
+        scope=job.scope,
+        case_family=job.case_family,
+        particle_count=job.particle_count,
+        workload_plan=H6PrefixWorkloadPlan(),
+        authorization_sha256=H6_PREFIX_V2_AUTHORIZATION_SHA256,
+        selection_rows=selection_rows,
+    )
+
+
+def _bounded_dynamic_report(
+    *,
+    job: object,
+    execution_plan: DynamicExecutionPlan,
+    key: PrefixCaseKey | None = None,
+) -> DynamicPrefixReport:
+    expected_total = sum(execution_plan.expected_by_position)
+    applicable = (
+        _DYNAMIC_CHECK_NAMES
+        if job.scope == "representative_exhaustive"
+        else _DYNAMIC_CHECK_NAMES[:3]
+    )
+    checks = tuple(
+        DynamicCheckResult.create(
+            name=name,
+            status=EvidenceStatus.PASS,
+            expected_count=(
+                0
+                if name not in applicable
+                else expected_total
+            ),
+            completed_count=(
+                0
+                if name not in applicable
+                else expected_total
+            ),
+        )
+        for name in _DYNAMIC_CHECK_NAMES
+    )
+    salt = {
+        "scope": job.scope,
+        "case_family": job.case_family,
+        "particle_count": job.particle_count,
+    }
+    values = {
+        "schema_version": "h6-dynamic-prefix-report-v2",
+        "key": job.report_key if key is None else key,
+        "execution_plan_sha256": execution_plan.plan_sha256,
+        "model_state_sha256": _owned_hash("test.h6.bounded-model", salt),
+        "proposal_identity_sha256": _owned_hash(
+            "test.h6.bounded-proposal", salt
+        ),
+        "estimator_semantic_sha256": _owned_hash(
+            "test.h6.bounded-estimator-semantic", salt
+        ),
+        "estimator_artifact_bytes_sha256": _owned_hash(
+            "test.h6.bounded-estimator-artifact", salt
+        ),
+        "stream_seed": 2026072197,
+        "completed_by_position": execution_plan.expected_by_position,
+        "checks": checks,
+        "status": EvidenceStatus.PASS,
+        "obligations": (),
+        "unresolved_diagnostics": (),
+        "first_counterexample": None,
+        "case_result_manifest_sha256": _owned_hash(
+            "test.h6.bounded-case-results", salt
+        ),
+        "cache_manifest_sha256": _owned_hash(
+            "test.h6.bounded-cache", salt
+        ),
+        "pair_harness_manifest_sha256": _owned_hash(
+            "test.h6.bounded-pairs", salt
+        ),
+        "mask_manifest_sha256": _owned_hash(
+            "test.h6.bounded-masks", salt
+        ),
+        "complete_case_manifest_sha256": (
+            _owned_hash("test.h6.bounded-complete-cases", salt)
+            if job.scope == "representative_exhaustive"
+            else None
+        ),
+        "scope": job.scope,
+        "case_family": job.case_family,
+        "particle_count": job.particle_count,
+        "workload_plan_sha256": execution_plan.workload_plan_sha256,
+        "selected_global_indices": job.selected_global_indices,
+        "selection_manifest_sha256": (
+            execution_plan.selection_manifest_sha256
+        ),
+        "applicable_check_names": applicable,
+    }
+    provisional = object.__new__(DynamicPrefixReport)
+    for name, value in values.items():
+        object.__setattr__(provisional, name, value)
+    return DynamicPrefixReport(
+        **values,
+        report_sha256=_owned_hash(
+            "vfe4.h6.dynamic-prefix-report.v2",
+            provisional.canonical_payload(),
+        ),
+    )
+
+
+def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_sixth_call(
+    tmp_path: Path,
+) -> None:
     plan = h6_prefix_gate._build_h6_prefix_runner_plan(
-        _bounded_resolved_config()
+        _bounded_resolved_config(tmp_path)
     )
     events: list[tuple[object, ...]] = []
 
     class FakeExecutor:
+        def __init__(
+            self,
+            *,
+            fault: str | None = None,
+            record_events: bool = True,
+        ) -> None:
+            self.fault = fault
+            self.record_events = record_events
+            self.dynamic_count = 0
+
+        def record(self, event: tuple[object, ...]) -> None:
+            if self.record_events:
+                events.append(event)
+
         def load_validation_perturbations(
             self, *, expected_vocabulary: VocabularyIdentity
         ) -> object:
-            events.append(("fixture", expected_vocabulary))
+            self.record(("fixture", expected_vocabulary))
             return object()
 
         def build_arm(
@@ -989,7 +1153,7 @@ def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_si
             arm_config: ArmConfig,
             structure: H6LanguageStructure,
         ) -> object:
-            events.append(("build", arm_config, structure))
+            self.record(("build", arm_config, structure))
             return (arm_config, structure)
 
         def build_predictor_boundary(
@@ -998,7 +1162,7 @@ def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_si
             built_arm: object,
             estimator: EstimatorSpec,
         ) -> object:
-            events.append(("boundary", built_arm, estimator.particle_count))
+            self.record(("boundary", built_arm, estimator.particle_count))
             return (built_arm, estimator)
 
         def execute_dynamic_job(
@@ -1010,7 +1174,7 @@ def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_si
             validation_perturbations: object,
         ) -> object:
             del built_arm, predictor, validation_perturbations
-            events.append(
+            self.record(
                 (
                     "dynamic",
                     job.particle_count,
@@ -1018,16 +1182,31 @@ def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_si
                     job.selected_global_indices,
                 )
             )
+            execution_plan = _bounded_execution_plan(job)
+            report_key = None
+            if self.fault == "dynamic_binding" and self.dynamic_count == 0:
+                report_key = plan.static_audit_job.report_keys[-1]
+            self.dynamic_count += 1
             return SimpleNamespace(
-                report=object(),
+                execution_plan=execution_plan,
+                report=_bounded_dynamic_report(
+                    job=job,
+                    execution_plan=execution_plan,
+                    key=report_key,
+                ),
                 observed_predictor_call_count=(
                     job.expected_predictor_call_count
                 ),
             )
 
         def execute_static_audit(self, *, job: object) -> object:
-            events.append(("static", job.report_keys))
-            return object()
+            self.record(("static", job.report_keys))
+            keys = (
+                job.report_keys[:-1]
+                if self.fault == "static_manifest"
+                else job.report_keys
+            )
+            return _static_report(keys)
 
     evidence = h6_prefix_gate._execute_h6_prefix_plan(plan, FakeExecutor())
 
@@ -1045,6 +1224,27 @@ def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_si
         == result.job.expected_case_count * 5
         for result in evidence.dynamic_results
     )
+    with pytest.raises(RuntimeError, match="dynamic job result"):
+        h6_prefix_gate._execute_h6_prefix_plan(
+            plan,
+            FakeExecutor(
+                fault="dynamic_binding",
+                record_events=False,
+            ),
+        )
+    with pytest.raises(RuntimeError, match="static audit report"):
+        h6_prefix_gate._execute_h6_prefix_plan(
+            plan,
+            FakeExecutor(
+                fault="static_manifest",
+                record_events=False,
+            ),
+        )
+    with pytest.raises(RuntimeError, match="language structure"):
+        h6_prefix_gate._require_live_structure_binding(
+            plan.semantic_families[0].profiles[0].small_structure,
+            "f" * 64,
+        )
 
 
 def test_source_mask_observer_reuses_first_prediction_without_a_sixth_call(

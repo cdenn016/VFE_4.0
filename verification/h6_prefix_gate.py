@@ -22,6 +22,7 @@ import torch
 from verification.numpy_oracles.h6_prefix import enumerate_ordered_tail_pairs
 from vfe4.artifacts.atomic import publish_run_directory
 from vfe4.artifacts.provenance import current_source_identity
+from vfe4.config import resolve_h6_prefix_config
 from vfe4.config.schema import (
     H6_PREFIX_V2_AUTHORIZATION_SHA256,
     H6PrefixResolvedConfig,
@@ -202,6 +203,7 @@ class _H6PrefixRunnerPlan:
 
 @runtime_checkable
 class _H6PrefixDynamicJobResult(Protocol):
+    execution_plan: DynamicExecutionPlan
     report: DynamicPrefixReport
     observed_predictor_call_count: int
 
@@ -237,12 +239,13 @@ class _H6PrefixRunnerExecutor(Protocol):
 
     def execute_static_audit(
         self, *, job: _H6PrefixStaticAuditJob
-    ) -> object: ...
+    ) -> StaticAuditReport: ...
 
 
 @dataclass(frozen=True, slots=True)
 class _H6PrefixDynamicJobEvidence:
     job: _H6PrefixDynamicJob
+    execution_plan: DynamicExecutionPlan
     report: DynamicPrefixReport
     observed_predictor_call_count: int
 
@@ -341,6 +344,73 @@ def _resolved_profile_payload(
             profile.small_structure
         ),
         "production_structure": _resolved_structure_payload(
+            profile.production_structure
+        ),
+        "data_safety_sha256": profile.data_safety_sha256,
+        "small_model_family_sha256": profile.small_model_family_sha256,
+        "production_model_family_sha256": (
+            profile.production_model_family_sha256
+        ),
+        "profile_pair_sha256": profile.profile_pair_sha256,
+    }
+
+
+def _resolver_arm_payload(config: ArmConfig) -> dict[str, object]:
+    payload = config.canonical_payload()
+    payload.pop("capacity_allocation_sha256")
+    return payload
+
+
+def _resolver_structure_payload(
+    structure: H6LanguageStructure,
+) -> dict[str, object]:
+    structure.__post_init__()
+    return {
+        "base": {
+            "base_id": structure.base.base_id,
+            "points": list(structure.base.points),
+            "dimension": structure.base.dimension,
+        },
+        "dag": {
+            "labeling": structure.dag.labeling,
+            "node_labels": list(structure.dag.node_labels),
+            "rows": [
+                {
+                    "receiver_t": row.receiver_t,
+                    "parents": list(row.parents),
+                }
+                for row in structure.dag.rows
+            ],
+        },
+        "receiver_labels": list(structure.receiver_labels),
+    }
+
+
+def _resolver_profile_payload(
+    profile: H6PrefixProfilePair,
+) -> dict[str, object]:
+    profile.__post_init__()
+    estimator = profile.estimator
+    return {
+        "profile_id": profile.profile_id,
+        "small_arm_config": _resolver_arm_payload(
+            profile.small_arm_config
+        ),
+        "production_arm_config": _resolver_arm_payload(
+            profile.production_arm_config
+        ),
+        "estimator": {
+            "schema_version": estimator.schema_version,
+            "kind": estimator.kind,
+            "particle_count": estimator.particle_count,
+            "resampling": estimator.resampling,
+            "dtype": estimator.dtype,
+            "device": estimator.device,
+        },
+        "small_structure": _resolver_structure_payload(
+            profile.small_structure
+        ),
+        "production_structure": _resolver_structure_payload(
             profile.production_structure
         ),
         "data_safety_sha256": profile.data_safety_sha256,
@@ -1162,6 +1232,30 @@ def _validate_v2_resolved_runner_config(
         != H6_PREFIX_V2_AUTHORIZATION_SHA256
     ):
         raise ValueError("resolved v2 workload authorization identity is stale")
+    reresolved = resolve_h6_prefix_config(
+        {
+            "schema_version": config.schema_version,
+            "operation": config.operation,
+            "source": {
+                "git_head": config.source.git_head,
+                "dirty_digest": config.source.dirty_digest,
+                "source_sha256": config.source.source_sha256,
+            },
+            "execution_mode": config.execution_mode,
+            "profiles": [
+                _resolver_profile_payload(profile)
+                for profile in config.profiles
+            ],
+            "workload_plan_sha256": workload.workload_plan_sha256,
+            "authorization_sha256": config.authorization_sha256,
+            "artifact_root": str(config.artifact_root),
+        },
+        repo_root=_REPO_ROOT,
+    )
+    if reresolved != config:
+        raise ValueError(
+            "resolved v2 config does not equal the public resolver result"
+        )
     expected = {
         "schema_version": config.schema_version,
         "operation": config.operation,
@@ -1351,6 +1445,66 @@ def _build_h6_prefix_runner_plan(
     return runner_plan
 
 
+def _validated_dynamic_job_result(
+    *,
+    plan: _H6PrefixRunnerPlan,
+    job: _H6PrefixDynamicJob,
+    result: object,
+) -> tuple[DynamicExecutionPlan, DynamicPrefixReport, int]:
+    execution_plan = getattr(result, "execution_plan", None)
+    report = getattr(result, "report", None)
+    observed_calls = getattr(
+        result,
+        "observed_predictor_call_count",
+        None,
+    )
+    if type(execution_plan) is not DynamicExecutionPlan:
+        raise RuntimeError(
+            "bounded dynamic job result requires an exact execution plan"
+        )
+    if type(report) is not DynamicPrefixReport:
+        raise RuntimeError(
+            "bounded dynamic job result requires an exact dynamic report"
+        )
+    execution_plan.__post_init__()
+    report.__post_init__()
+    if (
+        execution_plan.schema_version
+        != "h6-dynamic-execution-plan-v2"
+        or execution_plan.scope != job.scope
+        or execution_plan.case_family != job.case_family
+        or execution_plan.particle_count != job.particle_count
+        or execution_plan.workload_plan_sha256
+        != plan.config.workload_plan_sha256
+        or execution_plan.authorization_sha256
+        != plan.config.authorization_sha256
+        or execution_plan.selected_global_indices
+        != job.selected_global_indices
+        or report.schema_version != "h6-dynamic-prefix-report-v2"
+        or report.key != job.report_key
+        or report.scope != job.scope
+        or report.case_family != job.case_family
+        or report.particle_count != job.particle_count
+        or report.workload_plan_sha256
+        != plan.config.workload_plan_sha256
+        or report.selected_global_indices != job.selected_global_indices
+        or report.execution_plan_sha256 != execution_plan.plan_sha256
+        or report.selection_manifest_sha256
+        != execution_plan.selection_manifest_sha256
+    ):
+        raise RuntimeError(
+            "bounded dynamic job result does not bind its frozen job"
+        )
+    if (
+        type(observed_calls) is not int
+        or observed_calls != job.expected_predictor_call_count
+    ):
+        raise RuntimeError(
+            "bounded dynamic job violated the exact five-call budget"
+        )
+    return execution_plan, report, observed_calls
+
+
 def _execute_h6_prefix_plan(
     plan: _H6PrefixRunnerPlan,
     executor: _H6PrefixRunnerExecutor,
@@ -1413,29 +1567,38 @@ def _execute_h6_prefix_plan(
                     predictor=predictor,
                     validation_perturbations=perturbations,
                 )
-                observed_calls = getattr(
-                    result,
-                    "observed_predictor_call_count",
-                    None,
+                (
+                    execution_plan,
+                    report,
+                    observed_calls,
+                ) = _validated_dynamic_job_result(
+                    plan=plan,
+                    job=job,
+                    result=result,
                 )
-                if (
-                    type(observed_calls) is not int
-                    or observed_calls
-                    != job.expected_predictor_call_count
-                ):
-                    raise RuntimeError(
-                        "bounded dynamic job violated the exact five-call budget"
-                    )
                 dynamic_results.append(
                     _H6PrefixDynamicJobEvidence(
                         job=job,
-                        report=getattr(result, "report", None),
+                        execution_plan=execution_plan,
+                        report=report,
                         observed_predictor_call_count=observed_calls,
                     )
                 )
     static_report = executor.execute_static_audit(
         job=plan.static_audit_job
     )
+    if type(static_report) is not StaticAuditReport:
+        raise RuntimeError(
+            "bounded static audit report must be an exact StaticAuditReport"
+        )
+    static_report.__post_init__()
+    if (
+        static_report.case_key_manifest_sha256
+        != plan.static_audit_job.case_key_manifest_sha256
+    ):
+        raise RuntimeError(
+            "bounded static audit report does not bind the frozen report keys"
+        )
     observed_total = sum(
         result.observed_predictor_call_count
         for result in dynamic_results
@@ -1687,8 +1850,41 @@ class _CountingPriorPredictor:
 
 @dataclass(frozen=True, slots=True)
 class _LiveH6PrefixDynamicJobResult:
+    execution_plan: DynamicExecutionPlan
     report: DynamicPrefixReport
     observed_predictor_call_count: int
+
+
+def _require_live_structure_binding(
+    expected_structure: H6LanguageStructure,
+    live_structure_sha256: str,
+    *,
+    live_fixture_sha256: str | None = None,
+) -> None:
+    if type(expected_structure) is not H6LanguageStructure:
+        raise ValueError(
+            "expected language structure must be an exact record"
+        )
+    expected_structure.__post_init__()
+    observed = _require_sha256(
+        live_structure_sha256,
+        "live language structure SHA-256",
+    )
+    fixture = (
+        observed
+        if live_fixture_sha256 is None
+        else _require_sha256(
+            live_fixture_sha256,
+            "live source-prior fixture SHA-256",
+        )
+    )
+    if (
+        observed != expected_structure.structure_sha256
+        or fixture != expected_structure.structure_sha256
+    ):
+        raise RuntimeError(
+            "live arm language structure does not bind the planned structure"
+        )
 
 
 class _LiveH6PrefixRunnerExecutor:
@@ -1714,7 +1910,27 @@ class _LiveH6PrefixRunnerExecutor:
             != tuple(range(1, arm_config.horizon + 1))
         ):
             raise RuntimeError("live arm structure does not match its horizon")
-        return build_arm(arm_config.arm, arm_config)
+        built_arm = build_arm(arm_config.arm, arm_config)
+        if arm_config.source_mode == "categorical":
+            if (
+                type(built_arm.model) is not LatentLanguageArmModel
+                or built_arm.model.source_prior is None
+                or type(built_arm.model.source_prior.structure)
+                is not H6LanguageStructure
+            ):
+                raise RuntimeError(
+                    "categorical live arm does not expose its language structure"
+                )
+            live_structure = built_arm.model.source_prior.structure
+            live_structure.__post_init__()
+            _require_live_structure_binding(
+                structure,
+                live_structure.structure_sha256,
+                live_fixture_sha256=(
+                    built_arm.model.source_prior.fixture_sha256
+                ),
+            )
+        return built_arm
 
     def build_predictor_boundary(
         self,
@@ -1866,6 +2082,7 @@ class _LiveH6PrefixRunnerExecutor:
                 "live bounded job made other than five predictor calls per case"
             )
         return _LiveH6PrefixDynamicJobResult(
+            execution_plan=execution_plan,
             report=report,
             observed_predictor_call_count=predictor.call_count,
         )
