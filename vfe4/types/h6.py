@@ -3818,6 +3818,7 @@ class BoundedPrefixReportBinding:
     git_head: str
     dirty_digest: str
     source_sha256: str
+    global_case_key_order_sha256: str
     profile_pair_sha256s: tuple[str, ...]
     report_references: tuple[BoundedPrefixReportReference, ...]
     higher_n_small_selection_manifest_sha256: str
@@ -3844,6 +3845,7 @@ class BoundedPrefixReportBinding:
             "semantic_family_sha256",
             "dirty_digest",
             "source_sha256",
+            "global_case_key_order_sha256",
             "higher_n_small_selection_manifest_sha256",
             "higher_n_validation_selection_manifest_sha256",
             "static_report_sha256",
@@ -3955,6 +3957,9 @@ class BoundedPrefixReportBinding:
             "git_head": self.git_head,
             "dirty_digest": self.dirty_digest,
             "source_sha256": self.source_sha256,
+            "global_case_key_order_sha256": (
+                self.global_case_key_order_sha256
+            ),
             "profile_pair_sha256s": self.profile_pair_sha256s,
             "report_references": tuple(
                 reference.canonical_payload()
@@ -3988,6 +3993,7 @@ class BoundedPrefixReportBinding:
         git_head: str,
         dirty_digest: str,
         source_sha256: str,
+        global_case_key_order_sha256: str,
         profile_pair_sha256s: tuple[str, ...],
         report_references: tuple[BoundedPrefixReportReference, ...],
         higher_n_small_selection_manifest_sha256: str,
@@ -4008,6 +4014,7 @@ class BoundedPrefixReportBinding:
             "git_head": git_head,
             "dirty_digest": dirty_digest,
             "source_sha256": source_sha256,
+            "global_case_key_order_sha256": global_case_key_order_sha256,
             "profile_pair_sha256s": profile_pair_sha256s,
             "report_references": report_references,
             "higher_n_small_selection_manifest_sha256": (

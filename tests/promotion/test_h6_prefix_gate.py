@@ -16,6 +16,7 @@ from verification.h6_prefix_gate import (
     publish_h6_prefix_artifact,
 )
 from vfe4.artifacts.atomic import ArtifactPublicationError
+from vfe4.artifacts.provenance import source_candidate_sha256
 from vfe4.config import (
     H6PrefixResolvedConfig,
     H6SourceIdentity,
@@ -1308,7 +1309,10 @@ def _bounded_certificate_fixture(
         reports=reports,
         global_keys=keys,
         static_report=_static_report(keys),
-        source_sha256="3" * 64,
+        source_sha256=source_candidate_sha256(
+            git_head_value="1" * 40,
+            dirty_digest_value="2" * 64,
+        ),
     )
 
 
@@ -1335,6 +1339,22 @@ def _chain_structure(horizon: int) -> H6LanguageStructure:
         ),
         receiver_labels=tuple(range(1, horizon + 1)),
     )
+
+
+def _unsafe_stale_static_identity(
+    report: StaticAuditReport,
+    field_name: str,
+) -> StaticAuditReport:
+    stale = object.__new__(StaticAuditReport)
+    for descriptor in fields(StaticAuditReport):
+        object.__setattr__(
+            stale,
+            descriptor.name,
+            "f" * 64
+            if descriptor.name == field_name
+            else getattr(report, descriptor.name),
+        )
+    return stale
 
 
 def test_bounded_certificate_requires_exact_eight_report_matrix_and_global_static_report() -> None:
@@ -1396,6 +1416,11 @@ def test_bounded_certificate_requires_exact_eight_report_matrix_and_global_stati
     assert binding.git_head == "1" * 40
     assert binding.dirty_digest == "2" * 64
     assert binding.source_sha256 == fixture.source_sha256
+    assert binding.global_case_key_order_sha256 == _owned_hash(
+        "vfe4.h6.bounded-prefix-global-case-key-order.v2",
+        tuple(key.canonical_payload() for key in fixture.global_keys),
+    )
+    assert certificate.checks["artifact_identity"] is True
     for profile_index, profile in enumerate(fixture.profiles):
         estimator_identity = EstimatorIdentity.from_spec(profile.estimator)
         for reference in binding.report_references[
@@ -1497,6 +1522,34 @@ def test_bounded_certificate_requires_exact_eight_report_matrix_and_global_stati
             _static_report(fixture.global_keys[:-1]),
             fixture.global_keys,
         ),
+        (
+            fixture.profiles,
+            reports,
+            fixture.static_report,
+            (
+                fixture.global_keys[1],
+                fixture.global_keys[0],
+                *fixture.global_keys[2:],
+            ),
+        ),
+        (
+            fixture.profiles,
+            reports,
+            _unsafe_stale_static_identity(
+                fixture.static_report,
+                "source_manifest_sha256",
+            ),
+            fixture.global_keys,
+        ),
+        (
+            fixture.profiles,
+            reports,
+            _unsafe_stale_static_identity(
+                fixture.static_report,
+                "rules_sha256",
+            ),
+            fixture.global_keys,
+        ),
     )
     for profiles, mutated_reports, static_report, global_keys in mutations:
         with pytest.raises(ValueError):
@@ -1509,6 +1562,16 @@ def test_bounded_certificate_requires_exact_eight_report_matrix_and_global_stati
                 global_case_keys=global_keys,
                 source_sha256=fixture.source_sha256,
             )
+    with pytest.raises(ValueError, match="source candidate"):
+        compose(
+            family_bundle=_bounded_family_bundle(
+                fixture.profiles,
+                fixture.reports,
+            ),
+            static_report=fixture.static_report,
+            global_case_keys=fixture.global_keys,
+            source_sha256="e" * 64,
+        )
 
     inconclusive_fixture = _bounded_certificate_fixture(
         report_mode=(4, "inconclusive")

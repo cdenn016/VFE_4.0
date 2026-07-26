@@ -21,7 +21,10 @@ import torch
 
 from verification.numpy_oracles.h6_prefix import enumerate_ordered_tail_pairs
 from vfe4.artifacts.atomic import publish_run_directory
-from vfe4.artifacts.provenance import current_source_identity
+from vfe4.artifacts.provenance import (
+    current_source_identity,
+    source_candidate_sha256,
+)
 from vfe4.config import resolve_h6_prefix_config
 from vfe4.config.schema import (
     H6_PREFIX_V2_AUTHORIZATION_SHA256,
@@ -990,6 +993,14 @@ def compose_bounded_prefix_certificate(
     )
     common_git_head = reports[0].key.git_head
     common_dirty_digest = reports[0].key.dirty_digest
+    expected_source_sha256 = source_candidate_sha256(
+        git_head_value=common_git_head,
+        dirty_digest_value=common_dirty_digest,
+    )
+    if source_sha256 != expected_source_sha256:
+        raise ValueError(
+            "source_sha256 does not match the bounded source candidate"
+        )
     references: list[BoundedPrefixReportReference] = []
     for report, (profile, case_family, scope) in zip(
         reports,
@@ -1107,6 +1118,24 @@ def compose_bounded_prefix_certificate(
         raise ValueError(
             "global static key inventory omits a bounded family report"
         )
+    family_key_order = tuple(
+        canonical_json_bytes(report.key.canonical_payload())
+        for report in reports
+    )
+    first_family_key_index = encoded_global_keys.index(family_key_order[0])
+    if (
+        encoded_global_keys[
+            first_family_key_index : first_family_key_index + len(family_key_order)
+        ]
+        != family_key_order
+    ):
+        raise ValueError(
+            "global Prefix keys do not preserve the exact family plan order"
+        )
+    global_case_key_order_sha256 = _owned_hash(
+        "vfe4.h6.bounded-prefix-global-case-key-order.v2",
+        tuple(key.canonical_payload() for key in global_case_keys),
+    )
 
     report_references = tuple(references)
     higher_n_small_selection = report_references[
@@ -1121,6 +1150,7 @@ def compose_bounded_prefix_certificate(
         git_head=common_git_head,
         dirty_digest=common_dirty_digest,
         source_sha256=source_sha256,
+        global_case_key_order_sha256=global_case_key_order_sha256,
         profile_pair_sha256s=tuple(
             profile.profile_pair_sha256 for profile in profiles
         ),
@@ -1144,6 +1174,26 @@ def compose_bounded_prefix_certificate(
     dynamic = tuple(_dynamic_checks(report) for report in reports)
     static = _static_checks(static_report)
     representative = dynamic[:2]
+    artifact_identity = (
+        binding.git_head == common_git_head
+        and binding.dirty_digest == common_dirty_digest
+        and binding.source_sha256 == expected_source_sha256
+        and binding.global_case_key_order_sha256
+        == global_case_key_order_sha256
+        and binding.profile_pair_sha256s
+        == tuple(profile.profile_pair_sha256 for profile in profiles)
+        and tuple(
+            reference.report_sha256
+            for reference in binding.report_references
+        )
+        == tuple(report.report_sha256 for report in reports)
+        and binding.static_report_sha256 == static_report.report_sha256
+        and binding.static_source_manifest_sha256
+        == static_report.source_manifest_sha256
+        and binding.static_rules_sha256 == static_report.rules_sha256
+        and binding.static_case_key_manifest_sha256
+        == static_report.case_key_manifest_sha256
+    )
     checks: dict[str, bool] = {
         "signature_import": _no_witnessed_failure(
             *(item["signature_and_identity"] for item in dynamic),
@@ -1166,7 +1216,7 @@ def compose_bounded_prefix_certificate(
             *(item["case_inventory"] for item in representative),
             static["inventory_identity"],
         ),
-        "artifact_identity": True,
+        "artifact_identity": artifact_identity,
         "data_safety": _no_witnessed_failure(
             *(item["validation_data_safety"] for item in representative)
         ),
