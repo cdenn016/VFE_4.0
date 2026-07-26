@@ -47,6 +47,7 @@ def _registry_payload(
     *,
     schema_version: str = "h8-current-candidate-refs-v3",
     stale: bool = False,
+    separate_prediction_candidate: bool = False,
 ) -> dict[str, object]:
     candidate = _candidate()
     junit = tmp_path / "candidate-junit.xml"
@@ -125,6 +126,14 @@ def _registry_payload(
         "objective_gate_spec_sha256": "4" * 64,
         "metrics_sha256": "4" * 64,
     }
+    if separate_prediction_candidate:
+        h6_prediction.update(
+            {
+                "producer_head": "7" * 40,
+                "producer_dirty_digest": "8" * 64,
+                "candidate_junit_sha256": "9" * 64,
+            }
+        )
     if schema_version == "h8-current-candidate-refs-v1":
         h6_prediction = {
             **common("h6_prediction"),
@@ -284,11 +293,18 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
     )
     preregistration.parent.mkdir(parents=True)
     preregistration.write_text("frozen preregistration\n", encoding="utf-8")
-    registry_path = _write_registry(tmp_path, _registry_payload(tmp_path))
+    registry_path = _write_registry(
+        tmp_path,
+        _registry_payload(tmp_path, separate_prediction_candidate=True),
+    )
     from verification.run_gates import parse_h8_reference_registry_bytes
 
     parsed = parse_h8_reference_registry_bytes(registry_path.read_bytes())
     assert parsed.registry_schema_version == "h8-current-candidate-refs-v3"
+    assert parsed.h6_prediction.producer_head != parsed.candidate_head
+    assert parsed.h6_prediction.candidate_junit_sha256 != (
+        parsed.candidate_junit_sha256
+    )
     runtime_root = tmp_path / "verification"
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(

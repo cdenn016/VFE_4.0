@@ -458,7 +458,7 @@ The sole authorizing H8 registry schema is
   `matching_set_sha256`,
   `h1_prefix_prior_generative_factor_schema_sha256`,
   `smc_bias_semantics_sha256`, `objective_gate_spec_sha256`,
-  `metrics_sha256`, and the non-null same-candidate JUnit hash
+  `metrics_sha256`, and its non-null producer JUnit hash
 
 All status tags are literal `pass`. Keyed content and payload maps are
 preserved losslessly. A content-hash key is an exact manifest-relative payload
@@ -470,10 +470,13 @@ in the authorizing v3 shape. No copy of predecessor validation, certificate,
 or ledger bytes is admissible.
 The direct H1--H5, H1-prefix-prior, and H6-Prefix variants must match their
 H7 transitive references field-for-field, including ordered keyed payload
-hashes. The amended H6-Prediction producer head, dirty digest, and non-null
-JUnit hash must match the H8 candidate. At H8 preflight, every exact artifact,
-result, ledger, H7 result
-pointer, shared H7 JUnit preimage, H6-Prediction readiness and complete
+hashes. The amended H6-Prediction retains its own frozen producer head, dirty
+digest, and non-null JUnit hash; that producer identity need not match the H8
+candidate. Its exact resolved config, readiness, scientific dependency set,
+raw endpoints, metrics, result, immutable artifact identities, and ledger must
+revalidate against that frozen producer before H8 can authorize. At H8
+preflight, every exact artifact, result, ledger, H7 result pointer, shared H7
+JUnit preimage, H6-Prediction readiness and complete
 scientific-prerequisite artifact set, raw endpoint table, metrics file, and
 result file is reopened by its frozen path and rehashed. H7 fixture closure is
 rederived from the current-candidate `h1_v1.json`, `h7_v1.json`, and

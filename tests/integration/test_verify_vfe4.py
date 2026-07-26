@@ -50,7 +50,15 @@ def _run_h1_h5_scientific(module: object, scientific: dict[str, object]):
     return module.main(launcher)
 
 
-def _h8_current_refs(head: str, dirty: str, junit: str):
+def _h8_current_refs(
+    head: str,
+    dirty: str,
+    junit: str,
+    *,
+    prediction_head: str | None = None,
+    prediction_dirty: str | None = None,
+    prediction_junit: str | None = None,
+):
     import verification.h8_gate as h8_gate
     from vfe4.types.h7 import H7PredecessorReference
     from vfe4.types.h8 import (
@@ -117,7 +125,9 @@ def _h8_current_refs(head: str, dirty: str, junit: str):
         "content_hashes": {"prediction-content.json": digest},
         "payload_hashes": {"prediction.json": digest},
         "ledger_path": "C:/immutable/prediction-ledger",
-        "candidate_junit_sha256": junit,
+        "producer_head": prediction_head or head,
+        "producer_dirty_digest": prediction_dirty or dirty,
+        "candidate_junit_sha256": prediction_junit or junit,
     }
     base = CurrentH8PrerequisiteRefs(
         candidate_head=head,
@@ -209,6 +219,48 @@ def _h8_current_refs(head: str, dirty: str, junit: str):
         ),
         registry_bytes,
     )
+
+
+def test_h8_registry_v3_preserves_separate_h6_prediction_candidate() -> None:
+    import verification.h8_gate as h8_gate
+    import verification.run_gates as gates
+
+    prediction_head = "7" * 40
+    prediction_dirty = "8" * 64
+    prediction_junit = "9" * 64
+    refs, registry_bytes = _h8_current_refs(
+        "1" * 40,
+        "2" * 64,
+        "3" * 64,
+        prediction_head=prediction_head,
+        prediction_dirty=prediction_dirty,
+        prediction_junit=prediction_junit,
+    )
+
+    assert refs.registry_schema_version == "h8-current-candidate-refs-v3"
+    assert refs.prerequisite_obligations == ()
+    assert refs.h6_prediction.producer_head == prediction_head
+    assert refs.h6_prediction.producer_dirty_digest == prediction_dirty
+    assert refs.h6_prediction.candidate_junit_sha256 == prediction_junit
+    assert (
+        refs.h6_prediction.readiness_sha256
+        == refs.h6_prediction.config_sha256
+        == "a" * 64
+    )
+    parsed = gates.parse_h8_reference_registry_bytes(registry_bytes)
+    assert parsed.h6_prediction == refs.h6_prediction
+    assert (
+        h8_gate.canonical_h8_json_bytes(
+            h8_gate.h8_current_refs_registry_payload(parsed)
+        )
+        == registry_bytes
+    )
+    assert (
+        "h6_prediction_frozen_scientific_dependency_closure"
+        in h8_gate._prerequisite_payload(parsed)["compatibility_checks"]
+    )
+    with pytest.raises(ValueError, match="candidate_junit_sha256"):
+        replace(parsed.h6_prediction, candidate_junit_sha256=None)
 
 
 def _legacy_h8_prefix_payload(

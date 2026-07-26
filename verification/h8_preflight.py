@@ -727,6 +727,15 @@ def _direct_reference_structure_error(
                 _lower_hex(value, 64, name)
             except ValueError as exc:
                 return str(exc)
+    try:
+        _lower_hex(reference["producer_head"], 40, "producer_head")
+        _lower_hex(
+            reference["producer_dirty_digest"],
+            64,
+            "producer_dirty_digest",
+        )
+    except ValueError as exc:
+        return str(exc)
     for mapping_name in ("content_hashes", "payload_hashes"):
         error = _hash_mapping_error(reference[mapping_name], mapping_name)
         if error is not None:
@@ -905,9 +914,15 @@ def _inspect_direct_reference(
             expected_schema=expected_schema,
             detail=structure_error,
         )
-    if (
-        not registry_is_current
-        or reference.get("producer_head") != candidate["git_head"]
+    if not registry_is_current:
+        return _record(
+            display_name,
+            "stale",
+            expected_schema=expected_schema,
+            detail="registry does not bind the exact H8 candidate",
+        )
+    if key != "h6_prediction" and (
+        reference.get("producer_head") != candidate["git_head"]
         or reference.get("producer_dirty_digest") != candidate["dirty_digest"]
         or reference.get("candidate_junit_sha256") != junit_sha256
     ):
@@ -915,7 +930,7 @@ def _inspect_direct_reference(
             display_name,
             "stale",
             expected_schema=expected_schema,
-            detail="reference does not bind the exact candidate and JUnit",
+            detail="current-chain reference does not bind the H8 candidate and JUnit",
         )
     declared_paths = _reference_paths(reference)
     if not declared_paths:

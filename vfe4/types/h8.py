@@ -1917,7 +1917,7 @@ class H8H6PredictionReference:
     ledger_sha256: str
     producer_head: str
     producer_dirty_digest: str
-    candidate_junit_sha256: str | None
+    candidate_junit_sha256: str
     status: Literal["pass"]
 
     def __post_init__(self) -> None:
@@ -1975,8 +1975,7 @@ class H8H6PredictionReference:
             raise ValueError(
                 "H6-Prediction experiment identity must equal its resolved config identity"
             )
-        if self.candidate_junit_sha256 is not None:
-            _sha256(self.candidate_junit_sha256, "candidate_junit_sha256")
+        _sha256(self.candidate_junit_sha256, "candidate_junit_sha256")
 
 
 @dataclass(frozen=True, slots=True)
@@ -2056,16 +2055,6 @@ class CurrentH8PrerequisiteRefs:
                 != self.candidate_junit_sha256
             ):
                 raise ValueError("current references must bind the same candidate")
-        if type(self.h6_prediction) is H8H6PredictionReference and (
-            self.h6_prediction.producer_head != self.candidate_head
-            or self.h6_prediction.producer_dirty_digest
-            != self.candidate_dirty_digest
-            or self.h6_prediction.candidate_junit_sha256
-            != self.candidate_junit_sha256
-        ):
-            raise ValueError(
-                "amended H6-Prediction must bind the same candidate and JUnit"
-            )
         transitive_mismatches: list[str] = []
         for key, reference in (
             ("h1_h5", self.h1_h5),

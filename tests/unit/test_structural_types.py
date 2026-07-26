@@ -459,26 +459,24 @@ def test_current_h8_rejects_direct_reference_drift_from_h7_transitive_bytes() ->
         dataclasses.replace(refs, h1_prefix_prior=changed_payload)
 
 
-@pytest.mark.parametrize(
-    ("field", "value"),
-    (
-        ("producer_head", "2" * 40),
-        ("producer_dirty_digest", "b" * 64),
-        ("candidate_junit_sha256", "b" * 64),
-    ),
-)
-def test_current_h8_rejects_amended_prediction_from_another_candidate(
-    field: str,
-    value: str,
-) -> None:
+def test_current_h8_preserves_amended_prediction_from_its_frozen_candidate() -> None:
     refs, _source = _current_h8_refs()
     changed_prediction = dataclasses.replace(
         refs.h6_prediction,
-        **{field: value},
+        producer_head="2" * 40,
+        producer_dirty_digest="b" * 64,
+        candidate_junit_sha256="c" * 64,
     )
 
-    with pytest.raises(ValueError, match="same candidate and JUnit"):
-        dataclasses.replace(refs, h6_prediction=changed_prediction)
+    preserved = dataclasses.replace(refs, h6_prediction=changed_prediction)
+
+    assert preserved.h6_prediction == changed_prediction
+    assert preserved.prerequisite_obligations == ()
+    with pytest.raises(ValueError, match="candidate_junit_sha256"):
+        dataclasses.replace(
+            changed_prediction,
+            candidate_junit_sha256=None,
+        )
 
 
 def test_h8_task7_result_and_pins_are_fail_closed() -> None:
