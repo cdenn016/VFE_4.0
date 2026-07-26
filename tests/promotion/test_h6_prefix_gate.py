@@ -16,7 +16,13 @@ from verification.h6_prefix_gate import (
     publish_h6_prefix_artifact,
 )
 from vfe4.artifacts.atomic import ArtifactPublicationError
-from vfe4.config import resolve_h6_prefix_config
+from vfe4.config import (
+    H6PrefixResolvedConfig,
+    H6SourceIdentity,
+    resolve_h6_prefix_config,
+)
+from vfe4.config.schema import H6_PREFIX_V2_AUTHORIZATION_SHA256
+from vfe4.predictive import EstimatorIdentity
 from vfe4.types import (
     ArmConfig,
     ArmId,
@@ -27,6 +33,7 @@ from vfe4.types import (
     EvidenceStatus,
     H6LanguageStructure,
     H6PrefixProfilePair,
+    H6PrefixWorkloadPlan,
     PrefixCaseKey,
     PrefixReportBinding,
     VocabularyIdentity,
@@ -36,8 +43,11 @@ from vfe4.types import (
 from vfe4.types.h6 import canonical_json_bytes
 from vfe4.validation.h6_prefix import (
     DynamicCheckResult,
+    DynamicExecutionPlan,
     DynamicPrefixCase,
     DynamicPrefixReport,
+    PairSideHarness,
+    run_dynamic_prefix_checks,
 )
 from vfe4.validation.h6_static_audit import (
     StaticAuditCheck,
@@ -214,7 +224,8 @@ def test_runner_binds_source_mask_observations_for_each_prefix_case_family(
         assert (
             "source_mask_observations" in kwargs
             and "all_invalid_observation" in kwargs
-        ), "run_h6_prefix() supplies no source-mask observations/all-invalid observation"
+            and "source_mask_observer" in kwargs
+        ), "run_h6_prefix() omits the source-mask observer/all-invalid evidence"
         captured.append(kwargs)
         return object()
 
@@ -261,22 +272,10 @@ def test_runner_binds_source_mask_observations_for_each_prefix_case_family(
     for values in captured:
         arm_config = values["arm_config"]
         observations = values["source_mask_observations"]
+        observer = values["source_mask_observer"]
         all_invalid = values["all_invalid_observation"]
-        assert isinstance(observations, tuple)
-        assert len(observations) == 2
-        assert {observation.case_sha256 for observation in observations} == {
-            case.case_sha256
-        }
-        assert {observation.bank for observation in observations} == {
-            "state",
-            "model",
-        }
-        assert all(
-            observation.declared_parents == tuple(range(case.receiver_t))
-            and observation.receiver_t == case.receiver_t
-            and observation.config_sha256 == arm_config.config_sha256
-            for observation in observations
-        )
+        assert observations is None
+        assert callable(observer)
         assert getattr(all_invalid, "config_sha256") == arm_config.config_sha256
         assert getattr(all_invalid, "outcome") == "rejected"
         assert getattr(all_invalid, "observed_type") == "AllInvalidSourceRowError"
@@ -554,7 +553,7 @@ def test_h6_prefix_reports_bind_status_and_publish_only_the_independent_artifact
             ),
             _dynamic_report(
                 key=validation_key,
-                expected_by_position=(128,) * 32,
+                expected_by_position=(4096,),
                 expected_total=4096,
                 mode=mode,
                 salt=f"validation-{mode}",
@@ -657,7 +656,7 @@ def test_h6_prefix_reports_bind_status_and_publish_only_the_independent_artifact
     )
     focused_validation = _dynamic_report(
         key=focused_validation_key,
-        expected_by_position=(128,) * 32,
+        expected_by_position=(4096,),
         expected_total=4096,
         mode="inconclusive",
         salt="focused-validation",
@@ -866,3 +865,288 @@ def test_h6_prefix_reports_bind_status_and_publish_only_the_independent_artifact
             environment_payload=environment_payload,
             report_bundles=(bundle,),
         )
+
+
+def _bounded_profile_ladder() -> tuple[H6PrefixProfilePair, ...]:
+    base = _categorical_profile(ArmId.A2)
+    return tuple(
+        H6PrefixProfilePair.create(
+            profile_id=f"a2-weighted-smc-{particle_count}",
+            small_arm_config=base.small_arm_config,
+            production_arm_config=base.production_arm_config,
+            estimator=EstimatorSpec.create(
+                kind="weighted_smc",
+                particle_count=particle_count,
+                resampling="systematic_ess_half",
+            ),
+            small_structure=base.small_structure,
+            production_structure=base.production_structure,
+            data_safety_sha256=base.data_safety_sha256,
+            small_model_family_sha256=base.small_model_family_sha256,
+            production_model_family_sha256=base.production_model_family_sha256,
+        )
+        for particle_count in (128, 256, 512, 1024)
+    )
+
+
+def _bounded_resolved_config() -> H6PrefixResolvedConfig:
+    source = H6SourceIdentity("1" * 40, "2" * 64, "3" * 64)
+    profiles = _bounded_profile_ladder()
+    workload = H6PrefixWorkloadPlan()
+    artifact_root = Path("artifacts")
+    payload = {
+        "schema_version": "h6-prefix-config-v2",
+        "operation": "H6-Prefix",
+        "source": {
+            "git_head": source.git_head,
+            "dirty_digest": source.dirty_digest,
+            "source_sha256": source.source_sha256,
+        },
+        "execution_mode": "authorized_full",
+        "profiles": tuple(
+            h6_prefix_gate._resolved_profile_payload(profile)
+            for profile in profiles
+        ),
+        "artifact_root": artifact_root.as_posix(),
+        "workload_plan": workload.canonical_payload(),
+        "workload_plan_sha256": workload.workload_plan_sha256,
+        "authorization_sha256": H6_PREFIX_V2_AUTHORIZATION_SHA256,
+    }
+    canonical = canonical_json_bytes(payload)
+    return H6PrefixResolvedConfig(
+        schema_version="h6-prefix-config-v2",
+        operation="H6-Prefix",
+        source=source,
+        execution_mode="authorized_full",
+        profiles=profiles,
+        workload_plan=workload,
+        workload_plan_sha256=workload.workload_plan_sha256,
+        authorization_sha256=H6_PREFIX_V2_AUTHORIZATION_SHA256,
+        artifact_root=artifact_root,
+        canonical_json=canonical.decode("ascii"),
+        config_sha256=hashlib.sha256(canonical).hexdigest(),
+    )
+
+
+def test_bounded_runner_plan_freezes_semantic_groups_jobs_and_call_budget() -> None:
+    config = _bounded_resolved_config()
+
+    plan = h6_prefix_gate._build_h6_prefix_runner_plan(config)
+
+    assert len(plan.semantic_families) == 1
+    family = plan.semantic_families[0]
+    assert tuple(
+        (
+            job.particle_count,
+            job.case_family,
+            job.scope,
+            job.expected_case_count,
+            job.collect_source_masks,
+            job.collect_validation_safety,
+        )
+        for job in family.dynamic_jobs
+    ) == (
+        (128, "small", "representative_exhaustive", 9720, True, False),
+        (128, "validation", "representative_exhaustive", 4096, True, True),
+        (256, "small", "estimator_stratified", 16, False, False),
+        (256, "validation", "estimator_stratified", 16, False, False),
+        (512, "small", "estimator_stratified", 16, False, False),
+        (512, "validation", "estimator_stratified", 16, False, False),
+        (1024, "small", "estimator_stratified", 16, False, False),
+        (1024, "validation", "estimator_stratified", 16, False, False),
+    )
+    assert (
+        family.arm_build_count,
+        family.predictor_boundary_count,
+        family.dynamic_report_count,
+        family.representative_mask_collector_count,
+        family.expected_case_count,
+        family.expected_predictor_call_count,
+        family.expected_particle_call_units,
+    ) == (2, 8, 8, 2, 13_912, 69_560, 9_128_960)
+    assert plan.fixture_load_count == plan.static_audit_count == 1
+    assert plan.static_audit_job.report_keys == tuple(
+        job.report_key for job in family.dynamic_jobs
+    )
+
+
+def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_sixth_call() -> None:
+    plan = h6_prefix_gate._build_h6_prefix_runner_plan(
+        _bounded_resolved_config()
+    )
+    events: list[tuple[object, ...]] = []
+
+    class FakeExecutor:
+        def load_validation_perturbations(
+            self, *, expected_vocabulary: VocabularyIdentity
+        ) -> object:
+            events.append(("fixture", expected_vocabulary))
+            return object()
+
+        def build_arm(
+            self,
+            *,
+            arm_config: ArmConfig,
+            structure: H6LanguageStructure,
+        ) -> object:
+            events.append(("build", arm_config, structure))
+            return (arm_config, structure)
+
+        def build_predictor_boundary(
+            self,
+            *,
+            built_arm: object,
+            estimator: EstimatorSpec,
+        ) -> object:
+            events.append(("boundary", built_arm, estimator.particle_count))
+            return (built_arm, estimator)
+
+        def execute_dynamic_job(
+            self,
+            *,
+            job: object,
+            built_arm: object,
+            predictor: object,
+            validation_perturbations: object,
+        ) -> object:
+            del built_arm, predictor, validation_perturbations
+            events.append(
+                (
+                    "dynamic",
+                    job.particle_count,
+                    job.case_family,
+                    job.selected_global_indices,
+                )
+            )
+            return SimpleNamespace(
+                report=object(),
+                observed_predictor_call_count=(
+                    job.expected_predictor_call_count
+                ),
+            )
+
+        def execute_static_audit(self, *, job: object) -> object:
+            events.append(("static", job.report_keys))
+            return object()
+
+    evidence = h6_prefix_gate._execute_h6_prefix_plan(plan, FakeExecutor())
+
+    assert tuple(event[0] for event in events) == (
+        ("fixture", "build", "build")
+        + ("boundary", "boundary", "dynamic", "dynamic") * 4
+        + ("static",)
+    )
+    assert len([event for event in events if event[0] == "build"]) == 2
+    assert len([event for event in events if event[0] == "boundary"]) == 8
+    assert len([event for event in events if event[0] == "dynamic"]) == 8
+    assert evidence.observed_predictor_call_count == 69_560
+    assert all(
+        result.observed_predictor_call_count
+        == result.job.expected_case_count * 5
+        for result in evidence.dynamic_results
+    )
+
+
+def test_source_mask_observer_reuses_first_prediction_without_a_sixth_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arm_config = _categorical_arm_config(
+        arm=ArmId.A2,
+        vocabulary=VocabularyIdentity("h6-prefix-small-v1", 3, "a" * 64),
+        horizon=4,
+    )
+    estimator = EstimatorSpec.create(
+        kind="weighted_smc",
+        particle_count=4,
+        resampling="systematic_ess_half",
+    )
+    case = DynamicPrefixCase.create(
+        ordinal=0,
+        receiver_t=2,
+        shared_prefix=(1,),
+        left_tail=(0,),
+        right_tail=(2,),
+    )
+    validated: list[object] = []
+    observed: list[object] = []
+
+    class TinyIdentity:
+        tensor = "same"
+
+        def cache_payload(self) -> dict[str, str]:
+            return {"cache": "same"}
+
+        def tensor_payload(self) -> dict[str, str]:
+            return {"tensor": "same"}
+
+    identity = TinyIdentity()
+
+    class TinyDeterministicPredictor:
+        vocabulary = arm_config.vocabulary
+        estimator_identity = EstimatorIdentity.from_spec(estimator)
+        model_state_sha256 = "c" * 64
+        proposal_identity_sha256 = "d" * 64
+        call_count = 0
+
+        def next_token_log_probs(
+            self,
+            prefix_tokens: object,
+            estimator_rng: object,
+            cache: object = None,
+        ) -> object:
+            del prefix_tokens, estimator_rng, cache
+            self.call_count += 1
+            return SimpleNamespace(
+                cache=object(),
+                call_ordinal=self.call_count,
+            )
+
+    predictor = TinyDeterministicPredictor()
+
+    def validate_prediction(prediction: object, **_: object) -> object:
+        validated.append(prediction)
+        return identity
+
+    def observe_first(
+        observed_case: DynamicPrefixCase,
+        prediction: object,
+    ) -> tuple[object, ...]:
+        assert observed_case is case
+        assert validated[-1] is prediction
+        observed.append(prediction)
+        return ()
+
+    monkeypatch.setattr(
+        "vfe4.validation.h6_prefix._signature_and_identity_assessment",
+        lambda *_: None,
+    )
+    monkeypatch.setattr(
+        "vfe4.validation.h6_prefix._validate_prediction_identity",
+        validate_prediction,
+    )
+
+    run_dynamic_prefix_checks(
+        key=_key(
+            config=arm_config,
+            estimator=estimator,
+            model_family_sha256=_model_family_sha256(arm_config),
+            data_safety_sha256=hashlib.sha256(
+                b"VFE4-H6-TARGET-FREE-PREDICTIVE-BOUNDARY-V1"
+            ).hexdigest(),
+        ),
+        predictor=predictor,
+        arm_config=arm_config,
+        cases=(case,),
+        plan=DynamicExecutionPlan.create(
+            mode="focused_subset",
+            case_family="small",
+        ),
+        stream_seed=2026072197,
+        pair_side_harness=PairSideHarness(),
+        source_mask_observer=observe_first,
+    )
+
+    assert predictor.call_count == 5
+    assert len(validated) == 4
+    assert len(observed) == 1
+    assert observed[0].call_ordinal == 1

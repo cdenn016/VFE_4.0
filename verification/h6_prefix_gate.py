@@ -15,25 +15,37 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal, Protocol, runtime_checkable
 
 import torch
 
 from verification.numpy_oracles.h6_prefix import enumerate_ordered_tail_pairs
 from vfe4.artifacts.atomic import publish_run_directory
 from vfe4.artifacts.provenance import current_source_identity
-from vfe4.config.schema import H6PrefixResolvedConfig
+from vfe4.config.schema import (
+    H6_PREFIX_V2_AUTHORIZATION_SHA256,
+    H6PrefixResolvedConfig,
+)
 from vfe4.data.windows import CausalPrefix
 from vfe4.numerics.categorical import masked_log_softmax_from_parents
-from vfe4.predictive import BootstrapSmcPredictor, EstimatorStream, vocabulary_identity_sha256
+from vfe4.predictive import (
+    BootstrapSmcPredictor,
+    PriorPrediction,
+    vocabulary_identity_sha256,
+)
 from vfe4.training.arms import BuiltArm, LatentLanguageArmModel, build_arm
 from vfe4.types.h6 import (
     ArmConfig,
+    EstimatorSpec,
     H6_PREFIX_REQUIRED_CHECKS,
     EvidenceStatus,
+    H6LanguageStructure,
     H6PrefixProfilePair,
+    H6PrefixWorkloadPlan,
     PrefixCaseKey,
     PrefixCertificate,
     PrefixReportBinding,
+    VocabularyIdentity,
     canonical_json_bytes,
 )
 from vfe4.types.results import H6PrefixGateResult
@@ -45,9 +57,11 @@ from vfe4.validation.h6_prefix import (
     DynamicExecutionPlan,
     DynamicPrefixCase,
     DynamicPrefixReport,
+    FrozenValidationPerturbations,
     PairSideHarness,
     AllInvalidSourceObservation,
     SourceMaskObservation,
+    SourceMaskObserver,
     load_frozen_validation_perturbations,
     observe_all_invalid_source_rejection,
     run_dynamic_prefix_checks,
@@ -74,6 +88,13 @@ _RESOLVED_PREFIX_CONFIG_FIELDS = frozenset(
         "profiles",
         "authorization_sha256",
         "artifact_root",
+    }
+)
+_RESOLVED_PREFIX_CONFIG_V2_FIELDS = frozenset(
+    {
+        *_RESOLVED_PREFIX_CONFIG_FIELDS,
+        "workload_plan",
+        "workload_plan_sha256",
     }
 )
 _DYNAMIC_CHECK_NAMES = (
@@ -108,6 +129,130 @@ _FORBIDDEN_PREFIX_DEPENDENCY_FIELDS = (
     "opening",
     "prediction",
 )
+
+
+def _bounded_indices(
+    case_family: Literal["small", "validation"],
+    scope: Literal["representative_exhaustive", "estimator_stratified"],
+) -> tuple[int, ...]:
+    workload = H6PrefixWorkloadPlan()
+    if scope == "representative_exhaustive":
+        return tuple(
+            range(
+                SMALL_EXPECTED_TOTAL
+                if case_family == "small"
+                else VALIDATION_EXPECTED_TOTAL
+            )
+        )
+    return (
+        workload.small_global_case_indices
+        if case_family == "small"
+        else workload.validation_global_case_indices
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _H6PrefixDynamicJob:
+    semantic_family_index: int
+    profile: H6PrefixProfilePair
+    case_family: Literal["small", "validation"]
+    scope: Literal["representative_exhaustive", "estimator_stratified"]
+    particle_count: int
+    selected_global_indices: tuple[int, ...]
+    report_key: PrefixCaseKey
+    expected_case_count: int
+    expected_predictor_call_count: int
+    expected_particle_call_units: int
+    collect_source_masks: bool
+    collect_validation_safety: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _H6PrefixSemanticFamilyPlan:
+    semantic_family_index: int
+    semantic_key: bytes
+    profiles: tuple[H6PrefixProfilePair, ...]
+    dynamic_jobs: tuple[_H6PrefixDynamicJob, ...]
+    arm_build_count: int
+    predictor_boundary_count: int
+    dynamic_report_count: int
+    representative_mask_collector_count: int
+    expected_case_count: int
+    expected_predictor_call_count: int
+    expected_particle_call_units: int
+
+
+@dataclass(frozen=True, slots=True)
+class _H6PrefixStaticAuditJob:
+    report_keys: tuple[PrefixCaseKey, ...]
+    case_key_manifest_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class _H6PrefixRunnerPlan:
+    config: H6PrefixResolvedConfig
+    semantic_families: tuple[_H6PrefixSemanticFamilyPlan, ...]
+    expected_validation_vocabulary: VocabularyIdentity
+    static_audit_job: _H6PrefixStaticAuditJob
+    fixture_load_count: int
+    static_audit_count: int
+    expected_case_count: int
+    expected_predictor_call_count: int
+    expected_particle_call_units: int
+
+@runtime_checkable
+class _H6PrefixDynamicJobResult(Protocol):
+    report: DynamicPrefixReport
+    observed_predictor_call_count: int
+
+
+@runtime_checkable
+class _H6PrefixRunnerExecutor(Protocol):
+    def load_validation_perturbations(
+        self, *, expected_vocabulary: VocabularyIdentity
+    ) -> object: ...
+
+    def build_arm(
+        self,
+        *,
+        arm_config: ArmConfig,
+        structure: H6LanguageStructure,
+    ) -> object: ...
+
+    def build_predictor_boundary(
+        self,
+        *,
+        built_arm: object,
+        estimator: EstimatorSpec,
+    ) -> object: ...
+
+    def execute_dynamic_job(
+        self,
+        *,
+        job: _H6PrefixDynamicJob,
+        built_arm: object,
+        predictor: object,
+        validation_perturbations: object,
+    ) -> _H6PrefixDynamicJobResult: ...
+
+    def execute_static_audit(
+        self, *, job: _H6PrefixStaticAuditJob
+    ) -> object: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _H6PrefixDynamicJobEvidence:
+    job: _H6PrefixDynamicJob
+    report: DynamicPrefixReport
+    observed_predictor_call_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class _H6PrefixRunnerEvidence:
+    plan: _H6PrefixRunnerPlan
+    dynamic_results: tuple[_H6PrefixDynamicJobEvidence, ...]
+    static_report: StaticAuditReport
+    observed_predictor_call_count: int
 
 
 def _owned_hash(domain: str, payload: object) -> str:
@@ -220,6 +365,12 @@ def _profile_semantic_key(profile: H6PrefixProfilePair) -> bytes:
                 "config_id": profile.production_arm_config.config_id,
                 **profile.production_arm_config.semantic_payload(),
             },
+            "small_structure_sha256": (
+                profile.small_structure.structure_sha256
+            ),
+            "production_structure_sha256": (
+                profile.production_structure.structure_sha256
+            ),
             "data_safety_sha256": profile.data_safety_sha256,
         }
     )
@@ -230,6 +381,7 @@ def _validate_execution_profile_inventory(
     execution_mode: object,
     authorization_sha256: object,
     profiles: tuple[H6PrefixProfilePair, ...],
+    workload_plan: H6PrefixWorkloadPlan | None = None,
 ) -> None:
     observed = tuple(
         (_profile_semantic_key(profile), profile.estimator.particle_count)
@@ -250,14 +402,24 @@ def _validate_execution_profile_inventory(
         return
     if execution_mode != "authorized_full":
         raise ValueError("unsupported H6-Prefix execution mode")
-    if authorization_sha256 != _FULL_PREFIX_AUTHORIZATION_SHA256:
+    expected_authorization = (
+        _FULL_PREFIX_AUTHORIZATION_SHA256
+        if workload_plan is None
+        else H6_PREFIX_V2_AUTHORIZATION_SHA256
+    )
+    if authorization_sha256 != expected_authorization:
         raise ValueError(
             "authorized-full H6-Prefix requires the exact operation authorization"
         )
+    particle_counts = (
+        (128, 256, 512, 1024)
+        if workload_plan is None
+        else workload_plan.production_particle_counts
+    )
     expected = tuple(
         (key, particle_count)
         for key in ordered_semantics
-        for particle_count in (128, 256, 512, 1024)
+        for particle_count in particle_counts
     )
     if observed != expected:
         raise ValueError(
@@ -383,9 +545,8 @@ def _complete_case_inventory(
         )
         expected_total = SMALL_EXPECTED_TOTAL
     else:
-        exact_positions = (
-            len(report.completed_by_position) == 32
-            and sum(report.completed_by_position) == VALIDATION_EXPECTED_TOTAL
+        exact_positions = report.completed_by_position == (
+            VALIDATION_EXPECTED_TOTAL,
         )
         expected_total = VALIDATION_EXPECTED_TOTAL
     return (
@@ -949,6 +1110,346 @@ def _prefix_key(
     )
 
 
+def _non_particle_profile_payload(
+    profile: H6PrefixProfilePair,
+) -> dict[str, object]:
+    payload = _resolved_profile_payload(profile)
+    payload.pop("profile_id")
+    payload.pop("profile_pair_sha256")
+    estimator = dict(payload["estimator"])
+    estimator.pop("particle_count")
+    estimator.pop("estimator_sha256")
+    payload["estimator"] = estimator
+    return payload
+
+
+def _validate_v2_resolved_runner_config(
+    config: H6PrefixResolvedConfig,
+) -> None:
+    if type(config) is not H6PrefixResolvedConfig:
+        raise ValueError("config must be an exact H6PrefixResolvedConfig")
+    config.__post_init__()
+    if config.schema_version != "h6-prefix-config-v2":
+        raise ValueError("bounded runner plans require h6-prefix-config-v2")
+    workload = config.workload_plan
+    if type(workload) is not H6PrefixWorkloadPlan:
+        raise ValueError("bounded runner config requires the exact workload plan")
+    workload.__post_init__()
+    try:
+        payload = json.loads(config.canonical_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("resolved v2 config canonical_json is invalid") from exc
+    if (
+        type(payload) is not dict
+        or frozenset(payload) != _RESOLVED_PREFIX_CONFIG_V2_FIELDS
+        or payload.get("schema_version") != "h6-prefix-config-v2"
+        or payload.get("operation") != "H6-Prefix"
+    ):
+        raise ValueError("resolved v2 config field inventory is not exact")
+    supplied_workload = payload.get("workload_plan")
+    if canonical_json_bytes(supplied_workload) != canonical_json_bytes(
+        workload.canonical_payload()
+    ):
+        raise ValueError("resolved v2 workload subtree is not canonical")
+    if (
+        payload.get("workload_plan_sha256")
+        != workload.workload_plan_sha256
+        or config.workload_plan_sha256
+        != workload.workload_plan_sha256
+        or config.authorization_sha256
+        != H6_PREFIX_V2_AUTHORIZATION_SHA256
+        or payload.get("authorization_sha256")
+        != H6_PREFIX_V2_AUTHORIZATION_SHA256
+    ):
+        raise ValueError("resolved v2 workload authorization identity is stale")
+    expected = {
+        "schema_version": config.schema_version,
+        "operation": config.operation,
+        "source": {
+            "git_head": config.source.git_head,
+            "dirty_digest": config.source.dirty_digest,
+            "source_sha256": config.source.source_sha256,
+        },
+        "execution_mode": config.execution_mode,
+        "profiles": tuple(
+            _resolved_profile_payload(profile) for profile in config.profiles
+        ),
+        "artifact_root": config.artifact_root.as_posix(),
+        "workload_plan": workload.canonical_payload(),
+        "workload_plan_sha256": workload.workload_plan_sha256,
+        "authorization_sha256": config.authorization_sha256,
+    }
+    canonical = canonical_json_bytes(expected)
+    if (
+        config.canonical_json.encode("utf-8") != canonical
+        or config.config_sha256 != hashlib.sha256(canonical).hexdigest()
+    ):
+        raise ValueError("resolved v2 config does not equal its typed reconstruction")
+    if (
+        len({profile.profile_id for profile in config.profiles})
+        != len(config.profiles)
+        or len(
+            {profile.profile_pair_sha256 for profile in config.profiles}
+        )
+        != len(config.profiles)
+    ):
+        raise ValueError("resolved v2 profile identities must be unique")
+    _validate_execution_profile_inventory(
+        execution_mode=config.execution_mode,
+        authorization_sha256=config.authorization_sha256,
+        profiles=config.profiles,
+        workload_plan=workload,
+    )
+    dependency_payload = dict(payload)
+    dependency_payload.pop("workload_plan")
+    _reject_prefix_dependencies(
+        dependency_payload,
+        "resolved_h6_prefix_v2",
+    )
+
+
+def _build_h6_prefix_runner_plan(
+    config: H6PrefixResolvedConfig,
+) -> _H6PrefixRunnerPlan:
+    """Purely validate and freeze the bounded v2 execution graph."""
+
+    _validate_v2_resolved_runner_config(config)
+    workload = config.workload_plan
+    assert type(workload) is H6PrefixWorkloadPlan
+    observed = tuple(
+        (_profile_semantic_key(profile), profile.estimator.particle_count)
+        for profile in config.profiles
+    )
+    ordered_semantics = tuple(dict.fromkeys(key for key, _ in observed))
+    expected_inventory = tuple(
+        (semantic_key, particle_count)
+        for semantic_key in ordered_semantics
+        for particle_count in workload.production_particle_counts
+    )
+    if observed != expected_inventory:
+        raise ValueError(
+            "bounded runner requires complete ordered, unmixed semantic families"
+        )
+    families: list[_H6PrefixSemanticFamilyPlan] = []
+    profile_offset = 0
+    for family_index, semantic_key in enumerate(ordered_semantics):
+        profiles = config.profiles[
+            profile_offset : profile_offset
+            + len(workload.production_particle_counts)
+        ]
+        profile_offset += len(profiles)
+        if (
+            len(profiles) != len(workload.production_particle_counts)
+            or any(
+                _profile_semantic_key(profile) != semantic_key
+                for profile in profiles
+            )
+        ):
+            raise ValueError("bounded semantic family is missing or mixed")
+        baseline = canonical_json_bytes(
+            _non_particle_profile_payload(profiles[0])
+        )
+        if any(
+            canonical_json_bytes(_non_particle_profile_payload(profile))
+            != baseline
+            for profile in profiles[1:]
+        ):
+            raise ValueError(
+                "only particle count may vary within a bounded semantic family"
+            )
+        jobs: list[_H6PrefixDynamicJob] = []
+        for profile in profiles:
+            particle_count = profile.estimator.particle_count
+            representative = (
+                particle_count == workload.representative_particle_count
+            )
+            scope: Literal[
+                "representative_exhaustive", "estimator_stratified"
+            ] = (
+                "representative_exhaustive"
+                if representative
+                else "estimator_stratified"
+            )
+            for case_family, small in (
+                ("small", True),
+                ("validation", False),
+            ):
+                selected = _bounded_indices(case_family, scope)
+                expected_calls = (
+                    len(selected) * workload.prediction_calls_per_case
+                )
+                jobs.append(
+                    _H6PrefixDynamicJob(
+                        semantic_family_index=family_index,
+                        profile=profile,
+                        case_family=case_family,
+                        scope=scope,
+                        particle_count=particle_count,
+                        selected_global_indices=selected,
+                        report_key=_prefix_key(
+                            config=config,
+                            profile=profile,
+                            small=small,
+                        ),
+                        expected_case_count=len(selected),
+                        expected_predictor_call_count=expected_calls,
+                        expected_particle_call_units=(
+                            expected_calls * particle_count
+                        ),
+                        collect_source_masks=representative,
+                        collect_validation_safety=(
+                            representative and not small
+                        ),
+                    )
+                )
+        family = _H6PrefixSemanticFamilyPlan(
+            semantic_family_index=family_index,
+            semantic_key=semantic_key,
+            profiles=profiles,
+            dynamic_jobs=tuple(jobs),
+            arm_build_count=2,
+            predictor_boundary_count=8,
+            dynamic_report_count=8,
+            representative_mask_collector_count=2,
+            expected_case_count=sum(job.expected_case_count for job in jobs),
+            expected_predictor_call_count=sum(
+                job.expected_predictor_call_count for job in jobs
+            ),
+            expected_particle_call_units=sum(
+                job.expected_particle_call_units for job in jobs
+            ),
+        )
+        families.append(family)
+    if profile_offset != len(config.profiles):
+        raise ValueError("bounded profile inventory contains an extra profile")
+    report_keys = tuple(
+        job.report_key for family in families for job in family.dynamic_jobs
+    )
+    static_job = _H6PrefixStaticAuditJob(
+        report_keys=report_keys,
+        case_key_manifest_sha256=_case_key_manifest(report_keys),
+    )
+    runner_plan = _H6PrefixRunnerPlan(
+        config=config,
+        semantic_families=tuple(families),
+        expected_validation_vocabulary=(
+            families[0].profiles[0].production_arm_config.vocabulary
+        ),
+        static_audit_job=static_job,
+        fixture_load_count=1,
+        static_audit_count=1,
+        expected_case_count=sum(
+            family.expected_case_count for family in families
+        ),
+        expected_predictor_call_count=sum(
+            family.expected_predictor_call_count for family in families
+        ),
+        expected_particle_call_units=sum(
+            family.expected_particle_call_units for family in families
+        ),
+    )
+    return runner_plan
+
+
+def _execute_h6_prefix_plan(
+    plan: _H6PrefixRunnerPlan,
+    executor: _H6PrefixRunnerExecutor,
+) -> _H6PrefixRunnerEvidence:
+    """Execute a frozen plan while retaining orchestration and budgets here."""
+
+    if type(plan) is not _H6PrefixRunnerPlan:
+        raise ValueError("plan must be an exact bounded runner plan")
+    if plan != _build_h6_prefix_runner_plan(plan.config):
+        raise ValueError("bounded runner plan differs from its pure reconstruction")
+    if not isinstance(executor, _H6PrefixRunnerExecutor):
+        raise ValueError("executor does not implement the bounded runner protocol")
+    production_vocabularies = tuple(
+        family.profiles[0].production_arm_config.vocabulary
+        for family in plan.semantic_families
+    )
+    if any(
+        vocabulary != plan.expected_validation_vocabulary
+        for vocabulary in production_vocabularies
+    ):
+        raise RuntimeError(
+            "bounded semantic families disagree on production vocabulary"
+        )
+    perturbations = executor.load_validation_perturbations(
+        expected_vocabulary=plan.expected_validation_vocabulary
+    )
+    dynamic_results: list[_H6PrefixDynamicJobEvidence] = []
+    for family in plan.semantic_families:
+        representative = family.profiles[0]
+        small_arm = executor.build_arm(
+            arm_config=representative.small_arm_config,
+            structure=representative.small_structure,
+        )
+        production_arm = executor.build_arm(
+            arm_config=representative.production_arm_config,
+            structure=representative.production_structure,
+        )
+        for profile_index, profile in enumerate(family.profiles):
+            small_job = family.dynamic_jobs[2 * profile_index]
+            validation_job = family.dynamic_jobs[2 * profile_index + 1]
+            small_predictor = executor.build_predictor_boundary(
+                built_arm=small_arm,
+                estimator=profile.estimator,
+            )
+            production_predictor = executor.build_predictor_boundary(
+                built_arm=production_arm,
+                estimator=profile.estimator,
+            )
+            for job, built_arm_value, predictor in (
+                (small_job, small_arm, small_predictor),
+                (
+                    validation_job,
+                    production_arm,
+                    production_predictor,
+                ),
+            ):
+                result = executor.execute_dynamic_job(
+                    job=job,
+                    built_arm=built_arm_value,
+                    predictor=predictor,
+                    validation_perturbations=perturbations,
+                )
+                observed_calls = getattr(
+                    result,
+                    "observed_predictor_call_count",
+                    None,
+                )
+                if (
+                    type(observed_calls) is not int
+                    or observed_calls
+                    != job.expected_predictor_call_count
+                ):
+                    raise RuntimeError(
+                        "bounded dynamic job violated the exact five-call budget"
+                    )
+                dynamic_results.append(
+                    _H6PrefixDynamicJobEvidence(
+                        job=job,
+                        report=getattr(result, "report", None),
+                        observed_predictor_call_count=observed_calls,
+                    )
+                )
+    static_report = executor.execute_static_audit(
+        job=plan.static_audit_job
+    )
+    observed_total = sum(
+        result.observed_predictor_call_count
+        for result in dynamic_results
+    )
+    if observed_total != plan.expected_predictor_call_count:
+        raise RuntimeError("bounded runner predictor-call total is stale")
+    return _H6PrefixRunnerEvidence(
+        plan=plan,
+        dynamic_results=tuple(dynamic_results),
+        static_report=static_report,
+        observed_predictor_call_count=observed_total,
+    )
+
+
 def _small_cases(
     execution_mode: str,
 ) -> tuple[DynamicPrefixCase, ...]:
@@ -978,13 +1479,12 @@ def _source_mask_evidence(
     built_arm: BuiltArm,
     predictor: BootstrapSmcPredictor,
     arm_config: ArmConfig,
-    cases: tuple[DynamicPrefixCase, ...],
-    stream_seed: int,
+    probe_receiver_t: int,
 ) -> tuple[
-    tuple[SourceMaskObservation, ...] | None,
+    SourceMaskObserver | None,
     AllInvalidSourceObservation | None,
 ]:
-    """Capture live categorical rows using the predictor's exact latent history."""
+    """Bind a collector to the already-required first validated prediction."""
 
     if arm_config.source_mode != "categorical":
         return None, None
@@ -1000,18 +1500,26 @@ def _source_mask_evidence(
     source_prior = built_arm.model.source_prior
     if source_prior is None:
         raise RuntimeError("categorical arm has no live source prior")
-    observations: list[SourceMaskObservation] = []
-    for case in cases:
+    if type(probe_receiver_t) is not int or probe_receiver_t <= 0:
+        raise ValueError("source-mask probe receiver must be positive")
+
+    def observe(
+        case: DynamicPrefixCase,
+        prediction: PriorPrediction,
+    ) -> tuple[SourceMaskObservation, ...]:
+        if type(case) is not DynamicPrefixCase:
+            raise ValueError("source-mask observer requires an exact case")
+        case.__post_init__()
+        if type(prediction) is not PriorPrediction:
+            raise ValueError(
+                "source-mask observer requires the validated PriorPrediction"
+            )
+        prediction.__post_init__()
         prefix = CausalPrefix.create(
             receiver_t=case.receiver_t,
             vocabulary=arm_config.vocabulary,
             token_ids=torch.tensor(case.shared_prefix, dtype=torch.int64),
         )
-        stream = EstimatorStream.create(
-            stream_seed=stream_seed,
-            estimator_identity=predictor.estimator_identity,
-        )
-        prediction = predictor.next_token_log_probs(prefix, stream, None)
         population = prediction.cache.filtered_population
         row = source_prior.structure.dag.rows[case.receiver_t - 1]
         if row.receiver_t != case.receiver_t:
@@ -1021,6 +1529,7 @@ def _source_mask_evidence(
         }
         if arm_config.model_channel_enabled:
             histories["model"] = population.component("model_history")[0]
+        observations: list[SourceMaskObservation] = []
         for bank, history in histories.items():
             if arm_config.prior_variant == "fixed":
                 log_probabilities = (
@@ -1054,7 +1563,7 @@ def _source_mask_evidence(
                     log_probabilities=log_probabilities,
                 )
             )
-    probe_receiver_t = cases[0].receiver_t
+        return tuple(observations)
 
     def all_invalid_probe() -> object:
         return masked_log_softmax_from_parents(
@@ -1064,7 +1573,7 @@ def _source_mask_evidence(
         )
 
     return (
-        tuple(observations),
+        observe,
         observe_all_invalid_source_rejection(
             config_sha256=arm_config.config_sha256,
             receiver_t=probe_receiver_t,
@@ -1076,6 +1585,25 @@ def _source_mask_evidence(
 def _validate_resolved_runner_config(config: H6PrefixResolvedConfig) -> None:
     if type(config) is not H6PrefixResolvedConfig:
         raise ValueError("config must be an exact H6PrefixResolvedConfig")
+    config.__post_init__()
+    if config.schema_version == "h6-prefix-config-v2":
+        _validate_v2_resolved_runner_config(config)
+        observed_source = current_source_identity(
+            _REPO_ROOT,
+            config.artifact_root,
+        )
+        configured_source = (
+            config.source.git_head,
+            config.source.dirty_digest,
+            config.source.source_sha256,
+        )
+        if observed_source != configured_source:
+            raise ValueError(
+                "H6-Prefix source identity is stale for the live candidate"
+            )
+        return
+    if config.schema_version != "h6-prefix-config-v1":
+        raise ValueError("unsupported resolved H6-Prefix schema version")
     if type(config.canonical_json) is not str or not isinstance(
         config.artifact_root, Path
     ):
@@ -1095,6 +1623,7 @@ def _validate_resolved_runner_config(config: H6PrefixResolvedConfig) -> None:
         execution_mode=config.execution_mode,
         authorization_sha256=config.authorization_sha256,
         profiles=config.profiles,
+        workload_plan=None,
     )
     expected_config = {
         "schema_version": config.schema_version,
@@ -1134,6 +1663,221 @@ def _validate_resolved_runner_config(config: H6PrefixResolvedConfig) -> None:
         )
 
 
+class _CountingPriorPredictor:
+    def __init__(self, delegate: BootstrapSmcPredictor) -> None:
+        self.delegate = delegate
+        self.call_count = 0
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self.delegate, name)
+
+    def next_token_log_probs(
+        self,
+        prefix_tokens: CausalPrefix,
+        estimator_rng: object,
+        cache: object = None,
+    ) -> PriorPrediction:
+        self.call_count += 1
+        return self.delegate.next_token_log_probs(
+            prefix_tokens,
+            estimator_rng,
+            cache,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _LiveH6PrefixDynamicJobResult:
+    report: DynamicPrefixReport
+    observed_predictor_call_count: int
+
+
+class _LiveH6PrefixRunnerExecutor:
+    """Real adapter kept private until Task 3E can compose bounded artifacts."""
+
+    def load_validation_perturbations(
+        self, *, expected_vocabulary: VocabularyIdentity
+    ) -> FrozenValidationPerturbations:
+        return load_frozen_validation_perturbations(
+            expected_vocabulary=expected_vocabulary
+        )
+
+    def build_arm(
+        self,
+        *,
+        arm_config: ArmConfig,
+        structure: H6LanguageStructure,
+    ) -> BuiltArm:
+        arm_config.__post_init__()
+        structure.__post_init__()
+        if (
+            structure.receiver_labels
+            != tuple(range(1, arm_config.horizon + 1))
+        ):
+            raise RuntimeError("live arm structure does not match its horizon")
+        return build_arm(arm_config.arm, arm_config)
+
+    def build_predictor_boundary(
+        self,
+        *,
+        built_arm: object,
+        estimator: EstimatorSpec,
+    ) -> _CountingPriorPredictor:
+        if type(built_arm) is not BuiltArm:
+            raise ValueError("predictor boundary requires an exact BuiltArm")
+        estimator.__post_init__()
+        _, predictor = built_arm.rebuild_predictive_boundary(estimator)
+        return _CountingPriorPredictor(predictor)
+
+    @staticmethod
+    def _small_job_cases(
+        job: _H6PrefixDynamicJob,
+    ) -> tuple[DynamicPrefixCase, ...]:
+        if job.scope == "representative_exhaustive":
+            cases = _small_cases("authorized_full")
+        else:
+            oracle_cases = enumerate_ordered_tail_pairs(
+                case_indices=job.selected_global_indices,
+                max_cases=len(job.selected_global_indices),
+            )
+            cases = tuple(
+                DynamicPrefixCase.create(
+                    ordinal=case.case_index,
+                    receiver_t=case.receiver_t,
+                    shared_prefix=case.prefix,
+                    left_tail=case.left_tail,
+                    right_tail=case.right_tail,
+                )
+                for case in oracle_cases
+            )
+        if tuple(case.ordinal for case in cases) != job.selected_global_indices:
+            raise RuntimeError("small Prefix selection is stale")
+        return cases
+
+    @staticmethod
+    def _validation_job_cases(
+        job: _H6PrefixDynamicJob,
+        perturbations: FrozenValidationPerturbations,
+    ) -> tuple[DynamicPrefixCase, ...]:
+        perturbations.__post_init__()
+        full_cases = perturbations.dynamic_cases
+        if (
+            perturbations.materialization,
+            perturbations.materialized_count,
+            len(full_cases),
+        ) != ("authorized_full", VALIDATION_EXPECTED_TOTAL, VALIDATION_EXPECTED_TOTAL):
+            raise RuntimeError(
+                "bounded Prefix execution requires the verified full validation fixture"
+            )
+        if job.scope == "representative_exhaustive":
+            selected = full_cases
+        else:
+            selected = tuple(
+                full_cases[index] for index in job.selected_global_indices
+            )
+        if tuple(case.ordinal for case in selected) != job.selected_global_indices:
+            raise RuntimeError("validation Prefix selection is stale")
+        return selected
+
+    def execute_dynamic_job(
+        self,
+        *,
+        job: _H6PrefixDynamicJob,
+        built_arm: object,
+        predictor: object,
+        validation_perturbations: object,
+    ) -> _LiveH6PrefixDynamicJobResult:
+        if (
+            type(job) is not _H6PrefixDynamicJob
+            or type(built_arm) is not BuiltArm
+            or type(predictor) is not _CountingPriorPredictor
+            or predictor.call_count != 0
+        ):
+            raise ValueError("live dynamic boundary is not fresh and exact")
+        expected_config = (
+            job.profile.small_arm_config
+            if job.case_family == "small"
+            else job.profile.production_arm_config
+        )
+        expected_model_family = (
+            job.profile.small_model_family_sha256
+            if job.case_family == "small"
+            else job.profile.production_model_family_sha256
+        )
+        if (
+            built_arm.config is not expected_config
+            or built_arm.model_family_sha256 != expected_model_family
+            or predictor.predictor_config_sha256
+            != expected_config.config_sha256
+            or predictor.data_safety_sha256
+            != job.profile.data_safety_sha256
+        ):
+            raise RuntimeError("live dynamic boundary differs from its frozen job")
+        if job.case_family == "small":
+            cases = self._small_job_cases(job)
+            bound_perturbations = None
+        else:
+            if type(validation_perturbations) is not FrozenValidationPerturbations:
+                raise ValueError("live validation fixture must be exact")
+            cases = self._validation_job_cases(
+                job,
+                validation_perturbations,
+            )
+            bound_perturbations = (
+                validation_perturbations
+                if job.collect_validation_safety
+                else None
+            )
+        selection_rows = tuple(
+            (case.ordinal, case.case_sha256) for case in cases
+        )
+        workload = H6PrefixWorkloadPlan()
+        execution_plan = DynamicExecutionPlan.create_scoped(
+            scope=job.scope,
+            case_family=job.case_family,
+            particle_count=job.particle_count,
+            workload_plan=workload,
+            authorization_sha256=H6_PREFIX_V2_AUTHORIZATION_SHA256,
+            selection_rows=selection_rows,
+        )
+        source_mask_observer: SourceMaskObserver | None = None
+        all_invalid: AllInvalidSourceObservation | None = None
+        if job.collect_source_masks:
+            source_mask_observer, all_invalid = _source_mask_evidence(
+                built_arm=built_arm,
+                predictor=predictor.delegate,
+                arm_config=expected_config,
+                probe_receiver_t=cases[0].receiver_t,
+            )
+        report = run_dynamic_prefix_checks(
+            key=job.report_key,
+            predictor=predictor,
+            arm_config=expected_config,
+            cases=cases,
+            plan=execution_plan,
+            stream_seed=2026072197,
+            perturbations=bound_perturbations,
+            source_mask_observations=None,
+            all_invalid_observation=all_invalid,
+            pair_side_harness=PairSideHarness(),
+            source_mask_observer=source_mask_observer,
+        )
+        if predictor.call_count != job.expected_predictor_call_count:
+            raise RuntimeError(
+                "live bounded job made other than five predictor calls per case"
+            )
+        return _LiveH6PrefixDynamicJobResult(
+            report=report,
+            observed_predictor_call_count=predictor.call_count,
+        )
+
+    def execute_static_audit(
+        self,
+        *,
+        job: _H6PrefixStaticAuditJob,
+    ) -> StaticAuditReport:
+        return audit_h6_static_source(_REPO_ROOT, job.report_keys)
+
+
 def run_h6_prefix(
     *,
     config: H6PrefixResolvedConfig,
@@ -1144,6 +1888,14 @@ def run_h6_prefix(
     _validate_resolved_runner_config(config)
     if junit_sha256 is not None:
         _require_sha256(junit_sha256, "junit_sha256")
+    if getattr(config, "schema_version", "h6-prefix-config-v1") == (
+        "h6-prefix-config-v2"
+    ):
+        _build_h6_prefix_runner_plan(config)
+        raise RuntimeError(
+            "bounded h6-prefix-config-v2 execution is blocked until Task 3E "
+            "supplies the bounded certificate and artifact composer"
+        )
     perturbations = load_frozen_validation_perturbations()
     if (
         config.execution_mode == "authorized_full"
@@ -1194,20 +1946,20 @@ def run_h6_prefix(
             profile=profile,
             small=False,
         )
-        small_source_masks, small_all_invalid = _source_mask_evidence(
+        small_source_observer, small_all_invalid = _source_mask_evidence(
             built_arm=built_small,
             predictor=small_predictor,
             arm_config=profile.small_arm_config,
-            cases=small_cases,
-            stream_seed=2026072197,
+            probe_receiver_t=small_cases[0].receiver_t,
         )
-        validation_source_masks, validation_all_invalid = (
+        validation_source_observer, validation_all_invalid = (
             _source_mask_evidence(
                 built_arm=built_production,
                 predictor=production_predictor,
                 arm_config=profile.production_arm_config,
-                cases=perturbations.dynamic_cases,
-                stream_seed=2026072197,
+                probe_receiver_t=(
+                    perturbations.dynamic_cases[0].receiver_t
+                ),
             )
         )
         small_report = run_dynamic_prefix_checks(
@@ -1221,9 +1973,10 @@ def run_h6_prefix(
                 authorization_sha256=config.authorization_sha256,
             ),
             stream_seed=2026072197,
-            source_mask_observations=small_source_masks,
+            source_mask_observations=None,
             all_invalid_observation=small_all_invalid,
             pair_side_harness=PairSideHarness(),
+            source_mask_observer=small_source_observer,
         )
         validation_report = run_dynamic_prefix_checks(
             key=production_key,
@@ -1237,9 +1990,10 @@ def run_h6_prefix(
             ),
             stream_seed=2026072197,
             perturbations=perturbations,
-            source_mask_observations=validation_source_masks,
+            source_mask_observations=None,
             all_invalid_observation=validation_all_invalid,
             pair_side_harness=PairSideHarness(),
+            source_mask_observer=validation_source_observer,
         )
         static_report = audit_h6_static_source(
             _REPO_ROOT,

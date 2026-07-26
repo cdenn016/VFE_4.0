@@ -1060,6 +1060,12 @@ class SourceMaskObservation:
         )
 
 
+SourceMaskObserver = Callable[
+    [DynamicPrefixCase, PriorPrediction],
+    tuple[SourceMaskObservation, ...],
+]
+
+
 @dataclass(frozen=True)
 class AllInvalidSourceObservation:
     config_sha256: str
@@ -1722,17 +1728,21 @@ def _cold_identity(
     case: DynamicPrefixCase,
     *,
     stream_seed: int,
+    source_mask_observer: SourceMaskObserver | None = None,
 ) -> _PredictionObservation:
     vocabulary = getattr(predictor, "vocabulary")
     prefix = _prefix(case, vocabulary)
     stream = _fresh_stream(predictor, stream_seed)
     prediction = predictor.next_token_log_probs(prefix, stream, None)
-    return _validate_prediction_identity(
+    observation = _validate_prediction_identity(
         prediction,
         prefix=prefix,
         predictor=predictor,
         stream=stream,
     )
+    if source_mask_observer is not None:
+        source_mask_observer(case, prediction)
+    return observation
 
 
 def _warm_identity(
@@ -1990,6 +2000,7 @@ def run_dynamic_prefix_checks(
     source_mask_observations: tuple[SourceMaskObservation, ...] | None = None,
     all_invalid_observation: AllInvalidSourceObservation | None = None,
     pair_side_harness: PairSideHarness | None = None,
+    source_mask_observer: SourceMaskObserver | None = None,
 ) -> DynamicPrefixReport:
     """Run a bounded family subset; only a later two-family combiner can PASS."""
 
@@ -2039,6 +2050,15 @@ def run_dynamic_prefix_checks(
         case.__post_init__()
     is_v2 = plan.schema_version == "h6-dynamic-execution-plan-v2"
     is_stratified = is_v2 and plan.scope == "estimator_stratified"
+    if source_mask_observer is not None and not callable(source_mask_observer):
+        raise ValueError("source_mask_observer must be callable when supplied")
+    if (
+        source_mask_observer is not None
+        and source_mask_observations is not None
+    ):
+        raise ValueError(
+            "source-mask observer and precomputed observations are mutually exclusive"
+        )
     if is_v2:
         supplied_rows = tuple(
             (case.ordinal, case.case_sha256) for case in owned_cases
@@ -2050,9 +2070,25 @@ def run_dynamic_prefix_checks(
         if is_stratified and (
             source_mask_observations is not None
             or all_invalid_observation is not None
+            or source_mask_observer is not None
         ):
             raise ValueError(
                 "source-mask evidence is forbidden for stratified plans"
+            )
+        if (
+            not is_stratified
+            and source_mask_observations is not None
+        ):
+            raise ValueError(
+                "representative v2 plans require the first-prediction observer"
+            )
+        if (
+            not is_stratified
+            and arm_config.source_mode == "categorical"
+            and source_mask_observer is None
+        ):
+            raise ValueError(
+                "categorical representative v2 plans require a source-mask observer"
             )
         if is_stratified and perturbations is not None:
             if plan.case_family != "validation":
@@ -2103,6 +2139,7 @@ def run_dynamic_prefix_checks(
             "pair-side tail-state harness is absent"
         )
     pair_bindings: dict[str, list[str]] = {}
+    observed_source_masks: list[SourceMaskObservation] = []
 
     def bind_pair(
         case: DynamicPrefixCase,
@@ -2179,8 +2216,33 @@ def run_dynamic_prefix_checks(
                 continue
             try:
                 left_binding = bind_pair(case, "left", case.left_tail)
+
+                def observe_first_prediction(
+                    observed_case: DynamicPrefixCase,
+                    prediction: PriorPrediction,
+                ) -> tuple[SourceMaskObservation, ...]:
+                    if source_mask_observer is None:
+                        return ()
+                    records = source_mask_observer(observed_case, prediction)
+                    if type(records) is not tuple or any(
+                        type(record) is not SourceMaskObservation
+                        for record in records
+                    ):
+                        raise ValueError(
+                            "source-mask observer must return an exact observation tuple"
+                        )
+                    observed_source_masks.extend(records)
+                    return records
+
                 left = _cold_identity(
-                    predictor, case, stream_seed=stream_seed
+                    predictor,
+                    case,
+                    stream_seed=stream_seed,
+                    source_mask_observer=(
+                        observe_first_prediction
+                        if source_mask_observer is not None
+                        else None
+                    ),
                 )
                 assert_pair_unchanged(
                     case, "left", case.left_tail, left_binding
@@ -2304,7 +2366,11 @@ def run_dynamic_prefix_checks(
             mask_obligations,
             mask_manifest_sha,
         ) = _source_mask_assessment(
-            source_mask_observations,
+            (
+                tuple(observed_source_masks)
+                if source_mask_observer is not None
+                else source_mask_observations
+            ),
             all_invalid_observation=all_invalid_observation,
             arm_config=arm_config,
             cases=owned_cases,
@@ -2687,6 +2753,7 @@ __all__ = [
     "SMALL_EXPECTED_BY_POSITION",
     "SMALL_EXPECTED_TOTAL",
     "SourceMaskObservation",
+    "SourceMaskObserver",
     "TensorByteIdentity",
     "VALIDATION_EXPECTED_TOTAL",
     "ValidationPerturbationRecord",
