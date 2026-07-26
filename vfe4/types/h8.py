@@ -277,6 +277,174 @@ def _freeze_digest_mapping(
     return MappingProxyType(copied)
 
 
+def _freeze_h8_evidence_value(value: object, name: str) -> object:
+    """Return a recursively owned immutable JSON-like evidence value."""
+
+    if value is None or type(value) in (str, bool, int):
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError(f"{name} must contain only finite floats")
+        return value
+    if isinstance(value, Mapping):
+        copied = dict(value)
+        if len(copied) != len(value):
+            raise ValueError(f"{name} cannot contain duplicate keys")
+        frozen: dict[str, object] = {}
+        for key, item in copied.items():
+            _nonempty(key, f"{name} key")
+            frozen[key] = _freeze_h8_evidence_value(
+                item,
+                f"{name}[{key!r}]",
+            )
+        return MappingProxyType(frozen)
+    if type(value) in (tuple, list):
+        return tuple(
+            _freeze_h8_evidence_value(item, f"{name}[{index}]")
+            for index, item in enumerate(value)
+        )
+    raise ValueError(f"{name} contains an unsupported evidence value")
+
+
+def _freeze_h8_operation_reachability(
+    value: object,
+) -> Mapping[str, bool] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("operation_reachability must be a mapping or None")
+    copied = dict(value)
+    if len(copied) != len(value):
+        raise ValueError("operation_reachability cannot contain duplicate keys")
+    for key, reached in copied.items():
+        _nonempty(key, "operation_reachability key")
+        if type(reached) is not bool:
+            raise ValueError("operation_reachability values must be bools")
+    return MappingProxyType(copied)
+
+
+def _freeze_h8_residuals(value: object) -> Mapping[str, float] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("residuals must be a mapping or None")
+    copied = dict(value)
+    if len(copied) != len(value):
+        raise ValueError("residuals cannot contain duplicate keys")
+    for key, residual in copied.items():
+        _nonempty(key, "residuals key")
+        _finite_nonnegative(residual, f"residuals[{key!r}]")
+    return MappingProxyType(copied)
+
+
+def _freeze_h8_resource_decisions(
+    value: object,
+) -> Mapping[str, object] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("resource_decisions must be a mapping or None")
+    frozen = _freeze_h8_evidence_value(value, "resource_decisions")
+    if not isinstance(frozen, Mapping):
+        raise ValueError("resource_decisions must be a mapping or None")
+    return frozen
+
+
+def _freeze_h8_nonpass_envelope(
+    value: object,
+) -> Mapping[str, object] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("nonpass_envelope must be a mapping or None")
+    frozen = _freeze_h8_evidence_value(value, "nonpass_envelope")
+    if not isinstance(frozen, Mapping):
+        raise ValueError("nonpass_envelope must be a mapping or None")
+    return frozen
+
+
+_H8_WITNESSED_ATTEMPT_REASONS = frozenset(
+    {
+        "child_timeout",
+        "nonzero_child_exit",
+        "parent_elapsed_budget_breach",
+        "nonfinite_child_result",
+        "duplicate_child_identity",
+        "child_request_or_environment_identity_mismatch",
+        "child_reported_witnessed_failure",
+        "finite_resource_budget_breach",
+        "required_operation_omission",
+    }
+)
+_H8_WITNESSED_RESOURCE_DECISIONS = (
+    "time_pass",
+    "process_memory_pass",
+    "torch_memory_pass",
+    "rhs_width_pass",
+    "sample_width_pass",
+    "storage_pass",
+    "offband_fill_pass",
+    "forbidden_attempts_zero",
+    "pivot_margin_pass",
+    "finite_pass",
+    "residual_allowances_pass",
+    "profiler_join_pass",
+    "dispatch_backend_cross_check_pass",
+)
+
+
+def _h8_resource_decisions_witness_failure(
+    decisions: Mapping[str, object] | None,
+) -> bool:
+    if decisions is None:
+        return False
+    if any(
+        decisions.get(name) is False
+        for name in _H8_WITNESSED_RESOURCE_DECISIONS
+    ):
+        return True
+    if (
+        type(decisions.get("conservative_incremental_hwm_bytes")) is int
+        and decisions["conservative_incremental_hwm_bytes"]
+        > H8_MAX_PROCESS_INCREMENTAL_BYTES
+    ) or (
+        type(decisions.get("torch_population_peak_bytes")) is int
+        and decisions["torch_population_peak_bytes"]
+        > H8_MAX_TORCH_POPULATION_BYTES
+    ):
+        return True
+    allowances = decisions.get("residual_allowances")
+    return isinstance(allowances, Mapping) and any(
+        isinstance(group, Mapping) and group.get("passed") is False
+        for group in allowances.values()
+    )
+
+
+def _h8_nonpass_envelope_witness_failure(
+    envelope: Mapping[str, object] | None,
+) -> bool:
+    if envelope is None:
+        return False
+    status = envelope.get("status")
+    if type(status) is str and status.lower() == "fail":
+        return True
+    error = envelope.get("error")
+    if isinstance(error, Mapping) and error.get("witnessed_violation") is True:
+        return True
+    result = envelope.get("result")
+    if not isinstance(result, Mapping):
+        return False
+    reachability = result.get("operation_reachability")
+    if isinstance(reachability, Mapping) and any(
+        reached is False for reached in reachability.values()
+    ):
+        return True
+    decisions = result.get("resource_decisions")
+    return isinstance(decisions, Mapping) and (
+        _h8_resource_decisions_witness_failure(decisions)
+    )
+
+
 def _canonical_json_bytes(value: object, name: str) -> bytes:
     if type(value) is not bytes:
         raise ValueError(f"{name} must be immutable bytes")
@@ -1576,6 +1744,24 @@ class H8ChildRequest:
                 raise ValueError("negative-control requests require one frozen control")
 
 
+def _h8_child_request_sha256(request: H8ChildRequest) -> str:
+    canonical = json.dumps(
+        {
+            "mode": request.mode,
+            "seed": request.seed,
+            "repetition": request.repetition,
+            "config_sha256": request.config_sha256,
+            "protocol_sha256": request.protocol_sha256,
+            "control_id": request.control_id,
+        },
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class H8ChildResult:
     mode: H8ChildMode
@@ -1636,6 +1822,187 @@ class H8ChildResult:
                 raise ValueError("complete child endpoints are required")
         elif self.repetition is not None or any(value is not None for value in endpoints):
             raise ValueError("negative-control results cannot carry production endpoints")
+
+
+@dataclass(frozen=True, slots=True)
+class H8ChildAttemptRecord:
+    """Parent-owned evidence for exactly one isolated H8 child launch."""
+
+    request: H8ChildRequest
+    status: GateStatus
+    reasons: tuple[str, ...]
+    result: H8ChildResult | H8ControlResult | None
+    timed_out: bool
+    exit_code: int | None
+    parent_elapsed_ns: int
+    request_sha256: str
+    identities_sha256: str
+    stdout_sha256: str
+    stderr_sha256: str
+    operation_reachability: Mapping[str, bool] | None
+    residuals: Mapping[str, float] | None
+    resource_decisions: Mapping[str, object] | None
+    nonpass_envelope: Mapping[str, object] | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.request) is not H8ChildRequest:
+            raise ValueError("request must be an exact H8ChildRequest")
+        self.request.__post_init__()
+        if type(self.status) is not GateStatus:
+            raise ValueError("status must be an exact GateStatus")
+        if (
+            type(self.reasons) is not tuple
+            or any(type(reason) is not str or not reason for reason in self.reasons)
+            or len(set(self.reasons)) != len(self.reasons)
+        ):
+            raise ValueError("reasons must contain unique nonempty strings")
+        if self.status is GateStatus.PASS:
+            if self.reasons:
+                raise ValueError("PASS child attempts cannot retain reasons")
+        elif not self.reasons:
+            raise ValueError("non-PASS child attempts require a reason")
+        if self.result is not None and type(self.result) not in (
+            H8ChildResult,
+            H8ControlResult,
+        ):
+            raise ValueError("result must retain one exact typed child result")
+        if type(self.timed_out) is not bool:
+            raise ValueError("timed_out must be a bool")
+        if self.exit_code is not None and type(self.exit_code) is not int:
+            raise ValueError("exit_code must be an integer or None")
+        _nonnegative_int(self.parent_elapsed_ns, "parent_elapsed_ns")
+        for name in (
+            "request_sha256",
+            "identities_sha256",
+            "stdout_sha256",
+            "stderr_sha256",
+        ):
+            _sha256(getattr(self, name), name)
+        if self.request_sha256 != _h8_child_request_sha256(self.request):
+            raise ValueError("request_sha256 does not bind the exact request")
+
+        reachability = _freeze_h8_operation_reachability(
+            self.operation_reachability
+        )
+        residuals = _freeze_h8_residuals(self.residuals)
+        decisions = _freeze_h8_resource_decisions(self.resource_decisions)
+        nonpass_envelope = _freeze_h8_nonpass_envelope(
+            self.nonpass_envelope
+        )
+        object.__setattr__(self, "operation_reachability", reachability)
+        object.__setattr__(self, "residuals", residuals)
+        object.__setattr__(self, "resource_decisions", decisions)
+        object.__setattr__(self, "nonpass_envelope", nonpass_envelope)
+
+        if type(self.result) is H8ChildResult:
+            self.result.__post_init__()
+            if self.request.mode not in ("production", "profiler") or (
+                self.result.mode,
+                self.result.seed,
+                self.result.repetition,
+            ) != (
+                self.request.mode,
+                self.request.seed,
+                self.request.repetition,
+            ):
+                raise ValueError("child result does not match request identity")
+            if self.result.resources.parent_elapsed_ns != 0:
+                raise ValueError(
+                    "child resources cannot prestate parent-owned elapsed time"
+                )
+        elif type(self.result) is H8ControlResult:
+            self.result.__post_init__()
+            if (
+                self.request.mode != "negative_control"
+                or self.result.control_id != self.request.control_id
+            ):
+                raise ValueError("control result does not match request identity")
+
+        if self.request.mode == "negative_control" and any(
+            endpoint is not None
+            for endpoint in (reachability, residuals, decisions)
+        ):
+            raise ValueError("control endpoints must remain absent")
+
+        if self.timed_out:
+            if self.status is not GateStatus.FAIL or self.exit_code is not None:
+                raise ValueError(
+                    "a timed out child must be FAIL without an exit code"
+                )
+        witnessed_failure = (
+            (self.exit_code is not None and self.exit_code != 0)
+            or self.parent_elapsed_ns > int(H8_MAX_SECONDS * 1e9)
+            or (
+                reachability is not None
+                and any(reached is False for reached in reachability.values())
+            )
+            or _h8_resource_decisions_witness_failure(decisions)
+            or _h8_nonpass_envelope_witness_failure(nonpass_envelope)
+            or any(
+                reason in _H8_WITNESSED_ATTEMPT_REASONS
+                or reason.startswith("witnessed_")
+                or reason.startswith("invalid_stdout_retains_witnessed_")
+                for reason in self.reasons
+            )
+            or (
+                type(self.result) is H8ControlResult
+                and self.result.status is GateStatus.FAIL
+            )
+            or (
+                type(self.result) is H8ChildResult
+                and any(
+                    item.status is GateStatus.FAIL
+                    for item in self.result.invariants
+                )
+            )
+        )
+        if self.status is GateStatus.INCONCLUSIVE and witnessed_failure:
+            raise ValueError(
+                "witnessed child failure cannot be retained as INCONCLUSIVE"
+            )
+        if self.status is not GateStatus.PASS:
+            return
+
+        if nonpass_envelope is not None:
+            raise ValueError("PASS child attempts cannot retain a non-PASS envelope")
+        if self.timed_out or self.exit_code != 0:
+            raise ValueError("PASS child attempts require exit code zero")
+        if self.parent_elapsed_ns > int(H8_MAX_SECONDS * 1e9):
+            raise ValueError("PASS child attempt exceeds the parent time budget")
+        if self.request.mode in ("production", "profiler"):
+            if type(self.result) is not H8ChildResult:
+                raise ValueError("PASS requires a typed result")
+            if (
+                reachability is None
+                or tuple(reachability) != H8_REQUIRED_OPERATIONS
+                or not all(reachability.values())
+            ):
+                raise ValueError(
+                    "PASS operation_reachability must be the exact true inventory"
+                )
+            if not residuals or not decisions:
+                raise ValueError(
+                    "PASS production/profiler requires every parent endpoint"
+                )
+            if _h8_resource_decisions_witness_failure(decisions):
+                raise ValueError(
+                    "PASS child attempts cannot retain a failed resource decision"
+                )
+            if any(
+                invariant.status is not GateStatus.PASS
+                for invariant in self.result.invariants
+            ):
+                raise ValueError("PASS child result requires PASS invariants")
+            if self.result.resources.child_elapsed_ns > int(
+                H8_MAX_SECONDS * 1e9
+            ):
+                raise ValueError("PASS child result exceeds its time budget")
+        else:
+            if (
+                type(self.result) is not H8ControlResult
+                or self.result.status is not GateStatus.PASS
+            ):
+                raise ValueError("PASS requires a typed result")
 
 
 def _validate_reference_common(value: object, *, expected_kind: str) -> None:
@@ -2156,6 +2523,9 @@ class CurrentH8PrerequisiteRefs:
 @dataclass(frozen=True, slots=True)
 class H8GateEvaluation:
     result: object
+    current_refs: CurrentH8PrerequisiteRefs
+    prerequisite_obligations: tuple[str, ...]
+    runtime_sections: Mapping[str, object] | None
     validation_payload_canonical_json: bytes
     validation_payload_sha256: str
     dependency_closure_sha256: str
@@ -2164,6 +2534,47 @@ class H8GateEvaluation:
     evaluation_sha256: str
 
     def __post_init__(self) -> None:
+        if type(self.current_refs) is not CurrentH8PrerequisiteRefs:
+            raise ValueError(
+                "gate evaluation requires exact current H8 prerequisite refs"
+            )
+        self.current_refs.__post_init__()
+        if (
+            type(self.prerequisite_obligations) is not tuple
+            or any(
+                type(item) is not str or not item
+                for item in self.prerequisite_obligations
+            )
+            or len(set(self.prerequisite_obligations))
+            != len(self.prerequisite_obligations)
+            or any(
+                item not in self.prerequisite_obligations
+                for item in self.current_refs.prerequisite_obligations
+            )
+        ):
+            raise ValueError(
+                "gate evaluation prerequisite obligations are not exact"
+            )
+        if self.runtime_sections is None:
+            frozen_runtime_sections = None
+        else:
+            if not isinstance(self.runtime_sections, Mapping):
+                raise ValueError(
+                    "gate evaluation runtime sections must be a mapping or None"
+                )
+            frozen_runtime_sections = _freeze_h8_evidence_value(
+                self.runtime_sections,
+                "runtime_sections",
+            )
+            if not isinstance(frozen_runtime_sections, Mapping):
+                raise ValueError(
+                    "gate evaluation runtime sections must be a mapping or None"
+                )
+        object.__setattr__(
+            self,
+            "runtime_sections",
+            frozen_runtime_sections,
+        )
         if (
             type(self.result).__name__ != "H8GateResult"
             or type(self.result).__module__ != "vfe4.types.results"
@@ -2175,10 +2586,13 @@ class H8GateEvaluation:
         )
         if hashlib.sha256(canonical).hexdigest() != self.validation_payload_sha256:
             raise ValueError("validation payload hash does not match its bytes")
+        if self.interpretation_sha256 != H8_INTERPRETATION_SHA256:
+            raise ValueError(
+                "interpretation_sha256 differs from the frozen H8 interpretation"
+            )
         for name in (
             "dependency_closure_sha256",
             "preregistration_sha256",
-            "interpretation_sha256",
             "evaluation_sha256",
         ):
             _sha256(getattr(self, name), name)
@@ -2319,6 +2733,7 @@ __all__ = [
     "H8AllocationChannel",
     "H8AllocationRecord",
     "H8AllowanceRecord",
+    "H8ChildAttemptRecord",
     "H8ChildMode",
     "H8ChildRequest",
     "H8ChildResult",

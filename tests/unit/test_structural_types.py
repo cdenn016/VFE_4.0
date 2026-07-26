@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 import sys
 from collections.abc import Mapping
 from types import MappingProxyType
@@ -9,13 +11,23 @@ from typing import get_type_hints
 import pytest
 import torch
 
+from vfe4.numerics.block_layout import BlockChainLayout
 from vfe4.types import (
+    BackendCounterSnapshot,
+    BlockFillRecord,
+    BlockStorageRecord,
+    BlockWorkspaceRecord,
     ElboTermAllowances,
     ElboTerms,
     CurrentH8PrerequisiteRefs,
     GateResult,
     GateStatus,
     H7PredecessorReference,
+    H8AllocationRecord,
+    H8ChildAttemptRecord,
+    H8ChildRequest,
+    H8ChildResult,
+    H8ControlResult,
     H8GateResult,
     H8H1H5Reference,
     H8H1PrefixPriorReference,
@@ -23,8 +35,15 @@ from vfe4.types import (
     H8H6PrefixReference,
     H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
+    H8InvariantRecord,
+    H8ObjectiveTerm,
+    H8ObjectiveTerms,
+    H8ResourceRecord,
     H8_H7_PLAN_SHA256,
     H8_INTERPRETATION_SHA256,
+    H8_NEGATIVE_CONTROL_IDS,
+    H8_PRODUCTION_SEEDS,
+    H8_REQUIRED_OPERATIONS,
     InvariantResult,
     NumericalAllowance,
     PopulationFrames,
@@ -479,6 +498,480 @@ def test_current_h8_preserves_amended_prediction_from_its_frozen_candidate() -> 
         )
 
 
+def _h8_request_sha256(request: H8ChildRequest) -> str:
+    payload = {
+        field.name: getattr(request, field.name)
+        for field in dataclasses.fields(request)
+    }
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _h8_request(
+    *,
+    mode: str = "production",
+    seed: int = H8_PRODUCTION_SEEDS[0],
+    repetition: int | None = 0,
+    control_id: str | None = None,
+) -> H8ChildRequest:
+    return H8ChildRequest(
+        mode=mode,  # type: ignore[arg-type]
+        seed=seed,
+        repetition=repetition,
+        config_sha256="a" * 64,
+        protocol_sha256="b" * 64,
+        control_id=control_id,
+    )
+
+
+def _h8_child_result(
+    *,
+    mode: str = "production",
+    seed: int = H8_PRODUCTION_SEEDS[0],
+    repetition: int | None = 0,
+    resource_parent_elapsed_ns: int = 0,
+) -> H8ChildResult:
+    layout = BlockChainLayout(horizon=1, d_z=1, d_m=1)
+
+    def term(role: str, receiver_t: int | None) -> H8ObjectiveTerm:
+        factor_id = (
+            "initial_joint"
+            if receiver_t is None
+            else f"{role}:{receiver_t:04d}"
+        )
+        return H8ObjectiveTerm(
+            factor_id=factor_id,
+            role=role,  # type: ignore[arg-type]
+            receiver_t=receiver_t,
+            value=0.0,
+            absolute_sum_bound=0.0,
+        )
+
+    objective = H8ObjectiveTerms(
+        horizon=1,
+        initial_joint=term("initial_joint", None),
+        model_transitions=(term("model_transition", 1),),
+        state_transitions=(term("state_transition", 1),),
+        emissions_order21=(term("emission_order21", 1),),
+        emissions_order17=(term("emission_order17", 1),),
+        recognition_entropy=0.0,
+        log_normalizer=0.0,
+        model_source_kl=0.0,
+        state_source_kl=0.0,
+        source_entropy=0.0,
+        quadrature_absolute_difference=0.0,
+        complete_order21=0.0,
+        absolute_term_sum=0.0,
+    )
+    storage = BlockStorageRecord(
+        layout=layout,
+        precision_scalar_count=layout.band_storage_scalar_count,
+        factor_scalar_count=layout.band_storage_scalar_count,
+        selected_inverse_scalar_count=layout.band_storage_scalar_count,
+        information_scalar_count=layout.information_scalar_count,
+        upper_block_scalar_count=0,
+    )
+    fill = BlockFillRecord(
+        layout=layout,
+        stored_block_ids=layout.stored_block_ids,
+        observed_offband_blocks=0,
+        duplicated_upper_blocks=0,
+    )
+    workspace = BlockWorkspaceRecord(
+        maximum_shape=(layout.block_size, layout.block_size),
+        maximum_scalar_count=layout.block_size**2,
+        maximum_rhs_width=layout.block_size,
+    )
+    counters = BackendCounterSnapshot(
+        layout=layout,
+        factorization_calls=1,
+        forward_substitution_calls=2,
+        backward_substitution_calls=3,
+        solve_calls=1,
+        logdet_calls=1,
+        selected_inverse_calls=2,
+        sample_calls=1,
+        quadratic_calls=1,
+        trace_calls=1,
+        sparse_matvec_calls=1,
+        maximum_rhs_width=layout.block_size,
+        maximum_sample_rhs_width=1,
+        selected_block_ids=layout.stored_block_ids,
+        selected_block_count=len(layout.stored_block_ids),
+        attempted_forbidden_selected_blocks=0,
+    )
+    allocation = H8AllocationRecord(
+        dispatch_trace_sha256="c" * 64,
+        dispatch_event_count=1,
+        dispatch_forbidden_attempt_count=0,
+        dispatch_live_peak_bytes=0,
+        torch_population_peak_bytes=0,
+        profiler_trace_sha256=None,
+        profiler_events=(),
+        profiler_lossy_rows=(),
+        preexisting_storage_count=None,
+        preexisting_bytes=None,
+        baseline_live_bytes=None,
+        profiler_reconstructed_live_peak_bytes=None,
+        profiler_all_joined_and_liveness_reconciled=None,
+        numpy_guard_event_count=1,
+        backend_forbidden_attempt_count=0,
+        observed_channels=("dispatch",),
+    )
+    resources = H8ResourceRecord(
+        adapter="test",
+        adapter_sha256="d" * 64,
+        pre_current_rss_bytes=0,
+        pre_lifetime_peak_bytes=0,
+        pre_private_bytes=0,
+        post_current_rss_bytes=0,
+        post_lifetime_peak_bytes=0,
+        post_private_bytes=0,
+        conservative_incremental_hwm_bytes=0,
+        peak_to_peak_diagnostic_bytes=0,
+        parent_elapsed_ns=resource_parent_elapsed_ns,
+        child_elapsed_ns=1,
+    )
+    invariant = H8InvariantRecord(
+        invariant_id="test_pass",
+        status=GateStatus.PASS,
+        value=1,
+        limit=1,
+        detail="test_pass=True",
+        obligations=(),
+    )
+    return H8ChildResult(
+        mode=mode,  # type: ignore[arg-type]
+        seed=seed,
+        repetition=repetition,
+        input_sha256="e" * 64,
+        objective=objective,
+        storage=storage,
+        fill=fill,
+        workspace=workspace,
+        counters=counters,
+        allocation=allocation,
+        resources=resources,
+        invariants=(invariant,),
+    )
+
+
+def _h8_control_result(
+    control_id: str = H8_NEGATIVE_CONTROL_IDS[0],
+) -> H8ControlResult:
+    return H8ControlResult(
+        control_id=control_id,
+        requested_operation=f"exercise:{control_id}",
+        logical_shapes=((1, 1),),
+        assigned_channels=("dispatch",),
+        observed_channels=("dispatch",),
+        execution_witnessed=True,
+        event_sha256="f" * 64,
+        assignment_complete=True,
+        detected=True,
+        status=GateStatus.PASS,
+        obligations=(),
+    )
+
+
+def _h8_attempt(
+    request: H8ChildRequest,
+    *,
+    status: GateStatus,
+    reasons: tuple[str, ...],
+    result: H8ChildResult | H8ControlResult | None,
+    timed_out: bool = False,
+    exit_code: int | None = 0,
+    operation_reachability: Mapping[str, bool] | None = None,
+    residuals: Mapping[str, float] | None = None,
+    resource_decisions: Mapping[str, object] | None = None,
+    nonpass_envelope: Mapping[str, object] | None = None,
+) -> H8ChildAttemptRecord:
+    return H8ChildAttemptRecord(
+        request=request,
+        status=status,
+        reasons=reasons,
+        result=result,
+        timed_out=timed_out,
+        exit_code=exit_code,
+        parent_elapsed_ns=1,
+        request_sha256=_h8_request_sha256(request),
+        identities_sha256="1" * 64,
+        stdout_sha256="2" * 64,
+        stderr_sha256="3" * 64,
+        operation_reachability=operation_reachability,
+        residuals=residuals,
+        resource_decisions=resource_decisions,
+        nonpass_envelope=nonpass_envelope,
+    )
+
+
+def _h8_pass_child_attempt(
+    *,
+    seed: int = H8_PRODUCTION_SEEDS[0],
+    repetition: int = 0,
+) -> tuple[H8ChildAttemptRecord, H8ChildResult]:
+    request = _h8_request(seed=seed, repetition=repetition)
+    result = _h8_child_result(seed=seed, repetition=repetition)
+    attempt = _h8_attempt(
+        request,
+        status=GateStatus.PASS,
+        reasons=(),
+        result=result,
+        operation_reachability={
+            operation: True for operation in H8_REQUIRED_OPERATIONS
+        },
+        residuals={
+            "factor_reconstruction": 0.0,
+            "solve": 0.0,
+            "backward_substitution": 0.0,
+            "selected_diagonal_symmetry": 0.0,
+        },
+        resource_decisions={"time_pass": True},
+    )
+    return attempt, result
+
+
+def test_h8_child_attempt_owns_partial_parent_evidence_without_erasing_it() -> None:
+    request = _h8_request()
+    reachability = {"factorization": False}
+    residuals = {"factor_reconstruction": 1.0}
+    decisions: dict[str, object] = {
+        "time_pass": False,
+        "witnesses": {"channels": ["dispatch"]},
+    }
+    envelope: dict[str, object] = {
+        "status": "FAIL",
+        "obligations": ["witnessed_forbidden_operation"],
+    }
+
+    attempt = _h8_attempt(
+        request,
+        status=GateStatus.FAIL,
+        reasons=("witnessed_forbidden_operation",),
+        result=None,
+        exit_code=1,
+        operation_reachability=reachability,
+        residuals=residuals,
+        resource_decisions=decisions,
+        nonpass_envelope=envelope,
+    )
+    reachability["factorization"] = True
+    residuals["factor_reconstruction"] = 0.0
+    nested = decisions["witnesses"]
+    assert isinstance(nested, dict)
+    nested["channels"].append("backend")  # type: ignore[union-attr]
+    envelope["obligations"] = []
+
+    assert isinstance(attempt.operation_reachability, MappingProxyType)
+    assert attempt.operation_reachability == {"factorization": False}
+    assert isinstance(attempt.residuals, MappingProxyType)
+    assert attempt.residuals == {"factor_reconstruction": 1.0}
+    assert isinstance(attempt.resource_decisions, MappingProxyType)
+    retained_witnesses = attempt.resource_decisions["witnesses"]
+    assert isinstance(retained_witnesses, MappingProxyType)
+    assert retained_witnesses["channels"] == ("dispatch",)
+    with pytest.raises(TypeError):
+        attempt.resource_decisions["replacement"] = True  # type: ignore[index]
+    assert isinstance(attempt.nonpass_envelope, MappingProxyType)
+    assert attempt.nonpass_envelope["obligations"] == (
+        "witnessed_forbidden_operation",
+    )
+
+
+@pytest.mark.parametrize(
+    ("changes", "match"),
+    [
+        ({"status": GateStatus.PASS, "reasons": ()}, "typed result"),
+        ({"status": GateStatus.FAIL, "reasons": ()}, "reason"),
+        ({"status": GateStatus.INCONCLUSIVE, "reasons": ()}, "reason"),
+        (
+            {
+                "status": GateStatus.INCONCLUSIVE,
+                "reasons": ("wait for evidence",),
+                "timed_out": True,
+                "exit_code": None,
+            },
+            "timed out",
+        ),
+        ({"request_sha256": "0" * 64}, "request_sha256"),
+    ],
+)
+def test_h8_child_attempt_rejects_status_and_request_hash_drift(
+    changes: dict[str, object],
+    match: str,
+) -> None:
+    request = _h8_request()
+    attempt = _h8_attempt(
+        request,
+        status=GateStatus.FAIL,
+        reasons=("nonzero_child_exit",),
+        result=None,
+        exit_code=1,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        dataclasses.replace(attempt, **changes)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    (
+        {"exit_code": 9},
+        {"parent_elapsed_ns": 60_000_000_001},
+        {"operation_reachability": {"factorization": False}},
+        {"resource_decisions": {"time_pass": False}},
+        {
+            "reasons": (
+                "child_request_or_environment_identity_mismatch",
+            ),
+        },
+        {"nonpass_envelope": {"status": "fail"}},
+        {
+            "nonpass_envelope": {
+                "status": "inconclusive",
+                "error": {
+                    "kind": "forbidden_operation",
+                    "message": "operation executed",
+                    "witnessed_violation": True,
+                },
+            },
+        },
+    ),
+)
+def test_h8_child_attempt_cannot_mask_retained_failure_as_inconclusive(
+    changes: dict[str, object],
+) -> None:
+    request = _h8_request()
+    inconclusive = _h8_attempt(
+        request,
+        status=GateStatus.INCONCLUSIVE,
+        reasons=("partial_child_evidence",),
+        result=None,
+    )
+
+    with pytest.raises(ValueError, match="witnessed.*INCONCLUSIVE"):
+        dataclasses.replace(inconclusive, **changes)
+
+
+def test_h8_child_attempt_binds_request_to_result_and_parent_timing() -> None:
+    attempt, result = _h8_pass_child_attempt()
+
+    assert attempt.result is result
+    assert result.resources.parent_elapsed_ns == 0
+    with pytest.raises(ValueError, match="request identity"):
+        dataclasses.replace(
+            attempt,
+            result=_h8_child_result(seed=H8_PRODUCTION_SEEDS[1]),
+        )
+    with pytest.raises(ValueError, match="parent-owned"):
+        dataclasses.replace(
+            attempt,
+            result=_h8_child_result(resource_parent_elapsed_ns=1),
+        )
+    with pytest.raises(ValueError, match="operation_reachability"):
+        dataclasses.replace(
+            attempt,
+            operation_reachability={"factorization": True},
+        )
+
+
+def test_h8_child_attempt_pass_control_has_control_only_endpoints() -> None:
+    control_id = H8_NEGATIVE_CONTROL_IDS[0]
+    request = _h8_request(
+        mode="negative_control",
+        repetition=None,
+        control_id=control_id,
+    )
+    result = _h8_control_result(control_id)
+    attempt = _h8_attempt(
+        request,
+        status=GateStatus.PASS,
+        reasons=(),
+        result=result,
+    )
+
+    assert attempt.result is result
+    with pytest.raises(ValueError, match="control endpoints"):
+        dataclasses.replace(attempt, residuals={"unexpected": 0.0})
+    with pytest.raises(ValueError, match="request identity"):
+        dataclasses.replace(
+            attempt,
+            result=_h8_control_result(H8_NEGATIVE_CONTROL_IDS[1]),
+        )
+
+
+def test_h8_gate_cross_binds_attempts_to_result_inventories() -> None:
+    attempt, child = _h8_pass_child_attempt()
+    result = H8GateResult(
+        gate="H8",
+        status=GateStatus.INCONCLUSIVE,
+        config_sha256="a" * 64,
+        candidate_junit_sha256=None,
+        current_refs_registry_sha256=None,
+        h7_manifest_sha256=None,
+        h6_prediction_manifest_sha256=None,
+        correctness=(),
+        child_attempts=(attempt,),
+        production_runs=(child,),
+        profiler_runs=(),
+        controls=(),
+        obligations=("complete the remaining H8 attempts",),
+    )
+
+    assert result.production_runs == (child,)
+    with pytest.raises(ValueError, match="result-bearing attempts"):
+        dataclasses.replace(result, production_runs=())
+
+    skipped_attempt, skipped_child = _h8_pass_child_attempt(repetition=1)
+    with pytest.raises(ValueError, match="frozen order"):
+        dataclasses.replace(
+            result,
+            child_attempts=(skipped_attempt,),
+            production_runs=(skipped_child,),
+        )
+
+
+def test_h8_gate_attempt_failure_dominates_inconclusive_evidence() -> None:
+    request = _h8_request()
+    failure = _h8_attempt(
+        request,
+        status=GateStatus.FAIL,
+        reasons=("nonzero_child_exit",),
+        result=None,
+        exit_code=1,
+    )
+    result = H8GateResult(
+        gate="H8",
+        status=GateStatus.FAIL,
+        config_sha256="a" * 64,
+        candidate_junit_sha256="4" * 64,
+        current_refs_registry_sha256="5" * 64,
+        h7_manifest_sha256="6" * 64,
+        h6_prediction_manifest_sha256="7" * 64,
+        correctness=(),
+        child_attempts=(failure,),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        obligations=(),
+    )
+
+    assert result.status is GateStatus.FAIL
+    with pytest.raises(ValueError, match="cannot be masked"):
+        dataclasses.replace(
+            result,
+            status=GateStatus.INCONCLUSIVE,
+            obligations=("later evidence is unavailable",),
+        )
+
+
 def test_h8_task7_result_and_pins_are_fail_closed() -> None:
     digest = "a" * 64
     result = H8GateResult(
@@ -490,6 +983,7 @@ def test_h8_task7_result_and_pins_are_fail_closed() -> None:
         h7_manifest_sha256=None,
         h6_prediction_manifest_sha256=None,
         correctness=(),
+        child_attempts=(),
         production_runs=(),
         profiler_runs=(),
         controls=(),

@@ -87,10 +87,12 @@ missing registry yields a complete blocked report instead of an exception.
 Symlinked control files are rejected.
 
 The runtime checks parse source text without importing runtime modules. A
-source-only runner that supplies empty correctness, production, profiler, and
-control sections remains blocked. The explicit
-`h8_complete_runtime_cross_binding_not_implemented` marker also remains
-blocked.
+source-only runner that omits or empties correctness, child-attempt,
+production, profiler, control, or derived runtime-section evidence remains
+blocked. The explicit `h8_parent_orchestrator_not_implemented` marker remains
+authoritative until the parent orchestrator and independent runtime
+revalidation are implemented; source structure alone cannot authorize runtime
+evidence.
 
 ## Frozen workload forecast
 
@@ -99,8 +101,10 @@ For the current H8 configuration, the preflight must report:
 - 12 correctness cells, 36 source evaluations, 1,224 retained source endpoint
   records, 2,448 ordered-pair endpoint comparisons, and 72 wrong-path control
   decisions;
-- 15 production children, three profiler children, and 12 isolated allocation
-  controls, for 30 resource children with no retries;
+- a frozen plan of 15 production, three profiler, and 12 isolated allocation
+  requests, for at most 30 issued child attempts with no retries; a witnessed
+  FAIL may stop the retained attempt prefix early, while future PASS requires
+  all 30;
 - `N=129`, `b=40`, and `D=5,160`;
 - 5,160 information-vector scalars (41,280 bytes);
 - 411,200 scalars (3,289,600 bytes) in each precision, factor, and selected
@@ -117,16 +121,15 @@ therefore unavailable until measured.
 
 ## Bootstrap repairs
 
-The preflight target cannot currently resolve on Windows for two independent
-reasons:
+The design-time preflight initially could not resolve on Windows for two
+independent reasons. Both repairs are now implemented:
 
-- raw-byte-pinned H1/H7 JSON fixtures are checked out with CRLF bytes; mark the
-  three H7-consumed fixtures `-text` and restore their committed LF bytes;
-- the centered fixed-decoder stabilizer is a `diagonal_base` action, but
-  `H7TrialSpec` currently expects `internal_product`; include
-  `matrix_fixed_decoder_stabilizer` in the diagonal-base profile family.
+- the three raw-byte-pinned H1/H7 JSON fixtures consumed by H7 are marked
+  `-text`, preserving their committed LF bytes;
+- `matrix_fixed_decoder_stabilizer` is included in the `diagonal_base` profile
+  family, matching the centered fixed-decoder stabilizer action.
 
-These repairs change no scientific fixture values or configured regime.
+These repairs changed no scientific fixture values or configured regime.
 
 ## Testing boundary
 

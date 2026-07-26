@@ -21,8 +21,13 @@ import zlib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
-from vfe4.numerics.block_layout import BlockChainLayout, BlockId
+from vfe4.numerics.block_layout import (
+    H8_MAX_STORAGE_SCALARS,
+    BlockChainLayout,
+    BlockId,
+)
 from vfe4.types.h8 import (
     BackendCounterSnapshot,
     BlockFillRecord,
@@ -31,8 +36,10 @@ from vfe4.types.h8 import (
     H8_MAX_PROCESS_INCREMENTAL_BYTES,
     H8_MAX_SECONDS,
     H8_MAX_TORCH_POPULATION_BYTES,
+    H8_MIN_CHOLESKY_PIVOT,
     H8AllocationRecord,
     H8AllowanceRecord,
+    H8ChildAttemptRecord,
     H8ChildRequest,
     H8ChildResult,
     H8ControlResult,
@@ -243,6 +250,50 @@ class H8ChildInvocation:
     timeout_seconds: float
     capture_stdout: bool = True
     capture_stderr: bool = True
+
+    def __post_init__(self) -> None:
+        expected_argv = (sys.executable, "-m", "verification.h8_child")
+        if self.argv != expected_argv:
+            raise ValueError("child argv must use the exact H8 child module")
+        if not isinstance(self.cwd, Path) or not self.cwd.is_absolute():
+            raise ValueError("child cwd must be an absolute Path")
+        if type(self.stdin) is not bytes:
+            raise ValueError("child stdin must be immutable bytes")
+        if not isinstance(self.environment, Mapping):
+            raise ValueError("child environment must map strings to strings")
+        owned_environment = dict(self.environment)
+        if any(
+            type(key) is not str
+            or not key
+            or type(value) is not str
+            for key, value in owned_environment.items()
+        ):
+            raise ValueError("child environment must map strings to strings")
+        if any(
+            owned_environment.get(name) != "1"
+            for name in H8_THREAD_ENVIRONMENT
+        ):
+            raise ValueError(
+                "child thread environment must retain every frozen one-thread value"
+            )
+        object.__setattr__(
+            self,
+            "environment",
+            MappingProxyType(owned_environment),
+        )
+        if (
+            type(self.timeout_seconds) is not float
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds != H8_MAX_SECONDS
+        ):
+            raise ValueError("child timeout must equal the exact H8 timeout")
+        if (
+            type(self.capture_stdout) is not bool
+            or type(self.capture_stderr) is not bool
+            or not self.capture_stdout
+            or not self.capture_stderr
+        ):
+            raise ValueError("child launch must capture stdout and stderr")
 
 
 @dataclass(frozen=True, slots=True)
@@ -2888,48 +2939,46 @@ def classify_h8_child_outcome(
             stdout_sha256=stdout_sha256,
             stderr_sha256=stderr_sha256,
         )
-    if record.timed_out:
-        return H8ChildDecision(
-            status=GateStatus.FAIL,
-            reasons=("child_timeout",),
-            payload=None,
-            timed_out=True,
-            exit_code=None,
-            parent_elapsed_ns=record.parent_elapsed_ns,
-            stdout_sha256=stdout_sha256,
-            stderr_sha256=stderr_sha256,
-        )
     reasons: list[str] = []
     witnessed_failure = False
     identity_verified = False
-    if record.exit_code != 0:
+    if record.timed_out:
         witnessed_failure = True
-        reasons.append(_nonzero_exit_reason(record.exit_code))
-    if record.parent_elapsed_ns > int(H8_MAX_SECONDS * 1e9):
-        witnessed_failure = True
-        reasons.append("parent_elapsed_budget_breach")
+        reasons.append("child_timeout")
+    else:
+        if record.exit_code != 0:
+            witnessed_failure = True
+            reasons.append(_nonzero_exit_reason(record.exit_code))
+        if record.parent_elapsed_ns > int(H8_MAX_SECONDS * 1e9):
+            witnessed_failure = True
+            reasons.append("parent_elapsed_budget_breach")
     payload: dict[str, object] | None = None
     try:
         payload = parse_h8_child_stdout(record.stdout)
     except ValueError as error:
-        if "nonfinite" in str(error):
-            witnessed_failure = True
-            reasons.append("nonfinite_child_result")
-        if "duplicate JSON key" in str(error):
-            witnessed_failure = True
-            reasons.append("duplicate_child_identity")
-        raw_witness = _invalid_stdout_witness(record.stdout)
-        if raw_witness is not None:
-            witnessed_failure = True
-            reasons.append(raw_witness)
-        reasons.append("invalid_child_stdout")
+        if not record.timed_out:
+            if "nonfinite" in str(error):
+                witnessed_failure = True
+                reasons.append("nonfinite_child_result")
+            if "duplicate JSON key" in str(error):
+                witnessed_failure = True
+                reasons.append("duplicate_child_identity")
+            raw_witness = _invalid_stdout_witness(record.stdout)
+            if raw_witness is not None:
+                witnessed_failure = True
+                reasons.append(raw_witness)
+            reasons.append("invalid_child_stdout")
     if payload is not None:
         if invocation is None:
             reasons.append("expected_child_identity_unavailable")
         else:
             try:
-                _verify_result_identity(payload, invocation)
-                identity_verified = True
+                identity_verified = _verify_result_identity(
+                    payload,
+                    invocation,
+                )
+                if not identity_verified:
+                    reasons.append("child_environment_identity_unavailable")
             except ValueError:
                 witnessed_failure = True
                 reasons.append("child_request_or_environment_identity_mismatch")
@@ -2945,6 +2994,9 @@ def classify_h8_child_outcome(
         if _payload_has_resource_failure(payload):
             witnessed_failure = True
             reasons.append("finite_resource_budget_breach")
+        if _payload_has_operation_failure(payload):
+            witnessed_failure = True
+            reasons.append("required_operation_omission")
     status = (
         GateStatus.FAIL
         if witnessed_failure
@@ -2960,7 +3012,7 @@ def classify_h8_child_outcome(
         status=status,
         reasons=tuple(dict.fromkeys(reasons)),
         payload=payload,
-        timed_out=False,
+        timed_out=record.timed_out,
         exit_code=record.exit_code,
         parent_elapsed_ns=record.parent_elapsed_ns,
         stdout_sha256=stdout_sha256,
@@ -2968,10 +3020,239 @@ def classify_h8_child_outcome(
     )
 
 
+def make_h8_child_attempt_record(
+    request: H8ChildRequest,
+    invocation: H8ChildInvocation,
+    process_record: H8ChildProcessRecord,
+    decision: H8ChildDecision,
+) -> H8ChildAttemptRecord:
+    """Bind one exact request, launch, process, and decision into evidence."""
+
+    if type(request) is not H8ChildRequest:
+        raise ValueError("request must be an H8ChildRequest")
+    if type(invocation) is not H8ChildInvocation:
+        raise ValueError("invocation must be an H8ChildInvocation")
+    invocation.__post_init__()
+    if type(process_record) is not H8ChildProcessRecord:
+        raise ValueError("process_record must be an H8ChildProcessRecord")
+    if type(decision) is not H8ChildDecision:
+        raise ValueError("decision must be an H8ChildDecision")
+
+    invocation_request, request_bytes = _decode_h8_invocation_request(
+        invocation
+    )
+    if invocation_request != request:
+        raise ValueError("request does not match canonical invocation stdin")
+    identity_bytes = _canonical_h8_invocation_identity_bytes(invocation)
+
+    stdout_sha256 = hashlib.sha256(process_record.stdout).hexdigest()
+    stderr_sha256 = hashlib.sha256(process_record.stderr).hexdigest()
+    if (
+        type(decision.timed_out) is not bool
+        or decision.timed_out is not process_record.timed_out
+        or type(decision.exit_code) is not type(process_record.exit_code)
+        or decision.exit_code != process_record.exit_code
+        or type(decision.parent_elapsed_ns) is not int
+        or decision.parent_elapsed_ns != process_record.parent_elapsed_ns
+        or type(decision.stdout_sha256) is not str
+        or decision.stdout_sha256 != stdout_sha256
+        or type(decision.stderr_sha256) is not str
+        or decision.stderr_sha256 != stderr_sha256
+    ):
+        raise ValueError("decision does not match process endpoints")
+    recomputed_decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+    if decision != recomputed_decision:
+        raise ValueError("decision does not match fresh child classification")
+    decision = recomputed_decision
+
+    typed_result: H8ChildResult | H8ControlResult | None = None
+    operation_reachability: Mapping[str, object] | None = None
+    residuals: Mapping[str, object] | None = None
+    resource_decisions: Mapping[str, object] | None = None
+    nonpass_envelope: Mapping[str, object] | None = None
+    if decision.payload is not None:
+        if not isinstance(decision.payload, Mapping):
+            raise ValueError("decision payload must be a mapping or None")
+        process_payload = parse_h8_child_stdout(process_record.stdout)
+        if process_payload != decision.payload:
+            raise ValueError("decision payload does not match process stdout")
+        identity_verified = True
+        try:
+            identity_verified = _verify_result_identity(
+                decision.payload,
+                invocation,
+            )
+        except ValueError:
+            identity_verified = False
+            if (
+                decision.status is not GateStatus.FAIL
+                or "child_request_or_environment_identity_mismatch"
+                not in decision.reasons
+            ):
+                raise
+        trusted_payload = identity_verified and not process_record.timed_out
+        if trusted_payload and decision.payload["status"] == "pass":
+            typed_result = (
+                decode_h8_control_result(decision.payload)
+                if decision.payload["mode"] == "negative_control"
+                else decode_h8_child_result(decision.payload)
+            )
+        if (
+            process_record.timed_out
+            or not identity_verified
+            or decision.payload["status"] != "pass"
+        ):
+            nonpass_envelope = decision.payload
+        result_payload = decision.payload["result"]
+        if (
+            trusted_payload
+            and decision.payload["mode"] in ("production", "profiler")
+            and result_payload is not None
+        ):
+            if not isinstance(result_payload, Mapping):
+                raise ValueError("child result payload must be a mapping")
+            endpoints: dict[str, Mapping[str, object]] = {}
+            for name in (
+                "operation_reachability",
+                "residuals",
+                "resource_decisions",
+            ):
+                endpoint = result_payload[name]
+                if (
+                    decision.payload["status"] == "pass"
+                    and not isinstance(endpoint, Mapping)
+                ):
+                    raise ValueError(f"child result {name} must be a mapping")
+                if isinstance(endpoint, Mapping):
+                    endpoints[name] = endpoint
+            observed_reachability = endpoints.get("operation_reachability")
+            if observed_reachability is not None:
+                if all(
+                    type(operation) is str
+                    and operation
+                    and type(reached) is bool
+                    for operation, reached in observed_reachability.items()
+                ):
+                    operation_reachability = (
+                        {
+                            operation: observed_reachability[operation]
+                            for operation in H8_REQUIRED_OPERATIONS
+                        }
+                        if set(observed_reachability)
+                        == set(H8_REQUIRED_OPERATIONS)
+                        else observed_reachability
+                    )
+                elif decision.payload["status"] == "pass":
+                    raise ValueError(
+                        "child result operation reachability must be boolean"
+                    )
+            observed_residuals = endpoints.get("residuals")
+            if observed_residuals is not None:
+                if all(
+                    type(name) is str
+                    and name
+                    and type(residual) in (int, float)
+                    and math.isfinite(float(residual))
+                    and float(residual) >= 0.0
+                    for name, residual in observed_residuals.items()
+                ):
+                    residuals = {
+                        name: float(residual)
+                        for name, residual in observed_residuals.items()
+                    }
+                elif decision.payload["status"] == "pass":
+                    raise ValueError(
+                        "child result residuals must be finite and nonnegative"
+                    )
+            resource_decisions = endpoints.get("resource_decisions")
+
+    return H8ChildAttemptRecord(
+        request=request,
+        status=decision.status,
+        reasons=decision.reasons,
+        result=typed_result,
+        timed_out=process_record.timed_out,
+        exit_code=process_record.exit_code,
+        parent_elapsed_ns=process_record.parent_elapsed_ns,
+        request_sha256=hashlib.sha256(request_bytes).hexdigest(),
+        identities_sha256=hashlib.sha256(identity_bytes).hexdigest(),
+        stdout_sha256=stdout_sha256,
+        stderr_sha256=stderr_sha256,
+        operation_reachability=operation_reachability,  # type: ignore[arg-type]
+        residuals=residuals,  # type: ignore[arg-type]
+        resource_decisions=resource_decisions,
+        nonpass_envelope=nonpass_envelope,
+    )
+
+
+def _decode_h8_invocation_request(
+    invocation: H8ChildInvocation,
+) -> tuple[H8ChildRequest, bytes]:
+    stdin = invocation.stdin
+    if (
+        type(stdin) is not bytes
+        or not stdin.endswith(b"\n")
+        or stdin.count(b"\n") != 1
+        or not stdin[:-1]
+    ):
+        raise ValueError("invocation stdin must be one canonical request line")
+    request_bytes = stdin[:-1]
+    try:
+        decoded = request_bytes.decode("utf-8", errors="strict")
+        value = json.loads(
+            decoded,
+            parse_constant=lambda constant: (_raise_nonfinite(constant)),
+            object_pairs_hook=_reject_duplicate_pairs,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("invocation stdin is not one JSON request") from error
+    if canonical_json_bytes(value) != request_bytes:
+        raise ValueError("invocation stdin request is not canonical")
+    checked = _validate_child_request(value)
+    return (
+        H8ChildRequest(
+            mode=checked["mode"],  # type: ignore[arg-type]
+            seed=checked["seed"],  # type: ignore[arg-type]
+            repetition=checked["repetition"],  # type: ignore[arg-type]
+            config_sha256=checked["config_sha256"],  # type: ignore[arg-type]
+            protocol_sha256=checked["protocol_sha256"],  # type: ignore[arg-type]
+            control_id=checked["control_id"],  # type: ignore[arg-type]
+        ),
+        request_bytes,
+    )
+
+
+def _canonical_h8_invocation_identity_bytes(
+    invocation: H8ChildInvocation,
+) -> bytes:
+    if not isinstance(invocation.environment, Mapping):
+        raise ValueError("invocation environment must be a mapping")
+    identity_json = invocation.environment.get(H8_CHILD_IDENTITY_ENV)
+    if type(identity_json) is not str:
+        raise ValueError("invocation child identities are unavailable")
+    try:
+        identity_bytes = identity_json.encode("ascii", errors="strict")
+        value = json.loads(
+            identity_json,
+            parse_constant=lambda constant: (_raise_nonfinite(constant)),
+            object_pairs_hook=_reject_duplicate_pairs,
+        )
+    except (UnicodeEncodeError, json.JSONDecodeError) as error:
+        raise ValueError("invocation child identities are not valid JSON") from error
+    checked = _validate_identity_records(value)
+    if canonical_json_bytes(checked) != identity_bytes:
+        raise ValueError("invocation child identities are not canonical")
+    return identity_bytes
+
+
 def _verify_result_identity(
     payload: Mapping[str, object],
     invocation: H8ChildInvocation,
-) -> None:
+) -> bool:
     if type(invocation) is not H8ChildInvocation:
         raise ValueError("invocation must be an H8ChildInvocation")
     request = json.loads(
@@ -2988,7 +3269,10 @@ def _verify_result_identity(
         ("config_sha256", "config_sha256"),
         ("protocol_sha256", "protocol_sha256"),
     )
-    if any(payload[result_name] != checked_request[request_name] for result_name, request_name in fields):
+    if any(
+        payload[result_name] != checked_request[request_name]
+        for result_name, request_name in fields
+    ):
         raise ValueError("child result request identity mismatch")
     if payload["request_sha256"] != expected_request_sha256:
         raise ValueError("child result request SHA-256 mismatch")
@@ -3001,12 +3285,18 @@ def _verify_result_identity(
             object_pairs_hook=_reject_duplicate_pairs,
         )
     )
-    observed_identities = _validate_identity_records(payload["identities"])
-    if any(
-        observed_identities[name]["sha256"] != expected_identities[name]["sha256"]
-        for name in H8_CHILD_IDENTITY_KEYS
-    ):
-        raise ValueError("child environment identity hash mismatch")
+    observed_identities = _validate_identity_records(
+        payload["identities"],
+        allow_observability_error=payload.get("status") != "pass",
+    )
+    identity_unavailable = False
+    for name in H8_CHILD_IDENTITY_KEYS:
+        observed = observed_identities[name]
+        if "observability_error" in observed:
+            identity_unavailable = True
+        elif observed["sha256"] != expected_identities[name]["sha256"]:
+            raise ValueError("child environment identity hash mismatch")
+    return not identity_unavailable
 
 
 def _payload_has_resource_failure(payload: Mapping[str, object]) -> bool:
@@ -3014,37 +3304,330 @@ def _payload_has_resource_failure(payload: Mapping[str, object]) -> bool:
     if not isinstance(result, Mapping):
         return False
     decisions = result.get("resource_decisions")
-    if not isinstance(decisions, Mapping):
-        return False
-    for name in (
-        "time_pass",
-        "process_memory_pass",
-        "torch_memory_pass",
-        "rhs_width_pass",
-        "sample_width_pass",
-        "storage_pass",
-        "offband_fill_pass",
-        "forbidden_attempts_zero",
-        "pivot_margin_pass",
-        "finite_pass",
-        "residual_allowances_pass",
-        "profiler_join_pass",
-    ):
-        if decisions.get(name) is False:
+    if isinstance(decisions, Mapping):
+        for name in (
+            "time_pass",
+            "process_memory_pass",
+            "torch_memory_pass",
+            "rhs_width_pass",
+            "sample_width_pass",
+            "storage_pass",
+            "offband_fill_pass",
+            "forbidden_attempts_zero",
+            "pivot_margin_pass",
+            "finite_pass",
+            "residual_allowances_pass",
+            "profiler_join_pass",
+            "dispatch_backend_cross_check_pass",
+        ):
+            if decisions.get(name) is False:
+                return True
+        if _raw_residual_allowance_failure(
+            decisions.get("residual_allowances")
+        ):
             return True
-    endpoints = (
-        (
-            decisions.get("conservative_incremental_hwm_bytes"),
+        if _raw_endpoint_exceeds(
+            decisions,
+            "conservative_incremental_hwm_bytes",
             H8_MAX_PROCESS_INCREMENTAL_BYTES,
-        ),
-        (
-            decisions.get("torch_population_peak_bytes"),
+        ) or _raw_endpoint_exceeds(
+            decisions,
+            "torch_population_peak_bytes",
             H8_MAX_TORCH_POPULATION_BYTES,
-        ),
+        ):
+            return True
+
+    resources = result.get("resources")
+    if isinstance(resources, Mapping) and (
+        _raw_endpoint_exceeds(
+            resources,
+            "child_elapsed_ns",
+            int(H8_MAX_SECONDS * 1e9),
+        )
+        or _raw_endpoint_exceeds(
+            resources,
+            "conservative_incremental_hwm_bytes",
+            H8_MAX_PROCESS_INCREMENTAL_BYTES,
+        )
+        or _raw_endpoint_is_positive(resources, "parent_elapsed_ns")
+    ):
+        return True
+
+    allocation = result.get("allocation")
+    if isinstance(allocation, Mapping):
+        if (
+            _raw_endpoint_exceeds(
+                allocation,
+                "torch_population_peak_bytes",
+                H8_MAX_TORCH_POPULATION_BYTES,
+            )
+            or _raw_endpoint_exceeds(
+                allocation,
+                "profiler_reconstructed_live_peak_bytes",
+                H8_MAX_TORCH_POPULATION_BYTES,
+            )
+            or _raw_endpoint_is_positive(
+                allocation,
+                "dispatch_forbidden_attempt_count",
+            )
+            or _raw_endpoint_is_positive(
+                allocation,
+                "backend_forbidden_attempt_count",
+            )
+        ):
+            return True
+        cross_check = allocation.get("dispatch_cross_check")
+        if isinstance(cross_check, Mapping) and (
+            _raw_endpoint_is_positive(
+                cross_check,
+                "backend_forbidden_attempt_count",
+            )
+            or _raw_endpoint_is_positive(
+                cross_check,
+                "dispatch_forbidden_attempt_count",
+            )
+        ):
+            return True
+        for name in ("dispatch_events", "numpy_guard_events"):
+            events = allocation.get(name)
+            if type(events) is list and any(
+                isinstance(event, Mapping)
+                and type(event.get("forbidden_reason")) is str
+                and bool(event["forbidden_reason"])
+                for event in events
+            ):
+                return True
+
+    storage = result.get("storage")
+    if isinstance(storage, Mapping) and (
+        any(
+            _raw_endpoint_exceeds(
+                storage,
+                name,
+                H8_MAX_STORAGE_SCALARS,
+            )
+            for name in (
+                "precision_scalar_count",
+                "factor_scalar_count",
+                "selected_inverse_scalar_count",
+            )
+        )
+        or _raw_endpoint_is_positive(storage, "upper_block_scalar_count")
+    ):
+        return True
+
+    fill = result.get("fill")
+    if isinstance(fill, Mapping) and (
+        _raw_endpoint_is_positive(fill, "observed_offband_blocks")
+        or _raw_endpoint_is_positive(fill, "duplicated_upper_blocks")
+    ):
+        return True
+
+    workspace = result.get("workspace")
+    if isinstance(workspace, Mapping) and (
+        _raw_endpoint_exceeds(
+            workspace,
+            "maximum_scalar_count",
+            H8_SCALE_LAYOUT.block_size**2,
+        )
+        or _raw_endpoint_exceeds(
+            workspace,
+            "maximum_rhs_width",
+            H8_SCALE_LAYOUT.block_size,
+        )
+        or _raw_positive_sequence(
+            workspace.get("attempted_forbidden_rhs_widths")
+        )
+        or _raw_dimension_exceeds(
+            workspace.get("maximum_shape"),
+            H8_SCALE_LAYOUT.block_size,
+        )
+    ):
+        return True
+
+    counters = result.get("counters")
+    if isinstance(counters, Mapping) and (
+        _raw_endpoint_exceeds(
+            counters,
+            "maximum_rhs_width",
+            H8_SCALE_LAYOUT.block_size,
+        )
+        or _raw_endpoint_exceeds(
+            counters,
+            "maximum_sample_rhs_width",
+            1,
+        )
+        or _raw_endpoint_is_positive(
+            counters,
+            "attempted_forbidden_selected_blocks",
+        )
+        or _raw_positive_sequence(
+            counters.get("attempted_forbidden_rhs_widths")
+        )
+    ):
+        return True
+
+    diagnostics = result.get("diagnostics")
+    if isinstance(diagnostics, Mapping) and (
+        _raw_endpoint_below(
+            diagnostics,
+            "global_min_pivot",
+            H8_MIN_CHOLESKY_PIVOT,
+        )
+        or _raw_endpoint_below(diagnostics, "global_pivot_margin", 0.0)
+        or _raw_sequence_below(
+            diagnostics.get("per_block_min_pivots"),
+            H8_MIN_CHOLESKY_PIVOT,
+        )
+        or _raw_sequence_below(
+            diagnostics.get("per_block_pivot_margins"),
+            0.0,
+        )
+    ):
+        return True
+
+    return False
+
+
+def _payload_has_operation_failure(payload: Mapping[str, object]) -> bool:
+    result = payload.get("result")
+    if not isinstance(result, Mapping):
+        return False
+    reachability = result.get("operation_reachability")
+    if isinstance(reachability, Mapping) and any(
+        operation in reachability and reachability[operation] is False
+        for operation in H8_REQUIRED_OPERATIONS
+    ):
+        return True
+    if payload.get("status") != "pass":
+        return False
+    counters = result.get("counters")
+    if not isinstance(counters, Mapping):
+        return False
+    required_positive = (
+        "forward_substitution_calls",
+        "backward_substitution_calls",
+        "solve_calls",
+        "logdet_calls",
+        "selected_inverse_calls",
+        "sample_calls",
+        "quadratic_calls",
+        "trace_calls",
+        "sparse_matvec_calls",
     )
-    return any(
-        type(endpoint) is int and endpoint > limit for endpoint, limit in endpoints
+    if any(
+        _raw_endpoint_is_nonpositive(counters, name)
+        for name in required_positive
+    ):
+        return True
+    factorization_calls = _raw_finite_number(
+        counters.get("factorization_calls")
     )
+    selected_inverse_calls = _raw_finite_number(
+        counters.get("selected_inverse_calls")
+    )
+    return (
+        factorization_calls is not None
+        and factorization_calls != 1.0
+    ) or (
+        selected_inverse_calls is not None
+        and selected_inverse_calls < 2.0
+    )
+
+
+def _raw_finite_number(value: object) -> float | None:
+    if type(value) not in (int, float):
+        return None
+    try:
+        number = float(value)
+    except (OverflowError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _raw_endpoint_exceeds(
+    record: Mapping[str, object],
+    name: str,
+    limit: int | float,
+) -> bool:
+    value = _raw_finite_number(record.get(name))
+    return value is not None and value > float(limit)
+
+
+def _raw_endpoint_below(
+    record: Mapping[str, object],
+    name: str,
+    limit: int | float,
+) -> bool:
+    value = _raw_finite_number(record.get(name))
+    return value is not None and value < float(limit)
+
+
+def _raw_endpoint_is_positive(
+    record: Mapping[str, object],
+    name: str,
+) -> bool:
+    value = _raw_finite_number(record.get(name))
+    return value is not None and value > 0.0
+
+
+def _raw_endpoint_is_nonpositive(
+    record: Mapping[str, object],
+    name: str,
+) -> bool:
+    value = _raw_finite_number(record.get(name))
+    return value is not None and value <= 0.0
+
+
+def _raw_positive_sequence(value: object) -> bool:
+    return type(value) is list and any(
+        (number := _raw_finite_number(item)) is not None and number > 0.0
+        for item in value
+    )
+
+
+def _raw_dimension_exceeds(value: object, limit: int) -> bool:
+    return type(value) is list and any(
+        (number := _raw_finite_number(item)) is not None
+        and number > float(limit)
+        for item in value
+    )
+
+
+def _raw_sequence_below(value: object, limit: int | float) -> bool:
+    return type(value) is list and any(
+        (number := _raw_finite_number(item)) is not None
+        and number < float(limit)
+        for item in value
+    )
+
+
+def _raw_residual_allowance_failure(value: object) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    for group in value.values():
+        if not isinstance(group, Mapping):
+            continue
+        if group.get("passed") is False:
+            return True
+        comparisons = group.get("comparisons")
+        if type(comparisons) is not list:
+            continue
+        for comparison in comparisons:
+            if not isinstance(comparison, Mapping):
+                continue
+            allowance = comparison.get("allowance")
+            if not isinstance(allowance, Mapping):
+                continue
+            residual = _raw_finite_number(allowance.get("residual"))
+            threshold = _raw_finite_number(allowance.get("allowance"))
+            if (
+                residual is not None
+                and threshold is not None
+                and residual > threshold
+            ):
+                return True
+    return False
 
 
 def _invalid_stdout_witness(stdout: bytes) -> str | None:
@@ -3069,14 +3652,8 @@ def _invalid_stdout_witness(stdout: bytes) -> str | None:
         return "invalid_stdout_retains_witnessed_error"
     if _payload_has_resource_failure(value):
         return "invalid_stdout_retains_witnessed_resource_failure"
-    result = value.get("result")
-    if isinstance(result, Mapping):
-        reachability = result.get("operation_reachability")
-        if isinstance(reachability, Mapping) and any(
-            operation in reachability and reachability[operation] is False
-            for operation in H8_REQUIRED_OPERATIONS
-        ):
-            return "invalid_stdout_retains_witnessed_operation_omission"
+    if _payload_has_operation_failure(value):
+        return "invalid_stdout_retains_witnessed_operation_omission"
     return None
 
 
@@ -3380,6 +3957,7 @@ __all__ = [
     "gamma",
     "literal_residual",
     "log_normalizer_residual",
+    "make_h8_child_attempt_record",
     "make_h8_identity_record",
     "make_operand_record",
     "operand_allowance",

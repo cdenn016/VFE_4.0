@@ -15,6 +15,9 @@ from vfe4.types.h6 import BoundedPrefixCertificateSet
 from vfe4.types.h7 import H7PredecessorReference
 from vfe4.types.h8 import (
     CurrentH8PrerequisiteRefs,
+    H8ChildAttemptRecord,
+    H8ChildRequest,
+    H8GateEvaluation,
     H8H1H5Reference,
     H8H1PrefixPriorReference,
     H8H6PredictionReference,
@@ -23,7 +26,7 @@ from vfe4.types.h8 import (
     H8H7Reference,
     H8LegacyH6PrefixReference,
 )
-from vfe4.types.results import GateStatus
+from vfe4.types.results import GateStatus, H8GateResult
 
 
 def _current_refs(*, registry_sha256: str | None = None) -> CurrentH8PrerequisiteRefs:
@@ -186,6 +189,265 @@ def test_h8_preflight_keeps_optional_hashes_and_failure_dominates() -> None:
         )
         is GateStatus.FAIL
     )
+
+
+def test_h8_gate_retains_parent_attempt_failure_without_a_child_result() -> None:
+    refs = _current_refs()
+    request = H8ChildRequest(
+        mode="production",
+        seed=20260721,
+        repetition=0,
+        config_sha256="b" * 64,
+        protocol_sha256="c" * 64,
+        control_id=None,
+    )
+    request_sha256 = hashlib.sha256(
+        h8_gate.canonical_h8_json_bytes(request)
+    ).hexdigest()
+    attempt = H8ChildAttemptRecord(
+        request=request,
+        status=GateStatus.FAIL,
+        reasons=("child_timeout",),
+        result=None,
+        timed_out=True,
+        exit_code=None,
+        parent_elapsed_ns=60_000_000_001,
+        request_sha256=request_sha256,
+        identities_sha256="d" * 64,
+        stdout_sha256="e" * 64,
+        stderr_sha256="f" * 64,
+        operation_reachability=None,
+        residuals=None,
+        resource_decisions=None,
+    )
+    prerequisite_validation = h8_gate.H8PrerequisiteArtifactValidation.create(
+        registry_sha256=refs.registry_sha256,
+        revalidated_reference_names=h8_gate.H8_POINTER_PREDECESSOR_KEYS,
+        obligations=(),
+    )
+
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="b" * 64,
+        current_refs=refs,
+        correctness=(),
+        child_attempts=(attempt,),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+        prerequisite_validation=prerequisite_validation,
+    )
+    payload = h8_gate.h8_validation_payload(evaluation)
+
+    assert evaluation.result.status is GateStatus.FAIL
+    assert evaluation.result.obligations == ()
+    assert payload["status"] == "fail"
+    assert payload["production_runs"] == []
+    assert payload["child_attempts"] == [
+        {
+            "request": {
+                "mode": "production",
+                "seed": 20260721,
+                "repetition": 0,
+                "config_sha256": "b" * 64,
+                "protocol_sha256": "c" * 64,
+                "control_id": None,
+            },
+            "status": "fail",
+            "reasons": ["child_timeout"],
+            "result_kind": None,
+            "result_identity": None,
+            "nonpass_envelope": None,
+            "timed_out": True,
+            "exit_code": None,
+            "parent_elapsed_ns": 60_000_000_001,
+            "request_sha256": request_sha256,
+            "identities_sha256": "d" * 64,
+            "stdout_sha256": "e" * 64,
+            "stderr_sha256": "f" * 64,
+            "operation_reachability": None,
+            "residuals": None,
+            "resource_decisions": None,
+        }
+    ]
+
+
+def _forge_h8_validation_payload(
+    evaluation: H8GateEvaluation,
+    payload: dict[str, object],
+) -> H8GateEvaluation:
+    result = evaluation.result
+    assert type(result) is H8GateResult
+    payload_bytes = h8_gate.canonical_h8_json_bytes(payload)
+    payload_sha256 = hashlib.sha256(payload_bytes).hexdigest()
+    return replace(
+        evaluation,
+        validation_payload_canonical_json=payload_bytes,
+        validation_payload_sha256=payload_sha256,
+        evaluation_sha256=h8_gate._evaluation_sha256(
+            result=result,
+            current_refs=evaluation.current_refs,
+            prerequisite_obligations=evaluation.prerequisite_obligations,
+            runtime_sections=evaluation.runtime_sections,
+            validation_payload_sha256=payload_sha256,
+            dependency_closure_sha256=evaluation.dependency_closure_sha256,
+            preregistration_sha256=evaluation.preregistration_sha256,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "inventory_name",
+    (
+        "correctness",
+        "child_attempts",
+        "controls",
+        "production_runs",
+        "profiler_runs",
+    ),
+)
+def test_h8_validation_payload_rejects_inventory_drift_from_typed_result(
+    inventory_name: str,
+) -> None:
+    refs = _current_refs()
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="b" * 64,
+        current_refs=refs,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+    )
+    payload = h8_gate.h8_validation_payload(evaluation)
+    payload[inventory_name] = [{"unexpected": inventory_name}]
+    forged = _forge_h8_validation_payload(evaluation, payload)
+
+    with pytest.raises(ValueError, match="inventories.*typed result"):
+        h8_gate.h8_validation_payload(forged)
+
+
+@pytest.mark.parametrize(
+    ("section_name", "field_name", "forged_value"),
+    (
+        ("bounded_claim", None, h8_gate.H8_BOUNDED_CLAIM),
+        ("revision", "git_head", "f" * 40),
+        ("config", "selected_operation", "H7"),
+        ("prerequisites", "all_current_and_pass", True),
+        ("interpretation", "K", 21),
+        ("protocol", "factor_schema", "forged-factor-schema"),
+        ("environment", "cpu_count", 999),
+        ("problems", None, [{"unexpected": "problem"}]),
+        ("storage", "h_scalars", 1),
+        ("factor", "algorithm", "forged-factor"),
+        ("allocation", "all_observable", True),
+        ("budgets", "max_seconds", 1.0),
+        ("invariants", "all_pass", True),
+        ("artifacts", "validation_path", "forged-validation.json"),
+    ),
+)
+def test_h8_validation_payload_rejects_noninventory_context_drift(
+    section_name: str,
+    field_name: str | None,
+    forged_value: object,
+) -> None:
+    refs = _current_refs()
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="b" * 64,
+        current_refs=refs,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+    )
+    payload = h8_gate.h8_validation_payload(evaluation)
+    if field_name is None:
+        payload[section_name] = forged_value
+    else:
+        section = payload[section_name]
+        assert isinstance(section, dict)
+        section[field_name] = forged_value
+    forged = _forge_h8_validation_payload(evaluation, payload)
+
+    with pytest.raises(ValueError, match="exact context reconstruction"):
+        h8_gate.h8_validation_payload(forged)
+
+
+def test_h8_evaluation_rejects_interpretation_context_drift() -> None:
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="b" * 64,
+        current_refs=_current_refs(),
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+    )
+
+    with pytest.raises(ValueError, match="interpretation_sha256"):
+        replace(evaluation, interpretation_sha256="f" * 64)
+
+
+def test_h8_supplied_runtime_context_round_trips_in_declared_schema_order() -> None:
+    refs = _current_refs()
+    source_only = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="b" * 64,
+        current_refs=refs,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+    )
+    runtime_sections = h8_gate._source_only_sections(
+        result=source_only.result,
+        refs=refs,
+        dependency_closure_sha256=source_only.dependency_closure_sha256,
+        preregistration_sha256=source_only.preregistration_sha256,
+        prerequisites_current_and_pass=False,
+    )
+
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="b" * 64,
+        current_refs=refs,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+        runtime_sections=runtime_sections,
+    )
+
+    assert evaluation.runtime_sections is not None
+    assert h8_gate.h8_validation_payload(evaluation)["protocol"] == (
+        h8_gate.h8_validation_payload(source_only)["protocol"]
+    )
+
+
+def test_h8_direct_pass_remains_unavailable_without_parent_orchestration() -> None:
+    with pytest.raises(ValueError, match="PASS H8 remains unavailable"):
+        H8GateResult(
+            gate="H8",
+            status=GateStatus.PASS,
+            config_sha256="a" * 64,
+            candidate_junit_sha256="b" * 64,
+            current_refs_registry_sha256="c" * 64,
+            h7_manifest_sha256="d" * 64,
+            h6_prediction_manifest_sha256="e" * 64,
+            correctness=(),
+            child_attempts=(),
+            production_runs=(),
+            profiler_runs=(),
+            controls=(),
+            obligations=(),
+        )
 
 
 def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(

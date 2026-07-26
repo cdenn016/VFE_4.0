@@ -16,11 +16,37 @@ there are no command-line flags or parser. Importing it performs no work.
 The separate H8 selection reads only
 `.verification/h8-current-candidate-<FULL_HEAD>-refs.json`, binds its exact
 current-candidate prerequisite variants, and publishes six JSON payloads plus
-one manifest through the generic artifact publisher. This source-only path
-injects no correctness, child, profiler, or control records, so its H8 result
-is explicitly `INCONCLUSIVE`; it reports no measured value and cannot report
-PASS. It does not rerun or copy H1--H7 or H6-Prediction evidence, and it writes
-no external current-candidate pointer inside the artifact.
+one manifest through the generic artifact publisher. Parent orchestration is
+the next H8 implementation slice; it is not implemented or measured yet.
+Until that slice supplies the frozen runtime inventories, the H8 result is
+explicitly `INCONCLUSIVE` and cannot report PASS. It does not rerun or copy
+H1--H7 or H6-Prediction evidence, and it writes no external current-candidate
+pointer inside the artifact.
+
+The frozen `h8-sparse-scale-v3` validation contract adds a parent-owned
+`child_attempts` array between `controls` and `production_runs`. The frozen
+request plan has 30 slots: 15 production requests in seed-major/repetition
+order, three profiler requests in seed-major order, and 12 controls in the
+frozen control order using seed `20260721`. The array retains the ordered
+prefix of launches actually issued. A witnessed failure may stop that prefix;
+PASS would require all 30 attempts after the parent-orchestrator blocker is
+removed. A timeout, abnormal exit, or malformed child output still has an
+attempt record even when no typed result exists. A parseable envelope from a
+timed-out launch, a parseable non-PASS envelope, or an identity-rejected
+envelope is retained immutably as `nonpass_envelope` without being trusted as
+a decoded result. The decoded `production_runs`,
+`profiler_runs`, and `controls` inventories must cross-bind to result-bearing
+attempts. Actual parent timing is recorded on the attempt and never overwrites
+the child-authored `resources.parent_elapsed_ns=0`. Witnessed attempt failure
+dominates as FAIL; missing evidence without a witnessed violation is
+INCONCLUSIVE. The current gate retains
+`h8_parent_orchestrator_not_implemented`, so no H8 PASS or measured endpoint is
+claimed here.
+
+`verification/h8_preflight.py` remains a separate metadata-only, zero-compute
+advisor. It launches no tests, correctness cells, runtime children, profilers,
+controls, training, or data work; it only reports whether the parent
+orchestrator and prerequisite identities are ready.
 
 The selectable H7 operation accepts only
 `("H1","H2","H3","H4","H5","H6-Prefix","H7")`. It derives the exact
@@ -38,7 +64,7 @@ does not cover `det(g)<0`. The frozen source scorer is
 inverse transpose, and `history_scorer_wrong_source_inverse` is its exact
 control. A fixed decoder is positive only on
 `C_V W g^-1=C_V W`. Continuous recognition entropy shifts by `+logJ_G`; it is
-not invariant. This source-only Task-8 surface is `INCONCLUSIVE`: no H7 test
+not invariant. This unevaluated Task-8 surface is `INCONCLUSIVE`: no H7 test
 totals, residuals, or PASS result have been measured. Optimizer/training
 equivariance, H6-Prediction, predictive benefit, and H8 scale remain open.
 

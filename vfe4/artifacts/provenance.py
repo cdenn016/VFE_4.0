@@ -526,7 +526,7 @@ def build_h8_environment(
     config: ResolvedConfig,
     validation_environment: Mapping[str, object],
 ) -> dict[str, object]:
-    """Retain H8's explicit source-only environment without probing a runtime."""
+    """Retain the already-validated H8 environment without probing it again."""
 
     if (
         type(config) is not ResolvedConfig
@@ -547,7 +547,7 @@ def build_h8_environment(
         or validation_environment.get("pytorch_version") != "2.9.1"
     ):
         raise ArtifactPublicationError(
-            "H8 source-only environment does not match the frozen schema"
+            "H8 environment does not match the frozen schema"
         )
     return {
         name: validation_environment[name]
@@ -567,7 +567,7 @@ def build_h8_provenance(
     started_utc: str,
     ended_utc: str,
 ) -> dict[str, object]:
-    """Build a source-only H8 record bound to exact current prerequisites."""
+    """Build an H8 record bound to exact current inputs and retained evidence."""
 
     refs = config.h8_current_refs
     if (
@@ -635,7 +635,11 @@ def build_h8_provenance(
         "obligations": evaluation.result.obligations,
         "selected_operation": "H8",
         "ordered_gates": config.validation.gates,
-        "execution_scope": "source-only-empty-runtime-records",
+        "execution_scope": (
+            "h8-parent-orchestrated-runtime-v1"
+            if evaluation.result.child_attempts
+            else "source-only-empty-runtime-records"
+        ),
         "external_pointer_in_artifact": False,
         "started_utc": started_utc,
         "ended_utc": ended_utc,

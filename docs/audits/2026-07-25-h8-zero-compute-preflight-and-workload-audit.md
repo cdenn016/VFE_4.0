@@ -9,11 +9,23 @@ correctness, production, profiler, training, or data workload was run.
 
 H8 is `blocked`; its scientific status is `not_evaluated`. The repository has
 the H8 sparse backend, correctness producer, runtime child, budget decoder, and
-source-only gate assembly, but it does not yet have the parent orchestration
-and complete runtime cross-binding that can supply a PASS-capable H8 record.
-The current runner explicitly supplies empty correctness, production,
-profiler, and control tuples, and the gate retains
+dependency-binding gate assembly, but it does not yet have the parent
+orchestration and complete runtime cross-binding that can supply a PASS-capable
+H8 record. At the audited base revision, the runner explicitly supplied empty
+correctness, production, profiler, and control tuples, and the gate retained
 `h8_complete_runtime_cross_binding_not_implemented`.
+
+The 2026-07-26 contract amendment makes the missing seam explicit. The next
+implementation is parent orchestration, not an expansion of
+`verification/h8_preflight.py`. The staged gate now retains the explicit
+`h8_parent_orchestrator_not_implemented` blocker. The future parent must retain
+one `H8ChildAttemptRecord` for every launch actually issued, including a
+timeout, abnormal exit, malformed stdout, or launch that produces no typed
+child result. A witnessed failure may end the frozen request sequence early;
+the retained attempts are then its exact ordered prefix.
+The preflight remains standard-library-only, metadata-only, and zero-compute:
+it launches no correctness cell, test, runtime child, profiler, control,
+training, or data workload.
 
 The first live preflight observation on the implementation branch bound:
 
@@ -53,8 +65,31 @@ The frozen correctness grid has 12 cells:
 - 2,448 ordered-pair endpoint comparisons;
 - 72 wrong-path control decisions.
 
-The resource protocol has 15 production children, three profiler children, and
-12 isolated allocation-control children: 30 children with no retry.
+The resource protocol freezes 15 production, three profiler, and 12 isolated
+allocation-control request slots: a 30-request plan with no retry. Their order
+is 15 production requests in seed-major/repetition order, three profiler
+requests in seed-major order, then the 12 controls in frozen control order
+using the first production seed, `20260721`. The retained `child_attempts`
+array is the ordered prefix actually launched; a witnessed FAIL may close it
+before all 30 slots are issued.
+
+Each attempt retains the exact request, status/reasons, optional typed result
+identity, timeout/exit facts, actual parent elapsed nanoseconds,
+request/identity/stdout/stderr hashes, an optional immutable
+`nonpass_envelope`, and optional trusted raw reachability/residual/resource
+decisions. The decoded production, profiler, and control results remain
+separate ordered inventories and must cross-bind to result-bearing attempts;
+PASS requires their complete 15/3/12 inventories. Parent timing must not
+rewrite the child-authored `resources.parent_elapsed_ns=0`.
+
+The amended in-artifact schema is `h8-sparse-scale-v3`, with top-level
+`child_attempts` placed after `controls` and before `production_runs`.
+PASS requires all 30 attempts present in the exact order, every attempt PASS,
+and every decoded result cross-bound. Any witnessed attempt FAIL dominates
+missing later evidence; missing or unavailable evidence without a witnessed
+violation remains `INCONCLUSIVE`. Independently, the staged
+`h8_parent_orchestrator_not_implemented` obligation prevents PASS until the
+parent slice is implemented and mechanically revalidated.
 
 The production layout is `N=129`, `b=40`, `D=5,160`. Exact float64 storage
 arithmetic is:
@@ -144,7 +179,7 @@ The metadata-only preflight reports:
 |---|---|
 | Active verification marker clear | `blocked` |
 | H8 preregistration | `present_unvalidated` |
-| Exact H8 registry v2 | `missing` |
+| Exact H8 registry v3 | `missing` |
 | Same-candidate JUnit | `missing` |
 | H1--H5 evidence | `missing` |
 | H1-Prefix-Prior scorer-v2 evidence | `missing` |
@@ -152,8 +187,8 @@ The metadata-only preflight reports:
 | Amended H6-Prediction v2 evidence | `missing` |
 | H7 compatibility registry | `missing` |
 | H7 evidence/pointer | `missing` |
-| H8 runtime orchestrator | `blocked` |
-| Complete H8 runtime cross-binding | `blocked` |
+| Parent-owned H8 orchestrator for the frozen 30-slot plan | `blocked` |
+| Attempt/result/runtime cross-binding | `blocked` |
 
 The active marker belongs to the current revision-bound verification session.
 It must be closed before any scientific H8 execution; its presence is expected
@@ -170,8 +205,17 @@ during this code-verification task.
 4. Amend H6-Prediction before opening the test set: either restrict held-out
    SMC to endpoints consumed by frozen decisions or preregister a
    validation-powered sequential design.
-5. Implement the H8 parent runtime orchestrator and complete cross-binding
-   before producing an H8 registry or attempting resource children.
+5. Implement the H8 parent runtime orchestrator, frozen 30-request plan,
+   retained attempt-prefix semantics, witnessed-failure precedence, and
+   decoded-result cross-binding before producing an H8 registry or attempting
+   resource children. Failed, malformed, and timeout launches must retain
+   parent attempt records without fabricated child results. Remove
+   `h8_parent_orchestrator_not_implemented` only in that implementation slice
+   after its runtime evidence has been independently revalidated.
+6. As part of that orchestrator slice, create and track
+   `verification/fixtures/h8_exact_test_nodes_v1.txt`; use only its exact pytest
+   node IDs for H8 source verification and the later JUnit milestone. This
+   audit amendment names the manifest but does not create it.
 
 ## Prudent execution order
 
@@ -181,11 +225,12 @@ After the amendments are frozen:
 2. close independent H6-Prefix and finite-SMC accuracy;
 3. produce amended H6-Prediction v2 evidence;
 4. build H7's three-record compatibility registry and close H7;
-5. build the sole exact H8 registry v2;
+5. build the sole exact H8 registry v3;
 6. run the zero-compute H8 preflight and require no blocked/missing/stale state;
 7. execute H8 correctness and resource protocols once;
 8. proceed to WikiText-103 integration, recording, and figure generation only
    after exact H8 PASS.
 
-No full suite or expensive scientific workload is justified before these
-conditions are met.
+No whole-file or unfiltered full-suite H8 test run, and no expensive scientific
+workload, is justified before these conditions are met. Once the future tracked
+exact-node manifest exists, use only its frozen ordered node IDs.

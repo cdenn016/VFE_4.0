@@ -311,9 +311,11 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
         "def run_h8_verification():\n"
         "    return assemble_h8_gate_evaluation(\n"
         "        correctness=correctness_records,\n"
+        "        child_attempts=child_attempt_records,\n"
         "        production_runs=production_records,\n"
         "        profiler_runs=profiler_records,\n"
         "        controls=control_records,\n"
+        "        runtime_sections=runtime_section_records,\n"
         "    )\n",
         encoding="utf-8",
     )
@@ -321,9 +323,9 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
         "def classify_h8_status(*, exact_inventory_complete):\n"
         "    return exact_inventory_complete\n"
         "\n"
-        "def assemble_h8_gate_evaluation(*, runtime_sections):\n"
-        "    complete = bool(runtime_sections)\n"
-        "    return runtime_sections, classify_h8_status(\n"
+        "def assemble_h8_gate_evaluation(*, child_attempts, runtime_sections):\n"
+        "    complete = bool(child_attempts) and bool(runtime_sections)\n"
+        "    return child_attempts, runtime_sections, classify_h8_status(\n"
         "        exact_inventory_complete=complete,\n"
         "    )\n",
         encoding="utf-8",
@@ -353,6 +355,143 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
     assert result.obligations == ()
     assert not hasattr(result, "status")
     assert "pass" not in result.as_dict().values()
+
+
+def test_runtime_scan_requires_parent_attempts_and_derived_sections(
+    tmp_path: Path,
+) -> None:
+    preregistration = (
+        tmp_path / "docs" / "preregistrations" / "2026-07-21-h8-sparse-scale.md"
+    )
+    preregistration.parent.mkdir(parents=True)
+    preregistration.write_text("frozen preregistration\n", encoding="utf-8")
+    runtime_root = tmp_path / "verification"
+    runtime_root.mkdir()
+    (runtime_root / "run_gates.py").write_text(
+        "def run_h8_verification():\n"
+        "    return assemble_h8_gate_evaluation(\n"
+        "        correctness=correctness_records,\n"
+        "        production_runs=production_records,\n"
+        "        profiler_runs=profiler_records,\n"
+        "        controls=control_records,\n"
+        "        runtime_sections=runtime_section_records,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    (runtime_root / "h8_gate.py").write_text(
+        "def classify_h8_status(*, exact_inventory_complete):\n"
+        "    return exact_inventory_complete\n"
+        "\n"
+        "def assemble_h8_gate_evaluation(*, child_attempts, runtime_sections):\n"
+        "    complete = bool(child_attempts) and bool(runtime_sections)\n"
+        "    return child_attempts, runtime_sections, classify_h8_status(\n"
+        "        exact_inventory_complete=complete,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    result = inspect_h8_preflight(
+        repository_root=tmp_path,
+        target_scientific_config=_target(),
+        request=_request(),
+        candidate=_candidate(),
+    )
+
+    assert _state(result, "h8_runtime_orchestrator") == "blocked"
+
+
+def test_runtime_cross_binding_scan_requires_parent_attempt_input(
+    tmp_path: Path,
+) -> None:
+    preregistration = (
+        tmp_path / "docs" / "preregistrations" / "2026-07-21-h8-sparse-scale.md"
+    )
+    preregistration.parent.mkdir(parents=True)
+    preregistration.write_text("frozen preregistration\n", encoding="utf-8")
+    runtime_root = tmp_path / "verification"
+    runtime_root.mkdir()
+    (runtime_root / "run_gates.py").write_text(
+        "def run_h8_verification():\n"
+        "    return assemble_h8_gate_evaluation(\n"
+        "        correctness=correctness_records,\n"
+        "        child_attempts=child_attempt_records,\n"
+        "        production_runs=production_records,\n"
+        "        profiler_runs=profiler_records,\n"
+        "        controls=control_records,\n"
+        "        runtime_sections=runtime_section_records,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    (runtime_root / "h8_gate.py").write_text(
+        "def classify_h8_status(*, exact_inventory_complete):\n"
+        "    return exact_inventory_complete\n"
+        "\n"
+        "def assemble_h8_gate_evaluation(*, runtime_sections):\n"
+        "    complete = bool(runtime_sections)\n"
+        "    return runtime_sections, classify_h8_status(\n"
+        "        exact_inventory_complete=complete,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    result = inspect_h8_preflight(
+        repository_root=tmp_path,
+        target_scientific_config=_target(),
+        request=_request(),
+        candidate=_candidate(),
+    )
+
+    assert _state(result, "h8_runtime_orchestrator") == "present_unvalidated"
+    assert _state(result, "h8_complete_runtime_cross_binding") == "blocked"
+
+
+def test_runtime_cross_binding_scan_honors_parent_orchestrator_blocker(
+    tmp_path: Path,
+) -> None:
+    preregistration = (
+        tmp_path / "docs" / "preregistrations" / "2026-07-21-h8-sparse-scale.md"
+    )
+    preregistration.parent.mkdir(parents=True)
+    preregistration.write_text("frozen preregistration\n", encoding="utf-8")
+    runtime_root = tmp_path / "verification"
+    runtime_root.mkdir()
+    (runtime_root / "run_gates.py").write_text(
+        "def run_h8_verification():\n"
+        "    return assemble_h8_gate_evaluation(\n"
+        "        correctness=correctness_records,\n"
+        "        child_attempts=child_attempt_records,\n"
+        "        production_runs=production_records,\n"
+        "        profiler_runs=profiler_records,\n"
+        "        controls=control_records,\n"
+        "        runtime_sections=runtime_section_records,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    (runtime_root / "h8_gate.py").write_text(
+        "H8_SOURCE_ONLY_OBLIGATIONS = (\n"
+        "    'h8_parent_orchestrator_not_implemented',\n"
+        ")\n"
+        "\n"
+        "def classify_h8_status(*, exact_inventory_complete):\n"
+        "    return exact_inventory_complete\n"
+        "\n"
+        "def assemble_h8_gate_evaluation(*, child_attempts, runtime_sections):\n"
+        "    complete = bool(child_attempts) and bool(runtime_sections)\n"
+        "    return child_attempts, runtime_sections, classify_h8_status(\n"
+        "        exact_inventory_complete=complete,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    result = inspect_h8_preflight(
+        repository_root=tmp_path,
+        target_scientific_config=_target(),
+        request=_request(),
+        candidate=_candidate(),
+    )
+
+    assert _state(result, "h8_runtime_orchestrator") == "present_unvalidated"
+    assert _state(result, "h8_complete_runtime_cross_binding") == "blocked"
 
 
 def test_registry_v1_malformed_and_stale_are_nonauthorizing(

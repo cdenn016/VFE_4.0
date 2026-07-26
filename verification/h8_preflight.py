@@ -40,9 +40,11 @@ H8_PREDICTION_V2_SCHEMAS = {
 }
 H8_RUNTIME_SECTION_NAMES = (
     "correctness",
+    "child_attempts",
     "production_runs",
     "profiler_runs",
     "controls",
+    "runtime_sections",
 )
 H7_COMPATIBILITY_FIELDS = frozenset(
     {
@@ -1400,8 +1402,7 @@ def _runtime_records(
     )
     if empty_sections:
         runtime_detail = (
-            "run_h8_verification supplies empty correctness, production, "
-            "profiler, and control sections"
+            "run_h8_verification supplies an empty H8 runtime evidence section"
         )
     elif not found_runtime_call:
         runtime_detail = (
@@ -1409,11 +1410,13 @@ def _runtime_records(
         )
     elif not complete_runtime_arguments:
         runtime_detail = (
-            "H8 evaluation assembly does not bind all four runtime sections"
+            "H8 evaluation assembly does not bind all six runtime evidence "
+            "sections"
         )
     else:
         runtime_detail = (
-            "all four runtime sections are visibly supplied; behavior unvalidated"
+            "all six H8 runtime evidence inputs are visibly supplied; "
+            "behavior unvalidated"
         )
     runtime_record = _record(
         "h8_runtime_orchestrator",
@@ -1422,7 +1425,7 @@ def _runtime_records(
         detail=runtime_detail,
     )
     cross_binding_marker = (
-        "h8_complete_runtime_cross_binding_not_implemented" in gate_source
+        "h8_parent_orchestrator_not_implemented" in gate_source
     )
     cross_binding_structure = False
     for node in ast.walk(gate_tree):
@@ -1436,6 +1439,10 @@ def _runtime_records(
         )
         runtime_mentions = sum(
             isinstance(child, ast.Name) and child.id == "runtime_sections"
+            for child in ast.walk(node)
+        )
+        attempt_mentions = sum(
+            isinstance(child, ast.Name) and child.id == "child_attempts"
             for child in ast.walk(node)
         )
         dynamic_inventory_binding = any(
@@ -1458,14 +1465,16 @@ def _runtime_records(
             for child in ast.walk(node)
         )
         cross_binding_structure = (
-            "runtime_sections" in argument_names
+            "child_attempts" in argument_names
+            and "runtime_sections" in argument_names
+            and attempt_mentions >= 2
             and runtime_mentions >= 2
             and dynamic_inventory_binding
         )
     cross_binding_available = not cross_binding_marker and cross_binding_structure
     if cross_binding_marker:
         cross_binding_detail = (
-            "explicit unimplemented cross-binding obligation remains in source"
+            "explicit parent-orchestrator blocker remains in source"
         )
     elif not cross_binding_structure:
         cross_binding_detail = (

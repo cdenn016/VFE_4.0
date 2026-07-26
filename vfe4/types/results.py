@@ -18,7 +18,12 @@ if TYPE_CHECKING:
         H7PredecessorReference,
         H7TrialResult,
     )
-    from .h8 import H8ChildResult, H8ControlResult, H8CorrectnessCell
+    from .h8 import (
+        H8ChildAttemptRecord,
+        H8ChildResult,
+        H8ControlResult,
+        H8CorrectnessCell,
+    )
 
 
 @dataclass(frozen=True)
@@ -1098,6 +1103,7 @@ class H8GateResult:
     h7_manifest_sha256: str | None
     h6_prediction_manifest_sha256: str | None
     correctness: tuple["H8CorrectnessCell", ...]
+    child_attempts: tuple["H8ChildAttemptRecord", ...]
     production_runs: tuple["H8ChildResult", ...]
     profiler_runs: tuple["H8ChildResult", ...]
     controls: tuple["H8ControlResult", ...]
@@ -1108,6 +1114,7 @@ class H8GateResult:
             H8_CORRECTNESS_CASES,
             H8_NEGATIVE_CONTROL_IDS,
             H8_PRODUCTION_SEEDS,
+            H8ChildAttemptRecord,
             H8ChildResult,
             H8ControlResult,
             H8CorrectnessCell,
@@ -1117,6 +1124,11 @@ class H8GateResult:
             raise ValueError("H8 gate result must declare gate H8")
         if not isinstance(self.status, GateStatus):
             raise ValueError("H8 status must be a GateStatus")
+        if self.status is GateStatus.PASS:
+            raise ValueError(
+                "PASS H8 remains unavailable until parent orchestration "
+                "and runtime revalidation are implemented"
+            )
         _require_sha256(self.config_sha256, "config_sha256")
         prerequisite_hash_names = (
             "candidate_junit_sha256",
@@ -1147,6 +1159,7 @@ class H8GateResult:
 
         typed_inventories = (
             ("correctness", self.correctness, H8CorrectnessCell),
+            ("child_attempts", self.child_attempts, H8ChildAttemptRecord),
             ("production_runs", self.production_runs, H8ChildResult),
             ("profiler_runs", self.profiler_runs, H8ChildResult),
             ("controls", self.controls, H8ControlResult),
@@ -1168,6 +1181,73 @@ class H8GateResult:
             expected_correctness_ids,
             "correctness cells",
         )
+        attempt_ids = tuple(
+            (
+                item.request.mode,
+                item.request.seed,
+                item.request.repetition,
+                item.request.control_id,
+            )
+            for item in self.child_attempts
+        )
+        expected_attempt_ids = (
+            *(
+                ("production", seed, repetition, None)
+                for seed in H8_PRODUCTION_SEEDS
+                for repetition in range(5)
+            ),
+            *(
+                ("profiler", seed, None, None)
+                for seed in H8_PRODUCTION_SEEDS
+            ),
+            *(
+                (
+                    "negative_control",
+                    H8_PRODUCTION_SEEDS[0],
+                    None,
+                    control_id,
+                )
+                for control_id in H8_NEGATIVE_CONTROL_IDS
+            ),
+        )
+        _require_h8_inventory_prefix(
+            attempt_ids,
+            expected_attempt_ids,
+            "child attempts",
+        )
+        if any(
+            attempt.request.config_sha256 != self.config_sha256
+            for attempt in self.child_attempts
+        ):
+            raise ValueError("child attempts must bind the H8 config")
+
+        attempt_production_runs = tuple(
+            item.result
+            for item in self.child_attempts
+            if item.request.mode == "production"
+            and type(item.result) is H8ChildResult
+        )
+        attempt_profiler_runs = tuple(
+            item.result
+            for item in self.child_attempts
+            if item.request.mode == "profiler"
+            and type(item.result) is H8ChildResult
+        )
+        attempt_controls = tuple(
+            item.result
+            for item in self.child_attempts
+            if item.request.mode == "negative_control"
+            and type(item.result) is H8ControlResult
+        )
+        if (
+            self.production_runs != attempt_production_runs
+            or self.profiler_runs != attempt_profiler_runs
+            or self.controls != attempt_controls
+        ):
+            raise ValueError(
+                "run/control inventories must equal result-bearing attempts"
+            )
+
         production_ids = tuple(
             (item.seed, item.repetition) for item in self.production_runs
         )
@@ -1176,33 +1256,19 @@ class H8GateResult:
             for seed in H8_PRODUCTION_SEEDS
             for repetition in range(5)
         )
-        _require_h8_inventory_prefix(
-            production_ids,
-            expected_production_ids,
-            "production runs",
-        )
         if any(item.mode != "production" for item in self.production_runs):
             raise ValueError("production_runs may contain only production results")
         profiler_ids = tuple(item.seed for item in self.profiler_runs)
-        _require_h8_inventory_prefix(
-            profiler_ids,
-            H8_PRODUCTION_SEEDS,
-            "profiler runs",
-        )
         if any(
             item.mode != "profiler" or item.repetition is not None
             for item in self.profiler_runs
         ):
             raise ValueError("profiler_runs may contain only profiler results")
         control_ids = tuple(item.control_id for item in self.controls)
-        _require_h8_inventory_prefix(
-            control_ids,
-            H8_NEGATIVE_CONTROL_IDS,
-            "controls",
-        )
 
         retained_statuses = (
             *(item.status for item in self.correctness),
+            *(item.status for item in self.child_attempts),
             *(item.status for item in self.controls),
             *(
                 invariant.status
@@ -1213,6 +1279,11 @@ class H8GateResult:
         witnessed_fail = GateStatus.FAIL in retained_statuses
         complete_pass = (
             correctness_ids == expected_correctness_ids
+            and attempt_ids == expected_attempt_ids
+            and all(
+                item.status is GateStatus.PASS
+                for item in self.child_attempts
+            )
             and production_ids == expected_production_ids
             and profiler_ids == H8_PRODUCTION_SEEDS
             and control_ids == H8_NEGATIVE_CONTROL_IDS

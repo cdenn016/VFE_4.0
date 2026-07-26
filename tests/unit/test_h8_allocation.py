@@ -6,6 +6,7 @@ import hashlib
 import inspect
 import json
 import zlib
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
@@ -39,6 +40,8 @@ from vfe4.types.h8 import (
     BackendCounterSnapshot,
     BlockStorageRecord,
     BlockWorkspaceRecord,
+    H8ChildAttemptRecord,
+    H8ChildRequest,
     H8ChildResult,
     H8ControlResult,
     H8TensorKey,
@@ -54,8 +57,11 @@ from verification.h8_child import (
     _windows_memory_snapshot,
 )
 from verification.h8_budget import (
+    H8_CHILD_IDENTITY_ENV,
     H8_OPERATION_SCOPES,
     H8_SCALE_RESIDUAL_SPECS,
+    H8ChildDecision,
+    H8ChildInvocation,
     H8ChildProcessRecord,
     build_h8_child_invocation,
     classify_h8_child_outcome,
@@ -64,6 +70,7 @@ from verification.h8_budget import (
     decode_h8_child_result,
     decode_h8_control_result,
     make_operand_record,
+    make_h8_child_attempt_record,
     make_h8_identity_record,
     parse_h8_child_stdout,
     windows_process_memory_layout,
@@ -1468,12 +1475,14 @@ def test_child_invocation_is_exact_and_freezes_thread_environment(
         "control_id": None,
     }
     identities = _child_envelope()["identities"]
+    base_environment = {"PATH": "preserved"}
     invocation = build_h8_child_invocation(
         request,
         repository_root=tmp_path,
         identities=identities,
-        base_environment={"PATH": "preserved"},
+        base_environment=base_environment,
     )
+    base_environment["PATH"] = "mutated after invocation construction"
 
     assert invocation.argv[1:] == ("-m", "verification.h8_child")
     assert invocation.cwd == tmp_path.resolve()
@@ -1498,6 +1507,48 @@ def test_child_invocation_is_exact_and_freezes_thread_environment(
             "VECLIB_MAXIMUM_THREADS",
         )
     } == {"1"}
+    with pytest.raises(TypeError):
+        invocation.environment["PATH"] = "mutated"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    (
+        {"argv": ("python", "-m", "not_the_h8_child")},
+        {"timeout_seconds": 59.0},
+        {
+            "environment": {
+                H8_CHILD_IDENTITY_ENV: "{}",
+                "OMP_NUM_THREADS": "2",
+                "MKL_NUM_THREADS": "1",
+                "OPENBLAS_NUM_THREADS": "1",
+                "NUMEXPR_NUM_THREADS": "1",
+                "VECLIB_MAXIMUM_THREADS": "1",
+            },
+        },
+    ),
+)
+def test_child_invocation_rejects_noncanonical_launch_contract(
+    tmp_path: Path,
+    changes: dict[str, object],
+) -> None:
+    request = {
+        "mode": "production",
+        "seed": 20260721,
+        "repetition": 0,
+        "config_sha256": "b" * 64,
+        "protocol_sha256": "c" * 64,
+        "control_id": None,
+    }
+    invocation = build_h8_child_invocation(
+        request,
+        repository_root=tmp_path,
+        identities=_child_envelope()["identities"],  # type: ignore[arg-type]
+        base_environment={},
+    )
+
+    with pytest.raises(ValueError, match="exact|thread"):
+        dataclasses.replace(invocation, **changes)
 
 
 def test_child_stdout_parser_requires_one_canonical_json_line() -> None:
@@ -1713,6 +1764,596 @@ def test_child_result_must_match_parent_request_and_environment(
     )
     assert decision.status is GateStatus.FAIL
     assert "child_request_or_environment_identity_mismatch" in decision.reasons
+
+
+def _verified_h8_production_attempt_inputs(
+    tmp_path: Path,
+    *,
+    parent_elapsed_ns: int = 37,
+) -> tuple[
+    H8ChildRequest,
+    H8ChildInvocation,
+    H8ChildProcessRecord,
+    H8ChildDecision,
+    dict[str, object],
+]:
+    request = H8ChildRequest(
+        mode="production",
+        seed=20260721,
+        repetition=0,
+        config_sha256="b" * 64,
+        protocol_sha256="c" * 64,
+        control_id=None,
+    )
+    identities = _child_envelope()["identities"]
+    assert isinstance(identities, dict)
+    invocation = build_h8_child_invocation(
+        dataclasses.asdict(request),
+        repository_root=tmp_path,
+        identities=identities,
+        base_environment={},
+    )
+    payload = _child_envelope(
+        request_sha256=hashlib.sha256(invocation.stdin[:-1]).hexdigest(),
+        identities=identities,
+    )
+    process_record = H8ChildProcessRecord.from_payload(
+        payload,
+        parent_elapsed_ns=parent_elapsed_ns,
+    )
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+    return request, invocation, process_record, decision, payload
+
+
+def test_child_attempt_factory_decodes_and_binds_verified_pass(
+    tmp_path: Path,
+) -> None:
+    (
+        request,
+        invocation,
+        process_record,
+        decision,
+        payload,
+    ) = _verified_h8_production_attempt_inputs(tmp_path)
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert type(attempt) is H8ChildAttemptRecord
+    assert attempt.request is request
+    assert attempt.status is GateStatus.PASS
+    assert attempt.reasons == ()
+    assert type(attempt.result) is H8ChildResult
+    assert attempt.timed_out is False
+    assert attempt.exit_code == 0
+    assert attempt.parent_elapsed_ns == 37
+    assert attempt.request_sha256 == hashlib.sha256(
+        invocation.stdin[:-1]
+    ).hexdigest()
+    identity_json = invocation.environment[H8_CHILD_IDENTITY_ENV]
+    assert attempt.identities_sha256 == hashlib.sha256(
+        identity_json.encode("ascii")
+    ).hexdigest()
+    assert attempt.stdout_sha256 == hashlib.sha256(
+        process_record.stdout
+    ).hexdigest()
+    assert attempt.stderr_sha256 == hashlib.sha256(
+        process_record.stderr
+    ).hexdigest()
+    result_payload = payload["result"]
+    assert isinstance(result_payload, dict)
+    assert dict(attempt.operation_reachability or {}) == result_payload[
+        "operation_reachability"
+    ]
+    assert dict(attempt.residuals or {}) == result_payload["residuals"]
+    result_decisions = result_payload["resource_decisions"]
+    assert isinstance(result_decisions, dict)
+    assert attempt.resource_decisions is not None
+    assert set(attempt.resource_decisions) == set(result_decisions)
+    assert attempt.resource_decisions["time_pass"] is True
+    assert attempt.resource_decisions[
+        "conservative_incremental_hwm_bytes"
+    ] == 30
+    assert attempt.result.resources.parent_elapsed_ns == 0
+
+
+def test_child_attempt_factory_retains_owned_immutable_result_metadata(
+    tmp_path: Path,
+) -> None:
+    (
+        request,
+        invocation,
+        process_record,
+        decision,
+        _,
+    ) = _verified_h8_production_attempt_inputs(tmp_path)
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+    decision_payload = decision.payload
+    assert isinstance(decision_payload, dict)
+    result_payload = decision_payload["result"]
+    assert isinstance(result_payload, dict)
+    reachability = result_payload["operation_reachability"]
+    residuals = result_payload["residuals"]
+    decisions = result_payload["resource_decisions"]
+    assert isinstance(reachability, dict)
+    assert isinstance(residuals, dict)
+    assert isinstance(decisions, dict)
+
+    reachability["factorization"] = False
+    residuals["solve"] = 1.0
+    decisions["time_pass"] = False
+    allowances = decisions["residual_allowances"]
+    assert isinstance(allowances, dict)
+    solve_allowance = allowances["solve"]
+    assert isinstance(solve_allowance, dict)
+    solve_allowance["passed"] = False
+
+    assert attempt.operation_reachability is not None
+    assert attempt.operation_reachability["factorization"] is True
+    assert attempt.residuals is not None
+    assert attempt.residuals["solve"] == 0.0
+    assert attempt.resource_decisions is not None
+    assert attempt.resource_decisions["time_pass"] is True
+    frozen_allowances = attempt.resource_decisions["residual_allowances"]
+    assert isinstance(frozen_allowances, Mapping)
+    frozen_solve_allowance = frozen_allowances["solve"]
+    assert isinstance(frozen_solve_allowance, Mapping)
+    assert frozen_solve_allowance["passed"] is True
+    with pytest.raises(TypeError):
+        attempt.operation_reachability["factorization"] = False  # type: ignore[index]
+    with pytest.raises(TypeError):
+        attempt.residuals["solve"] = 1.0  # type: ignore[index]
+    with pytest.raises(TypeError):
+        attempt.resource_decisions["time_pass"] = False  # type: ignore[index]
+    with pytest.raises(TypeError):
+        frozen_solve_allowance["passed"] = False  # type: ignore[index]
+
+
+def test_child_attempt_factory_preserves_timeout_without_result(
+    tmp_path: Path,
+) -> None:
+    request, invocation, _, _, _ = _verified_h8_production_attempt_inputs(
+        tmp_path
+    )
+    process_record = H8ChildProcessRecord(
+        timed_out=True,
+        exit_code=None,
+        stdout=b"",
+        stderr=b"deadline exceeded",
+        parent_elapsed_ns=60_000_000_001,
+    )
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert attempt.status is GateStatus.FAIL
+    assert attempt.reasons == ("child_timeout",)
+    assert attempt.timed_out is True
+    assert attempt.exit_code is None
+    assert attempt.result is None
+    assert attempt.operation_reachability is None
+    assert attempt.residuals is None
+    assert attempt.resource_decisions is None
+
+
+def test_child_attempt_factory_preserves_nonzero_exit_without_result(
+    tmp_path: Path,
+) -> None:
+    request, invocation, _, _, _ = _verified_h8_production_attempt_inputs(
+        tmp_path
+    )
+    process_record = H8ChildProcessRecord(
+        timed_out=False,
+        exit_code=9,
+        stdout=b"",
+        stderr=b"child failed before emitting an envelope",
+        parent_elapsed_ns=11,
+    )
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert attempt.status is GateStatus.FAIL
+    assert attempt.reasons == (
+        "nonzero_child_exit",
+        "invalid_child_stdout",
+    )
+    assert attempt.timed_out is False
+    assert attempt.exit_code == 9
+    assert attempt.result is None
+    assert attempt.operation_reachability is None
+    assert attempt.residuals is None
+    assert attempt.resource_decisions is None
+
+
+def test_child_attempt_factory_rejects_request_or_identity_drift(
+    tmp_path: Path,
+) -> None:
+    (
+        request,
+        invocation,
+        process_record,
+        decision,
+        _,
+    ) = _verified_h8_production_attempt_inputs(tmp_path)
+
+    with pytest.raises(ValueError, match="request.*invocation"):
+        make_h8_child_attempt_record(
+            dataclasses.replace(request, seed=request.seed + 1),
+            invocation,
+            process_record,
+            decision,
+        )
+
+    identity_json = invocation.environment[H8_CHILD_IDENTITY_ENV]
+    noncanonical_environment = dict(invocation.environment)
+    noncanonical_environment[H8_CHILD_IDENTITY_ENV] = json.dumps(
+        json.loads(identity_json),
+        indent=2,
+    )
+    noncanonical_invocation = dataclasses.replace(
+        invocation,
+        environment=noncanonical_environment,
+    )
+    with pytest.raises(ValueError, match="identities.*canonical"):
+        make_h8_child_attempt_record(
+            request,
+            noncanonical_invocation,
+            process_record,
+            decision,
+        )
+
+
+def test_child_attempt_factory_retains_witnessed_identity_mismatch(
+    tmp_path: Path,
+) -> None:
+    request, invocation, _, _, payload = (
+        _verified_h8_production_attempt_inputs(tmp_path)
+    )
+    payload["config_sha256"] = "d" * 64
+    process_record = H8ChildProcessRecord.from_payload(payload)
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert attempt.status is GateStatus.FAIL
+    assert "child_request_or_environment_identity_mismatch" in attempt.reasons
+    assert attempt.result is None
+    assert attempt.nonpass_envelope is not None
+    assert attempt.nonpass_envelope["config_sha256"] == "d" * 64
+    assert attempt.operation_reachability is None
+    assert attempt.residuals is None
+    assert attempt.resource_decisions is None
+
+
+def test_child_attempt_factory_keeps_identity_observability_inconclusive(
+    tmp_path: Path,
+) -> None:
+    request, invocation, _, _, payload = (
+        _verified_h8_production_attempt_inputs(tmp_path)
+    )
+    payload["status"] = "inconclusive"
+    payload["obligations"] = ["environment_observability_gap"]
+    payload["result"] = None
+    payload["error"] = {
+        "kind": "environment_observability_gap",
+        "message": "runtime identity unavailable",
+        "witnessed_violation": False,
+    }
+    payload["identities"] = {
+        name: make_h8_identity_record(
+            name,
+            {"observability_error": "runtime identity unavailable"},
+        )
+        for name in ("hardware", "affinity", "thread", "blas")
+    }
+    process_record = H8ChildProcessRecord.from_payload(payload)
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert decision.status is GateStatus.INCONCLUSIVE
+    assert "child_request_or_environment_identity_mismatch" not in (
+        decision.reasons
+    )
+    assert attempt.status is GateStatus.INCONCLUSIVE
+    assert attempt.result is None
+    assert attempt.nonpass_envelope is not None
+    assert attempt.operation_reachability is None
+    assert attempt.residuals is None
+    assert attempt.resource_decisions is None
+
+
+def test_child_attempt_factory_retains_timeout_envelope_without_trusting_it(
+    tmp_path: Path,
+) -> None:
+    request, invocation, _, _, payload = (
+        _verified_h8_production_attempt_inputs(tmp_path)
+    )
+    stdout = (
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+        + b"\n"
+    )
+    process_record = H8ChildProcessRecord(
+        timed_out=True,
+        exit_code=None,
+        stdout=stdout,
+        stderr=b"deadline exceeded",
+        parent_elapsed_ns=60_000_000_001,
+    )
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert attempt.status is GateStatus.FAIL
+    assert "child_timeout" in attempt.reasons
+    assert attempt.result is None
+    assert attempt.nonpass_envelope is not None
+    assert attempt.nonpass_envelope["status"] == "pass"
+    assert attempt.operation_reachability is None
+    assert attempt.residuals is None
+    assert attempt.resource_decisions is None
+
+
+@pytest.mark.parametrize(
+    "witness_kind",
+    ("operation_reachability", "resource_decision"),
+)
+def test_child_attempt_factory_promotes_retained_witness_to_fail(
+    tmp_path: Path,
+    witness_kind: str,
+) -> None:
+    request, invocation, _, _, payload = (
+        _verified_h8_production_attempt_inputs(tmp_path)
+    )
+    payload["status"] = "inconclusive"
+    payload["obligations"] = ["partial_child_evidence"]
+    result_payload = payload["result"]
+    assert isinstance(result_payload, dict)
+    if witness_kind == "operation_reachability":
+        reachability = result_payload["operation_reachability"]
+        assert isinstance(reachability, dict)
+        reachability["factorization"] = False
+    else:
+        decisions = result_payload["resource_decisions"]
+        assert isinstance(decisions, dict)
+        decisions["time_pass"] = False
+    process_record = H8ChildProcessRecord.from_payload(payload)
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert decision.status is GateStatus.FAIL
+    assert attempt.status is GateStatus.FAIL
+    assert attempt.nonpass_envelope is not None
+
+
+@pytest.mark.parametrize(
+    "witness_kind",
+    ("child_elapsed", "residual_decision"),
+)
+def test_child_attempt_factory_recovers_raw_witness_from_invalid_pass_envelope(
+    tmp_path: Path,
+    witness_kind: str,
+) -> None:
+    request, invocation, _, _, payload = (
+        _verified_h8_production_attempt_inputs(tmp_path)
+    )
+    result_payload = payload["result"]
+    assert isinstance(result_payload, dict)
+    if witness_kind == "child_elapsed":
+        resources = result_payload["resources"]
+        assert isinstance(resources, dict)
+        resources["child_elapsed_ns"] = 60_000_000_001
+    else:
+        decisions = result_payload["resource_decisions"]
+        assert isinstance(decisions, dict)
+        allowance_groups = decisions["residual_allowances"]
+        assert isinstance(allowance_groups, dict)
+        solve_group = allowance_groups["solve"]
+        assert isinstance(solve_group, dict)
+        comparisons = solve_group["comparisons"]
+        assert isinstance(comparisons, list)
+        comparison = comparisons[0]
+        assert isinstance(comparison, dict)
+        allowance = comparison["allowance"]
+        assert isinstance(allowance, dict)
+        threshold = allowance["allowance"]
+        assert type(threshold) is float
+        allowance["residual"] = threshold + 1.0
+
+    process_record = H8ChildProcessRecord.from_payload(payload)
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    assert decision.status is GateStatus.FAIL
+    assert (
+        "invalid_stdout_retains_witnessed_resource_failure"
+        in decision.reasons
+    )
+    assert decision.payload is None
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert attempt.status is GateStatus.FAIL
+    assert attempt.result is None
+    assert attempt.nonpass_envelope is None
+    assert attempt.stdout_sha256 == hashlib.sha256(
+        process_record.stdout
+    ).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("child_status", "obligations", "expected_status"),
+    [
+        ("fail", [], GateStatus.FAIL),
+        (
+            "inconclusive",
+            ["partial_child_evidence"],
+            GateStatus.INCONCLUSIVE,
+        ),
+    ],
+)
+def test_child_attempt_factory_retains_parseable_nonpass_partial_envelope(
+    tmp_path: Path,
+    child_status: str,
+    obligations: list[str],
+    expected_status: GateStatus,
+) -> None:
+    request, invocation, _, _, payload = (
+        _verified_h8_production_attempt_inputs(tmp_path)
+    )
+    payload["status"] = child_status
+    payload["obligations"] = obligations
+    result_payload = payload["result"]
+    assert isinstance(result_payload, dict)
+    result_payload["operation_reachability"] = None
+    result_payload["residuals"] = None
+    result_payload["resource_decisions"] = {
+        "partial_endpoint_retained": True,
+    }
+    process_record = H8ChildProcessRecord.from_payload(payload)
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+
+    assert attempt.status is expected_status
+    assert attempt.result is None
+    assert attempt.nonpass_envelope is not None
+    assert attempt.nonpass_envelope["status"] == child_status
+    retained_result = attempt.nonpass_envelope["result"]
+    assert isinstance(retained_result, Mapping)
+    assert retained_result["operation_reachability"] is None
+    assert retained_result["residuals"] is None
+    with pytest.raises(TypeError):
+        retained_result["residuals"] = {}  # type: ignore[index]
+    assert attempt.operation_reachability is None
+    assert attempt.residuals is None
+    assert attempt.resource_decisions == {
+        "partial_endpoint_retained": True,
+    }
+
+
+def test_child_attempt_factory_rejects_decision_process_drift(
+    tmp_path: Path,
+) -> None:
+    (
+        request,
+        invocation,
+        process_record,
+        decision,
+        _,
+    ) = _verified_h8_production_attempt_inputs(tmp_path)
+    mismatched_decisions = (
+        dataclasses.replace(decision, timed_out=True),
+        dataclasses.replace(decision, exit_code=7),
+        dataclasses.replace(decision, parent_elapsed_ns=38),
+        dataclasses.replace(decision, stdout_sha256="0" * 64),
+        dataclasses.replace(decision, stderr_sha256="0" * 64),
+        dataclasses.replace(
+            decision,
+            status=GateStatus.INCONCLUSIVE,
+            reasons=("later evidence unavailable",),
+        ),
+    )
+
+    for mismatched in mismatched_decisions:
+        with pytest.raises(ValueError, match="decision"):
+            make_h8_child_attempt_record(
+                request,
+                invocation,
+                process_record,
+                mismatched,
+            )
 
 
 def test_child_pass_rejects_hollow_nested_evidence() -> None:

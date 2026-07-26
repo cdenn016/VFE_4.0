@@ -1,6 +1,6 @@
 # H8 Sparse-Scale Systems Preregistration
 
-Protocol revision: `h8-sparse-scale-v2` (amended 2026-07-25)
+Protocol revision: `h8-sparse-scale-v3` (amended 2026-07-26)
 
 Status at freeze: protocol only. No H8 correctness grid, production child,
 profiler child, negative control, timing measurement, memory measurement, or
@@ -11,12 +11,17 @@ H8 is a synthetic empirical systems gate for one block-tridiagonal Gaussian
 chain. It is click-run through the single editable `CONFIG` dictionary in
 `verify_vfe4.py`; it has no required CLI or second launcher.
 
-The implemented shared-integration path is source-only. It requires the exact
-current-HEAD `CurrentH8PrerequisiteRefs`, enters neither the legacy H1--H5/H7
-runner nor any H8 correctness/child/profiler/control execution, and publishes
-empty runtime inventories. Its honest result is therefore `INCONCLUSIVE` with
-the source-only obligations; this preregistration still contains no measured
-endpoint and no PASS claim.
+The implemented shared-integration path currently binds the exact current-HEAD
+`CurrentH8PrerequisiteRefs` and can publish an honest `INCONCLUSIVE` artifact,
+but it does not yet own or launch the frozen parent child-attempt sequence.
+Parent orchestration and complete runtime cross-binding are the next
+implementation slice. Until they exist, the runtime inventories remain empty
+and the gate retains `h8_parent_orchestrator_not_implemented`, so H8 cannot
+report PASS. That blocker may be removed only with the parent implementation
+and current runtime revalidation. The separate `verification/h8_preflight.py`
+path remains metadata-only and zero-compute: it launches no correctness cell,
+runtime child, profiler, control, or test. This preregistration contains no
+measured endpoint and no PASS claim.
 
 ## Scope and source pins
 
@@ -298,7 +303,7 @@ reversed logdet sign, transposed adjacent covariance, duplicated off-diagonal
 trace, omitted entropy, and independent replacement sample noise. Each must
 be decisive under its own correct-path allowance.
 
-## One-thread child and 15-run resource protocol
+## One-thread child and 30-attempt resource protocol
 
 Normative production is PyTorch float64 CPU under `torch.no_grad()`, one
 intra-op thread, and one inter-op thread. Before a child imports NumPy or
@@ -317,11 +322,35 @@ Production traversal is seed-major:
 
 Every repetition is a fresh child process. There are exactly 15 eligible
 production runs and no retry. A separate profiler child runs once per seed.
-Every negative control runs in isolation. Required operation reachability is
-factorization, forward substitution, backward substitution, mean solve,
-logdet, all diagonal/adjacent selected-inverse blocks, width-one sample,
-quadratic, sparse trace, condition estimate, entropy, log normalizer, and
-complete objective.
+Every negative control runs in isolation. The parent freezes this 30-request
+plan, in order:
+
+1. 15 `production` requests in the seed-major/repetition order above;
+2. three `profiler` requests in seed-major order, with `repetition=null`;
+3. 12 `negative_control` requests in the frozen control order below, each with
+   `seed=20260721` and `repetition=null`.
+
+The request sequence is frozen before launch. Every launch actually issued
+yields one parent-owned `H8ChildAttemptRecord`, even if the process times out,
+exits abnormally, emits malformed output, or supplies no typed child/control
+result. A witnessed failure may stop later launches; PASS requires all 30.
+There is no retry. Required operation reachability is factorization, forward
+substitution, backward substitution, mean solve, logdet, all
+diagonal/adjacent selected-inverse blocks, width-one sample, quadratic, sparse
+trace, condition estimate, entropy, log normalizer, and complete objective.
+
+Each attempt retains its exact request, `status`, ordered `reasons`, optional
+typed `result`, `timed_out`, `exit_code`, actual parent `parent_elapsed_ns`,
+`request_sha256`, `identities_sha256`, `stdout_sha256`, `stderr_sha256`, and
+an optional immutable `nonpass_envelope`, plus optional trusted raw
+`operation_reachability`, `residuals`, and `resource_decisions`.
+The request hash binds the canonical stdin request bytes; the identities hash
+binds the exact canonical `VFE4_H8_CHILD_IDENTITIES_JSON` bytes; stdout/stderr
+hashes bind the raw captured streams even when decoding fails. Parent elapsed
+time is measured from spawn through parse. It is never written into the
+child-authored resource object: `result.resources.parent_elapsed_ns=0` remains
+the child protocol sentinel, while the actual value lives at
+`attempt.parent_elapsed_ns`.
 
 Resource limits are inclusive:
 
@@ -517,14 +546,14 @@ variants verbatim. The external pointer is not part of the artifact manifest.
 ## Validation payload schema
 
 The in-artifact file is `validation/h8.json`,
-`schema_version="h8-sparse-scale-v2"`, `gate="H8"`. Its exact top-level key
+`schema_version="h8-sparse-scale-v3"`, `gate="H8"`. Its exact top-level key
 order is:
 
 ```text
 schema_version, gate, status, obligations, bounded_claim, nonclaims,
 revision, config, prerequisites, interpretation, protocol, environment,
 problems, storage, factor, correctness, allocation, controls,
-production_runs, profiler_runs, budgets, invariants, artifacts
+child_attempts, production_runs, profiler_runs, budgets, invariants, artifacts
 ```
 
 Required nested inventories:
@@ -561,23 +590,49 @@ Required nested inventories:
 - `controls`: exact ordered records retaining requested operation, logical
   shapes, assigned/observed channels, witness/event hash, assignment,
   detection, status, and obligations
-- `production_runs`: exactly 15 seed-major child records
-- `profiler_runs`: exactly three seed-major child records
+- `child_attempts`: the parent-owned frozen-order prefix of at most 30
+  attempt records in the 15-production, three-profiler, 12-control inventory;
+  a witnessed FAIL may close the prefix, while PASS requires all 30. Every
+  record retains
+  `request`, `status`, `reasons`, `result_kind`, optional `result_identity`,
+  optional immutable `nonpass_envelope`,
+  `timed_out`, `exit_code`, actual `parent_elapsed_ns`, `request_sha256`,
+  `identities_sha256`, `stdout_sha256`, `stderr_sha256`, and optional raw
+  `operation_reachability`, `residuals`, and `resource_decisions`.
+  `result_kind="child"` uses exact identity
+  `{mode,seed,repetition,input_sha256}`; `result_kind="control"` uses
+  `{control_id,event_sha256}`; a launch with no decoded typed result stores
+  null for both fields rather than fabricating a result; a parseable envelope
+  from a timed-out launch, a parseable non-PASS envelope, or an
+  identity-rejected envelope is retained separately without trusting it
+- `production_runs`: the ordered decoded child records cross-bound to
+  result-bearing production attempts; PASS requires exactly 15 seed-major
+  records
+- `profiler_runs`: the ordered decoded child records cross-bound to
+  result-bearing profiler attempts; PASS requires exactly three seed-major
+  records
 - `budgets`: epsilon, rounding multiplier, solver fraction, decisiveness
   fraction, minimum pivot, seconds, process bytes, Torch bytes, storage
   scalars, and boundary policy
 - `invariants`: every named prerequisite, interpretation, correctness,
-  control, observability/join/liveness, run completeness, operation, storage,
+  control, attempt completeness/exact order/cross-binding,
+  observability/join/liveness, decoded-run completeness, operation, storage,
   fill, pivot, RHS/sample, time/memory, finite, residual, dominance, and
   all-pass decision
 - `artifacts`: config, provenance, environment, H7 reference,
   H6-Prediction reference, validation, and manifest paths; no enclosing
   manifest hash or external-pointer hash
 
-Every production/profiler child record retains its `H8ChildResult` fields plus
-parent/child elapsed nanoseconds, exit code, stdout/stderr hashes, operation
-reachability, residuals, and resource decisions. No raw endpoint may be
-replaced by a maximum-only summary.
+The decoded `controls` inventory is the exact ordered prefix of typed
+`H8ControlResult` records cross-bound to result-bearing control attempts; PASS
+requires all 12. Every production/profiler child record retains its
+`H8ChildResult` fields plus parent/child elapsed nanoseconds, exit code,
+stdout/stderr hashes, operation reachability, residuals, and resource
+decisions. Its nested child-authored `resources` object is not rewritten: the
+protocol sentinel `resources.parent_elapsed_ns=0` remains intact, and the
+actual parent spawn-through-parse duration appears only in the attempt and the
+decoded record's separate top-level `parent_elapsed_ns`. No raw endpoint may
+be replaced by a maximum-only summary.
 
 ## Status precedence
 
@@ -587,22 +642,31 @@ configured, or hash-incompatible evidence yields H8 `INCONCLUSIVE` and no
 child suite starts. A prior-gate FAIL remains that gate's result; H8 does not
 relabel it as an H8 systems failure.
 
-After a valid start, any witnessed timeout, OOM/abnormal or nonzero exit,
+After a valid start, every launch actually issued retains an attempt record.
+Any witnessed attempt timeout, OOM/abnormal or nonzero exit,
 forbidden allocation/operation, off-band fill, nonfinite contract value,
 solver inability, omitted required operation in a completed run,
 thread/environment identity mismatch, invalid profiler version/liveness
 transition, finite residual/resource/pivot breach, or executed control missed
 by its detector is H8 `FAIL`. This witnessed failure dominates missing later
-evidence. In the absence of a witnessed violation, unavailable/unwitnessed
-evidence, a missing or nonunique profiler join, missing hash, or incomplete
-control/observability channel is `INCONCLUSIVE`.
+evidence or a missing typed result. In the absence of a witnessed violation,
+unavailable/unwitnessed evidence, a missing typed result, a missing or
+nonunique profiler join, missing hash, or incomplete control/observability
+channel is `INCONCLUSIVE`.
 
 PASS requires the conjunction of all 12 complete decisive correctness cells,
-all assigned controls, all four primary observability channels, joined and
-reconciled profiler events, 15 production runs, three profiler runs, complete
-operation reachability, bounded storage/RHS/sample/fill/pivots/time/memory,
-matching child identities, finite outputs, and every residual within its own
-allowance.
+all 30 attempts present in exact order with current request/identity/stream
+hashes and PASS status, every result-bearing attempt cross-bound to the
+corresponding decoded inventory, all 15 production runs, all three profiler
+runs, all 12 assigned controls, all four primary observability channels,
+joined and reconciled profiler events, complete operation reachability,
+bounded storage/RHS/sample/fill/pivots/time/memory, matching child identities,
+finite outputs, and every residual within its own allowance.
+
+The current staged gate appends
+`h8_parent_orchestrator_not_implemented` independently of those conjunction
+terms. Therefore the schema and status logic above are PASS-capable contracts,
+not a claim that the current shared runner can attain PASS.
 
 ## Claims and nonclaims
 
