@@ -844,6 +844,8 @@ def test_stratified_dynamic_report_is_scope_complete_and_explicitly_applicable()
         replace(plan, selection_manifest_sha256=SHA_A)
     with pytest.raises(ValueError):
         replace(report, particle_count=512)
+    with pytest.raises(ValueError, match="scope-complete"):
+        replace(report, completed_by_position=(3, 4, 4, 4))
 
     mismatch_plan = DynamicExecutionPlan.create_scoped(
         scope="estimator_stratified",

@@ -1448,6 +1448,13 @@ class DynamicPrefixReport:
                 raise ValueError(
                     "scoped completed_by_position exceeds the plan"
                 )
+            if (
+                self.status is EvidenceStatus.PASS
+                and self.completed_by_position != expected_counts
+            ):
+                raise ValueError(
+                    "scoped PASS requires scope-complete position counts"
+                )
             for check in self.checks:
                 if check.name not in applicable_check_names:
                     if (
@@ -1467,6 +1474,20 @@ class DynamicPrefixReport:
                 ):
                     raise ValueError(
                         "applicable PASS requires complete scoped execution"
+                    )
+            expected_scoped_count = sum(expected_counts)
+            completed_scoped_count = sum(self.completed_by_position)
+            for name in (
+                "dynamic_target_suffix_leakage",
+                "cache_identity",
+            ):
+                check = self.checks[_REPORT_CHECK_NAMES.index(name)]
+                if (
+                    check.expected_count != expected_scoped_count
+                    or check.completed_count != completed_scoped_count
+                ):
+                    raise ValueError(
+                        "leakage/cache counts must bind scoped position totals"
                     )
         signature_check = self.checks[0]
         if signature_check.status is EvidenceStatus.PASS and any(
