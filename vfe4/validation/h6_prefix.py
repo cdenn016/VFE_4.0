@@ -33,6 +33,7 @@ from vfe4.types import (
     ArmId,
     EvidenceStatus,
     EstimatorSpec,
+    H6PrefixWorkloadPlan,
     PrefixCaseKey,
     ValidationSafetyFixture,
     VocabularyIdentity,
@@ -63,6 +64,10 @@ _REPORT_CHECK_NAMES = (
     "case_inventory",
     "validation_data_safety",
 )
+_STRATIFIED_CHECK_NAMES = _REPORT_CHECK_NAMES[:3]
+_H6_PREFIX_V2_AUTHORIZATION_SHA256 = hashlib.sha256(
+    b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
+).hexdigest()
 
 
 def _sha256(value: object, name: str) -> str:
@@ -109,6 +114,54 @@ def _strict_json(raw: bytes, name: str) -> dict[str, object]:
     if type(value) is not dict:
         raise ValueError(f"{name} must contain one JSON object")
     return value
+
+
+def _scoped_plan_contract(
+    *,
+    scope: object,
+    case_family: object,
+    particle_count: object,
+) -> tuple[tuple[int, ...], int, tuple[int, ...]]:
+    if type(particle_count) is not int:
+        raise ValueError("scoped particle_count must be an exact integer")
+    if case_family == "small":
+        representative_counts = SMALL_EXPECTED_BY_POSITION
+        denominator = SMALL_EXPECTED_TOTAL
+    elif case_family == "validation":
+        representative_counts = (VALIDATION_EXPECTED_TOTAL,)
+        denominator = VALIDATION_EXPECTED_TOTAL
+    else:
+        raise ValueError("scoped case_family is unsupported")
+    workload = H6PrefixWorkloadPlan()
+    if scope == "representative_exhaustive":
+        if particle_count != workload.representative_particle_count:
+            raise ValueError(
+                "representative_exhaustive requires particle_count=128"
+            )
+        return representative_counts, denominator, tuple(range(denominator))
+    if scope == "estimator_stratified":
+        if particle_count not in workload.stratified_subset_particle_counts:
+            raise ValueError(
+                "estimator_stratified requires particle_count in "
+                "(256, 512, 1024)"
+            )
+        indices = (
+            workload.small_global_case_indices
+            if case_family == "small"
+            else workload.validation_global_case_indices
+        )
+        counts = (4, 4, 4, 4) if case_family == "small" else (16,)
+        return counts, denominator, indices
+    raise ValueError("scoped execution scope is unsupported")
+
+
+def _selection_manifest_payload(
+    rows: tuple[tuple[int, str], ...],
+) -> tuple[dict[str, object], ...]:
+    return tuple(
+        {"global_index": global_index, "case_sha256": case_sha256}
+        for global_index, case_sha256 in rows
+    )
 
 
 @dataclass(frozen=True)
@@ -656,32 +709,157 @@ class DynamicExecutionPlan:
     full_expected_count: int
     authorization_sha256: str | None
     plan_sha256: str
+    schema_version: Literal[
+        "h6-dynamic-execution-plan-v1",
+        "h6-dynamic-execution-plan-v2",
+    ] = "h6-dynamic-execution-plan-v1"
+    scope: Literal[
+        "representative_exhaustive",
+        "estimator_stratified",
+    ] | None = None
+    particle_count: int | None = None
+    workload_plan_sha256: str | None = None
+    selected_global_indices: tuple[int, ...] | None = None
+    selection_rows: tuple[tuple[int, str], ...] | None = None
+    selection_manifest_sha256: str | None = None
 
-    def __post_init__(self) -> None:
-        expected = (
-            SMALL_EXPECTED_BY_POSITION
-            if self.case_family == "small"
-            else (VALIDATION_EXPECTED_TOTAL,)
-        )
-        if (
-            self.mode not in ("focused_subset", "authorized_full")
-            or self.expected_by_position != expected
-            or self.full_expected_count != sum(expected)
-        ):
-            raise ValueError("dynamic execution plan counts are not frozen")
-        if self.mode == "authorized_full":
-            _sha256(self.authorization_sha256, "authorization_sha256")
-        elif self.authorization_sha256 is not None:
-            raise ValueError("focused subset cannot carry full authorization")
-        payload = {
-            "mode": self.mode,
+    @property
+    def scoped_expected_count(self) -> int:
+        return sum(self.expected_by_position)
+
+    def canonical_payload(self) -> dict[str, object]:
+        if self.schema_version == "h6-dynamic-execution-plan-v1":
+            return {
+                "mode": self.mode,
+                "case_family": self.case_family,
+                "expected_by_position": self.expected_by_position,
+                "full_expected_count": self.full_expected_count,
+                "authorization_sha256": self.authorization_sha256,
+            }
+        return {
+            "schema_version": self.schema_version,
+            "scope": self.scope,
             "case_family": self.case_family,
+            "particle_count": self.particle_count,
             "expected_by_position": self.expected_by_position,
             "full_expected_count": self.full_expected_count,
+            "selected_global_indices": self.selected_global_indices,
+            "workload_plan_sha256": self.workload_plan_sha256,
             "authorization_sha256": self.authorization_sha256,
+            "selection_rows": _selection_manifest_payload(
+                self.selection_rows or ()
+            ),
+            "selection_manifest_sha256": self.selection_manifest_sha256,
         }
+
+    def __post_init__(self) -> None:
+        if self.schema_version == "h6-dynamic-execution-plan-v1":
+            expected = (
+                SMALL_EXPECTED_BY_POSITION
+                if self.case_family == "small"
+                else (VALIDATION_EXPECTED_TOTAL,)
+            )
+            if (
+                self.mode not in ("focused_subset", "authorized_full")
+                or self.expected_by_position != expected
+                or self.full_expected_count != sum(expected)
+            ):
+                raise ValueError("dynamic execution plan counts are not frozen")
+            if self.mode == "authorized_full":
+                _sha256(self.authorization_sha256, "authorization_sha256")
+            elif self.authorization_sha256 is not None:
+                raise ValueError("focused subset cannot carry full authorization")
+            if any(
+                value is not None
+                for value in (
+                    self.scope,
+                    self.particle_count,
+                    self.workload_plan_sha256,
+                    self.selected_global_indices,
+                    self.selection_rows,
+                    self.selection_manifest_sha256,
+                )
+            ):
+                raise ValueError("v1 execution plans cannot carry scoped fields")
+            if self.plan_sha256 != _owned_hash(
+                "vfe4.h6.dynamic-execution-plan.v1",
+                self.canonical_payload(),
+            ):
+                raise ValueError("dynamic execution plan identity is stale")
+            return
+        if self.schema_version != "h6-dynamic-execution-plan-v2":
+            raise ValueError("unsupported dynamic execution plan schema")
+        if self.mode != "authorized_full":
+            raise ValueError("scoped execution plans require authorized_full mode")
+        expected, denominator, expected_indices = _scoped_plan_contract(
+            scope=self.scope,
+            case_family=self.case_family,
+            particle_count=self.particle_count,
+        )
+        if (
+            self.expected_by_position != expected
+            or self.full_expected_count != denominator
+        ):
+            raise ValueError("scoped execution plan counts are not frozen")
+        workload = H6PrefixWorkloadPlan()
+        if (
+            _sha256(self.workload_plan_sha256, "workload_plan_sha256")
+            != workload.workload_plan_sha256
+        ):
+            raise ValueError(
+                "workload_plan_sha256 does not bind the frozen workload"
+            )
+        if (
+            _sha256(self.authorization_sha256, "authorization_sha256")
+            != _H6_PREFIX_V2_AUTHORIZATION_SHA256
+        ):
+            raise ValueError(
+                "authorization_sha256 does not bind the bounded v2 workload"
+            )
+        if (
+            type(self.selected_global_indices) is not tuple
+            or any(
+                type(index) is not int
+                for index in self.selected_global_indices
+            )
+            or self.selected_global_indices != expected_indices
+        ):
+            raise ValueError("scoped selected global indices are not frozen")
+        if (
+            type(self.selection_rows) is not tuple
+            or any(
+                type(row) is not tuple
+                or len(row) != 2
+                or type(row[0]) is not int
+                or type(row[1]) is not str
+                for row in self.selection_rows
+            )
+        ):
+            raise ValueError("selection_rows must contain exact ordered rows")
+        for _, case_sha256 in self.selection_rows:
+            _sha256(case_sha256, "selection case_sha256")
+        row_indices = tuple(row[0] for row in self.selection_rows)
+        row_digests = tuple(row[1] for row in self.selection_rows)
+        if (
+            row_indices != expected_indices
+            or len(set(row_digests)) != len(row_digests)
+        ):
+            raise ValueError("selection rows do not match the frozen indices")
+        expected_manifest_sha256 = _owned_hash(
+            "vfe4.h6.dynamic-selection-manifest.v2",
+            _selection_manifest_payload(self.selection_rows),
+        )
+        if (
+            _sha256(
+                self.selection_manifest_sha256,
+                "selection_manifest_sha256",
+            )
+            != expected_manifest_sha256
+        ):
+            raise ValueError("selection manifest identity is stale")
         if self.plan_sha256 != _owned_hash(
-            "vfe4.h6.dynamic-execution-plan.v1", payload
+            "vfe4.h6.dynamic-execution-plan.v2",
+            self.canonical_payload(),
         ):
             raise ValueError("dynamic execution plan identity is stale")
 
@@ -709,6 +887,82 @@ class DynamicExecutionPlan:
             **payload,
             plan_sha256=_owned_hash(
                 "vfe4.h6.dynamic-execution-plan.v1", payload
+            ),
+        )
+
+    @classmethod
+    def create_scoped(
+        cls,
+        *,
+        scope: Literal[
+            "representative_exhaustive",
+            "estimator_stratified",
+        ],
+        case_family: Literal["small", "validation"],
+        particle_count: int,
+        workload_plan: H6PrefixWorkloadPlan,
+        authorization_sha256: str,
+        selection_rows: tuple[tuple[int, str], ...],
+    ) -> "DynamicExecutionPlan":
+        if cls is not DynamicExecutionPlan:
+            raise TypeError("scoped factory requires DynamicExecutionPlan")
+        if type(workload_plan) is not H6PrefixWorkloadPlan:
+            raise ValueError("workload_plan must be exact")
+        workload_plan.__post_init__()
+        expected, denominator, expected_indices = _scoped_plan_contract(
+            scope=scope,
+            case_family=case_family,
+            particle_count=particle_count,
+        )
+        if (
+            type(selection_rows) is not tuple
+            or any(
+                type(row) is not tuple
+                or len(row) != 2
+                or type(row[0]) is not int
+                or type(row[1]) is not str
+                for row in selection_rows
+            )
+        ):
+            raise ValueError("selection_rows must contain exact ordered rows")
+        selected_global_indices = tuple(row[0] for row in selection_rows)
+        if selected_global_indices != expected_indices:
+            raise ValueError("selection rows do not match the frozen indices")
+        selection_manifest_sha256 = _owned_hash(
+            "vfe4.h6.dynamic-selection-manifest.v2",
+            _selection_manifest_payload(selection_rows),
+        )
+        values = {
+            "mode": "authorized_full",
+            "case_family": case_family,
+            "expected_by_position": expected,
+            "full_expected_count": denominator,
+            "authorization_sha256": authorization_sha256,
+            "schema_version": "h6-dynamic-execution-plan-v2",
+            "scope": scope,
+            "particle_count": particle_count,
+            "workload_plan_sha256": workload_plan.workload_plan_sha256,
+            "selected_global_indices": selected_global_indices,
+            "selection_rows": selection_rows,
+            "selection_manifest_sha256": selection_manifest_sha256,
+        }
+        canonical = {
+            "schema_version": values["schema_version"],
+            "scope": scope,
+            "case_family": case_family,
+            "particle_count": particle_count,
+            "expected_by_position": expected,
+            "full_expected_count": denominator,
+            "selected_global_indices": selected_global_indices,
+            "workload_plan_sha256": workload_plan.workload_plan_sha256,
+            "authorization_sha256": authorization_sha256,
+            "selection_rows": _selection_manifest_payload(selection_rows),
+            "selection_manifest_sha256": selection_manifest_sha256,
+        }
+        return cls(
+            **values,
+            plan_sha256=_owned_hash(
+                "vfe4.h6.dynamic-execution-plan.v2", canonical
             ),
         )
 
@@ -999,7 +1253,10 @@ class DynamicCheckResult:
 
 @dataclass(frozen=True)
 class DynamicPrefixReport:
-    schema_version: Literal["h6-dynamic-prefix-report-v1"]
+    schema_version: Literal[
+        "h6-dynamic-prefix-report-v1",
+        "h6-dynamic-prefix-report-v2",
+    ]
     key: PrefixCaseKey
     execution_plan_sha256: str
     model_state_sha256: str | None
@@ -1019,9 +1276,19 @@ class DynamicPrefixReport:
     mask_manifest_sha256: str
     complete_case_manifest_sha256: str | None
     report_sha256: str
+    scope: Literal[
+        "representative_exhaustive",
+        "estimator_stratified",
+    ] | None = None
+    case_family: Literal["small", "validation"] | None = None
+    particle_count: int | None = None
+    workload_plan_sha256: str | None = None
+    selected_global_indices: tuple[int, ...] | None = None
+    selection_manifest_sha256: str | None = None
+    applicable_check_names: tuple[str, ...] | None = None
 
     def canonical_payload(self) -> dict[str, object]:
-        return {
+        payload = {
             "schema_version": self.schema_version,
             "key": self.key.canonical_payload(),
             "execution_plan_sha256": self.execution_plan_sha256,
@@ -1046,10 +1313,42 @@ class DynamicPrefixReport:
             "mask_manifest_sha256": self.mask_manifest_sha256,
             "complete_case_manifest_sha256": self.complete_case_manifest_sha256,
         }
+        if self.schema_version == "h6-dynamic-prefix-report-v2":
+            payload.update(
+                {
+                    "scope": self.scope,
+                    "case_family": self.case_family,
+                    "particle_count": self.particle_count,
+                    "workload_plan_sha256": self.workload_plan_sha256,
+                    "selected_global_indices": self.selected_global_indices,
+                    "selection_manifest_sha256": (
+                        self.selection_manifest_sha256
+                    ),
+                    "applicable_check_names": self.applicable_check_names,
+                }
+            )
+        return payload
 
     def __post_init__(self) -> None:
-        if self.schema_version != "h6-dynamic-prefix-report-v1":
+        if self.schema_version not in (
+            "h6-dynamic-prefix-report-v1",
+            "h6-dynamic-prefix-report-v2",
+        ):
             raise ValueError("unsupported dynamic prefix report schema")
+        is_v2 = self.schema_version == "h6-dynamic-prefix-report-v2"
+        if not is_v2 and any(
+            value is not None
+            for value in (
+                self.scope,
+                self.case_family,
+                self.particle_count,
+                self.workload_plan_sha256,
+                self.selected_global_indices,
+                self.selection_manifest_sha256,
+                self.applicable_check_names,
+            )
+        ):
+            raise ValueError("v1 dynamic reports cannot carry scoped fields")
         if type(self.key) is not PrefixCaseKey:
             raise ValueError("dynamic prefix report key must be exact")
         self.key.__post_init__()
@@ -1093,6 +1392,82 @@ class DynamicPrefixReport:
             if type(check) is not DynamicCheckResult:
                 raise ValueError("dynamic prefix report checks must be exact")
             check.__post_init__()
+        applicable_check_names = _REPORT_CHECK_NAMES
+        if is_v2:
+            expected_counts, _, expected_indices = _scoped_plan_contract(
+                scope=self.scope,
+                case_family=self.case_family,
+                particle_count=self.particle_count,
+            )
+            workload = H6PrefixWorkloadPlan()
+            if (
+                _sha256(
+                    self.workload_plan_sha256,
+                    "workload_plan_sha256",
+                )
+                != workload.workload_plan_sha256
+            ):
+                raise ValueError(
+                    "scoped report workload_plan_sha256 is stale"
+                )
+            if (
+                type(self.selected_global_indices) is not tuple
+                or any(
+                    type(index) is not int
+                    for index in self.selected_global_indices
+                )
+                or self.selected_global_indices != expected_indices
+            ):
+                raise ValueError(
+                    "scoped report selected global indices are not frozen"
+                )
+            _sha256(
+                self.selection_manifest_sha256,
+                "selection_manifest_sha256",
+            )
+            applicable_check_names = (
+                _REPORT_CHECK_NAMES
+                if self.scope == "representative_exhaustive"
+                else _STRATIFIED_CHECK_NAMES
+            )
+            if self.applicable_check_names != applicable_check_names:
+                raise ValueError(
+                    "scoped report applicability is not frozen"
+                )
+            if (
+                len(self.completed_by_position) != len(expected_counts)
+                or any(
+                    completed > expected
+                    for completed, expected in zip(
+                        self.completed_by_position,
+                        expected_counts,
+                        strict=True,
+                    )
+                )
+            ):
+                raise ValueError(
+                    "scoped completed_by_position exceeds the plan"
+                )
+            for check in self.checks:
+                if check.name not in applicable_check_names:
+                    if (
+                        check.status is not EvidenceStatus.PASS
+                        or check.expected_count != 0
+                        or check.completed_count != 0
+                        or check.violation_count != 0
+                        or check.first_counterexample is not None
+                        or check.obligations
+                    ):
+                        raise ValueError(
+                            "nonapplicable checks must be neutral PASS sentinels"
+                        )
+                elif (
+                    check.status is EvidenceStatus.PASS
+                    and check.completed_count != check.expected_count
+                ):
+                    raise ValueError(
+                        "applicable PASS requires complete scoped execution"
+                    )
         signature_check = self.checks[0]
         if signature_check.status is EvidenceStatus.PASS and any(
             getattr(self, name) is None
@@ -1111,10 +1486,14 @@ class DynamicPrefixReport:
             ):
                 raise ValueError(f"{name} must contain nonempty strings")
         witnessed_failure = any(
-            check.status is EvidenceStatus.FAIL for check in self.checks
+            check.status is EvidenceStatus.FAIL
+            for check in self.checks
+            if check.name in applicable_check_names
         )
         unresolved = any(
-            check.status is EvidenceStatus.INCONCLUSIVE for check in self.checks
+            check.status is EvidenceStatus.INCONCLUSIVE
+            for check in self.checks
+            if check.name in applicable_check_names
         )
         expected_status = (
             EvidenceStatus.FAIL
@@ -1134,12 +1513,22 @@ class DynamicPrefixReport:
         elif self.obligations or self.first_counterexample is not None:
             raise ValueError("passing dynamic report cannot carry open evidence")
         inventory = self.checks[_REPORT_CHECK_NAMES.index("case_inventory")]
-        if (self.complete_case_manifest_sha256 is None) == (
+        if is_v2 and self.scope == "estimator_stratified":
+            if self.complete_case_manifest_sha256 is not None:
+                raise ValueError(
+                    "stratified reports cannot carry a complete case manifest"
+                )
+        elif (self.complete_case_manifest_sha256 is None) == (
             inventory.status is EvidenceStatus.PASS
         ):
             raise ValueError("complete case manifest does not match inventory status")
+        report_domain = (
+            "vfe4.h6.dynamic-prefix-report.v2"
+            if is_v2
+            else "vfe4.h6.dynamic-prefix-report.v1"
+        )
         if self.report_sha256 != _owned_hash(
-            "vfe4.h6.dynamic-prefix-report.v1", self.canonical_payload()
+            report_domain, self.canonical_payload()
         ):
             raise ValueError("dynamic prefix report identity is stale")
 
@@ -1606,7 +1995,10 @@ def run_dynamic_prefix_checks(
         iterator = iter(cases)
     except TypeError as exc:
         raise ValueError("cases must be iterable") from exc
-    if plan.mode == "focused_subset":
+    if (
+        plan.schema_version == "h6-dynamic-execution-plan-v1"
+        and plan.mode == "focused_subset"
+    ):
         owned_cases = tuple(
             itertools.islice(iterator, MAX_FOCUSED_CASES + 1)
         )
@@ -1624,6 +2016,47 @@ def run_dynamic_prefix_checks(
         raise ValueError("dynamic cases must be unique exact records")
     for case in owned_cases:
         case.__post_init__()
+    is_v2 = plan.schema_version == "h6-dynamic-execution-plan-v2"
+    is_stratified = is_v2 and plan.scope == "estimator_stratified"
+    if is_v2:
+        supplied_rows = tuple(
+            (case.ordinal, case.case_sha256) for case in owned_cases
+        )
+        if supplied_rows != plan.selection_rows:
+            raise ValueError(
+                "dynamic case selection does not match the scoped plan"
+            )
+        if is_stratified and (
+            source_mask_observations is not None
+            or all_invalid_observation is not None
+        ):
+            raise ValueError(
+                "source-mask evidence is forbidden for stratified plans"
+            )
+        if is_stratified and perturbations is not None:
+            if plan.case_family != "validation":
+                raise ValueError(
+                    "validation perturbations cannot bind a small stratum"
+                )
+            perturbations.__post_init__()
+            perturbation_rows = tuple(
+                (case.ordinal, case.case_sha256)
+                for case in perturbations.dynamic_cases
+            )
+            if perturbation_rows != plan.selection_rows:
+                raise ValueError(
+                    "validation perturbations do not bind the scoped selection"
+                )
+        estimator_spec = getattr(predictor, "estimator_spec", None)
+        if type(estimator_spec) is not EstimatorSpec:
+            raise ValueError(
+                "scoped predictor requires an exact estimator artifact"
+            )
+        estimator_spec.__post_init__()
+        if estimator_spec.particle_count != plan.particle_count:
+            raise ValueError(
+                "predictor estimator particle count does not match the plan"
+            )
 
     identity_assessment = _signature_and_identity_assessment(
         key, predictor, arm_config
@@ -1834,25 +2267,39 @@ def run_dynamic_prefix_checks(
             f"cache cases not executed because {reason}"
         )
 
-    (
-        mask_violations,
-        mask_completed,
-        mask_first,
-        mask_obligations,
-        mask_manifest_sha,
-    ) = _source_mask_assessment(
-        source_mask_observations,
-        all_invalid_observation=all_invalid_observation,
-        arm_config=arm_config,
-        cases=owned_cases,
-        plan=plan,
+    if is_stratified:
+        mask_violations = 0
+        mask_completed = 0
+        mask_first = None
+        mask_obligations = ()
+        mask_manifest_sha = _owned_hash(
+            "vfe4.h6.source-mask-manifest.v2", ()
+        )
+    else:
+        (
+            mask_violations,
+            mask_completed,
+            mask_first,
+            mask_obligations,
+            mask_manifest_sha,
+        ) = _source_mask_assessment(
+            source_mask_observations,
+            all_invalid_observation=all_invalid_observation,
+            arm_config=arm_config,
+            cases=owned_cases,
+            plan=plan,
+        )
+    scoped_expected_count = (
+        plan.scoped_expected_count if is_v2 else plan.full_expected_count
     )
     inventory_complete = (
         tuple(completed_by_position) == plan.expected_by_position
-        and len(owned_cases) == plan.full_expected_count
+        and len(owned_cases) == scoped_expected_count
     )
     data_obligations: list[str] = []
-    if plan.case_family == "validation":
+    if is_stratified:
+        data_completed = 0
+    elif plan.case_family == "validation":
         if perturbations is None:
             data_obligations.append("validation perturbation fixture is absent")
             data_completed = 0
@@ -1934,6 +2381,9 @@ def run_dynamic_prefix_checks(
         if data_obligations
         else EvidenceStatus.PASS
     )
+    dynamic_expected_count = (
+        scoped_expected_count if is_v2 else len(owned_cases)
+    )
     checks = (
         DynamicCheckResult.create(
             name="signature_and_identity",
@@ -1949,7 +2399,7 @@ def run_dynamic_prefix_checks(
         DynamicCheckResult.create(
             name="dynamic_target_suffix_leakage",
             status=dynamic_status,
-            expected_count=len(owned_cases),
+            expected_count=dynamic_expected_count,
             completed_count=completed_total,
             violation_count=dynamic_violations,
             first_counterexample=dynamic_first,
@@ -1958,7 +2408,7 @@ def run_dynamic_prefix_checks(
         DynamicCheckResult.create(
             name="cache_identity",
             status=cache_status,
-            expected_count=len(owned_cases),
+            expected_count=dynamic_expected_count,
             completed_count=completed_total,
             violation_count=cache_violations,
             first_counterexample=cache_first,
@@ -1966,38 +2416,51 @@ def run_dynamic_prefix_checks(
         ),
         DynamicCheckResult.create(
             name="source_mask",
-            status=mask_status,
-            expected_count=(
-                plan.full_expected_count * len(_expected_source_banks(arm_config))
+            status=(
+                EvidenceStatus.PASS if is_stratified else mask_status
             ),
-            completed_count=mask_completed,
-            violation_count=mask_violations,
-            first_counterexample=mask_first,
-            obligations=mask_obligations,
+            expected_count=(
+                0
+                if is_stratified
+                else plan.full_expected_count
+                * len(_expected_source_banks(arm_config))
+            ),
+            completed_count=(0 if is_stratified else mask_completed),
+            violation_count=(0 if is_stratified else mask_violations),
+            first_counterexample=(None if is_stratified else mask_first),
+            obligations=(() if is_stratified else mask_obligations),
         ),
         DynamicCheckResult.create(
             name="case_inventory",
             status=(
                 EvidenceStatus.PASS
-                if inventory_complete
+                if is_stratified or inventory_complete
                 else EvidenceStatus.INCONCLUSIVE
             ),
-            expected_count=plan.full_expected_count,
-            completed_count=completed_total,
-            obligations=inventory_obligations,
+            expected_count=(0 if is_stratified else scoped_expected_count),
+            completed_count=(0 if is_stratified else completed_total),
+            obligations=(() if is_stratified else inventory_obligations),
         ),
         DynamicCheckResult.create(
             name="validation_data_safety",
-            status=data_status,
+            status=(
+                EvidenceStatus.PASS if is_stratified else data_status
+            ),
             expected_count=(
-                plan.full_expected_count
+                0
+                if is_stratified
+                else scoped_expected_count
                 if plan.case_family == "validation"
                 else 0
             ),
-            completed_count=data_completed,
-            violation_count=data_violations,
-            first_counterexample=data_first,
-            obligations=tuple(dict.fromkeys(data_obligations)),
+            completed_count=(0 if is_stratified else data_completed),
+            violation_count=(0 if is_stratified else data_violations),
+            first_counterexample=(None if is_stratified else data_first),
+            obligations=(
+                ()
+                if is_stratified
+                else tuple(dict.fromkeys(data_obligations))
+            ),
         ),
     )
     case_result_rows = tuple(
@@ -2044,26 +2507,39 @@ def run_dynamic_prefix_checks(
         if pair_side_harness is not None
         else _owned_hash("vfe4.h6.pair-side-harness-manifest.v1", ())
     )
+    manifest_domain = (
+        "vfe4.h6.dynamic-case-manifest.v2"
+        if is_v2
+        else "vfe4.h6.dynamic-case-manifest.v1"
+    )
     manifest_sha = (
         _owned_hash(
-            "vfe4.h6.dynamic-case-manifest.v1",
+            manifest_domain,
             tuple(case.case_sha256 for case in owned_cases),
         )
-        if inventory_complete
+        if inventory_complete and not is_stratified
         else None
+    )
+    applicable_check_names = (
+        _REPORT_CHECK_NAMES
+        if not is_stratified
+        else _STRATIFIED_CHECK_NAMES
     )
     unresolved_diagnostics = tuple(
         dict.fromkeys(
             item
             for check in checks
+            if check.name in applicable_check_names
             for item in check.obligations
         )
     )
     witnessed_failure = any(
-        check.status is EvidenceStatus.FAIL for check in checks
+        check.status is EvidenceStatus.FAIL
+        for check in checks
+        if check.name in applicable_check_names
     )
     top_obligations: list[str] = []
-    if not witnessed_failure:
+    if not is_v2 and not witnessed_failure:
         if plan.mode != "authorized_full":
             top_obligations.append("focused subset is not H6-Prefix evidence")
         top_obligations.append(
@@ -2076,20 +2552,30 @@ def run_dynamic_prefix_checks(
         if witnessed_failure
         else EvidenceStatus.INCONCLUSIVE
         if top_obligations
-        or any(check.status is EvidenceStatus.INCONCLUSIVE for check in checks)
+        or any(
+            check.status is EvidenceStatus.INCONCLUSIVE
+            for check in checks
+            if check.name in applicable_check_names
+        )
         else EvidenceStatus.PASS
     )
     first_counterexample = next(
         (
             check.first_counterexample
             for check in checks
-            if check.status is EvidenceStatus.FAIL
+            if check.name in applicable_check_names
+            and check.status is EvidenceStatus.FAIL
         ),
         None,
     )
     estimator_identity = getattr(predictor, "estimator_identity", None)
+    report_schema = (
+        "h6-dynamic-prefix-report-v2"
+        if is_v2
+        else "h6-dynamic-prefix-report-v1"
+    )
     report_values = {
-        "schema_version": "h6-dynamic-prefix-report-v1",
+        "schema_version": report_schema,
         "key": key,
         "execution_plan_sha256": plan.plan_sha256,
         "model_state_sha256": getattr(predictor, "model_state_sha256", None),
@@ -2118,6 +2604,21 @@ def run_dynamic_prefix_checks(
         "pair_harness_manifest_sha256": pair_harness_manifest_sha,
         "mask_manifest_sha256": mask_manifest_sha,
         "complete_case_manifest_sha256": manifest_sha,
+        "scope": (plan.scope if is_v2 else None),
+        "case_family": (plan.case_family if is_v2 else None),
+        "particle_count": (plan.particle_count if is_v2 else None),
+        "workload_plan_sha256": (
+            plan.workload_plan_sha256 if is_v2 else None
+        ),
+        "selected_global_indices": (
+            plan.selected_global_indices if is_v2 else None
+        ),
+        "selection_manifest_sha256": (
+            plan.selection_manifest_sha256 if is_v2 else None
+        ),
+        "applicable_check_names": (
+            applicable_check_names if is_v2 else None
+        ),
     }
     canonical_report_payload = {
         **report_values,
@@ -2125,10 +2626,26 @@ def run_dynamic_prefix_checks(
         "checks": tuple(check.canonical_payload() for check in checks),
         "status": status.value,
     }
+    if not is_v2:
+        for name in (
+            "scope",
+            "case_family",
+            "particle_count",
+            "workload_plan_sha256",
+            "selected_global_indices",
+            "selection_manifest_sha256",
+            "applicable_check_names",
+        ):
+            canonical_report_payload.pop(name)
+    report_domain = (
+        "vfe4.h6.dynamic-prefix-report.v2"
+        if is_v2
+        else "vfe4.h6.dynamic-prefix-report.v1"
+    )
     report = DynamicPrefixReport(
         **report_values,
         report_sha256=_owned_hash(
-            "vfe4.h6.dynamic-prefix-report.v1", canonical_report_payload
+            report_domain, canonical_report_payload
         ),
     )
     report.__post_init__()
