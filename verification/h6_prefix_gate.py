@@ -16,13 +16,18 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+import torch
+
 from verification.numpy_oracles.h6_prefix import enumerate_ordered_tail_pairs
 from vfe4.artifacts.atomic import publish_run_directory
 from vfe4.artifacts.provenance import current_source_identity
 from vfe4.config.schema import H6PrefixResolvedConfig
-from vfe4.predictive import vocabulary_identity_sha256
-from vfe4.training.arms import build_arm
+from vfe4.data.windows import CausalPrefix
+from vfe4.numerics.categorical import masked_log_softmax_from_parents
+from vfe4.predictive import BootstrapSmcPredictor, EstimatorStream, vocabulary_identity_sha256
+from vfe4.training.arms import BuiltArm, LatentLanguageArmModel, build_arm
 from vfe4.types.h6 import (
+    ArmConfig,
     H6_PREFIX_REQUIRED_CHECKS,
     EvidenceStatus,
     H6PrefixProfilePair,
@@ -41,7 +46,11 @@ from vfe4.validation.h6_prefix import (
     DynamicPrefixCase,
     DynamicPrefixReport,
     PairSideHarness,
+    AllInvalidSourceObservation,
+    SourceMaskObservation,
     load_frozen_validation_perturbations,
+    observe_all_invalid_source_rejection,
+    run_dynamic_prefix_checks,
 )
 from vfe4.validation.h6_static_audit import (
     StaticAuditCheck,
@@ -964,6 +973,106 @@ def _small_cases(
     )
 
 
+def _source_mask_evidence(
+    *,
+    built_arm: BuiltArm,
+    predictor: BootstrapSmcPredictor,
+    arm_config: ArmConfig,
+    cases: tuple[DynamicPrefixCase, ...],
+    stream_seed: int,
+) -> tuple[
+    tuple[SourceMaskObservation, ...] | None,
+    AllInvalidSourceObservation | None,
+]:
+    """Capture live categorical rows using the predictor's exact latent history."""
+
+    if arm_config.source_mode != "categorical":
+        return None, None
+    if (
+        built_arm.config is not arm_config
+        or type(built_arm.model) is not LatentLanguageArmModel
+        or predictor.proposal.model is not built_arm.model
+        or predictor.predictor_config_sha256 != arm_config.config_sha256
+    ):
+        raise RuntimeError(
+            "source-mask evidence must use the exact built arm and predictor"
+        )
+    source_prior = built_arm.model.source_prior
+    if source_prior is None:
+        raise RuntimeError("categorical arm has no live source prior")
+    observations: list[SourceMaskObservation] = []
+    for case in cases:
+        prefix = CausalPrefix.create(
+            receiver_t=case.receiver_t,
+            vocabulary=arm_config.vocabulary,
+            token_ids=torch.tensor(case.shared_prefix, dtype=torch.int64),
+        )
+        stream = EstimatorStream.create(
+            stream_seed=stream_seed,
+            estimator_identity=predictor.estimator_identity,
+        )
+        prediction = predictor.next_token_log_probs(prefix, stream, None)
+        population = prediction.cache.filtered_population
+        row = source_prior.structure.dag.rows[case.receiver_t - 1]
+        if row.receiver_t != case.receiver_t:
+            raise RuntimeError("source-prior receiver is not the Prefix receiver")
+        histories = {
+            "state": population.component("state_history")[0],
+        }
+        if arm_config.model_channel_enabled:
+            histories["model"] = population.component("model_history")[0]
+        for bank, history in histories.items():
+            if arm_config.prior_variant == "fixed":
+                log_probabilities = (
+                    built_arm.model.state_source_log_probs(case.receiver_t)
+                    if bank == "state"
+                    else built_arm.model.model_source_log_probs(case.receiver_t)
+                )
+            elif arm_config.prior_variant == "parent_specific_pooled_prefix":
+                log_probabilities = (
+                    built_arm.model.state_source_log_probs(
+                        case.receiver_t,
+                        prefix=prefix,
+                        earlier_latents=history,
+                    )
+                    if bank == "state"
+                    else built_arm.model.model_source_log_probs(
+                        case.receiver_t,
+                        prefix=prefix,
+                        earlier_latents=history,
+                    )
+                )
+            else:
+                raise RuntimeError("categorical Prefix arm has an unsupported prior")
+            observations.append(
+                SourceMaskObservation.capture(
+                    case_sha256=case.case_sha256,
+                    config_sha256=arm_config.config_sha256,
+                    bank=bank,
+                    receiver_t=case.receiver_t,
+                    declared_parents=row.parents,
+                    log_probabilities=log_probabilities,
+                )
+            )
+    probe_receiver_t = cases[0].receiver_t
+
+    def all_invalid_probe() -> object:
+        return masked_log_softmax_from_parents(
+            torch.zeros(probe_receiver_t, dtype=torch.float64),
+            (),
+            probe_receiver_t,
+        )
+
+    return (
+        tuple(observations),
+        observe_all_invalid_source_rejection(
+            config_sha256=arm_config.config_sha256,
+            receiver_t=probe_receiver_t,
+            probe=all_invalid_probe,
+        ),
+    )
+
+
 def _validate_resolved_runner_config(config: H6PrefixResolvedConfig) -> None:
     if type(config) is not H6PrefixResolvedConfig:
         raise ValueError("config must be an exact H6PrefixResolvedConfig")
@@ -1085,6 +1194,22 @@ def run_h6_prefix(
             profile=profile,
             small=False,
         )
+        small_source_masks, small_all_invalid = _source_mask_evidence(
+            built_arm=built_small,
+            predictor=small_predictor,
+            arm_config=profile.small_arm_config,
+            cases=small_cases,
+            stream_seed=2026072197,
+        )
+        validation_source_masks, validation_all_invalid = (
+            _source_mask_evidence(
+                built_arm=built_production,
+                predictor=production_predictor,
+                arm_config=profile.production_arm_config,
+                cases=perturbations.dynamic_cases,
+                stream_seed=2026072197,
+            )
+        )
         small_report = run_dynamic_prefix_checks(
             key=small_key,
             predictor=small_predictor,
@@ -1096,6 +1221,8 @@ def run_h6_prefix(
                 authorization_sha256=config.authorization_sha256,
             ),
             stream_seed=2026072197,
+            source_mask_observations=small_source_masks,
+            all_invalid_observation=small_all_invalid,
             pair_side_harness=PairSideHarness(),
         )
         validation_report = run_dynamic_prefix_checks(
@@ -1110,6 +1237,8 @@ def run_h6_prefix(
             ),
             stream_seed=2026072197,
             perturbations=perturbations,
+            source_mask_observations=validation_source_masks,
+            all_invalid_observation=validation_all_invalid,
             pair_side_harness=PairSideHarness(),
         )
         static_report = audit_h6_static_source(

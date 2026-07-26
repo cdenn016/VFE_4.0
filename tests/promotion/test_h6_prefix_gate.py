@@ -4,9 +4,11 @@ import hashlib
 import json
 from dataclasses import fields
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+import verification.h6_prefix_gate as h6_prefix_gate
 from verification.h6_prefix_gate import (
     H6PrefixReportBundle,
     compose_prefix_certificate,
@@ -29,10 +31,12 @@ from vfe4.types import (
     PrefixReportBinding,
     VocabularyIdentity,
     ZeroDimensionalBase,
+    arm_model_family_sha256,
 )
 from vfe4.types.h6 import canonical_json_bytes
 from vfe4.validation.h6_prefix import (
     DynamicCheckResult,
+    DynamicPrefixCase,
     DynamicPrefixReport,
 )
 from vfe4.validation.h6_static_audit import (
@@ -101,6 +105,181 @@ def _arm_config(*, vocabulary: VocabularyIdentity, horizon: int, width: int) -> 
             recognition_width=None,
         ),
     )
+
+
+def _categorical_arm_config(
+    *,
+    arm: ArmId,
+    vocabulary: VocabularyIdentity,
+    horizon: int,
+) -> ArmConfig:
+    if arm is ArmId.A2:
+        return ArmConfig.create(
+            arm=arm,
+            config_id="h6-a2-generic-map-v1",
+            vocabulary=vocabulary,
+            horizon=horizon,
+            latent_enabled=True,
+            state_channel_enabled=True,
+            model_channel_enabled=True,
+            source_mode="categorical",
+            map_mode="generic_fixed_frame_non_coboundary",
+            recognition_family="structured",
+            recognition_conditioning="smoothing",
+            prior_variant="fixed",
+            mixture_mode="exact",
+            objective_kind="complete_elbo",
+            capacity_allocation=CapacityAllocation.create(
+                emission_width=48,
+                latent_width=8,
+                recognition_width=32,
+            ),
+        )
+    if arm is ArmId.A5:
+        return ArmConfig.create(
+            arm=arm,
+            config_id=(
+                "h6-a5-structured-parent-specific-prefix-exact-complete-"
+                "latent-smoothing-v2"
+            ),
+            vocabulary=vocabulary,
+            horizon=horizon,
+            latent_enabled=True,
+            state_channel_enabled=True,
+            model_channel_enabled=True,
+            source_mode="categorical",
+            map_mode="shared_vertex_coboundary",
+            recognition_family="structured",
+            recognition_conditioning="smoothing",
+            prior_variant="parent_specific_pooled_prefix",
+            mixture_mode="exact",
+            objective_kind="complete_elbo",
+            capacity_allocation=CapacityAllocation.create(
+                emission_width=48,
+                latent_width=8,
+                recognition_width=32,
+                prior_context_width=2,
+            ),
+        )
+    raise ValueError("test helper supports the two categorical profiles")
+
+
+def _categorical_profile(arm: ArmId) -> H6PrefixProfilePair:
+    small = _categorical_arm_config(
+        arm=arm,
+        vocabulary=VocabularyIdentity("h6-prefix-small-v1", 3, "a" * 64),
+        horizon=4,
+    )
+    production = _categorical_arm_config(
+        arm=arm,
+        vocabulary=VocabularyIdentity("wikitext-2-byte-v1", 258, "b" * 64),
+        horizon=32,
+    )
+    estimator = EstimatorSpec.create(
+        kind="weighted_smc",
+        particle_count=4,
+        resampling="systematic_ess_half",
+    )
+    return H6PrefixProfilePair.create(
+        profile_id=f"h6-{arm.value.lower()}-categorical-smc-4",
+        small_arm_config=small,
+        production_arm_config=production,
+        estimator=estimator,
+        small_structure=_structure(4),
+        production_structure=_structure(32),
+        data_safety_sha256=hashlib.sha256(
+            b"VFE4-H6-TARGET-FREE-PREDICTIVE-BOUNDARY-V1"
+        ).hexdigest(),
+        small_model_family_sha256=arm_model_family_sha256(small),
+        production_model_family_sha256=arm_model_family_sha256(production),
+    )
+
+
+def test_runner_binds_source_mask_observations_for_each_prefix_case_family(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Catch a runner that omits categorical source-mask evidence arguments."""
+
+    case = DynamicPrefixCase.create(
+        ordinal=0,
+        receiver_t=2,
+        shared_prefix=(1,),
+        left_tail=(0,),
+        right_tail=(2,),
+    )
+    captured: list[dict[str, object]] = []
+
+    def capture_dynamic_checks(**kwargs: object) -> object:
+        assert (
+            "source_mask_observations" in kwargs
+            and "all_invalid_observation" in kwargs
+        ), "run_h6_prefix() supplies no source-mask observations/all-invalid observation"
+        captured.append(kwargs)
+        return object()
+
+    monkeypatch.setattr(h6_prefix_gate, "_validate_resolved_runner_config", lambda _: None)
+    monkeypatch.setattr(h6_prefix_gate, "_small_cases", lambda _: (case,))
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "load_frozen_validation_perturbations",
+        lambda: SimpleNamespace(dynamic_cases=(case,)),
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "run_dynamic_prefix_checks",
+        capture_dynamic_checks,
+    )
+    monkeypatch.setattr(h6_prefix_gate, "audit_h6_static_source", lambda *_: object())
+    monkeypatch.setattr(h6_prefix_gate, "compose_prefix_certificate", lambda **_: object())
+    monkeypatch.setattr(h6_prefix_gate, "H6PrefixReportBundle", lambda **_: object())
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "publish_h6_prefix_artifact",
+        lambda **_: (object(), tmp_path / "published"),
+    )
+    config = SimpleNamespace(
+        source=SimpleNamespace(
+            git_head="1" * 40,
+            dirty_digest="2" * 64,
+            source_sha256="3" * 64,
+        ),
+        execution_mode="focused_subset",
+        profiles=(
+            _categorical_profile(ArmId.A2),
+            _categorical_profile(ArmId.A5),
+        ),
+        authorization_sha256=None,
+        artifact_root=tmp_path,
+        canonical_json="{}",
+        config_sha256="4" * 64,
+    )
+
+    h6_prefix_gate.run_h6_prefix(config=config, junit_sha256=None)
+
+    assert len(captured) == 4
+    for values in captured:
+        arm_config = values["arm_config"]
+        observations = values["source_mask_observations"]
+        all_invalid = values["all_invalid_observation"]
+        assert isinstance(observations, tuple)
+        assert len(observations) == 2
+        assert {observation.case_sha256 for observation in observations} == {
+            case.case_sha256
+        }
+        assert {observation.bank for observation in observations} == {
+            "state",
+            "model",
+        }
+        assert all(
+            observation.declared_parents == tuple(range(case.receiver_t))
+            and observation.receiver_t == case.receiver_t
+            and observation.config_sha256 == arm_config.config_sha256
+            for observation in observations
+        )
+        assert getattr(all_invalid, "config_sha256") == arm_config.config_sha256
+        assert getattr(all_invalid, "outcome") == "rejected"
+        assert getattr(all_invalid, "observed_type") == "AllInvalidSourceRowError"
 
 
 def _model_family_sha256(config: ArmConfig) -> str:
