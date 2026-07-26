@@ -167,14 +167,75 @@ resolved or the final claim is explicitly narrowed.
 
 The existing `h7-mp-precision-operands-v1` consumer cannot be frozen from this
 production capture because it equates a production covariance hash with an
-independently computed 100-decimal oracle-value hash. Before Task 4B2
-serialization, replace that contract with a versioned v2 schema that carries
-the exact production `covariance_values` and
-`covariance_snapshot_sha256`, plus the exact production `precision_values`
-and precision snapshot hash. The independent oracle must numerically compare
-its separately assembled covariance to those production values; it must not
-require the two representations to have identical serialization hashes. No v2
-raw-file, set, or oracle-inventory hash is frozen by this amendment.
+independently computed 100-decimal oracle-value hash. Task 4B2 therefore uses
+the reviewed `h7-mp-precision-operands-v2` schema with source contract
+`task5-production-covariance-and-precision-v2` and binary64 text policy
+`python-repr-binary64-roundtrip-v1`. Its exact root fields are
+
+```text
+precision_table_schema
+h1_raw_fixture_sha256
+h7_raw_fixture_sha256
+ordered_trial_ids
+source_contract
+binary64_text_policy
+precision_set_sha256
+records
+```
+
+and every row has exactly
+
+```text
+row_index
+trial_id
+gaussian_id
+source_kind
+shape
+covariance_values
+covariance_values_sha256
+covariance_snapshot_sha256
+precision_values
+precision_values_sha256
+precision_snapshot_sha256
+record_sha256
+```
+
+The two value arrays retain the exact production float64 values as canonical
+Python `repr` tokens. Every token must parse to one finite binary64 value and
+must reproduce the identical token and binary64 bits under the declared text
+policy. The table contains exactly 192 rows in the closed Task-5 capture
+order. Within each family-local batch, all `owned_component` rows precede its
+`assembled_global` rows; the complete inventory contains 152 and 40 of those
+rows, respectively. `source_kind` admits only those two literals, and each
+global Gaussian ID must be marked `assembled_global`; injected precision rows
+are forbidden.
+
+`covariance_values_sha256` uses domain
+`vfe4.h7.mp-serialized-covariance-values.v2` over exactly
+`{trial_id, gaussian_id, source_kind, shape, covariance_values}`.
+`precision_values_sha256` uses domain
+`vfe4.h7.mp-serialized-precision-values.v2` over the analogous preimage with
+`precision_values`. `record_sha256` uses domain
+`vfe4.h7.mp-serialized-precision-operand.v2` over every row field above except
+`record_sha256`. `precision_set_sha256` uses domain
+`vfe4.h7.mp-serialized-precision-set.v2` over every root field except
+`precision_set_sha256`, including the complete ordered records. All four
+digests use the existing H7 canonical hashing semantics.
+
+The independent parser must reconstruct the exact row-major binary64 bytes
+from both value arrays and recompute both
+`vfe4.h7.owned-tensor-snapshot.v1` snapshot hashes. It separately assembles
+the 100-decimal covariance and compares that numerical value with the
+serialized production covariance; the independent and production
+representations are not required to share a serialization hash. It then
+checks both `Sigma J = I` and `J Sigma = I` using the serialized production
+covariance and precision and consumes exactly all 192 rows.
+
+This amendment freezes only the schema, domains, field inventory, row
+inventory, canonical preimages, and parser obligations. The v2 raw-file hash,
+`precision_set_sha256`, and final oracle-inventory hash remain `UNMEASURED`
+and their corresponding expected constants remain `None` until separately
+authorized serialization and calibration.
 
 ## Required trials
 

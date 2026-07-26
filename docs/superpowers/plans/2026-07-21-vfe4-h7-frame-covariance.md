@@ -1225,15 +1225,91 @@ performs no inverse synthesis. The fixture parser currently materializes
 already-owned local receiver precisions separately; their provenance remains a
 pre-H7-closure obligation if the final claim is end-to-end inverse-free.
 
-Before Task 4B2 serializes any precision table, replace the current
-`h7-mp-precision-operands-v1` covariance-hash equality with a versioned v2
-schema. It must carry exact production `covariance_values` and
-`covariance_snapshot_sha256`, plus production `precision_values` and its
-snapshot hash. The independent 100-decimal oracle numerically compares its
-separately assembled covariance to the production values; production is not
-required to predict the oracle representation's serialization hash. Freeze no
-v2 raw, set, or oracle-inventory hash until that schema and binary64 text
-round-trip policy are implemented and reviewed.
+### July 26 Task 4B2 amendment: serialize production covariance and precision
+
+Replace the current `h7-mp-precision-operands-v1` covariance-hash equality
+with the reviewed root schema `h7-mp-precision-operands-v2`, source contract
+`task5-production-covariance-and-precision-v2`, and binary64 text policy
+`python-repr-binary64-roundtrip-v1`. The root fields are exactly
+
+```text
+precision_table_schema
+h1_raw_fixture_sha256
+h7_raw_fixture_sha256
+ordered_trial_ids
+source_contract
+binary64_text_policy
+precision_set_sha256
+records
+```
+
+Each record has exactly
+
+```text
+row_index
+trial_id
+gaussian_id
+source_kind
+shape
+covariance_values
+covariance_values_sha256
+covariance_snapshot_sha256
+precision_values
+precision_values_sha256
+precision_snapshot_sha256
+record_sha256
+```
+
+Serialize both production tensors as row-major arrays of canonical Python
+`repr` strings. Every leaf must be finite, parse to one binary64 value, and
+round-trip to the identical token and binary64 bits under the declared text
+policy. Emit exactly the closed 192-row Task-5 inventory in its exact capture
+order: every batch's `owned_component` rows precede its `assembled_global`
+rows, for complete totals of 152 and 40. Reject a missing, duplicated,
+reordered, or extra row; a source kind outside those two literals; any global
+Gaussian ID not marked
+`assembled_global`; and every legacy `injected` source.
+
+The exact hash preimages are:
+
+- `covariance_values_sha256`: domain
+  `vfe4.h7.mp-serialized-covariance-values.v2` over
+  `{trial_id, gaussian_id, source_kind, shape, covariance_values}`;
+- `precision_values_sha256`: domain
+  `vfe4.h7.mp-serialized-precision-values.v2` over
+  `{trial_id, gaussian_id, source_kind, shape, precision_values}`;
+- `record_sha256`: domain
+  `vfe4.h7.mp-serialized-precision-operand.v2` over every row field except
+  `record_sha256`;
+- `precision_set_sha256`: domain
+  `vfe4.h7.mp-serialized-precision-set.v2` over every root field except
+  `precision_set_sha256`, including the complete ordered records.
+
+Use the existing H7 canonical hashing semantics for every domain. The parser
+reconstructs the exact row-major binary64 bytes and recomputes both
+`vfe4.h7.owned-tensor-snapshot.v1` hashes. It independently assembles the
+100-decimal covariance, compares it numerically with the serialized production
+covariance without requiring representation-hash equality, verifies both
+`Sigma J = I` and `J Sigma = I` on the serialized production pair, and
+requires exactly 192 consumed rows.
+
+- [ ] **Step 4B2.1: Add two focused failing tests.** Freeze the exact v2
+  root/row fields, domains, canonical binary64 text round trip, 192-row
+  ordering and 152/40 source split. Require the independent consumer to accept
+  a numerically equal high-precision covariance whose representation hash
+  differs. Reject v1, injected sources, stale value/snapshot/row/set hashes,
+  nonfinite or noncanonical tokens, and incomplete/reordered inventories.
+- [ ] **Step 4B2.2: Add the production table writer and v2 oracle consumer.**
+  Serialize only the owned Task-5 capture batches. Recompute every hash and
+  snapshot from the exact values rather than trusting caller metadata. Keep
+  the oracle covariance independent while validating the serialized
+  production covariance/precision pair.
+- [ ] **Step 4B2.3: Run only the two exact focused nodes, review, and commit.**
+  Do not run the complete file or suite.
+
+This amendment freezes no concrete v2 raw-file, set, or oracle-inventory hash.
+Those measurements remain `UNMEASURED`, and their expected constants remain
+`None`, until a separately authorized serialization/calibration run.
 
 ## Task 6: Add the Independent 100-Decimal Oracle and Operand-Local Budgets
 

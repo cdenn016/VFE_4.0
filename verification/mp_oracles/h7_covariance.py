@@ -100,6 +100,57 @@ _PRECISION_OPERAND_RAW_SHA256: str | None = None
 _PRECISION_OPERAND_SET_SHA256: str | None = None
 _ORACLE_INVENTORY_SHA256: str | None = None
 _PRECISION_OPERAND_COUNT = 192
+_PRECISION_TABLE_SCHEMA = "h7-mp-precision-operands-v2"
+_PRECISION_SOURCE_CONTRACT = (
+    "task5-production-covariance-and-precision-v2"
+)
+_BINARY64_TEXT_POLICY = "python-repr-binary64-roundtrip-v1"
+_COVARIANCE_VALUES_DOMAIN = (
+    "vfe4.h7.mp-serialized-covariance-values.v2"
+)
+_PRECISION_VALUES_DOMAIN = "vfe4.h7.mp-serialized-precision-values.v2"
+_PRECISION_ROW_DOMAIN = "vfe4.h7.mp-serialized-precision-operand.v2"
+_PRECISION_SET_DOMAIN = "vfe4.h7.mp-serialized-precision-set.v2"
+_SCALAR_PRECISION_IDS = (
+    "scalar.p.initial_joint",
+    "scalar.q.initial_joint",
+    "scalar.p.p.model.receiver_1.source_0.receiver_offset",
+    "scalar.p.p.state.receiver_1.source_0.receiver_offset",
+    "scalar.p.p.model.receiver_2.source_0.receiver_offset",
+    "scalar.p.p.state.receiver_2.source_0.receiver_offset",
+    "scalar.p.p.model.receiver_2.source_1.receiver_offset",
+    "scalar.p.p.state.receiver_2.source_1.receiver_offset",
+    "scalar.q_model.q.model.receiver_1.source_0.receiver_offset",
+    "scalar.q_model.q.model.receiver_2.source_0.receiver_offset",
+    "scalar.q_model.q.model.receiver_2.source_1.receiver_offset",
+    "scalar.q_state.q.state.receiver_1.a_0.b_0.receiver_offset",
+    "scalar.q_state.q.state.receiver_2.a_0.b_0.receiver_offset",
+    "scalar.q_state.q.state.receiver_2.a_1.b_0.receiver_offset",
+    "scalar.q_state.q.state.receiver_2.a_0.b_1.receiver_offset",
+    "scalar.q_state.q.state.receiver_2.a_1.b_1.receiver_offset",
+    "scalar.q.global[h1-path-0:a0-b0]",
+    "scalar.q.global[h1-path-1:a1-b0]",
+    "scalar.q.global[h1-path-2:a0-b1]",
+    "scalar.q.global[h1-path-3:a1-b1]",
+    "scalar.p.global[h1-path-0:a0-b0]",
+    "scalar.p.global[h1-path-1:a1-b0]",
+    "scalar.p.global[h1-path-2:a0-b1]",
+    "scalar.p.global[h1-path-3:a1-b1]",
+)
+_MATRIX_PRECISION_SUFFIXES = (
+    "p.initial_joint",
+    "q.initial_joint",
+    "p.p.model.receiver_1.receiver_offset",
+    "p.p.state.receiver_1.receiver_offset",
+    "p.p.model.receiver_2.receiver_offset",
+    "p.p.state.receiver_2.receiver_offset",
+    "q_model.q.{family}.model.receiver_1.receiver_offset",
+    "q_model.q.{family}.model.receiver_2.receiver_offset",
+    "q_state.q.{family}.state.receiver_1.receiver_offset",
+    "q_state.q.{family}.state.receiver_2.receiver_offset",
+    "q.global[matrix-singleton-path]",
+    "p.global[matrix-singleton-path]",
+)
 _H1_PATH_IDS = (
     "h1-path-0:a0-b0",
     "h1-path-1:a1-b0",
@@ -385,6 +436,41 @@ class _MPInventoryOperand:
     action_indices: tuple[int, ...]
 
 
+def _expected_precision_row_identities() -> tuple[
+    tuple[str, str, Literal["owned_component", "assembled_global"]],
+    ...,
+]:
+    rows: list[
+        tuple[str, str, Literal["owned_component", "assembled_global"]]
+    ] = []
+    for trial_id in H7_REQUIRED_TRIAL_IDS[:2]:
+        rows.extend(
+            (
+                trial_id,
+                gaussian_id,
+                "owned_component" if index < 16 else "assembled_global",
+            )
+            for index, gaussian_id in enumerate(_SCALAR_PRECISION_IDS)
+        )
+    for trial_id in H7_REQUIRED_TRIAL_IDS[2:]:
+        for family in ("structured", "factorized"):
+            gaussian_ids = tuple(
+                f"{family}.{suffix.format(family=family)}"
+                for suffix in _MATRIX_PRECISION_SUFFIXES
+            )
+            rows.extend(
+                (
+                    trial_id,
+                    gaussian_id,
+                    "owned_component" if index < 10 else "assembled_global",
+                )
+                for index, gaussian_id in enumerate(gaussian_ids)
+            )
+    if len(rows) != _PRECISION_OPERAND_COUNT:
+        raise AssertionError("internal H7 precision inventory changed")
+    return tuple(rows)
+
+
 @dataclass
 class _MPPrecisionOperandSource:
     records: tuple[Mapping[str, Any], ...]
@@ -414,65 +500,35 @@ class _MPPrecisionOperandSource:
             raise _H7ExternalDataError(
                 f"{location} changed precision identity/order/shape"
             )
-        covariance_record = _value_record(
-            f"{gaussian_id}.covariance",
-            covariance,
-            condition_number=_condition_spd(covariance),
+        serialized_covariance = _matrix(record["covariance_values"])
+        covariance_error = _max_abs(serialized_covariance - covariance)
+        covariance_scale = max(
+            _matrix_scale(serialized_covariance),
+            _matrix_scale(covariance),
         )
-        if record["covariance_sha256"] != covariance_record.value_sha256:
-            raise _H7ExternalDataError(
-                f"{location} does not bind the consumed covariance"
+        try:
+            covariance_condition = max(
+                _condition_spd(serialized_covariance),
+                _condition_spd(covariance),
             )
-        _numeric_tensor(
-            record["precision_values"],
-            expected_shape,
-            f"{location}.precision_values",
-        )
-        precision_snapshot = _owned_snapshot_semantic(
-            record["precision_values"],
-            expected_shape,
-            f"{location}.precision_values",
-        )
-        if record["source_snapshot_sha256"] != precision_snapshot["snapshot_sha256"]:
+        except ValueError as error:
             raise _H7ExternalDataError(
-                f"{location}.source_snapshot_sha256 does not bind its values"
+                f"{location} covariance is not positive definite"
+            ) from error
+        covariance_allowance = (
+            256
+            * (mp.mpf(2) ** -52)
+            * max(mp.mpf("1"), covariance_condition)
+            * covariance_scale
+        )
+        if covariance_error > covariance_allowance:
+            raise _H7ExternalDataError(
+                f"{location} serialized covariance disagrees numerically "
+                "with the independent covariance"
             )
         precision = _matrix(record["precision_values"])
-        precision_sha256 = _h7_hash(
-            "vfe4.h7.mp-serialized-precision-value.v1",
-            {
-                "trial_id": trial_id,
-                "gaussian_id": gaussian_id,
-                "shape": shape,
-                "precision_values": record["precision_values"],
-            },
-        )
-        if record["precision_sha256"] != precision_sha256:
-            raise _H7ExternalDataError(
-                f"{location}.precision_sha256 does not bind its values"
-            )
-        semantic = {
-            key: record[key]
-            for key in (
-                "row_index",
-                "trial_id",
-                "gaussian_id",
-                "shape",
-                "covariance_sha256",
-                "precision_values",
-                "precision_sha256",
-                "source_snapshot_sha256",
-            )
-        }
-        if record["record_sha256"] != _h7_hash(
-            "vfe4.h7.mp-serialized-precision-operand.v1",
-            semantic,
-        ):
-            raise _H7ExternalDataError(
-                f"{location}.record_sha256 does not bind the exact row"
-            )
         _validate_serialized_precision(
-            covariance,
+            serialized_covariance,
             precision,
             location,
         )
@@ -629,6 +685,10 @@ def evaluate_h7_from_raw_bytes(
         scalar_probes = _parse_raw_json(h1_scalar_probe_bytes)
         _validate_scalar_probe_table(scalar_probes, h1, h1_paths)
         precision_operands = _parse_raw_json(precision_operand_bytes)
+        if _canonical_bytes(precision_operands) + b"\n" != precision_operand_bytes:
+            raise _H7ExternalDataError(
+                "precision operand bytes are not canonical newline JSON"
+            )
         precision_source = _validate_precision_operand_table(precision_operands)
         scalar_raw_sha256 = hashlib.sha256(h1_scalar_probe_bytes).hexdigest()
         precision_raw_sha256 = hashlib.sha256(precision_operand_bytes).hexdigest()
@@ -938,9 +998,9 @@ def _h7_hash(domain: str, value: object) -> str:
 
 
 def _finite_binary64(value: object, location: str) -> float:
-    exact = _mp(value)
+    _mp(value)
     try:
-        converted = float(exact)
+        converted = float(cast(str, value))
     except (OverflowError, ValueError) as error:
         raise _H7ExternalDataError(
             f"{location} is outside the finite binary64 domain"
@@ -948,6 +1008,46 @@ def _finite_binary64(value: object, location: str) -> float:
     if not math.isfinite(converted):
         raise _H7ExternalDataError(f"{location} is outside the finite binary64 domain")
     return converted
+
+
+def _canonical_binary64(value: object, location: str) -> float:
+    if type(value) is not str or not value:
+        raise _H7ExternalDataError(
+            f"{location} must be a canonical binary64 text token"
+        )
+    try:
+        converted = float(value)
+    except (OverflowError, ValueError) as error:
+        raise _H7ExternalDataError(
+            f"{location} is outside the finite binary64 domain"
+        ) from error
+    if (
+        not math.isfinite(converted)
+        or repr(converted) != value
+        or struct.pack("<d", float(repr(converted)))
+        != struct.pack("<d", converted)
+    ):
+        raise _H7ExternalDataError(
+            f"{location} violates the canonical binary64 text policy"
+        )
+    return converted
+
+
+def _canonical_binary64_tensor(
+    value: object,
+    shape: tuple[int, ...],
+    location: str,
+) -> None:
+    if not shape:
+        _canonical_binary64(value, location)
+        return
+    rows = _exact_sequence(value, shape[0], location)
+    for index, item in enumerate(rows):
+        _canonical_binary64_tensor(
+            item,
+            shape[1:],
+            f"{location}[{index}]",
+        )
 
 
 def _owned_snapshot_semantic(
@@ -2230,6 +2330,7 @@ def _validate_precision_operand_table(
             "h7_raw_fixture_sha256",
             "ordered_trial_ids",
             "source_contract",
+            "binary64_text_policy",
             "precision_set_sha256",
             "records",
         },
@@ -2241,11 +2342,12 @@ def _validate_precision_operand_table(
         "precision_operand_table.ordered_trial_ids",
     )
     if (
-        root["precision_table_schema"] != "h7-mp-precision-operands-v1"
+        root["precision_table_schema"] != _PRECISION_TABLE_SCHEMA
         or root["h1_raw_fixture_sha256"] != _H1_RAW_SHA256
         or root["h7_raw_fixture_sha256"] != _H7_RAW_SHA256
         or tuple(ordered_trial_ids) != H7_REQUIRED_TRIAL_IDS
-        or root["source_contract"] != "serialized-task5-owned-precision-v1"
+        or root["source_contract"] != _PRECISION_SOURCE_CONTRACT
+        or root["binary64_text_policy"] != _BINARY64_TEXT_POLICY
     ):
         raise _H7ExternalDataError(
             "precision operand table identity/source contract changed"
@@ -2263,25 +2365,33 @@ def _validate_precision_operand_table(
         "row_index",
         "trial_id",
         "gaussian_id",
+        "source_kind",
         "shape",
-        "covariance_sha256",
+        "covariance_values",
+        "covariance_values_sha256",
+        "covariance_snapshot_sha256",
         "precision_values",
-        "precision_sha256",
-        "source_snapshot_sha256",
+        "precision_values_sha256",
+        "precision_snapshot_sha256",
         "record_sha256",
     }
     validated: list[Mapping[str, Any]] = []
     record_hashes: list[str] = []
+    expected_rows = _expected_precision_row_identities()
+    source_counts = {"owned_component": 0, "assembled_global": 0}
     for index, raw_record in enumerate(records):
         location = f"precision_operand_table.records[{index}]"
         record = _exact_fields(raw_record, record_fields, location)
         shape_values = _exact_sequence(record["shape"], 2, f"{location}.shape")
         shape = tuple(_as_int(item) for item in shape_values)
+        expected_trial_id, expected_gaussian_id, expected_source_kind = (
+            expected_rows[index]
+        )
         if (
             record["row_index"] != str(index)
-            or record["trial_id"] not in H7_REQUIRED_TRIAL_IDS
-            or type(record["gaussian_id"]) is not str
-            or not record["gaussian_id"]
+            or record["trial_id"] != expected_trial_id
+            or record["gaussian_id"] != expected_gaussian_id
+            or record["source_kind"] != expected_source_kind
             or len(shape) != 2
             or shape[0] <= 0
             or shape[0] != shape[1]
@@ -2289,21 +2399,98 @@ def _validate_precision_operand_table(
             raise _H7ExternalDataError(
                 f"{location} changed identity/order/square shape"
             )
-        _numeric_tensor(
+        is_global = (
+            ".global[" in cast(str, record["gaussian_id"])
+            and cast(str, record["gaussian_id"]).endswith("]")
+        )
+        if is_global != (record["source_kind"] == "assembled_global"):
+            raise _H7ExternalDataError(
+                f"{location} changed global precision source kind"
+            )
+        source_counts[cast(str, record["source_kind"])] += 1
+        square_shape = cast(tuple[int, int], shape)
+        _canonical_binary64_tensor(
+            record["covariance_values"],
+            square_shape,
+            f"{location}.covariance_values",
+        )
+        _canonical_binary64_tensor(
             record["precision_values"],
-            cast(tuple[int, int], shape),
+            square_shape,
+            f"{location}.precision_values",
+        )
+        covariance_snapshot = _owned_snapshot_semantic(
+            record["covariance_values"],
+            square_shape,
+            f"{location}.covariance_values",
+        )
+        precision_snapshot = _owned_snapshot_semantic(
+            record["precision_values"],
+            square_shape,
             f"{location}.precision_values",
         )
         for name in (
-            "covariance_sha256",
-            "precision_sha256",
-            "source_snapshot_sha256",
+            "covariance_values_sha256",
+            "covariance_snapshot_sha256",
+            "precision_values_sha256",
+            "precision_snapshot_sha256",
             "record_sha256",
         ):
             _require_sha256(record[name], f"{location}.{name}")
+        if (
+            record["covariance_snapshot_sha256"]
+            != covariance_snapshot["snapshot_sha256"]
+            or record["precision_snapshot_sha256"]
+            != precision_snapshot["snapshot_sha256"]
+        ):
+            raise _H7ExternalDataError(
+                f"{location} tensor snapshot hash does not bind its values"
+            )
+        identity = {
+            "trial_id": record["trial_id"],
+            "gaussian_id": record["gaussian_id"],
+            "source_kind": record["source_kind"],
+            "shape": record["shape"],
+        }
+        if record["covariance_values_sha256"] != _h7_hash(
+            _COVARIANCE_VALUES_DOMAIN,
+            {
+                **identity,
+                "covariance_values": record["covariance_values"],
+            },
+        ):
+            raise _H7ExternalDataError(
+                f"{location}.covariance_values_sha256 does not bind values"
+            )
+        if record["precision_values_sha256"] != _h7_hash(
+            _PRECISION_VALUES_DOMAIN,
+            {
+                **identity,
+                "precision_values": record["precision_values"],
+            },
+        ):
+            raise _H7ExternalDataError(
+                f"{location}.precision_values_sha256 does not bind values"
+            )
+        semantic = {
+            key: record[key]
+            for key in record_fields
+            if key != "record_sha256"
+        }
+        if record["record_sha256"] != _h7_hash(
+            _PRECISION_ROW_DOMAIN,
+            semantic,
+        ):
+            raise _H7ExternalDataError(
+                f"{location}.record_sha256 does not bind the exact row"
+            )
         record_hashes.append(cast(str, record["record_sha256"]))
         validated.append(record)
-    if len(set(record_hashes)) != _PRECISION_OPERAND_COUNT:
+    if (
+        len(set(record_hashes)) != _PRECISION_OPERAND_COUNT
+        or source_counts
+        != {"owned_component": 152, "assembled_global": 40}
+    ):
         raise _H7ExternalDataError(
             "precision operand rows/hashes are missing or duplicated"
         )
@@ -2311,14 +2498,13 @@ def _validate_precision_operand_table(
         "precision_table_schema": root["precision_table_schema"],
         "h1_raw_fixture_sha256": root["h1_raw_fixture_sha256"],
         "h7_raw_fixture_sha256": root["h7_raw_fixture_sha256"],
-        "ordered_trial_ids": tuple(ordered_trial_ids),
+        "ordered_trial_ids": root["ordered_trial_ids"],
         "source_contract": root["source_contract"],
-        "records": tuple(
-            {**record, "record_sha256": record["record_sha256"]} for record in validated
-        ),
+        "binary64_text_policy": root["binary64_text_policy"],
+        "records": list(validated),
     }
     if set_sha256 != _h7_hash(
-        "vfe4.h7.mp-serialized-precision-set.v1",
+        _PRECISION_SET_DOMAIN,
         set_semantic,
     ):
         raise _H7ExternalDataError(

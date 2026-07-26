@@ -2137,34 +2137,6 @@ class H7AssembledGlobalPrecisionSnapshot(_H7IntegrityRecord):
 
 
 @dataclass(frozen=True)
-class H7InjectedGlobalPrecisionSnapshot(_H7IntegrityRecord):
-    _integrity_field: ClassVar[str] = "input_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.injected-global-precision.v1"
-
-    trial_id: H7TrialId
-    gaussian_id: str
-    covariance_snapshot_sha256: str
-    precision: H7OwnedTensorSnapshot
-    input_sha256: str
-
-    def __post_init__(self) -> None:
-        if self.trial_id not in H7_REQUIRED_TRIAL_IDS:
-            raise ValueError("injected precision trial_id is outside H7")
-        _require_nonempty(self.gaussian_id, "gaussian_id")
-        if ".global[" not in self.gaussian_id or not self.gaussian_id.endswith("]"):
-            raise ValueError("injected precision gaussian_id must select a global law")
-        _require_sha256(
-            self.covariance_snapshot_sha256,
-            "covariance_snapshot_sha256",
-        )
-        _require_task5_precision_matrix(
-            self.precision,
-            "injected Task-5 precision",
-        )
-        super().__post_init__()
-
-
-@dataclass(frozen=True)
 class H7Task5PrecisionOperandSnapshot(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "operand_sha256"
     _hash_domain: ClassVar[str] = "vfe4.h7.task5-precision-operand.v2"

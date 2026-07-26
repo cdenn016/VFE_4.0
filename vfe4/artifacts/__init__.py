@@ -38,6 +38,11 @@ _H6_MATCHING_EXPORTS = frozenset(
         "read_h6_matching_set",
     }
 )
+_H7_EXPORTS = frozenset(
+    {
+        "build_h7_task5_precision_operand_table_bytes",
+    }
+)
 
 
 def __getattr__(name: str) -> object:
@@ -51,6 +56,10 @@ def __getattr__(name: str) -> object:
         from . import h6_matching
 
         return getattr(h6_matching, name)
+    if name in _H7_EXPORTS:
+        from . import h7
+
+        return getattr(h7, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -70,6 +79,7 @@ __all__ = [
     "reopen_bounded_prefix_certificate_set",
     "run_projected_current_candidate",
     "build_environment",
+    "build_h7_task5_precision_operand_table_bytes",
     "build_provenance",
     "current_source_identity",
     "derive_h6_inference_inclusive_compute_report",
