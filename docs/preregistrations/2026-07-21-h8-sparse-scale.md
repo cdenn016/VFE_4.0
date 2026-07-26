@@ -1,6 +1,9 @@
 # H8 Sparse-Scale Systems Preregistration
 
-Protocol revision: `h8-sparse-scale-v3` (amended 2026-07-26)
+Protocol revision: `h8-sparse-scale-v4` (amended 2026-07-26)
+
+This v4 contract supersedes the underspecified staged v3 contract before any
+H8 scientific execution.
 
 Status at freeze: protocol only. No H8 correctness grid, production child,
 profiler child, negative control, timing measurement, memory measurement, or
@@ -12,18 +15,28 @@ chain. It is click-run through the single editable `CONFIG` dictionary in
 `verify_vfe4.py`; it has no required CLI or second launcher.
 
 The implemented shared-integration path currently binds the exact current-HEAD
-`CurrentH8PrerequisiteRefs` and can publish an honest `INCONCLUSIVE` artifact,
-but it does not yet own or launch the frozen parent child-attempt sequence.
-Parent orchestration and complete runtime cross-binding are the next
-implementation slice. Until they exist, the runtime inventories remain empty
-and the gate retains `h8_parent_orchestrator_not_implemented`, so H8 cannot
-report PASS. That blocker may be removed only with the parent implementation
-and current runtime revalidation. The separate `verification/h8_preflight.py`
-path remains metadata-only and zero-compute: it launches no correctness cell,
-runtime child, profiler, control, or test. This preregistration contains no
-measured endpoint and no PASS claim.
+`CurrentH8PrerequisiteRefs`; the frozen parent request planner and injected
+issued-prefix runner now exist. Lossless typed child evidence and exact problem
+endpoints, authoritative runtime-section derivation and independent
+revalidation, selected H8 runner/click-run wiring, and removal of the remaining
+PASS blockers are still pending. Until all of those slices exist and
+revalidate, H8 remains fail-closed `INCONCLUSIVE` in the absence of a witnessed
+failure. The separate `verification/h8_preflight.py` path remains
+metadata-only and zero-compute: it launches no correctness cell, runtime child,
+profiler, control, or test. This preregistration contains no measured endpoint
+and no PASS claim.
 
 ## Scope and source pins
+
+The sole singular manuscript binding is the SHA-256 of the raw bytes at:
+
+- `Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex`:
+  `d733880d3613d32a97b7a12c93ff6c037d0abdfd9ce4810e411769997dbad03c`
+
+This value is carried by `revision.manuscript_sha256`. It binds no MAgent
+manuscript and asserts no theorem-level reduction between the VFE4 and MAgent
+theories. The existing preregistration/source-pin digest separately binds the
+imported VFE4 module bytes through the source-byte values below.
 
 The frozen source-byte SHA-256 values are:
 
@@ -339,6 +352,24 @@ substitution, backward substitution, mean solve, logdet, all
 diagonal/adjacent selected-inverse blocks, width-one sample, quadratic, sparse
 trace, condition estimate, entropy, log normalizer, and complete objective.
 
+The canonical parent/child protocol digest preimage freezes these exact
+schema literals:
+
+```text
+factor_schema="h8-block-tridiagonal-cholesky-v1"
+selected_inverse_schema="h8-block-takahashi-selected-inverse-v1"
+condition_estimator_schema="HagerHigham1NormEstimate-v1"
+allocation_schema="h8-allocation-observability-v1"
+profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"
+```
+
+That preimage also includes the complete required-operation inventory above,
+the exact ordered negative-control inventory below, and every frozen numerical
+and boundary constant, including tolerance, decisiveness, pivot, time, memory,
+storage, RHS/sample-width, fill, and forbidden-attempt policies. Parent and
+child must recompute the same digest from that complete preimage; omission or
+substitution of any literal or inventory is `INCONCLUSIVE`.
+
 Each attempt retains its exact request, `status`, ordered `reasons`, optional
 typed `result`, `timed_out`, `exit_code`, actual parent `parent_elapsed_ns`,
 `request_sha256`, `identities_sha256`, `stdout_sha256`, `stderr_sha256`, and
@@ -386,9 +417,12 @@ The four primary channels are:
 3. Backend counters, fill, workspace, RHS, sample, and selected-block records.
 4. Clean-subprocess OS high-water memory.
 
-The NumPy guard supplies its assigned controls. `tracemalloc`, documented
-lossy profiler export rows, profiler aggregate/net deltas, and the Hager-
-Higham estimate are supplementary and cannot close or override a claim.
+The NumPy guard supplies its assigned controls. The validation field
+`tracemalloc_supplementary` is literal JSON `null`, meaning "not collected."
+It is excluded from `all_observable`, every memory decision, and overall
+status, and cannot close, rescue, or override a claim. Documented lossy
+profiler export rows, profiler aggregate/net deltas, and the Hager--Higham
+estimate are likewise supplementary and cannot close or override a claim.
 
 Profiler pins:
 
@@ -404,7 +438,8 @@ The profiler call uses `record_shapes=True`, `profile_memory=True`, and
 `with_stack=True`. It retains the live profiler object and joins
 `profile._memory_profile().timeline` to
 `experimental_event_tree()` in memory by the complete
-`TensorKey(id,storage.ptr,allocation_id,device)` plus version. Each raw record
+private `TensorKey` identity plus version. Its exact persisted tensor-key
+mapping is `{tensor_id,storage_ptr,allocation_id,device}`. Each raw record
 retains source-row index, timestamp, action, key, version, signed bytes,
 dtype, device, operator, stack, logical shape, classification, matched event
 nodes, join-witness hash, and live bytes after the event.
@@ -546,7 +581,7 @@ variants verbatim. The external pointer is not part of the artifact manifest.
 ## Validation payload schema
 
 The in-artifact file is `validation/h8.json`,
-`schema_version="h8-sparse-scale-v3"`, `gate="H8"`. Its exact top-level key
+`schema_version="h8-sparse-scale-v4"`, `gate="H8"`. Its exact top-level key
 order is:
 
 ```text
@@ -559,34 +594,98 @@ child_attempts, production_runs, profiler_runs, budgets, invariants, artifacts
 Required nested inventories:
 
 - `revision`: `git_head`, `dirty_digest`, `dependency_closure_sha256`,
-  `manuscript_sha256`, `preregistration_sha256`, `h7_plan_sha256`
+  `manuscript_sha256`, `preregistration_sha256`, `h7_plan_sha256`;
+  `manuscript_sha256` is exactly
+  `d733880d3613d32a97b7a12c93ff6c037d0abdfd9ce4810e411769997dbad03c`,
+  the raw-byte digest of
+  `Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex`
 - `config`: canonical H8 config hash and exact resolved configuration
 - `prerequisites`: the complete H7 compatibility mapping, five lossless
   tagged H8 reference variants, exact compatibility-check inventory, named
   prerequisite obligations, and `all_current_and_pass`
 - `interpretation`: interpretation hash, choice kind, K semantics, all
   dimensions/order/supports, and ambiguity policy
-- `protocol`: generator/sample/factor/selected-inverse/condition/allocation/
-  child schemas, Torch/profiler pins, seed tables, operation inventory, and
-  control order
+- `protocol`: generator/sample/child schemas, Torch/profiler pins, seed
+  tables, operation inventory, and control order, plus the exact literals
+  `factor_schema="h8-block-tridiagonal-cholesky-v1"`,
+  `selected_inverse_schema="h8-block-takahashi-selected-inverse-v1"`,
+  `condition_estimator_schema="HagerHigham1NormEstimate-v1"`,
+  `allocation_schema="h8-allocation-observability-v1"`, and
+  `profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"`. The canonical
+  parent/child protocol digest preimage includes all five literals, the
+  complete required-operation and negative-control inventories, and every
+  frozen numerical and boundary constant.
 - `environment`: platform, processor, CPU count, affinity, Python/PyTorch/
   NumPy, CPU/float64/no-grad, threads, thread environment, BLAS, and separate
   hardware/affinity/thread/BLAS hashes
-- `problems`: three ordered production records with both seeds, input/noise/
-  generative/recognition hashes, local SPD diagnostics, transition norms, and
-  observation hash
+- `problems`: exactly three seed-major records
+  `{problem_seed,sample_noise_seed,input_sha256,sample_noise_sha256,
+  generative_sha256,recognition_sha256,local_spd_diagnostics,
+  transition_norms,observation_sha256}`. `generative_sha256` is the
+  domain-separated SHA-256 of canonical JSON for
+  `h8-generative-evidence-v1`; it covers layout/seed/vocabulary metadata,
+  `alpha`, the initial mean/covariance, every model/state transition, and
+  every emission. Every array is represented by exact shape, little-endian
+  float64 dtype, and the SHA-256 of its raw C-order bytes; transition
+  identities, source supports, and observations remain explicit.
+  `recognition_sha256` is the analogous domain-separated
+  `h8-recognition-evidence-v1` hash over the recognition initial
+  mean/covariance and every ordered recognition transition.
+  `local_spd_diagnostics` has
+  `schema_version="h8-local-spd-diagnostics-v1"` and retains the minimum
+  NumPy-Cholesky diagonal pivot for the generative initial covariance, every
+  ordered model covariance, every ordered state covariance, the recognition
+  initial covariance, every ordered recognition covariance, and the global
+  minimum. These local problem-covariance diagnostics are distinct from the
+  production block-factor pivots. `transition_norms` has
+  `schema_version="h8-transition-norms-v1"`, `norm="operator_2"`, the ordered
+  operator 2-norm arrays for model matrices, state matrices, state-model
+  coupling matrices, and recognition matrices, and each inventory maximum.
+  They are captured from the already required generator contraction
+  calculation and never trigger a second SVD pass in each child.
+  `observation_sha256` is the domain-separated SHA-256 of canonical JSON
+  `{"domain":"vfe4.h8.observations.v1","records":[[receiver_t,x_t],...]}`
+  in receiver order. Each seed record is reconstructed only after its problem
+  evidence is byte-identical across all five production repetitions and that
+  seed's profiler run; any disagreement is `INCONCLUSIVE`, and first-run
+  selection is forbidden
 - `storage`: information, precision, factor, selected, category-cap, dense-
   forbidden counts, and three category decisions
-- `factor`: algorithm, pattern, fill, workspace, diagnostic condition
-  estimate, all pivot minima/margins, counters, and reconstruction invariants
+- `factor` is exactly `{schema_version,algorithm,pattern,runs}`, with
+  `schema_version="h8-factor-evidence-v1"`,
+  `algorithm="block_tridiagonal_cholesky_local_recursion"`, and
+  `pattern="symmetric_block_tridiagonal_diag_lower_only"`. `runs` is exactly
+  18 records in authoritative `production_runs` then `profiler_runs` order,
+  each
+  `{mode,seed,repetition,input_sha256,fill,workspace,
+  condition_diagnostics,counters,reconstruction_invariants}` and cross-bound
+  to the corresponding result-bearing attempt. `condition_diagnostics`
+  retains the complete typed `SparseConditionDiagnostics`, including the
+  diagnostic-only condition estimate and every per-block/global pivot
+  endpoint. First-run selection, maximum-only reduction, and silent cross-run
+  collapse are forbidden
 - `correctness`: literal grid order, all cells, count, completeness,
   decisiveness, and pass decision; each cell retains dimensions, both seeds
   and hashes, three source results, every pair comparison, wrong-path
   controls, status, and obligations
-- `allocation`: whitelist, dispatch/live storage, profiler API and all raw
-  events, preexisting counts/bytes/baseline, reconstructed peak,
-  supplementary deltas, backend, OS HWM, supplementary tracemalloc,
-  cross-checks, observability, and forbidden-attempt decision
+- `allocation` is exactly
+  `{schema_version,whitelist,runs,tracemalloc_supplementary,all_observable,
+  no_forbidden_attempts}`, with
+  `schema_version="h8-allocation-evidence-v1"`. `runs` is exactly the same
+  18-record authoritative order, each
+  `{mode,seed,repetition,input_sha256,allocation,resources}` and cross-bound
+  to the corresponding result-bearing attempt. `allocation` is the complete
+  validated child mapping, not a reduced `H8AllocationRecord`: it retains
+  dispatch events/scopes/storage, the NumPy inventory and guard events,
+  profiler API/raw events/lossy supplementary rows, preexisting baseline and
+  liveness reconstruction, and raw dispatch/backend cross-checks. Persisted
+  profiler tensor keys are exactly
+  `{tensor_id,storage_ptr,allocation_id,device}`. `resources` is the exact
+  child-authored `H8ResourceRecord`, including `parent_elapsed_ns=0`; actual
+  parent elapsed time remains only in the attempt.
+  `tracemalloc_supplementary` is literal JSON `null`, meaning "not collected,"
+  and is excluded from `all_observable`, all memory decisions, and overall
+  status. It cannot close, rescue, or override a claim
 - `controls`: exact ordered records retaining requested operation, logical
   shapes, assigned/observed channels, witness/event hash, assignment,
   detection, status, and obligations
@@ -622,6 +721,12 @@ Required nested inventories:
 - `artifacts`: config, provenance, environment, H7 reference,
   H6-Prediction reference, validation, and manifest paths; no enclosing
   manifest hash or external-pointer hash
+
+The existing `production_runs` and `profiler_runs` arrays remain the
+authoritative ordering and published typed-result inventories. The
+factor/allocation `runs` arrays are lossless evidence views in that same order,
+cross-bound to those inventories and their result-bearing attempts; they do
+not replace either authoritative array.
 
 The decoded `controls` inventory is the exact ordered prefix of typed
 `H8ControlResult` records cross-bound to result-bearing control attempts; PASS
@@ -663,10 +768,16 @@ joined and reconciled profiler events, complete operation reachability,
 bounded storage/RHS/sample/fill/pivots/time/memory, matching child identities,
 finite outputs, and every residual within its own allowance.
 
-The current staged gate appends
-`h8_parent_orchestrator_not_implemented` independently of those conjunction
-terms. Therefore the schema and status logic above are PASS-capable contracts,
-not a claim that the current shared runner can attain PASS.
+The current staged gate has the frozen parent request planner and injected
+issued-prefix runner, but it still lacks lossless typed child evidence,
+authoritative runtime-section derivation and independent revalidation, and
+selected H8 runner/click-run wiring. The remaining PASS locks, including
+runtime sections not being bound and the staged parent-orchestrator blocker,
+may be removed only after those paths are complete and independently
+revalidated. Until then, the schema and status logic above are PASS-capable
+contracts, not a claim that the current shared runner can attain PASS;
+fail-closed `INCONCLUSIVE` semantics remain in force absent a witnessed
+failure.
 
 ## Claims and nonclaims
 
