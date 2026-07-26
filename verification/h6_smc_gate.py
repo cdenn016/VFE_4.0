@@ -195,13 +195,6 @@ class FiniteSmcFixture:
         )
         if self.semantic_sha256 != expected:
             raise ValueError("finite fixture semantic identity is stale")
-        exact = exact_finite_oracle(self)
-        if min(
-            math.exp(value)
-            for row in exact.token_log_probs
-            for value in row
-        ) < 0.10 - 1e-15:
-            raise ValueError("finite exact token probability falls below 0.10")
 
     def _semantic_payload(self) -> dict[str, object]:
         return {
@@ -251,6 +244,7 @@ def _load_finite_fixture_bytes(
     raw: bytes,
     *,
     filename: str,
+    horizon_limit: int | None = None,
 ) -> FiniteSmcFixture:
     if type(raw) is not bytes:
         raise ValueError("finite fixture snapshot must be immutable bytes")
@@ -336,6 +330,11 @@ def _load_finite_fixture_bytes(
         "emission_probabilities": emissions,
         "observed_tokens": tuple(payload.get("observed_tokens", [])),
     }
+    if horizon_limit is not None:
+        if type(horizon_limit) is not int or not 1 <= horizon_limit <= 6:
+            raise ValueError("truncated horizon must lie inside the fixture")
+        values["horizon"] = horizon_limit
+        values["observed_tokens"] = values["observed_tokens"][:horizon_limit]
     return FiniteSmcFixture(
         **values,
         semantic_sha256=_owned_hash(
@@ -408,11 +407,62 @@ def exact_finite_oracle(fixture: FiniteSmcFixture) -> ExactFiniteOracle:
     )
 
 
+@dataclass(frozen=True)
+class _ValidatedFiniteFixture:
+    fixture: FiniteSmcFixture
+    oracle: ExactFiniteOracle
+    semantic_sha256: str
+    model_state_sha256: str
+
+    def assert_current_state(self) -> None:
+        payload = self.fixture._semantic_payload()
+        semantic_sha256 = _owned_hash("vfe4.h6.finite-smc-fixture.v1", payload)
+        model_state_sha256 = _owned_hash(
+            "vfe4.h6.finite-model-state.v1", payload
+        )
+        if (
+            self.fixture.semantic_sha256 != semantic_sha256
+            or self.semantic_sha256 != semantic_sha256
+            or self.model_state_sha256 != model_state_sha256
+        ):
+            raise ValueError(
+                "finite fixture identity changed; rebuild the predictive boundary"
+            )
+
+
+def _validated_finite_fixture(
+    fixture: FiniteSmcFixture,
+) -> _ValidatedFiniteFixture:
+    if type(fixture) is not FiniteSmcFixture:
+        raise ValueError("finite predictor requires an exact FiniteSmcFixture")
+    payload = fixture._semantic_payload()
+    semantic_sha256 = _owned_hash("vfe4.h6.finite-smc-fixture.v1", payload)
+    if fixture.semantic_sha256 != semantic_sha256:
+        raise ValueError("finite fixture semantic identity is stale")
+    model_state_sha256 = _owned_hash("vfe4.h6.finite-model-state.v1", payload)
+    oracle = exact_finite_oracle(fixture)
+    if min(
+        math.exp(value)
+        for row in oracle.token_log_probs
+        for value in row
+    ) < 0.10 - 1e-15:
+        raise ValueError("finite exact token probability falls below 0.10")
+    return _ValidatedFiniteFixture(
+        fixture=fixture,
+        oracle=oracle,
+        semantic_sha256=semantic_sha256,
+        model_state_sha256=model_state_sha256,
+    )
+
+
 class _FiniteProposalAdapter:
     proposal_mode = "generative_bootstrap"
 
-    def __init__(self, fixture: FiniteSmcFixture) -> None:
-        self.fixture = fixture
+    def __init__(self, validated_fixture: _ValidatedFiniteFixture) -> None:
+        validated_fixture.assert_current_state()
+        self._validated_fixture = validated_fixture
+        self.fixture = validated_fixture.fixture
+        fixture = self.fixture
         self.vocabulary = VocabularyIdentity.from_tokenizer_spec(
             vocabulary_id=fixture.vocabulary_id,
             size=fixture.vocab_size,
@@ -423,9 +473,7 @@ class _FiniteProposalAdapter:
             "vfe4.h6.finite-model-family.v1",
             {"fixture_semantic_sha256": fixture.semantic_sha256},
         )
-        self.model_state_sha256 = _owned_hash(
-            "vfe4.h6.finite-model-state.v1", fixture._semantic_payload()
-        )
+        self.model_state_sha256 = validated_fixture.model_state_sha256
         self.proposal_identity_sha256 = _owned_hash(
             "vfe4.h6.finite-proposal.v1",
             {
@@ -437,7 +485,15 @@ class _FiniteProposalAdapter:
         )
 
     def assert_current_state(self) -> None:
-        self.fixture.__post_init__()
+        self._validated_fixture.assert_current_state()
+        if (
+            self.fixture is not self._validated_fixture.fixture
+            or self.model_state_sha256
+            != self._validated_fixture.model_state_sha256
+        ):
+            raise ValueError(
+                "finite proposal identity changed; rebuild the predictive boundary"
+            )
 
     def initialize(
         self,
@@ -585,9 +641,19 @@ class _FiniteProposalAdapter:
 
 
 def build_finite_predictor(
-    fixture: FiniteSmcFixture, *, particle_count: int
+    fixture: FiniteSmcFixture,
+    *,
+    particle_count: int,
+    validated_fixture: _ValidatedFiniteFixture | None = None,
 ) -> tuple[BootstrapSmcPredictor, EstimatorIdentity]:
-    fixture.__post_init__()
+    validated = (
+        _validated_finite_fixture(fixture)
+        if validated_fixture is None
+        else validated_fixture
+    )
+    if validated.fixture is not fixture:
+        raise ValueError("finite predictor binding does not own its fixture")
+    validated.assert_current_state()
     spec = EstimatorSpec.create(
         kind="weighted_smc",
         particle_count=particle_count,
@@ -595,7 +661,7 @@ def build_finite_predictor(
     )
     identity = EstimatorIdentity.from_spec(spec)
     predictor = BootstrapSmcPredictor(
-        proposal=_FiniteProposalAdapter(fixture),
+        proposal=_FiniteProposalAdapter(validated),
         estimator_spec=spec,
         estimator_identity=identity,
         predictor_config_sha256=_owned_hash(
@@ -765,13 +831,15 @@ def _run_h6_smc_gate_from_fixture_bytes(
         fixture = _load_finite_fixture_bytes(
             raw_bytes,
             filename=filename,
+            horizon_limit=horizon_limit,
         )
         raw_hashes.append(fixture.raw_fixture_sha256)
-        if horizon_limit is not None:
-            fixture = fixture.truncate(horizon_limit)
-        exact = exact_finite_oracle(fixture)
+        validated_fixture = _validated_finite_fixture(fixture)
+        exact = validated_fixture.oracle
         predictor, current_identity = build_finite_predictor(
-            fixture, particle_count=particle_count
+            fixture,
+            particle_count=particle_count,
+            validated_fixture=validated_fixture,
         )
         if identity is None:
             identity = current_identity

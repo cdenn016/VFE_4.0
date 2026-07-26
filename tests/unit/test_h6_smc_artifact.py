@@ -20,6 +20,58 @@ _DIRTY_DIGEST = "2" * 64
 _SOURCE_SHA256 = "3" * 64
 
 
+def test_finite_smc_fixture_and_oracle_are_validated_once_per_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_path = (
+        Path(__file__).resolve().parents[2]
+        / "verification"
+        / "fixtures"
+        / "h6_smc_finite_01.json"
+    )
+    fixture_bytes = fixture_path.read_bytes()
+    validation_calls = 0
+    oracle_calls = 0
+    real_validation = smc_gate.FiniteSmcFixture.__post_init__
+    real_oracle = smc_gate.exact_finite_oracle
+
+    def validate_once(fixture: smc_gate.FiniteSmcFixture) -> None:
+        nonlocal validation_calls
+        validation_calls += 1
+        real_validation(fixture)
+
+    def exact_once(
+        fixture: smc_gate.FiniteSmcFixture,
+    ) -> smc_gate.ExactFiniteOracle:
+        nonlocal oracle_calls
+        oracle_calls += 1
+        return real_oracle(fixture)
+
+    monkeypatch.setattr(
+        smc_gate.FiniteSmcFixture,
+        "__post_init__",
+        validate_once,
+    )
+    monkeypatch.setattr(smc_gate, "exact_finite_oracle", exact_once)
+    monkeypatch.setattr(
+        smc_gate,
+        "FINITE_FIXTURE_SHA256",
+        (hashlib.sha256(fixture_bytes).hexdigest(),),
+    )
+
+    report = smc_gate._run_h6_smc_gate_from_fixture_bytes(
+        fixture_snapshots=((fixture_path.name, fixture_bytes),),
+        replicate_seeds=(7, 11),
+        particle_count=1,
+        horizon_limit=1,
+    )
+
+    assert report.executed_replicates == 2
+    assert report.executed_cells == 4
+    assert validation_calls == 1
+    assert oracle_calls == 1
+
+
 def _report(
     *,
     fixture_sha256: tuple[str, ...],
