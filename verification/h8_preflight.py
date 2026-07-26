@@ -6,6 +6,7 @@ import ast
 import hashlib
 import json
 import math
+import stat
 import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -195,6 +196,124 @@ def _lower_hex(value: object, length: int, name: str) -> str:
 
 def _path_text(path: Path) -> str:
     return str(path.resolve(strict=False))
+
+
+def _require_regular_nonsymlink_file(path: Path, *, name: str) -> None:
+    try:
+        mode = path.lstat().st_mode
+    except OSError as exc:
+        raise ValueError(f"{name} must be an existing regular non-symlink file") from exc
+    if not stat.S_ISREG(mode):
+        raise ValueError(f"{name} must be an existing regular non-symlink file")
+
+
+def read_h8_exact_test_nodes(
+    path: Path,
+    *,
+    repository_root: Path,
+) -> tuple[tuple[str, ...], bytes, str]:
+    """Read and validate the ordered exact-node manifest for H8 verification."""
+
+    try:
+        root = Path(repository_root).resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("repository_root must be an existing directory") from exc
+    if not root.is_dir():
+        raise ValueError("repository_root must be an existing directory")
+
+    manifest_path = Path(path)
+    if not manifest_path.is_absolute():
+        manifest_path = root / manifest_path
+    _require_regular_nonsymlink_file(
+        manifest_path,
+        name="exact-test-node manifest",
+    )
+    try:
+        original_bytes = manifest_path.read_bytes()
+    except OSError as exc:
+        raise ValueError("exact-test-node manifest must be readable") from exc
+
+    if original_bytes.startswith(b"\xef\xbb\xbf"):
+        raise ValueError("exact-test-node manifest must not contain a UTF-8 BOM")
+    if b"\r" in original_bytes:
+        raise ValueError("exact-test-node manifest must use LF-only newlines")
+    if not original_bytes.endswith(b"\n") or original_bytes.endswith(b"\n\n"):
+        raise ValueError(
+            "exact-test-node manifest must end with exactly one terminal LF"
+        )
+    try:
+        text = original_bytes.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError("exact-test-node manifest must be strict UTF-8") from exc
+
+    entries = text[:-1].split("\n")
+    if not entries or entries == [""]:
+        raise ValueError("exact-test-node manifest must contain at least one entry")
+
+    nodes: list[str] = []
+    seen: set[str] = set()
+    for entry in entries:
+        if not entry:
+            raise ValueError("exact-test-node manifest must not contain blank lines")
+        if entry.startswith("#"):
+            raise ValueError("exact-test-node manifest must not contain comments")
+        if entry in seen:
+            raise ValueError(f"duplicate exact-test-node entry: {entry}")
+        seen.add(entry)
+        if any(character.isspace() or not character.isprintable() for character in entry):
+            raise ValueError("exact-test-node entries must not contain whitespace or controls")
+        if "*" in entry or "?" in entry:
+            raise ValueError("exact-test-node entries must not contain wildcards")
+        if not entry.startswith("tests/"):
+            raise ValueError("exact-test-node entries must start with tests/")
+        if "::" not in entry:
+            raise ValueError(
+                "exact-test-node entries must select a .py file and exact node"
+            )
+
+        file_selector, node_selector = entry.split("::", 1)
+        path_parts = file_selector.split("/")
+        if (
+            not file_selector.endswith(".py")
+            or "\\" in file_selector
+            or ":" in file_selector
+            or any(part in ("", ".", "..") for part in path_parts)
+        ):
+            raise ValueError(
+                "exact-test-node entries must select a traversal-free .py file"
+            )
+        node_parts = node_selector.split("::")
+        if (
+            any(not part or part in (".", "..") or part.startswith("-") for part in node_parts)
+            or "/" in node_selector
+            or "\\" in node_selector
+        ):
+            raise ValueError(
+                "exact-test-node entries must select one exact node without options"
+            )
+
+        test_path = root.joinpath(*path_parts)
+        _require_regular_nonsymlink_file(
+            test_path,
+            name=f"selected test file {file_selector}",
+        )
+        try:
+            resolved_test_path = test_path.resolve(strict=True)
+        except OSError as exc:
+            raise ValueError(
+                f"selected test file {file_selector} must resolve inside repository_root"
+            ) from exc
+        if not resolved_test_path.is_relative_to(root):
+            raise ValueError(
+                f"selected test file {file_selector} must resolve inside repository_root"
+            )
+        nodes.append(entry)
+
+    return (
+        tuple(nodes),
+        original_bytes,
+        hashlib.sha256(original_bytes).hexdigest(),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1619,4 +1738,5 @@ __all__ = [
     "canonical_h8_preflight_bytes",
     "capture_current_candidate",
     "inspect_h8_preflight",
+    "read_h8_exact_test_nodes",
 ]

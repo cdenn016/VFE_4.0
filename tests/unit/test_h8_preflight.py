@@ -42,6 +42,60 @@ def _state(result: H8PreflightResult, name: str) -> str:
     return next(item.state for item in result.prerequisites if item.name == name)
 
 
+def test_exact_test_node_manifest_rejects_duplicate_and_whole_file_entries(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_preflight import read_h8_exact_test_nodes
+
+    repository_root = tmp_path / "repository"
+    test_file = repository_root / "tests" / "unit" / "test_example.py"
+    test_file.parent.mkdir(parents=True)
+    test_file.write_text(
+        "def test_one():\n"
+        "    pass\n"
+        "\n"
+        "def test_two():\n"
+        "    pass\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    manifest = repository_root / "verification" / "fixtures" / "nodes.txt"
+    manifest.parent.mkdir(parents=True)
+    valid_bytes = (
+        b"tests/unit/test_example.py::test_one\n"
+        b"tests/unit/test_example.py::test_two\n"
+    )
+    manifest.write_bytes(valid_bytes)
+
+    nodes, original_bytes, manifest_sha256 = read_h8_exact_test_nodes(
+        manifest,
+        repository_root=repository_root,
+    )
+
+    assert nodes == (
+        "tests/unit/test_example.py::test_one",
+        "tests/unit/test_example.py::test_two",
+    )
+    assert original_bytes == valid_bytes
+    assert manifest_sha256 == hashlib.sha256(valid_bytes).hexdigest()
+
+    invalid_manifests = (
+        (
+            b"tests/unit/test_example.py::test_one\n"
+            b"tests/unit/test_example.py::test_one\n",
+            "duplicate",
+        ),
+        (b"tests/unit/test_example.py\n", "exact node"),
+    )
+    for contents, expected_message in invalid_manifests:
+        manifest.write_bytes(contents)
+        with pytest.raises(ValueError, match=expected_message):
+            read_h8_exact_test_nodes(
+                manifest,
+                repository_root=repository_root,
+            )
+
+
 def _registry_payload(
     tmp_path: Path,
     *,
