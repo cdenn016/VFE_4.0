@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import struct
 import subprocess
@@ -284,6 +285,22 @@ def test_candidate_publication_is_exact_no_replace_and_strictly_loadable(
             AssertionError("candidate publication must never use os.replace")
         ),
     )
+    real_fsync_directory = module._fsync_directory
+    staging_fsync_marker_states: list[bool] = []
+
+    def tracking_fsync_directory(path: Path) -> None:
+        if path.name.startswith(".h6-candidate-staging-"):
+            staging_fsync_marker_states.append(
+                any(
+                    entry.name.startswith(".owner-")
+                    for entry in os.scandir(path)
+                )
+            )
+        real_fsync_directory(path)
+
+    monkeypatch.setattr(
+        module, "_fsync_directory", tracking_fsync_directory
+    )
 
     artifact = module.publish_h6_validation_perturbation_candidate(
         config,
@@ -330,6 +347,72 @@ def test_candidate_publication_is_exact_no_replace_and_strictly_loadable(
         )
         == artifact
     )
+
+    validation_directory = artifact.local_artifact_path / "validation"
+    validation_key = os.path.normcase(os.fspath(validation_directory))
+    real_stat = module.os.stat
+    validation_stat_calls = 0
+
+    def changing_intermediate_stat(
+        path: os.PathLike[str] | str,
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        nonlocal validation_stat_calls
+        observed = os.fspath(path)
+        if observed.startswith("\\\\?\\UNC\\"):
+            observed = "\\\\" + observed[len("\\\\?\\UNC\\") :]
+        elif observed.startswith("\\\\?\\"):
+            observed = observed[len("\\\\?\\") :]
+        result = real_stat(path, *args, **kwargs)
+        if (
+            kwargs.get("follow_symlinks") is False
+            and os.path.normcase(observed) == validation_key
+        ):
+            validation_stat_calls += 1
+            if validation_stat_calls == 2:
+                return SimpleNamespace(
+                    st_mode=result.st_mode,
+                    st_dev=result.st_dev,
+                    st_ino=result.st_ino + 1,
+                    st_nlink=result.st_nlink,
+                    st_size=result.st_size,
+                    st_file_attributes=getattr(
+                        result, "st_file_attributes", 0
+                    ),
+                )
+        return result
+
+    monkeypatch.setattr(module.os, "stat", changing_intermediate_stat)
+    intermediate_rejected = False
+    try:
+        try:
+            module._safe_read(
+                artifact.local_artifact_path,
+                "validation/h6_validation_perturbations_v1.json",
+                maximum_length=128_000_000,
+            )
+        except module.H6ValidationCandidateError as exc:
+            if "intermediate directory" not in str(exc) or "changed" not in str(
+                exc
+            ):
+                raise
+            intermediate_rejected = True
+    finally:
+        monkeypatch.setattr(module.os, "stat", real_stat)
+    blockers: list[str] = []
+    if staging_fsync_marker_states != [True, False]:
+        blockers.append(
+            "staging directory was not fsynced both before and after "
+            "ownership-marker unlink"
+        )
+    if not intermediate_rejected or validation_stat_calls != 2:
+        blockers.append(
+            "nested safe-read did not bind and recheck the intermediate "
+            "directory identity"
+        )
+    assert blockers == []
+
     with pytest.raises(module.H6ValidationCandidateError, match="already exists"):
         module.publish_h6_validation_perturbation_candidate(
             config,

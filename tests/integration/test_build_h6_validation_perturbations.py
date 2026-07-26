@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import builtins
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -15,8 +16,39 @@ def test_click_builder_is_idle_authorized_and_lazy(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    repo_root = Path(__file__).parents[2]
+    import_probe = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-S",
+            "-c",
+            (
+                "import sys;"
+                f"sys.path.insert(0,{str(repo_root)!r});"
+                "from pathlib import Path;"
+                "import verification.h6_validation_candidate as candidate;"
+                "oracle=candidate._load_oracle_module();"
+                "expected=(Path(candidate.__file__).parent/"
+                "'numpy_oracles'/'h6_prefix.py').resolve();"
+                "assert Path(oracle.__file__).resolve()==expected;"
+                "assert 'verification.numpy_oracles' not in sys.modules;"
+                "assert 'numpy' not in sys.modules;"
+                "assert 'torch' not in sys.modules;"
+                "print('stdlib-oracle-import-ok')"
+            ),
+        ],
+        cwd=repo_root,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert import_probe.returncode == 0, import_probe.stderr
+    assert import_probe.stdout == "stdlib-oracle-import-ok\n"
+
     launcher_path = (
-        Path(__file__).parents[2] / "build_h6_validation_perturbations.py"
+        repo_root / "build_h6_validation_perturbations.py"
     )
     tree = ast.parse(launcher_path.read_text(encoding="utf-8"))
     assert [

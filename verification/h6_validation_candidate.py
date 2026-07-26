@@ -5,7 +5,6 @@ from __future__ import annotations
 import ctypes
 import errno
 import hashlib
-import importlib
 import json
 import os
 import stat
@@ -56,6 +55,8 @@ _MANIFEST_NAME: Final = "manifest.sha256"
 _DIRECTORY_PREFIX: Final = "h6-validation-perturbation-candidate-"
 _LOWER_HEX: Final = frozenset("0123456789abcdef")
 _WINDOWS_REPARSE_POINT: Final = 0x400
+_STDLIB_ORACLE_MODULE_NAME: Final = "_vfe4_h6_prefix_stdlib_oracle_v1"
+_STDLIB_ORACLE_RELATIVE_PATH: Final = "numpy_oracles/h6_prefix.py"
 
 
 class H6ValidationCandidateError(ValueError):
@@ -558,7 +559,50 @@ class _ValidatedCandidate:
 
 
 def _load_oracle_module() -> ModuleType:
-    return importlib.import_module("verification.numpy_oracles.h6_prefix")
+    """Execute only the standalone stdlib oracle, bypassing its NumPy package."""
+
+    root = Path(__file__).resolve().parent
+    oracle_path = root / Path(
+        *PurePosixPath(_STDLIB_ORACLE_RELATIVE_PATH).parts
+    )
+    source = _safe_read(
+        root,
+        _STDLIB_ORACLE_RELATIVE_PATH,
+        maximum_length=1_000_000,
+    )
+    source_sha256 = _sha256(source)
+    cached = sys.modules.get(_STDLIB_ORACLE_MODULE_NAME)
+    if cached is not None:
+        if (
+            type(cached) is not ModuleType
+            or getattr(cached, "__file__", None) != os.fspath(oracle_path)
+            or getattr(cached, "_vfe4_source_sha256", None) != source_sha256
+        ):
+            raise H6ValidationCandidateError(
+                "private stdlib oracle module cache is inconsistent"
+            )
+        return cached
+
+    module = ModuleType(_STDLIB_ORACLE_MODULE_NAME)
+    module.__file__ = os.fspath(oracle_path)
+    module.__package__ = ""
+    module._vfe4_source_sha256 = source_sha256
+    sys.modules[_STDLIB_ORACLE_MODULE_NAME] = module
+    try:
+        code = compile(
+            source,
+            os.fspath(oracle_path),
+            "exec",
+            dont_inherit=True,
+        )
+        exec(code, module.__dict__)
+    except Exception as exc:
+        if sys.modules.get(_STDLIB_ORACLE_MODULE_NAME) is module:
+            del sys.modules[_STDLIB_ORACLE_MODULE_NAME]
+        raise H6ValidationCandidateError(
+            f"standalone stdlib oracle import failed: {exc}"
+        ) from exc
+    return module
 
 
 def _oracle_vocabulary(oracle_module: object) -> object:
@@ -1398,6 +1442,11 @@ def publish_h6_validation_perturbation_candidate(
             raise H6ValidationCandidateError(
                 "staging ownership changed before final commit"
             )
+        _fsync_directory(staging)
+        if not identity.matches(staging, require_marker=False):
+            raise H6ValidationCandidateError(
+                "staging ownership changed after marker-unlink durability"
+            )
         _rename_directory_no_replace(staging, final)
         if not identity.matches(final, require_marker=False):
             raise H6ValidationCandidateError(
@@ -1436,9 +1485,30 @@ def _safe_read(
         raise H6ValidationCandidateError(
             f"artifact path escapes or redirects: {relative_name}"
         )
+    intermediate_identities: list[tuple[Path, int, int]] = []
     try:
         root_before = os.stat(_io_path(root), follow_symlinks=False)
+        intermediate = root
+        for component in relative.parts[:-1]:
+            intermediate = intermediate / component
+            metadata = os.stat(
+                _io_path(intermediate), follow_symlinks=False
+            )
+            if (
+                not stat.S_ISDIR(metadata.st_mode)
+                or _is_redirect(intermediate, metadata)
+                or metadata.st_ino == 0
+            ):
+                raise H6ValidationCandidateError(
+                    "artifact intermediate directory is not a stable "
+                    f"regular nonredirected directory: {intermediate}"
+                )
+            intermediate_identities.append(
+                (intermediate, metadata.st_dev, metadata.st_ino)
+            )
         before = os.stat(_io_path(path), follow_symlinks=False)
+    except H6ValidationCandidateError:
+        raise
     except OSError as exc:
         raise H6ValidationCandidateError(
             f"artifact payload is unavailable: {relative_name}"
@@ -1486,8 +1556,47 @@ def _safe_read(
                 )
             chunks.append(chunk)
         after_open = os.fstat(descriptor)
-        after = os.stat(_io_path(path), follow_symlinks=False)
-        root_after = os.stat(_io_path(root), follow_symlinks=False)
+        try:
+            after = os.stat(_io_path(path), follow_symlinks=False)
+            intermediate_after = tuple(
+                (
+                    intermediate,
+                    os.stat(
+                        _io_path(intermediate), follow_symlinks=False
+                    ),
+                    expected_device,
+                    expected_inode,
+                )
+                for (
+                    intermediate,
+                    expected_device,
+                    expected_inode,
+                ) in intermediate_identities
+            )
+            root_after = os.stat(
+                _io_path(root), follow_symlinks=False
+            )
+        except OSError as exc:
+            raise H6ValidationCandidateError(
+                "artifact path identity became unavailable while reading: "
+                f"{relative_name}"
+            ) from exc
+        if any(
+            not stat.S_ISDIR(metadata.st_mode)
+            or _is_redirect(intermediate, metadata)
+            or (metadata.st_dev, metadata.st_ino)
+            != (expected_device, expected_inode)
+            for (
+                intermediate,
+                metadata,
+                expected_device,
+                expected_inode,
+            ) in intermediate_after
+        ):
+            raise H6ValidationCandidateError(
+                "artifact intermediate directory identity changed while "
+                f"reading: {relative_name}"
+            )
         if (
             _is_redirect(path, after)
             or after.st_nlink != 1
