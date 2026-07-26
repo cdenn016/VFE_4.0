@@ -361,14 +361,56 @@ selected_inverse_schema="h8-block-takahashi-selected-inverse-v1"
 condition_estimator_schema="HagerHigham1NormEstimate-v1"
 allocation_schema="h8-allocation-observability-v1"
 profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"
+child_schema="h8-child-v2"
 ```
 
-That preimage also includes the complete required-operation inventory above,
-the exact ordered negative-control inventory below, and every frozen numerical
-and boundary constant, including tolerance, decisiveness, pivot, time, memory,
-storage, RHS/sample-width, fill, and forbidden-attempt policies. Parent and
-child must recompute the same digest from that complete preimage; omission or
-substitution of any literal or inventory is `INCONCLUSIVE`.
+The first five values are the frozen evidence-schema literals; the sixth is
+the required child-envelope literal. The digest preimage also includes the
+complete required-operation inventory above, the exact ordered
+negative-control inventory below, and every frozen numerical and boundary
+constant, including tolerance, decisiveness, pivot, time, memory, storage,
+RHS/sample-width, fill, and forbidden-attempt policies. Parent and child must
+recompute the same digest from that complete preimage; omission or substitution
+of any literal or inventory is `INCONCLUSIVE`.
+
+The exact resolved H8 validation configuration is
+`schema_version="h8-validation-config-v2"`, superseding
+`h8-validation-config-v1` before scientific execution. V2 contains these six
+new frozen fields:
+
+```text
+factor_schema="h8-block-tridiagonal-cholesky-v1"
+selected_inverse_schema="h8-block-takahashi-selected-inverse-v1"
+condition_estimator_schema="HagerHigham1NormEstimate-v1"
+allocation_schema="h8-allocation-observability-v1"
+profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"
+child_schema="h8-child-v2"
+```
+
+All six participate in the canonical resolved-config JSON, so the canonical
+H8 config SHA changes from the v1 configuration identity accordingly.
+
+The v4 production/profiler result body under the `h8-child-v2` envelope has
+this exact key order:
+
+```text
+input_sha256,sample_noise_sha256,problem_evidence,objective,storage,fill,
+workspace,counters,allocation,resources,diagnostics,
+operation_reachability,residuals,resource_decisions,invariants
+```
+
+`problem_evidence` carries the exact generative, recognition, local-SPD,
+transition-norm, and observation evidence defined below. Negative-control
+results use the same v2 envelope but remain governed by the control-result
+body and do not fabricate or insert production `problem_evidence`.
+
+For each accepted production/profiler v2 PASS body, the parent retains a
+separate private typed `H8DecodedPassEvidence` attached to the corresponding
+attempt. It preserves `sample_noise_sha256`, exact `problem_evidence`,
+diagnostics, the complete validated child allocation mapping, and exact
+request/envelope/result identities. The lossless factor/allocation runtime
+views are derived from this private evidence. Public `H8ChildResult` and the
+published `production_runs`/`profiler_runs` schemas remain unchanged.
 
 Each attempt retains its exact request, `status`, ordered `reasons`, optional
 typed `result`, `timed_out`, `exit_code`, actual parent `parent_elapsed_ns`,
@@ -599,7 +641,9 @@ Required nested inventories:
   `d733880d3613d32a97b7a12c93ff6c037d0abdfd9ce4810e411769997dbad03c`,
   the raw-byte digest of
   `Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex`
-- `config`: canonical H8 config hash and exact resolved configuration
+- `config`: canonical H8 config hash and exact resolved
+  `h8-validation-config-v2`; its canonical JSON binds all six frozen protocol
+  schema fields above, so it cannot retain the v1 canonical config SHA
 - `prerequisites`: the complete H7 compatibility mapping, five lossless
   tagged H8 reference variants, exact compatibility-check inventory, named
   prerequisite obligations, and `all_current_and_pass`
@@ -611,10 +655,11 @@ Required nested inventories:
   `selected_inverse_schema="h8-block-takahashi-selected-inverse-v1"`,
   `condition_estimator_schema="HagerHigham1NormEstimate-v1"`,
   `allocation_schema="h8-allocation-observability-v1"`, and
-  `profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"`. The canonical
-  parent/child protocol digest preimage includes all five literals, the
-  complete required-operation and negative-control inventories, and every
-  frozen numerical and boundary constant.
+  `profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"`, plus
+  `child_schema="h8-child-v2"`. The canonical parent/child protocol digest
+  preimage includes the five evidence-schema literals, the child-envelope
+  literal, the complete required-operation and negative-control inventories,
+  and every frozen numerical and boundary constant.
 - `environment`: platform, processor, CPU count, affinity, Python/PyTorch/
   NumPy, CPU/float64/no-grad, threads, thread environment, BLAS, and separate
   hardware/affinity/thread/BLAS hashes
@@ -649,6 +694,46 @@ Required nested inventories:
   evidence is byte-identical across all five production repetitions and that
   seed's profiler run; any disagreement is `INCONCLUSIVE`, and first-run
   selection is forbidden
+
+Canonical JSON sorts keys before hashing. The exact generative and recognition
+hash-preimage layouts and domain literals are:
+
+```text
+generative={
+  domain:"vfe4.h8.generative-evidence.v1",
+  schema_version:"h8-generative-evidence-v1",
+  layout:{horizon,d_z,d_m},
+  problem_seed,
+  vocabulary_size,
+  alpha:{shape,dtype,raw_sha256},
+  initial:{mean:{shape,dtype,raw_sha256},
+           covariance:{shape,dtype,raw_sha256}},
+  model_transitions:[
+    {receiver_t,parent_t,source_support,matrix,offset,covariance}, ...],
+  state_transitions:[
+    {receiver_t,parent_t,source_support,state_matrix,model_matrix,
+     offset,covariance}, ...],
+  emissions:[{receiver_t,weight,bias,observation}, ...]
+}
+recognition={
+  domain:"vfe4.h8.recognition-evidence.v1",
+  schema_version:"h8-recognition-evidence-v1",
+  layout:{horizon,d_z,d_m},
+  problem_seed,
+  initial:{mean:{shape,dtype,raw_sha256},
+           covariance:{shape,dtype,raw_sha256}},
+  transitions:[
+    {receiver_t,parent_t,source_support,matrix,offset,covariance}, ...]
+}
+```
+
+Every elided array value in a transition or emission record, as well as every
+explicit array leaf above, is exactly
+`{shape,dtype:"<f8",raw_sha256}`. Both `shape` and `source_support` serialize
+as JSON arrays of integers; integer identity, dimension, seed, vocabulary,
+receiver, parent, and observation values remain JSON integers rather than
+float or string encodings.
+
 - `storage`: information, precision, factor, selected, category-cap, dense-
   forbidden counts, and three category decisions
 - `factor` is exactly `{schema_version,algorithm,pattern,runs}`, with
@@ -725,8 +810,10 @@ Required nested inventories:
 The existing `production_runs` and `profiler_runs` arrays remain the
 authoritative ordering and published typed-result inventories. The
 factor/allocation `runs` arrays are lossless evidence views in that same order,
-cross-bound to those inventories and their result-bearing attempts; they do
-not replace either authoritative array.
+derived from private `H8DecodedPassEvidence` and cross-bound to those unchanged
+public inventories and their result-bearing attempts; they do not replace or
+expand either authoritative array. Negative-control results use the same v2
+envelope without fabricating private production problem evidence.
 
 The decoded `controls` inventory is the exact ordered prefix of typed
 `H8ControlResult` records cross-bound to result-bearing control attempts; PASS
