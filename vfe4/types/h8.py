@@ -192,6 +192,12 @@ def _finite_nonnegative(value: object, name: str) -> float:
     return value
 
 
+def _finite_positive(value: object, name: str) -> float:
+    if type(value) is not float or not math.isfinite(value) or value <= 0.0:
+        raise ValueError(f"{name} must be a finite positive float")
+    return value
+
+
 def _finite(value: object, name: str) -> float:
     if type(value) is not float or not math.isfinite(value):
         raise ValueError(f"{name} must be a finite float")
@@ -212,6 +218,173 @@ def _sha256(value: object, name: str) -> str:
     ):
         raise ValueError(f"{name} must be a lowercase SHA-256 digest")
     return value
+
+
+def _exact_float_inventory(
+    value: object,
+    *,
+    horizon: int,
+    name: str,
+    positive: bool,
+) -> tuple[float, ...]:
+    if type(value) is not tuple or len(value) != horizon:
+        raise ValueError(f"{name} must contain exactly horizon values")
+    validator = _finite_positive if positive else _finite_nonnegative
+    return tuple(
+        validator(item, f"{name}[{index}]")
+        for index, item in enumerate(value)
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class H8LocalSPDDiagnostics:
+    """Exact local problem-covariance Cholesky pivots."""
+
+    schema_version: Literal["h8-local-spd-diagnostics-v1"]
+    horizon: int
+    generative_initial_min_pivot: float
+    model_transition_min_pivots: tuple[float, ...]
+    state_transition_min_pivots: tuple[float, ...]
+    recognition_initial_min_pivot: float
+    recognition_transition_min_pivots: tuple[float, ...]
+    global_min_pivot: float
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "h8-local-spd-diagnostics-v1":
+            raise ValueError("local SPD diagnostics schema is not frozen v1")
+        horizon = _positive_int(self.horizon, "horizon")
+        initial = _finite_positive(
+            self.generative_initial_min_pivot,
+            "generative_initial_min_pivot",
+        )
+        model = _exact_float_inventory(
+            self.model_transition_min_pivots,
+            horizon=horizon,
+            name="model_transition_min_pivots",
+            positive=True,
+        )
+        state = _exact_float_inventory(
+            self.state_transition_min_pivots,
+            horizon=horizon,
+            name="state_transition_min_pivots",
+            positive=True,
+        )
+        recognition_initial = _finite_positive(
+            self.recognition_initial_min_pivot,
+            "recognition_initial_min_pivot",
+        )
+        recognition = _exact_float_inventory(
+            self.recognition_transition_min_pivots,
+            horizon=horizon,
+            name="recognition_transition_min_pivots",
+            positive=True,
+        )
+        global_minimum = _finite_positive(
+            self.global_min_pivot,
+            "global_min_pivot",
+        )
+        if global_minimum != min(
+            initial,
+            *model,
+            *state,
+            recognition_initial,
+            *recognition,
+        ):
+            raise ValueError("global_min_pivot must equal the complete inventory minimum")
+
+
+@dataclass(frozen=True, slots=True)
+class H8TransitionNorms:
+    """Factory-captured contracted operator-2 norm inventories."""
+
+    schema_version: Literal["h8-transition-norms-v1"]
+    horizon: int
+    norm: Literal["operator_2"]
+    model_transition_norms: tuple[float, ...]
+    state_transition_norms: tuple[float, ...]
+    state_model_coupling_norms: tuple[float, ...]
+    recognition_transition_norms: tuple[float, ...]
+    max_model_transition_norm: float
+    max_state_transition_norm: float
+    max_state_model_coupling_norm: float
+    max_recognition_transition_norm: float
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "h8-transition-norms-v1":
+            raise ValueError("transition-norm schema is not frozen v1")
+        if self.norm != "operator_2":
+            raise ValueError("transition norm must be operator_2")
+        horizon = _positive_int(self.horizon, "horizon")
+        inventories = (
+            (
+                "model_transition_norms",
+                self.model_transition_norms,
+                self.max_model_transition_norm,
+                0.35,
+            ),
+            (
+                "state_transition_norms",
+                self.state_transition_norms,
+                self.max_state_transition_norm,
+                0.35,
+            ),
+            (
+                "state_model_coupling_norms",
+                self.state_model_coupling_norms,
+                self.max_state_model_coupling_norm,
+                0.20,
+            ),
+            (
+                "recognition_transition_norms",
+                self.recognition_transition_norms,
+                self.max_recognition_transition_norm,
+                0.35,
+            ),
+        )
+        for name, values, maximum, bound in inventories:
+            checked = _exact_float_inventory(
+                values,
+                horizon=horizon,
+                name=name,
+                positive=False,
+            )
+            checked_maximum = _finite_nonnegative(
+                maximum,
+                f"max_{name.removesuffix('_norms')}_norm",
+            )
+            if checked_maximum != max(checked):
+                raise ValueError(f"{name} maximum must equal its inventory maximum")
+            if checked_maximum > bound:
+                raise ValueError(f"{name} violates its frozen contraction bound")
+
+
+@dataclass(frozen=True, slots=True)
+class H8ProductionProblemEvidence:
+    """Exact typed identity for one factory-owned H8 problem."""
+
+    generative_sha256: str
+    recognition_sha256: str
+    local_spd_diagnostics: H8LocalSPDDiagnostics
+    transition_norms: H8TransitionNorms
+    observation_sha256: str
+
+    def __post_init__(self) -> None:
+        _sha256(self.generative_sha256, "generative_sha256")
+        _sha256(self.recognition_sha256, "recognition_sha256")
+        _sha256(self.observation_sha256, "observation_sha256")
+        if type(self.local_spd_diagnostics) is not H8LocalSPDDiagnostics:
+            raise ValueError(
+                "local_spd_diagnostics must be exact H8LocalSPDDiagnostics"
+            )
+        if type(self.transition_norms) is not H8TransitionNorms:
+            raise ValueError("transition_norms must be exact H8TransitionNorms")
+        self.local_spd_diagnostics.__post_init__()
+        self.transition_norms.__post_init__()
+        if (
+            self.local_spd_diagnostics.horizon
+            != self.transition_norms.horizon
+        ):
+            raise ValueError("problem evidence horizons must agree")
 
 
 def _git_object_id(value: object, name: str) -> str:
@@ -2752,6 +2925,7 @@ __all__ = [
     "H8LegacyH6PrefixReference",
     "H8LegacyH6PredictionReference",
     "H8InvariantRecord",
+    "H8LocalSPDDiagnostics",
     "H8LossyProfilerRow",
     "H8ObjectiveRole",
     "H8ObjectiveTerm",
@@ -2760,8 +2934,10 @@ __all__ = [
     "H8OperandSource",
     "H8ProfilerAction",
     "H8ProfilerEventRecord",
+    "H8ProductionProblemEvidence",
     "H8ResourceRecord",
     "H8TensorKey",
+    "H8TransitionNorms",
     "H8_BASE_CORRECTNESS_ENDPOINT_IDS",
     "H8_CORRECTNESS_CASES",
     "H8_CORRECTNESS_CONTROL_IDS",

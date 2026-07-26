@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from collections.abc import Callable
+from dataclasses import FrozenInstanceError, fields, replace
 
 import numpy as np
 import pytest
 import torch
 
+from vfe4.generative import reference_h8 as h8_reference
 from vfe4.generative.reference_h8 import (
     H8Problem,
     build_h8_generative,
@@ -25,6 +29,7 @@ from vfe4.objective.h8_sparse import (
     h8_emission_expectation,
 )
 from vfe4.recognition.reference_h8 import build_h8_recognition
+from vfe4.types import h8 as h8_types
 
 
 def _guard_global_allocations(
@@ -366,3 +371,321 @@ def test_fixed_hand_derived_fixture_pins_every_objective_component(
     assert type(terms.complete_order21) is float
     assert log_softmax_grad_states
     assert not any(log_softmax_grad_states)
+
+
+def test_h8_problem_evidence_is_exact_owned_and_single_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Catch lossy/stale evidence and repeated operator-norm calculations."""
+
+    assert hasattr(h8_types, "H8LocalSPDDiagnostics")
+    assert hasattr(h8_types, "H8TransitionNorms")
+    assert hasattr(h8_types, "H8ProductionProblemEvidence")
+
+    observed_norm_shapes: list[tuple[int, ...]] = []
+    observed_cholesky_shapes: list[tuple[int, ...]] = []
+    original_norm = np.linalg.norm
+    original_cholesky = np.linalg.cholesky
+
+    def observed_norm(
+        value: np.ndarray,
+        *args: object,
+        **kwargs: object,
+    ) -> np.floating[object]:
+        observed_ord = kwargs.get("ord", args[0] if args else None)
+        assert observed_ord == 2
+        observed_norm_shapes.append(tuple(int(item) for item in value.shape))
+        return original_norm(value, *args, **kwargs)
+
+    monkeypatch.setattr(np.linalg, "norm", observed_norm)
+
+    def observed_cholesky(value: np.ndarray) -> np.ndarray:
+        observed_cholesky_shapes.append(
+            tuple(int(item) for item in value.shape)
+        )
+        return original_cholesky(value)
+
+    monkeypatch.setattr(np.linalg, "cholesky", observed_cholesky)
+    problem = make_h8_problem(
+        horizon=2,
+        channel_dimension=2,
+        problem_seed=2026072121,
+    )
+    assert observed_norm_shapes == [(2, 2)] * 6 + [(4, 4)] * 2
+    assert observed_cholesky_shapes == (
+        [(4, 4)] + [(2, 2)] * 4 + [(4, 4)] * 3
+    )
+
+    evidence = problem.problem_evidence
+    local = evidence.local_spd_diagnostics
+    norms = evidence.transition_norms
+    assert type(evidence) is h8_types.H8ProductionProblemEvidence
+    assert type(local) is h8_types.H8LocalSPDDiagnostics
+    assert type(norms) is h8_types.H8TransitionNorms
+    assert tuple(field.name for field in fields(type(evidence))) == (
+        "generative_sha256",
+        "recognition_sha256",
+        "local_spd_diagnostics",
+        "transition_norms",
+        "observation_sha256",
+    )
+    assert tuple(field.name for field in fields(type(local))) == (
+        "schema_version",
+        "horizon",
+        "generative_initial_min_pivot",
+        "model_transition_min_pivots",
+        "state_transition_min_pivots",
+        "recognition_initial_min_pivot",
+        "recognition_transition_min_pivots",
+        "global_min_pivot",
+    )
+    assert tuple(field.name for field in fields(type(norms))) == (
+        "schema_version",
+        "horizon",
+        "norm",
+        "model_transition_norms",
+        "state_transition_norms",
+        "state_model_coupling_norms",
+        "recognition_transition_norms",
+        "max_model_transition_norm",
+        "max_state_transition_norm",
+        "max_state_model_coupling_norm",
+        "max_recognition_transition_norm",
+    )
+    assert local.schema_version == "h8-local-spd-diagnostics-v1"
+    assert norms.schema_version == "h8-transition-norms-v1"
+    assert norms.norm == "operator_2"
+    assert local.horizon == norms.horizon == problem.layout.horizon == 2
+
+    generative = h8_reference._generative_evidence_payload(problem)
+    recognition = h8_reference._recognition_evidence_payload(problem)
+    observations = h8_reference._observation_evidence_payload(problem)
+    assert tuple(generative) == (
+        "domain",
+        "schema_version",
+        "layout",
+        "problem_seed",
+        "vocabulary_size",
+        "alpha",
+        "initial",
+        "model_transitions",
+        "state_transitions",
+        "emissions",
+    )
+    assert tuple(recognition) == (
+        "domain",
+        "schema_version",
+        "layout",
+        "problem_seed",
+        "initial",
+        "transitions",
+    )
+    assert tuple(generative["model_transitions"][0]) == (
+        "receiver_t",
+        "parent_t",
+        "source_support",
+        "matrix",
+        "offset",
+        "covariance",
+    )
+    assert tuple(generative["state_transitions"][0]) == (
+        "receiver_t",
+        "parent_t",
+        "source_support",
+        "state_matrix",
+        "model_matrix",
+        "offset",
+        "covariance",
+    )
+    assert tuple(generative["emissions"][0]) == (
+        "receiver_t",
+        "weight",
+        "bias",
+        "observation",
+    )
+    assert tuple(recognition["transitions"][0]) == (
+        "receiver_t",
+        "parent_t",
+        "source_support",
+        "matrix",
+        "offset",
+        "covariance",
+    )
+
+    expected_alpha_leaf = {
+        "shape": [3],
+        "dtype": "<f8",
+        "raw_sha256": hashlib.sha256(
+            problem.alpha.tobytes(order="C")
+        ).hexdigest(),
+    }
+    expected_recognition_mean_leaf = {
+        "shape": [4],
+        "dtype": "<f8",
+        "raw_sha256": hashlib.sha256(
+            problem.recognition.initial_mean.tobytes(order="C")
+        ).hexdigest(),
+    }
+    assert generative["alpha"] == expected_alpha_leaf
+    assert recognition["initial"]["mean"] == expected_recognition_mean_leaf
+    assert observations == {
+        "domain": "vfe4.h8.observations.v1",
+        "records": [[1, 0], [2, 1]],
+    }
+    expected_observation_bytes = (
+        b'{"domain":"vfe4.h8.observations.v1","records":[[1,0],[2,1]]}'
+    )
+
+    def canonical(payload: object) -> bytes:
+        return json.dumps(
+            payload,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("ascii")
+
+    assert canonical(observations) == expected_observation_bytes
+    assert evidence.generative_sha256 == hashlib.sha256(
+        canonical(generative)
+    ).hexdigest()
+    assert evidence.recognition_sha256 == hashlib.sha256(
+        canonical(recognition)
+    ).hexdigest()
+    assert evidence.observation_sha256 == hashlib.sha256(
+        expected_observation_bytes
+    ).hexdigest()
+    assert len(observed_cholesky_shapes) == 3 * problem.layout.horizon + 2
+
+    expected_model_pivots = tuple(
+        float(np.min(np.diag(np.linalg.cholesky(item.covariance))))
+        for item in problem.model_transitions
+    )
+    expected_state_pivots = tuple(
+        float(np.min(np.diag(np.linalg.cholesky(item.covariance))))
+        for item in problem.state_transitions
+    )
+    expected_recognition_pivots = tuple(
+        float(np.min(np.diag(np.linalg.cholesky(item.covariance))))
+        for item in problem.recognition.transitions
+    )
+    expected_initial_pivot = float(
+        np.min(np.diag(np.linalg.cholesky(problem.initial_covariance)))
+    )
+    expected_recognition_initial_pivot = float(
+        np.min(
+            np.diag(
+                np.linalg.cholesky(problem.recognition.initial_covariance)
+            )
+        )
+    )
+    assert local.generative_initial_min_pivot == expected_initial_pivot
+    assert local.model_transition_min_pivots == expected_model_pivots
+    assert local.state_transition_min_pivots == expected_state_pivots
+    assert (
+        local.recognition_initial_min_pivot
+        == expected_recognition_initial_pivot
+    )
+    assert (
+        local.recognition_transition_min_pivots
+        == expected_recognition_pivots
+    )
+    assert local.global_min_pivot == min(
+        expected_initial_pivot,
+        *expected_model_pivots,
+        *expected_state_pivots,
+        expected_recognition_initial_pivot,
+        *expected_recognition_pivots,
+    )
+
+    assert len(norms.model_transition_norms) == 2
+    assert len(norms.state_transition_norms) == 2
+    assert len(norms.state_model_coupling_norms) == 2
+    assert len(norms.recognition_transition_norms) == 2
+    assert norms.max_model_transition_norm == max(
+        norms.model_transition_norms
+    )
+    assert norms.max_state_transition_norm == max(
+        norms.state_transition_norms
+    )
+    assert norms.max_state_model_coupling_norm == max(
+        norms.state_model_coupling_norms
+    )
+    assert norms.max_recognition_transition_norm == max(
+        norms.recognition_transition_norms
+    )
+    assert norms.max_model_transition_norm <= 0.35
+    assert norms.max_state_transition_norm <= 0.35
+    assert norms.max_state_model_coupling_norm <= 0.20
+    assert norms.max_recognition_transition_norm <= 0.35
+
+    assert validate_h8_problem(problem) is problem
+    h8_reference._canonical_evidence_bytes(generative)
+    h8_reference._canonical_evidence_bytes(recognition)
+    h8_reference._canonical_evidence_bytes(observations)
+    assert len(observed_norm_shapes) == 4 * problem.layout.horizon
+    with pytest.raises(FrozenInstanceError):
+        setattr(evidence, "generative_sha256", "0" * 64)
+
+    original_evidence = evidence
+    object.__setattr__(
+        problem,
+        "problem_evidence",
+        replace(evidence, generative_sha256="0" * 64),
+    )
+    with pytest.raises(ValueError, match="problem evidence"):
+        validate_h8_problem(problem)
+    object.__setattr__(problem, "problem_evidence", original_evidence)
+
+    shifted_local = replace(
+        local,
+        generative_initial_min_pivot=local.generative_initial_min_pivot + 1.0,
+        model_transition_min_pivots=tuple(
+            value + 1.0 for value in local.model_transition_min_pivots
+        ),
+        state_transition_min_pivots=tuple(
+            value + 1.0 for value in local.state_transition_min_pivots
+        ),
+        recognition_initial_min_pivot=(
+            local.recognition_initial_min_pivot + 1.0
+        ),
+        recognition_transition_min_pivots=tuple(
+            value + 1.0
+            for value in local.recognition_transition_min_pivots
+        ),
+        global_min_pivot=local.global_min_pivot + 1.0,
+    )
+    object.__setattr__(
+        problem,
+        "problem_evidence",
+        replace(evidence, local_spd_diagnostics=shifted_local),
+    )
+    with pytest.raises(ValueError, match="problem evidence"):
+        validate_h8_problem(problem)
+    object.__setattr__(problem, "problem_evidence", original_evidence)
+
+    with pytest.raises(ValueError, match="model_transition_norms"):
+        replace(
+            norms,
+            model_transition_norms=norms.model_transition_norms[:-1],
+        )
+    with pytest.raises(ValueError, match="finite nonnegative"):
+        replace(
+            norms,
+            state_transition_norms=(math.inf, *norms.state_transition_norms[1:]),
+            max_state_transition_norm=math.inf,
+        )
+    with pytest.raises(ValueError, match="maximum"):
+        replace(
+            norms,
+            max_recognition_transition_norm=(
+                norms.max_recognition_transition_norm + 0.01
+            ),
+        )
+    with pytest.raises(ValueError, match="contraction bound"):
+        replace(
+            norms,
+            state_model_coupling_norms=(0.21, 0.21),
+            max_state_model_coupling_norm=0.21,
+        )
+    assert len(observed_norm_shapes) == 4 * problem.layout.horizon
