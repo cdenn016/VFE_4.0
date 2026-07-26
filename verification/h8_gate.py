@@ -16,7 +16,10 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 
 from vfe4.artifacts.atomic import canonical_json_bytes
-from vfe4.artifacts.h6 import CandidateArtifactReference
+from vfe4.artifacts.h6 import (
+    CandidateArtifactReference,
+    reopen_bounded_prefix_certificate_set,
+)
 from vfe4.artifacts.provenance import (
     H8_PROVENANCE_KEYS,
     source_candidate_sha256,
@@ -46,9 +49,13 @@ from vfe4.types.h8 import (
     H8CorrectnessCell,
     H8GateEvaluation,
     H8H6PredictionReference,
+    H8H6PrefixReference,
+    H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
+    H8LegacyH6PrefixReference,
     H8LegacyH6PredictionReference,
 )
+from vfe4.types.h6 import BoundedPrefixCertificateSet
 from vfe4.types.results import GateStatus, H8GateResult
 
 
@@ -101,6 +108,14 @@ H8_POINTER_PREDECESSOR_KEYS = (
     "h6_prefix",
     "h7",
     "h6_prediction",
+)
+
+H8_H6_PREFIX_PAYLOAD_KEYS = (
+    "certificates/prefix_set.json",
+    "config.json",
+    "environment.json",
+    "provenance.json",
+    "validation/h6_prefix.json",
 )
 
 H8_SOURCE_ONLY_OBLIGATIONS = (
@@ -955,27 +970,56 @@ def _revalidate_h6_prefix_certificates(
     reference: object,
     payloads: Mapping[str, bytes],
 ) -> None:
-    from vfe4.training import h6_readiness
-
-    if "certificates/prefix_set.json" not in payloads:
-        raise ValueError("H6-Prefix artifact lacks its manifested certificate set")
-    certificates = h6_readiness._load_prefix_certificates(
+    if type(reference) is not H8H6PrefixReference:
+        raise ValueError(
+            "H8 requires an exact bounded H6-Prefix reference"
+        )
+    reference.__post_init__()
+    if tuple(payloads) != H8_H6_PREFIX_PAYLOAD_KEYS:
+        raise ValueError(
+            "bounded H6-Prefix artifact must retain its exact five payloads"
+        )
+    certificate_set = reopen_bounded_prefix_certificate_set(
         root=Path(getattr(reference, "artifact_path")),
-        expected_set_sha256=getattr(reference, "certificate_set_sha256"),
+        expected_manifest_sha256=getattr(reference, "manifest_sha256"),
         expected_git_head=getattr(reference, "producer_head"),
         expected_dirty_digest=getattr(reference, "producer_dirty_digest"),
+        expected_junit_sha256=getattr(
+            reference,
+            "candidate_junit_sha256",
+        ),
     )
-    observed = {
-        canonical_h8_json_bytes(key.canonical_payload()).decode("ascii"): (
-            certificate.certificate_sha256
+    if type(certificate_set) is not BoundedPrefixCertificateSet:
+        raise ValueError(
+            "bounded H6-Prefix reopen must return its exact certificate set"
         )
-        for key, certificate in sorted(
-            certificates.items(),
-            key=lambda item: canonical_h8_json_bytes(item[0].canonical_payload()),
+    observed_families = tuple(
+        H8H6PrefixSemanticFamilyReference(
+            semantic_family_index=index,
+            semantic_family_sha256=certificate.semantic_family_sha256,
+            validation_payload_sha256=(
+                certificate.validation_payload_sha256
+            ),
+            certificate_sha256=certificate.certificate_sha256,
         )
-    }
-    if observed != dict(getattr(reference, "certificate_hashes")):
-        raise ValueError("H6-Prefix certificate hashes do not match reopened certificates")
+        for index, certificate in enumerate(certificate_set.certificates)
+    )
+    if (
+        certificate_set.schema_version
+        != reference.certificate_set_schema
+        or certificate_set.config_sha256 != reference.config_sha256
+        or certificate_set.workload_plan_sha256
+        != reference.workload_plan_sha256
+        or certificate_set.validation_payload_sha256
+        != reference.validation_payload_sha256
+        or certificate_set.prefix_certificate_set_sha256
+        != reference.prefix_certificate_set_sha256
+        or observed_families != reference.semantic_families
+    ):
+        raise ValueError(
+            "bounded H6-Prefix schemas, aggregate hashes, or ordered "
+            "semantic families differ from the registry reference"
+        )
 
 
 def _revalidate_h7_fixture_set(
@@ -1340,7 +1384,10 @@ def validate_h8_prerequisite_artifacts(
         try:
             _root, payloads = _reopen_reference_common(reference)
             if name == "h6_prefix":
-                _revalidate_h6_prefix_certificates(reference, payloads)
+                if type(reference) is H8H6PrefixReference:
+                    _revalidate_h6_prefix_certificates(reference, payloads)
+                elif type(reference) is not H8LegacyH6PrefixReference:
+                    raise ValueError("H6-Prefix reference variant is not exact")
             if name == "h7":
                 _read_immutable_file(
                     reference.result_pointer_path,

@@ -21,6 +21,7 @@ from vfe4.types import (
     H8H1PrefixPriorReference,
     H8H6PredictionReference,
     H8H6PrefixReference,
+    H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
     H8_H7_PLAN_SHA256,
     H8_INTERPRETATION_SHA256,
@@ -339,8 +340,27 @@ def _current_h8_refs() -> tuple[
         ),
         h6_prefix=H8H6PrefixReference(
             kind="h6_prefix",
-            certificate_set_sha256=digest,
-            certificate_hashes={"certificate": digest},
+            config_schema="h6-prefix-config-v3",
+            validation_schema="h6-prefix-validation-set-v2",
+            certificate_set_schema="h6-prefix-certificate-set-v2",
+            config_sha256=digest,
+            workload_plan_sha256=digest,
+            validation_payload_sha256=digest,
+            prefix_certificate_set_sha256=digest,
+            semantic_families=(
+                H8H6PrefixSemanticFamilyReference(
+                    semantic_family_index=0,
+                    semantic_family_sha256="b" * 64,
+                    validation_payload_sha256="c" * 64,
+                    certificate_sha256="d" * 64,
+                ),
+                H8H6PrefixSemanticFamilyReference(
+                    semantic_family_index=1,
+                    semantic_family_sha256="e" * 64,
+                    validation_payload_sha256="f" * 64,
+                    certificate_sha256="0" * 64,
+                ),
+            ),
             **common("h6_prefix"),  # type: ignore[arg-type]
         ),
         h7=H8H7Reference(

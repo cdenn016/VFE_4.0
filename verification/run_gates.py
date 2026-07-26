@@ -91,7 +91,9 @@ from vfe4.types.h8 import (
     H8H1PrefixPriorReference,
     H8H6PredictionReference,
     H8H6PrefixReference,
+    H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
+    H8LegacyH6PrefixReference,
     H8LegacyH6PredictionReference,
 )
 from vfe4.validation import (
@@ -338,6 +340,7 @@ def parse_h8_reference_registry_bytes(
         not in (
             "h8-current-candidate-refs-v1",
             "h8-current-candidate-refs-v2",
+            "h8-current-candidate-refs-v3",
         )
         or canonical_h8_json_bytes(payload) != registry_bytes
     ):
@@ -373,7 +376,10 @@ def parse_h8_reference_registry_bytes(
     registry_schema = payload["schema_version"]
     h6_prediction_type: type[object]
     h6_prediction_fields: set[str]
-    if registry_schema == "h8-current-candidate-refs-v2":
+    if registry_schema in (
+        "h8-current-candidate-refs-v2",
+        "h8-current-candidate-refs-v3",
+    ):
         h6_prediction_type = H8H6PredictionReference
         h6_prediction_fields = common_fields | {
             "prediction_schema",
@@ -405,13 +411,31 @@ def parse_h8_reference_registry_bytes(
     else:
         h6_prediction_type = H8LegacyH6PredictionReference
         h6_prediction_fields = common_fields | {"experiment_sha256"}
+    if registry_schema == "h8-current-candidate-refs-v3":
+        h6_prefix_type: type[object] = H8H6PrefixReference
+        h6_prefix_fields = common_fields | {
+            "config_schema",
+            "validation_schema",
+            "certificate_set_schema",
+            "config_sha256",
+            "workload_plan_sha256",
+            "validation_payload_sha256",
+            "prefix_certificate_set_sha256",
+            "semantic_families",
+        }
+    else:
+        h6_prefix_type = H8LegacyH6PrefixReference
+        h6_prefix_fields = common_fields | {
+            "certificate_set_sha256",
+            "certificate_hashes",
+        }
     variants: tuple[tuple[str, type[object], set[str]], ...] = (
         ("h1_h5", H8H1H5Reference, common_fields),
         ("h1_prefix_prior", H8H1PrefixPriorReference, common_fields),
         (
             "h6_prefix",
-            H8H6PrefixReference,
-            common_fields | {"certificate_set_sha256", "certificate_hashes"},
+            h6_prefix_type,
+            h6_prefix_fields,
         ),
         (
             "h7",
@@ -441,12 +465,43 @@ def parse_h8_reference_registry_bytes(
             or not isinstance(raw["payload_hashes"], dict)
             or (
                 name == "h6_prediction"
-                and registry_schema == "h8-current-candidate-refs-v2"
+                and registry_schema
+                in (
+                    "h8-current-candidate-refs-v2",
+                    "h8-current-candidate-refs-v3",
+                )
                 and not isinstance(raw["correctness_artifact_paths"], dict)
             )
         ):
             raise ValueError(f"H8 reference registry entry is malformed: {name}")
-        value = expected_type(**raw)
+        typed_raw = dict(raw)
+        if (
+            name == "h6_prefix"
+            and registry_schema == "h8-current-candidate-refs-v3"
+        ):
+            raw_families = raw["semantic_families"]
+            family_fields = {
+                "semantic_family_index",
+                "semantic_family_sha256",
+                "validation_payload_sha256",
+                "certificate_sha256",
+            }
+            if (
+                type(raw_families) is not list
+                or not raw_families
+                or any(
+                    type(row) is not dict or set(row) != family_fields
+                    for row in raw_families
+                )
+            ):
+                raise ValueError(
+                    "H8 bounded Prefix semantic-family rows are malformed"
+                )
+            typed_raw["semantic_families"] = tuple(
+                H8H6PrefixSemanticFamilyReference(**row)
+                for row in raw_families
+            )
+        value = expected_type(**typed_raw)
         if json.loads(canonical_h8_json_bytes(value)) != raw:
             raise ValueError(f"H8 reference registry entry is lossy: {name}")
         typed[name] = value

@@ -59,6 +59,7 @@ def _h8_current_refs(head: str, dirty: str, junit: str):
         H8H1PrefixPriorReference,
         H8H6PredictionReference,
         H8H6PrefixReference,
+        H8H6PrefixSemanticFamilyReference,
         H8H7Reference,
     )
 
@@ -132,8 +133,27 @@ def _h8_current_refs(head: str, dirty: str, junit: str):
         ),
         h6_prefix=H8H6PrefixReference(
             kind="h6_prefix",
-            certificate_set_sha256=digest,
-            certificate_hashes={"certificate.json": digest},
+            config_schema="h6-prefix-config-v3",
+            validation_schema="h6-prefix-validation-set-v2",
+            certificate_set_schema="h6-prefix-certificate-set-v2",
+            config_sha256=digest,
+            workload_plan_sha256=digest,
+            validation_payload_sha256=digest,
+            prefix_certificate_set_sha256=digest,
+            semantic_families=(
+                H8H6PrefixSemanticFamilyReference(
+                    semantic_family_index=0,
+                    semantic_family_sha256="b" * 64,
+                    validation_payload_sha256="c" * 64,
+                    certificate_sha256="d" * 64,
+                ),
+                H8H6PrefixSemanticFamilyReference(
+                    semantic_family_index=1,
+                    semantic_family_sha256="e" * 64,
+                    validation_payload_sha256="f" * 64,
+                    certificate_sha256="0" * 64,
+                ),
+            ),
             **common("h6_prefix"),  # type: ignore[arg-type]
         ),
         h7=H8H7Reference(
@@ -191,6 +211,34 @@ def _h8_current_refs(head: str, dirty: str, junit: str):
     )
 
 
+def _legacy_h8_prefix_payload(
+    bounded: dict[str, object],
+) -> dict[str, object]:
+    common_fields = {
+        "kind",
+        "artifact_path",
+        "manifest_sha256",
+        "result_path",
+        "result_sha256",
+        "content_hashes",
+        "payload_hashes",
+        "ledger_path",
+        "ledger_sha256",
+        "producer_head",
+        "producer_dirty_digest",
+        "candidate_junit_sha256",
+        "status",
+    }
+    return {
+        **{key: value for key, value in bounded.items() if key in common_fields},
+        "certificate_set_sha256": bounded["prefix_certificate_set_sha256"],
+        "certificate_hashes": {
+            "certificate-0.json": "d" * 64,
+            "certificate-1.json": "0" * 64,
+        },
+    }
+
+
 def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
     import verification.h8_gate as h8_gate
     import verification.run_gates as gates
@@ -198,6 +246,8 @@ def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
     _refs, registry_bytes = _h8_current_refs("1" * 40, "2" * 64, "3" * 64)
     payload = json.loads(registry_bytes)
     payload["schema_version"] = "h8-current-candidate-refs-v1"
+    h6_prefix = payload["references"]["h6_prefix"]
+    payload["references"]["h6_prefix"] = _legacy_h8_prefix_payload(h6_prefix)
     h6_prediction = payload["references"]["h6_prediction"]
     legacy_fields = {
         "kind",
@@ -224,10 +274,51 @@ def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
 
     parsed = gates.parse_h8_reference_registry_bytes(legacy_bytes)
 
+    assert type(parsed.h6_prefix).__name__ == "H8LegacyH6PrefixReference"
     assert type(parsed.h6_prediction).__name__ == "H8LegacyH6PredictionReference"
     assert parsed.registry_schema_version == "h8-current-candidate-refs-v1"
     assert parsed.prerequisite_obligations == (
+        "h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3",
         "h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2",
+    )
+    assert (
+        h8_gate.canonical_h8_json_bytes(
+            h8_gate.h8_current_refs_registry_payload(parsed)
+        )
+        == legacy_bytes
+    )
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        config_sha256="4" * 64,
+        current_refs=parsed,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="5" * 64,
+        preregistration_sha256="6" * 64,
+    )
+    assert evaluation.result.status is GateStatus.INCONCLUSIVE
+    assert parsed.prerequisite_obligations[0] in evaluation.result.obligations
+
+
+def test_h8_registry_v2_is_readable_but_never_authorizing() -> None:
+    import verification.h8_gate as h8_gate
+    import verification.run_gates as gates
+
+    _refs, registry_bytes = _h8_current_refs("1" * 40, "2" * 64, "3" * 64)
+    payload = json.loads(registry_bytes)
+    payload["schema_version"] = "h8-current-candidate-refs-v2"
+    h6_prefix = payload["references"]["h6_prefix"]
+    payload["references"]["h6_prefix"] = _legacy_h8_prefix_payload(h6_prefix)
+    legacy_bytes = h8_gate.canonical_h8_json_bytes(payload)
+
+    parsed = gates.parse_h8_reference_registry_bytes(legacy_bytes)
+
+    assert type(parsed.h6_prefix).__name__ == "H8LegacyH6PrefixReference"
+    assert type(parsed.h6_prediction).__name__ == "H8H6PredictionReference"
+    assert parsed.registry_schema_version == "h8-current-candidate-refs-v2"
+    assert parsed.prerequisite_obligations == (
+        "h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3",
     )
     assert (
         h8_gate.canonical_h8_json_bytes(

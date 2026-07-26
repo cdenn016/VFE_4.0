@@ -426,15 +426,23 @@ Current H7 compatibility registry keys are exactly, in order,
 and candidate JUnit path/hash.
 
 The sole authorizing H8 registry schema is
-`h8-current-candidate-refs-v2`. It contains:
+`h8-current-candidate-refs-v3`. It contains:
 
 - `H8H1H5Reference(kind,artifact_path,manifest_sha256,result_path,
   result_sha256,content_hashes,payload_hashes,ledger_path,ledger_sha256,
   producer_head,producer_dirty_digest,candidate_junit_sha256,status)`
 - `H8H1PrefixPriorReference` with the same common fields and kind
   `h1_prefix_prior`
-- `H8H6PrefixReference` with the common fields plus
-  `certificate_set_sha256` and keyed `certificate_hashes`
+- `H8H6PrefixReference` with the common fields plus literal
+  `config_schema="h6-prefix-config-v3"`,
+  `validation_schema="h6-prefix-validation-set-v2"`, and
+  `certificate_set_schema="h6-prefix-certificate-set-v2"`;
+  `config_sha256`, `workload_plan_sha256`,
+  `validation_payload_sha256`, and
+  `prefix_certificate_set_sha256`; and the exact ordered nonempty
+  `semantic_families` rows
+  `(semantic_family_index,semantic_family_sha256,
+  validation_payload_sha256,certificate_sha256)`
 - `H8H7Reference` with the common fields plus `result_pointer_path`,
   `result_pointer_sha256`, and `fixture_set_sha256`
 - `H8H6PredictionReference` with the common fields plus the literal
@@ -452,12 +460,14 @@ The sole authorizing H8 registry schema is
   `smc_bias_semantics_sha256`, `objective_gate_spec_sha256`,
   `metrics_sha256`, and the non-null same-candidate JUnit hash
 
-All status tags are literal `pass`. Keyed content, payload, and certificate
-maps are preserved losslessly. A content-hash key is an exact
-manifest-relative payload path. A certificate-hash key is the canonical
-one-line JSON encoding of its typed `PrefixCaseKey`. No singular aggregate
-replacement and no copy of predecessor validation, certificate, or ledger
-bytes is admissible.
+All status tags are literal `pass`. Keyed content and payload maps are
+preserved losslessly. A content-hash key is an exact manifest-relative payload
+path. H6-Prefix semantic families preserve runner-plan order with contiguous
+indices and unique family hashes; each row binds that family's validation and
+certificate digest in addition to the validation and certificate-set
+aggregates. A legacy keyed `PrefixCaseKey` certificate map is not admissible
+in the authorizing v3 shape. No copy of predecessor validation, certificate,
+or ledger bytes is admissible.
 The direct H1--H5, H1-prefix-prior, and H6-Prefix variants must match their
 H7 transitive references field-for-field, including ordered keyed payload
 hashes. The amended H6-Prediction producer head, dirty digest, and non-null
@@ -475,11 +485,20 @@ reconstructs the typed endpoint ownership inventory. The native H6 reader then
 rederives raw aggregates, ordered OBJECTIVE/PRIMARY metrics, result identity,
 and result-root name. Reopened bytes validate the registry record; they never
 reconstruct it and are never copied into H8.
+For H6-Prefix specifically, the native bounded reopener requires the exact
+five-file manifest inventory, config v3 outer authorization, workload-plan v2
+authorization, validation-set v2, and certificate-set v2; it reconstructs the
+typed ordered certificate set and H8 compares every aggregate and family row
+to the already parsed registry reference.
 
-Registry v1 remains readable solely for historical diagnosis. Its
+Registry v1 and v2 remain readable solely for historical diagnosis. Both
+retain the legacy keyed H6-Prefix certificate shape and therefore add
+`h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3`. Registry v1's
 `H8LegacyH6PredictionReference` lacks the amended bindings and therefore adds
 the named prerequisite obligation
 `h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2`.
+Registry v2 retains the amended H6-Prediction v2 compatibility island
+unchanged; it is nonauthorizing only because its H6-Prefix shape is legacy.
 Unavailable or changed immutable bytes add a reference-specific prerequisite
 obligation. Either condition makes H8 `INCONCLUSIVE`; neither can authorize
 `PASS`.

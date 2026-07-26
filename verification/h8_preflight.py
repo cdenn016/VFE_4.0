@@ -16,7 +16,7 @@ from typing import Literal, cast
 
 H8_PREFLIGHT_CONFIG_SCHEMA = "h8-preflight-config-v1"
 H8_PREFLIGHT_RESULT_SCHEMA = "h8-preflight-result-v1"
-H8_REGISTRY_SCHEMA = "h8-current-candidate-refs-v2"
+H8_REGISTRY_SCHEMA = "h8-current-candidate-refs-v3"
 H8_FROZEN_SECTION_SHA256 = (
     "9face39943345148e9ff4cc5abb8d8d25f1bd7700a2c72dbe88247f5e986cc94"
 )
@@ -79,7 +79,18 @@ H8_REFERENCE_FIELDS = {
     "h1_h5": H8_REFERENCE_COMMON_FIELDS,
     "h1_prefix_prior": H8_REFERENCE_COMMON_FIELDS,
     "h6_prefix": H8_REFERENCE_COMMON_FIELDS
-    | frozenset({"certificate_set_sha256", "certificate_hashes"}),
+    | frozenset(
+        {
+            "config_schema",
+            "validation_schema",
+            "certificate_set_schema",
+            "config_sha256",
+            "workload_plan_sha256",
+            "validation_payload_sha256",
+            "prefix_certificate_set_sha256",
+            "semantic_families",
+        }
+    ),
     "h7": H8_REFERENCE_COMMON_FIELDS
     | frozenset(
         {
@@ -721,12 +732,54 @@ def _direct_reference_structure_error(
         if error is not None:
             return error
     if key == "h6_prefix":
-        error = _hash_mapping_error(
-            reference["certificate_hashes"],
-            "certificate_hashes",
-        )
-        if error is not None:
-            return error
+        if (
+            reference["config_schema"] != "h6-prefix-config-v3"
+            or reference["validation_schema"]
+            != "h6-prefix-validation-set-v2"
+            or reference["certificate_set_schema"]
+            != "h6-prefix-certificate-set-v2"
+        ):
+            return "bounded H6-Prefix schema discriminators are stale"
+        families = reference["semantic_families"]
+        family_fields = {
+            "semantic_family_index",
+            "semantic_family_sha256",
+            "validation_payload_sha256",
+            "certificate_sha256",
+        }
+        if (
+            type(families) is not list
+            or not families
+            or any(
+                type(row) is not dict or set(row) != family_fields
+                for row in families
+            )
+        ):
+            return "bounded H6-Prefix semantic families are malformed"
+        observed_indices: list[int] = []
+        observed_family_hashes: list[str] = []
+        for row in families:
+            assert isinstance(row, dict)
+            index = row["semantic_family_index"]
+            if type(index) is not int or index < 0:
+                return "bounded H6-Prefix semantic-family index is invalid"
+            observed_indices.append(index)
+            for name in (
+                "semantic_family_sha256",
+                "validation_payload_sha256",
+                "certificate_sha256",
+            ):
+                try:
+                    _lower_hex(row[name], 64, name)
+                except ValueError as exc:
+                    return str(exc)
+            observed_family_hashes.append(
+                cast(str, row["semantic_family_sha256"])
+            )
+        if observed_indices != list(range(len(families))):
+            return "bounded H6-Prefix semantic-family order is not contiguous"
+        if len(set(observed_family_hashes)) != len(observed_family_hashes):
+            return "bounded H6-Prefix semantic families are duplicated"
     if key == "h7" and (
         type(reference["result_pointer_path"]) is not str
         or not reference["result_pointer_path"]
@@ -909,7 +962,7 @@ def _inspect_registry(
 ) -> tuple[H8PreflightPrerequisite, ...]:
     absent = (
         _record(
-            "h8_registry_v2",
+            "h8_registry_v3",
             "missing",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -958,7 +1011,7 @@ def _inspect_registry(
     if registry_path.is_symlink():
         return (
             _record(
-                "h8_registry_v2",
+                "h8_registry_v3",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -974,7 +1027,7 @@ def _inspect_registry(
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return (
             _record(
-                "h8_registry_v2",
+                "h8_registry_v3",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -995,7 +1048,7 @@ def _inspect_registry(
     ):
         return (
             _record(
-                "h8_registry_v2",
+                "h8_registry_v3",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1015,7 +1068,7 @@ def _inspect_registry(
     ):
         return (
             _record(
-                "h8_registry_v2",
+                "h8_registry_v3",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1036,7 +1089,7 @@ def _inspect_registry(
     except ValueError as exc:
         return (
             _record(
-                "h8_registry_v2",
+                "h8_registry_v3",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1050,7 +1103,7 @@ def _inspect_registry(
     )
     if schema != H8_REGISTRY_SCHEMA:
         registry_record = _record(
-            "h8_registry_v2",
+            "h8_registry_v3",
             "blocked",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1058,7 +1111,7 @@ def _inspect_registry(
         )
     elif not registry_is_current:
         registry_record = _record(
-            "h8_registry_v2",
+            "h8_registry_v3",
             "stale",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1066,7 +1119,7 @@ def _inspect_registry(
         )
     elif set(raw_references) != set(H8_REFERENCE_KEYS):
         registry_record = _record(
-            "h8_registry_v2",
+            "h8_registry_v3",
             "malformed",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1074,7 +1127,7 @@ def _inspect_registry(
         )
     else:
         registry_record = _record(
-            "h8_registry_v2",
+            "h8_registry_v3",
             "present_unvalidated",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,

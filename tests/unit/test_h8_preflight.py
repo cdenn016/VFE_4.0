@@ -45,7 +45,7 @@ def _state(result: H8PreflightResult, name: str) -> str:
 def _registry_payload(
     tmp_path: Path,
     *,
-    schema_version: str = "h8-current-candidate-refs-v2",
+    schema_version: str = "h8-current-candidate-refs-v3",
     stale: bool = False,
 ) -> dict[str, object]:
     candidate = _candidate()
@@ -130,14 +130,41 @@ def _registry_payload(
             **common("h6_prediction"),
             "experiment_sha256": "4" * 64,
         }
-    references = {
-        "h1_h5": common("h1_h5"),
-        "h1_prefix_prior": common("h1_prefix_prior"),
-        "h6_prefix": {
+    if schema_version == "h8-current-candidate-refs-v3":
+        h6_prefix = {
+            **common("h6_prefix"),
+            "config_schema": "h6-prefix-config-v3",
+            "validation_schema": "h6-prefix-validation-set-v2",
+            "certificate_set_schema": "h6-prefix-certificate-set-v2",
+            "config_sha256": "4" * 64,
+            "workload_plan_sha256": "4" * 64,
+            "validation_payload_sha256": "4" * 64,
+            "prefix_certificate_set_sha256": "4" * 64,
+            "semantic_families": [
+                {
+                    "semantic_family_index": 0,
+                    "semantic_family_sha256": "a" * 64,
+                    "validation_payload_sha256": "b" * 64,
+                    "certificate_sha256": "c" * 64,
+                },
+                {
+                    "semantic_family_index": 1,
+                    "semantic_family_sha256": "d" * 64,
+                    "validation_payload_sha256": "e" * 64,
+                    "certificate_sha256": "f" * 64,
+                },
+            ],
+        }
+    else:
+        h6_prefix = {
             **common("h6_prefix"),
             "certificate_set_sha256": "4" * 64,
             "certificate_hashes": {"certificate.json": "5" * 64},
-        },
+        }
+    references = {
+        "h1_h5": common("h1_h5"),
+        "h1_prefix_prior": common("h1_prefix_prior"),
+        "h6_prefix": h6_prefix,
         "h7": {
             **common("h7"),
             "result_pointer_path": evidence_path,
@@ -198,7 +225,7 @@ def test_missing_registry_returns_blocked_exact_forecast_without_writes(
     assert after == before
     assert result.disposition == "blocked"
     assert result.scientific_status == "not_evaluated"
-    assert _state(result, "h8_registry_v2") == "missing"
+    assert _state(result, "h8_registry_v3") == "missing"
     assert _state(result, "h1_h5") == "missing"
     assert _state(result, "h8_runtime_orchestrator") == "missing"
 
@@ -249,7 +276,7 @@ def test_missing_registry_returns_blocked_exact_forecast_without_writes(
     assert json.loads(canonical_h8_preflight_bytes(result.as_dict()))
 
 
-def test_current_v2_registry_is_present_but_never_scientific_pass(
+def test_current_v3_registry_is_present_but_never_scientific_pass(
     tmp_path: Path,
 ) -> None:
     preregistration = (
@@ -261,7 +288,7 @@ def test_current_v2_registry_is_present_but_never_scientific_pass(
     from verification.run_gates import parse_h8_reference_registry_bytes
 
     parsed = parse_h8_reference_registry_bytes(registry_path.read_bytes())
-    assert parsed.registry_schema_version == "h8-current-candidate-refs-v2"
+    assert parsed.registry_schema_version == "h8-current-candidate-refs-v3"
     runtime_root = tmp_path / "verification"
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(
@@ -293,7 +320,7 @@ def test_current_v2_registry_is_present_but_never_scientific_pass(
         candidate=_candidate(),
     )
 
-    assert _state(result, "h8_registry_v2") == "present_unvalidated"
+    assert _state(result, "h8_registry_v3") == "present_unvalidated"
     assert _state(result, "candidate_junit") == "present_unvalidated"
     assert _state(result, "h1_h5") == "present_unvalidated"
     assert _state(result, "h1_prefix_prior_v2") == "present_unvalidated"
@@ -337,11 +364,11 @@ def test_registry_v1_malformed_and_stale_are_nonauthorizing(
             candidate=_candidate(),
         )
 
-        assert _state(result, "h8_registry_v2") == expected_state
+        assert _state(result, "h8_registry_v3") == expected_state
         assert _state(result, "h6_prediction_v2") == prediction_state
         assert result.disposition == "blocked"
         assert result.scientific_status == "not_evaluated"
-        assert f"h8_registry_v2:{expected_state}" in result.obligations
+        assert f"h8_registry_v3:{expected_state}" in result.obligations
         assert f"h6_prediction_v2:{prediction_state}" in result.obligations
 
 

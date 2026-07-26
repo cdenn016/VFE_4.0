@@ -6,9 +6,12 @@ from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import verification.h8_gate as h8_gate
 from vfe4.artifacts import source_candidate_sha256
 from vfe4.artifacts.h6 import CandidateArtifactReference
+from vfe4.types.h6 import BoundedPrefixCertificateSet
 from vfe4.types.h7 import H7PredecessorReference
 from vfe4.types.h8 import (
     CurrentH8PrerequisiteRefs,
@@ -16,7 +19,9 @@ from vfe4.types.h8 import (
     H8H1PrefixPriorReference,
     H8H6PredictionReference,
     H8H6PrefixReference,
+    H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
+    H8LegacyH6PrefixReference,
 )
 from vfe4.types.results import GateStatus
 
@@ -93,8 +98,27 @@ def _current_refs(*, registry_sha256: str | None = None) -> CurrentH8Prerequisit
         ),
         h6_prefix=H8H6PrefixReference(
             kind="h6_prefix",
-            certificate_set_sha256=digest,
-            certificate_hashes={"certificate.json": digest},
+            config_schema="h6-prefix-config-v3",
+            validation_schema="h6-prefix-validation-set-v2",
+            certificate_set_schema="h6-prefix-certificate-set-v2",
+            config_sha256=digest,
+            workload_plan_sha256="b" * 64,
+            validation_payload_sha256="c" * 64,
+            prefix_certificate_set_sha256="d" * 64,
+            semantic_families=(
+                H8H6PrefixSemanticFamilyReference(
+                    semantic_family_index=0,
+                    semantic_family_sha256="e" * 64,
+                    validation_payload_sha256="f" * 64,
+                    certificate_sha256="1" * 64,
+                ),
+                H8H6PrefixSemanticFamilyReference(
+                    semantic_family_index=1,
+                    semantic_family_sha256="2" * 64,
+                    validation_payload_sha256="3" * 64,
+                    certificate_sha256="4" * 64,
+                ),
+            ),
             **common("h6_prefix"),  # type: ignore[arg-type]
         ),
         h7=H8H7Reference(
@@ -164,8 +188,170 @@ def test_h8_preflight_keeps_optional_hashes_and_failure_dominates() -> None:
     )
 
 
-def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs() -> None:
+def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     refs = _current_refs()
+    prefix_reference = refs.h6_prefix
+    assert type(prefix_reference) is H8H6PrefixReference
+    original_certificates = tuple(
+        SimpleNamespace(
+            semantic_family_sha256=row.semantic_family_sha256,
+            validation_payload_sha256=row.validation_payload_sha256,
+            certificate_sha256=row.certificate_sha256,
+        )
+        for row in prefix_reference.semantic_families
+    )
+
+    def bounded_set(
+        **changes: object,
+    ) -> BoundedPrefixCertificateSet:
+        values = {
+            "schema_version": prefix_reference.certificate_set_schema,
+            "config_sha256": prefix_reference.config_sha256,
+            "workload_plan_sha256": (
+                prefix_reference.workload_plan_sha256
+            ),
+            "validation_payload_sha256": (
+                prefix_reference.validation_payload_sha256
+            ),
+            "prefix_certificate_set_sha256": (
+                prefix_reference.prefix_certificate_set_sha256
+            ),
+            "certificates": original_certificates,
+            **changes,
+        }
+        value = object.__new__(BoundedPrefixCertificateSet)
+        for name, item in values.items():
+            object.__setattr__(value, name, item)
+        return value
+
+    reopened = bounded_set()
+    reopen_calls: list[dict[str, object]] = []
+
+    def reopen_bounded(**kwargs: object) -> object:
+        reopen_calls.append(kwargs)
+        return reopened
+
+    monkeypatch.setattr(
+        h8_gate,
+        "reopen_bounded_prefix_certificate_set",
+        reopen_bounded,
+    )
+    prefix_payloads = {
+        name: b"{}"
+        for name in (
+            "certificates/prefix_set.json",
+            "config.json",
+            "environment.json",
+            "provenance.json",
+            "validation/h6_prefix.json",
+        )
+    }
+    h8_gate._revalidate_h6_prefix_certificates(
+        prefix_reference,
+        prefix_payloads,
+    )
+    assert reopen_calls == [
+        {
+            "root": Path(prefix_reference.artifact_path),
+            "expected_manifest_sha256": (
+                prefix_reference.manifest_sha256
+            ),
+            "expected_git_head": prefix_reference.producer_head,
+            "expected_dirty_digest": (
+                prefix_reference.producer_dirty_digest
+            ),
+            "expected_junit_sha256": (
+                prefix_reference.candidate_junit_sha256
+            ),
+        }
+    ]
+
+    legacy = H8LegacyH6PrefixReference(
+        kind="h6_prefix",
+        certificate_set_sha256="5" * 64,
+        certificate_hashes={"legacy-case-key": "6" * 64},
+        artifact_path=prefix_reference.artifact_path,
+        manifest_sha256=prefix_reference.manifest_sha256,
+        result_path=prefix_reference.result_path,
+        result_sha256=prefix_reference.result_sha256,
+        content_hashes=prefix_reference.content_hashes,
+        payload_hashes=prefix_reference.payload_hashes,
+        ledger_path=prefix_reference.ledger_path,
+        ledger_sha256=prefix_reference.ledger_sha256,
+        producer_head=prefix_reference.producer_head,
+        producer_dirty_digest=prefix_reference.producer_dirty_digest,
+        candidate_junit_sha256=(
+            prefix_reference.candidate_junit_sha256
+        ),
+        status="pass",
+    )
+    legacy_refs = replace(refs, h6_prefix=legacy)
+    assert (
+        legacy_refs.registry_schema_version
+        == "h8-current-candidate-refs-v2"
+    )
+    assert legacy_refs.prerequisite_obligations == (
+        "h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3",
+    )
+    with pytest.raises(ValueError, match="bounded H6-Prefix reference"):
+        h8_gate._revalidate_h6_prefix_certificates(
+            legacy,
+            prefix_payloads,
+        )
+
+    mutations = (
+        {"certificates": tuple(reversed(original_certificates))},
+        {"certificates": original_certificates[:-1]},
+        {
+            "certificates": (
+                original_certificates[0],
+                original_certificates[0],
+            )
+        },
+        {
+            "certificates": (
+                replace(
+                    prefix_reference.semantic_families[0],
+                    validation_payload_sha256="7" * 64,
+                ),
+                original_certificates[1],
+            )
+        },
+        {
+            "certificates": (
+                replace(
+                    prefix_reference.semantic_families[0],
+                    certificate_sha256="8" * 64,
+                ),
+                original_certificates[1],
+            )
+        },
+        {"config_sha256": "9" * 64},
+        {"workload_plan_sha256": "0" * 64},
+        {"validation_payload_sha256": "5" * 64},
+        {"prefix_certificate_set_sha256": "6" * 64},
+    )
+    for mutation in mutations:
+        monkeypatch.setattr(
+            h8_gate,
+            "reopen_bounded_prefix_certificate_set",
+            lambda **_kwargs: bounded_set(**mutation),
+        )
+        with pytest.raises(ValueError, match="bounded H6-Prefix"):
+            h8_gate._revalidate_h6_prefix_certificates(
+                prefix_reference,
+                prefix_payloads,
+            )
+
+    for field_name, legacy_schema in (
+        ("config_schema", "h6-prefix-config-v2"),
+        ("validation_schema", "h6-prefix-validation-set-v1"),
+        ("certificate_set_schema", "h6-prefix-certificate-set-v1"),
+    ):
+        with pytest.raises(ValueError, match="schema must be bounded"):
+            replace(prefix_reference, **{field_name: legacy_schema})
 
     validation = h8_gate.validate_h8_prerequisite_artifacts(refs)
     obligations = validation.obligations

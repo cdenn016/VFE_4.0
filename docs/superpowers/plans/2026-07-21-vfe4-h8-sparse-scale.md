@@ -368,6 +368,13 @@ class H8H1PrefixPriorReference:
     status: Literal["pass"]
 
 @dataclass(frozen=True)
+class H8H6PrefixSemanticFamilyReference:
+    semantic_family_index: int
+    semantic_family_sha256: str
+    validation_payload_sha256: str
+    certificate_sha256: str
+
+@dataclass(frozen=True)
 class H8H6PrefixReference:
     kind: Literal["h6_prefix"]
     artifact_path: str
@@ -376,8 +383,14 @@ class H8H6PrefixReference:
     result_sha256: str
     content_hashes: Mapping[str, str]
     payload_hashes: Mapping[str, str]
-    certificate_set_sha256: str
-    certificate_hashes: Mapping[str, str]
+    config_schema: Literal["h6-prefix-config-v3"]
+    validation_schema: Literal["h6-prefix-validation-set-v2"]
+    certificate_set_schema: Literal["h6-prefix-certificate-set-v2"]
+    config_sha256: str
+    workload_plan_sha256: str
+    validation_payload_sha256: str
+    prefix_certificate_set_sha256: str
+    semantic_families: tuple[H8H6PrefixSemanticFamilyReference, ...]
     ledger_path: str
     ledger_sha256: str
     producer_head: str
@@ -453,7 +466,7 @@ class CurrentH8PrerequisiteRefs:
     h7_compatibility_refs: Mapping[str, H7PredecessorReference]
     h1_h5: H8H1H5Reference
     h1_prefix_prior: H8H1PrefixPriorReference
-    h6_prefix: H8H6PrefixReference
+    h6_prefix: H8H6PrefixReference | H8LegacyH6PrefixReference
     h7: H8H7Reference
     h6_prediction: H8H6PredictionReference | H8LegacyH6PredictionReference
     registry_sha256: str
@@ -491,7 +504,7 @@ def h8_current_candidate_result_payload(
 ) -> Mapping[str, object]: ...
 ```
 
-The implementation imports and reuses H7's exact frozen `H7PredecessorReference(artifact_path,git_head,dirty_digest,junit_sha256,junit_path,manifest_sha256,payload_hashes,ledger_path,ledger_sha256,reference_sha256)` and H7-owned `project_h1_h5_compatibility_config`, plus H6's exact frozen `CandidateArtifactReference`, amended `project_h1_prefix_prior_v2_config`, `project_h6_prefix_config`, and keyword-only `run_projected_current_candidate`. H6-Prefix calls the one-argument projector and producer with `predecessor_refs={}`; any wrapper that restores the old predecessor argument or any nonempty Prefix predecessor mapping is rejected. `project_h7_compatibility_config` consumes `Mapping[str,H7PredecessorReference]` exactly: the ordered H7 registry is captured once as bytes, deserialized once directly to those records, and supplied without an H8 wrapper or field projection. Its output must preserve every predecessor `reference_sha256`, `junit_path`, `junit_sha256`, and complete keyed `payload_hashes` mapping byte-for-byte while removing H8 fields; tests require its canonical bytes to equal the pinned final-H7 schema and contain no H8 or H6-Prediction key. Separately, the tagged H8 reference variants retain complete keyed `content_hashes` and `payload_hashes`, candidate JUnit, and kind-specific certificate/result-pointer/experiment hashes. Every `content_hashes` key is an exact manifest-relative payload path and is independently rehashed after manifest validation. Every H6-Prefix `certificate_hashes` key is the canonical one-line JSON of its typed `PrefixCaseKey`, with the certificate digest as value. H8 must not reopen an artifact to reconstruct a registry reference, replace a keyed mapping with one aggregate hash, weaken a predecessor schema, or copy predecessor output bytes. It must reopen the exact frozen artifact, result, ledger, H7 pointer, all three H7 transitive JUnit preimages, and H6-Prediction readiness/prerequisite/raw/metrics/result paths to rehash and validate the already parsed records fail-closed. H6-Prediction preflight reconstructs its typed readiness from the exact H1/H2/H3/H5, scorer-v2, finite-SMC, independent Prefix, blinded-data, and matching artifacts; the blinded data identity supplies the actual held-out token count used by raw SMC validation. A naked matching-set or data-identity digest is not closure. `verification/h8_gate.py` owns H8 reference validation and payload construction; `verification/run_gates.py` hands that mapping to `vfe4.artifacts.publish_run_directory`, then validates the published path into a `CandidateArtifactReference` before constructing the external result pointer. No module under `vfe4/**` imports `verification/**`.
+The implementation imports and reuses H7's exact frozen `H7PredecessorReference(artifact_path,git_head,dirty_digest,junit_sha256,junit_path,manifest_sha256,payload_hashes,ledger_path,ledger_sha256,reference_sha256)` and H7-owned `project_h1_h5_compatibility_config`, plus H6's exact frozen `CandidateArtifactReference`, amended `project_h1_prefix_prior_v2_config`, `project_h6_prefix_config`, keyword-only `run_projected_current_candidate`, and `reopen_bounded_prefix_certificate_set`. H6-Prefix calls the one-argument projector and producer with `predecessor_refs={}`; any wrapper that restores the old predecessor argument or any nonempty Prefix predecessor mapping is rejected. `project_h7_compatibility_config` consumes `Mapping[str,H7PredecessorReference]` exactly: the ordered H7 registry is captured once as bytes, deserialized once directly to those records, and supplied without an H8 wrapper or field projection. Its output must preserve every predecessor `reference_sha256`, `junit_path`, `junit_sha256`, and complete keyed `payload_hashes` mapping byte-for-byte while removing H8 fields; tests require its canonical bytes to equal the pinned final-H7 schema and contain no H8 or H6-Prediction key. Separately, the tagged H8 reference variants retain complete keyed `content_hashes` and `payload_hashes`, candidate JUnit, and kind-specific certificate/result-pointer/experiment hashes. Every `content_hashes` key is an exact manifest-relative payload path and is independently rehashed after manifest validation. H6-Prefix carries config v3, workload-plan v2, validation-set v2, and certificate-set v2 aggregate identities plus the exact ordered semantic-family rows `(index,family,validation,certificate)`; a legacy `PrefixCaseKey` certificate map is nonauthorizing. H8 must not reopen an artifact to reconstruct a registry reference, replace the ordered family bindings with one aggregate hash, weaken a predecessor schema, or copy predecessor output bytes. It must reopen the exact frozen artifact, result, ledger, H7 pointer, all three H7 transitive JUnit preimages, and H6-Prediction readiness/prerequisite/raw/metrics/result paths to rehash and validate the already parsed records fail-closed. The H6 bounded reopener independently requires the exact five-file inventory, outer config-v3 authorization, internal workload-v2 authorization, validation-set v2, certificate-set v2, and typed ordered family set before H8 compares those identities to the registry. H6-Prediction preflight reconstructs its typed readiness from the exact H1/H2/H3/H5, scorer-v2, finite-SMC, independent Prefix, blinded-data, and matching artifacts; the blinded data identity supplies the actual held-out token count used by raw SMC validation. A naked matching-set or data-identity digest is not closure. `verification/h8_gate.py` owns H8 reference validation and payload construction; `verification/run_gates.py` hands that mapping to `vfe4.artifacts.publish_run_directory`, then validates the published path into a `CandidateArtifactReference` before constructing the external result pointer. No module under `vfe4/**` imports `verification/**`.
 
 H7 fixture closure is independently rederived from the current-candidate
 `h1_v1.json`, `h7_v1.json`, and `h7_density_probes_v1.json` bytes. Native H7
@@ -499,15 +512,18 @@ parsing validates the typed density-probe set, and both the reopened H7
 validation and H8 reference must equal the resulting exact four fixture hashes
 and fixture-set identity.
 
-The sole authorizing registry is `h8-current-candidate-refs-v2`. Its direct
+The sole authorizing registry is `h8-current-candidate-refs-v3`. Its direct
 H1--H5, H1-prefix-prior, and H6-Prefix variants equal the H7 transitive
 references field-for-field. Its H6-Prediction producer head, dirty digest, and
 non-null JUnit hash equal the H8 candidate; the variant also binds the amended
 config/readiness/scientific-prerequisite/matching/scorer-v2/SMC-bias/OBJECTIVE/raw/metrics/result
-identities above. Missing prerequisite paths or manifest preimages reject registry
-v2 rather than creating a self-consistent authorization. Registry v1 decodes only to
-`H8LegacyH6PredictionReference` and contributes
-`h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2`.
+identities above. Missing prerequisite paths or manifest preimages reject
+registry v3 rather than creating a self-consistent authorization. Registry v1
+and v2 decode their legacy H6-Prefix shapes only for diagnosis and contribute
+`h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3`. Registry v1
+also decodes `H8LegacyH6PredictionReference` and contributes
+`h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2`; registry v2
+retains amended H6-Prediction v2 unchanged.
 Any legacy or unavailable/rehashed-different prerequisite remains
 `INCONCLUSIVE` and is never eligible for H8 `PASS`. The H7 plan pin remains
 `3549153ac123b26f1d2372c59e80db93a78ed451fd4724781280dd7f413f1242`
@@ -852,7 +868,7 @@ For small-grid dense operands only, exact local/dense `kappa_2` from `eigvalsh`/
 
 - [ ] **Step 7: Review and close the revision-specific H7 ledger.** Fresh H7 reviewers consume existing Step 2/6 evidence only and do not rerun a test or gate. Re-read and independently revalidate every byte/hash in the external H7 pointer, then populate/validate `.verification/h7-<FULL_HEAD>-<FIXTURE_SET_SHA>-ledger.json` under the pinned H7 plan's claim inventory in its own verifier turn. Preserve every older H7 ledger. Any required source or schema fix abandons this candidate and restarts all of Task 8.
 
-- [ ] **Step 8: Atomically bind the exact H8 current-reference registry.** Only after the H7 ledger validates, construct from the already validated Step 6 records, without reopening any source or reconstructing a reference from artifact bytes, the exact tagged `H8H1H5Reference`, `H8H1PrefixPriorReference`, `H8H6PrefixReference`, `H8H7Reference`, and amended `H8H6PredictionReference`. Atomically write `.verification/h8-current-candidate-<FULL_HEAD>-refs.json` with `schema_version="h8-current-candidate-refs-v2"`, exact candidate HEAD/digest/JUnit SHA, the exact H7 compatibility mapping, and those ordered variants, preserving every keyed content/payload/certificate map and kind-specific result-pointer/experiment field. Recompute the registry SHA, call `bind_h8_current_refs`, and require that all current-candidate identities match Step 2 while H6-Prediction instead passes its frozen scientific dependency-closure proof. Then reopen and rehash every exact referenced immutable artifact/result/ledger path to validate those parsed records without reconstructing or copying them. Any missing, copied, reordered, aggregated, or changed byte blocks H8; registry v1 adds a prerequisite obligation and remains `INCONCLUSIVE`.
+- [ ] **Step 8: Atomically bind the exact H8 current-reference registry.** Only after the H7 ledger validates, construct from the already validated Step 6 records, without reopening any source or reconstructing a reference from artifact bytes, the exact tagged `H8H1H5Reference`, `H8H1PrefixPriorReference`, `H8H6PrefixReference`, `H8H7Reference`, and amended `H8H6PredictionReference`. Atomically write `.verification/h8-current-candidate-<FULL_HEAD>-refs.json` with `schema_version="h8-current-candidate-refs-v3"`, exact candidate HEAD/digest/JUnit SHA, the exact H7 compatibility mapping, and those ordered variants, preserving every keyed content/payload map, all bounded Prefix aggregate and ordered family identities, and kind-specific result-pointer/experiment fields. Recompute the registry SHA, call `bind_h8_current_refs`, and require that all current-candidate identities match Step 2 while H6-Prediction instead passes its frozen scientific dependency-closure proof. Then reopen and rehash every exact referenced immutable artifact/result/ledger path to validate those parsed records without reconstructing or copying them. Any missing, copied, reordered, aggregated, or changed byte blocks H8; registry v1/v2 adds a named prerequisite obligation and remains `INCONCLUSIVE`.
 
 - [ ] **Step 9: Run H8 exactly once and write its external result pointer.** Run `python verify_vfe4.py` with the committed H8 `CONFIG`; `main` resolves only the deterministic Step 8 registry. Expected: prerequisite statuses are PASS, `H8: pass` prints only if the full conjunction passes, and one artifact path prints. The gate launches exactly 15 cold production children, three separate profiler children, and the isolated ordered controls; preserve every raw result and do not rerun a seed/control. Independently require every observed `PREEXISTING`/`CREATE`/`INCREMENT_VERSION`/`DESTROY` row to retain source index, TensorKey+version, dtype, join witness, and valid baseline/dedup/version/liveness reconciliation; a join unavailable or nonunique is `INCONCLUSIVE`. Validate the generic atomic artifact, exact payload set, `H8GateResult`, `validation/h8.json`, config/validation hashes, the five embedded lossless reference variants, and manifest. Then atomically write `.verification/h8-current-candidate-<FULL_HEAD>-result.json` with those same variants verbatim plus candidate/JUnit, artifact/manifest/config/validation, and current-registry identities. It is not part of `manifest.sha256`.
 

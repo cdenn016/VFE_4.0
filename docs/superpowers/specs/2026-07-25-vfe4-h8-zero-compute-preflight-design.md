@@ -70,7 +70,7 @@ The preflight reports, in dependency order:
 2. whether the frozen H8 preregistration exists as a regular file;
 3. whether the exact
    `.verification/h8-current-candidate-<HEAD>-refs.json` registry exists and
-   declares schema `h8-current-candidate-refs-v2`;
+   declares schema `h8-current-candidate-refs-v3`;
 4. whether the registry declares one same-candidate JUnit identity;
 5. H1--H5 evidence;
 6. scorer-v2 H1-Prefix-Prior evidence;
