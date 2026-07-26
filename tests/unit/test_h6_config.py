@@ -24,6 +24,7 @@ from vfe4.types.h6 import (
     CausalDagRow,
     EstimatorSpec,
     H6LanguageStructure,
+    H6PrefixWorkloadPlan,
     H6PrefixProfilePair,
     ObjectiveGateSpec,
     TrainingPhase,
@@ -40,6 +41,101 @@ def _sha(character: str) -> str:
 FULL_PREFIX_AUTHORIZATION_SHA256 = hashlib.sha256(
     b"AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1"
 ).hexdigest()
+
+
+def test_h6_workload_amendment_freezes_representative_and_stratified_indices() -> None:
+    """Rejects any attempt to replace the bounded, outcome-blind workload."""
+
+    plan = H6PrefixWorkloadPlan()
+
+    assert plan.representative_particle_count == 128
+    assert plan.production_particle_counts == (128, 256, 512, 1024)
+    assert plan.small_global_case_indices == (
+        0,
+        2186,
+        4373,
+        6560,
+        6561,
+        7289,
+        8018,
+        8747,
+        8748,
+        8990,
+        9233,
+        9476,
+        9477,
+        9557,
+        9638,
+        9719,
+    )
+    assert plan.validation_global_case_indices == (
+        128,
+        384,
+        640,
+        896,
+        1152,
+        1408,
+        1664,
+        1920,
+        2176,
+        2432,
+        2688,
+        2944,
+        3200,
+        3456,
+        3712,
+        3968,
+    )
+    assert (
+        plan.representative_full_cases,
+        plan.representative_prediction_calls,
+        plan.representative_particle_call_units,
+    ) == (13_816, 69_080, 8_842_240)
+    assert (
+        plan.ladder_subset_cases,
+        plan.ladder_subset_prediction_calls,
+        plan.ladder_subset_particle_call_units,
+    ) == (96, 480, 286_720)
+    assert (
+        plan.amended_total_cases,
+        plan.amended_total_prediction_calls,
+        plan.amended_total_particle_call_units,
+    ) == (13_912, 69_560, 9_128_960)
+    assert plan.signature_and_identity_particle_counts == (128, 256, 512, 1024)
+    assert plan.exhaustive_representative_checks == (
+        "dynamic_target_suffix_leakage",
+        "cache_identity",
+    )
+    assert plan.stratified_subset_particle_counts == (256, 512, 1024)
+    assert plan.representative_report_checks == (
+        "source_mask",
+        "case_inventory",
+        "validation_data_safety",
+    )
+    assert plan.finite_smc_accuracy_particle_count == 256
+    assert plan.subset_is_estimator_accuracy_evidence is False
+    assert (
+        plan.workload_plan_sha256
+        == "b861851473b3e2cffb3f3bd9f91c45c22111f70d0009ce2e5e462f9ef076850c"
+    )
+
+    with pytest.raises(TypeError, match="no caller-supplied values"):
+        H6PrefixWorkloadPlan(representative_particle_count=True)
+    with pytest.raises(TypeError, match="no caller-supplied values"):
+        H6PrefixWorkloadPlan(
+            production_particle_counts=(128, 256, 512),
+        )
+    with pytest.raises(TypeError, match="no caller-supplied values"):
+        H6PrefixWorkloadPlan(
+            small_global_case_indices=(9719, 9638),
+        )
+    with pytest.raises(TypeError, match="no caller-supplied values"):
+        H6PrefixWorkloadPlan(
+            amended_total_particle_call_units=0,
+            workload_plan_sha256="0" * 64,
+        )
+    with pytest.raises(AttributeError):
+        plan.amended_total_cases = 0  # type: ignore[misc]
 
 
 def _data_safety_sha256() -> str:

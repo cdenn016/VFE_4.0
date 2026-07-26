@@ -12,7 +12,7 @@ import hashlib
 import json
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, runtime_checkable
@@ -1000,6 +1000,246 @@ class FlopTerm:
 
 
 H6_INFERENCE_PARTICLE_COUNTS = (128, 256, 512, 1024)
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class H6PrefixWorkloadPlan:
+    """Frozen, outcome-blind bounded workload for the H6 Prefix evidence run.
+
+    This record deliberately has no caller-supplied construction path.  Its
+    complete workload, including every derived total and its owned digest, is
+    fixed by this source amendment before a Prefix runner may consume it.
+    """
+
+    schema_version: Literal["h6-prefix-workload-plan-v1"]
+    representative_particle_count: int
+    production_particle_counts: tuple[int, ...]
+    small_global_case_indices: tuple[int, ...]
+    validation_global_case_indices: tuple[int, ...]
+    prediction_calls_per_case: int
+    representative_full_cases: int
+    representative_prediction_calls: int
+    representative_particle_call_units: int
+    ladder_subset_cases: int
+    ladder_subset_prediction_calls: int
+    ladder_subset_particle_call_units: int
+    amended_total_cases: int
+    amended_total_prediction_calls: int
+    amended_total_particle_call_units: int
+    signature_and_identity_particle_counts: tuple[int, ...]
+    exhaustive_representative_checks: tuple[str, ...]
+    stratified_subset_particle_counts: tuple[int, ...]
+    representative_report_checks: tuple[str, ...]
+    finite_smc_accuracy_particle_count: int
+    subset_is_estimator_accuracy_evidence: Literal[False]
+    workload_plan_sha256: str
+
+    _SMALL_GLOBAL_CASE_INDICES: ClassVar[tuple[int, ...]] = (
+        0,
+        2186,
+        4373,
+        6560,
+        6561,
+        7289,
+        8018,
+        8747,
+        8748,
+        8990,
+        9233,
+        9476,
+        9477,
+        9557,
+        9638,
+        9719,
+    )
+    _VALIDATION_GLOBAL_CASE_INDICES: ClassVar[tuple[int, ...]] = (
+        128,
+        384,
+        640,
+        896,
+        1152,
+        1408,
+        1664,
+        1920,
+        2176,
+        2432,
+        2688,
+        2944,
+        3200,
+        3456,
+        3712,
+        3968,
+    )
+
+    def __new__(cls, *args: object, **kwargs: object) -> "H6PrefixWorkloadPlan":
+        if args or kwargs:
+            raise TypeError(
+                "H6PrefixWorkloadPlan accepts no caller-supplied values"
+            )
+        return cls.create()
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            descriptor.name: getattr(self, descriptor.name)
+            for descriptor in fields(self)
+            if descriptor.name != "workload_plan_sha256"
+        }
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "h6-prefix-workload-plan-v1":
+            raise ValueError("H6 Prefix workload schema version is frozen")
+        integer_fields = (
+            "representative_particle_count",
+            "prediction_calls_per_case",
+            "representative_full_cases",
+            "representative_prediction_calls",
+            "representative_particle_call_units",
+            "ladder_subset_cases",
+            "ladder_subset_prediction_calls",
+            "ladder_subset_particle_call_units",
+            "amended_total_cases",
+            "amended_total_prediction_calls",
+            "amended_total_particle_call_units",
+            "finite_smc_accuracy_particle_count",
+        )
+        if any(type(getattr(self, name)) is not int for name in integer_fields):
+            raise ValueError("H6 Prefix workload integer fields must be exact integers")
+        integer_tuples = (
+            "production_particle_counts",
+            "small_global_case_indices",
+            "validation_global_case_indices",
+            "signature_and_identity_particle_counts",
+            "stratified_subset_particle_counts",
+        )
+        for name in integer_tuples:
+            value = getattr(self, name)
+            if type(value) is not tuple or any(type(item) is not int for item in value):
+                raise ValueError(f"{name} must be an exact tuple of integers")
+        string_tuples = (
+            "exhaustive_representative_checks",
+            "representative_report_checks",
+        )
+        for name in string_tuples:
+            value = getattr(self, name)
+            if type(value) is not tuple or any(type(item) is not str for item in value):
+                raise ValueError(f"{name} must be an exact tuple of strings")
+        if type(self.subset_is_estimator_accuracy_evidence) is not bool:
+            raise ValueError("subset estimator-accuracy evidence flag must be boolean")
+
+        if self.representative_particle_count != 128:
+            raise ValueError("representative particle count must be exactly 128")
+        if self.production_particle_counts != H6_INFERENCE_PARTICLE_COUNTS:
+            raise ValueError("production particle counts must equal the frozen ladder")
+        if self.small_global_case_indices != self._SMALL_GLOBAL_CASE_INDICES:
+            raise ValueError("small global case indices must equal the frozen stratification")
+        if self.validation_global_case_indices != self._VALIDATION_GLOBAL_CASE_INDICES:
+            raise ValueError(
+                "validation global case indices must equal the frozen stratification"
+            )
+        if self.prediction_calls_per_case != 5:
+            raise ValueError("representative cases require exactly five prediction calls")
+        if self.signature_and_identity_particle_counts != H6_INFERENCE_PARTICLE_COUNTS:
+            raise ValueError("signature and identity checks require every particle level")
+        if self.exhaustive_representative_checks != (
+            "dynamic_target_suffix_leakage",
+            "cache_identity",
+        ):
+            raise ValueError("stratified Prefix checks do not match the frozen contract")
+        if self.stratified_subset_particle_counts != (256, 512, 1024):
+            raise ValueError("stratified subsets require exactly 256, 512, and 1024")
+        if self.representative_report_checks != (
+            "source_mask",
+            "case_inventory",
+            "validation_data_safety",
+        ):
+            raise ValueError("representative report checks do not match the frozen contract")
+        if self.finite_smc_accuracy_particle_count != 256:
+            raise ValueError("finite-SMC accuracy remains a separate 256-particle gate")
+        if self.subset_is_estimator_accuracy_evidence is not False:
+            raise ValueError("stratified subsets are not estimator-accuracy evidence")
+
+        representative_full_cases = 9_720 + 4_096
+        representative_prediction_calls = (
+            representative_full_cases * self.prediction_calls_per_case
+        )
+        representative_particle_call_units = (
+            representative_prediction_calls * self.representative_particle_count
+        )
+        ladder_subset_cases = (
+            len(self.small_global_case_indices)
+            + len(self.validation_global_case_indices)
+        ) * len(self.stratified_subset_particle_counts)
+        ladder_subset_prediction_calls = (
+            ladder_subset_cases * self.prediction_calls_per_case
+        )
+        ladder_subset_particle_call_units = (
+            (len(self.small_global_case_indices) + len(self.validation_global_case_indices))
+            * self.prediction_calls_per_case
+            * sum(self.stratified_subset_particle_counts)
+        )
+        derived_fields = {
+            "representative_full_cases": representative_full_cases,
+            "representative_prediction_calls": representative_prediction_calls,
+            "representative_particle_call_units": representative_particle_call_units,
+            "ladder_subset_cases": ladder_subset_cases,
+            "ladder_subset_prediction_calls": ladder_subset_prediction_calls,
+            "ladder_subset_particle_call_units": ladder_subset_particle_call_units,
+            "amended_total_cases": representative_full_cases + ladder_subset_cases,
+            "amended_total_prediction_calls": (
+                representative_prediction_calls + ladder_subset_prediction_calls
+            ),
+            "amended_total_particle_call_units": (
+                representative_particle_call_units + ladder_subset_particle_call_units
+            ),
+        }
+        for name, expected in derived_fields.items():
+            if getattr(self, name) != expected:
+                raise ValueError(f"{name} does not match the frozen workload derivation")
+        expected_hash = _owned_hash(
+            "vfe4.h6.prefix-workload-plan.v1", self.canonical_payload()
+        )
+        if self.workload_plan_sha256 != expected_hash:
+            raise ValueError("workload_plan_sha256 does not match the frozen workload")
+
+    @classmethod
+    def create(cls) -> "H6PrefixWorkloadPlan":
+        values: dict[str, object] = {
+            "schema_version": "h6-prefix-workload-plan-v1",
+            "representative_particle_count": 128,
+            "production_particle_counts": H6_INFERENCE_PARTICLE_COUNTS,
+            "small_global_case_indices": cls._SMALL_GLOBAL_CASE_INDICES,
+            "validation_global_case_indices": cls._VALIDATION_GLOBAL_CASE_INDICES,
+            "prediction_calls_per_case": 5,
+            "representative_full_cases": 13_816,
+            "representative_prediction_calls": 69_080,
+            "representative_particle_call_units": 8_842_240,
+            "ladder_subset_cases": 96,
+            "ladder_subset_prediction_calls": 480,
+            "ladder_subset_particle_call_units": 286_720,
+            "amended_total_cases": 13_912,
+            "amended_total_prediction_calls": 69_560,
+            "amended_total_particle_call_units": 9_128_960,
+            "signature_and_identity_particle_counts": H6_INFERENCE_PARTICLE_COUNTS,
+            "exhaustive_representative_checks": (
+                "dynamic_target_suffix_leakage",
+                "cache_identity",
+            ),
+            "stratified_subset_particle_counts": (256, 512, 1024),
+            "representative_report_checks": (
+                "source_mask",
+                "case_inventory",
+                "validation_data_safety",
+            ),
+            "finite_smc_accuracy_particle_count": 256,
+            "subset_is_estimator_accuracy_evidence": False,
+        }
+        return _new_frozen(
+            cls,
+            **values,
+            workload_plan_sha256=_owned_hash(
+                "vfe4.h6.prefix-workload-plan.v1", values
+            ),
+        )  # type: ignore[return-value]
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -4997,7 +5237,7 @@ __all__ = [
     "H6EndpointLanguageElboTerms", "H6FactorTerm", "H6LanguageElboTerms",
     "H6SourcePriorTrace",
     "H6LanguageStructure", "H6OuterSchedule",
-    "H6PrefixProfilePair",
+    "H6PrefixProfilePair", "H6PrefixWorkloadPlan",
     "H6PredictionReadinessToken", "H6TrainingSchedule",
     "H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256",
     "H6_PREFIX_REQUIRED_CHECKS",
