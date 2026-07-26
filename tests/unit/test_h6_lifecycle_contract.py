@@ -31,12 +31,20 @@ from vfe4.types.h6 import (
     EstimatorSpec,
     H6LanguageStructure,
     H6PrefixProfilePair,
+    H6PrefixWorkloadPlan,
     VocabularyIdentity,
     ZeroDimensionalBase,
 )
 
 
-def _h6_prefix_raw(tmp_path: Path) -> dict[str, object]:
+def _h6_prefix_raw(
+    tmp_path: Path,
+    *,
+    schema_version: str = "h6-prefix-config-v1",
+    execution_mode: str = "focused_subset",
+    particle_counts: tuple[int, ...] = (4,),
+    authorization_sha256: str | None = None,
+) -> dict[str, object]:
     source = {
         "git_head": "1" * 40,
         "dirty_digest": "2" * 64,
@@ -87,11 +95,6 @@ def _h6_prefix_raw(tmp_path: Path) -> dict[str, object]:
             ("wikitext-2-byte-v1", 258, 32),
         )
     )
-    estimator = EstimatorSpec.create(
-        kind="weighted_smc",
-        particle_count=4,
-        resampling="systematic_ess_half",
-    )
     model_hashes = tuple(
         hashlib.sha256(
             b"vfe4.h6.arm-model-family.v1\x00"
@@ -107,18 +110,6 @@ def _h6_prefix_raw(tmp_path: Path) -> dict[str, object]:
     data_safety_sha256 = hashlib.sha256(
         b"VFE4-H6-TARGET-FREE-PREDICTIVE-BOUNDARY-V1"
     ).hexdigest()
-    profile = H6PrefixProfilePair.create(
-        profile_id="h6-a0-focused-v1",
-        small_arm_config=configs[0],
-        production_arm_config=configs[1],
-        estimator=estimator,
-        small_structure=structures[0],
-        production_structure=structures[1],
-        data_safety_sha256=data_safety_sha256,
-        small_model_family_sha256=model_hashes[0],
-        production_model_family_sha256=model_hashes[1],
-    )
-
     def raw_arm(config: ArmConfig) -> dict[str, object]:
         payload = config.canonical_payload()
         payload.pop("capacity_allocation_sha256")
@@ -141,12 +132,25 @@ def _h6_prefix_raw(tmp_path: Path) -> dict[str, object]:
             "receiver_labels": list(structure.receiver_labels),
         }
 
-    return {
-        "schema_version": "h6-prefix-config-v1",
-        "operation": "H6-Prefix",
-        "source": source,
-        "execution_mode": "focused_subset",
-        "profiles": [
+    profiles = []
+    for particle_count in particle_counts:
+        estimator = EstimatorSpec.create(
+            kind="weighted_smc",
+            particle_count=particle_count,
+            resampling="systematic_ess_half",
+        )
+        profile = H6PrefixProfilePair.create(
+            profile_id=f"h6-a0-{particle_count}-v1",
+            small_arm_config=configs[0],
+            production_arm_config=configs[1],
+            estimator=estimator,
+            small_structure=structures[0],
+            production_structure=structures[1],
+            data_safety_sha256=data_safety_sha256,
+            small_model_family_sha256=model_hashes[0],
+            production_model_family_sha256=model_hashes[1],
+        )
+        profiles.append(
             {
                 "profile_id": profile.profile_id,
                 "small_arm_config": raw_arm(configs[0]),
@@ -166,10 +170,57 @@ def _h6_prefix_raw(tmp_path: Path) -> dict[str, object]:
                 "production_model_family_sha256": model_hashes[1],
                 "profile_pair_sha256": profile.profile_pair_sha256,
             }
-        ],
-        "authorization_sha256": None,
+        )
+
+    raw: dict[str, object] = {
+        "schema_version": schema_version,
+        "operation": "H6-Prefix",
+        "source": source,
+        "execution_mode": execution_mode,
+        "profiles": profiles,
+        "authorization_sha256": authorization_sha256,
         "artifact_root": str(tmp_path / "h6"),
     }
+    if schema_version == "h6-prefix-config-v2":
+        raw["workload_plan_sha256"] = H6PrefixWorkloadPlan().workload_plan_sha256
+    return raw
+
+
+def test_h6_prefix_projector_accepts_v1_focus_and_v2_bounded_only(
+    tmp_path: Path,
+) -> None:
+    """Project only configurations that the H6 Prefix resolver accepts."""
+
+    from vfe4.config import resolve_h6_prefix_config
+
+    v1 = _h6_prefix_raw(tmp_path)
+    v2 = _h6_prefix_raw(
+        tmp_path,
+        schema_version="h6-prefix-config-v2",
+        execution_mode="authorized_full",
+        particle_counts=(128, 256, 512, 1024),
+        authorization_sha256=hashlib.sha256(
+            b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
+        ).hexdigest(),
+    )
+    legacy_full = _h6_prefix_raw(
+        tmp_path,
+        execution_mode="authorized_full",
+        particle_counts=(128, 256, 512, 1024),
+        authorization_sha256=hashlib.sha256(
+            b"AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1"
+        ).hexdigest(),
+    )
+
+    for raw in (v1, v2):
+        projected = project_h6_prefix_config(raw)
+        resolved = resolve_h6_prefix_config(
+            raw, repo_root=Path(__file__).resolve().parents[2]
+        )
+        assert projected.canonical_sha256 == resolved.config_sha256
+
+    with pytest.raises(ValueError, match="bounded v2 workload"):
+        project_h6_prefix_config(legacy_full)
 
 
 def test_h6_lifecycle_adapters_match_the_frozen_h7_h8_consumer_contract(

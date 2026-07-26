@@ -42,6 +42,9 @@ def _sha(character: str) -> str:
 FULL_PREFIX_AUTHORIZATION_SHA256 = hashlib.sha256(
     b"AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1"
 ).hexdigest()
+BOUNDED_PREFIX_V2_AUTHORIZATION_SHA256 = hashlib.sha256(
+    b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
+).hexdigest()
 
 
 def test_h6_workload_amendment_freezes_representative_and_stratified_indices(
@@ -313,6 +316,23 @@ def _prefix_config(
     }
 
 
+def _prefix_v2_config() -> dict[str, object]:
+    plan = H6PrefixWorkloadPlan()
+    return {
+        "schema_version": "h6-prefix-config-v2",
+        "operation": "H6-Prefix",
+        "source": _source(),
+        "execution_mode": "authorized_full",
+        "profiles": [
+            _profile(particle_count)
+            for particle_count in plan.production_particle_counts
+        ],
+        "workload_plan_sha256": plan.workload_plan_sha256,
+        "authorization_sha256": BOUNDED_PREFIX_V2_AUTHORIZATION_SHA256,
+        "artifact_root": "runs/h6-prefix",
+    }
+
+
 def _prediction_config() -> dict[str, object]:
     return {
         "schema_version": "h6-prediction-config-v1",
@@ -498,32 +518,6 @@ def test_prefix_config_is_independent_strict_and_does_not_mutate_input(
             _prefix_config(authorization_sha256=_sha("a")),
             repo_root=tmp_path,
         )
-    with pytest.raises(ValueError, match="128.*256.*512.*1024|ladder"):
-        resolve_h6_prefix_config(
-            _prefix_config(
-                execution_mode="authorized_full",
-                particle_counts=(128, 256, 512),
-                authorization_sha256=FULL_PREFIX_AUTHORIZATION_SHA256,
-            ),
-            repo_root=tmp_path,
-        )
-
-    authorized = resolve_h6_prefix_config(
-        _prefix_config(
-            execution_mode="authorized_full",
-            particle_counts=(128, 256, 512, 1024),
-            authorization_sha256=FULL_PREFIX_AUTHORIZATION_SHA256,
-        ),
-        repo_root=tmp_path,
-    )
-    assert tuple(
-        profile.estimator.particle_count for profile in authorized.profiles
-    ) == (128, 256, 512, 1024)
-    assert (
-        authorized.authorization_sha256
-        == FULL_PREFIX_AUTHORIZATION_SHA256
-    )
-
     stale = _prefix_config()
     stale["profiles"][0]["small_model_family_sha256"] = _sha("f")  # type: ignore[index]
     with pytest.raises(ValueError, match="model.family|profile"):
@@ -533,6 +527,50 @@ def test_prefix_config_is_independent_strict_and_does_not_mutate_input(
     wrong_safety["profiles"][0]["data_safety_sha256"] = _sha("6")  # type: ignore[index]
     with pytest.raises(ValueError, match="implemented.*safety"):
         resolve_h6_prefix_config(wrong_safety, repo_root=tmp_path)
+
+
+def test_prefix_v2_config_binds_workload_and_rejects_legacy_full(
+    tmp_path: Path,
+) -> None:
+    """Reject legacy exhaustive mode and bind only the frozen bounded plan."""
+
+    legacy = _prefix_config(
+        execution_mode="authorized_full",
+        particle_counts=(128, 256, 512, 1024),
+        authorization_sha256=FULL_PREFIX_AUTHORIZATION_SHA256,
+    )
+    with pytest.raises(ValueError, match="h6_prefix.execution_mode.*bounded v2 workload"):
+        resolve_h6_prefix_config(legacy, repo_root=tmp_path)
+
+    raw = _prefix_v2_config()
+    resolved = resolve_h6_prefix_config(raw, repo_root=tmp_path)
+    plan = H6PrefixWorkloadPlan()
+
+    assert resolved.schema_version == "h6-prefix-config-v2"
+    assert resolved.execution_mode == "authorized_full"
+    assert resolved.workload_plan == plan
+    assert resolved.workload_plan_sha256 == plan.workload_plan_sha256
+    assert resolved.authorization_sha256 == BOUNDED_PREFIX_V2_AUTHORIZATION_SHA256
+    canonical = json.loads(resolved.canonical_json)
+    assert canonical["workload_plan"] == json.loads(
+        json.dumps(plan.canonical_payload())
+    )
+    assert canonical["workload_plan_sha256"] == plan.workload_plan_sha256
+
+    supplied_plan = copy.deepcopy(raw)
+    supplied_plan["workload_plan"] = plan.canonical_payload()
+    with pytest.raises(ValueError, match="unknown keys|workload_plan"):
+        resolve_h6_prefix_config(supplied_plan, repo_root=tmp_path)
+
+    stale = copy.deepcopy(raw)
+    stale["workload_plan_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="workload_plan_sha256"):
+        resolve_h6_prefix_config(stale, repo_root=tmp_path)
+
+    reordered = copy.deepcopy(raw)
+    reordered["profiles"] = list(reversed(reordered["profiles"]))
+    with pytest.raises(ValueError, match="128.*256.*512.*1024|ladder"):
+        resolve_h6_prefix_config(reordered, repo_root=tmp_path)
 
 
 def test_h6_helpers_delegate_to_the_single_public_resolver(tmp_path: Path) -> None:

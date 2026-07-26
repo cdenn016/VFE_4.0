@@ -40,6 +40,7 @@ from vfe4.types.h6 import (
     CapacityAllocation,
     EndpointSmcProtocol,
     H6PrefixProfilePair,
+    H6PrefixWorkloadPlan,
     H6TrainingSchedule,
     ObjectiveGateSpec,
 )
@@ -667,15 +668,41 @@ class H1PrefixPriorV2ResolvedConfig:
 
 @dataclass(frozen=True)
 class H6PrefixResolvedConfig:
-    schema_version: Literal["h6-prefix-config-v1"]
+    schema_version: Literal["h6-prefix-config-v1", "h6-prefix-config-v2"]
     operation: Literal["H6-Prefix"]
     source: H6SourceIdentity
     execution_mode: Literal["focused_subset", "authorized_full"]
     profiles: tuple[H6PrefixProfilePair, ...]
+    workload_plan: H6PrefixWorkloadPlan | None
+    workload_plan_sha256: str | None
     authorization_sha256: str | None
     artifact_root: Path
     canonical_json: str
     config_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version == "h6-prefix-config-v1":
+            if (
+                self.execution_mode != "focused_subset"
+                or self.workload_plan is not None
+                or self.workload_plan_sha256 is not None
+                or self.authorization_sha256 is not None
+            ):
+                raise ValueError(
+                    "h6-prefix-config-v1 must be focused without workload or authorization"
+                )
+            return
+        if self.schema_version != "h6-prefix-config-v2":
+            raise ValueError("H6 Prefix schema version is unsupported")
+        if (
+            self.execution_mode != "authorized_full"
+            or type(self.workload_plan) is not H6PrefixWorkloadPlan
+            or self.workload_plan_sha256 != self.workload_plan.workload_plan_sha256
+            or type(self.authorization_sha256) is not str
+        ):
+            raise ValueError(
+                "h6-prefix-config-v2 must bind the authorized typed bounded workload"
+            )
 
 
 @dataclass(frozen=True)

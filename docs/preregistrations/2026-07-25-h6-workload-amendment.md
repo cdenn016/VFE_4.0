@@ -51,6 +51,22 @@ at `N=128` and on those exact subsets at `N=256`, `512`, and `1024`.
 representative-report checks only. Finite-SMC accuracy remains a separate
 `N=256` gate. The stratified subsets are not estimator-accuracy evidence.
 
+## H6-Prefix configuration binding
+
+Development-only `h6-prefix-config-v1` accepts only `focused_subset`, with
+exactly one `N=4` profile per semantic family, no authorization, and no
+workload-plan field. Its `authorized_full` value is rejected before runner
+dispatch; it cannot produce post-amendment evidence.
+
+Bounded evidence uses `h6-prefix-config-v2` with `operation="H6-Prefix"`,
+`execution_mode="authorized_full"`, the ordered `(128, 256, 512, 1024)`
+profile ladder per exact semantic family, and raw
+`workload_plan_sha256` equal to `H6PrefixWorkloadPlan().workload_plan_sha256`.
+Resolution creates the exact typed plan and includes its full canonical payload
+and digest in the resolved canonical configuration. The scientific config
+stores only the SHA-256 of the exact authorization phrase
+`AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2`.
+
 ## Held-out opening scope, frozen but not implemented here
 
 The exact held-out A0 endpoint is `h6-a0-transformer-v2`. It supplies eight
@@ -81,7 +97,8 @@ selection nor scientific decision rules.
 
 ## Boundary
 
-This amendment creates no evidence and authorizes no full inventory, training,
-test opening, held-out byte mapping, runner change, or resolver change. The
-frozen records are source contracts only until a separately authorized,
-exact-revision evidence operation opens the required work.
+This amendment creates no evidence and authorizes no inventory, training, test
+opening, held-out byte mapping, or runner execution. Configuration resolution
+and projection are pure, create no evidence, and still do not execute the
+runner. The frozen records are source contracts only until a separately
+authorized, exact-revision evidence operation opens the required work.

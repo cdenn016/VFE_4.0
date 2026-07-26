@@ -74,6 +74,11 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
         idle = module.main(config)
         if filename == "verify_vfe4.py":
             assert idle is None
+            assert operations["h6_prefix"]["config"] == {}
+            assert (
+                module._VERIFY_AUTHORIZATIONS["h6_prefix"]
+                == "AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
+            )
         else:
             assert idle.status == "IDLE" and idle.operation is None
             with pytest.raises(ValueError, match="IDLE or COMPLETED"):

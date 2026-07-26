@@ -42,6 +42,7 @@ from vfe4.types.h6 import (
     H6LanguageStructure,
     H6OuterSchedule,
     H6PrefixProfilePair,
+    H6PrefixWorkloadPlan,
     H6TrainingSchedule,
     ObjectiveGateSpec,
     TrainingPhase,
@@ -1475,58 +1476,82 @@ def _resolve_h6_prefix_profile(
     return pair
 
 
-def _require_h6_prefix_execution_mode(
+_H6_PREFIX_V2_AUTHORIZATION_SHA256 = hashlib.sha256(
+    b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
+).hexdigest()
+
+
+def _require_h6_prefix_v1_execution_mode(
     execution_mode: object,
     profiles: tuple[H6PrefixProfilePair, ...],
     authorization_sha256: object,
-) -> tuple[Literal["focused_subset", "authorized_full"], str | None]:
+) -> tuple[Literal["focused_subset"], None]:
     if type(execution_mode) is not str:
         raise ValueError("h6_prefix.execution_mode must be a string")
-    if execution_mode not in ("focused_subset", "authorized_full"):
+    if execution_mode == "authorized_full":
         raise ValueError(
-            "h6_prefix.execution_mode must be focused_subset or authorized_full"
+            "h6_prefix.execution_mode authorized_full requires the bounded v2 workload"
+        )
+    if execution_mode != "focused_subset":
+        raise ValueError("h6_prefix.execution_mode must be focused_subset")
+    observed = tuple(
+        (_h6_prefix_semantic_key(profile), profile.estimator.particle_count)
+        for profile in profiles
+    )
+    ordered_semantics = tuple(dict.fromkeys(key for key, _ in observed))
+    if authorization_sha256 is not None:
+        raise ValueError("focused H6-Prefix configuration cannot carry authorization")
+    expected = tuple((key, 4) for key in ordered_semantics)
+    if observed != expected:
+        raise ValueError(
+            "focused H6-Prefix requires exactly one four-particle "
+            "profile per semantic profile"
+        )
+    return "focused_subset", None
+
+
+def _require_h6_prefix_v2_execution_mode(
+    execution_mode: object,
+    profiles: tuple[H6PrefixProfilePair, ...],
+    authorization_sha256: object,
+    workload_plan_sha256: object,
+) -> tuple[Literal["authorized_full"], H6PrefixWorkloadPlan, str]:
+    if execution_mode != "authorized_full":
+        raise ValueError(
+            "h6_prefix.execution_mode for h6-prefix-config-v2 must be authorized_full"
+        )
+    authorization = _require_h6_sha256(
+        authorization_sha256, "h6_prefix.authorization_sha256"
+    )
+    if authorization != _H6_PREFIX_V2_AUTHORIZATION_SHA256:
+        raise ValueError(
+            "h6_prefix.authorization_sha256 must bind the exact bounded workload "
+            "authorization phrase"
+        )
+    plan = H6PrefixWorkloadPlan()
+    plan_sha256 = _require_h6_sha256(
+        workload_plan_sha256, "h6_prefix.workload_plan_sha256"
+    )
+    if plan_sha256 != plan.workload_plan_sha256:
+        raise ValueError(
+            "h6_prefix.workload_plan_sha256 does not match the frozen workload plan"
         )
     observed = tuple(
         (_h6_prefix_semantic_key(profile), profile.estimator.particle_count)
         for profile in profiles
     )
     ordered_semantics = tuple(dict.fromkeys(key for key, _ in observed))
-    if execution_mode == "focused_subset":
-        if authorization_sha256 is not None:
-            raise ValueError(
-                "focused H6-Prefix configuration cannot carry authorization"
-            )
-        expected = tuple((key, 4) for key in ordered_semantics)
-        if observed != expected:
-            raise ValueError(
-                "focused H6-Prefix requires exactly one four-particle "
-                "profile per semantic profile"
-            )
-        return "focused_subset", None
-
-    authorization = _require_h6_sha256(
-        authorization_sha256, "h6_prefix.authorization_sha256"
-    )
-    expected_authorization = hashlib.sha256(
-        b"AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1"
-    ).hexdigest()
-    if authorization != expected_authorization:
-        raise ValueError(
-            "h6_prefix.authorization_sha256 must bind the exact full-inventory "
-            "authorization phrase"
-        )
-    ladder = (128, 256, 512, 1024)
     expected = tuple(
         (key, particle_count)
         for key in ordered_semantics
-        for particle_count in ladder
+        for particle_count in plan.production_particle_counts
     )
     if observed != expected:
         raise ValueError(
-            "authorized H6-Prefix requires the complete ordered "
+            "bounded H6-Prefix requires the complete ordered "
             "128, 256, 512, 1024 ladder per semantic profile"
         )
-    return "authorized_full", authorization
+    return "authorized_full", plan, authorization
 
 
 def _resolve_h6_prefix_config(
@@ -1535,26 +1560,49 @@ def _resolve_h6_prefix_config(
     """Resolve the independent predecessor-free H6 Prefix configuration."""
 
     root = _require_mapping(raw, "h6_prefix")
-    _validate_keys(
-        root,
-        frozenset(
-            {
-                "schema_version",
-                "operation",
-                "source",
-                "execution_mode",
-                "profiles",
-                "authorization_sha256",
-                "artifact_root",
-            }
-        ),
-        "h6_prefix",
-    )
-    schema_version = _require_exact(
-        root["schema_version"],
-        "h6-prefix-config-v1",
-        "h6_prefix.schema_version",
-    )
+    raw_schema_version = root.get("schema_version")
+    if raw_schema_version == "h6-prefix-config-v1":
+        schema_version: Literal["h6-prefix-config-v1", "h6-prefix-config-v2"] = (
+            "h6-prefix-config-v1"
+        )
+        _validate_keys(
+            root,
+            frozenset(
+                {
+                    "schema_version",
+                    "operation",
+                    "source",
+                    "execution_mode",
+                    "profiles",
+                    "authorization_sha256",
+                    "artifact_root",
+                }
+            ),
+            "h6_prefix",
+        )
+    elif raw_schema_version == "h6-prefix-config-v2":
+        schema_version = "h6-prefix-config-v2"
+        _validate_keys(
+            root,
+            frozenset(
+                {
+                    "schema_version",
+                    "operation",
+                    "source",
+                    "execution_mode",
+                    "profiles",
+                    "workload_plan_sha256",
+                    "authorization_sha256",
+                    "artifact_root",
+                }
+            ),
+            "h6_prefix",
+        )
+    else:
+        raise ValueError(
+            "h6_prefix.schema_version must equal 'h6-prefix-config-v1' or "
+            "'h6-prefix-config-v2'"
+        )
     operation = _require_exact(
         root["operation"], "H6-Prefix", "h6_prefix.operation"
     )
@@ -1574,11 +1622,24 @@ def _resolve_h6_prefix_config(
         profiles
     ):
         raise ValueError("h6_prefix profile-pair identities must be unique")
-    execution_mode, authorization = _require_h6_prefix_execution_mode(
-        root["execution_mode"],
-        profiles,
-        root["authorization_sha256"],
-    )
+    if schema_version == "h6-prefix-config-v1":
+        execution_mode, authorization = _require_h6_prefix_v1_execution_mode(
+            root["execution_mode"],
+            profiles,
+            root["authorization_sha256"],
+        )
+        workload_plan = None
+        workload_plan_sha256 = None
+    else:
+        execution_mode, workload_plan, authorization = (
+            _require_h6_prefix_v2_execution_mode(
+                root["execution_mode"],
+                profiles,
+                root["authorization_sha256"],
+                root["workload_plan_sha256"],
+            )
+        )
+        workload_plan_sha256 = workload_plan.workload_plan_sha256
     artifact_root = _resolve_run_root(root["artifact_root"], repo_root)
     payload = {
         "schema_version": schema_version,
@@ -1588,9 +1649,12 @@ def _resolve_h6_prefix_config(
         "profiles": tuple(
             _h6_prefix_profile_payload(profile) for profile in profiles
         ),
-        "authorization_sha256": authorization,
         "artifact_root": artifact_root.as_posix(),
     }
+    if workload_plan is not None:
+        payload["workload_plan"] = workload_plan.canonical_payload()
+        payload["workload_plan_sha256"] = workload_plan_sha256
+    payload["authorization_sha256"] = authorization
     canonical_json, config_sha256 = _h6_json(payload)
     return H6PrefixResolvedConfig(
         schema_version,
@@ -1598,6 +1662,8 @@ def _resolve_h6_prefix_config(
         source,
         execution_mode,
         profiles,
+        workload_plan,
+        workload_plan_sha256,
         authorization,
         artifact_root,
         canonical_json,
@@ -2293,7 +2359,10 @@ def resolve_config(
         "H1-Prefix-Prior",
     ):
         return _resolve_h1_prefix_prior_v2_config(root, repo_root=repo_root)
-    if discriminator == ("h6-prefix-config-v1", "H6-Prefix"):
+    if discriminator in (
+        ("h6-prefix-config-v1", "H6-Prefix"),
+        ("h6-prefix-config-v2", "H6-Prefix"),
+    ):
         return _resolve_h6_prefix_config(root, repo_root=repo_root)
     if discriminator == ("h6-prediction-config-v1", "H6-Prediction"):
         return _resolve_h6_prediction_config(root, repo_root=repo_root)

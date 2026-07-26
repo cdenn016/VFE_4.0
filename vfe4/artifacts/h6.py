@@ -290,10 +290,14 @@ def _project(
         "h6_prefix",
     ],
     operation: Literal["H1-Prefix-Prior", "H6-Prefix"],
-    schema_version: Literal[
-        "h1-prefix-prior-config-v1",
-        "h1-prefix-prior-config-v2",
-        "h6-prefix-config-v1",
+    schema_versions: tuple[
+        Literal[
+            "h1-prefix-prior-config-v1",
+            "h1-prefix-prior-config-v2",
+            "h6-prefix-config-v1",
+            "h6-prefix-config-v2",
+        ],
+        ...,
     ],
 ) -> ProjectedCurrentCandidateConfig:
     selected = _extract_operation_config(
@@ -302,14 +306,14 @@ def _project(
         operation=operation,
     )
     owned = _owned_config(selected)
-    if owned.get("schema_version") != schema_version:
+    if owned.get("schema_version") not in schema_versions:
         raise ValueError(
-            f"{operation_key} requires schema_version {schema_version!r}"
+            f"{operation_key} requires schema_version in {schema_versions!r}"
         )
     resolved = _resolve_projected_config(operation, owned)
     if (
         getattr(resolved, "operation", None) != operation
-        or getattr(resolved, "schema_version", None) != schema_version
+        or getattr(resolved, "schema_version", None) not in schema_versions
     ):
         raise ValueError(
             "resolved projection returned another operation or schema version"
@@ -335,7 +339,7 @@ def project_h1_prefix_prior_config(
         raw_config,
         operation_key="h1_prefix_prior",
         operation="H1-Prefix-Prior",
-        schema_version="h1-prefix-prior-config-v1",
+        schema_versions=("h1-prefix-prior-config-v1",),
     )
 
 
@@ -348,7 +352,7 @@ def project_h1_prefix_prior_v2_config(
         raw_config,
         operation_key="h1_prefix_prior_v2",
         operation="H1-Prefix-Prior",
-        schema_version="h1-prefix-prior-config-v2",
+        schema_versions=("h1-prefix-prior-config-v2",),
     )
 
 
@@ -361,7 +365,7 @@ def project_h6_prefix_config(
         raw_config,
         operation_key="h6_prefix",
         operation="H6-Prefix",
-        schema_version="h6-prefix-config-v1",
+        schema_versions=("h6-prefix-config-v1", "h6-prefix-config-v2"),
     )
 
 
