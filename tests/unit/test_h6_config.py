@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import vfe4.types.h6 as h6_types
 from vfe4.config import (
     H6PredictionV2ResolvedConfig,
     resolve_config,
@@ -43,7 +44,9 @@ FULL_PREFIX_AUTHORIZATION_SHA256 = hashlib.sha256(
 ).hexdigest()
 
 
-def test_h6_workload_amendment_freezes_representative_and_stratified_indices() -> None:
+def test_h6_workload_amendment_freezes_representative_and_stratified_indices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Rejects any attempt to replace the bounded, outcome-blind workload."""
 
     plan = H6PrefixWorkloadPlan()
@@ -136,6 +139,21 @@ def test_h6_workload_amendment_freezes_representative_and_stratified_indices() -
         )
     with pytest.raises(AttributeError):
         plan.amended_total_cases = 0  # type: ignore[misc]
+
+    monkeypatch.setattr(
+        h6_types,
+        "H6_INFERENCE_PARTICLE_COUNTS",
+        (128, 256, 512, 2048),
+    )
+    rebound = H6PrefixWorkloadPlan()
+    assert rebound.production_particle_counts == (128, 256, 512, 1024)
+    assert rebound.workload_plan_sha256 == plan.workload_plan_sha256
+
+    class AlteredWorkloadPlan(H6PrefixWorkloadPlan):
+        _SMALL_GLOBAL_CASE_INDICES = (0, 0)
+
+    with pytest.raises(TypeError, match="exact H6PrefixWorkloadPlan"):
+        AlteredWorkloadPlan()
 
 
 def _data_safety_sha256() -> str:

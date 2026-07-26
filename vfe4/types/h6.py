@@ -1034,49 +1034,14 @@ class H6PrefixWorkloadPlan:
     subset_is_estimator_accuracy_evidence: Literal[False]
     workload_plan_sha256: str
 
-    _SMALL_GLOBAL_CASE_INDICES: ClassVar[tuple[int, ...]] = (
-        0,
-        2186,
-        4373,
-        6560,
-        6561,
-        7289,
-        8018,
-        8747,
-        8748,
-        8990,
-        9233,
-        9476,
-        9477,
-        9557,
-        9638,
-        9719,
-    )
-    _VALIDATION_GLOBAL_CASE_INDICES: ClassVar[tuple[int, ...]] = (
-        128,
-        384,
-        640,
-        896,
-        1152,
-        1408,
-        1664,
-        1920,
-        2176,
-        2432,
-        2688,
-        2944,
-        3200,
-        3456,
-        3712,
-        3968,
-    )
-
     def __new__(cls, *args: object, **kwargs: object) -> "H6PrefixWorkloadPlan":
+        if cls is not H6PrefixWorkloadPlan:
+            raise TypeError("constructor requires the exact H6PrefixWorkloadPlan type")
         if args or kwargs:
             raise TypeError(
                 "H6PrefixWorkloadPlan accepts no caller-supplied values"
             )
-        return cls.create()
+        return H6PrefixWorkloadPlan.create()
 
     def canonical_payload(self) -> dict[str, object]:
         return {
@@ -1086,6 +1051,8 @@ class H6PrefixWorkloadPlan:
         }
 
     def __post_init__(self) -> None:
+        if type(self) is not H6PrefixWorkloadPlan:
+            raise TypeError("record requires the exact H6PrefixWorkloadPlan type")
         if self.schema_version != "h6-prefix-workload-plan-v1":
             raise ValueError("H6 Prefix workload schema version is frozen")
         integer_fields = (
@@ -1126,19 +1093,56 @@ class H6PrefixWorkloadPlan:
         if type(self.subset_is_estimator_accuracy_evidence) is not bool:
             raise ValueError("subset estimator-accuracy evidence flag must be boolean")
 
+        frozen_particle_counts = (128, 256, 512, 1024)
+        frozen_small_global_case_indices = (
+            0,
+            2186,
+            4373,
+            6560,
+            6561,
+            7289,
+            8018,
+            8747,
+            8748,
+            8990,
+            9233,
+            9476,
+            9477,
+            9557,
+            9638,
+            9719,
+        )
+        frozen_validation_global_case_indices = (
+            128,
+            384,
+            640,
+            896,
+            1152,
+            1408,
+            1664,
+            1920,
+            2176,
+            2432,
+            2688,
+            2944,
+            3200,
+            3456,
+            3712,
+            3968,
+        )
         if self.representative_particle_count != 128:
             raise ValueError("representative particle count must be exactly 128")
-        if self.production_particle_counts != H6_INFERENCE_PARTICLE_COUNTS:
+        if self.production_particle_counts != frozen_particle_counts:
             raise ValueError("production particle counts must equal the frozen ladder")
-        if self.small_global_case_indices != self._SMALL_GLOBAL_CASE_INDICES:
+        if self.small_global_case_indices != frozen_small_global_case_indices:
             raise ValueError("small global case indices must equal the frozen stratification")
-        if self.validation_global_case_indices != self._VALIDATION_GLOBAL_CASE_INDICES:
+        if self.validation_global_case_indices != frozen_validation_global_case_indices:
             raise ValueError(
                 "validation global case indices must equal the frozen stratification"
             )
         if self.prediction_calls_per_case != 5:
             raise ValueError("representative cases require exactly five prediction calls")
-        if self.signature_and_identity_particle_counts != H6_INFERENCE_PARTICLE_COUNTS:
+        if self.signature_and_identity_particle_counts != frozen_particle_counts:
             raise ValueError("signature and identity checks require every particle level")
         if self.exhaustive_representative_checks != (
             "dynamic_target_suffix_leakage",
@@ -1203,12 +1207,48 @@ class H6PrefixWorkloadPlan:
 
     @classmethod
     def create(cls) -> "H6PrefixWorkloadPlan":
+        if cls is not H6PrefixWorkloadPlan:
+            raise TypeError("factory requires the exact H6PrefixWorkloadPlan type")
         values: dict[str, object] = {
             "schema_version": "h6-prefix-workload-plan-v1",
             "representative_particle_count": 128,
-            "production_particle_counts": H6_INFERENCE_PARTICLE_COUNTS,
-            "small_global_case_indices": cls._SMALL_GLOBAL_CASE_INDICES,
-            "validation_global_case_indices": cls._VALIDATION_GLOBAL_CASE_INDICES,
+            "production_particle_counts": (128, 256, 512, 1024),
+            "small_global_case_indices": (
+                0,
+                2186,
+                4373,
+                6560,
+                6561,
+                7289,
+                8018,
+                8747,
+                8748,
+                8990,
+                9233,
+                9476,
+                9477,
+                9557,
+                9638,
+                9719,
+            ),
+            "validation_global_case_indices": (
+                128,
+                384,
+                640,
+                896,
+                1152,
+                1408,
+                1664,
+                1920,
+                2176,
+                2432,
+                2688,
+                2944,
+                3200,
+                3456,
+                3712,
+                3968,
+            ),
             "prediction_calls_per_case": 5,
             "representative_full_cases": 13_816,
             "representative_prediction_calls": 69_080,
@@ -1219,7 +1259,7 @@ class H6PrefixWorkloadPlan:
             "amended_total_cases": 13_912,
             "amended_total_prediction_calls": 69_560,
             "amended_total_particle_call_units": 9_128_960,
-            "signature_and_identity_particle_counts": H6_INFERENCE_PARTICLE_COUNTS,
+            "signature_and_identity_particle_counts": (128, 256, 512, 1024),
             "exhaustive_representative_checks": (
                 "dynamic_target_suffix_leakage",
                 "cache_identity",
@@ -1234,7 +1274,7 @@ class H6PrefixWorkloadPlan:
             "subset_is_estimator_accuracy_evidence": False,
         }
         return _new_frozen(
-            cls,
+            H6PrefixWorkloadPlan,
             **values,
             workload_plan_sha256=_owned_hash(
                 "vfe4.h6.prefix-workload-plan.v1", values
