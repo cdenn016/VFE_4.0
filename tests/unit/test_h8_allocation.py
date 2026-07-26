@@ -8,6 +8,7 @@ import json
 import zlib
 from collections.abc import Mapping
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 import pytest
@@ -20,6 +21,7 @@ from vfe4.inference.h8_allocation import (
     H8ForbiddenAllocation,
     H8NumpyAllocationGuard,
     H8NumpyGuardEvent,
+    H8NegativeControlSpec,
     H8ProfilerEnrichment,
     H8ProfilerObservabilityGap,
     H8RawProfilerEvent,
@@ -44,6 +46,7 @@ from vfe4.types.h8 import (
     H8ChildRequest,
     H8ChildResult,
     H8ControlResult,
+    H8ProfilerEventRecord,
     H8TensorKey,
 )
 from vfe4.types.results import GateStatus
@@ -996,7 +999,14 @@ def _fixture_jsonable(value: object) -> object:
         }
     if isinstance(value, GateStatus):
         return value.value
+    if isinstance(value, Mapping):
+        return {
+            str(key): _fixture_jsonable(item)
+            for key, item in value.items()
+        }
     if isinstance(value, tuple):
+        return [_fixture_jsonable(item) for item in value]
+    if isinstance(value, list):
         return [_fixture_jsonable(item) for item in value]
     return value
 
@@ -1122,6 +1132,40 @@ def _residual_allowance_fixture() -> dict[str, object]:
             "passed": True,
         }
     return groups
+
+
+def _problem_evidence_fixture() -> dict[str, object]:
+    horizon = 128
+    pivots = [1.0] * horizon
+    norms = [0.1] * horizon
+    return {
+        "generative_sha256": "9" * 64,
+        "recognition_sha256": "a" * 64,
+        "local_spd_diagnostics": {
+            "schema_version": "h8-local-spd-diagnostics-v1",
+            "horizon": horizon,
+            "generative_initial_min_pivot": 1.0,
+            "model_transition_min_pivots": pivots,
+            "state_transition_min_pivots": pivots,
+            "recognition_initial_min_pivot": 1.0,
+            "recognition_transition_min_pivots": pivots,
+            "global_min_pivot": 1.0,
+        },
+        "transition_norms": {
+            "schema_version": "h8-transition-norms-v1",
+            "horizon": horizon,
+            "norm": "operator_2",
+            "model_transition_norms": norms,
+            "state_transition_norms": norms,
+            "state_model_coupling_norms": norms,
+            "recognition_transition_norms": norms,
+            "max_model_transition_norm": 0.1,
+            "max_state_transition_norm": 0.1,
+            "max_state_model_coupling_norm": 0.1,
+            "max_recognition_transition_norm": 0.1,
+        },
+        "observation_sha256": "b" * 64,
+    }
 
 
 def _child_envelope(**updates: object) -> dict[str, object]:
@@ -1262,6 +1306,7 @@ def _child_envelope(**updates: object) -> dict[str, object]:
     result = {
         "input_sha256": "1" * 64,
         "sample_noise_sha256": "2" * 64,
+        "problem_evidence": _problem_evidence_fixture(),
         "objective": _objective_fixture(),
         "storage": {
             "layout": layout,
@@ -1401,7 +1446,7 @@ def _child_envelope(**updates: object) -> dict[str, object]:
         ],
     }
     record: dict[str, object] = {
-        "schema_version": "h8-child-v1",
+        "schema_version": "h8-child-v2",
         "mode": "production",
         "seed": 20260721,
         "repetition": 0,
@@ -1461,6 +1506,209 @@ def _child_envelope(**updates: object) -> dict[str, object]:
     }
     record.update(updates)
     return record
+
+
+def _profiler_child_envelope(**updates: object) -> dict[str, object]:
+    envelope = _child_envelope(mode="profiler", repetition=None)
+    result = envelope["result"]
+    assert isinstance(result, dict)
+    allocation = result["allocation"]
+    decisions = result["resource_decisions"]
+    invariants = result["invariants"]
+    assert isinstance(allocation, dict)
+    assert isinstance(decisions, dict)
+    assert isinstance(invariants, list)
+
+    tensor_key = H8TensorKey(
+        tensor_id=1,
+        storage_ptr=8,
+        allocation_id=1,
+        device="cpu",
+    )
+    event = H8ProfilerEventRecord(
+        source_row_index=0,
+        timestamp_ns=-1,
+        action="PREEXISTING",
+        tensor_key=tensor_key,
+        version=0,
+        nbytes=8,
+        dtype="torch.float64",
+        device="cpu",
+        operator="aten::empty",
+        stack=("test.py:1",),
+        logical_shape=(1,),
+        classification="local",
+        matched_event_node_indices=(0,),
+        join_witness_sha256="c" * 64,
+        live_bytes_after=8,
+    )
+    allocation.update(
+        {
+            "profiler_trace_sha256": hashlib.sha256(
+                json.dumps(
+                    [event],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ).encode("utf-8")
+            ).hexdigest(),
+            "profiler_events": [_fixture_jsonable(event)],
+            "preexisting_storage_count": 1,
+            "preexisting_bytes": 8,
+            "baseline_live_bytes": 8,
+            "profiler_reconstructed_live_peak_bytes": 8,
+            "profiler_all_joined_and_liveness_reconciled": True,
+            "observed_channels": [
+                "dispatch",
+                "profiler",
+                "numpy_guard",
+                "backend",
+                "os_hwm",
+            ],
+            "profiler_api": {
+                "torch_version": "2.9.1",
+                "memory_profile_source_sha256": "d" * 64,
+                "profiler_source_sha256": "e" * 64,
+                "api_contract_sha256": "f" * 64,
+            },
+        }
+    )
+    dispatch_pass = decisions.pop("dispatch_backend_cross_check_pass")
+    dispatch_obligations = decisions.pop(
+        "dispatch_backend_cross_check_obligations"
+    )
+    decisions.update(
+        {
+            "profiler_join_pass": True,
+            "profiler_reconstructed_live_peak_bytes": 8,
+            "dispatch_backend_cross_check_pass": dispatch_pass,
+            "dispatch_backend_cross_check_obligations": dispatch_obligations,
+        }
+    )
+    dispatch_invariant = invariants.pop()
+    assert dispatch_invariant["invariant_id"] == (
+        "dispatch_backend_cross_check_pass"
+    )
+    invariants.extend(
+        (
+            {
+                "invariant_id": "profiler_join_pass",
+                "status": "pass",
+                "value": 1,
+                "limit": 1,
+                "detail": "profiler_join_pass=True",
+                "obligations": [],
+            },
+            dispatch_invariant,
+        )
+    )
+    envelope.update(updates)
+    return envelope
+
+
+def _control_child_envelope() -> dict[str, object]:
+    spec = H8NegativeControlSpec(
+        control_id="torch_eye_full_rhs",
+        requested_operation="torch.eye",
+        logical_shapes=((5160, 5160), (5160, 5160)),
+        assigned_channels=("backend", "dispatch"),
+        expected_reason="dense global identity is forbidden",
+    )
+    dispatch_event = H8DispatchEvent(
+        sequence=0,
+        operator=spec.requested_operation,
+        semantic_site=None,
+        control_id=spec.control_id,
+        input_shapes=(),
+        output_shapes=(spec.logical_shapes[0],),
+        physical_output_shapes=(),
+        stack_member_shapes=(),
+        stack_member_count=0,
+        dtype="torch.float64",
+        device="cpu",
+        float64_equivalent_scalars=0,
+        classifications=(),
+        storage_spans=(),
+        alias_storage_keys=(),
+        new_storage_keys=(),
+        allocated_float64_equivalent_scalars=0,
+        live_float64_equivalent_scalars_by_site=(),
+        stack=("test.py:1",),
+        executed=False,
+        forbidden_reason=spec.expected_reason,
+        live_storage_bytes_after=0,
+        population_live_storage_bytes_after=0,
+    )
+    evidence = {
+        "dispatch": (dispatch_event,),
+        "backend": {
+            "before": (),
+            "after": (5160,),
+            "detected": True,
+            "executed_past_detector": False,
+            "unexpected_exception": None,
+        },
+        "operation_returned": False,
+        "caught_forbidden": True,
+        "pre_execution_detected": True,
+        "executed_past_detector": False,
+    }
+    result = make_h8_control_result(
+        spec,
+        observed_channels=("dispatch", "backend"),
+        detected=True,
+        event_payload=evidence,
+    )
+    return _child_envelope(
+        mode="negative_control",
+        repetition=None,
+        control_id=spec.control_id,
+        result=None,
+        control={
+            "summary": _fixture_jsonable(result),
+            "evidence": _fixture_jsonable(evidence),
+        },
+    )
+
+
+def _attempt_from_fake_envelope(
+    tmp_path: Path,
+    envelope: dict[str, object],
+) -> tuple[H8ChildAttemptRecord, Mapping[str, object]]:
+    request = H8ChildRequest(
+        mode=envelope["mode"],  # type: ignore[arg-type]
+        seed=envelope["seed"],  # type: ignore[arg-type]
+        repetition=envelope["repetition"],  # type: ignore[arg-type]
+        config_sha256=envelope["config_sha256"],  # type: ignore[arg-type]
+        protocol_sha256=envelope["protocol_sha256"],  # type: ignore[arg-type]
+        control_id=envelope["control_id"],  # type: ignore[arg-type]
+    )
+    identities = envelope["identities"]
+    assert isinstance(identities, dict)
+    invocation = build_h8_child_invocation(
+        dataclasses.asdict(request),
+        repository_root=tmp_path,
+        identities=identities,
+        base_environment={},
+    )
+    envelope["request_sha256"] = hashlib.sha256(
+        invocation.stdin[:-1]
+    ).hexdigest()
+    process_record = H8ChildProcessRecord.from_payload(envelope)
+    assert parse_h8_child_stdout(process_record.stdout) == envelope
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
+    )
+    assert isinstance(decision.payload, Mapping)
+    return attempt, decision.payload
 
 
 def test_child_invocation_is_exact_and_freezes_thread_environment(
@@ -1565,11 +1813,11 @@ def test_child_stdout_parser_requires_one_canonical_json_line() -> None:
     parsed = parse_h8_child_stdout(canonical)
     assert parsed == envelope
 
-    malformed = b'{"schema_version":"h8-child-v1"}\n{"schema_version":"h8-child-v1"}\n'
+    malformed = b'{"schema_version":"h8-child-v2"}\n{"schema_version":"h8-child-v2"}\n'
     with pytest.raises(ValueError, match="one canonical JSON line"):
         parse_h8_child_stdout(malformed)
     with pytest.raises(ValueError, match="canonical"):
-        parse_h8_child_stdout(b'{ "schema_version": "h8-child-v1" }\n')
+        parse_h8_child_stdout(b'{ "schema_version": "h8-child-v2" }\n')
     with pytest.raises(ValueError, match="finite"):
         parse_h8_child_stdout(
             b'{"value":NaN}\n',
@@ -1602,7 +1850,7 @@ def test_public_child_result_decoder_returns_the_closed_typed_record() -> None:
 
 
 def test_child_failure_classification_preserves_witnessed_failure_dominance() -> None:
-    incomplete = b'{"schema_version":"h8-child-v1"'
+    incomplete = b'{"schema_version":"h8-child-v2"'
     witnessed_nonzero = H8ChildProcessRecord(
         timed_out=False,
         exit_code=3,
@@ -1656,6 +1904,7 @@ def test_child_failure_classification_preserves_witnessed_failure_dominance() ->
         result={
             "input_sha256": "1" * 64,
             "sample_noise_sha256": "2" * 64,
+            "problem_evidence": {},
             "objective": {},
             "storage": {},
             "fill": {},
@@ -1807,6 +2056,214 @@ def _verified_h8_production_attempt_inputs(
         invocation=invocation,
     )
     return request, invocation, process_record, decision, payload
+
+
+def test_h8_child_v2_retains_lossless_private_evidence_without_public_schema_drift(
+    tmp_path: Path,
+) -> None:
+    import vfe4.types as public_types
+    import vfe4.types.h8 as h8_types
+    from verification.h8_gate import _attempt_payload, _child_payload
+    from vfe4.types.h8 import (
+        H8LocalSPDDiagnostics,
+        H8ProductionProblemEvidence,
+        H8TransitionNorms,
+        SparseConditionDiagnostics,
+    )
+
+    result_keys = (
+        "input_sha256",
+        "sample_noise_sha256",
+        "problem_evidence",
+        "objective",
+        "storage",
+        "fill",
+        "workspace",
+        "counters",
+        "allocation",
+        "resources",
+        "diagnostics",
+        "operation_reachability",
+        "residuals",
+        "resource_decisions",
+        "invariants",
+    )
+    production_envelope = _child_envelope()
+    profiler_envelope = _profiler_child_envelope()
+    for envelope in (production_envelope, profiler_envelope):
+        raw_result = envelope["result"]
+        assert isinstance(raw_result, dict)
+        assert tuple(raw_result) == result_keys
+
+    production_attempt, trusted_production = _attempt_from_fake_envelope(
+        tmp_path,
+        production_envelope,
+    )
+    profiler_attempt, _trusted_profiler = _attempt_from_fake_envelope(
+        tmp_path,
+        profiler_envelope,
+    )
+    control_attempt, _trusted_control = _attempt_from_fake_envelope(
+        tmp_path,
+        _control_child_envelope(),
+    )
+    nonpass_attempts = tuple(
+        _attempt_from_fake_envelope(
+            tmp_path,
+            _child_envelope(
+                status=status,
+                obligations=(
+                    ["fake_observability_gap"]
+                    if status == "inconclusive"
+                    else []
+                ),
+                result=None,
+                error={
+                    "kind": "fake_observability_gap",
+                    "message": "fake evidence only",
+                    "witnessed_violation": status == "fail",
+                },
+            ),
+        )[0]
+        for status in ("inconclusive", "fail")
+    )
+
+    assert hasattr(h8_types, "H8DecodedPassEvidence")
+    private_type = h8_types.H8DecodedPassEvidence
+    assert tuple(
+        field.name for field in dataclasses.fields(private_type)
+    ) == (
+        "sample_noise_sha256",
+        "problem_evidence",
+        "condition_diagnostics",
+        "allocation",
+        "child_identities",
+    )
+    assert "H8DecodedPassEvidence" not in h8_types.__all__
+    assert not hasattr(public_types, "H8DecodedPassEvidence")
+    for attempt in (production_attempt, profiler_attempt):
+        evidence = attempt.pass_evidence
+        assert type(evidence) is private_type
+        assert evidence.sample_noise_sha256 == "2" * 64
+        assert type(evidence.problem_evidence) is H8ProductionProblemEvidence
+        assert (
+            type(evidence.problem_evidence.local_spd_diagnostics)
+            is H8LocalSPDDiagnostics
+        )
+        assert (
+            type(evidence.problem_evidence.transition_norms)
+            is H8TransitionNorms
+        )
+        assert type(evidence.condition_diagnostics) is (
+            SparseConditionDiagnostics
+        )
+        assert isinstance(evidence.allocation, MappingProxyType)
+        assert isinstance(evidence.child_identities, MappingProxyType)
+        assert tuple(evidence.child_identities) == (
+            "hardware",
+            "affinity",
+            "thread",
+            "blas",
+        )
+        with pytest.raises(ValueError, match="private PASS evidence"):
+            dataclasses.replace(attempt, pass_evidence=None)
+    assert control_attempt.pass_evidence is None
+    assert all(attempt.pass_evidence is None for attempt in nonpass_attempts)
+    with pytest.raises(ValueError, match="private PASS evidence"):
+        dataclasses.replace(
+            control_attempt,
+            pass_evidence=production_attempt.pass_evidence,
+        )
+
+    retained = production_attempt.pass_evidence
+    assert retained is not None
+    raw_result = trusted_production["result"]
+    raw_identities = trusted_production["identities"]
+    assert isinstance(raw_result, dict)
+    raw_allocation = raw_result["allocation"]
+    assert isinstance(raw_allocation, dict)
+    raw_channels = raw_allocation["observed_channels"]
+    assert isinstance(raw_channels, list)
+    raw_channels.append("forged")
+    assert isinstance(raw_identities, dict)
+    raw_hardware = raw_identities["hardware"]
+    assert isinstance(raw_hardware, dict)
+    raw_hardware["platform"] = "forged"
+    assert retained.allocation["observed_channels"] == (
+        "dispatch",
+        "numpy_guard",
+        "backend",
+        "os_hwm",
+    )
+    frozen_hardware = retained.child_identities["hardware"]
+    assert isinstance(frozen_hardware, Mapping)
+    assert frozen_hardware["platform"] == "test"
+    with pytest.raises(TypeError):
+        retained.allocation["forged"] = True  # type: ignore[index]
+    with pytest.raises(TypeError):
+        frozen_hardware["platform"] = "forged"  # type: ignore[index]
+
+    assert tuple(
+        field.name for field in dataclasses.fields(H8ChildResult)
+    ) == (
+        "mode",
+        "seed",
+        "repetition",
+        "input_sha256",
+        "objective",
+        "storage",
+        "fill",
+        "workspace",
+        "counters",
+        "allocation",
+        "resources",
+        "invariants",
+    )
+    attempt_keys = (
+        "request",
+        "status",
+        "reasons",
+        "result_kind",
+        "result_identity",
+        "nonpass_envelope",
+        "timed_out",
+        "exit_code",
+        "parent_elapsed_ns",
+        "request_sha256",
+        "identities_sha256",
+        "stdout_sha256",
+        "stderr_sha256",
+        "operation_reachability",
+        "residuals",
+        "resource_decisions",
+    )
+    assert tuple(_attempt_payload(production_attempt)) == attempt_keys
+    assert "pass_evidence" not in _attempt_payload(production_attempt)
+    published_keys = (
+        "mode",
+        "seed",
+        "repetition",
+        "input_sha256",
+        "objective",
+        "storage",
+        "fill",
+        "workspace",
+        "counters",
+        "allocation",
+        "resources",
+        "invariants",
+        "parent_elapsed_ns",
+        "child_elapsed_ns",
+        "exit_code",
+        "stdout_sha256",
+        "stderr_sha256",
+        "operation_reachability",
+        "residuals",
+        "resource_decisions",
+    )
+    for attempt in (production_attempt, profiler_attempt):
+        assert type(attempt.result) is H8ChildResult
+        assert tuple(_child_payload(attempt.result, attempt)) == published_keys
 
 
 def test_child_attempt_factory_decodes_and_binds_verified_pass(
@@ -2363,6 +2820,7 @@ def test_child_pass_rejects_hollow_nested_evidence() -> None:
         for name in (
             "input_sha256",
             "sample_noise_sha256",
+            "problem_evidence",
             "objective",
             "storage",
             "fill",

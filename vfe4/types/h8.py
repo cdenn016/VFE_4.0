@@ -2004,6 +2004,57 @@ class H8ChildResult:
 
 
 @dataclass(frozen=True, slots=True)
+class H8DecodedPassEvidence:
+    """Parent-owned lossless evidence retained only on trusted PASS attempts."""
+
+    sample_noise_sha256: str
+    problem_evidence: H8ProductionProblemEvidence
+    condition_diagnostics: SparseConditionDiagnostics
+    allocation: Mapping[str, object]
+    child_identities: Mapping[str, object]
+
+    def __post_init__(self) -> None:
+        _sha256(self.sample_noise_sha256, "sample_noise_sha256")
+        if type(self.problem_evidence) is not H8ProductionProblemEvidence:
+            raise ValueError(
+                "problem_evidence must be exact H8ProductionProblemEvidence"
+            )
+        self.problem_evidence.__post_init__()
+        if type(self.condition_diagnostics) is not SparseConditionDiagnostics:
+            raise ValueError(
+                "condition_diagnostics must be exact "
+                "SparseConditionDiagnostics"
+            )
+        self.condition_diagnostics.__post_init__()
+        if not isinstance(self.allocation, Mapping) or not self.allocation:
+            raise ValueError("allocation must be complete lossless evidence")
+        if not isinstance(self.child_identities, Mapping):
+            raise ValueError("child_identities must be a mapping")
+        identities = dict(self.child_identities)
+        identity_keys = ("hardware", "affinity", "thread", "blas")
+        if set(identities) != set(identity_keys):
+            raise ValueError(
+                "child_identities must use the exact identity keys"
+            )
+        identities = {name: identities[name] for name in identity_keys}
+        frozen_allocation = _freeze_h8_evidence_value(
+            self.allocation,
+            "allocation",
+        )
+        frozen_identities = _freeze_h8_evidence_value(
+            identities,
+            "child_identities",
+        )
+        if not isinstance(frozen_allocation, MappingProxyType) or not isinstance(
+            frozen_identities,
+            MappingProxyType,
+        ):
+            raise ValueError("private PASS mappings must be recursively frozen")
+        object.__setattr__(self, "allocation", frozen_allocation)
+        object.__setattr__(self, "child_identities", frozen_identities)
+
+
+@dataclass(frozen=True, slots=True)
 class H8ChildAttemptRecord:
     """Parent-owned evidence for exactly one isolated H8 child launch."""
 
@@ -2011,6 +2062,7 @@ class H8ChildAttemptRecord:
     status: GateStatus
     reasons: tuple[str, ...]
     result: H8ChildResult | H8ControlResult | None
+    pass_evidence: H8DecodedPassEvidence | None
     timed_out: bool
     exit_code: int | None
     parent_elapsed_ns: int
@@ -2045,6 +2097,12 @@ class H8ChildAttemptRecord:
             H8ControlResult,
         ):
             raise ValueError("result must retain one exact typed child result")
+        if self.pass_evidence is not None:
+            if type(self.pass_evidence) is not H8DecodedPassEvidence:
+                raise ValueError(
+                    "pass_evidence must be exact private PASS evidence"
+                )
+            self.pass_evidence.__post_init__()
         if type(self.timed_out) is not bool:
             raise ValueError("timed_out must be a bool")
         if self.exit_code is not None and type(self.exit_code) is not int:
@@ -2140,6 +2198,10 @@ class H8ChildAttemptRecord:
                 "witnessed child failure cannot be retained as INCONCLUSIVE"
             )
         if self.status is not GateStatus.PASS:
+            if self.pass_evidence is not None:
+                raise ValueError(
+                    "non-PASS attempts cannot retain private PASS evidence"
+                )
             return
 
         if nonpass_envelope is not None:
@@ -2151,6 +2213,20 @@ class H8ChildAttemptRecord:
         if self.request.mode in ("production", "profiler"):
             if type(self.result) is not H8ChildResult:
                 raise ValueError("PASS requires a typed result")
+            if type(self.pass_evidence) is not H8DecodedPassEvidence:
+                raise ValueError(
+                    "trusted production/profiler PASS requires "
+                    "private PASS evidence"
+                )
+            if (
+                self.result.storage is None
+                or self.pass_evidence.problem_evidence
+                .local_spd_diagnostics.horizon
+                != self.result.storage.layout.horizon
+            ):
+                raise ValueError(
+                    "private PASS evidence does not match the result horizon"
+                )
             if (
                 reachability is None
                 or tuple(reachability) != H8_REQUIRED_OPERATIONS
@@ -2177,6 +2253,10 @@ class H8ChildAttemptRecord:
             ):
                 raise ValueError("PASS child result exceeds its time budget")
         else:
+            if self.pass_evidence is not None:
+                raise ValueError(
+                    "control attempts cannot retain private PASS evidence"
+                )
             if (
                 type(self.result) is not H8ControlResult
                 or self.result.status is not GateStatus.PASS

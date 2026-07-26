@@ -672,7 +672,7 @@ def _source_only_sections(
             },
             "profiler_api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
             "profiler_raw_event_schema": None,
-            "child_schema": "h8-child-v1",
+            "child_schema": "h8-child-v2",
             "production_seed_order": H8_PRODUCTION_SEEDS,
             "production_sample_seed_map": H8_PRODUCTION_SAMPLE_SEED_PAIRS,
             "repetition_order": tuple(range(5)),

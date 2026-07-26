@@ -43,13 +43,17 @@ from vfe4.types.h8 import (
     H8ChildRequest,
     H8ChildResult,
     H8ControlResult,
+    H8DecodedPassEvidence,
     H8InvariantRecord,
+    H8LocalSPDDiagnostics,
     H8ObjectiveTerm,
     H8ObjectiveTerms,
     H8OperandRecord,
+    H8ProductionProblemEvidence,
     H8ProfilerEventRecord,
     H8ResourceRecord,
     H8TensorKey,
+    H8TransitionNorms,
     SparseConditionDiagnostics,
 )
 from vfe4.types.results import GateStatus
@@ -59,7 +63,7 @@ EPS = float.fromhex("0x1.0000000000000p-52")
 ROUNDING_MULTIPLIER = 4096.0
 SOLVER_RELATIVE_BUDGET = 1e-9
 MAX_ALLOWANCE_FRACTION = 1e-4
-H8_CHILD_SCHEMA_VERSION = "h8-child-v1"
+H8_CHILD_SCHEMA_VERSION = "h8-child-v2"
 H8_CHILD_IDENTITY_ENV = "VFE4_H8_CHILD_IDENTITIES_JSON"
 H8_THREAD_ENVIRONMENT = (
     "OMP_NUM_THREADS",
@@ -95,6 +99,7 @@ H8_CHILD_ENVELOPE_KEYS = (
 H8_CHILD_RESULT_KEYS = (
     "input_sha256",
     "sample_noise_sha256",
+    "problem_evidence",
     "objective",
     "storage",
     "fill",
@@ -641,6 +646,24 @@ def decode_h8_child_result(
     return decoded
 
 
+def _decode_h8_child_pass(
+    envelope: Mapping[str, object],
+) -> tuple[H8ChildResult, H8DecodedPassEvidence]:
+    """Decode public and private PASS evidence in one validated traversal."""
+
+    decoded = _validate_child_envelope(envelope, retain_private=True)
+    if (
+        type(decoded) is not tuple
+        or len(decoded) != 2
+        or type(decoded[0]) is not H8ChildResult
+        or type(decoded[1]) is not H8DecodedPassEvidence
+    ):
+        raise ValueError(
+            "envelope does not contain complete private H8 PASS evidence"
+        )
+    return decoded
+
+
 def decode_h8_control_result(
     envelope: Mapping[str, object],
 ) -> H8ControlResult:
@@ -671,7 +694,14 @@ def _reject_duplicate_pairs(
 
 def _validate_child_envelope(
     value: Mapping[str, object],
-) -> H8ChildResult | H8ControlResult | None:
+    *,
+    retain_private: bool = False,
+) -> (
+    H8ChildResult
+    | H8ControlResult
+    | tuple[H8ChildResult, H8DecodedPassEvidence]
+    | None
+):
     if set(value) != set(H8_CHILD_ENVELOPE_KEYS):
         raise ValueError("child envelope does not use its exact key set")
     if value["schema_version"] != H8_CHILD_SCHEMA_VERSION:
@@ -746,11 +776,17 @@ def _validate_child_envelope(
     ):
         raise ValueError("child result does not use its exact key set")
     if status == "pass" and mode in ("production", "profiler"):
-        decoded = _validate_complete_pass_result(
+        public_result, private_evidence = _validate_complete_pass_result(
             result,
             mode=mode,
             seed=value["seed"],
             repetition=repetition,
+            child_identities=value["identities"],
+        )
+        decoded = (
+            (public_result, private_evidence)
+            if retain_private
+            else public_result
         )
     return decoded
 
@@ -1352,7 +1388,8 @@ def _validate_complete_pass_result(
     mode: object,
     seed: object,
     repetition: object,
-) -> H8ChildResult:
+    child_identities: object,
+) -> tuple[H8ChildResult, H8DecodedPassEvidence]:
     if not isinstance(result, Mapping):
         raise ValueError("PASS requires complete nested evidence")
     if not _is_sha256(result.get("input_sha256")) or not _is_sha256(
@@ -1360,6 +1397,7 @@ def _validate_complete_pass_result(
     ):
         raise ValueError("PASS requires complete nested evidence hashes")
     for name in (
+        "problem_evidence",
         "objective",
         "storage",
         "fill",
@@ -1434,7 +1472,7 @@ def _validate_complete_pass_result(
             or allocation.get("profiler_all_joined_and_liveness_reconciled") is not True
         ):
             raise ValueError("profiler PASS requires joined raw profiler evidence")
-    return H8ChildResult(
+    public_result = H8ChildResult(
         mode=mode,  # type: ignore[arg-type]
         seed=seed,  # type: ignore[arg-type]
         repetition=repetition,  # type: ignore[arg-type]
@@ -1448,6 +1486,14 @@ def _validate_complete_pass_result(
         resources=typed["resources"],  # type: ignore[arg-type]
         invariants=typed["invariants"],  # type: ignore[arg-type]
     )
+    private_evidence = H8DecodedPassEvidence(
+        sample_noise_sha256=result["sample_noise_sha256"],  # type: ignore[arg-type]
+        problem_evidence=typed["problem_evidence"],  # type: ignore[arg-type]
+        condition_diagnostics=typed["diagnostics"],  # type: ignore[arg-type]
+        allocation=allocation,
+        child_identities=child_identities,  # type: ignore[arg-type]
+    )
+    return public_result, private_evidence
 
 
 def _validate_allocation_evidence(
@@ -1654,7 +1700,14 @@ def _validate_allocation_evidence(
         )
         if (
             api["torch_version"] != "2.9.1"
-            or any(not _is_sha256(api[name]) for name in tuple(api)[1:])
+            or any(
+                not _is_sha256(api[name])
+                for name in (
+                    "memory_profile_source_sha256",
+                    "profiler_source_sha256",
+                    "api_contract_sha256",
+                )
+            )
             or not _is_sha256(allocation["profiler_trace_sha256"])
             or not profiler_events
             or allocation["profiler_lossy_rows"] != []
@@ -2268,6 +2321,148 @@ def _decode_resources(value: object) -> H8ResourceRecord:
     return H8ResourceRecord(**record)  # type: ignore[arg-type]
 
 
+def _decode_local_spd_diagnostics(
+    value: object,
+) -> H8LocalSPDDiagnostics:
+    record = _exact_mapping(
+        value,
+        (
+            "schema_version",
+            "horizon",
+            "generative_initial_min_pivot",
+            "model_transition_min_pivots",
+            "state_transition_min_pivots",
+            "recognition_initial_min_pivot",
+            "recognition_transition_min_pivots",
+            "global_min_pivot",
+        ),
+        name="problem_evidence.local_spd_diagnostics",
+    )
+    return H8LocalSPDDiagnostics(
+        schema_version=record["schema_version"],  # type: ignore[arg-type]
+        horizon=record["horizon"],  # type: ignore[arg-type]
+        generative_initial_min_pivot=record[  # type: ignore[arg-type]
+            "generative_initial_min_pivot"
+        ],
+        model_transition_min_pivots=tuple(
+            _exact_list(
+                record["model_transition_min_pivots"],
+                name=(
+                    "problem_evidence.local_spd_diagnostics"
+                    ".model_transition_min_pivots"
+                ),
+            )
+        ),
+        state_transition_min_pivots=tuple(
+            _exact_list(
+                record["state_transition_min_pivots"],
+                name=(
+                    "problem_evidence.local_spd_diagnostics"
+                    ".state_transition_min_pivots"
+                ),
+            )
+        ),
+        recognition_initial_min_pivot=record[  # type: ignore[arg-type]
+            "recognition_initial_min_pivot"
+        ],
+        recognition_transition_min_pivots=tuple(
+            _exact_list(
+                record["recognition_transition_min_pivots"],
+                name=(
+                    "problem_evidence.local_spd_diagnostics"
+                    ".recognition_transition_min_pivots"
+                ),
+            )
+        ),
+        global_min_pivot=record["global_min_pivot"],  # type: ignore[arg-type]
+    )
+
+
+def _decode_transition_norms(value: object) -> H8TransitionNorms:
+    record = _exact_mapping(
+        value,
+        (
+            "schema_version",
+            "horizon",
+            "norm",
+            "model_transition_norms",
+            "state_transition_norms",
+            "state_model_coupling_norms",
+            "recognition_transition_norms",
+            "max_model_transition_norm",
+            "max_state_transition_norm",
+            "max_state_model_coupling_norm",
+            "max_recognition_transition_norm",
+        ),
+        name="problem_evidence.transition_norms",
+    )
+
+    def inventory(name: str) -> tuple[object, ...]:
+        return tuple(
+            _exact_list(
+                record[name],
+                name=f"problem_evidence.transition_norms.{name}",
+            )
+        )
+
+    return H8TransitionNorms(
+        schema_version=record["schema_version"],  # type: ignore[arg-type]
+        horizon=record["horizon"],  # type: ignore[arg-type]
+        norm=record["norm"],  # type: ignore[arg-type]
+        model_transition_norms=inventory(  # type: ignore[arg-type]
+            "model_transition_norms"
+        ),
+        state_transition_norms=inventory(  # type: ignore[arg-type]
+            "state_transition_norms"
+        ),
+        state_model_coupling_norms=inventory(  # type: ignore[arg-type]
+            "state_model_coupling_norms"
+        ),
+        recognition_transition_norms=inventory(  # type: ignore[arg-type]
+            "recognition_transition_norms"
+        ),
+        max_model_transition_norm=record[  # type: ignore[arg-type]
+            "max_model_transition_norm"
+        ],
+        max_state_transition_norm=record[  # type: ignore[arg-type]
+            "max_state_transition_norm"
+        ],
+        max_state_model_coupling_norm=record[  # type: ignore[arg-type]
+            "max_state_model_coupling_norm"
+        ],
+        max_recognition_transition_norm=record[  # type: ignore[arg-type]
+            "max_recognition_transition_norm"
+        ],
+    )
+
+
+def _decode_problem_evidence(
+    value: object,
+) -> H8ProductionProblemEvidence:
+    record = _exact_mapping(
+        value,
+        (
+            "generative_sha256",
+            "recognition_sha256",
+            "local_spd_diagnostics",
+            "transition_norms",
+            "observation_sha256",
+        ),
+        name="problem_evidence",
+    )
+    return H8ProductionProblemEvidence(
+        generative_sha256=record["generative_sha256"],  # type: ignore[arg-type]
+        recognition_sha256=record["recognition_sha256"],  # type: ignore[arg-type]
+        local_spd_diagnostics=_decode_local_spd_diagnostics(
+            record["local_spd_diagnostics"]
+        ),
+        transition_norms=_decode_transition_norms(
+            record["transition_norms"]
+        ),
+        observation_sha256=record["observation_sha256"],  # type: ignore[arg-type]
+    )
+
+
 def _decode_diagnostics(value: object) -> SparseConditionDiagnostics:
     record = _exact_mapping(
         value,
@@ -2350,6 +2545,7 @@ def _validate_typed_pass_sections(
     result: Mapping[str, object],
 ) -> dict[str, object]:
     decoders = {
+        "problem_evidence": _decode_problem_evidence,
         "objective": _decode_objective,
         "storage": _decode_storage,
         "fill": _decode_fill,
@@ -3070,6 +3266,7 @@ def make_h8_child_attempt_record(
     decision = recomputed_decision
 
     typed_result: H8ChildResult | H8ControlResult | None = None
+    pass_evidence: H8DecodedPassEvidence | None = None
     operation_reachability: Mapping[str, object] | None = None
     residuals: Mapping[str, object] | None = None
     resource_decisions: Mapping[str, object] | None = None
@@ -3096,11 +3293,12 @@ def make_h8_child_attempt_record(
                 raise
         trusted_payload = identity_verified and not process_record.timed_out
         if trusted_payload and decision.payload["status"] == "pass":
-            typed_result = (
-                decode_h8_control_result(decision.payload)
-                if decision.payload["mode"] == "negative_control"
-                else decode_h8_child_result(decision.payload)
-            )
+            if decision.payload["mode"] == "negative_control":
+                typed_result = decode_h8_control_result(decision.payload)
+            else:
+                typed_result, pass_evidence = _decode_h8_child_pass(
+                    decision.payload
+                )
         if (
             process_record.timed_out
             or not identity_verified
@@ -3175,6 +3373,7 @@ def make_h8_child_attempt_record(
         status=decision.status,
         reasons=decision.reasons,
         result=typed_result,
+        pass_evidence=pass_evidence,
         timed_out=process_record.timed_out,
         exit_code=process_record.exit_code,
         parent_elapsed_ns=process_record.parent_elapsed_ns,

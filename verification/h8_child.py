@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 
-_SCHEMA_VERSION = "h8-child-v1"
+_SCHEMA_VERSION = "h8-child-v2"
 _IDENTITY_ENV = "VFE4_H8_CHILD_IDENTITIES_JSON"
 _THREAD_ENVIRONMENT = (
     "OMP_NUM_THREADS",
@@ -65,6 +65,7 @@ _ENVELOPE_KEYS = (
 _RESULT_KEYS = (
     "input_sha256",
     "sample_noise_sha256",
+    "problem_evidence",
     "objective",
     "storage",
     "fill",
@@ -167,6 +168,51 @@ class _ChildWitnessedFailure(RuntimeError):
 
 class _ProfilerUnavailable(_ChildObservabilityError):
     pass
+
+
+def _runtime_protocol_sha256(config: object) -> str:
+    """Recompute the v2 protocol after runtime imports and reject local drift."""
+
+    from verification.h8_budget import (
+        H8_CHILD_ENVELOPE_KEYS,
+        H8_CHILD_IDENTITY_KEYS,
+        H8_CHILD_REQUEST_KEYS,
+        H8_CHILD_RESULT_KEYS,
+        H8_CHILD_SCHEMA_VERSION,
+    )
+    from verification.h8_orchestrator import build_h8_protocol_sha256
+    from vfe4.config.schema import H8ValidationConfig
+
+    if type(config) is not H8ValidationConfig:
+        raise _ChildObservabilityError(
+            "child runtime config is not exact H8ValidationConfig"
+        )
+    local_contract = (
+        _SCHEMA_VERSION,
+        _REQUEST_KEYS,
+        _ENVELOPE_KEYS,
+        _RESULT_KEYS,
+        _IDENTITY_KEYS,
+    )
+    parent_contract = (
+        H8_CHILD_SCHEMA_VERSION,
+        H8_CHILD_REQUEST_KEYS,
+        H8_CHILD_ENVELOPE_KEYS,
+        H8_CHILD_RESULT_KEYS,
+        H8_CHILD_IDENTITY_KEYS,
+    )
+    if local_contract != parent_contract or config.child_schema != (
+        _SCHEMA_VERSION
+    ):
+        raise _ChildObservabilityError(
+            "child-local schema or key inventory drifted from the parent"
+        )
+    try:
+        return build_h8_protocol_sha256(config)
+    except ValueError as error:
+        raise _ChildObservabilityError(
+            f"child protocol preimage is unavailable: {error}"
+        ) from error
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -1731,6 +1777,43 @@ def _invariant_records(
     return records
 
 
+def _production_result_payload(
+    *,
+    graph: Mapping[str, object],
+    allocation: Mapping[str, object],
+    resources: Mapping[str, object],
+    decisions: Mapping[str, object],
+) -> dict[str, object]:
+    """Serialize the shared production/profiler body without schema drift."""
+
+    problem = graph["problem"]
+    problem_evidence = getattr(problem, "problem_evidence", None)
+    if problem_evidence is None:
+        raise _ChildObservabilityError(
+            "production problem evidence is unavailable"
+        )
+    result = {
+        "input_sha256": graph["input_sha256"],
+        "sample_noise_sha256": graph["sample_noise_sha256"],
+        "problem_evidence": _jsonable(problem_evidence),
+        "objective": _jsonable(graph["objective"]),
+        "storage": _jsonable(graph["storage"]),
+        "fill": _jsonable(graph["fill"]),
+        "workspace": _jsonable(graph["workspace"]),
+        "counters": _jsonable(graph["counters"]),
+        "allocation": dict(allocation),
+        "resources": dict(resources),
+        "diagnostics": _jsonable(graph["diagnostics"]),
+        "operation_reachability": graph["operation_reachability"],
+        "residuals": graph["residuals"],
+        "resource_decisions": dict(decisions),
+        "invariants": _invariant_records(decisions),
+    }
+    if tuple(result) != _RESULT_KEYS:
+        raise RuntimeError("production/profiler result key order drifted")
+    return result
+
+
 def _run_production(torch: Any, np: Any, seed: int) -> dict[str, object]:
     from vfe4.inference.h8_allocation import (
         H8AllocationPolicy,
@@ -1765,25 +1848,12 @@ def _run_production(torch: Any, np: Any, seed: int) -> dict[str, object]:
     decisions["dispatch_backend_cross_check_obligations"] = list(
         cross_check.obligations
     )
-    result = {
-        "input_sha256": graph["input_sha256"],
-        "sample_noise_sha256": graph["sample_noise_sha256"],
-        "objective": _jsonable(graph["objective"]),
-        "storage": _jsonable(graph["storage"]),
-        "fill": _jsonable(graph["fill"]),
-        "workspace": _jsonable(graph["workspace"]),
-        "counters": _jsonable(graph["counters"]),
-        "allocation": allocation,
-        "resources": resources,
-        "diagnostics": _jsonable(graph["diagnostics"]),
-        "operation_reachability": graph["operation_reachability"],
-        "residuals": graph["residuals"],
-        "resource_decisions": decisions,
-        "invariants": _invariant_records(decisions),
-    }
-    if tuple(result) != _RESULT_KEYS:
-        raise RuntimeError("production result key order drifted")
-    return result
+    return _production_result_payload(
+        graph=graph,
+        allocation=allocation,
+        resources=resources,
+        decisions=decisions,
+    )
 
 
 def _raw_profiler_rows(
@@ -2578,25 +2648,12 @@ def _run_profiler(torch: Any, np: Any, seed: int) -> dict[str, object]:
     decisions["dispatch_backend_cross_check_obligations"] = list(
         cross_check.obligations
     )
-    result = {
-        "input_sha256": graph["input_sha256"],
-        "sample_noise_sha256": graph["sample_noise_sha256"],
-        "objective": _jsonable(graph["objective"]),
-        "storage": _jsonable(graph["storage"]),
-        "fill": _jsonable(graph["fill"]),
-        "workspace": _jsonable(graph["workspace"]),
-        "counters": _jsonable(graph["counters"]),
-        "allocation": allocation,
-        "resources": resources,
-        "diagnostics": _jsonable(graph["diagnostics"]),
-        "operation_reachability": graph["operation_reachability"],
-        "residuals": graph["residuals"],
-        "resource_decisions": decisions,
-        "invariants": _invariant_records(decisions),
-    }
-    if tuple(result) != _RESULT_KEYS:
-        raise RuntimeError("profiler result key order drifted")
-    return result
+    return _production_result_payload(
+        graph=graph,
+        allocation=allocation,
+        resources=resources,
+        decisions=decisions,
+    )
 
 
 def _verify_profiler_pins(torch: Any) -> dict[str, object]:
@@ -2833,6 +2890,20 @@ def main() -> int:
                 thread_environment=thread_environment,
             )
             _verify_identity_match(expected_identities, identities)
+            from vfe4.config.schema import H8ValidationConfig
+
+            runtime_config = H8ValidationConfig.create()
+            runtime_protocol_sha256 = _runtime_protocol_sha256(
+                runtime_config
+            )
+            if (
+                request["config_sha256"] != runtime_config.config_sha256
+                or request["protocol_sha256"] != runtime_protocol_sha256
+            ):
+                raise _ChildObservabilityError(
+                    "child request config/protocol identity drifted from "
+                    "post-import recomputation"
+                )
             if request["mode"] == "negative_control":
                 with torch.no_grad():
                     control = _run_negative_control(

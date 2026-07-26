@@ -209,6 +209,7 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result() -> None
         status=GateStatus.FAIL,
         reasons=("child_timeout",),
         result=None,
+        pass_evidence=None,
         timed_out=True,
         exit_code=None,
         parent_elapsed_ns=60_000_000_001,

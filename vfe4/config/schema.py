@@ -1446,6 +1446,12 @@ def _h8_validation_payload(
     V: int,
     generator_schema: str,
     sample_schema: str,
+    factor_schema: str,
+    selected_inverse_schema: str,
+    condition_estimator_schema: str,
+    allocation_schema: str,
+    profiler_raw_event_schema: str,
+    child_schema: str,
     problem_draw_descriptor: str,
     problem_draw_schema_sha256: str,
     serialization_point: str,
@@ -1481,6 +1487,12 @@ def _h8_validation_payload(
         "V": V,
         "generator_schema": generator_schema,
         "sample_schema": sample_schema,
+        "factor_schema": factor_schema,
+        "selected_inverse_schema": selected_inverse_schema,
+        "condition_estimator_schema": condition_estimator_schema,
+        "allocation_schema": allocation_schema,
+        "profiler_raw_event_schema": profiler_raw_event_schema,
+        "child_schema": child_schema,
         "problem_draw_descriptor": problem_draw_descriptor,
         "problem_draw_schema_sha256": problem_draw_schema_sha256,
         "serialization_point": serialization_point,
@@ -1504,7 +1516,7 @@ def _h8_validation_payload(
 
 def _h8_frozen_values() -> dict[str, object]:
     return {
-        "schema_version": "h8-validation-config-v1",
+        "schema_version": "h8-validation-config-v2",
         "operation": "H8",
         "choice_kind": "operational_preregistration_not_manuscript_theorem",
         "k_semantics": "each_channel_dimension",
@@ -1519,6 +1531,14 @@ def _h8_frozen_values() -> dict[str, object]:
         "V": 3,
         "generator_schema": "h8-synthetic-chain-v1",
         "sample_schema": "h8-pcg64-sample-v1",
+        "factor_schema": "h8-block-tridiagonal-cholesky-v1",
+        "selected_inverse_schema": (
+            "h8-block-takahashi-selected-inverse-v1"
+        ),
+        "condition_estimator_schema": "HagerHigham1NormEstimate-v1",
+        "allocation_schema": "h8-allocation-observability-v1",
+        "profiler_raw_event_schema": "h8-torch-profiler-raw-event-v1",
+        "child_schema": "h8-child-v2",
         "problem_draw_descriptor": H8_PROBLEM_DRAW_DESCRIPTOR,
         "problem_draw_schema_sha256": H8_PROBLEM_DRAW_SCHEMA_SHA256,
         "serialization_point": "after_all_problem_draws_before_sample_rng",
@@ -1544,7 +1564,7 @@ def _h8_frozen_values() -> dict[str, object]:
 class H8ValidationConfig:
     """Frozen, unmeasured H8 synthetic systems protocol."""
 
-    schema_version: Literal["h8-validation-config-v1"]
+    schema_version: Literal["h8-validation-config-v2"]
     operation: Literal["H8"]
     choice_kind: Literal["operational_preregistration_not_manuscript_theorem"]
     k_semantics: Literal["each_channel_dimension"]
@@ -1559,6 +1579,14 @@ class H8ValidationConfig:
     V: Literal[3]
     generator_schema: Literal["h8-synthetic-chain-v1"]
     sample_schema: Literal["h8-pcg64-sample-v1"]
+    factor_schema: Literal["h8-block-tridiagonal-cholesky-v1"]
+    selected_inverse_schema: Literal[
+        "h8-block-takahashi-selected-inverse-v1"
+    ]
+    condition_estimator_schema: Literal["HagerHigham1NormEstimate-v1"]
+    allocation_schema: Literal["h8-allocation-observability-v1"]
+    profiler_raw_event_schema: Literal["h8-torch-profiler-raw-event-v1"]
+    child_schema: Literal["h8-child-v2"]
     problem_draw_descriptor: str
     problem_draw_schema_sha256: str
     serialization_point: Literal[

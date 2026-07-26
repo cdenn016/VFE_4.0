@@ -50,6 +50,13 @@ from vfe4.types import (
     SourcePath,
     StructuralData,
 )
+from vfe4.types.h8 import (
+    H8DecodedPassEvidence,
+    H8LocalSPDDiagnostics,
+    H8ProductionProblemEvidence,
+    H8TransitionNorms,
+    SparseConditionDiagnostics,
+)
 
 
 def _structure(**overrides: object) -> StructuralData:
@@ -680,6 +687,59 @@ def _h8_control_result(
     )
 
 
+def _h8_private_pass_evidence() -> H8DecodedPassEvidence:
+    local = H8LocalSPDDiagnostics(
+        schema_version="h8-local-spd-diagnostics-v1",
+        horizon=1,
+        generative_initial_min_pivot=1.0,
+        model_transition_min_pivots=(1.0,),
+        state_transition_min_pivots=(1.0,),
+        recognition_initial_min_pivot=1.0,
+        recognition_transition_min_pivots=(1.0,),
+        global_min_pivot=1.0,
+    )
+    norms = H8TransitionNorms(
+        schema_version="h8-transition-norms-v1",
+        horizon=1,
+        norm="operator_2",
+        model_transition_norms=(0.1,),
+        state_transition_norms=(0.1,),
+        state_model_coupling_norms=(0.1,),
+        recognition_transition_norms=(0.1,),
+        max_model_transition_norm=0.1,
+        max_state_transition_norm=0.1,
+        max_state_model_coupling_norm=0.1,
+        max_recognition_transition_norm=0.1,
+    )
+    return H8DecodedPassEvidence(
+        sample_noise_sha256="0" * 64,
+        problem_evidence=H8ProductionProblemEvidence(
+            generative_sha256="1" * 64,
+            recognition_sha256="2" * 64,
+            local_spd_diagnostics=local,
+            transition_norms=norms,
+            observation_sha256="3" * 64,
+        ),
+        condition_diagnostics=SparseConditionDiagnostics(
+            estimator="HagerHigham1NormEstimate-v1",
+            kappa_1_estimate=1.0,
+            iterations=1,
+            convergence_reason="test",
+            index_sha256="4" * 64,
+            sign_sha256="5" * 64,
+            per_block_min_pivots=(1.0, 1.0),
+            global_min_pivot=1.0,
+            per_block_pivot_margins=(1.0 - 1e-8, 1.0 - 1e-8),
+            global_pivot_margin=1.0 - 1e-8,
+        ),
+        allocation={"fixture": True},
+        child_identities={
+            name: {"kind": name}
+            for name in ("hardware", "affinity", "thread", "blas")
+        },
+    )
+
+
 def _h8_attempt(
     request: H8ChildRequest,
     *,
@@ -698,6 +758,14 @@ def _h8_attempt(
         status=status,
         reasons=reasons,
         result=result,
+        pass_evidence=(
+            _h8_private_pass_evidence()
+            if (
+                status is GateStatus.PASS
+                and request.mode in ("production", "profiler")
+            )
+            else None
+        ),
         timed_out=timed_out,
         exit_code=exit_code,
         parent_elapsed_ns=1,
