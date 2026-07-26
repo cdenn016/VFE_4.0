@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -218,6 +219,9 @@ def test_h6_prefix_projector_accepts_v1_focus_and_v2_bounded_only(
             raw, repo_root=Path(__file__).resolve().parents[2]
         )
         assert projected.canonical_sha256 == resolved.config_sha256
+
+    with pytest.raises(ValueError, match="authorization"):
+        replace(resolved, authorization_sha256="f" * 64)
 
     with pytest.raises(ValueError, match="bounded v2 workload"):
         project_h6_prefix_config(legacy_full)

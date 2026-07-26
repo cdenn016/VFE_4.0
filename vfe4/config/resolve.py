@@ -68,6 +68,7 @@ from .schema import (
     H5_CONTROL_IDS,
     H5_POSITIVE_CASE_IDS,
     H5_UPDATE_SPEC_CANONICAL_SHA256,
+    H6_PREFIX_V2_AUTHORIZATION_SHA256,
     H1PrefixPriorResolvedConfig,
     H1PrefixPriorV2ResolvedConfig,
     H6ArmMatchingResolvedConfig,
@@ -1385,6 +1386,10 @@ def _h6_prefix_semantic_key(profile: H6PrefixProfilePair) -> str:
                 "config_id": profile.production_arm_config.config_id,
                 **profile.production_arm_config.semantic_payload(),
             },
+            "small_structure_sha256": profile.small_structure.structure_sha256,
+            "production_structure_sha256": (
+                profile.production_structure.structure_sha256
+            ),
             "data_safety_sha256": profile.data_safety_sha256,
         }
     )[0]
@@ -1476,11 +1481,6 @@ def _resolve_h6_prefix_profile(
     return pair
 
 
-_H6_PREFIX_V2_AUTHORIZATION_SHA256 = hashlib.sha256(
-    b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
-).hexdigest()
-
-
 def _require_h6_prefix_v1_execution_mode(
     execution_mode: object,
     profiles: tuple[H6PrefixProfilePair, ...],
@@ -1523,7 +1523,7 @@ def _require_h6_prefix_v2_execution_mode(
     authorization = _require_h6_sha256(
         authorization_sha256, "h6_prefix.authorization_sha256"
     )
-    if authorization != _H6_PREFIX_V2_AUTHORIZATION_SHA256:
+    if authorization != H6_PREFIX_V2_AUTHORIZATION_SHA256:
         raise ValueError(
             "h6_prefix.authorization_sha256 must bind the exact bounded workload "
             "authorization phrase"

@@ -173,14 +173,23 @@ def _source() -> dict[str, object]:
     }
 
 
-def _structure(horizon: int) -> dict[str, object]:
+def _structure(
+    horizon: int, *, immediate_predecessor_only: bool = False
+) -> dict[str, object]:
     return {
         "base": {"base_id": "C0", "points": ["*"], "dimension": 0},
         "dag": {
             "labeling": "zero_based",
             "node_labels": list(range(horizon + 1)),
             "rows": [
-                {"receiver_t": receiver, "parents": list(range(receiver))}
+                {
+                    "receiver_t": receiver,
+                    "parents": (
+                        [receiver - 1]
+                        if immediate_predecessor_only
+                        else list(range(receiver))
+                    ),
+                }
                 for receiver in range(1, horizon + 1)
             ],
         },
@@ -188,13 +197,22 @@ def _structure(horizon: int) -> dict[str, object]:
     }
 
 
-def _typed_structure(horizon: int) -> H6LanguageStructure:
+def _typed_structure(
+    horizon: int, *, immediate_predecessor_only: bool = False
+) -> H6LanguageStructure:
     return H6LanguageStructure.create(
         base=ZeroDimensionalBase.create(),
         dag=CausalDag.create(
             node_labels=tuple(range(horizon + 1)),
             rows=tuple(
-                CausalDagRow(receiver, tuple(range(receiver)))
+                CausalDagRow(
+                    receiver,
+                    (
+                        (receiver - 1,)
+                        if immediate_predecessor_only
+                        else tuple(range(receiver))
+                    ),
+                )
                 for receiver in range(1, horizon + 1)
             ),
         ),
@@ -239,7 +257,9 @@ def _raw_arm_config(config: ArmConfig) -> dict[str, object]:
     return payload
 
 
-def _profile(particle_count: int) -> dict[str, object]:
+def _profile(
+    particle_count: int, *, immediate_predecessor_only: bool = False
+) -> dict[str, object]:
     small = _arm_config(vocabulary_size=3, horizon=4)
     production = _arm_config(vocabulary_size=258, horizon=32)
     estimator = EstimatorSpec.create(
@@ -270,8 +290,12 @@ def _profile(particle_count: int) -> dict[str, object]:
         small_arm_config=small,
         production_arm_config=production,
         estimator=estimator,
-        small_structure=_typed_structure(4),
-        production_structure=_typed_structure(32),
+        small_structure=_typed_structure(
+            4, immediate_predecessor_only=immediate_predecessor_only
+        ),
+        production_structure=_typed_structure(
+            32, immediate_predecessor_only=immediate_predecessor_only
+        ),
         data_safety_sha256=_data_safety_sha256(),
         small_model_family_sha256=small_model_family_sha256,
         production_model_family_sha256=production_model_family_sha256,
@@ -288,8 +312,12 @@ def _profile(particle_count: int) -> dict[str, object]:
             "dtype": estimator.dtype,
             "device": estimator.device,
         },
-        "small_structure": _structure(4),
-        "production_structure": _structure(32),
+        "small_structure": _structure(
+            4, immediate_predecessor_only=immediate_predecessor_only
+        ),
+        "production_structure": _structure(
+            32, immediate_predecessor_only=immediate_predecessor_only
+        ),
         "data_safety_sha256": pair.data_safety_sha256,
         "small_model_family_sha256": pair.small_model_family_sha256,
         "production_model_family_sha256": (
@@ -571,6 +599,13 @@ def test_prefix_v2_config_binds_workload_and_rejects_legacy_full(
     reordered["profiles"] = list(reversed(reordered["profiles"]))
     with pytest.raises(ValueError, match="128.*256.*512.*1024|ladder"):
         resolve_h6_prefix_config(reordered, repo_root=tmp_path)
+
+    mixed_structures = _prefix_v2_config()
+    mixed_structures["profiles"][-1] = _profile(  # type: ignore[index]
+        1024, immediate_predecessor_only=True
+    )
+    with pytest.raises(ValueError, match="128.*256.*512.*1024|ladder"):
+        resolve_h6_prefix_config(mixed_structures, repo_root=tmp_path)
 
 
 def test_h6_helpers_delegate_to_the_single_public_resolver(tmp_path: Path) -> None:

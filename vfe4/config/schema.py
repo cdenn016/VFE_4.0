@@ -666,6 +666,11 @@ class H1PrefixPriorV2ResolvedConfig:
     config_sha256: str
 
 
+H6_PREFIX_V2_AUTHORIZATION_SHA256 = hashlib.sha256(
+    b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
+).hexdigest()
+
+
 @dataclass(frozen=True)
 class H6PrefixResolvedConfig:
     schema_version: Literal["h6-prefix-config-v1", "h6-prefix-config-v2"]
@@ -698,10 +703,14 @@ class H6PrefixResolvedConfig:
             self.execution_mode != "authorized_full"
             or type(self.workload_plan) is not H6PrefixWorkloadPlan
             or self.workload_plan_sha256 != self.workload_plan.workload_plan_sha256
-            or type(self.authorization_sha256) is not str
         ):
             raise ValueError(
                 "h6-prefix-config-v2 must bind the authorized typed bounded workload"
+            )
+        if self.authorization_sha256 != H6_PREFIX_V2_AUTHORIZATION_SHA256:
+            raise ValueError(
+                "h6-prefix-config-v2 authorization_sha256 must equal the exact "
+                "bounded workload authorization digest"
             )
 
 
