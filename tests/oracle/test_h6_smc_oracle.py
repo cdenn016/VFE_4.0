@@ -37,6 +37,16 @@ EXPECTED_FIXTURE_SHA256 = (
 )
 
 
+def test_finite_fixture_checkout_bytes_match_frozen_inventory() -> None:
+    fixture_paths = tuple(
+        FIXTURE_ROOT / f"h6_smc_finite_{index:02d}.json"
+        for index in range(1, 5)
+    )
+    assert tuple(
+        hashlib.sha256(path.read_bytes()).hexdigest() for path in fixture_paths
+    ) == FINITE_FIXTURE_SHA256
+
+
 def test_weighted_recursion_and_counter_rules_match_independent_numpy() -> None:
     log_weights = torch.log(
         torch.tensor([0.7, 0.2, 0.1], dtype=torch.float64)

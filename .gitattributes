@@ -4,3 +4,4 @@ vfe4/validation/fixtures/h1_v1.json -text
 vfe4/validation/fixtures/h7_v1.json -text
 vfe4/validation/fixtures/h7_density_probes_v1.json -text
 verification/fixtures/h6_linear_gaussian_t32_d16_v1.json -text
+verification/fixtures/h6_smc_finite_*.json -text
