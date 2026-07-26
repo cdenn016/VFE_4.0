@@ -460,3 +460,73 @@ def test_candidate_publication_is_exact_no_replace_and_strictly_loadable(
                 copied,
                 _oracle_module=oracle,
             )
+
+
+def test_candidate_payload_loader_retains_same_pass_bytes_and_reference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = __import__(
+        "verification.h6_validation_candidate", fromlist=["unused"]
+    )
+    reference = _fixture_reference(tmp_path / "payload-fixture")
+    config = _config(module, tmp_path / "payload", reference)
+    oracle = _Oracle(reference.fixture_raw_sha256)
+    candidate = module.validate_h6_validation_candidate_bytes(
+        _CANDIDATE_BYTES,
+        config,
+        _oracle_module=oracle,
+    )
+    artifact = module.publish_h6_validation_perturbation_candidate(
+        config,
+        candidate,
+        _oracle_module=oracle,
+    )
+
+    real_safe_read = module._safe_read
+    reads: list[str] = []
+
+    def tracked_safe_read(
+        root: Path,
+        relative_name: str,
+        *,
+        maximum_length: int,
+    ) -> bytes:
+        reads.append(relative_name)
+        return real_safe_read(
+            root,
+            relative_name,
+            maximum_length=maximum_length,
+        )
+
+    monkeypatch.setattr(module, "_safe_read", tracked_safe_read)
+    payload = module.load_h6_validation_perturbation_artifact_payload(
+        artifact.local_artifact_path,
+        _oracle_module=oracle,
+    )
+
+    assert type(payload) is module.H6ValidationPerturbationArtifactPayload
+    assert payload.reference == artifact
+    assert payload.candidate_bytes == _CANDIDATE_BYTES
+    assert (
+        hashlib.sha256(payload.candidate_bytes).hexdigest()
+        == payload.reference.perturbation_raw_sha256
+    )
+    assert reads == [
+        "config.json",
+        "provenance.json",
+        "validation/h6_validation_perturbations_v1.json",
+        "manifest.sha256",
+    ]
+
+    reads.clear()
+    assert module.load_h6_validation_perturbation_artifact(
+        artifact.local_artifact_path,
+        _oracle_module=oracle,
+    ) == artifact
+    assert reads == [
+        "config.json",
+        "provenance.json",
+        "validation/h6_validation_perturbations_v1.json",
+        "manifest.sha256",
+    ]

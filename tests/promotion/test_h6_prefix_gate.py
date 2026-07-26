@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import fields
+import struct
+from dataclasses import fields, replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 import verification.h6_prefix_gate as h6_prefix_gate
+import verification.h6_validation_candidate as h6_validation_candidate
 from verification.h6_prefix_gate import (
     H6PrefixReportBundle,
     compose_prefix_certificate,
@@ -19,10 +21,19 @@ from vfe4.artifacts.atomic import ArtifactPublicationError
 from vfe4.artifacts.provenance import source_candidate_sha256
 from vfe4.config import (
     H6PrefixResolvedConfig,
+    H6PrefixV3ResolvedConfig,
     H6SourceIdentity,
     resolve_h6_prefix_config,
 )
-from vfe4.config.schema import H6_PREFIX_V2_AUTHORIZATION_SHA256
+from vfe4.config.schema import (
+    H6_PREFIX_V2_AUTHORIZATION_SHA256,
+    H6_PREFIX_V3_AUTHORIZATION_SHA256,
+)
+from vfe4.h6_validation_fixture import (
+    H6ValidationPerturbationArtifactReference,
+    ValidationSafetyFixturePayload,
+    ValidationSafetyFixtureReference,
+)
 from vfe4.predictive import EstimatorIdentity
 from vfe4.types import (
     ArmConfig,
@@ -70,6 +81,30 @@ _STATIC_CHECK_NAMES = (
     "mask_normalization_support",
     "inventory_identity",
 )
+_V3_TOKENIZER_SPEC_SHA256 = (
+    "1c924ca10bed173c8aaa0e2cb6389df02524269d6405bb1339aa3903834689d4"
+)
+_V3_VOCABULARY_SHA256 = (
+    "5aea771bc9b54b0e6ad0ce9b5cddbd6d32e89a4201e4f9cd11bb00bf8713dd68"
+)
+_V3_FIXTURE_DOMAIN = b"VFE4-H6-VALIDATION-SAFETY-FIXTURE-V1\x00"
+_V3_FIXTURE_ROW = struct.Struct("<QH33H")
+
+
+def _v3_fixture_bytes() -> bytes:
+    raw = bytearray(
+        _V3_FIXTURE_DOMAIN + bytes.fromhex("7" * 64) + struct.pack("<I", 4096)
+    )
+    token_ids = (0,) * 33
+    for index in range(4096):
+        raw += _V3_FIXTURE_ROW.pack(index, 1, *token_ids)
+    result = bytes(raw)
+    assert len(result) == 311_369
+    return result
+
+
+_V3_FIXTURE_BYTES = _v3_fixture_bytes()
+_V3_CANDIDATE_BYTES = b'{"synthetic_v3_candidate":true}'
 
 
 def _owned_hash(domain: str, payload: object) -> str:
@@ -175,7 +210,11 @@ def _categorical_arm_config(
     raise ValueError("test helper supports the two categorical profiles")
 
 
-def _categorical_profile(arm: ArmId) -> H6PrefixProfilePair:
+def _categorical_profile(
+    arm: ArmId,
+    *,
+    production_tokenizer_spec_sha256: str = "b" * 64,
+) -> H6PrefixProfilePair:
     small = _categorical_arm_config(
         arm=arm,
         vocabulary=VocabularyIdentity("h6-prefix-small-v1", 3, "a" * 64),
@@ -183,7 +222,11 @@ def _categorical_profile(arm: ArmId) -> H6PrefixProfilePair:
     )
     production = _categorical_arm_config(
         arm=arm,
-        vocabulary=VocabularyIdentity("wikitext-2-byte-v1", 258, "b" * 64),
+        vocabulary=VocabularyIdentity(
+            "wikitext-2-byte-v1",
+            258,
+            production_tokenizer_spec_sha256,
+        ),
         horizon=32,
     )
     estimator = EstimatorSpec.create(
@@ -871,8 +914,14 @@ def test_h6_prefix_reports_bind_status_and_publish_only_the_independent_artifact
 def _bounded_profile_ladder(
     *,
     data_safety_sha256: str | None = None,
+    production_tokenizer_spec_sha256: str = "b" * 64,
 ) -> tuple[H6PrefixProfilePair, ...]:
-    base = _categorical_profile(ArmId.A2)
+    base = _categorical_profile(
+        ArmId.A2,
+        production_tokenizer_spec_sha256=(
+            production_tokenizer_spec_sha256
+        ),
+    )
     resolved_data_safety_sha256 = (
         base.data_safety_sha256
         if data_safety_sha256 is None
@@ -941,6 +990,257 @@ def _bounded_resolved_config(
         canonical_json=canonical.decode("ascii"),
         config_sha256=hashlib.sha256(canonical).hexdigest(),
     )
+
+
+def _v3_references(
+    tmp_path: Path,
+) -> tuple[
+    ValidationSafetyFixtureReference,
+    H6ValidationPerturbationArtifactReference,
+]:
+    fixture = ValidationSafetyFixtureReference.create(
+        local_payload_path=(
+            tmp_path / "v3-fixture" / "validation_safety_fixture.bin"
+        ),
+        binary_directory_manifest_sha256="4" * 64,
+        data_identity_sha256="5" * 64,
+        access_policy_sha256="6" * 64,
+        validation_token_sha256="7" * 64,
+        fixture_raw_sha256=hashlib.sha256(_V3_FIXTURE_BYTES).hexdigest(),
+        fixture_raw_length=311_369,
+        row_count=4096,
+    )
+    git_head = "8" * 40
+    dirty_digest = "9" * 64
+    source_sha256 = hashlib.sha256(
+        b"VFE4-H6-SOURCE-CANDIDATE-V1\x00"
+        + bytes.fromhex(git_head)
+        + bytes.fromhex(dirty_digest)
+    ).hexdigest()
+    payload_sha256s = (
+        ("config.json", "a" * 64),
+        ("provenance.json", "b" * 64),
+        (
+            "validation/h6_validation_perturbations_v1.json",
+            "c" * 64,
+        ),
+    )
+    identity = {
+        "access_policy_sha256": fixture.access_policy_sha256,
+        "binary_directory_manifest_sha256": (
+            fixture.binary_directory_manifest_sha256
+        ),
+        "config_sha256": "d" * 64,
+        "data_identity_sha256": fixture.data_identity_sha256,
+        "directory_manifest_sha256": "e" * 64,
+        "fixture_raw_sha256": fixture.fixture_raw_sha256,
+        "full_count": 4096,
+        "generator_version": "h6-validation-perturbations-v1",
+        "materialized_count": 4096,
+        "payload_sha256s": [
+            {"path": path, "sha256": sha256}
+            for path, sha256 in payload_sha256s
+        ],
+        "perturbation_inner_manifest_sha256": "f" * 64,
+        "perturbation_raw_sha256": hashlib.sha256(
+            _V3_CANDIDATE_BYTES
+        ).hexdigest(),
+        "perturbation_schema_version": "h6-validation-perturbations-v1",
+        "seed": 2026072197,
+        "source": {
+            "dirty_digest": dirty_digest,
+            "git_head": git_head,
+            "source_sha256": source_sha256,
+        },
+        "validation_fixture_reference_sha256": fixture.reference_sha256,
+        "validation_token_sha256": fixture.validation_token_sha256,
+        "vocabulary": {
+            "size": 258,
+            "tokenizer_spec_sha256": _V3_TOKENIZER_SPEC_SHA256,
+            "vocabulary_id": "wikitext-2-byte-v1",
+            "vocabulary_sha256": _V3_VOCABULARY_SHA256,
+        },
+    }
+    reference_sha256 = hashlib.sha256(
+        b"vfe4.h6.validation-perturbation-artifact-reference.v1\x00"
+        + canonical_json_bytes(identity)
+    ).hexdigest()
+    candidate = H6ValidationPerturbationArtifactReference(
+        local_artifact_path=(tmp_path / "v3-candidate").resolve(),
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+        source_sha256=source_sha256,
+        config_sha256="d" * 64,
+        validation_fixture_reference_sha256=fixture.reference_sha256,
+        binary_directory_manifest_sha256=(
+            fixture.binary_directory_manifest_sha256
+        ),
+        data_identity_sha256=fixture.data_identity_sha256,
+        access_policy_sha256=fixture.access_policy_sha256,
+        validation_token_sha256=fixture.validation_token_sha256,
+        fixture_raw_sha256=fixture.fixture_raw_sha256,
+        vocabulary_id="wikitext-2-byte-v1",
+        vocabulary_size=258,
+        tokenizer_spec_sha256=_V3_TOKENIZER_SPEC_SHA256,
+        vocabulary_sha256=_V3_VOCABULARY_SHA256,
+        perturbation_schema_version="h6-validation-perturbations-v1",
+        generator_version="h6-validation-perturbations-v1",
+        seed=2026072197,
+        full_count=4096,
+        materialized_count=4096,
+        perturbation_inner_manifest_sha256="f" * 64,
+        perturbation_raw_sha256=hashlib.sha256(
+            _V3_CANDIDATE_BYTES
+        ).hexdigest(),
+        payload_sha256s=payload_sha256s,
+        directory_manifest_sha256="e" * 64,
+        reference_sha256=reference_sha256,
+    )
+    return fixture, candidate
+
+
+def _bounded_v3_resolved_config(tmp_path: Path) -> H6PrefixV3ResolvedConfig:
+    fixture, candidate = _v3_references(tmp_path)
+    profiles = _bounded_profile_ladder(
+        production_tokenizer_spec_sha256=_V3_TOKENIZER_SPEC_SHA256
+    )
+    workload = H6PrefixWorkloadPlan()
+    resolved = resolve_h6_prefix_config(
+        {
+            "schema_version": "h6-prefix-config-v3",
+            "operation": "H6-Prefix",
+            "source": {
+                "git_head": "1" * 40,
+                "dirty_digest": "2" * 64,
+                "source_sha256": "3" * 64,
+            },
+            "execution_mode": "authorized_full",
+            "profiles": [
+                h6_prefix_gate._resolver_profile_payload(profile)
+                for profile in profiles
+            ],
+            "workload_plan_sha256": workload.workload_plan_sha256,
+            "workload_authorization_sha256": (
+                H6_PREFIX_V2_AUTHORIZATION_SHA256
+            ),
+            "validation_fixture_reference": fixture.to_payload(),
+            "validation_perturbation_reference": candidate.to_payload(),
+            "authorization_sha256": H6_PREFIX_V3_AUTHORIZATION_SHA256,
+            "artifact_root": str(
+                (tmp_path / "bounded-v3-artifacts").resolve()
+            ),
+        },
+        repo_root=Path(__file__).resolve().parents[2],
+    )
+    assert type(resolved) is H6PrefixV3ResolvedConfig
+    return resolved
+
+
+def _v3_fixture_payload(
+    config: H6PrefixV3ResolvedConfig,
+) -> ValidationSafetyFixturePayload:
+    reference = config.validation_fixture_reference
+    return ValidationSafetyFixturePayload(
+        reference=reference,
+        fixture_bytes=_V3_FIXTURE_BYTES,
+        validation_token_sha256=reference.validation_token_sha256,
+        starts=tuple(range(4096)),
+        real_target_counts=(1,) * 4096,
+    )
+
+
+def _v3_full_perturbations(
+    config: H6PrefixV3ResolvedConfig,
+    expected_vocabulary: VocabularyIdentity,
+    *,
+    materialized_count: int = 4096,
+) -> SimpleNamespace:
+    reference = config.validation_perturbation_reference
+    return SimpleNamespace(
+        schema_version="h6-validation-perturbations-v1",
+        generator_version="h6-validation-perturbations-v1",
+        seed=2026072197,
+        vocabulary=expected_vocabulary,
+        vocabulary_sha256=reference.vocabulary_sha256,
+        validation_token_sha256=reference.validation_token_sha256,
+        validation_safety_fixture_sha256=reference.fixture_raw_sha256,
+        full_count=4096,
+        materialized_count=materialized_count,
+        materialization=(
+            "authorized_full"
+            if materialized_count == 4096
+            else "focused_subset"
+        ),
+        records=tuple(
+            SimpleNamespace(case_index=index)
+            for index in range(materialized_count)
+        ),
+        manifest_sha256=(
+            reference.perturbation_inner_manifest_sha256
+        ),
+        source_fixture_verified=True,
+        raw_sha256=reference.perturbation_raw_sha256,
+        canonical_bytes=_V3_CANDIDATE_BYTES,
+    )
+
+
+class _V3FakeExecutor:
+    def __init__(
+        self,
+        *,
+        loader: object,
+        events: list[str],
+    ) -> None:
+        self.loader = loader
+        self.events = events
+
+    def load_validation_perturbations(
+        self,
+        *,
+        expected_vocabulary: VocabularyIdentity,
+    ) -> object:
+        return self.loader(expected_vocabulary)
+
+    def build_arm(
+        self,
+        *,
+        arm_config: ArmConfig,
+        structure: H6LanguageStructure,
+    ) -> object:
+        self.events.append("build-arm")
+        return (arm_config, structure)
+
+    def build_predictor_boundary(
+        self,
+        *,
+        built_arm: object,
+        estimator: EstimatorSpec,
+    ) -> object:
+        return (built_arm, estimator)
+
+    def execute_dynamic_job(
+        self,
+        *,
+        job: object,
+        built_arm: object,
+        predictor: object,
+        validation_perturbations: object,
+    ) -> object:
+        del built_arm, predictor, validation_perturbations
+        execution_plan = _bounded_execution_plan(job)
+        return SimpleNamespace(
+            execution_plan=execution_plan,
+            report=_bounded_dynamic_report(
+                job=job,
+                execution_plan=execution_plan,
+            ),
+            observed_predictor_call_count=(
+                job.expected_predictor_call_count
+            ),
+        )
+
+    def execute_static_audit(self, *, job: object) -> object:
+        return _static_report(job.report_keys)
 
 
 def test_bounded_runner_plan_freezes_semantic_groups_jobs_and_call_budget(
@@ -1820,6 +2120,216 @@ def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_si
         h6_prefix_gate._require_live_structure_binding(
             plan.semantic_families[0].profiles[0].small_structure,
             "f" * 64,
+        )
+
+
+def test_v3_private_executor_loads_bound_inputs_before_arms_and_keeps_v2_workload_authorization(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _bounded_v3_resolved_config(tmp_path)
+    plan = h6_prefix_gate._build_h6_prefix_runner_plan(config)
+    events: list[str] = []
+
+    def read_fixture(reference: object) -> object:
+        events.append("fixture")
+        assert reference == config.validation_fixture_reference
+        return _v3_fixture_payload(config)
+
+    def read_candidate(path: Path) -> object:
+        events.append("candidate")
+        assert path == (
+            config.validation_perturbation_reference.local_artifact_path
+        )
+        return (
+            h6_validation_candidate.H6ValidationPerturbationArtifactPayload(
+                reference=config.validation_perturbation_reference,
+                candidate_bytes=_V3_CANDIDATE_BYTES,
+            )
+        )
+
+    def production_load(
+        source: bytes,
+        *,
+        expected_vocabulary: VocabularyIdentity,
+        validation_fixture: object,
+        validation_fixture_bytes: bytes,
+    ) -> object:
+        events.append("production-load")
+        assert source == _V3_CANDIDATE_BYTES
+        assert expected_vocabulary == plan.expected_validation_vocabulary
+        assert validation_fixture.fixture_sha256 == (
+            config.validation_fixture_reference.fixture_raw_sha256
+        )
+        assert validation_fixture_bytes == _V3_FIXTURE_BYTES
+        return _v3_full_perturbations(config, expected_vocabulary)
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "read_validation_safety_fixture_payload",
+        read_fixture,
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "load_h6_validation_perturbation_artifact_payload",
+        read_candidate,
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "load_frozen_validation_perturbations",
+        production_load,
+    )
+    executor = _V3FakeExecutor(
+        events=events,
+        loader=lambda expected: (
+            h6_prefix_gate._load_h6_prefix_v3_validation_inputs(
+                config,
+                expected_vocabulary=expected,
+            )
+        ),
+    )
+
+    evidence = h6_prefix_gate._execute_h6_prefix_v3_plan(plan, executor)
+
+    assert events[:4] == [
+        "fixture",
+        "candidate",
+        "production-load",
+        "build-arm",
+    ]
+    assert events.count("build-arm") == 2
+    assert config.authorization_sha256 == H6_PREFIX_V3_AUTHORIZATION_SHA256
+    assert (
+        config.workload_authorization_sha256
+        == H6_PREFIX_V2_AUTHORIZATION_SHA256
+    )
+    assert all(
+        result.execution_plan.authorization_sha256
+        == H6_PREFIX_V2_AUTHORIZATION_SHA256
+        for result in evidence.dynamic_results
+    )
+
+
+def test_v3_input_mismatch_blocks_arms_and_public_v2_v3_publication_remains_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _bounded_v3_resolved_config(tmp_path)
+    plan = h6_prefix_gate._build_h6_prefix_runner_plan(config)
+
+    for failure in (
+        "fixture-bytes",
+        "fixture-starts",
+        "fixture-counts",
+        "candidate",
+        "incomplete",
+    ):
+        events: list[str] = []
+        fixture_payload = _v3_fixture_payload(config)
+        if failure == "fixture-bytes":
+            object.__setattr__(
+                fixture_payload,
+                "fixture_bytes",
+                fixture_payload.fixture_bytes[:-1],
+            )
+        elif failure == "fixture-starts":
+            object.__setattr__(
+                fixture_payload,
+                "starts",
+                tuple(value + 1 for value in fixture_payload.starts),
+            )
+        elif failure == "fixture-counts":
+            object.__setattr__(
+                fixture_payload,
+                "real_target_counts",
+                (2, *fixture_payload.real_target_counts[1:]),
+            )
+        candidate_reference = config.validation_perturbation_reference
+        if failure == "candidate":
+            candidate_reference = replace(
+                candidate_reference,
+                local_artifact_path=(
+                    tmp_path / "other-v3-candidate"
+                ).resolve(),
+            )
+        candidate_payload = (
+            h6_validation_candidate.H6ValidationPerturbationArtifactPayload(
+                reference=candidate_reference,
+                candidate_bytes=_V3_CANDIDATE_BYTES,
+            )
+        )
+
+        monkeypatch.setattr(
+            h6_prefix_gate,
+            "read_validation_safety_fixture_payload",
+            lambda reference, payload=fixture_payload: payload,
+        )
+        monkeypatch.setattr(
+            h6_prefix_gate,
+            "load_h6_validation_perturbation_artifact_payload",
+            lambda path, payload=candidate_payload: payload,
+        )
+        monkeypatch.setattr(
+            h6_prefix_gate,
+            "load_frozen_validation_perturbations",
+            lambda source, *, expected_vocabulary, validation_fixture,
+            validation_fixture_bytes: _v3_full_perturbations(
+                config,
+                expected_vocabulary,
+                materialized_count=(2 if failure == "incomplete" else 4096),
+            ),
+        )
+        executor = _V3FakeExecutor(
+            events=events,
+            loader=lambda expected: (
+                h6_prefix_gate._load_h6_prefix_v3_validation_inputs(
+                    config,
+                    expected_vocabulary=expected,
+                )
+            ),
+        )
+        with pytest.raises((ValueError, RuntimeError)):
+            h6_prefix_gate._execute_h6_prefix_v3_plan(plan, executor)
+        assert "build-arm" not in events
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "current_source_identity",
+        lambda repo_root, artifact_root: (
+            config.source.git_head,
+            config.source.dirty_digest,
+            config.source.source_sha256,
+        ),
+    )
+
+    def forbidden(*args: object, **kwargs: object) -> object:
+        raise AssertionError("public blocked path reached input or arm work")
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "read_validation_safety_fixture_payload",
+        forbidden,
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "load_h6_validation_perturbation_artifact_payload",
+        forbidden,
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "load_frozen_validation_perturbations",
+        forbidden,
+    )
+    monkeypatch.setattr(h6_prefix_gate, "build_arm", forbidden)
+    with pytest.raises(RuntimeError, match="h6-prefix-config-v2.*blocked"):
+        h6_prefix_gate.run_h6_prefix(
+            config=_bounded_resolved_config(tmp_path),
+            junit_sha256=None,
+        )
+    with pytest.raises(RuntimeError, match="Task 3E2C3|publication"):
+        h6_prefix_gate.run_h6_prefix(
+            config=config,
+            junit_sha256=None,
         )
 
 

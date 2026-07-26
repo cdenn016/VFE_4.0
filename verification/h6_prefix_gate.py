@@ -20,6 +20,10 @@ from typing import Literal, Protocol, runtime_checkable
 import torch
 
 from verification.numpy_oracles.h6_prefix import enumerate_ordered_tail_pairs
+from verification.h6_validation_candidate import (
+    H6ValidationPerturbationArtifactPayload,
+    load_h6_validation_perturbation_artifact_payload,
+)
 from vfe4.artifacts.atomic import publish_run_directory
 from vfe4.artifacts.provenance import (
     current_source_identity,
@@ -29,6 +33,11 @@ from vfe4.config import resolve_h6_prefix_config
 from vfe4.config.schema import (
     H6_PREFIX_V2_AUTHORIZATION_SHA256,
     H6PrefixResolvedConfig,
+    H6PrefixV3ResolvedConfig,
+)
+from vfe4.h6_validation_fixture import (
+    ValidationSafetyFixturePayload,
+    read_validation_safety_fixture_payload,
 )
 from vfe4.data.windows import CausalPrefix
 from vfe4.numerics.categorical import masked_log_softmax_from_parents
@@ -53,6 +62,7 @@ from vfe4.types.h6 import (
     PrefixCaseKey,
     PrefixCertificate,
     PrefixReportBinding,
+    ValidationSafetyFixture,
     VocabularyIdentity,
     canonical_json_bytes,
 )
@@ -103,6 +113,14 @@ _RESOLVED_PREFIX_CONFIG_V2_FIELDS = frozenset(
         *_RESOLVED_PREFIX_CONFIG_FIELDS,
         "workload_plan",
         "workload_plan_sha256",
+    }
+)
+_RESOLVED_PREFIX_CONFIG_V3_FIELDS = frozenset(
+    {
+        *_RESOLVED_PREFIX_CONFIG_V2_FIELDS,
+        "workload_authorization_sha256",
+        "validation_fixture_reference",
+        "validation_perturbation_reference",
     }
 )
 _DYNAMIC_CHECK_NAMES = (
@@ -198,7 +216,7 @@ class _H6PrefixStaticAuditJob:
 
 @dataclass(frozen=True, slots=True)
 class _H6PrefixRunnerPlan:
-    config: H6PrefixResolvedConfig
+    config: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig
     semantic_families: tuple[_H6PrefixSemanticFamilyPlan, ...]
     expected_validation_vocabulary: VocabularyIdentity
     static_audit_job: _H6PrefixStaticAuditJob
@@ -1572,7 +1590,7 @@ def publish_h6_prefix_artifact(
 
 def _prefix_key(
     *,
-    config: H6PrefixResolvedConfig,
+    config: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig,
     profile: H6PrefixProfilePair,
     small: bool,
 ) -> PrefixCaseKey:
@@ -1721,12 +1739,113 @@ def _validate_v2_resolved_runner_config(
     )
 
 
-def _build_h6_prefix_runner_plan(
-    config: H6PrefixResolvedConfig,
-) -> _H6PrefixRunnerPlan:
-    """Purely validate and freeze the bounded v2 execution graph."""
+def _validate_v3_resolved_runner_config(
+    config: H6PrefixV3ResolvedConfig,
+) -> None:
+    if type(config) is not H6PrefixV3ResolvedConfig:
+        raise ValueError("config must be an exact H6PrefixV3ResolvedConfig")
+    config.__post_init__()
+    workload = config.workload_plan
+    if type(workload) is not H6PrefixWorkloadPlan:
+        raise ValueError("v3 runner config requires the exact workload plan")
+    workload.__post_init__()
+    try:
+        payload = json.loads(config.canonical_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("resolved v3 config canonical_json is invalid") from exc
+    if (
+        type(payload) is not dict
+        or frozenset(payload) != _RESOLVED_PREFIX_CONFIG_V3_FIELDS
+        or payload.get("schema_version") != "h6-prefix-config-v3"
+        or payload.get("operation") != "H6-Prefix"
+        or payload.get("workload_plan_sha256")
+        != workload.workload_plan_sha256
+        or payload.get("workload_authorization_sha256")
+        != H6_PREFIX_V2_AUTHORIZATION_SHA256
+        or config.workload_authorization_sha256
+        != H6_PREFIX_V2_AUTHORIZATION_SHA256
+        or payload.get("authorization_sha256")
+        != config.authorization_sha256
+        or payload.get("validation_fixture_reference")
+        != config.validation_fixture_reference.to_payload()
+        or payload.get("validation_perturbation_reference")
+        != config.validation_perturbation_reference.to_payload()
+    ):
+        raise ValueError(
+            "resolved v3 field, workload, authorization, or reference "
+            "binding is stale"
+        )
+    if canonical_json_bytes(payload.get("workload_plan")) != (
+        canonical_json_bytes(workload.canonical_payload())
+    ):
+        raise ValueError("resolved v3 workload subtree is not canonical")
+    reresolved = resolve_h6_prefix_config(
+        {
+            "schema_version": config.schema_version,
+            "operation": config.operation,
+            "source": {
+                "git_head": config.source.git_head,
+                "dirty_digest": config.source.dirty_digest,
+                "source_sha256": config.source.source_sha256,
+            },
+            "execution_mode": config.execution_mode,
+            "profiles": [
+                _resolver_profile_payload(profile)
+                for profile in config.profiles
+            ],
+            "workload_plan_sha256": workload.workload_plan_sha256,
+            "workload_authorization_sha256": (
+                config.workload_authorization_sha256
+            ),
+            "validation_fixture_reference": (
+                config.validation_fixture_reference.to_payload()
+            ),
+            "validation_perturbation_reference": (
+                config.validation_perturbation_reference.to_payload()
+            ),
+            "authorization_sha256": config.authorization_sha256,
+            "artifact_root": str(config.artifact_root),
+        },
+        repo_root=_REPO_ROOT,
+    )
+    if type(reresolved) is not H6PrefixV3ResolvedConfig or reresolved != config:
+        raise ValueError(
+            "resolved v3 config does not equal the public resolver result"
+        )
+    if (
+        len({profile.profile_id for profile in config.profiles})
+        != len(config.profiles)
+        or len(
+            {profile.profile_pair_sha256 for profile in config.profiles}
+        )
+        != len(config.profiles)
+    ):
+        raise ValueError("resolved v3 profile identities must be unique")
+    _validate_execution_profile_inventory(
+        execution_mode=config.execution_mode,
+        authorization_sha256=config.workload_authorization_sha256,
+        profiles=config.profiles,
+        workload_plan=workload,
+    )
+    dependency_payload = dict(payload)
+    dependency_payload.pop("workload_plan")
+    _reject_prefix_dependencies(
+        dependency_payload,
+        "resolved_h6_prefix_v3",
+    )
 
-    _validate_v2_resolved_runner_config(config)
+
+def _build_h6_prefix_runner_plan(
+    config: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig,
+) -> _H6PrefixRunnerPlan:
+    """Purely validate and freeze an exact bounded v2/v3 execution graph."""
+
+    if type(config) is H6PrefixResolvedConfig:
+        _validate_v2_resolved_runner_config(config)
+    elif type(config) is H6PrefixV3ResolvedConfig:
+        _validate_v3_resolved_runner_config(config)
+    else:
+        raise ValueError("bounded runner requires an exact v2 or v3 config")
     workload = config.workload_plan
     assert type(workload) is H6PrefixWorkloadPlan
     observed = tuple(
@@ -1864,6 +1983,27 @@ def _build_h6_prefix_runner_plan(
     return runner_plan
 
 
+def _bounded_workload_authorization_sha256(
+    config: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig,
+) -> str:
+    if (
+        type(config) is H6PrefixResolvedConfig
+        and config.schema_version == "h6-prefix-config-v2"
+        and config.authorization_sha256
+        == H6_PREFIX_V2_AUTHORIZATION_SHA256
+    ):
+        return config.authorization_sha256
+    if (
+        type(config) is H6PrefixV3ResolvedConfig
+        and config.workload_authorization_sha256
+        == H6_PREFIX_V2_AUTHORIZATION_SHA256
+    ):
+        return config.workload_authorization_sha256
+    raise ValueError(
+        "bounded runner config does not bind the v2 workload authorization"
+    )
+
+
 def _validated_dynamic_job_result(
     *,
     plan: _H6PrefixRunnerPlan,
@@ -1896,7 +2036,7 @@ def _validated_dynamic_job_result(
         or execution_plan.workload_plan_sha256
         != plan.config.workload_plan_sha256
         or execution_plan.authorization_sha256
-        != plan.config.authorization_sha256
+        != _bounded_workload_authorization_sha256(plan.config)
         or execution_plan.selected_global_indices
         != job.selected_global_indices
         or report.schema_version != "h6-dynamic-prefix-report-v2"
@@ -1922,6 +2062,149 @@ def _validated_dynamic_job_result(
             "bounded dynamic job violated the exact five-call budget"
         )
     return execution_plan, report, observed_calls
+
+
+def _load_h6_prefix_v3_validation_inputs(
+    config: H6PrefixV3ResolvedConfig,
+    *,
+    expected_vocabulary: VocabularyIdentity,
+) -> object:
+    """Load, reconstruct, and fully cross-check v3 inputs before any arm."""
+
+    _validate_v3_resolved_runner_config(config)
+    if type(expected_vocabulary) is not VocabularyIdentity:
+        raise ValueError("expected validation vocabulary must be exact")
+    expected_vocabulary.__post_init__()
+    candidate_reference = config.validation_perturbation_reference
+    if (
+        expected_vocabulary.vocabulary_id
+        != candidate_reference.vocabulary_id
+        or expected_vocabulary.size
+        != candidate_reference.vocabulary_size
+        or expected_vocabulary.tokenizer_spec_sha256
+        != candidate_reference.tokenizer_spec_sha256
+        or vocabulary_identity_sha256(expected_vocabulary)
+        != candidate_reference.vocabulary_sha256
+    ):
+        raise ValueError(
+            "expected validation vocabulary differs from the v3 reference"
+        )
+
+    fixture_payload = read_validation_safety_fixture_payload(
+        config.validation_fixture_reference
+    )
+    if type(fixture_payload) is not ValidationSafetyFixturePayload:
+        raise RuntimeError(
+            "fixture loader did not return an exact validation fixture payload"
+        )
+    fixture_payload.__post_init__()
+    if fixture_payload.reference != config.validation_fixture_reference:
+        raise RuntimeError(
+            "loaded validation fixture reference differs from v3 config"
+        )
+    fixture_bytes = fixture_payload.fixture_bytes
+    starts = fixture_payload.starts
+    real_target_counts = fixture_payload.real_target_counts
+    if (
+        type(fixture_bytes) is not bytes
+        or len(fixture_bytes)
+        != config.validation_fixture_reference.fixture_raw_length
+        or hashlib.sha256(fixture_bytes).hexdigest()
+        != config.validation_fixture_reference.fixture_raw_sha256
+        or fixture_payload.validation_token_sha256
+        != config.validation_fixture_reference.validation_token_sha256
+        or type(starts) is not tuple
+        or len(starts) != 4096
+        or any(type(value) is not int for value in starts)
+        or type(real_target_counts) is not tuple
+        or len(real_target_counts) != 4096
+        or any(
+            type(value) is not int or not 1 <= value <= 32
+            for value in real_target_counts
+        )
+    ):
+        raise RuntimeError(
+            "loaded validation fixture bytes or scalars differ from v3 config"
+        )
+
+    candidate_payload = load_h6_validation_perturbation_artifact_payload(
+        candidate_reference.local_artifact_path
+    )
+    if type(candidate_payload) is not H6ValidationPerturbationArtifactPayload:
+        raise RuntimeError(
+            "candidate loader did not return an exact same-pass payload"
+        )
+    candidate_payload.__post_init__()
+    if candidate_payload.reference != candidate_reference:
+        raise RuntimeError(
+            "loaded perturbation reference differs from v3 config"
+        )
+
+    validation_fixture = ValidationSafetyFixture.create(
+        validation_token_sha256=(
+            config.validation_fixture_reference.validation_token_sha256
+        ),
+        starts=starts,
+        real_target_counts=real_target_counts,
+        fixture_bytes=fixture_bytes,
+    )
+    if (
+        validation_fixture.fixture_sha256
+        != config.validation_fixture_reference.fixture_raw_sha256
+        or validation_fixture.validation_token_sha256
+        != config.validation_fixture_reference.validation_token_sha256
+    ):
+        raise RuntimeError(
+            "reconstructed validation fixture differs from v3 references"
+        )
+    perturbations = load_frozen_validation_perturbations(
+        candidate_payload.candidate_bytes,
+        expected_vocabulary=expected_vocabulary,
+        validation_fixture=validation_fixture,
+        validation_fixture_bytes=fixture_bytes,
+    )
+    records = getattr(perturbations, "records", None)
+    if (
+        getattr(perturbations, "source_fixture_verified", None) is not True
+        or getattr(perturbations, "materialization", None)
+        != "authorized_full"
+        or getattr(perturbations, "schema_version", None)
+        != "h6-validation-perturbations-v1"
+        or getattr(perturbations, "generator_version", None)
+        != "h6-validation-perturbations-v1"
+        or getattr(perturbations, "seed", None) != 2026072197
+        or type(getattr(perturbations, "seed", None)) is not int
+        or getattr(perturbations, "full_count", None) != 4096
+        or type(getattr(perturbations, "full_count", None)) is not int
+        or getattr(perturbations, "materialized_count", None) != 4096
+        or type(getattr(perturbations, "materialized_count", None)) is not int
+        or type(records) is not tuple
+        or len(records) != 4096
+        or tuple(getattr(record, "case_index", None) for record in records)
+        != tuple(range(4096))
+        or getattr(perturbations, "vocabulary", None)
+        != expected_vocabulary
+        or getattr(perturbations, "vocabulary_sha256", None)
+        != candidate_reference.vocabulary_sha256
+        or getattr(perturbations, "validation_token_sha256", None)
+        != candidate_reference.validation_token_sha256
+        or getattr(
+            perturbations,
+            "validation_safety_fixture_sha256",
+            None,
+        )
+        != candidate_reference.fixture_raw_sha256
+        or getattr(perturbations, "manifest_sha256", None)
+        != candidate_reference.perturbation_inner_manifest_sha256
+        or getattr(perturbations, "raw_sha256", None)
+        != candidate_reference.perturbation_raw_sha256
+        or getattr(perturbations, "canonical_bytes", None)
+        != candidate_payload.candidate_bytes
+    ):
+        raise RuntimeError(
+            "loaded perturbations are incomplete or differ from v3 references"
+        )
+    return perturbations
 
 
 def _execute_h6_prefix_plan(
@@ -2030,6 +2313,20 @@ def _execute_h6_prefix_plan(
         static_report=static_report,
         observed_predictor_call_count=observed_total,
     )
+
+
+def _execute_h6_prefix_v3_plan(
+    plan: _H6PrefixRunnerPlan,
+    executor: _H6PrefixRunnerExecutor,
+) -> _H6PrefixRunnerEvidence:
+    """Private pre-publication entry point for focused v3 orchestration."""
+
+    if (
+        type(plan) is not _H6PrefixRunnerPlan
+        or type(plan.config) is not H6PrefixV3ResolvedConfig
+    ):
+        raise ValueError("private v3 execution requires an exact v3 plan")
+    return _execute_h6_prefix_plan(plan, executor)
 
 
 def _small_cases(
@@ -2164,9 +2461,30 @@ def _source_mask_evidence(
     )
 
 
-def _validate_resolved_runner_config(config: H6PrefixResolvedConfig) -> None:
+def _validate_resolved_runner_config(
+    config: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig,
+) -> None:
+    if type(config) is H6PrefixV3ResolvedConfig:
+        _validate_v3_resolved_runner_config(config)
+        observed_source = current_source_identity(
+            _REPO_ROOT,
+            config.artifact_root,
+        )
+        configured_source = (
+            config.source.git_head,
+            config.source.dirty_digest,
+            config.source.source_sha256,
+        )
+        if observed_source != configured_source:
+            raise ValueError(
+                "H6-Prefix source identity is stale for the live candidate"
+            )
+        return
     if type(config) is not H6PrefixResolvedConfig:
-        raise ValueError("config must be an exact H6PrefixResolvedConfig")
+        raise ValueError(
+            "config must be an exact H6PrefixResolvedConfig or "
+            "H6PrefixV3ResolvedConfig"
+        )
     config.__post_init__()
     if config.schema_version == "h6-prefix-config-v2":
         _validate_v2_resolved_runner_config(config)
@@ -2514,9 +2832,29 @@ class _LiveH6PrefixRunnerExecutor:
         return audit_h6_static_source(_REPO_ROOT, job.report_keys)
 
 
+class _LiveH6PrefixV3RunnerExecutor(_LiveH6PrefixRunnerExecutor):
+    """Private live adapter that binds v3 inputs before inherited arm work."""
+
+    def __init__(self, config: H6PrefixV3ResolvedConfig) -> None:
+        if type(config) is not H6PrefixV3ResolvedConfig:
+            raise ValueError("live v3 executor requires an exact v3 config")
+        _validate_v3_resolved_runner_config(config)
+        self._config = config
+
+    def load_validation_perturbations(
+        self,
+        *,
+        expected_vocabulary: VocabularyIdentity,
+    ) -> object:
+        return _load_h6_prefix_v3_validation_inputs(
+            self._config,
+            expected_vocabulary=expected_vocabulary,
+        )
+
+
 def run_h6_prefix(
     *,
-    config: H6PrefixResolvedConfig,
+    config: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig,
     junit_sha256: str | None,
 ) -> tuple[H6PrefixGateResult, Path]:
     """Run bounded typed Prefix checks and publish only their derived status."""
@@ -2524,6 +2862,12 @@ def run_h6_prefix(
     _validate_resolved_runner_config(config)
     if junit_sha256 is not None:
         _require_sha256(junit_sha256, "junit_sha256")
+    if type(config) is H6PrefixV3ResolvedConfig:
+        _build_h6_prefix_runner_plan(config)
+        raise RuntimeError(
+            "h6-prefix-config-v3 publication is blocked until Task 3E2C3 "
+            "adds the bounded result, certificate-set, and artifact branch"
+        )
     if getattr(config, "schema_version", "h6-prefix-config-v1") == (
         "h6-prefix-config-v2"
     ):

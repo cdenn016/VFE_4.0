@@ -1661,12 +1661,42 @@ def _config_from_payload(
     return config
 
 
-def load_h6_validation_perturbation_artifact(
+@dataclass(frozen=True, slots=True)
+class H6ValidationPerturbationArtifactPayload:
+    """One strict-load reference plus its retained immutable candidate bytes."""
+
+    reference: H6ValidationPerturbationArtifactReference
+    candidate_bytes: bytes
+
+    def __post_init__(self) -> None:
+        if type(self) is not H6ValidationPerturbationArtifactPayload:
+            raise TypeError("artifact payload requires its exact record type")
+        if type(self.reference) is not (
+            H6ValidationPerturbationArtifactReference
+        ):
+            raise H6ValidationCandidateError(
+                "artifact payload requires an exact reference"
+            )
+        self.reference.__post_init__()
+        if type(self.candidate_bytes) is not bytes:
+            raise H6ValidationCandidateError(
+                "artifact payload candidate bytes must be immutable bytes"
+            )
+        if (
+            hashlib.sha256(self.candidate_bytes).hexdigest()
+            != self.reference.perturbation_raw_sha256
+        ):
+            raise H6ValidationCandidateError(
+                "artifact payload bytes do not match the reference"
+            )
+
+
+def load_h6_validation_perturbation_artifact_payload(
     artifact_path: Path,
     *,
     _oracle_module: object | None = None,
-) -> H6ValidationPerturbationArtifactReference:
-    """Strictly load one explicitly named immutable candidate directory."""
+) -> H6ValidationPerturbationArtifactPayload:
+    """Strictly load and retain one candidate in a single read pass."""
 
     if not isinstance(artifact_path, Path):
         raise H6ValidationCandidateError(
@@ -1747,13 +1777,30 @@ def load_h6_validation_perturbation_artifact(
         raise H6ValidationCandidateError(
             "candidate provenance cross-binding is invalid"
         )
-    return _make_artifact_reference(
+    reference = _make_artifact_reference(
         local_artifact_path=root,
         config=config,
         candidate=candidate,
         payload_sha256s=payload_sha256s,
         directory_manifest_sha256=directory_manifest_sha256,
     )
+    return H6ValidationPerturbationArtifactPayload(
+        reference=reference,
+        candidate_bytes=candidate_bytes,
+    )
+
+
+def load_h6_validation_perturbation_artifact(
+    artifact_path: Path,
+    *,
+    _oracle_module: object | None = None,
+) -> H6ValidationPerturbationArtifactReference:
+    """Compatibility reference-only view over the strict same-pass loader."""
+
+    return load_h6_validation_perturbation_artifact_payload(
+        artifact_path,
+        _oracle_module=_oracle_module,
+    ).reference
 
 
 def build_h6_validation_perturbation_candidate(
@@ -1833,10 +1880,12 @@ __all__ = [
     "FixtureBuildSourceIdentity",
     "H6ValidationCandidateError",
     "H6ValidationPerturbationArtifactReference",
+    "H6ValidationPerturbationArtifactPayload",
     "H6ValidationPerturbationBuildResolvedConfig",
     "build_h6_validation_perturbation_candidate",
     "capture_fixture_build_source_identity",
     "load_h6_validation_perturbation_artifact",
+    "load_h6_validation_perturbation_artifact_payload",
     "publish_h6_validation_perturbation_candidate",
     "run_h6_validation_perturbation_build",
     "validate_h6_validation_candidate_bytes",
