@@ -376,13 +376,14 @@ def test_fixed_hand_derived_fixture_pins_every_objective_component(
 def test_h8_problem_evidence_is_exact_owned_and_single_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Catch lossy/stale evidence and repeated operator-norm calculations."""
+    """Catch lossy/stale evidence and repeated raw-norm calculations."""
 
     assert hasattr(h8_types, "H8LocalSPDDiagnostics")
     assert hasattr(h8_types, "H8TransitionNorms")
     assert hasattr(h8_types, "H8ProductionProblemEvidence")
 
     observed_norm_shapes: list[tuple[int, ...]] = []
+    observed_raw_norms: list[float] = []
     observed_cholesky_shapes: list[tuple[int, ...]] = []
     original_norm = np.linalg.norm
     original_cholesky = np.linalg.cholesky
@@ -395,7 +396,9 @@ def test_h8_problem_evidence_is_exact_owned_and_single_pass(
         observed_ord = kwargs.get("ord", args[0] if args else None)
         assert observed_ord == 2
         observed_norm_shapes.append(tuple(int(item) for item in value.shape))
-        return original_norm(value, *args, **kwargs)
+        result = original_norm(value, *args, **kwargs)
+        observed_raw_norms.append(float(result))
+        return result
 
     monkeypatch.setattr(np.linalg, "norm", observed_norm)
 
@@ -412,6 +415,7 @@ def test_h8_problem_evidence_is_exact_owned_and_single_pass(
         problem_seed=2026072121,
     )
     assert observed_norm_shapes == [(2, 2)] * 6 + [(4, 4)] * 2
+    assert len(observed_raw_norms) == 4 * problem.layout.horizon
     assert observed_cholesky_shapes == (
         [(4, 4)] + [(2, 2)] * 4 + [(4, 4)] * 3
     )
@@ -455,11 +459,18 @@ def test_h8_problem_evidence_is_exact_owned_and_single_pass(
     assert local.schema_version == "h8-local-spd-diagnostics-v1"
     assert norms.schema_version == "h8-transition-norms-v1"
     assert norms.norm == "operator_2"
+    assert type(local.schema_version) is str
+    assert type(norms.schema_version) is str
+    assert type(norms.norm) is str
     assert local.horizon == norms.horizon == problem.layout.horizon == 2
 
     generative = h8_reference._generative_evidence_payload(problem)
     recognition = h8_reference._recognition_evidence_payload(problem)
     observations = h8_reference._observation_evidence_payload(problem)
+    assert generative["domain"] == "vfe4.h8.generative-evidence.v1"
+    assert generative["schema_version"] == "h8-generative-evidence-v1"
+    assert recognition["domain"] == "vfe4.h8.recognition-evidence.v1"
+    assert recognition["schema_version"] == "h8-recognition-evidence-v1"
     assert tuple(generative) == (
         "domain",
         "schema_version",
@@ -602,6 +613,22 @@ def test_h8_problem_evidence_is_exact_owned_and_single_pass(
     assert len(norms.state_transition_norms) == 2
     assert len(norms.state_model_coupling_norms) == 2
     assert len(norms.recognition_transition_norms) == 2
+    assert norms.model_transition_norms == (
+        min(0.35, observed_raw_norms[0]),
+        min(0.35, observed_raw_norms[3]),
+    )
+    assert norms.state_transition_norms == (
+        min(0.35, observed_raw_norms[1]),
+        min(0.35, observed_raw_norms[4]),
+    )
+    assert norms.state_model_coupling_norms == (
+        min(0.20, observed_raw_norms[2]),
+        min(0.20, observed_raw_norms[5]),
+    )
+    assert norms.recognition_transition_norms == (
+        min(0.35, observed_raw_norms[6]),
+        min(0.35, observed_raw_norms[7]),
+    )
     assert norms.max_model_transition_norm == max(
         norms.model_transition_norms
     )
@@ -626,6 +653,37 @@ def test_h8_problem_evidence_is_exact_owned_and_single_pass(
     assert len(observed_norm_shapes) == 4 * problem.layout.horizon
     with pytest.raises(FrozenInstanceError):
         setattr(evidence, "generative_sha256", "0" * 64)
+
+    class _StringSubclass(str):
+        pass
+
+    for record, changes, message in (
+        (
+            local,
+            {
+                "schema_version": _StringSubclass(
+                    "h8-local-spd-diagnostics-v1"
+                )
+            },
+            "schema",
+        ),
+        (
+            norms,
+            {
+                "schema_version": _StringSubclass(
+                    "h8-transition-norms-v1"
+                )
+            },
+            "schema",
+        ),
+        (
+            norms,
+            {"norm": _StringSubclass("operator_2")},
+            "operator_2",
+        ),
+    ):
+        with pytest.raises(ValueError, match=message):
+            replace(record, **changes)
 
     original_evidence = evidence
     object.__setattr__(

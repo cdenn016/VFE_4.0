@@ -54,12 +54,16 @@ def _spd(q: np.ndarray, width: int) -> np.ndarray:
 
 
 def _contract(matrix: np.ndarray, radius: float) -> tuple[np.ndarray, float]:
+    """Return the stored contraction and its ideal single-pass norm witness."""
+
     raw_norm = float(np.linalg.norm(matrix, ord=2))
+    if not math.isfinite(raw_norm) or raw_norm < 0.0:
+        raise ValueError("raw operator-2 norm must be finite and nonnegative")
     numerator = np.multiply(radius, matrix)
     denominator = max(radius, raw_norm)
     contracted = _frozen(np.divide(numerator, denominator))
-    contracted_norm = radius * (raw_norm / denominator)
-    return contracted, contracted_norm
+    contracted_norm_witness = min(radius, raw_norm)
+    return contracted, contracted_norm_witness
 
 
 @dataclass(frozen=True, slots=True)

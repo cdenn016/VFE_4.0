@@ -701,10 +701,13 @@ Required nested inventories:
   minimum. These local problem-covariance diagnostics are distinct from the
   production block-factor pivots. `transition_norms` has
   `schema_version="h8-transition-norms-v1"`, `norm="operator_2"`, the ordered
-  operator 2-norm arrays for model matrices, state matrices, state-model
-  coupling matrices, and recognition matrices, and each inventory maximum.
-  They are captured from the already required generator contraction
-  calculation and never trigger a second SVD pass in each child.
+  single-pass ideal contraction-norm witness arrays for model matrices, state
+  matrices, state-model coupling matrices, and recognition matrices, and each
+  inventory maximum. Each witness is exactly `min(radius,raw_norm)`, where
+  `raw_norm` is the finite nonnegative operator-2 norm returned by the sole raw
+  matrix SVD already required by generator contraction. A witness is not the
+  exact operator-2 norm of the rounded stored matrix, and it never triggers a
+  second SVD pass in each child.
   `observation_sha256` is the domain-separated SHA-256 of canonical JSON
   `{"domain":"vfe4.h8.observations.v1","records":[[receiver_t,x_t],...]}`
   in receiver order. Each seed record is reconstructed only after its problem

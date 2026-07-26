@@ -250,7 +250,10 @@ class H8LocalSPDDiagnostics:
     global_min_pivot: float
 
     def __post_init__(self) -> None:
-        if self.schema_version != "h8-local-spd-diagnostics-v1":
+        if (
+            type(self.schema_version) is not str
+            or self.schema_version != "h8-local-spd-diagnostics-v1"
+        ):
             raise ValueError("local SPD diagnostics schema is not frozen v1")
         horizon = _positive_int(self.horizon, "horizon")
         initial = _finite_positive(
@@ -295,7 +298,7 @@ class H8LocalSPDDiagnostics:
 
 @dataclass(frozen=True, slots=True)
 class H8TransitionNorms:
-    """Factory-captured contracted operator-2 norm inventories."""
+    """Factory-captured ideal contraction-norm witness inventories."""
 
     schema_version: Literal["h8-transition-norms-v1"]
     horizon: int
@@ -310,9 +313,12 @@ class H8TransitionNorms:
     max_recognition_transition_norm: float
 
     def __post_init__(self) -> None:
-        if self.schema_version != "h8-transition-norms-v1":
+        if (
+            type(self.schema_version) is not str
+            or self.schema_version != "h8-transition-norms-v1"
+        ):
             raise ValueError("transition-norm schema is not frozen v1")
-        if self.norm != "operator_2":
+        if type(self.norm) is not str or self.norm != "operator_2":
             raise ValueError("transition norm must be operator_2")
         horizon = _positive_int(self.horizon, "horizon")
         inventories = (
