@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -214,7 +215,11 @@ def test_parent_records_fake_child_timeout_and_stops_at_the_issued_prefix(
 def test_parent_cross_binds_fake_child_records_without_launching_a_real_child(
     tmp_path: Path,
 ) -> None:
-    from verification.h8_orchestrator import run_h8_parent_attempt
+    from verification.h8_orchestrator import (
+        H8ChildStartAuthorization,
+        H8IssuedLaunchRecord,
+        run_h8_parent_attempt,
+    )
 
     authorization = _start_authorization()
     outcomes = [
@@ -261,6 +266,59 @@ def test_parent_cross_binds_fake_child_records_without_launching_a_real_child(
         parent_run.request_plan[1],
     )
     assert tuple(item.attempt for item in parent_run.issued) == parent_run.attempts
+
+    first_issued = parent_run.issued[0]
+    forged_attempt = dataclasses.replace(
+        first_issued.attempt,
+        identities_sha256="f" * 64,
+    )
+    with pytest.raises(ValueError, match="fresh child classification"):
+        H8IssuedLaunchRecord(
+            request=first_issued.request,
+            invocation=first_issued.invocation,
+            process_record=first_issued.process_record,
+            repository_root=first_issued.repository_root,
+            launch_contract_sha256=first_issued.launch_contract_sha256,
+            attempt=forged_attempt,
+        )
+
+    assert not hasattr(H8ChildStartAuthorization, "_derive")
+    forged_authorization = object.__new__(H8ChildStartAuthorization)
+    for field in dataclasses.fields(authorization):
+        object.__setattr__(
+            forged_authorization,
+            field.name,
+            getattr(authorization, field.name),
+        )
+    forged_calls = []
+
+    def forged_child(invocation):
+        forged_calls.append(invocation)
+        raise AssertionError("forged authorization launched a child")
+
+    with pytest.raises(ValueError, match="factory-issued"):
+        run_h8_parent_attempt(
+            authorization=forged_authorization,
+            repository_root=tmp_path,
+            identities=_parent_identities(),
+            child_runner=forged_child,
+        )
+    assert forged_calls == []
+
+    mutated_authorization = _start_authorization()
+    object.__setattr__(
+        mutated_authorization,
+        "authorization_sha256",
+        "f" * 64,
+    )
+    with pytest.raises(ValueError, match="authorization SHA-256 is stale"):
+        run_h8_parent_attempt(
+            authorization=mutated_authorization,
+            repository_root=tmp_path,
+            identities=_parent_identities(),
+            child_runner=forged_child,
+        )
+    assert forged_calls == []
 
     unauthorized = _start_authorization(
         validated_registry_sha256="e" * 64,

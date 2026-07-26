@@ -112,6 +112,7 @@ class H8ChildStartAuthorization:
     config_sha256: str
     protocol_sha256: str
     current_registry_sha256: str
+    prerequisite_validation: H8PrerequisiteArtifactValidation
     prerequisite_validation_sha256: str
     correctness_statuses: tuple[tuple[int, GateStatus], ...]
     obligations: tuple[str, ...]
@@ -125,75 +126,16 @@ class H8ChildStartAuthorization:
             "use derive_h8_child_start_authorization"
         )
 
-    @classmethod
-    def _derive(
-        cls,
-        *,
-        config_sha256: str,
-        protocol_sha256: str,
-        current_registry_sha256: str,
-        prerequisite_validation_sha256: str,
-        correctness_statuses: tuple[tuple[int, GateStatus], ...],
-        obligations: tuple[str, ...],
-    ) -> H8ChildStartAuthorization:
-        valid_start = not obligations
-        preimage = {
-            "domain": "vfe4.h8.child-start-authorization.v1",
-            "config_sha256": config_sha256,
-            "protocol_sha256": protocol_sha256,
-            "current_registry_sha256": current_registry_sha256,
-            "prerequisite_validation_sha256": (
-                prerequisite_validation_sha256
-            ),
-            "correctness_statuses": tuple(
-                (cell_id, status.value)
-                for cell_id, status in correctness_statuses
-            ),
-            "obligations": obligations,
-            "valid_start": valid_start,
-        }
-        authorization = object.__new__(cls)
-        for name, value in (
-            ("config_sha256", config_sha256),
-            ("protocol_sha256", protocol_sha256),
-            ("current_registry_sha256", current_registry_sha256),
-            (
-                "prerequisite_validation_sha256",
-                prerequisite_validation_sha256,
-            ),
-            ("correctness_statuses", correctness_statuses),
-            ("obligations", obligations),
-            ("valid_start", valid_start),
-            (
-                "authorization_sha256",
-                hashlib.sha256(canonical_json_bytes(preimage)).hexdigest(),
-            ),
-        ):
-            object.__setattr__(authorization, name, value)
-        return authorization
+
+_ISSUED_H8_AUTHORIZATIONS: dict[
+    int,
+    tuple[H8ChildStartAuthorization, bytes],
+] = {}
 
 
-def derive_h8_child_start_authorization(
-    *,
-    config: H8ValidationConfig,
-    current_registry_sha256: str,
-    prerequisite_validation: H8PrerequisiteArtifactValidation,
-    correctness_statuses: tuple[tuple[int, GateStatus], ...],
-) -> H8ChildStartAuthorization:
-    """Derive child-start authority without accepting caller-owned validity."""
-
-    config_sha256 = _sha256(config.config_sha256, "config.config_sha256")
-    protocol_sha256 = build_h8_protocol_sha256(config)
-    registry_sha256 = _sha256(
-        current_registry_sha256,
-        "current_registry_sha256",
-    )
-    if type(prerequisite_validation) is not H8PrerequisiteArtifactValidation:
-        raise ValueError(
-            "prerequisite_validation must be an exact "
-            "H8PrerequisiteArtifactValidation"
-        )
-    prerequisite_validation.__post_init__()
+def _validate_correctness_statuses(
+    correctness_statuses: object,
+) -> tuple[tuple[int, GateStatus], ...]:
     if type(correctness_statuses) is not tuple or any(
         type(item) is not tuple
         or len(item) != 2
@@ -204,9 +146,17 @@ def derive_h8_child_start_authorization(
         raise ValueError(
             "correctness_statuses must contain exact cell IDs and GateStatus values"
         )
+    return correctness_statuses
 
+
+def _authorization_obligations(
+    *,
+    current_registry_sha256: str,
+    prerequisite_validation: H8PrerequisiteArtifactValidation,
+    correctness_statuses: tuple[tuple[int, GateStatus], ...],
+) -> tuple[str, ...]:
     obligations = list(prerequisite_validation.obligations)
-    if prerequisite_validation.registry_sha256 != registry_sha256:
+    if prerequisite_validation.registry_sha256 != current_registry_sha256:
         obligations.append("h8_prerequisite_validation_registry_mismatch")
     if (
         prerequisite_validation.revalidated_reference_names
@@ -221,17 +171,187 @@ def derive_h8_child_start_authorization(
         status is GateStatus.PASS for _cell_id, status in correctness_statuses
     ):
         obligations.append("h8_correctness_cells_not_all_pass")
+    return tuple(dict.fromkeys(obligations))
 
-    return H8ChildStartAuthorization._derive(
-        config_sha256=config_sha256,
-        protocol_sha256=protocol_sha256,
-        current_registry_sha256=registry_sha256,
-        prerequisite_validation_sha256=(
-            prerequisite_validation.validation_sha256
+
+def _authorization_preimage(
+    *,
+    config_sha256: str,
+    protocol_sha256: str,
+    current_registry_sha256: str,
+    prerequisite_validation_sha256: str,
+    correctness_statuses: tuple[tuple[int, GateStatus], ...],
+    obligations: tuple[str, ...],
+    valid_start: bool,
+) -> dict[str, object]:
+    return {
+        "domain": "vfe4.h8.child-start-authorization.v1",
+        "config_sha256": config_sha256,
+        "protocol_sha256": protocol_sha256,
+        "current_registry_sha256": current_registry_sha256,
+        "prerequisite_validation_sha256": prerequisite_validation_sha256,
+        "correctness_statuses": tuple(
+            (cell_id, status.value)
+            for cell_id, status in correctness_statuses
         ),
-        correctness_statuses=correctness_statuses,
-        obligations=tuple(dict.fromkeys(obligations)),
+        "obligations": obligations,
+        "valid_start": valid_start,
+    }
+
+
+def _validate_h8_child_start_authorization(
+    authorization: object,
+) -> H8ChildStartAuthorization:
+    if type(authorization) is not H8ChildStartAuthorization:
+        raise ValueError(
+            "authorization must be an exact H8ChildStartAuthorization"
+        )
+    issued = _ISSUED_H8_AUTHORIZATIONS.get(id(authorization))
+    if issued is None or issued[0] is not authorization:
+        raise ValueError("authorization must be factory-issued")
+    config_sha256 = _sha256(
+        authorization.config_sha256,
+        "authorization.config_sha256",
     )
+    protocol_sha256 = _sha256(
+        authorization.protocol_sha256,
+        "authorization.protocol_sha256",
+    )
+    registry_sha256 = _sha256(
+        authorization.current_registry_sha256,
+        "authorization.current_registry_sha256",
+    )
+    if (
+        type(authorization.prerequisite_validation)
+        is not H8PrerequisiteArtifactValidation
+    ):
+        raise ValueError(
+            "authorization prerequisite validation is not exact"
+        )
+    authorization.prerequisite_validation.__post_init__()
+    prerequisite_validation_sha256 = _sha256(
+        authorization.prerequisite_validation_sha256,
+        "authorization.prerequisite_validation_sha256",
+    )
+    if (
+        prerequisite_validation_sha256
+        != authorization.prerequisite_validation.validation_sha256
+    ):
+        raise ValueError(
+            "authorization prerequisite-validation SHA-256 is stale"
+        )
+    correctness_statuses = _validate_correctness_statuses(
+        authorization.correctness_statuses
+    )
+    expected_obligations = _authorization_obligations(
+        current_registry_sha256=registry_sha256,
+        prerequisite_validation=authorization.prerequisite_validation,
+        correctness_statuses=correctness_statuses,
+    )
+    if (
+        type(authorization.obligations) is not tuple
+        or any(
+            type(item) is not str or not item
+            for item in authorization.obligations
+        )
+        or len(set(authorization.obligations))
+        != len(authorization.obligations)
+        or authorization.obligations != expected_obligations
+    ):
+        raise ValueError("authorization obligations are stale")
+    if (
+        type(authorization.valid_start) is not bool
+        or authorization.valid_start is not (not expected_obligations)
+    ):
+        raise ValueError("authorization start decision is stale")
+    preimage_bytes = canonical_json_bytes(
+        _authorization_preimage(
+            config_sha256=config_sha256,
+            protocol_sha256=protocol_sha256,
+            current_registry_sha256=registry_sha256,
+            prerequisite_validation_sha256=(
+                prerequisite_validation_sha256
+            ),
+            correctness_statuses=correctness_statuses,
+            obligations=expected_obligations,
+            valid_start=authorization.valid_start,
+        )
+    )
+    if preimage_bytes != issued[1]:
+        raise ValueError("authorization owned preimage is stale")
+    expected_sha256 = hashlib.sha256(preimage_bytes).hexdigest()
+    if authorization.authorization_sha256 != expected_sha256:
+        raise ValueError("authorization SHA-256 is stale")
+    return authorization
+
+
+def derive_h8_child_start_authorization(
+    *,
+    config: H8ValidationConfig,
+    current_registry_sha256: str,
+    prerequisite_validation: H8PrerequisiteArtifactValidation,
+    correctness_statuses: tuple[tuple[int, GateStatus], ...],
+) -> H8ChildStartAuthorization:
+    """Derive child-start authority without accepting caller-owned validity."""
+
+    if type(config) is not H8ValidationConfig:
+        raise ValueError("config must be an exact H8ValidationConfig")
+    config_sha256 = _sha256(config.config_sha256, "config.config_sha256")
+    protocol_sha256 = build_h8_protocol_sha256(config)
+    registry_sha256 = _sha256(
+        current_registry_sha256,
+        "current_registry_sha256",
+    )
+    if type(prerequisite_validation) is not H8PrerequisiteArtifactValidation:
+        raise ValueError(
+            "prerequisite_validation must be an exact "
+            "H8PrerequisiteArtifactValidation"
+        )
+    prerequisite_validation.__post_init__()
+    checked_statuses = _validate_correctness_statuses(correctness_statuses)
+    obligations = _authorization_obligations(
+        current_registry_sha256=registry_sha256,
+        prerequisite_validation=prerequisite_validation,
+        correctness_statuses=checked_statuses,
+    )
+    valid_start = not obligations
+    preimage_bytes = canonical_json_bytes(
+        _authorization_preimage(
+            config_sha256=config_sha256,
+            protocol_sha256=protocol_sha256,
+            current_registry_sha256=registry_sha256,
+            prerequisite_validation_sha256=(
+                prerequisite_validation.validation_sha256
+            ),
+            correctness_statuses=checked_statuses,
+            obligations=obligations,
+            valid_start=valid_start,
+        )
+    )
+    authorization = object.__new__(H8ChildStartAuthorization)
+    for name, value in (
+        ("config_sha256", config_sha256),
+        ("protocol_sha256", protocol_sha256),
+        ("current_registry_sha256", registry_sha256),
+        ("prerequisite_validation", prerequisite_validation),
+        (
+            "prerequisite_validation_sha256",
+            prerequisite_validation.validation_sha256,
+        ),
+        ("correctness_statuses", checked_statuses),
+        ("obligations", obligations),
+        ("valid_start", valid_start),
+        (
+            "authorization_sha256",
+            hashlib.sha256(preimage_bytes).hexdigest(),
+        ),
+    ):
+        object.__setattr__(authorization, name, value)
+    _ISSUED_H8_AUTHORIZATIONS[id(authorization)] = (
+        authorization,
+        preimage_bytes,
+    )
+    return _validate_h8_child_start_authorization(authorization)
 
 
 def build_h8_child_request_plan(
@@ -362,20 +482,24 @@ class H8IssuedLaunchRecord:
             raise ValueError("issued launch contract SHA-256 is stale")
         if self.invocation.stdin != _canonical_request_bytes(self.request) + b"\n":
             raise ValueError("issued request does not match invocation stdin")
-        if (
-            type(self.attempt) is not H8ChildAttemptRecord
-            or self.attempt.request != self.request
-            or self.attempt.timed_out is not self.process_record.timed_out
-            or self.attempt.exit_code != self.process_record.exit_code
-            or self.attempt.parent_elapsed_ns
-            != self.process_record.parent_elapsed_ns
-            or self.attempt.stdout_sha256
-            != hashlib.sha256(self.process_record.stdout).hexdigest()
-            or self.attempt.stderr_sha256
-            != hashlib.sha256(self.process_record.stderr).hexdigest()
-        ):
+        if type(self.attempt) is not H8ChildAttemptRecord:
             raise ValueError(
                 "issued request, process, and attempt identities are not cross-bound"
+            )
+        decision = classify_h8_child_outcome(
+            self.process_record,
+            valid_start=True,
+            invocation=self.invocation,
+        )
+        expected_attempt = make_h8_child_attempt_record(
+            self.request,
+            self.invocation,
+            self.process_record,
+            decision,
+        )
+        if self.attempt != expected_attempt:
+            raise ValueError(
+                "issued attempt does not match fresh child classification"
             )
 
 
@@ -389,10 +513,7 @@ class H8ParentAttemptRun:
     attempts: tuple[H8ChildAttemptRecord, ...]
 
     def __post_init__(self) -> None:
-        if type(self.authorization) is not H8ChildStartAuthorization:
-            raise ValueError(
-                "authorization must be an exact H8ChildStartAuthorization"
-            )
+        _validate_h8_child_start_authorization(self.authorization)
         if (
             type(self.request_plan) is not tuple
             or any(type(item) is not H8ChildRequest for item in self.request_plan)
@@ -463,10 +584,7 @@ def run_h8_parent_attempt(
 ) -> H8ParentAttemptRun:
     """Issue the authorized H8 prefix once, stopping at the first FAIL."""
 
-    if type(authorization) is not H8ChildStartAuthorization:
-        raise ValueError(
-            "authorization must be an exact H8ChildStartAuthorization"
-        )
+    authorization = _validate_h8_child_start_authorization(authorization)
     if not authorization.valid_start:
         return H8ParentAttemptRun(
             authorization=authorization,
