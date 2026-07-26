@@ -160,6 +160,61 @@ def test_internal_acquisition_streams_exact_archive_and_seals_identity(tmp_path:
         )
 
 
+def test_blinded_acquisition_emits_fixture_reference_without_split_paths_or_handles(
+    tmp_path: Path,
+) -> None:
+    archive_bytes = _archive_bytes()
+    store = _acquire_wikitext2_blinded(
+        _config(archive_bytes, tmp_path),
+        lambda url: _Response(archive_bytes, url),
+    )
+
+    reference = store.validation_safety_fixture_reference
+    public_fields = {
+        field.name: getattr(reference, field.name)
+        for field in dataclasses.fields(reference)
+    }
+
+    assert type(reference).__name__ == "ValidationSafetyFixtureReference"
+    assert reference.schema_version == (
+        "vfe4-h6-validation-safety-fixture-reference-v1"
+    )
+    assert reference.logical_payload_name == "validation_safety_fixture.bin"
+    assert reference.local_payload_path == (
+        tmp_path / "wikitext2-blinded" / "validation_safety_fixture.bin"
+    ).resolve()
+    assert (
+        reference.binary_directory_manifest_sha256
+        == (
+            tmp_path / "wikitext2-blinded" / "manifest.sha256"
+        ).read_text(encoding="ascii").strip()
+    )
+    assert reference.data_identity_sha256 == store.data_identity_sha256
+    assert (
+        reference.access_policy_sha256
+        == store.data_identity.access_policy_sha256
+    )
+    assert (
+        reference.validation_token_sha256
+        == store.data_identity.validation_tokens.encoded_token_sha256
+    )
+    assert (
+        reference.fixture_raw_sha256
+        == store.frozen_validation_fixture.fixture_sha256
+    )
+    assert reference.fixture_raw_length == 311_369
+    assert reference.row_count == 4096
+    assert len(reference.reference_sha256) == 64
+    assert [
+        (name, value)
+        for name, value in public_fields.items()
+        if isinstance(value, Path)
+    ] == [("local_payload_path", reference.local_payload_path)]
+    assert not any(type(value) is bytes for value in public_fields.values())
+    assert not any("handle" in name or "split" in name for name in public_fields)
+    assert not hasattr(reference, "__dict__")
+
+
 def test_public_acquisition_has_no_url_argument_and_uses_only_official_opener(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

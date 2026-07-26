@@ -28,6 +28,7 @@ from vfe4.config import (
     H6PredictionResolvedConfig,
     H6PredictionV2ResolvedConfig,
 )
+from vfe4.h6_validation_fixture import ValidationSafetyFixtureReference
 from vfe4.types.h6 import (
     DataIdentity,
     SealedSplitHandle,
@@ -138,6 +139,7 @@ class BlindedCorpusStore:
     sealed_train_handle: SealedSplitHandle
     sealed_validation_handle: SealedSplitHandle
     frozen_validation_fixture: ValidationSafetyFixture
+    validation_safety_fixture_reference: ValidationSafetyFixtureReference
     sealed_test_handle: SealedSplitHandle
     _data_identity: DataIdentity = field(repr=False, compare=False)
 
@@ -167,6 +169,27 @@ class BlindedCorpusStore:
         self.frozen_validation_fixture.__post_init__()
         if self.frozen_validation_fixture != self._data_identity.validation_fixture:
             raise ValueError("store validation fixture does not match its data identity")
+        if (
+            type(self.validation_safety_fixture_reference)
+            is not ValidationSafetyFixtureReference
+        ):
+            raise ValueError("store requires the exact validation fixture reference")
+        self.validation_safety_fixture_reference.__post_init__()
+        reference = self.validation_safety_fixture_reference
+        if (
+            reference.data_identity_sha256 != self.data_identity_sha256
+            or reference.access_policy_sha256
+            != self._data_identity.access_policy_sha256
+            or reference.validation_token_sha256
+            != self._data_identity.validation_tokens.encoded_token_sha256
+            or reference.fixture_raw_sha256
+            != self.frozen_validation_fixture.fixture_sha256
+            or reference.fixture_raw_length != 311_369
+            or reference.row_count != 4096
+        ):
+            raise ValueError(
+                "store validation fixture reference does not match its identities"
+            )
 
     @property
     def data_identity(self) -> DataIdentity:
@@ -626,6 +649,24 @@ def _rehydrate_blinded_data_identity(
         or _data_identity_json(identity) != identity_bytes
     ):
         raise BlindedDataError("blinded typed data identity is stale")
+    payload_records = tuple(
+        BinaryPayloadRecord(
+            name,
+            len(content_by_name[name]),
+            hashlib.sha256(content_by_name[name]).hexdigest(),
+        )
+        for name in BINARY_PAYLOAD_ORDER
+    )
+    directory_reference = BinaryDirectoryReference(
+        root,
+        expected_manifest,
+        payload_records,
+    )
+    _validation_fixture_reference(
+        directory_reference=directory_reference,
+        fixture_payload=validation_fixture,
+        data_identity=identity,
+    )
     return identity
 
 
@@ -775,6 +816,79 @@ def _data_identity_json(identity: DataIdentity) -> bytes:
     )
 
 
+def _validation_fixture_reference(
+    *,
+    directory_reference: BinaryDirectoryReference,
+    fixture_payload: ValidationSafetyFixture,
+    data_identity: DataIdentity,
+) -> ValidationSafetyFixtureReference:
+    """Bind the published fixture record without opening or deriving a split."""
+
+    if type(directory_reference) is not BinaryDirectoryReference:
+        raise BlindedDataError("fixture reference requires the exact directory reference")
+    if type(fixture_payload) is not ValidationSafetyFixture:
+        raise BlindedDataError("fixture reference requires the exact fixture payload")
+    if type(data_identity) is not DataIdentity:
+        raise BlindedDataError("fixture reference requires the exact data identity")
+    try:
+        fixture_payload.__post_init__()
+        data_identity.__post_init__()
+    except ValueError as exc:
+        raise BlindedDataError("fixture reference inputs are stale") from exc
+    if (
+        not isinstance(directory_reference.directory, Path)
+        or not directory_reference.directory.is_absolute()
+        or directory_reference.directory.resolve(strict=False)
+        != directory_reference.directory
+    ):
+        raise BlindedDataError("fixture reference directory is not normalized")
+    if (
+        type(directory_reference.payloads) is not tuple
+        or tuple(record.path for record in directory_reference.payloads)
+        != BINARY_PAYLOAD_ORDER
+        or any(
+            type(record) is not BinaryPayloadRecord
+            for record in directory_reference.payloads
+        )
+    ):
+        raise BlindedDataError("fixture reference payload inventory is not exact")
+    fixture_record = directory_reference.payloads[
+        BINARY_PAYLOAD_ORDER.index("validation_safety_fixture.bin")
+    ]
+    retained_fixture_bytes = object.__getattribute__(
+        fixture_payload, "_fixture_bytes"
+    )
+    if (
+        type(retained_fixture_bytes) is not bytes
+        or fixture_record.raw_length != len(retained_fixture_bytes)
+        or fixture_record.raw_content_sha256
+        != hashlib.sha256(retained_fixture_bytes).hexdigest()
+        or fixture_record.raw_content_sha256 != fixture_payload.fixture_sha256
+        or fixture_payload != data_identity.validation_fixture
+        or fixture_payload.validation_token_sha256
+        != data_identity.validation_tokens.encoded_token_sha256
+    ):
+        raise BlindedDataError("fixture reference payload identities disagree")
+    try:
+        return ValidationSafetyFixtureReference.create(
+            local_payload_path=(
+                directory_reference.directory
+                / "validation_safety_fixture.bin"
+            ),
+            binary_directory_manifest_sha256=(
+                directory_reference.manifest_sha256
+            ),
+            data_identity_sha256=data_identity.data_identity_sha256,
+            access_policy_sha256=data_identity.access_policy_sha256,
+            validation_token_sha256=fixture_payload.validation_token_sha256,
+            fixture_raw_sha256=fixture_record.raw_content_sha256,
+            fixture_raw_length=fixture_record.raw_length,
+            row_count=len(fixture_payload.starts),
+        )
+    except (TypeError, ValueError) as exc:
+        raise BlindedDataError("fixture reference construction failed") from exc
+
+
 def _acquire_wikitext2_blinded_impl(
     config: H6DataAcquisitionRequest, opener, register_store
 ) -> BlindedCorpusStore:
@@ -891,6 +1005,11 @@ def _acquire_wikitext2_blinded_impl(
             "data_identity.json": _data_identity_json(data_identity),
         },
     )
+    fixture_reference = _validation_fixture_reference(
+        directory_reference=reference,
+        fixture_payload=validation_fixture,
+        data_identity=data_identity,
+    )
     handles = {
         split: SealedSplitHandle.create(
             split=split,
@@ -905,12 +1024,13 @@ def _acquire_wikitext2_blinded_impl(
         )
     }
     store = BlindedCorpusStore(
-        data_identity.data_identity_sha256,
-        handles["train"],
-        handles["validation"],
-        validation_fixture,
-        handles["test"],
-        data_identity,
+        data_identity_sha256=data_identity.data_identity_sha256,
+        sealed_train_handle=handles["train"],
+        sealed_validation_handle=handles["validation"],
+        frozen_validation_fixture=validation_fixture,
+        validation_safety_fixture_reference=fixture_reference,
+        sealed_test_handle=handles["test"],
+        _data_identity=data_identity,
     )
     register_store(store, reference.directory)
     return store
