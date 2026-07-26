@@ -3,12 +3,12 @@
 Protocol revision: `h8-sparse-scale-v4` (amended 2026-07-26)
 
 This v4 contract supersedes the underspecified staged v3 contract before any
-H8 scientific execution.
+v4 scientific or milestone execution may be accepted as promotion evidence.
 
-Status at freeze: protocol only. No H8 correctness grid, production child,
-profiler child, negative control, timing measurement, memory measurement, or
-promotion decision has been executed. This document therefore contains no
-measured endpoint and does not prestate PASS.
+Status at freeze: protocol only. No v4 scientific/milestone execution has
+been accepted as promotion evidence. Prior bounded development, unit, and
+fake-child tests are non-authorizing and are not milestone evidence. This
+document contains no measured promotion endpoint and does not prestate PASS.
 
 H8 is a synthetic empirical systems gate for one block-tridiagonal Gaussian
 chain. It is click-run through the single editable `CONFIG` dictionary in
@@ -375,8 +375,8 @@ of any literal or inventory is `INCONCLUSIVE`.
 
 The exact resolved H8 validation configuration is
 `schema_version="h8-validation-config-v2"`, superseding
-`h8-validation-config-v1` before scientific execution. V2 contains these six
-new frozen fields:
+`h8-validation-config-v1` before any v4 scientific or milestone execution may
+be accepted as promotion evidence. V2 contains these six new frozen fields:
 
 ```text
 factor_schema="h8-block-tridiagonal-cholesky-v1"
@@ -404,13 +404,29 @@ transition-norm, and observation evidence defined below. Negative-control
 results use the same v2 envelope but remain governed by the control-result
 body and do not fabricate or insert production `problem_evidence`.
 
-For each accepted production/profiler v2 PASS body, the parent retains a
+For each trusted production/profiler v2 PASS body, the parent requires a
 separate private typed `H8DecodedPassEvidence` attached to the corresponding
-attempt. It preserves `sample_noise_sha256`, exact `problem_evidence`,
-diagnostics, the complete validated child allocation mapping, and exact
-request/envelope/result identities. The lossless factor/allocation runtime
-views are derived from this private evidence. Public `H8ChildResult` and the
-published `production_runs`/`profiler_runs` schemas remain unchanged.
+attempt:
+
+```python
+@dataclass(frozen=True, slots=True)
+class H8DecodedPassEvidence:
+    sample_noise_sha256: str
+    problem_evidence: H8ProductionProblemEvidence
+    condition_diagnostics: SparseConditionDiagnostics
+    allocation: Mapping[str, object]
+    child_identities: Mapping[str, object]
+```
+
+Those are its only fields. `allocation` is the complete parent-owned, frozen,
+validated child mapping, and `child_identities` is the complete parent-owned,
+frozen identity mapping. `H8ChildAttemptRecord.pass_evidence` has type
+`H8DecodedPassEvidence | None`; it is required for a trusted
+production/profiler PASS and is null for controls and every non-PASS attempt.
+The field is private/internal and is omitted as a direct field from
+`_attempt_payload` and validation `child_attempts`. In particular, it does not
+duplicate fill, workspace, counters, resources, or reconstruction data already
+retained by the typed result or attempt.
 
 Each attempt retains its exact request, `status`, ordered `reasons`, optional
 typed `result`, `timed_out`, `exit_code`, actual parent `parent_elapsed_ns`,
@@ -422,8 +438,9 @@ binds the exact canonical `VFE4_H8_CHILD_IDENTITIES_JSON` bytes; stdout/stderr
 hashes bind the raw captured streams even when decoding fails. Parent elapsed
 time is measured from spawn through parse. It is never written into the
 child-authored resource object: `result.resources.parent_elapsed_ns=0` remains
-the child protocol sentinel, while the actual value lives at
-`attempt.parent_elapsed_ns`.
+the child protocol sentinel. The actual value is retained at
+`attempt.parent_elapsed_ns` and copied into the expanded published
+production/profiler record's separate top-level `parent_elapsed_ns`.
 
 Resource limits are inclusive:
 
@@ -767,7 +784,8 @@ float or string encodings.
   profiler tensor keys are exactly
   `{tensor_id,storage_ptr,allocation_id,device}`. `resources` is the exact
   child-authored `H8ResourceRecord`, including `parent_elapsed_ns=0`; actual
-  parent elapsed time remains only in the attempt.
+  parent elapsed time is retained in the attempt and in the expanded
+  published run record's separate top-level `parent_elapsed_ns`.
   `tracemalloc_supplementary` is literal JSON `null`, meaning "not collected,"
   and is excluded from `all_observable`, all memory decisions, and overall
   status. It cannot close, rescue, or override a claim
@@ -807,13 +825,19 @@ float or string encodings.
   H6-Prediction reference, validation, and manifest paths; no enclosing
   manifest hash or external-pointer hash
 
-The existing `production_runs` and `profiler_runs` arrays remain the
-authoritative ordering and published typed-result inventories. The
-factor/allocation `runs` arrays are lossless evidence views in that same order,
-derived from private `H8DecodedPassEvidence` and cross-bound to those unchanged
-public inventories and their result-bearing attempts; they do not replace or
-expand either authoritative array. Negative-control results use the same v2
-envelope without fabricating private production problem evidence.
+The typed `H8ChildResult` and
+`H8GateResult.production_runs`/`H8GateResult.profiler_runs` contracts remain
+unchanged. The published validation `production_runs` and `profiler_runs`
+records preserve the existing expanded schema: every `H8ChildResult` field
+plus top-level `parent_elapsed_ns`, `child_elapsed_ns`, `exit_code`,
+`stdout_sha256`, `stderr_sha256`, `operation_reachability`, `residuals`, and
+`resource_decisions`. Private `H8DecodedPassEvidence` is not appended directly
+to those run records. The `problems`, factor `runs`, and allocation `runs`
+sections are derived from that private evidence combined with the
+`H8ChildResult` and attempt endpoints, in the authoritative run order; they do
+not replace either typed result array or published validation run inventory.
+Negative-control results use the same v2 envelope without fabricating private
+production problem evidence.
 
 The decoded `controls` inventory is the exact ordered prefix of typed
 `H8ControlResult` records cross-bound to result-bearing control attempts; PASS
@@ -822,7 +846,7 @@ requires all 12. Every production/profiler child record retains its
 stdout/stderr hashes, operation reachability, residuals, and resource
 decisions. Its nested child-authored `resources` object is not rewritten: the
 protocol sentinel `resources.parent_elapsed_ns=0` remains intact, and the
-actual parent spawn-through-parse duration appears only in the attempt and the
+actual parent spawn-through-parse duration appears in both the attempt and the
 decoded record's separate top-level `parent_elapsed_ns`. No raw endpoint may
 be replaced by a maximum-only summary.
 
