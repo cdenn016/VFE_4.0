@@ -32,8 +32,10 @@ def test_finite_smc_fixture_and_oracle_are_validated_once_per_fixture(
     fixture_bytes = fixture_path.read_bytes()
     validation_calls = 0
     oracle_calls = 0
+    predictors: list[object] = []
     real_validation = smc_gate.FiniteSmcFixture.__post_init__
     real_oracle = smc_gate.exact_finite_oracle
+    real_build = smc_gate.build_finite_predictor
 
     def validate_once(fixture: smc_gate.FiniteSmcFixture) -> None:
         nonlocal validation_calls
@@ -47,12 +49,25 @@ def test_finite_smc_fixture_and_oracle_are_validated_once_per_fixture(
         oracle_calls += 1
         return real_oracle(fixture)
 
+    def capture_predictor(
+        fixture: smc_gate.FiniteSmcFixture,
+        **values: object,
+    ) -> tuple[object, EstimatorIdentity]:
+        predictor, identity = real_build(fixture, **values)
+        predictors.append(predictor)
+        return predictor, identity
+
     monkeypatch.setattr(
         smc_gate.FiniteSmcFixture,
         "__post_init__",
         validate_once,
     )
     monkeypatch.setattr(smc_gate, "exact_finite_oracle", exact_once)
+    monkeypatch.setattr(
+        smc_gate,
+        "build_finite_predictor",
+        capture_predictor,
+    )
     monkeypatch.setattr(
         smc_gate,
         "FINITE_FIXTURE_SHA256",
@@ -70,6 +85,33 @@ def test_finite_smc_fixture_and_oracle_are_validated_once_per_fixture(
     assert report.executed_cells == 4
     assert validation_calls == 1
     assert oracle_calls == 1
+    proposal = predictors[0].proposal
+    object.__setattr__(proposal.fixture, "observed_tokens", (1,))
+    with pytest.raises(ValueError, match="identity changed"):
+        proposal.assert_current_state()
+    assert oracle_calls == 1
+
+    malformed_payload = json.loads(fixture_bytes)
+    malformed_payload["observed_tokens"][-1] = 3
+    malformed_fixture_bytes = json.dumps(
+        malformed_payload,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    monkeypatch.setattr(
+        smc_gate,
+        "FINITE_FIXTURE_SHA256",
+        (hashlib.sha256(malformed_fixture_bytes).hexdigest(),),
+    )
+    with pytest.raises(ValueError, match="observed sequence"):
+        smc_gate._run_h6_smc_gate_from_fixture_bytes(
+            fixture_snapshots=(
+                (fixture_path.name, malformed_fixture_bytes),
+            ),
+            replicate_seeds=(7,),
+            particle_count=1,
+            horizon_limit=1,
+        )
 
 
 def _report(

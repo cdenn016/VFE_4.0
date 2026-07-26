@@ -270,6 +270,16 @@ def _load_finite_fixture_bytes(
     suffix = int(str(fixture_id).rsplit("-", 1)[-1])
     if not 1 <= suffix <= 4 or raw_sha256 != FINITE_FIXTURE_SHA256[suffix - 1]:
         raise ValueError("finite fixture raw hash is not the frozen hash")
+    observed_tokens = payload.get("observed_tokens")
+    if (
+        type(observed_tokens) is not list
+        or len(observed_tokens) != 6
+        or any(
+            type(token) is not int or not 0 <= token < 3
+            for token in observed_tokens
+        )
+    ):
+        raise ValueError("finite observed sequence does not match its horizon")
     initial = _probability_row(
         payload.get("initial_probabilities"),
         length=len(payload.get("initial_probabilities", [])),
@@ -328,7 +338,7 @@ def _load_finite_fixture_bytes(
         "prefix_source_probabilities": prefix_source,
         "transition_kernels": kernels,
         "emission_probabilities": emissions,
-        "observed_tokens": tuple(payload.get("observed_tokens", [])),
+        "observed_tokens": tuple(observed_tokens),
     }
     if horizon_limit is not None:
         if type(horizon_limit) is not int or not 1 <= horizon_limit <= 6:
