@@ -12,6 +12,19 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Callable, Literal
 
+from vfe4.config import validate_h6_prefix_v3_resolved_payload
+from vfe4.types.h6 import (
+    H6_PREFIX_REQUIRED_CHECKS,
+    ArmId,
+    BoundedPrefixCertificate,
+    BoundedPrefixCertificateSet,
+    BoundedPrefixReportBinding,
+    BoundedPrefixReportReference,
+    EvidenceStatus,
+    H6PrefixWorkloadPlan,
+    PrefixCaseKey,
+)
+
 from .atomic import (
     ArtifactPublicationError,
     canonical_json_bytes,
@@ -609,6 +622,141 @@ _BOUNDED_RUNNER_TOTAL_FIELDS = frozenset(
         "planned_particle_call_units",
     }
 )
+_BOUNDED_CASE_KEY_FIELDS = frozenset(
+    {
+        "arm",
+        "predictor_config_sha256",
+        "estimator_sha256",
+        "model_family_sha256",
+        "vocabulary_sha256",
+        "data_safety_sha256",
+        "git_head",
+        "dirty_digest",
+    }
+)
+_BOUNDED_REPORT_REFERENCE_FIELDS = frozenset(
+    {
+        "schema_version",
+        "profile_pair_sha256",
+        "particle_count",
+        "case_family",
+        "scope",
+        "report_key",
+        "report_key_sha256",
+        "report_sha256",
+        "execution_plan_sha256",
+        "workload_plan_sha256",
+        "selected_global_indices",
+        "selection_manifest_sha256",
+        "completed_by_position",
+        "complete_case_manifest_sha256",
+        "model_state_sha256",
+        "proposal_identity_sha256",
+        "estimator_semantic_sha256",
+        "estimator_artifact_bytes_sha256",
+        "reference_sha256",
+    }
+)
+_BOUNDED_REPORT_BINDING_FIELDS = frozenset(
+    {
+        "schema_version",
+        "workload_plan_sha256",
+        "semantic_family_sha256",
+        "git_head",
+        "dirty_digest",
+        "source_sha256",
+        "global_case_key_order_sha256",
+        "profile_pair_sha256s",
+        "report_references",
+        "higher_n_small_selection_manifest_sha256",
+        "higher_n_validation_selection_manifest_sha256",
+        "static_report_sha256",
+        "static_source_manifest_sha256",
+        "static_rules_sha256",
+        "static_case_key_manifest_sha256",
+        "binding_sha256",
+    }
+)
+_BOUNDED_CERTIFICATE_FIELDS = frozenset(
+    {
+        "schema_version",
+        "semantic_family_sha256",
+        "report_binding",
+        "validation_payload",
+        "validation_payload_sha256",
+        "status",
+        "obligations",
+        "checks",
+        "certificate_sha256",
+    }
+)
+_BOUNDED_CERTIFICATE_SET_FIELDS = frozenset(
+    {
+        "schema_version",
+        "config_sha256",
+        "workload_plan_sha256",
+        "git_head",
+        "dirty_digest",
+        "source_sha256",
+        "semantic_family_sha256s",
+        "validation_payload_sha256",
+        "prefix_certificate_set_sha256",
+        "certificates",
+    }
+)
+_BOUNDED_V3_CONFIG_FIELDS = frozenset(
+    {
+        "schema_version",
+        "operation",
+        "source",
+        "execution_mode",
+        "profiles",
+        "authorization_sha256",
+        "artifact_root",
+        "workload_plan",
+        "workload_plan_sha256",
+        "workload_authorization_sha256",
+        "validation_fixture_reference",
+        "validation_perturbation_reference",
+    }
+)
+_BOUNDED_SOURCE_FIELDS = frozenset(
+    {"git_head", "dirty_digest", "source_sha256"}
+)
+_BOUNDED_PROFILE_FIELDS = frozenset(
+    {
+        "profile_id",
+        "small_arm_config",
+        "production_arm_config",
+        "estimator",
+        "small_structure",
+        "production_structure",
+        "data_safety_sha256",
+        "small_model_family_sha256",
+        "production_model_family_sha256",
+        "profile_pair_sha256",
+    }
+)
+_BOUNDED_ESTIMATOR_FIELDS = frozenset(
+    {
+        "schema_version",
+        "kind",
+        "particle_count",
+        "resampling",
+        "dtype",
+        "device",
+        "estimator_sha256",
+    }
+)
+_BOUNDED_ENVIRONMENT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "device",
+        "dtype",
+        "python_implementation",
+        "python_version",
+    }
+)
 _BOUNDED_DYNAMIC_CHECK_NAMES = (
     "signature_and_identity",
     "dynamic_target_suffix_leakage",
@@ -639,6 +787,368 @@ def _bounded_exact_object(
     if type(value) is not dict or frozenset(value) != expected_fields:
         raise ArtifactPublicationError(f"{label} fields are not exact")
     return value
+
+
+def _bounded_config_family_bindings(
+    config_payload: Mapping[str, object],
+    *,
+    workload: H6PrefixWorkloadPlan,
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    config = _bounded_exact_object(
+        config_payload,
+        _BOUNDED_V3_CONFIG_FIELDS,
+        "bounded H6 Prefix config",
+    )
+    profiles = config.get("profiles")
+    if type(profiles) is not list or not profiles:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix config profiles are not a nonempty list"
+        )
+    particle_counts = workload.production_particle_counts
+    if len(profiles) % len(particle_counts) != 0:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix config profiles do not form complete families"
+        )
+    families: list[tuple[str, tuple[str, ...]]] = []
+    for offset in range(0, len(profiles), len(particle_counts)):
+        family_profiles = profiles[offset : offset + len(particle_counts)]
+        semantic_payload: dict[str, object] | None = None
+        profile_pair_sha256s: list[str] = []
+        for position, raw_profile in enumerate(family_profiles):
+            profile = _bounded_exact_object(
+                raw_profile,
+                _BOUNDED_PROFILE_FIELDS,
+                "bounded H6 Prefix resolved profile",
+            )
+            estimator = _bounded_exact_object(
+                profile.get("estimator"),
+                _BOUNDED_ESTIMATOR_FIELDS,
+                "bounded H6 Prefix resolved estimator",
+            )
+            if estimator.get("particle_count") != particle_counts[position]:
+                raise ArtifactPublicationError(
+                    "bounded H6 Prefix config particle ladder changed"
+                )
+            profile_pair_sha256 = _require_lower_hex(
+                profile.get("profile_pair_sha256"),
+                64,
+                "bounded H6 Prefix profile-pair SHA-256",
+            )
+            profile_pair_sha256s.append(profile_pair_sha256)
+            current_semantic = dict(profile)
+            current_semantic.pop("profile_id")
+            current_semantic.pop("profile_pair_sha256")
+            semantic_estimator = dict(estimator)
+            semantic_estimator.pop("particle_count")
+            semantic_estimator.pop("estimator_sha256")
+            current_semantic["estimator"] = semantic_estimator
+            if semantic_payload is None:
+                semantic_payload = current_semantic
+            elif canonical_json_bytes(current_semantic) != canonical_json_bytes(
+                semantic_payload
+            ):
+                raise ArtifactPublicationError(
+                    "bounded H6 Prefix family changes beyond particle count"
+                )
+        assert semantic_payload is not None
+        families.append(
+            (
+                _bounded_owned_hash(
+                    "vfe4.h6.bounded-prefix-semantic-family.v2",
+                    semantic_payload,
+                ),
+                tuple(profile_pair_sha256s),
+            )
+        )
+    return tuple(families)
+
+
+def _bounded_require_canonical_match(
+    observed: object,
+    expected: object,
+    label: str,
+) -> None:
+    if canonical_json_bytes(observed) != canonical_json_bytes(expected):
+        raise ArtifactPublicationError(
+            f"bounded H6 Prefix {label} differs from its recomputed identity"
+        )
+
+
+def _bounded_prefix_case_key_from_payload(value: object) -> PrefixCaseKey:
+    payload = _bounded_exact_object(
+        value,
+        _BOUNDED_CASE_KEY_FIELDS,
+        "bounded H6 Prefix case key",
+    )
+    try:
+        key = PrefixCaseKey(
+            arm=ArmId(payload["arm"]),
+            predictor_config_sha256=payload["predictor_config_sha256"],
+            estimator_sha256=payload["estimator_sha256"],
+            model_family_sha256=payload["model_family_sha256"],
+            vocabulary_sha256=payload["vocabulary_sha256"],
+            data_safety_sha256=payload["data_safety_sha256"],
+            git_head=payload["git_head"],
+            dirty_digest=payload["dirty_digest"],
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix case key is invalid"
+        ) from exc
+    _bounded_require_canonical_match(
+        payload,
+        key.canonical_payload(),
+        "case key",
+    )
+    return key
+
+
+def _bounded_report_reference_from_payload(
+    value: object,
+) -> BoundedPrefixReportReference:
+    payload = _bounded_exact_object(
+        value,
+        _BOUNDED_REPORT_REFERENCE_FIELDS,
+        "bounded H6 Prefix report reference",
+    )
+    selected_global_indices = payload["selected_global_indices"]
+    completed_by_position = payload["completed_by_position"]
+    if (
+        type(selected_global_indices) is not list
+        or type(completed_by_position) is not list
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix report-reference sequences are not exact"
+        )
+    report_key = _bounded_prefix_case_key_from_payload(payload["report_key"])
+    try:
+        reference = BoundedPrefixReportReference.create(
+            profile_pair_sha256=payload["profile_pair_sha256"],
+            particle_count=payload["particle_count"],
+            case_family=payload["case_family"],
+            scope=payload["scope"],
+            report_key=report_key,
+            report_sha256=payload["report_sha256"],
+            execution_plan_sha256=payload["execution_plan_sha256"],
+            workload_plan_sha256=payload["workload_plan_sha256"],
+            selected_global_indices=tuple(selected_global_indices),
+            selection_manifest_sha256=payload[
+                "selection_manifest_sha256"
+            ],
+            completed_by_position=tuple(completed_by_position),
+            complete_case_manifest_sha256=payload[
+                "complete_case_manifest_sha256"
+            ],
+            model_state_sha256=payload["model_state_sha256"],
+            proposal_identity_sha256=payload[
+                "proposal_identity_sha256"
+            ],
+            estimator_semantic_sha256=payload[
+                "estimator_semantic_sha256"
+            ],
+            estimator_artifact_bytes_sha256=payload[
+                "estimator_artifact_bytes_sha256"
+            ],
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix report reference is invalid"
+        ) from exc
+    _bounded_require_canonical_match(
+        payload,
+        reference.canonical_payload(),
+        "report reference",
+    )
+    return reference
+
+
+def _bounded_report_binding_from_payload(
+    value: object,
+) -> BoundedPrefixReportBinding:
+    payload = _bounded_exact_object(
+        value,
+        _BOUNDED_REPORT_BINDING_FIELDS,
+        "bounded H6 Prefix report binding",
+    )
+    profile_pair_sha256s = payload["profile_pair_sha256s"]
+    report_reference_payloads = payload["report_references"]
+    if (
+        type(profile_pair_sha256s) is not list
+        or type(report_reference_payloads) is not list
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix report-binding sequences are not exact"
+        )
+    report_references = tuple(
+        _bounded_report_reference_from_payload(reference)
+        for reference in report_reference_payloads
+    )
+    try:
+        binding = BoundedPrefixReportBinding.create(
+            workload_plan_sha256=payload["workload_plan_sha256"],
+            semantic_family_sha256=payload["semantic_family_sha256"],
+            git_head=payload["git_head"],
+            dirty_digest=payload["dirty_digest"],
+            source_sha256=payload["source_sha256"],
+            global_case_key_order_sha256=payload[
+                "global_case_key_order_sha256"
+            ],
+            profile_pair_sha256s=tuple(profile_pair_sha256s),
+            report_references=report_references,
+            higher_n_small_selection_manifest_sha256=payload[
+                "higher_n_small_selection_manifest_sha256"
+            ],
+            higher_n_validation_selection_manifest_sha256=payload[
+                "higher_n_validation_selection_manifest_sha256"
+            ],
+            static_report_sha256=payload["static_report_sha256"],
+            static_source_manifest_sha256=payload[
+                "static_source_manifest_sha256"
+            ],
+            static_rules_sha256=payload["static_rules_sha256"],
+            static_case_key_manifest_sha256=payload[
+                "static_case_key_manifest_sha256"
+            ],
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix report binding is invalid"
+        ) from exc
+    _bounded_require_canonical_match(
+        payload,
+        binding.canonical_payload(),
+        "report binding",
+    )
+    return binding
+
+
+def _bounded_certificate_payload(
+    certificate: BoundedPrefixCertificate,
+) -> dict[str, object]:
+    return {
+        "schema_version": certificate.schema_version,
+        "semantic_family_sha256": certificate.semantic_family_sha256,
+        "report_binding": certificate.report_binding.canonical_payload(),
+        "validation_payload": json.loads(
+            certificate.validation_payload_canonical_json
+        ),
+        "validation_payload_sha256": (
+            certificate.validation_payload_sha256
+        ),
+        "status": certificate.status.value,
+        "obligations": certificate.obligations,
+        "checks": dict(certificate.checks),
+        "certificate_sha256": certificate.certificate_sha256,
+    }
+
+
+def _bounded_certificate_from_payload(
+    value: object,
+) -> BoundedPrefixCertificate:
+    payload = _bounded_exact_object(
+        value,
+        _BOUNDED_CERTIFICATE_FIELDS,
+        "bounded H6 Prefix certificate",
+    )
+    obligations = payload["obligations"]
+    checks = payload["checks"]
+    if (
+        type(obligations) is not list
+        or type(checks) is not dict
+        or frozenset(checks) != frozenset(H6_PREFIX_REQUIRED_CHECKS)
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix certificate checks or obligations are not exact"
+        )
+    report_binding = _bounded_report_binding_from_payload(
+        payload["report_binding"]
+    )
+    ordered_checks = {
+        name: checks[name] for name in H6_PREFIX_REQUIRED_CHECKS
+    }
+    try:
+        certificate = BoundedPrefixCertificate.create(
+            semantic_family_sha256=payload["semantic_family_sha256"],
+            report_binding=report_binding,
+            status=EvidenceStatus(payload["status"]),
+            obligations=tuple(obligations),
+            checks=ordered_checks,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix certificate is invalid"
+        ) from exc
+    _bounded_require_canonical_match(
+        payload,
+        _bounded_certificate_payload(certificate),
+        "certificate",
+    )
+    return certificate
+
+
+def _bounded_certificate_set_payload(
+    certificate_set: BoundedPrefixCertificateSet,
+) -> dict[str, object]:
+    return {
+        "schema_version": certificate_set.schema_version,
+        "config_sha256": certificate_set.config_sha256,
+        "workload_plan_sha256": certificate_set.workload_plan_sha256,
+        "git_head": certificate_set.git_head,
+        "dirty_digest": certificate_set.dirty_digest,
+        "source_sha256": certificate_set.source_sha256,
+        "semantic_family_sha256s": (
+            certificate_set.semantic_family_sha256s
+        ),
+        "validation_payload_sha256": (
+            certificate_set.validation_payload_sha256
+        ),
+        "prefix_certificate_set_sha256": (
+            certificate_set.prefix_certificate_set_sha256
+        ),
+        "certificates": tuple(
+            _bounded_certificate_payload(certificate)
+            for certificate in certificate_set.certificates
+        ),
+    }
+
+
+def _bounded_certificate_set_from_payload(
+    value: object,
+) -> BoundedPrefixCertificateSet:
+    payload = _bounded_exact_object(
+        value,
+        _BOUNDED_CERTIFICATE_SET_FIELDS,
+        "bounded H6 Prefix certificate set",
+    )
+    semantic_family_sha256s = payload["semantic_family_sha256s"]
+    certificate_payloads = payload["certificates"]
+    if (
+        type(semantic_family_sha256s) is not list
+        or type(certificate_payloads) is not list
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix certificate-set sequences are not exact"
+        )
+    certificates = tuple(
+        _bounded_certificate_from_payload(certificate)
+        for certificate in certificate_payloads
+    )
+    try:
+        certificate_set = BoundedPrefixCertificateSet.create(
+            config_sha256=payload["config_sha256"],
+            semantic_family_sha256s=tuple(semantic_family_sha256s),
+            certificates=certificates,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix certificate set is invalid"
+        ) from exc
+    _bounded_require_canonical_match(
+        payload,
+        _bounded_certificate_set_payload(certificate_set),
+        "certificate set",
+    )
+    return certificate_set
 
 
 def _bounded_expected_job_contract(
@@ -805,7 +1315,10 @@ def _validate_bounded_prefix_reference_payloads(
     from vfe4.types.results import H6BoundedPrefixGateResult
 
     if (
-        type(resolved_config) is not H6PrefixV3ResolvedConfig
+        (
+            resolved_config is not None
+            and type(resolved_config) is not H6PrefixV3ResolvedConfig
+        )
         or type(result) is not H6BoundedPrefixGateResult
     ):
         raise ArtifactPublicationError(
@@ -862,6 +1375,48 @@ def _validate_bounded_prefix_reference_payloads(
     ):
         raise ArtifactPublicationError(
             "bounded H6 Prefix schemas or config references are incomplete"
+        )
+    try:
+        config_bindings = validate_h6_prefix_v3_resolved_payload(
+            config_payload
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix resolved-v3 config is invalid"
+        ) from exc
+    if (
+        config_bindings.config_sha256 != config_sha256
+        or config_bindings.source.git_head != certificate_set.git_head
+        or config_bindings.source.dirty_digest
+        != certificate_set.dirty_digest
+        or config_bindings.source.source_sha256
+        != certificate_set.source_sha256
+        or config_bindings.workload_plan_sha256
+        != certificate_set.workload_plan_sha256
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix config source or workload is stale"
+        )
+    if resolved_config is not None and (
+        config_bindings.config_sha256 != resolved_config.config_sha256
+        or config_bindings.source != resolved_config.source
+        or config_bindings.workload_plan_sha256
+        != resolved_config.workload_plan_sha256
+        or config_bindings.artifact_root != resolved_config.artifact_root
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix config differs from its typed projection"
+        )
+    certificate_families = tuple(
+        (
+            certificate.semantic_family_sha256,
+            certificate.report_binding.profile_pair_sha256s,
+        )
+        for certificate in certificate_set.certificates
+    )
+    if config_bindings.semantic_family_bindings != certificate_families:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix config families differ from certificates"
         )
     if any(
         _contains_bounded_external_reference(payload)
@@ -1248,12 +1803,197 @@ def _validate_bounded_prefix_reference_payloads(
         or provenance.get("source_sha256")
         != certificate_set.source_sha256
         or provenance.get("junit_sha256") != junit_sha256
+        or frozenset(environment) != _BOUNDED_ENVIRONMENT_FIELDS
         or environment.get("schema_version")
         != "h6-prefix-environment-v1"
+        or environment.get("device") != "cpu"
+        or environment.get("dtype") != "float64"
+        or type(environment.get("python_implementation")) is not str
+        or not environment.get("python_implementation")
+        or type(environment.get("python_version")) is not str
+        or not environment.get("python_version")
     ):
         raise ArtifactPublicationError(
             "bounded H6 Prefix provenance/environment differ"
         )
+
+
+def reopen_bounded_prefix_certificate_set(
+    root: Path,
+    expected_manifest_sha256: str,
+    expected_git_head: str,
+    expected_dirty_digest: str,
+    expected_junit_sha256: str,
+) -> BoundedPrefixCertificateSet:
+    """Reopen and fully revalidate one exact bounded H6 Prefix artifact."""
+
+    from vfe4.types.results import H6BoundedPrefixGateResult
+
+    if not isinstance(root, Path):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact root must be a Path"
+        )
+    try:
+        manifest_sha256 = _require_lower_hex(
+            expected_manifest_sha256,
+            64,
+            "bounded H6 Prefix manifest SHA-256",
+        )
+        git_head = _require_lower_hex(
+            expected_git_head,
+            40,
+            "bounded H6 Prefix Git HEAD",
+        )
+        dirty_digest = _require_lower_hex(
+            expected_dirty_digest,
+            64,
+            "bounded H6 Prefix dirty digest",
+        )
+        junit_sha256 = _require_lower_hex(
+            expected_junit_sha256,
+            64,
+            "bounded H6 Prefix JUnit SHA-256",
+        )
+    except ValueError as exc:
+        raise ArtifactPublicationError(str(exc)) from exc
+    if root.is_symlink():
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact root cannot be a symlink"
+        )
+    try:
+        artifact_root = root.resolve(strict=True)
+    except OSError as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact root is unavailable"
+        ) from exc
+    if not artifact_root.is_dir() or artifact_root.is_symlink():
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact root must be a real directory"
+        )
+
+    manifest_path = artifact_root / "manifest.sha256"
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact lacks a regular manifest"
+        )
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+    except OSError as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix manifest is unreadable"
+        ) from exc
+    if hashlib.sha256(manifest_bytes).hexdigest() != manifest_sha256:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix manifest differs from its expected digest"
+        )
+    entries = _manifest_entries(manifest_bytes)
+    expected_names = _EXPECTED_PAYLOADS["H6-Prefix"]
+    if tuple(name for name, _digest in entries) != expected_names:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix payload inventory differs from its exact five files"
+        )
+
+    observed_files: set[str] = set()
+    try:
+        descendants = tuple(artifact_root.rglob("*"))
+    except OSError as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact cannot be enumerated"
+        ) from exc
+    for path in descendants:
+        if path.is_symlink():
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix artifact contains a symlink"
+            )
+        if path.is_file():
+            observed_files.add(path.relative_to(artifact_root).as_posix())
+        elif not path.is_dir():
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix artifact contains a non-file entry"
+            )
+    if observed_files != {*expected_names, "manifest.sha256"}:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact has unlisted or missing files"
+        )
+
+    payloads: dict[str, object] = {}
+    manifest_hashes = dict(entries)
+    for name in expected_names:
+        path = artifact_root.joinpath(*PurePosixPath(name).parts)
+        if not path.is_file() or path.is_symlink():
+            raise ArtifactPublicationError(
+                f"bounded H6 Prefix payload is not a regular file: {name}"
+            )
+        if _file_sha256(path) != manifest_hashes[name]:
+            raise ArtifactPublicationError(
+                f"bounded H6 Prefix payload hash differs: {name}"
+            )
+        payloads[name] = _read_json_payload(path)
+
+    config_payload = _bounded_exact_object(
+        payloads["config.json"],
+        _BOUNDED_V3_CONFIG_FIELDS,
+        "bounded H6 Prefix config",
+    )
+    validation = payloads["validation/h6_prefix.json"]
+    certificate_set_payload = payloads["certificates/prefix_set.json"]
+    provenance = payloads["provenance.json"]
+    environment = payloads["environment.json"]
+    if not all(
+        type(payload) is dict
+        for payload in (
+            validation,
+            certificate_set_payload,
+            provenance,
+            environment,
+        )
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix payload roots must be exact JSON objects"
+        )
+
+    config_bytes = canonical_json_bytes(config_payload)
+    config_sha256 = hashlib.sha256(config_bytes).hexdigest()
+
+    certificate_set = _bounded_certificate_set_from_payload(
+        certificate_set_payload
+    )
+    if (
+        certificate_set.config_sha256 != config_sha256
+        or certificate_set.git_head != git_head
+        or certificate_set.dirty_digest != dirty_digest
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix certificate set differs from config/source"
+        )
+    try:
+        result = H6BoundedPrefixGateResult.from_certificate_set(
+            certificate_set
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix result cannot be reconstructed"
+        ) from exc
+    try:
+        _validate_bounded_prefix_reference_payloads(
+            resolved_config=None,
+            result=result,
+            config_payload=config_payload,
+            config_sha256=config_sha256,
+            source=certificate_set,
+            validation=validation,
+            certificate_set_payload=certificate_set_payload,
+            provenance=provenance,
+            environment=environment,
+            junit_sha256=junit_sha256,
+        )
+    except ArtifactPublicationError:
+        raise
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix artifact payload is invalid"
+        ) from exc
+    return certificate_set
 
 
 def _reference_from_published_directory(

@@ -24,6 +24,7 @@ _H6_EXPORTS = frozenset(
         "project_h6_prefix_config",
         "publish_h6_prediction_result",
         "read_h6_prediction_result",
+        "reopen_bounded_prefix_certificate_set",
         "run_projected_current_candidate",
     }
 )
@@ -66,6 +67,7 @@ __all__ = [
     "project_h6_prefix_config",
     "publish_h6_prediction_result",
     "read_h6_prediction_result",
+    "reopen_bounded_prefix_certificate_set",
     "run_projected_current_candidate",
     "build_environment",
     "build_provenance",

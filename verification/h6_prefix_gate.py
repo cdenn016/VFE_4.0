@@ -29,7 +29,10 @@ from vfe4.artifacts.provenance import (
     current_source_identity,
     source_candidate_sha256,
 )
-from vfe4.config import resolve_h6_prefix_config
+from vfe4.config import (
+    resolve_h6_prefix_config,
+    validate_h6_prefix_v3_resolved_payload,
+)
 from vfe4.config.schema import (
     H6_PREFIX_V2_AUTHORIZATION_SHA256,
     H6PrefixResolvedConfig,
@@ -1524,6 +1527,9 @@ def h6_bounded_prefix_artifact_payloads(
         environment_payload,
         "environment_payload",
     )
+    resolved_bindings = validate_h6_prefix_v3_resolved_payload(
+        resolved_config
+    )
     if (
         frozenset(resolved_config) != _RESOLVED_PREFIX_CONFIG_V3_FIELDS
         or resolved_config.get("schema_version") != "h6-prefix-config-v3"
@@ -1532,6 +1538,11 @@ def h6_bounded_prefix_artifact_payloads(
         != config.canonical_json.encode("ascii")
         or hashlib.sha256(canonical_json_bytes(resolved_config)).hexdigest()
         != config.config_sha256
+        or resolved_bindings.config_sha256 != config.config_sha256
+        or resolved_bindings.source != config.source
+        or resolved_bindings.workload_plan_sha256
+        != config.workload_plan_sha256
+        or resolved_bindings.artifact_root != config.artifact_root
     ):
         raise ValueError("bounded payload config differs from exact v3 config")
     if (
@@ -1571,6 +1582,12 @@ def h6_bounded_prefix_artifact_payloads(
         )
         or environment.get("schema_version")
         != "h6-prefix-environment-v1"
+        or environment.get("device") != "cpu"
+        or environment.get("dtype") != "float64"
+        or type(environment.get("python_implementation")) is not str
+        or not environment.get("python_implementation")
+        or type(environment.get("python_version")) is not str
+        or not environment.get("python_version")
     ):
         raise ValueError("bounded environment payload is not exact")
     for name, payload in (

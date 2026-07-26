@@ -17,6 +17,7 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Literal, cast
 
+from vfe4.artifacts.h6 import reopen_bounded_prefix_certificate_set
 from vfe4.artifacts.provenance import source_candidate_sha256
 from vfe4.types.h6 import (
     H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256,
@@ -870,6 +871,14 @@ def _validate_predecessor_files(
             dirty_digest=reference.dirty_digest,
             junit_sha256=reference.junit_sha256,
         )
+    elif key == "h6_prefix":
+        reopen_bounded_prefix_certificate_set(
+            root,
+            reference.manifest_sha256,
+            reference.git_head,
+            reference.dirty_digest,
+            reference.junit_sha256,
+        )
 
     expected_source_sha256 = source_candidate_sha256(
         git_head_value=reference.git_head,
@@ -883,7 +892,7 @@ def _validate_predecessor_files(
     expected_schema: object = {
         "h1_h5": 1,
         "h1_prefix_prior": "h1-prefix-prior-validation-v3",
-        "h6_prefix": "h6-prefix-validation-set-v1",
+        "h6_prefix": "h6-prefix-validation-set-v2",
     }[key]
     validation_values = tuple(
         value
@@ -899,15 +908,18 @@ def _validate_predecessor_files(
         raise ValueError(
             "artifact lacks its required producer schema and PASS validation"
         )
-    for field, expected in (
-        ("git_head", reference.git_head),
-        ("dirty_digest", reference.dirty_digest),
-        ("source_sha256", expected_source_sha256),
-        ("junit_sha256", reference.junit_sha256),
-    ):
-        values = _field_values(payloads, field)
-        if not values or any(value != expected for value in values):
-            raise ValueError(f"artifact {field} differs from the H7 candidate")
+    if key != "h6_prefix":
+        for field, expected in (
+            ("git_head", reference.git_head),
+            ("dirty_digest", reference.dirty_digest),
+            ("source_sha256", expected_source_sha256),
+            ("junit_sha256", reference.junit_sha256),
+        ):
+            values = _field_values(payloads, field)
+            if not values or any(value != expected for value in values):
+                raise ValueError(
+                    f"artifact {field} differs from the H7 candidate"
+                )
     serialized_payloads = canonical_h7_bytes(payloads)
     if b"H7" in serialized_payloads or b"H6-Prediction" in serialized_payloads:
         raise ValueError("predecessor artifact was produced after or beyond H7 scope")

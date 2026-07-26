@@ -12,8 +12,11 @@ from types import SimpleNamespace
 
 import pytest
 
-import vfe4.types.h7 as h7_types
+import test_h6_prefix_gate as h6_test_support
+import verification.h6_prefix_gate as h6_prefix_gate
 import verification.h7_gate as h7_gate_module
+import vfe4.artifacts.h6 as h6_artifacts
+import vfe4.types.h7 as h7_types
 from verification.h7_gate import (
     H7_ACTIVE_SCORER_PROFILE,
     H7_CAPTURED_FIXTURE_PATHS,
@@ -29,8 +32,14 @@ from verification.h7_gate import (
     validate_h7_predecessor_registry,
 )
 from verification.run_gates import _combined_provenance, run_verification
-from vfe4.artifacts import publish_run_directory, source_candidate_sha256
+from vfe4.artifacts import (
+    ArtifactPublicationError,
+    publish_run_directory,
+    source_candidate_sha256,
+)
+from vfe4.config.schema import H6PrefixV3ResolvedConfig
 from vfe4.types import H7GateResult as PublicH7GateResult
+from vfe4.types.h6 import BoundedPrefixCertificateSet
 from vfe4.types.h7 import (
     H7_CONTROL_IDS,
     H7_REQUIRED_TRIAL_IDS,
@@ -356,6 +365,433 @@ def test_candidate_junit_flows_through_real_minimal_h1_h5_artifact(
         validator_api=validator_api,
         live_artifact_revision=revision,
     )
+
+
+def test_h7_reopens_only_exact_h6_v3_bounded_prefix_set(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = h6_test_support._bounded_v3_resolved_config(tmp_path)
+    events: list[str] = []
+    executor = h6_test_support._V3FakeExecutor(
+        events=events,
+        loader=lambda expected: h6_test_support._v3_full_perturbations(
+            config,
+            expected,
+        ),
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "_LiveH6PrefixV3RunnerExecutor",
+        lambda _observed: executor,
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "current_source_identity",
+        lambda repo_root, artifact_root: (
+            config.source.git_head,
+            config.source.dirty_digest,
+            config.source.source_sha256,
+        ),
+    )
+    junit_bytes = b'<testsuite tests="1" failures="0" errors="0"/>\n'
+    junit_sha256 = hashlib.sha256(junit_bytes).hexdigest()
+    junit_path = tmp_path / ".verification" / "candidate-junit.xml"
+    junit_path.parent.mkdir(parents=True, exist_ok=True)
+    junit_path.write_bytes(junit_bytes)
+
+    result, artifact = h6_prefix_gate.run_h6_prefix(
+        config=config,
+        junit_sha256=junit_sha256,
+    )
+    manifest_bytes = (artifact / "manifest.sha256").read_bytes()
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    payload_hashes = {
+        line.split("  ", 1)[1]: line.split("  ", 1)[0]
+        for line in manifest_bytes.decode("ascii").splitlines()
+    }
+    reopened = h6_artifacts.reopen_bounded_prefix_certificate_set(
+        artifact,
+        manifest_sha256,
+        config.source.git_head,
+        config.source.dirty_digest,
+        junit_sha256,
+    )
+    assert type(reopened) is BoundedPrefixCertificateSet
+    assert reopened.prefix_certificate_set_sha256 == (
+        result.prefix_certificate_set_sha256
+    )
+
+    revision = (
+        f"git:{config.source.git_head}:sha256:"
+        f"{config.source.dirty_digest}"
+    )
+    claim_contract = h7_predecessor_closure_claim_contract(
+        "h6_prefix",
+        repo_root=tmp_path,
+        artifact_path=str(artifact),
+        git_head=config.source.git_head,
+        dirty_digest=config.source.dirty_digest,
+        junit_path=str(junit_path),
+        junit_sha256=junit_sha256,
+        manifest_sha256=manifest_sha256,
+        payload_hashes=payload_hashes,
+    )
+    ledger_path = tmp_path / ".verification" / "h6-prefix-ledger.json"
+    ledger_bytes = _json_bytes(
+        {
+            "schema_version": "1.0",
+            "mode": "closure",
+            "artifact_revision": revision,
+            "claims": [
+                {
+                    "id": claim_contract["id"],
+                    "domain": claim_contract["domain"],
+                    "statement": claim_contract["statement"],
+                    "artifact_revision": revision,
+                    "state": "EVIDENCE_VERIFIED",
+                    "open_obligations": [],
+                    "evidence_invalidated": False,
+                    "evidence": [
+                        {
+                            **dict(record),
+                            "artifact_revision": revision,
+                        }
+                        for record in claim_contract["evidence"]
+                    ],
+                }
+            ],
+        }
+    )
+    ledger_path.write_bytes(ledger_bytes)
+    reference = H7PredecessorReference.create(
+        artifact_path=str(artifact),
+        git_head=config.source.git_head,
+        dirty_digest=config.source.dirty_digest,
+        junit_sha256=junit_sha256,
+        junit_path=str(junit_path),
+        manifest_sha256=manifest_sha256,
+        payload_hashes=payload_hashes,
+        ledger_path=str(ledger_path),
+        ledger_sha256=hashlib.sha256(ledger_bytes).hexdigest(),
+    )
+    _validate_predecessor_files(
+        "h6_prefix",
+        reference,
+        repo_root=tmp_path,
+        validator_api=SimpleNamespace(validate_ledger=lambda _ledger: []),
+        live_artifact_revision=revision,
+    )
+
+    validation_path = artifact / "validation" / "h6_prefix.json"
+    validation = json.loads(validation_path.read_bytes())
+    validation["schema_version"] = "h6-prefix-validation-set-v1"
+    validation_path.write_bytes(_json_bytes(validation))
+    tampered_manifest_bytes = b"".join(
+        (
+            f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {relative}\n"
+        ).encode("ascii")
+        for relative in sorted(payload_hashes)
+        for path in (artifact.joinpath(*relative.split("/")),)
+    )
+    (artifact / "manifest.sha256").write_bytes(tampered_manifest_bytes)
+    with pytest.raises(
+        ArtifactPublicationError,
+        match="bounded H6 Prefix",
+    ):
+        h6_artifacts.reopen_bounded_prefix_certificate_set(
+            artifact,
+            hashlib.sha256(tampered_manifest_bytes).hexdigest(),
+            config.source.git_head,
+            config.source.dirty_digest,
+            junit_sha256,
+        )
+
+
+_H6_V3_ARTIFACT_PAYLOADS = (
+    "certificates/prefix_set.json",
+    "config.json",
+    "environment.json",
+    "provenance.json",
+    "validation/h6_prefix.json",
+)
+
+
+def _rewrite_h6_v3_manifest(
+    artifact: Path,
+) -> tuple[str, dict[str, str]]:
+    payload_hashes = {
+        relative: hashlib.sha256(
+            artifact.joinpath(*relative.split("/")).read_bytes()
+        ).hexdigest()
+        for relative in _H6_V3_ARTIFACT_PAYLOADS
+    }
+    manifest_bytes = b"".join(
+        f"{payload_hashes[relative]}  {relative}\n".encode("ascii")
+        for relative in sorted(payload_hashes)
+    )
+    (artifact / "manifest.sha256").write_bytes(manifest_bytes)
+    return hashlib.sha256(manifest_bytes).hexdigest(), payload_hashes
+
+
+def _rebind_h6_v3_config_and_certificate_set(
+    artifact: Path,
+    *,
+    config_payload: dict[str, object],
+    original_set: BoundedPrefixCertificateSet,
+) -> None:
+    config_bytes = _json_bytes(config_payload)
+    (artifact / "config.json").write_bytes(config_bytes)
+    config_sha256 = hashlib.sha256(config_bytes).hexdigest()
+    rebound = BoundedPrefixCertificateSet.create(
+        config_sha256=config_sha256,
+        semantic_family_sha256s=original_set.semantic_family_sha256s,
+        certificates=original_set.certificates,
+    )
+
+    set_path = artifact / "certificates" / "prefix_set.json"
+    set_payload = json.loads(set_path.read_bytes())
+    assert type(set_payload) is dict
+    set_payload["config_sha256"] = rebound.config_sha256
+    set_payload["validation_payload_sha256"] = (
+        rebound.validation_payload_sha256
+    )
+    set_payload["prefix_certificate_set_sha256"] = (
+        rebound.prefix_certificate_set_sha256
+    )
+    set_path.write_bytes(_json_bytes(set_payload))
+
+    validation_path = artifact / "validation" / "h6_prefix.json"
+    validation = json.loads(validation_path.read_bytes())
+    assert type(validation) is dict
+    validation["config_sha256"] = rebound.config_sha256
+    validation["validation_payload_sha256"] = (
+        rebound.validation_payload_sha256
+    )
+    validation["prefix_certificate_set_sha256"] = (
+        rebound.prefix_certificate_set_sha256
+    )
+    validation_path.write_bytes(_json_bytes(validation))
+
+
+def _publish_h6_v3_artifact_for_h7_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[
+    H6PrefixV3ResolvedConfig,
+    Path,
+    BoundedPrefixCertificateSet,
+    str,
+    Path,
+]:
+    config = h6_test_support._bounded_v3_resolved_config(tmp_path)
+    events: list[str] = []
+    executor = h6_test_support._V3FakeExecutor(
+        events=events,
+        loader=lambda expected: h6_test_support._v3_full_perturbations(
+            config,
+            expected,
+        ),
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "_LiveH6PrefixV3RunnerExecutor",
+        lambda _observed: executor,
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "current_source_identity",
+        lambda _repo_root, _artifact_root: (
+            config.source.git_head,
+            config.source.dirty_digest,
+            config.source.source_sha256,
+        ),
+    )
+    junit_bytes = b'<testsuite tests="1" failures="0" errors="0"/>\n'
+    junit_sha256 = hashlib.sha256(junit_bytes).hexdigest()
+    junit_path = tmp_path / ".verification" / "candidate-junit.xml"
+    junit_path.parent.mkdir(parents=True, exist_ok=True)
+    junit_path.write_bytes(junit_bytes)
+    _result, artifact = h6_prefix_gate.run_h6_prefix(
+        config=config,
+        junit_sha256=junit_sha256,
+    )
+    manifest_sha256, _payload_hashes = _rewrite_h6_v3_manifest(artifact)
+    certificate_set = h6_artifacts.reopen_bounded_prefix_certificate_set(
+        artifact,
+        manifest_sha256,
+        config.source.git_head,
+        config.source.dirty_digest,
+        junit_sha256,
+    )
+    return config, artifact, certificate_set, junit_sha256, junit_path
+
+
+def _h7_reference_for_rehashed_h6_v3(
+    *,
+    repo_root: Path,
+    artifact: Path,
+    config: H6PrefixV3ResolvedConfig,
+    junit_sha256: str,
+    junit_path: Path,
+) -> tuple[H7PredecessorReference, str]:
+    manifest_sha256, payload_hashes = _rewrite_h6_v3_manifest(artifact)
+    revision = (
+        f"git:{config.source.git_head}:sha256:"
+        f"{config.source.dirty_digest}"
+    )
+    claim_contract = h7_predecessor_closure_claim_contract(
+        "h6_prefix",
+        repo_root=repo_root,
+        artifact_path=str(artifact),
+        git_head=config.source.git_head,
+        dirty_digest=config.source.dirty_digest,
+        junit_path=str(junit_path),
+        junit_sha256=junit_sha256,
+        manifest_sha256=manifest_sha256,
+        payload_hashes=payload_hashes,
+    )
+    ledger_path = repo_root / ".verification" / "mutated-h6-prefix-ledger.json"
+    ledger_bytes = _json_bytes(
+        {
+            "schema_version": "1.0",
+            "mode": "closure",
+            "artifact_revision": revision,
+            "claims": [
+                {
+                    "id": claim_contract["id"],
+                    "domain": claim_contract["domain"],
+                    "statement": claim_contract["statement"],
+                    "artifact_revision": revision,
+                    "state": "EVIDENCE_VERIFIED",
+                    "open_obligations": [],
+                    "evidence_invalidated": False,
+                    "evidence": [
+                        {
+                            **dict(record),
+                            "artifact_revision": revision,
+                        }
+                        for record in claim_contract["evidence"]
+                    ],
+                }
+            ],
+        }
+    )
+    ledger_path.write_bytes(ledger_bytes)
+    return (
+        H7PredecessorReference.create(
+            artifact_path=str(artifact),
+            git_head=config.source.git_head,
+            dirty_digest=config.source.dirty_digest,
+            junit_sha256=junit_sha256,
+            junit_path=str(junit_path),
+            manifest_sha256=manifest_sha256,
+            payload_hashes=payload_hashes,
+            ledger_path=str(ledger_path),
+            ledger_sha256=hashlib.sha256(ledger_bytes).hexdigest(),
+        ),
+        revision,
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "perturbation_data_identity_cross_equality",
+        "stale_profile_pair_after_profile_id_tamper",
+        "extra_environment_git_head",
+    ),
+)
+def test_h7_rejects_fully_rehashed_h6_v3_semantic_drift(
+    mutation: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        config,
+        artifact,
+        original_set,
+        junit_sha256,
+        junit_path,
+    ) = _publish_h6_v3_artifact_for_h7_mutation(
+        tmp_path,
+        monkeypatch,
+    )
+
+    if mutation == "perturbation_data_identity_cross_equality":
+        config_path = artifact / "config.json"
+        config_payload = json.loads(config_path.read_bytes())
+        assert type(config_payload) is dict
+        perturbation = config_payload[
+            "validation_perturbation_reference"
+        ]
+        fixture = config_payload["validation_fixture_reference"]
+        assert type(perturbation) is dict
+        assert type(fixture) is dict
+        replacement = "f" * 64
+        assert fixture["data_identity_sha256"] != replacement
+        perturbation["data_identity_sha256"] = replacement
+        identity_payload = {
+            key: value
+            for key, value in perturbation.items()
+            if key not in {"local_artifact_path", "reference_sha256"}
+        }
+        perturbation["reference_sha256"] = hashlib.sha256(
+            b"vfe4.h6.validation-perturbation-artifact-reference.v1\x00"
+            + _json_bytes(identity_payload)
+        ).hexdigest()
+        _rebind_h6_v3_config_and_certificate_set(
+            artifact,
+            config_payload=config_payload,
+            original_set=original_set,
+        )
+    elif mutation == "stale_profile_pair_after_profile_id_tamper":
+        config_path = artifact / "config.json"
+        config_payload = json.loads(config_path.read_bytes())
+        assert type(config_payload) is dict
+        profiles = config_payload["profiles"]
+        assert type(profiles) is list and profiles
+        first_profile = profiles[0]
+        assert type(first_profile) is dict
+        profile_id = first_profile["profile_id"]
+        assert type(profile_id) is str
+        first_profile["profile_id"] = f"{profile_id}-tampered"
+        _rebind_h6_v3_config_and_certificate_set(
+            artifact,
+            config_payload=config_payload,
+            original_set=original_set,
+        )
+    elif mutation == "extra_environment_git_head":
+        environment_path = artifact / "environment.json"
+        environment = json.loads(environment_path.read_bytes())
+        assert type(environment) is dict
+        contradictory_git_head = "f" * 40
+        assert config.source.git_head != contradictory_git_head
+        environment["git_head"] = contradictory_git_head
+        environment_path.write_bytes(_json_bytes(environment))
+    else:  # pragma: no cover - the parameter inventory is closed above
+        raise AssertionError(f"unsupported mutation: {mutation}")
+
+    reference, revision = _h7_reference_for_rehashed_h6_v3(
+        repo_root=tmp_path,
+        artifact=artifact,
+        config=config,
+        junit_sha256=junit_sha256,
+        junit_path=junit_path,
+    )
+    with pytest.raises(
+        ArtifactPublicationError,
+        match="bounded H6 Prefix",
+    ):
+        _validate_predecessor_files(
+            "h6_prefix",
+            reference,
+            repo_root=tmp_path,
+            validator_api=SimpleNamespace(
+                validate_ledger=lambda _ledger: []
+            ),
+            live_artifact_revision=revision,
+        )
 
 
 def test_h7_assembly_reuses_each_captured_fixture_without_reopening(

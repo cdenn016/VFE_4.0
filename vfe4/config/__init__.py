@@ -1,6 +1,7 @@
 """Strict configuration types and resolution for VFE 4.0."""
 
 from .resolve import (
+    H6PrefixV3ResolvedPayloadBindings,
     bind_h8_current_refs,
     project_h7_compatibility_config,
     resolve_config,
@@ -14,6 +15,7 @@ from .resolve import (
     resolve_h6_prefix_config,
     resolve_h7_validation_config,
     resolve_h8_validation_config,
+    validate_h6_prefix_v3_resolved_payload,
 )
 from .schema import (
     ArtifactConfig,
@@ -73,6 +75,7 @@ __all__ = [
     "H6PredictionV2ResolvedConfig",
     "H6PrefixResolvedConfig",
     "H6PrefixV3ResolvedConfig",
+    "H6PrefixV3ResolvedPayloadBindings",
     "H6SourceIdentity",
     "H7ValidationConfig",
     "H8ValidationConfig",
@@ -96,4 +99,5 @@ __all__ = [
     "resolve_h6_prefix_config",
     "resolve_h7_validation_config",
     "resolve_h8_validation_config",
+    "validate_h6_prefix_v3_resolved_payload",
 ]
