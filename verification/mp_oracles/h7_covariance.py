@@ -1911,6 +1911,7 @@ def _validate_scalar_probe_table(
         probes,
         {
             "probe_table_schema",
+            "fixture_id",
             "raw_fixture_sha256",
             "ordered_source_path_ids",
             "scalar_trial_action_sha256",
@@ -1933,6 +1934,7 @@ def _validate_scalar_probe_table(
     path_ids = tuple(path.path_id for path in paths)
     if (
         root["probe_table_schema"] != "h7-scalar-density-probe-table-v1"
+        or root["fixture_id"] != "h1-v1"
         or root["raw_fixture_sha256"] != _H1_RAW_SHA256
         or tuple(declared_path_ids) != _H1_PATH_IDS
         or path_ids != _H1_PATH_IDS
@@ -2069,6 +2071,7 @@ def _validate_scalar_probe_table(
             "scalar probe hashes are missing, duplicated, or reordered"
         )
     scalar_set_semantic = {
+        "fixture_id": root["fixture_id"],
         "raw_fixture_sha256": _H1_RAW_SHA256,
         "ordered_source_path_ids": path_ids,
         "scalar_trial_action_sha256": action_hashes,
@@ -2187,6 +2190,7 @@ def build_h7_scalar_probe_table_bytes(h1_fixture_bytes: bytes) -> bytes:
                 row_index += 1
         table = {
             "probe_table_schema": "h7-scalar-density-probe-table-v1",
+            "fixture_id": "h1-v1",
             "raw_fixture_sha256": _H1_RAW_SHA256,
             "ordered_source_path_ids": list(_H1_PATH_IDS),
             "scalar_trial_action_sha256": list(action_hashes),
@@ -2194,6 +2198,7 @@ def build_h7_scalar_probe_table_bytes(h1_fixture_bytes: bytes) -> bytes:
             "probe_set_sha256": _h7_hash(
                 "vfe4.h7.scalar-probe-set.v1",
                 {
+                    "fixture_id": "h1-v1",
                     "raw_fixture_sha256": _H1_RAW_SHA256,
                     "ordered_source_path_ids": _H1_PATH_IDS,
                     "scalar_trial_action_sha256": action_hashes,

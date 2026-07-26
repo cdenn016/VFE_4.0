@@ -95,6 +95,7 @@ def test_h7_scalar_probe_builder_is_exact_and_self_validating() -> None:
     )
     assert tuple(table) == (
         "anchor_provenance",
+        "fixture_id",
         "ordered_source_path_ids",
         "probe_set_sha256",
         "probe_table_schema",
@@ -103,6 +104,7 @@ def test_h7_scalar_probe_builder_is_exact_and_self_validating() -> None:
         "scalar_trial_action_sha256",
     )
     assert table["probe_table_schema"] == "h7-scalar-density-probe-table-v1"
+    assert table["fixture_id"] == "h1-v1"
     assert table["raw_fixture_sha256"] == hashlib.sha256(h1_bytes).hexdigest()
     assert table["ordered_source_path_ids"] == [
         "h1-path-0:a0-b0",
@@ -122,6 +124,14 @@ def test_h7_scalar_probe_builder_is_exact_and_self_validating() -> None:
         "scalar-internal-transformed:h1.p.global.source_path:h1-path-2:a0-b1",
         "scalar-internal-transformed:h1.p.global.source_path:h1-path-3:a1-b1",
     ]
+    wrong_identity = dict(table)
+    wrong_identity["fixture_id"] = "h7-v1"
+    with pytest.raises(ValueError, match="identity/path order"):
+        h7_oracle._validate_scalar_probe_table(
+            wrong_identity,
+            h7_oracle._parse_raw_json(h1_bytes),
+            h7_oracle._h1_source_paths(h7_oracle._parse_raw_json(h1_bytes)),
+        )
     with pytest.raises(ValueError, match="raw H1 fixture identity"):
         build_h7_scalar_probe_table_bytes(h1_bytes + b"\n")
 

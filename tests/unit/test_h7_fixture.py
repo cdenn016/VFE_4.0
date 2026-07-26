@@ -163,6 +163,7 @@ def test_frozen_h7_scalar_probe_table_matches_independent_builder() -> None:
 
     assert table_bytes == build_h7_scalar_probe_table_bytes(h1_bytes)
     assert hashlib.sha256(table_bytes).hexdigest() == H7_SCALAR_PROBE_TABLE_RAW_SHA256
+    assert table["fixture_id"] == "h1-v1"
     assert table["probe_set_sha256"] == H7_SCALAR_PROBE_SET_SHA256
     assert tuple(record["row_index"] for record in table["records"]) == tuple(
         str(index) for index in range(8)
