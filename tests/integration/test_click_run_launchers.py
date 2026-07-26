@@ -109,6 +109,7 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
             module.main(config)
 
         dispatched: list[tuple[str, object]] = []
+        preflight_targets: list[object] = []
         marker = object()
         if filename == "verify_vfe4.py":
             monkeypatch.setattr(
@@ -130,6 +131,15 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
                 "_run_h6_smc_accuracy",
                 lambda raw: (
                     dispatched.append(("h6_smc_accuracy", raw)) or marker
+                ),
+            )
+            monkeypatch.setattr(
+                module,
+                "_run_h8_preflight",
+                lambda raw, *, target_scientific: (
+                    preflight_targets.append(target_scientific)
+                    or dispatched.append(("h8_preflight", raw))
+                    or marker
                 ),
             )
             authorizations = module._VERIFY_AUTHORIZATIONS
@@ -164,3 +174,7 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
                 assert result.operation == operation
                 assert result._payload is marker
         assert tuple(name for name, _ in dispatched) == tuple(operations)
+        if filename == "verify_vfe4.py":
+            assert preflight_targets == [
+                module.CONFIG["operations"]["h8"]["config"]
+            ]

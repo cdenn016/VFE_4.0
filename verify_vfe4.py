@@ -368,6 +368,17 @@ CONFIG["operations"]["h7"] = {  # type: ignore[index]
     "authorization": None,
     "config": _h7_scientific_config,
 }
+CONFIG["operations"]["h8_preflight"] = {  # type: ignore[index]
+    "enabled": False,
+    "authorization": None,
+    "config": {
+        "schema_version": "h8-preflight-config-v1",
+        "operation": "H8-Preflight",
+        "target_operation": "h8",
+        "inspection_policy": "metadata_only",
+        "write_artifact": False,
+    },
+}
 _h8_scientific_config = copy.deepcopy(_h7_scientific_config)
 _h8_scientific_config["validation"]["gates"].append("H8")  # type: ignore[index]
 _h8_scientific_config["h8"] = json.loads(
@@ -390,6 +401,7 @@ _VERIFY_AUTHORIZATIONS = {
     "h6_prefix": "AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1",
     "h6_smc_accuracy": "AUTHORIZE_VFE4_H6_SMC_ACCURACY_FULL_GRID_V1",
     "h7": "AUTHORIZE_VFE4_H7_FRAME_COVARIANCE_V1",
+    "h8_preflight": "AUTHORIZE_VFE4_H8_ZERO_COMPUTE_PREFLIGHT_V1",
     "h8": "AUTHORIZE_VFE4_H8_SPARSE_SCALE_SOURCE_ONLY_V2",
 }
 _VERIFY_OPERATION_NAMES = tuple(_VERIFY_AUTHORIZATIONS)
@@ -697,6 +709,30 @@ def _run_h6_smc_accuracy(scientific: Mapping[str, object]) -> object:
     return report, root
 
 
+def _run_h8_preflight(
+    request: Mapping[str, object],
+    *,
+    target_scientific: Mapping[str, object],
+) -> object:
+    from verification.h8_preflight import (
+        capture_current_candidate,
+        inspect_h8_preflight,
+    )
+
+    candidate = capture_current_candidate(
+        repository_root=_REPO_ROOT,
+        target_scientific_config=target_scientific,
+    )
+    result = inspect_h8_preflight(
+        repository_root=_REPO_ROOT,
+        target_scientific_config=target_scientific,
+        request=request,
+        candidate=candidate,
+    )
+    print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
+    return result
+
+
 def main(config: Mapping[str, object] = CONFIG) -> object | None:
     selected = _selected_operation(_mapping(config, "CONFIG"))
     if selected is None:
@@ -709,6 +745,19 @@ def main(config: Mapping[str, object] = CONFIG) -> object | None:
         )
     if operation == "h6_smc_accuracy":
         return _run_h6_smc_accuracy(scientific)
+    if operation == "h8_preflight":
+        operations = _mapping(
+            _mapping(config, "CONFIG")["operations"],
+            "operations",
+        )
+        h8_entry = _mapping(operations["h8"], "operations.h8")
+        return _run_h8_preflight(
+            scientific,
+            target_scientific=_mapping(
+                h8_entry["config"],
+                "operations.h8.config",
+            ),
+        )
     return _run_projected(operation, scientific)
 
 

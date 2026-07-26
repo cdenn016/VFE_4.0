@@ -999,7 +999,12 @@ class H7TrialSpec(_H7IntegrityRecord):
             raise ValueError("trial/action dimension family is inconsistent")
         expected_kind: H7ActionKind = (
             "diagonal_base"
-            if action_profile in ("scalar_base", "matrix_diagonal")
+            if action_profile
+            in (
+                "scalar_base",
+                "matrix_diagonal",
+                "matrix_fixed_decoder_stabilizer",
+            )
             else "internal_product"
         )
         if self.action.kind != expected_kind:

@@ -489,7 +489,11 @@ def test_h7_launcher_projection_is_pure_and_h6_interfaces_remain_frozen() -> Non
     ]
     assert "h7" not in projected and "h8" not in projected
     assert verify_vfe4.CONFIG == before
-    assert "h8" not in verify_vfe4.CONFIG["operations"]
+    assert tuple(
+        name
+        for name in verify_vfe4.CONFIG["operations"]
+        if name.startswith("h8")
+    ) == ("h8_preflight", "h8")
     assert tuple(inspect.signature(project_h6_prefix_config).parameters) == (
         "raw_config",
     )

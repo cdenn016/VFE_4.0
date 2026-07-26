@@ -260,9 +260,11 @@ def test_launcher_import_is_safe_and_has_no_cli_framework(monkeypatch: pytest.Mo
     assert tuple(module.CONFIG["operations"]) == (
         "h1_h5",
         "h1_prefix_prior",
+        "h1_prefix_prior_v2",
         "h6_prefix",
         "h6_smc_accuracy",
         "h7",
+        "h8_preflight",
         "h8",
     )
     h7_config = module.CONFIG["operations"]["h7"]["config"]
@@ -1365,3 +1367,61 @@ def test_h8_click_run_captures_once_and_publishes_only_source_record(
     ]
     assert manifest_names == sorted(name for name in files if name != "manifest.sha256")
     assert sorted(path.name for path in refs_root.iterdir()) == [registry_path.name]
+
+
+def test_h8_preflight_click_run_is_advisory_and_writes_nothing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import verification.h8_preflight as preflight_api
+
+    module = _load_launcher()
+    launcher = copy.deepcopy(module.CONFIG)
+    entry = launcher["operations"]["h8_preflight"]
+    entry["enabled"] = True
+    entry["authorization"] = module._VERIFY_AUTHORIZATIONS["h8_preflight"]
+    candidate = {
+        "git_head": "1" * 40,
+        "dirty_digest": "2" * 64,
+        "source_sha256": "3" * 64,
+    }
+
+    def forbidden(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("H8 preflight launched scientific work")
+
+    monkeypatch.setattr(module, "_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        preflight_api,
+        "capture_current_candidate",
+        lambda **_kwargs: candidate,
+    )
+    monkeypatch.setattr(module, "_run_h1_h5", forbidden)
+    monkeypatch.setattr(module, "_run_projected", forbidden)
+    monkeypatch.setattr(module, "_run_h6_smc_accuracy", forbidden)
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    before = tuple(sorted(path.as_posix() for path in tmp_path.rglob("*")))
+
+    result = module.main(launcher)
+
+    after = tuple(sorted(path.as_posix() for path in tmp_path.rglob("*")))
+    assert after == before
+    assert result.operation == "H8-Preflight"
+    assert result.disposition == "blocked"
+    assert result.scientific_status == "not_evaluated"
+    assert result.execution_policy["scientific_children_launched"] == 0
+    assert result.execution_policy["artifact_writes"] == 0
+    output = capsys.readouterr().out
+    assert json.loads(output) == result.as_dict()
+    assert result.execution_policy == {
+        "inspection_policy": "metadata_only",
+        "tests_launched": 0,
+        "training_runs_launched": 0,
+        "scientific_evaluations_launched": 0,
+        "profiler_runs_launched": 0,
+        "scientific_children_launched": 0,
+        "artifact_writes": 0,
+        "result_delivery": "stdout_and_return_value_only",
+        "scientific_status_authority": "none",
+    }

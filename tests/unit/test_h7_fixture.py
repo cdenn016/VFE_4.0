@@ -120,7 +120,10 @@ def test_h7_raw_fixture_parses_to_the_frozen_matrix_contract() -> None:
     )
     torch.testing.assert_close(
         torch.stack(tuple(row.raw_scores.value()[0] for row in scorer_rows)),
-        torch.tensor([0.367, -0.0845, -0.094, 0.2315]),
+        torch.tensor(
+            [0.367, -0.0845, -0.094, 0.2315],
+            dtype=torch.float64,
+        ),
         rtol=0.0,
         atol=1.0e-15,
     )
