@@ -509,6 +509,152 @@ class H6PrefixGateResult:
         return instance
 
 
+@dataclass(frozen=True, slots=True, init=False)
+class H6BoundedPrefixGateResult:
+    """Exact result derived from one ordered bounded Prefix certificate set."""
+
+    gate: Literal["H6-Prefix"]
+    status: GateStatus
+    config_sha256: str
+    workload_plan_sha256: str
+    validation_payload_sha256: str
+    prefix_certificate_set_sha256: str
+    obligations: tuple[str, ...]
+    _certificate_set: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if type(self) is not H6BoundedPrefixGateResult:
+            raise TypeError(
+                "record requires the exact H6BoundedPrefixGateResult type"
+            )
+        if self.gate != "H6-Prefix":
+            raise ValueError("bounded Prefix gate must be H6-Prefix")
+        if type(self.status) is not GateStatus:
+            raise ValueError("bounded Prefix status must be exact")
+        for name in (
+            "config_sha256",
+            "workload_plan_sha256",
+            "validation_payload_sha256",
+            "prefix_certificate_set_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        _require_obligations(self.obligations)
+        from .h6 import (
+            BoundedPrefixCertificateSet,
+            EvidenceStatus,
+        )
+
+        if type(self._certificate_set) is not BoundedPrefixCertificateSet:
+            raise ValueError(
+                "bounded Prefix result requires its exact certificate set"
+            )
+        certificate_set = self._certificate_set
+        certificate_set.__post_init__()
+        certificates = certificate_set.certificates
+        if any(
+            certificate.status is EvidenceStatus.FAIL
+            for certificate in certificates
+        ):
+            expected_status = GateStatus.FAIL
+            expected_obligations: tuple[str, ...] = ()
+        elif any(
+            certificate.status is EvidenceStatus.INCONCLUSIVE
+            for certificate in certificates
+        ):
+            expected_status = GateStatus.INCONCLUSIVE
+            expected_obligations = tuple(
+                sorted(
+                    {
+                        obligation
+                        for certificate in certificates
+                        for obligation in certificate.obligations
+                    }
+                )
+            )
+        else:
+            expected_status = GateStatus.PASS
+            expected_obligations = ()
+        if (
+            self.status is not expected_status
+            or self.obligations != expected_obligations
+            or self.config_sha256 != certificate_set.config_sha256
+            or self.workload_plan_sha256
+            != certificate_set.workload_plan_sha256
+            or self.validation_payload_sha256
+            != certificate_set.validation_payload_sha256
+            or self.prefix_certificate_set_sha256
+            != certificate_set.prefix_certificate_set_sha256
+        ):
+            raise ValueError(
+                "bounded Prefix result does not match its certificate set"
+            )
+
+    @classmethod
+    def from_certificate_set(
+        cls,
+        certificate_set: object,
+    ) -> "H6BoundedPrefixGateResult":
+        from .h6 import (
+            BoundedPrefixCertificateSet,
+            EvidenceStatus,
+        )
+
+        if cls is not H6BoundedPrefixGateResult:
+            raise TypeError(
+                "factory requires the exact H6BoundedPrefixGateResult type"
+            )
+        if type(certificate_set) is not BoundedPrefixCertificateSet:
+            raise ValueError(
+                "factory requires an exact bounded Prefix certificate set"
+            )
+        certificate_set.__post_init__()
+        certificates = certificate_set.certificates
+        if any(
+            certificate.status is EvidenceStatus.FAIL
+            for certificate in certificates
+        ):
+            status = GateStatus.FAIL
+            obligations: tuple[str, ...] = ()
+        elif any(
+            certificate.status is EvidenceStatus.INCONCLUSIVE
+            for certificate in certificates
+        ):
+            status = GateStatus.INCONCLUSIVE
+            obligations = tuple(
+                sorted(
+                    {
+                        obligation
+                        for certificate in certificates
+                        for obligation in certificate.obligations
+                    }
+                )
+            )
+        else:
+            status = GateStatus.PASS
+            obligations = ()
+        instance = object.__new__(cls)
+        values = {
+            "gate": "H6-Prefix",
+            "status": status,
+            "config_sha256": certificate_set.config_sha256,
+            "workload_plan_sha256": (
+                certificate_set.workload_plan_sha256
+            ),
+            "validation_payload_sha256": (
+                certificate_set.validation_payload_sha256
+            ),
+            "prefix_certificate_set_sha256": (
+                certificate_set.prefix_certificate_set_sha256
+            ),
+            "obligations": obligations,
+            "_certificate_set": certificate_set,
+        }
+        for name, value in values.items():
+            object.__setattr__(instance, name, value)
+        instance.__post_init__()
+        return instance
+
+
 @dataclass(frozen=True, init=False)
 class H6PredictionResult:
     """Result of the separately authorized H6 Prediction evidence stage."""

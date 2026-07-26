@@ -4200,6 +4200,235 @@ class BoundedPrefixCertificate:
         )  # type: ignore[return-value]
 
 
+@dataclass(frozen=True, slots=True, init=False)
+class BoundedPrefixCertificateSet:
+    """Ordered exact set of bounded Prefix-family certificates."""
+
+    schema_version: Literal["h6-prefix-certificate-set-v2"]
+    config_sha256: str
+    workload_plan_sha256: str
+    git_head: str
+    dirty_digest: str
+    source_sha256: str
+    semantic_family_sha256s: tuple[str, ...]
+    certificates: tuple[BoundedPrefixCertificate, ...]
+    validation_payload_sha256: str
+    prefix_certificate_set_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self) is not BoundedPrefixCertificateSet:
+            raise TypeError(
+                "record requires the exact BoundedPrefixCertificateSet type"
+            )
+        if self.schema_version != "h6-prefix-certificate-set-v2":
+            raise ValueError("bounded Prefix certificate-set schema is closed")
+        _require_git_head(self.git_head)
+        for name in (
+            "config_sha256",
+            "workload_plan_sha256",
+            "dirty_digest",
+            "source_sha256",
+            "validation_payload_sha256",
+            "prefix_certificate_set_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        if (
+            self.workload_plan_sha256
+            != H6PrefixWorkloadPlan().workload_plan_sha256
+        ):
+            raise ValueError(
+                "bounded Prefix certificate set has a stale workload plan"
+            )
+        expected_source = hashlib.sha256(
+            b"VFE4-H6-SOURCE-CANDIDATE-V1\x00"
+            + bytes.fromhex(self.git_head)
+            + bytes.fromhex(self.dirty_digest)
+        ).hexdigest()
+        if self.source_sha256 != expected_source:
+            raise ValueError(
+                "bounded Prefix certificate-set source identity is stale"
+            )
+        if (
+            type(self.semantic_family_sha256s) is not tuple
+            or not self.semantic_family_sha256s
+            or any(
+                _require_sha256(value, "semantic_family_sha256") != value
+                for value in self.semantic_family_sha256s
+            )
+            or len(set(self.semantic_family_sha256s))
+            != len(self.semantic_family_sha256s)
+        ):
+            raise ValueError(
+                "bounded Prefix semantic families must be ordered and unique"
+            )
+        if (
+            type(self.certificates) is not tuple
+            or len(self.certificates) != len(self.semantic_family_sha256s)
+            or any(
+                type(certificate) is not BoundedPrefixCertificate
+                for certificate in self.certificates
+            )
+        ):
+            raise ValueError(
+                "bounded Prefix certificate set requires exact certificates"
+            )
+        for certificate in self.certificates:
+            certificate.__post_init__()
+        if (
+            tuple(
+                certificate.semantic_family_sha256
+                for certificate in self.certificates
+            )
+            != self.semantic_family_sha256s
+        ):
+            raise ValueError(
+                "bounded Prefix certificates differ from runner-plan order"
+            )
+        for certificate in self.certificates:
+            binding = certificate.report_binding
+            if (
+                binding.workload_plan_sha256 != self.workload_plan_sha256
+                or binding.git_head != self.git_head
+                or binding.dirty_digest != self.dirty_digest
+                or binding.source_sha256 != self.source_sha256
+            ):
+                raise ValueError(
+                    "bounded Prefix certificates cross workload or source"
+                )
+        expected_validation = _owned_hash(
+            "vfe4.h6.prefix-validation-payload-set.v2",
+            {
+                "config_sha256": self.config_sha256,
+                "workload_plan_sha256": self.workload_plan_sha256,
+                "git_head": self.git_head,
+                "dirty_digest": self.dirty_digest,
+                "source_sha256": self.source_sha256,
+                "semantic_family_validation_payload_sha256s": tuple(
+                    (
+                        certificate.semantic_family_sha256,
+                        certificate.validation_payload_sha256,
+                    )
+                    for certificate in self.certificates
+                ),
+            },
+        )
+        if self.validation_payload_sha256 != expected_validation:
+            raise ValueError(
+                "bounded Prefix validation aggregate hash is stale"
+            )
+        expected_certificate_set = _owned_hash(
+            "vfe4.h6.prefix-certificate-set.v2",
+            {
+                "schema_version": self.schema_version,
+                "config_sha256": self.config_sha256,
+                "workload_plan_sha256": self.workload_plan_sha256,
+                "git_head": self.git_head,
+                "dirty_digest": self.dirty_digest,
+                "source_sha256": self.source_sha256,
+                "semantic_family_sha256s": self.semantic_family_sha256s,
+                "validation_payload_sha256": (
+                    self.validation_payload_sha256
+                ),
+                "semantic_family_certificate_sha256s": tuple(
+                    (
+                        certificate.semantic_family_sha256,
+                        certificate.certificate_sha256,
+                    )
+                    for certificate in self.certificates
+                ),
+            },
+        )
+        if self.prefix_certificate_set_sha256 != expected_certificate_set:
+            raise ValueError(
+                "bounded Prefix certificate-set hash is stale"
+            )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        config_sha256: str,
+        semantic_family_sha256s: tuple[str, ...],
+        certificates: tuple[BoundedPrefixCertificate, ...],
+    ) -> "BoundedPrefixCertificateSet":
+        if cls is not BoundedPrefixCertificateSet:
+            raise TypeError(
+                "factory requires the exact BoundedPrefixCertificateSet type"
+            )
+        _require_sha256(config_sha256, "config_sha256")
+        if (
+            type(semantic_family_sha256s) is not tuple
+            or type(certificates) is not tuple
+            or not certificates
+            or any(
+                type(certificate) is not BoundedPrefixCertificate
+                for certificate in certificates
+            )
+        ):
+            raise ValueError(
+                "factory requires ordered exact bounded certificates"
+            )
+        for certificate in certificates:
+            certificate.__post_init__()
+        first_binding = certificates[0].report_binding
+        workload_plan_sha256 = first_binding.workload_plan_sha256
+        git_head = first_binding.git_head
+        dirty_digest = first_binding.dirty_digest
+        source_sha256 = first_binding.source_sha256
+        validation_payload_sha256 = _owned_hash(
+            "vfe4.h6.prefix-validation-payload-set.v2",
+            {
+                "config_sha256": config_sha256,
+                "workload_plan_sha256": workload_plan_sha256,
+                "git_head": git_head,
+                "dirty_digest": dirty_digest,
+                "source_sha256": source_sha256,
+                "semantic_family_validation_payload_sha256s": tuple(
+                    (
+                        certificate.semantic_family_sha256,
+                        certificate.validation_payload_sha256,
+                    )
+                    for certificate in certificates
+                ),
+            },
+        )
+        prefix_certificate_set_sha256 = _owned_hash(
+            "vfe4.h6.prefix-certificate-set.v2",
+            {
+                "schema_version": "h6-prefix-certificate-set-v2",
+                "config_sha256": config_sha256,
+                "workload_plan_sha256": workload_plan_sha256,
+                "git_head": git_head,
+                "dirty_digest": dirty_digest,
+                "source_sha256": source_sha256,
+                "semantic_family_sha256s": semantic_family_sha256s,
+                "validation_payload_sha256": validation_payload_sha256,
+                "semantic_family_certificate_sha256s": tuple(
+                    (
+                        certificate.semantic_family_sha256,
+                        certificate.certificate_sha256,
+                    )
+                    for certificate in certificates
+                ),
+            },
+        )
+        return _new_frozen(
+            cls,
+            schema_version="h6-prefix-certificate-set-v2",
+            config_sha256=config_sha256,
+            workload_plan_sha256=workload_plan_sha256,
+            git_head=git_head,
+            dirty_digest=dirty_digest,
+            source_sha256=source_sha256,
+            semantic_family_sha256s=semantic_family_sha256s,
+            certificates=certificates,
+            validation_payload_sha256=validation_payload_sha256,
+            prefix_certificate_set_sha256=(
+                prefix_certificate_set_sha256
+            ),
+        )  # type: ignore[return-value]
+
+
 def require_prefix_pass(
     key: PrefixCaseKey,
     certificates: Mapping[PrefixCaseKey, PrefixCertificate],
@@ -5861,8 +6090,9 @@ class OrderedPredictionDecision:
 
 
 __all__ = [
-    "ArmId", "BoundedPrefixCertificate", "BoundedPrefixReportBinding",
-    "BoundedPrefixReportReference", "CausalDag", "CausalDagRow",
+    "ArmId", "BoundedPrefixCertificate", "BoundedPrefixCertificateSet",
+    "BoundedPrefixReportBinding", "BoundedPrefixReportReference",
+    "CausalDag", "CausalDagRow",
     "CheckpointIdentity", "DataIdentity",
     "DurableTestOpeningCapability", "EmissionOnlyAblationTerms",
     "EncodedTokenStorageIdentity", "EndpointSmcProtocol", "EstimatorSpec",

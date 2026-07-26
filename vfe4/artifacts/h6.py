@@ -464,6 +464,798 @@ def _read_json_payload(path: Path, *, maximum_bytes: int = 16_777_216) -> object
     return parsed
 
 
+def _contains_bounded_external_reference(value: object) -> bool:
+    if isinstance(value, Mapping):
+        return any(
+            key
+            in {
+                "validation_fixture_reference",
+                "validation_perturbation_reference",
+            }
+            or _contains_bounded_external_reference(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return any(
+            _contains_bounded_external_reference(item) for item in value
+        )
+    return False
+
+
+_BOUNDED_EXECUTION_PLAN_FIELDS = frozenset(
+    {
+        "schema_version",
+        "scope",
+        "case_family",
+        "particle_count",
+        "expected_by_position",
+        "full_expected_count",
+        "selected_global_indices",
+        "workload_plan_sha256",
+        "authorization_sha256",
+        "selection_rows",
+        "selection_manifest_sha256",
+        "plan_sha256",
+    }
+)
+_BOUNDED_DYNAMIC_REPORT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "key",
+        "execution_plan_sha256",
+        "model_state_sha256",
+        "proposal_identity_sha256",
+        "estimator_semantic_sha256",
+        "estimator_artifact_bytes_sha256",
+        "stream_seed",
+        "completed_by_position",
+        "checks",
+        "status",
+        "obligations",
+        "unresolved_diagnostics",
+        "first_counterexample",
+        "case_result_manifest_sha256",
+        "cache_manifest_sha256",
+        "pair_harness_manifest_sha256",
+        "mask_manifest_sha256",
+        "complete_case_manifest_sha256",
+        "scope",
+        "case_family",
+        "particle_count",
+        "workload_plan_sha256",
+        "selected_global_indices",
+        "selection_manifest_sha256",
+        "applicable_check_names",
+        "report_sha256",
+    }
+)
+_BOUNDED_DYNAMIC_CHECK_FIELDS = frozenset(
+    {
+        "name",
+        "status",
+        "expected_count",
+        "completed_count",
+        "violation_count",
+        "first_counterexample",
+        "obligations",
+    }
+)
+_BOUNDED_STATIC_REPORT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "source_manifest_sha256",
+        "rules_sha256",
+        "case_key_manifest_sha256",
+        "checks",
+        "findings",
+        "status",
+        "obligations",
+        "report_sha256",
+    }
+)
+_BOUNDED_STATIC_CHECK_FIELDS = frozenset(
+    {
+        "name",
+        "status",
+        "finding_sha256s",
+        "obligations",
+        "check_sha256",
+    }
+)
+_BOUNDED_STATIC_FINDING_FIELDS = frozenset(
+    {
+        "rule_id",
+        "status",
+        "path",
+        "line",
+        "message",
+        "witness_sha256",
+        "finding_sha256",
+    }
+)
+_BOUNDED_FAMILY_FIELDS = frozenset(
+    {
+        "semantic_family_index",
+        "semantic_family_sha256",
+        "jobs",
+        "validation_payload_sha256",
+        "certificate_sha256",
+    }
+)
+_BOUNDED_JOB_FIELDS = frozenset(
+    {
+        "job_index",
+        "particle_count",
+        "case_family",
+        "scope",
+        "profile_pair_sha256",
+        "execution_plan",
+        "dynamic_report",
+        "observed_predictor_call_count",
+    }
+)
+_BOUNDED_RUNNER_TOTAL_FIELDS = frozenset(
+    {
+        "semantic_family_count",
+        "planned_fixture_load_count",
+        "planned_static_audit_count",
+        "planned_arm_build_count",
+        "planned_predictor_boundary_count",
+        "planned_dynamic_report_count",
+        "observed_dynamic_report_count",
+        "planned_case_count",
+        "planned_predictor_call_count",
+        "observed_predictor_call_count",
+        "planned_particle_call_units",
+    }
+)
+_BOUNDED_DYNAMIC_CHECK_NAMES = (
+    "signature_and_identity",
+    "dynamic_target_suffix_leakage",
+    "cache_identity",
+    "source_mask",
+    "case_inventory",
+    "validation_data_safety",
+)
+_BOUNDED_STATIC_CHECK_NAMES = (
+    "import_signature_access",
+    "taint_cache_capability",
+    "mask_normalization_support",
+    "inventory_identity",
+)
+
+
+def _bounded_owned_hash(domain: str, payload: object) -> str:
+    return hashlib.sha256(
+        domain.encode("ascii") + b"\x00" + canonical_json_bytes(payload)
+    ).hexdigest()
+
+
+def _bounded_exact_object(
+    value: object,
+    expected_fields: frozenset[str],
+    label: str,
+) -> dict[str, object]:
+    if type(value) is not dict or frozenset(value) != expected_fields:
+        raise ArtifactPublicationError(f"{label} fields are not exact")
+    return value
+
+
+def _bounded_expected_job_contract(
+    *,
+    scope: object,
+    case_family: object,
+    particle_count: object,
+    workload: object,
+) -> tuple[list[int], int, list[int], list[str]]:
+    representative = scope == "representative_exhaustive"
+    if case_family == "small":
+        expected_by_position = (
+            [6561, 2187, 729, 243] if representative else [4, 4, 4, 4]
+        )
+        full_expected_count = 9720
+        selected = (
+            list(range(full_expected_count))
+            if representative
+            else list(getattr(workload, "small_global_case_indices"))
+        )
+    elif case_family == "validation":
+        expected_by_position = [4096] if representative else [16]
+        full_expected_count = 4096
+        selected = (
+            list(range(full_expected_count))
+            if representative
+            else list(getattr(workload, "validation_global_case_indices"))
+        )
+    else:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix job case family is unsupported"
+        )
+    if (
+        (representative and particle_count != 128)
+        or (
+            not representative
+            and (
+                scope != "estimator_stratified"
+                or particle_count not in (256, 512, 1024)
+            )
+        )
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix job scope/particle count is not frozen"
+        )
+    applicable = (
+        list(_BOUNDED_DYNAMIC_CHECK_NAMES)
+        if representative
+        else list(_BOUNDED_DYNAMIC_CHECK_NAMES[:3])
+    )
+    return expected_by_position, full_expected_count, selected, applicable
+
+
+def _validate_bounded_static_report_payload(
+    value: object,
+) -> dict[str, object]:
+    report = _bounded_exact_object(
+        value,
+        _BOUNDED_STATIC_REPORT_FIELDS,
+        "bounded H6 Prefix static report",
+    )
+    checks = report["checks"]
+    findings = report["findings"]
+    if (
+        type(checks) is not list
+        or len(checks) != len(_BOUNDED_STATIC_CHECK_NAMES)
+        or type(findings) is not list
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix static report inventory is incomplete"
+        )
+    check_hashes: list[str] = []
+    for index, value_check in enumerate(checks):
+        check = _bounded_exact_object(
+            value_check,
+            _BOUNDED_STATIC_CHECK_FIELDS,
+            "bounded H6 Prefix static check",
+        )
+        expected_check = {
+            "name": check["name"],
+            "status": check["status"],
+            "finding_sha256s": check["finding_sha256s"],
+            "obligations": check["obligations"],
+        }
+        expected_check_sha256 = _bounded_owned_hash(
+            "vfe4.h6.static-audit-check.v1",
+            expected_check,
+        )
+        if (
+            check["name"] != _BOUNDED_STATIC_CHECK_NAMES[index]
+            or check["check_sha256"] != expected_check_sha256
+        ):
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix static check identity is stale"
+            )
+        check_hashes.append(expected_check_sha256)
+    finding_hashes: list[str] = []
+    for value_finding in findings:
+        finding = _bounded_exact_object(
+            value_finding,
+            _BOUNDED_STATIC_FINDING_FIELDS,
+            "bounded H6 Prefix static finding",
+        )
+        expected_finding_sha256 = _bounded_owned_hash(
+            "vfe4.h6.static-audit-finding.v1",
+            {
+                key: finding[key]
+                for key in _BOUNDED_STATIC_FINDING_FIELDS
+                if key != "finding_sha256"
+            },
+        )
+        if finding["finding_sha256"] != expected_finding_sha256:
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix static finding identity is stale"
+            )
+        finding_hashes.append(expected_finding_sha256)
+    expected_report_sha256 = _bounded_owned_hash(
+        "vfe4.h6.static-audit-report.v1",
+        {
+            "schema_version": report["schema_version"],
+            "source_manifest_sha256": report["source_manifest_sha256"],
+            "rules_sha256": report["rules_sha256"],
+            "case_key_manifest_sha256": report[
+                "case_key_manifest_sha256"
+            ],
+            "checks": check_hashes,
+            "findings": finding_hashes,
+            "status": report["status"],
+            "obligations": report["obligations"],
+        },
+    )
+    if (
+        report["schema_version"] != "h6-static-audit-v1"
+        or report["report_sha256"] != expected_report_sha256
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix static report identity is stale"
+        )
+    return report
+
+
+def _validate_bounded_prefix_reference_payloads(
+    *,
+    resolved_config: object,
+    result: object,
+    config_payload: Mapping[str, object],
+    config_sha256: str,
+    source: object,
+    validation: Mapping[str, object],
+    certificate_set_payload: Mapping[str, object],
+    provenance: Mapping[str, object],
+    environment: Mapping[str, object],
+    junit_sha256: str | None,
+) -> None:
+    from vfe4.config.schema import (
+        H6_PREFIX_V2_AUTHORIZATION_SHA256,
+        H6_PREFIX_V3_AUTHORIZATION_SHA256,
+        H6PrefixV3ResolvedConfig,
+    )
+    from vfe4.types.h6 import (
+        BoundedPrefixCertificateSet,
+        H6PrefixWorkloadPlan,
+    )
+    from vfe4.types.results import H6BoundedPrefixGateResult
+
+    if (
+        type(resolved_config) is not H6PrefixV3ResolvedConfig
+        or type(result) is not H6BoundedPrefixGateResult
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix reference requires exact v3 config/result types"
+        )
+    result.__post_init__()
+    certificate_set = result._certificate_set
+    if type(certificate_set) is not BoundedPrefixCertificateSet:
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix result lacks its exact certificate set"
+        )
+    certificate_set.__post_init__()
+    workload = H6PrefixWorkloadPlan()
+    expected_validation_fields = {
+        "schema_version",
+        "gate",
+        "status",
+        "obligations",
+        "config_sha256",
+        "workload_plan_sha256",
+        "validation_payload_sha256",
+        "prefix_certificate_set_sha256",
+        "runner_totals",
+        "semantic_families",
+        "static_report",
+    }
+    expected_certificate_set_fields = {
+        "schema_version",
+        "config_sha256",
+        "workload_plan_sha256",
+        "git_head",
+        "dirty_digest",
+        "source_sha256",
+        "semantic_family_sha256s",
+        "validation_payload_sha256",
+        "prefix_certificate_set_sha256",
+        "certificates",
+    }
+    if (
+        set(validation) != expected_validation_fields
+        or validation.get("schema_version")
+        != "h6-prefix-validation-set-v2"
+        or set(certificate_set_payload)
+        != expected_certificate_set_fields
+        or certificate_set_payload.get("schema_version")
+        != "h6-prefix-certificate-set-v2"
+        or config_payload.get("schema_version") != "h6-prefix-config-v3"
+        or config_payload.get("authorization_sha256")
+        != H6_PREFIX_V3_AUTHORIZATION_SHA256
+        or config_payload.get("workload_authorization_sha256")
+        != H6_PREFIX_V2_AUTHORIZATION_SHA256
+        or "validation_fixture_reference" not in config_payload
+        or "validation_perturbation_reference" not in config_payload
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix schemas or config references are incomplete"
+        )
+    if any(
+        _contains_bounded_external_reference(payload)
+        for payload in (
+            validation,
+            certificate_set_payload,
+            provenance,
+            environment,
+        )
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix external references escaped config.json"
+        )
+    if (
+        result.config_sha256 != config_sha256
+        or result.config_sha256 != certificate_set.config_sha256
+        or result.workload_plan_sha256
+        != certificate_set.workload_plan_sha256
+        or validation.get("config_sha256") != result.config_sha256
+        or validation.get("workload_plan_sha256")
+        != result.workload_plan_sha256
+        or validation.get("validation_payload_sha256")
+        != result.validation_payload_sha256
+        or validation.get("prefix_certificate_set_sha256")
+        != result.prefix_certificate_set_sha256
+        or certificate_set_payload.get("config_sha256")
+        != certificate_set.config_sha256
+        or certificate_set_payload.get("workload_plan_sha256")
+        != certificate_set.workload_plan_sha256
+        or certificate_set_payload.get("validation_payload_sha256")
+        != certificate_set.validation_payload_sha256
+        or certificate_set_payload.get("prefix_certificate_set_sha256")
+        != certificate_set.prefix_certificate_set_sha256
+        or certificate_set_payload.get("git_head")
+        != certificate_set.git_head
+        or certificate_set_payload.get("dirty_digest")
+        != certificate_set.dirty_digest
+        or certificate_set_payload.get("source_sha256")
+        != certificate_set.source_sha256
+        or certificate_set.git_head != getattr(source, "git_head", None)
+        or certificate_set.dirty_digest
+        != getattr(source, "dirty_digest", None)
+        or certificate_set.source_sha256
+        != getattr(source, "source_sha256", None)
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix config/workload/source/result hashes differ"
+        )
+    if (
+        validation.get("gate") != "H6-Prefix"
+        or validation.get("status") != result.status.value
+        or validation.get("obligations") != list(result.obligations)
+        or certificate_set_payload.get("semantic_family_sha256s")
+        != list(certificate_set.semantic_family_sha256s)
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix result or semantic-family order differs"
+        )
+    serialized_certificates = certificate_set_payload.get("certificates")
+    if (
+        type(serialized_certificates) is not list
+        or len(serialized_certificates)
+        != len(certificate_set.certificates)
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix certificate inventory is incomplete"
+        )
+    for payload, certificate in zip(
+        serialized_certificates,
+        certificate_set.certificates,
+        strict=True,
+    ):
+        expected = {
+            "schema_version": certificate.schema_version,
+            "semantic_family_sha256": (
+                certificate.semantic_family_sha256
+            ),
+            "report_binding": (
+                certificate.report_binding.canonical_payload()
+            ),
+            "validation_payload": json.loads(
+                certificate.validation_payload_canonical_json
+            ),
+            "validation_payload_sha256": (
+                certificate.validation_payload_sha256
+            ),
+            "status": certificate.status.value,
+            "obligations": certificate.obligations,
+            "checks": dict(certificate.checks),
+            "certificate_sha256": certificate.certificate_sha256,
+        }
+        if canonical_json_bytes(payload) != canonical_json_bytes(expected):
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix certificate payload differs from result"
+            )
+    families = validation.get("semantic_families")
+    if (
+        type(families) is not list
+        or len(families) != len(certificate_set.certificates)
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix validation families are incomplete"
+        )
+    observed_predictor_call_count = 0
+    for family_index, (family_value, certificate) in enumerate(
+        zip(families, certificate_set.certificates, strict=True)
+    ):
+        family = _bounded_exact_object(
+            family_value,
+            _BOUNDED_FAMILY_FIELDS,
+            "bounded H6 Prefix validation family",
+        )
+        if (
+            family.get("semantic_family_index") != family_index
+            or family.get("semantic_family_sha256")
+            != certificate.semantic_family_sha256
+            or family.get("validation_payload_sha256")
+            != certificate.validation_payload_sha256
+            or family.get("certificate_sha256")
+            != certificate.certificate_sha256
+        ):
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix validation family order differs"
+            )
+        jobs = family.get("jobs")
+        if type(jobs) is not list or len(jobs) != 8:
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix family does not contain eight jobs"
+            )
+        references = certificate.report_binding.report_references
+        for job_index, (job_value, reference) in enumerate(
+            zip(jobs, references, strict=True)
+        ):
+            job = _bounded_exact_object(
+                job_value,
+                _BOUNDED_JOB_FIELDS,
+                "bounded H6 Prefix validation job",
+            )
+            execution_plan = _bounded_exact_object(
+                job["execution_plan"],
+                _BOUNDED_EXECUTION_PLAN_FIELDS,
+                "bounded H6 Prefix execution plan",
+            )
+            dynamic_report = _bounded_exact_object(
+                job["dynamic_report"],
+                _BOUNDED_DYNAMIC_REPORT_FIELDS,
+                "bounded H6 Prefix dynamic report",
+            )
+            (
+                expected_by_position,
+                full_expected_count,
+                selected_global_indices,
+                applicable_check_names,
+            ) = _bounded_expected_job_contract(
+                scope=reference.scope,
+                case_family=reference.case_family,
+                particle_count=reference.particle_count,
+                workload=workload,
+            )
+            selection_rows = execution_plan["selection_rows"]
+            if (
+                type(selection_rows) is not list
+                or len(selection_rows) != len(selected_global_indices)
+            ):
+                raise ArtifactPublicationError(
+                    "bounded H6 Prefix selection rows are incomplete"
+                )
+            selection_case_hashes: list[str] = []
+            for row_index, row_value in enumerate(selection_rows):
+                row = _bounded_exact_object(
+                    row_value,
+                    frozenset({"global_index", "case_sha256"}),
+                    "bounded H6 Prefix selection row",
+                )
+                case_sha256 = row["case_sha256"]
+                if (
+                    row["global_index"] != selected_global_indices[row_index]
+                    or type(case_sha256) is not str
+                    or len(case_sha256) != 64
+                    or any(character not in _LOWER_HEX for character in case_sha256)
+                ):
+                    raise ArtifactPublicationError(
+                        "bounded H6 Prefix selection row is stale"
+                    )
+                selection_case_hashes.append(case_sha256)
+            expected_selection_sha256 = _bounded_owned_hash(
+                "vfe4.h6.dynamic-selection-manifest.v2",
+                selection_rows,
+            )
+            execution_plan_preimage = {
+                key: execution_plan[key]
+                for key in _BOUNDED_EXECUTION_PLAN_FIELDS
+                if key != "plan_sha256"
+            }
+            expected_plan_sha256 = _bounded_owned_hash(
+                "vfe4.h6.dynamic-execution-plan.v2",
+                execution_plan_preimage,
+            )
+            if (
+                len(set(selection_case_hashes))
+                != len(selection_case_hashes)
+                or execution_plan.get("schema_version")
+                != "h6-dynamic-execution-plan-v2"
+                or execution_plan.get("scope") != reference.scope
+                or execution_plan.get("case_family")
+                != reference.case_family
+                or execution_plan.get("particle_count")
+                != reference.particle_count
+                or execution_plan.get("expected_by_position")
+                != expected_by_position
+                or execution_plan.get("full_expected_count")
+                != full_expected_count
+                or execution_plan.get("selected_global_indices")
+                != selected_global_indices
+                or execution_plan.get("authorization_sha256")
+                != H6_PREFIX_V2_AUTHORIZATION_SHA256
+                or execution_plan.get("workload_plan_sha256")
+                != result.workload_plan_sha256
+                or execution_plan.get("selection_manifest_sha256")
+                != expected_selection_sha256
+                or execution_plan.get("selection_manifest_sha256")
+                != reference.selection_manifest_sha256
+                or execution_plan.get("plan_sha256")
+                != expected_plan_sha256
+                or execution_plan.get("plan_sha256")
+                != reference.execution_plan_sha256
+            ):
+                raise ArtifactPublicationError(
+                    "bounded H6 Prefix execution plan differs from its reference"
+                )
+
+            dynamic_checks = dynamic_report["checks"]
+            if (
+                type(dynamic_checks) is not list
+                or len(dynamic_checks) != len(_BOUNDED_DYNAMIC_CHECK_NAMES)
+            ):
+                raise ArtifactPublicationError(
+                    "bounded H6 Prefix dynamic checks are incomplete"
+                )
+            for check_index, check_value in enumerate(dynamic_checks):
+                check = _bounded_exact_object(
+                    check_value,
+                    _BOUNDED_DYNAMIC_CHECK_FIELDS,
+                    "bounded H6 Prefix dynamic check",
+                )
+                if check.get("name") != _BOUNDED_DYNAMIC_CHECK_NAMES[
+                    check_index
+                ]:
+                    raise ArtifactPublicationError(
+                        "bounded H6 Prefix dynamic checks are reordered"
+                    )
+            dynamic_report_preimage = {
+                key: dynamic_report[key]
+                for key in _BOUNDED_DYNAMIC_REPORT_FIELDS
+                if key != "report_sha256"
+            }
+            expected_report_sha256 = _bounded_owned_hash(
+                "vfe4.h6.dynamic-prefix-report.v2",
+                dynamic_report_preimage,
+            )
+            report_key = dynamic_report.get("key")
+            expected_report_key = reference.report_key.canonical_payload()
+            expected_calls = sum(expected_by_position) * getattr(
+                workload,
+                "prediction_calls_per_case",
+            )
+            if (
+                dynamic_report.get("schema_version")
+                != "h6-dynamic-prefix-report-v2"
+                or canonical_json_bytes(report_key)
+                != canonical_json_bytes(expected_report_key)
+                or dynamic_report.get("scope") != reference.scope
+                or dynamic_report.get("case_family")
+                != reference.case_family
+                or dynamic_report.get("particle_count")
+                != reference.particle_count
+                or dynamic_report.get("workload_plan_sha256")
+                != result.workload_plan_sha256
+                or dynamic_report.get("selected_global_indices")
+                != selected_global_indices
+                or dynamic_report.get("execution_plan_sha256")
+                != execution_plan.get("plan_sha256")
+                or dynamic_report.get("execution_plan_sha256")
+                != reference.execution_plan_sha256
+                or dynamic_report.get("selection_manifest_sha256")
+                != expected_selection_sha256
+                or dynamic_report.get("selection_manifest_sha256")
+                != reference.selection_manifest_sha256
+                or dynamic_report.get("completed_by_position")
+                != list(reference.completed_by_position)
+                or dynamic_report.get("completed_by_position")
+                != expected_by_position
+                or dynamic_report.get("complete_case_manifest_sha256")
+                != reference.complete_case_manifest_sha256
+                or dynamic_report.get("model_state_sha256")
+                != reference.model_state_sha256
+                or dynamic_report.get("proposal_identity_sha256")
+                != reference.proposal_identity_sha256
+                or dynamic_report.get("estimator_semantic_sha256")
+                != reference.estimator_semantic_sha256
+                or dynamic_report.get("estimator_artifact_bytes_sha256")
+                != reference.estimator_artifact_bytes_sha256
+                or dynamic_report.get("applicable_check_names")
+                != applicable_check_names
+                or dynamic_report.get("report_sha256")
+                != expected_report_sha256
+                or dynamic_report.get("report_sha256")
+                != reference.report_sha256
+                or job.get("job_index") != job_index
+                or job.get("particle_count") != reference.particle_count
+                or job.get("case_family") != reference.case_family
+                or job.get("scope") != reference.scope
+                or job.get("profile_pair_sha256")
+                != reference.profile_pair_sha256
+                or type(job.get("observed_predictor_call_count")) is not int
+                or job.get("observed_predictor_call_count") != expected_calls
+            ):
+                raise ArtifactPublicationError(
+                    "bounded H6 Prefix dynamic job differs from its report reference"
+                )
+            observed_predictor_call_count += expected_calls
+
+    static_report = _validate_bounded_static_report_payload(
+        validation.get("static_report")
+    )
+    for certificate in certificate_set.certificates:
+        binding = certificate.report_binding
+        if (
+            static_report["report_sha256"] != binding.static_report_sha256
+            or static_report["source_manifest_sha256"]
+            != binding.static_source_manifest_sha256
+            or static_report["rules_sha256"]
+            != binding.static_rules_sha256
+            or static_report["case_key_manifest_sha256"]
+            != binding.static_case_key_manifest_sha256
+        ):
+            raise ArtifactPublicationError(
+                "bounded H6 Prefix static report differs from a family binding"
+            )
+
+    family_count = len(certificate_set.certificates)
+    runner_totals = _bounded_exact_object(
+        validation.get("runner_totals"),
+        _BOUNDED_RUNNER_TOTAL_FIELDS,
+        "bounded H6 Prefix runner totals",
+    )
+    expected_runner_totals = {
+        "semantic_family_count": family_count,
+        "planned_fixture_load_count": 1,
+        "planned_static_audit_count": 1,
+        "planned_arm_build_count": 2 * family_count,
+        "planned_predictor_boundary_count": 8 * family_count,
+        "planned_dynamic_report_count": 8 * family_count,
+        "observed_dynamic_report_count": 8 * family_count,
+        "planned_case_count": workload.amended_total_cases * family_count,
+        "planned_predictor_call_count": (
+            workload.amended_total_prediction_calls * family_count
+        ),
+        "observed_predictor_call_count": observed_predictor_call_count,
+        "planned_particle_call_units": (
+            workload.amended_total_particle_call_units * family_count
+        ),
+    }
+    if (
+        runner_totals != expected_runner_totals
+        or observed_predictor_call_count
+        != expected_runner_totals["planned_predictor_call_count"]
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix runner totals differ from the exact workload"
+        )
+    if (
+        set(provenance)
+        != {
+            "schema_version",
+            "git_head",
+            "dirty_digest",
+            "source_sha256",
+            "junit_sha256",
+        }
+        or provenance.get("schema_version") != "h6-prefix-provenance-v1"
+        or provenance.get("git_head") != certificate_set.git_head
+        or provenance.get("dirty_digest") != certificate_set.dirty_digest
+        or provenance.get("source_sha256")
+        != certificate_set.source_sha256
+        or provenance.get("junit_sha256") != junit_sha256
+        or environment.get("schema_version")
+        != "h6-prefix-environment-v1"
+    ):
+        raise ArtifactPublicationError(
+            "bounded H6 Prefix provenance/environment differ"
+        )
+
+
 def _reference_from_published_directory(
     *,
     operation: Literal["H1-Prefix-Prior", "H6-Prefix"],
@@ -611,7 +1403,35 @@ def _reference_from_published_directory(
         certificate_set = _read_json_payload(
             root / "certificates" / "prefix_set.json"
         )
-        if (
+        from vfe4.types.results import H6BoundedPrefixGateResult
+
+        bounded = (
+            config_payload.get("schema_version") == "h6-prefix-config-v3"
+            or type(result) is H6BoundedPrefixGateResult
+        )
+        if bounded:
+            environment = _read_json_payload(root / "environment.json")
+            if (
+                not isinstance(provenance, Mapping)
+                or not isinstance(certificate_set, Mapping)
+                or not isinstance(environment, Mapping)
+            ):
+                raise ArtifactPublicationError(
+                    "bounded H6 Prefix payloads must be JSON objects"
+                )
+            _validate_bounded_prefix_reference_payloads(
+                resolved_config=resolved_config,
+                result=result,
+                config_payload=config_payload,
+                config_sha256=config_sha256,
+                source=source,
+                validation=validation,
+                certificate_set_payload=certificate_set,
+                provenance=provenance,
+                environment=environment,
+                junit_sha256=junit_sha256,
+            )
+        elif (
             not isinstance(provenance, Mapping)
             or provenance.get("git_head") != getattr(source, "git_head", None)
             or provenance.get("dirty_digest")

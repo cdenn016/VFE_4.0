@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import struct
+from collections.abc import Callable
 from dataclasses import fields, replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +13,8 @@ import pytest
 
 import verification.h6_prefix_gate as h6_prefix_gate
 import verification.h6_validation_candidate as h6_validation_candidate
+import vfe4.artifacts.h6 as h6_artifacts
+import vfe4.types as vfe4_types
 from verification.h6_prefix_gate import (
     H6PrefixReportBundle,
     compose_prefix_certificate,
@@ -357,6 +361,8 @@ def _key(
     estimator: EstimatorSpec,
     model_family_sha256: str,
     data_safety_sha256: str,
+    git_head: str = "1" * 40,
+    dirty_digest: str = "2" * 64,
 ) -> PrefixCaseKey:
     return PrefixCaseKey(
         arm=config.arm,
@@ -365,8 +371,8 @@ def _key(
         model_family_sha256=model_family_sha256,
         vocabulary_sha256=_vocabulary_sha256(config.vocabulary),
         data_safety_sha256=data_safety_sha256,
-        git_head="1" * 40,
-        dirty_digest="2" * 64,
+        git_head=git_head,
+        dirty_digest=dirty_digest,
     )
 
 
@@ -913,11 +919,12 @@ def test_h6_prefix_reports_bind_status_and_publish_only_the_independent_artifact
 
 def _bounded_profile_ladder(
     *,
+    arm: ArmId = ArmId.A2,
     data_safety_sha256: str | None = None,
     production_tokenizer_spec_sha256: str = "b" * 64,
 ) -> tuple[H6PrefixProfilePair, ...]:
     base = _categorical_profile(
-        ArmId.A2,
+        arm,
         production_tokenizer_spec_sha256=(
             production_tokenizer_spec_sha256
         ),
@@ -929,7 +936,7 @@ def _bounded_profile_ladder(
     )
     return tuple(
         H6PrefixProfilePair.create(
-            profile_id=f"a2-weighted-smc-{particle_count}",
+            profile_id=f"{arm.value.lower()}-weighted-smc-{particle_count}",
             small_arm_config=base.small_arm_config,
             production_arm_config=base.production_arm_config,
             estimator=EstimatorSpec.create(
@@ -1101,6 +1108,8 @@ def _v3_references(
 
 def _bounded_v3_resolved_config(tmp_path: Path) -> H6PrefixV3ResolvedConfig:
     fixture, candidate = _v3_references(tmp_path)
+    consumer_git_head = "1" * 40
+    consumer_dirty_digest = "2" * 64
     profiles = _bounded_profile_ladder(
         production_tokenizer_spec_sha256=_V3_TOKENIZER_SPEC_SHA256
     )
@@ -1110,9 +1119,12 @@ def _bounded_v3_resolved_config(tmp_path: Path) -> H6PrefixV3ResolvedConfig:
             "schema_version": "h6-prefix-config-v3",
             "operation": "H6-Prefix",
             "source": {
-                "git_head": "1" * 40,
-                "dirty_digest": "2" * 64,
-                "source_sha256": "3" * 64,
+                "git_head": consumer_git_head,
+                "dirty_digest": consumer_dirty_digest,
+                "source_sha256": source_candidate_sha256(
+                    git_head_value=consumer_git_head,
+                    dirty_digest_value=consumer_dirty_digest,
+                ),
             },
             "execution_mode": "authorized_full",
             "profiles": [
@@ -1308,7 +1320,6 @@ def _bounded_execution_plan(job: object) -> DynamicExecutionPlan:
                 {
                     "scope": job.scope,
                     "case_family": job.case_family,
-                    "particle_count": job.particle_count,
                     "global_index": index,
                 },
             ),
@@ -1331,6 +1342,7 @@ def _bounded_dynamic_report(
     execution_plan: DynamicExecutionPlan,
     key: PrefixCaseKey | None = None,
 ) -> DynamicPrefixReport:
+    estimator_identity = EstimatorIdentity.from_spec(job.profile.estimator)
     expected_total = sum(execution_plan.expected_by_position)
     applicable = (
         _DYNAMIC_CHECK_NAMES
@@ -1359,19 +1371,22 @@ def _bounded_dynamic_report(
         "case_family": job.case_family,
         "particle_count": job.particle_count,
     }
+    model_salt = {"case_family": job.case_family}
     values = {
         "schema_version": "h6-dynamic-prefix-report-v2",
         "key": job.report_key if key is None else key,
         "execution_plan_sha256": execution_plan.plan_sha256,
-        "model_state_sha256": _owned_hash("test.h6.bounded-model", salt),
+        "model_state_sha256": _owned_hash(
+            "test.h6.bounded-model",
+            model_salt,
+        ),
         "proposal_identity_sha256": _owned_hash(
-            "test.h6.bounded-proposal", salt
+            "test.h6.bounded-proposal",
+            model_salt,
         ),
-        "estimator_semantic_sha256": _owned_hash(
-            "test.h6.bounded-estimator-semantic", salt
-        ),
-        "estimator_artifact_bytes_sha256": _owned_hash(
-            "test.h6.bounded-estimator-artifact", salt
+        "estimator_semantic_sha256": estimator_identity.semantic_sha256,
+        "estimator_artifact_bytes_sha256": (
+            estimator_identity.artifact_bytes_sha256
         ),
         "stream_seed": 2026072197,
         "completed_by_position": execution_plan.expected_by_position,
@@ -1424,6 +1439,8 @@ def _bounded_certificate_job(
     case_family: str,
     *,
     key: PrefixCaseKey | None = None,
+    git_head: str = "1" * 40,
+    dirty_digest: str = "2" * 64,
 ) -> SimpleNamespace:
     workload = H6PrefixWorkloadPlan()
     representative = profile.estimator.particle_count == 128
@@ -1463,6 +1480,8 @@ def _bounded_certificate_job(
                 estimator=profile.estimator,
                 model_family_sha256=model_family_sha256,
                 data_safety_sha256=profile.data_safety_sha256,
+                git_head=git_head,
+                dirty_digest=dirty_digest,
             )
             if key is None
             else key
@@ -1478,8 +1497,16 @@ def _bounded_certificate_report(
     key: PrefixCaseKey | None = None,
     selection_tag: str = "shared",
     model_tag: str = "shared",
+    git_head: str = "1" * 40,
+    dirty_digest: str = "2" * 64,
 ) -> DynamicPrefixReport:
-    job = _bounded_certificate_job(profile, case_family, key=key)
+    job = _bounded_certificate_job(
+        profile,
+        case_family,
+        key=key,
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+    )
     selection_rows = tuple(
         (
             index,
@@ -1584,9 +1611,12 @@ def _bounded_certificate_report(
 
 def _bounded_certificate_fixture(
     *,
+    arm: ArmId = ArmId.A2,
+    git_head: str = "1" * 40,
+    dirty_digest: str = "2" * 64,
     report_mode: tuple[int, str] | None = None,
 ) -> SimpleNamespace:
-    profiles = _bounded_profile_ladder()
+    profiles = _bounded_profile_ladder(arm=arm)
     reports = tuple(
         _bounded_certificate_report(
             profile,
@@ -1596,6 +1626,8 @@ def _bounded_certificate_fixture(
                 if report_mode is not None and report_mode[0] == report_index
                 else "pass"
             ),
+            git_head=git_head,
+            dirty_digest=dirty_digest,
         )
         for report_index, (profile, case_family) in enumerate(
             (profile, case_family)
@@ -1610,8 +1642,8 @@ def _bounded_certificate_fixture(
         global_keys=keys,
         static_report=_static_report(keys),
         source_sha256=source_candidate_sha256(
-            git_head_value="1" * 40,
-            dirty_digest_value="2" * 64,
+            git_head_value=git_head,
+            dirty_digest_value=dirty_digest,
         ),
     )
 
@@ -1993,6 +2025,236 @@ def test_scoped_pass_alone_cannot_mint_a_certificate_and_v1_stays_stable() -> No
                 source_sha256=fixture.source_sha256,
             )
 
+    second_fixture = _bounded_certificate_fixture(arm=ArmId.A5)
+    bounded_certificates = (
+        compose(
+            family_bundle=_bounded_family_bundle(
+                fixture.profiles,
+                fixture.reports,
+            ),
+            static_report=fixture.static_report,
+            global_case_keys=fixture.global_keys,
+            source_sha256=fixture.source_sha256,
+        ),
+        compose(
+            family_bundle=_bounded_family_bundle(
+                second_fixture.profiles,
+                second_fixture.reports,
+            ),
+            static_report=second_fixture.static_report,
+            global_case_keys=second_fixture.global_keys,
+            source_sha256=second_fixture.source_sha256,
+        ),
+    )
+    semantic_order = tuple(
+        certificate.semantic_family_sha256
+        for certificate in bounded_certificates
+    )
+    config_sha256 = "a" * 64
+    certificate_set = vfe4_types.BoundedPrefixCertificateSet.create(
+        config_sha256=config_sha256,
+        semantic_family_sha256s=semantic_order,
+        certificates=bounded_certificates,
+    )
+    assert certificate_set.schema_version == "h6-prefix-certificate-set-v2"
+    assert certificate_set.semantic_family_sha256s == semantic_order
+    assert certificate_set.certificates == bounded_certificates
+    assert certificate_set.validation_payload_sha256 == _owned_hash(
+        "vfe4.h6.prefix-validation-payload-set.v2",
+        {
+            "config_sha256": config_sha256,
+            "workload_plan_sha256": (
+                H6PrefixWorkloadPlan().workload_plan_sha256
+            ),
+            "git_head": "1" * 40,
+            "dirty_digest": "2" * 64,
+            "source_sha256": fixture.source_sha256,
+            "semantic_family_validation_payload_sha256s": tuple(
+                (
+                    certificate.semantic_family_sha256,
+                    certificate.validation_payload_sha256,
+                )
+                for certificate in bounded_certificates
+            ),
+        },
+    )
+    assert certificate_set.prefix_certificate_set_sha256 == _owned_hash(
+        "vfe4.h6.prefix-certificate-set.v2",
+        {
+            "schema_version": "h6-prefix-certificate-set-v2",
+            "config_sha256": config_sha256,
+            "workload_plan_sha256": (
+                H6PrefixWorkloadPlan().workload_plan_sha256
+            ),
+            "git_head": "1" * 40,
+            "dirty_digest": "2" * 64,
+            "source_sha256": fixture.source_sha256,
+            "semantic_family_sha256s": semantic_order,
+            "validation_payload_sha256": (
+                certificate_set.validation_payload_sha256
+            ),
+            "semantic_family_certificate_sha256s": tuple(
+                (
+                    certificate.semantic_family_sha256,
+                    certificate.certificate_sha256,
+                )
+                for certificate in bounded_certificates
+            ),
+        },
+    )
+    result = vfe4_types.H6BoundedPrefixGateResult.from_certificate_set(
+        certificate_set
+    )
+    assert type(result) is vfe4_types.H6BoundedPrefixGateResult
+    assert result.status.value == "pass"
+    assert result.config_sha256 == config_sha256
+    assert result.workload_plan_sha256 == (
+        certificate_set.workload_plan_sha256
+    )
+    assert result.validation_payload_sha256 == (
+        certificate_set.validation_payload_sha256
+    )
+    assert result.prefix_certificate_set_sha256 == (
+        certificate_set.prefix_certificate_set_sha256
+    )
+
+    inconclusive_certificate = vfe4_types.BoundedPrefixCertificate.create(
+        semantic_family_sha256=(
+            bounded_certificates[1].semantic_family_sha256
+        ),
+        report_binding=bounded_certificates[1].report_binding,
+        status=EvidenceStatus.INCONCLUSIVE,
+        obligations=("synthetic ordered-set obligation",),
+        checks=bounded_certificates[1].checks,
+    )
+    inconclusive_set = vfe4_types.BoundedPrefixCertificateSet.create(
+        config_sha256=config_sha256,
+        semantic_family_sha256s=semantic_order,
+        certificates=(bounded_certificates[0], inconclusive_certificate),
+    )
+    inconclusive_result = (
+        vfe4_types.H6BoundedPrefixGateResult.from_certificate_set(
+            inconclusive_set
+        )
+    )
+    assert inconclusive_result.status.value == "inconclusive"
+    assert inconclusive_result.obligations == (
+        "synthetic ordered-set obligation",
+    )
+    failed_checks = dict(bounded_certificates[1].checks)
+    failed_checks["artifact_identity"] = False
+    failed_certificate = vfe4_types.BoundedPrefixCertificate.create(
+        semantic_family_sha256=(
+            bounded_certificates[1].semantic_family_sha256
+        ),
+        report_binding=bounded_certificates[1].report_binding,
+        status=EvidenceStatus.FAIL,
+        obligations=(),
+        checks=failed_checks,
+    )
+    first_inconclusive_certificate = (
+        vfe4_types.BoundedPrefixCertificate.create(
+            semantic_family_sha256=(
+                bounded_certificates[0].semantic_family_sha256
+            ),
+            report_binding=bounded_certificates[0].report_binding,
+            status=EvidenceStatus.INCONCLUSIVE,
+            obligations=("synthetic first-family obligation",),
+            checks=bounded_certificates[0].checks,
+        )
+    )
+    failed_set = vfe4_types.BoundedPrefixCertificateSet.create(
+        config_sha256=config_sha256,
+        semantic_family_sha256s=semantic_order,
+        certificates=(first_inconclusive_certificate, failed_certificate),
+    )
+    failed_result = vfe4_types.H6BoundedPrefixGateResult.from_certificate_set(
+        failed_set
+    )
+    assert failed_result.status.value == "fail"
+    assert failed_result.obligations == ()
+
+    cross_source_fixture = _bounded_certificate_fixture(
+        arm=ArmId.A5,
+        git_head="3" * 40,
+        dirty_digest="4" * 64,
+    )
+    cross_source_certificate = compose(
+        family_bundle=_bounded_family_bundle(
+            cross_source_fixture.profiles,
+            cross_source_fixture.reports,
+        ),
+        static_report=cross_source_fixture.static_report,
+        global_case_keys=cross_source_fixture.global_keys,
+        source_sha256=cross_source_fixture.source_sha256,
+    )
+    rejected_sets = (
+        ((), ()),
+        (
+            (bounded_certificates[0].semantic_family_sha256,) * 2,
+            (bounded_certificates[0], bounded_certificates[0]),
+        ),
+        (semantic_order, tuple(reversed(bounded_certificates))),
+        (
+            semantic_order,
+            (bounded_certificates[0], cross_source_certificate),
+        ),
+        ((bounded_certificates[0].semantic_family_sha256,), (legacy,)),
+    )
+    for expected_semantics, certificates in rejected_sets:
+        with pytest.raises((TypeError, ValueError)):
+            vfe4_types.BoundedPrefixCertificateSet.create(
+                config_sha256=config_sha256,
+                semantic_family_sha256s=expected_semantics,
+                certificates=certificates,
+            )
+    with pytest.raises(ValueError):
+        vfe4_types.H6PrefixGateResult.from_certificates(
+            {validation_key: bounded_certificates[0]}
+        )
+
+    stale_config_set = object.__new__(
+        vfe4_types.BoundedPrefixCertificateSet
+    )
+    for descriptor in fields(vfe4_types.BoundedPrefixCertificateSet):
+        object.__setattr__(
+            stale_config_set,
+            descriptor.name,
+            "f" * 64
+            if descriptor.name == "config_sha256"
+            else getattr(certificate_set, descriptor.name),
+        )
+    with pytest.raises(ValueError, match="config|hash|identity"):
+        stale_config_set.__post_init__()
+
+    h6_prefix_gate._reject_prefix_dependencies(
+        {
+            "workload_plan": {
+                "prediction_calls_per_case": 5,
+                "representative_prediction_calls": 69_080,
+                "ladder_subset_prediction_calls": 480,
+                "amended_total_prediction_calls": 69_560,
+                "finite_smc_accuracy_particle_count": 256,
+            }
+        },
+        "config_payload",
+    )
+    for rejected_payload in (
+        {"prediction_summary": "forbidden"},
+        {"prediction_calls_per_case": 5},
+        {"workload_plan": {"prediction_summary": "forbidden"}},
+        {"workload_plan": {"Prediction_Calls_Per_Case": 5}},
+        {"other": {"prediction_calls_per_case": 5}},
+    ):
+        with pytest.raises(
+            ValueError,
+            match="not allowed in independent H6-Prefix",
+        ):
+            h6_prefix_gate._reject_prefix_dependencies(
+                rejected_payload,
+                "config_payload",
+            )
+
 
 def test_bounded_runner_fake_executor_builds_once_per_family_and_never_adds_a_sixth_call(
     tmp_path: Path,
@@ -2210,12 +2472,411 @@ def test_v3_private_executor_loads_bound_inputs_before_arms_and_keeps_v2_workloa
     )
 
 
+def test_v3_bounded_publication_is_one_reference_complete_five_payload_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _bounded_v3_resolved_config(tmp_path)
+    events: list[str] = []
+    executor = _V3FakeExecutor(
+        events=events,
+        loader=lambda expected: _v3_full_perturbations(config, expected),
+    )
+    executor_constructions: list[H6PrefixV3ResolvedConfig] = []
+
+    def executor_factory(
+        observed_config: H6PrefixV3ResolvedConfig,
+    ) -> _V3FakeExecutor:
+        executor_constructions.append(observed_config)
+        return executor
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "_LiveH6PrefixV3RunnerExecutor",
+        executor_factory,
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "current_source_identity",
+        lambda repo_root, artifact_root: (
+            config.source.git_head,
+            config.source.dirty_digest,
+            config.source.source_sha256,
+        ),
+    )
+    original_publish = h6_prefix_gate.publish_run_directory
+    publication_calls: list[dict[str, object]] = []
+
+    def counted_publish(
+        artifact_root: Path,
+        run_name: str,
+        payloads: object,
+    ) -> Path:
+        assert isinstance(payloads, dict)
+        publication_calls.append(dict(payloads))
+        return original_publish(artifact_root, run_name, payloads)
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "publish_run_directory",
+        counted_publish,
+    )
+    junit_sha256 = "b" * 64
+
+    result, run_dir = h6_prefix_gate.run_h6_prefix(
+        config=config,
+        junit_sha256=junit_sha256,
+    )
+
+    assert type(result) is vfe4_types.H6BoundedPrefixGateResult
+    assert executor_constructions == [config]
+    assert len(publication_calls) == 1
+    assert events.count("build-arm") == 2
+    expected_payload_names = (
+        "certificates/prefix_set.json",
+        "config.json",
+        "environment.json",
+        "provenance.json",
+        "validation/h6_prefix.json",
+    )
+    assert tuple(sorted(publication_calls[0])) == expected_payload_names
+    assert tuple(
+        sorted(
+            path.relative_to(run_dir).as_posix()
+            for path in run_dir.rglob("*")
+            if path.is_file()
+        )
+    ) == (*expected_payload_names[:1], *expected_payload_names[1:3], "manifest.sha256", *expected_payload_names[3:])
+    manifest_names = tuple(
+        line.split("  ", 1)[1]
+        for line in (run_dir / "manifest.sha256")
+        .read_text(encoding="ascii")
+        .splitlines()
+    )
+    assert manifest_names == expected_payload_names
+
+    def load(relative: str) -> dict[str, object]:
+        parsed = json.loads((run_dir / relative).read_bytes())
+        assert type(parsed) is dict
+        return parsed
+
+    config_payload = load("config.json")
+    validation = load("validation/h6_prefix.json")
+    certificate_set = load("certificates/prefix_set.json")
+    provenance = load("provenance.json")
+    environment = load("environment.json")
+    assert config_payload == json.loads(config.canonical_json)
+    assert config_payload["authorization_sha256"] == (
+        H6_PREFIX_V3_AUTHORIZATION_SHA256
+    )
+    assert config_payload["workload_authorization_sha256"] == (
+        H6_PREFIX_V2_AUTHORIZATION_SHA256
+    )
+    assert tuple(validation) == (
+        "config_sha256",
+        "gate",
+        "obligations",
+        "prefix_certificate_set_sha256",
+        "runner_totals",
+        "schema_version",
+        "semantic_families",
+        "static_report",
+        "status",
+        "validation_payload_sha256",
+        "workload_plan_sha256",
+    )
+    assert validation["schema_version"] == "h6-prefix-validation-set-v2"
+    assert validation["config_sha256"] == config.config_sha256
+    assert validation["workload_plan_sha256"] == (
+        config.workload_plan_sha256
+    )
+    assert validation["validation_payload_sha256"] == (
+        result.validation_payload_sha256
+    )
+    assert validation["prefix_certificate_set_sha256"] == (
+        result.prefix_certificate_set_sha256
+    )
+    runner_totals = validation["runner_totals"]
+    assert type(runner_totals) is dict
+    assert runner_totals["planned_dynamic_report_count"] == 8
+    assert runner_totals["observed_dynamic_report_count"] == 8
+    assert runner_totals["planned_predictor_call_count"] == (
+        runner_totals["observed_predictor_call_count"]
+    )
+    families = validation["semantic_families"]
+    assert type(families) is list and len(families) == 1
+    family = families[0]
+    assert type(family) is dict
+    assert family["semantic_family_index"] == 0
+    assert "static_report" not in family
+    jobs = family["jobs"]
+    assert type(jobs) is list and len(jobs) == 8
+    assert tuple(
+        (
+            job["particle_count"],
+            job["case_family"],
+            job["execution_plan"]["authorization_sha256"],
+        )
+        for job in jobs
+    ) == tuple(
+        (particle_count, case_family, H6_PREFIX_V2_AUTHORIZATION_SHA256)
+        for particle_count in (128, 256, 512, 1024)
+        for case_family in ("small", "validation")
+    )
+    for job in jobs:
+        assert job["execution_plan"]["plan_sha256"]
+        assert job["dynamic_report"]["report_sha256"]
+        assert job["profile_pair_sha256"]
+        assert job["observed_predictor_call_count"] > 0
+    assert type(validation["static_report"]) is dict
+    assert validation["static_report"]["report_sha256"]
+
+    assert certificate_set["schema_version"] == (
+        "h6-prefix-certificate-set-v2"
+    )
+    assert tuple(certificate_set) == (
+        "certificates",
+        "config_sha256",
+        "dirty_digest",
+        "git_head",
+        "prefix_certificate_set_sha256",
+        "schema_version",
+        "semantic_family_sha256s",
+        "source_sha256",
+        "validation_payload_sha256",
+        "workload_plan_sha256",
+    )
+    assert certificate_set["config_sha256"] == config.config_sha256
+    assert certificate_set["semantic_family_sha256s"] == [
+        family["semantic_family_sha256"]
+    ]
+    certificates = certificate_set["certificates"]
+    assert type(certificates) is list and len(certificates) == 1
+    assert tuple(certificates[0]) == (
+        "certificate_sha256",
+        "checks",
+        "obligations",
+        "report_binding",
+        "schema_version",
+        "semantic_family_sha256",
+        "status",
+        "validation_payload",
+        "validation_payload_sha256",
+    )
+    assert "certificate" not in certificate_set
+    assert provenance["schema_version"] == "h6-prefix-provenance-v1"
+    assert provenance["junit_sha256"] == junit_sha256
+    assert environment["schema_version"] == "h6-prefix-environment-v1"
+
+    for payload in (validation, certificate_set, provenance, environment):
+        encoded = canonical_json_bytes(payload)
+        assert H6_PREFIX_V3_AUTHORIZATION_SHA256.encode("ascii") not in encoded
+        assert b"validation_fixture_reference" not in encoded
+        assert b"validation_perturbation_reference" not in encoded
+    assert "validation_fixture_reference" in config_payload
+    assert "validation_perturbation_reference" in config_payload
+
+    reference = h6_artifacts._reference_from_published_directory(
+        operation="H6-Prefix",
+        resolved_config=config,
+        result=result,
+        run_directory=run_dir,
+        junit_sha256=junit_sha256,
+    )
+    assert tuple(reference.payload_hashes) == expected_payload_names
+
+    tampered_run_dir = tmp_path / "tampered-bounded-reference"
+    shutil.copytree(run_dir, tampered_run_dir)
+
+    def first_job(payload: dict[str, object]) -> dict[str, object]:
+        families = payload["semantic_families"]
+        assert type(families) is list
+        family_value = families[0]
+        assert type(family_value) is dict
+        jobs_value = family_value["jobs"]
+        assert type(jobs_value) is list
+        job_value = jobs_value[0]
+        assert type(job_value) is dict
+        return job_value
+
+    def rehash_record(
+        record: dict[str, object],
+        domain: str,
+        digest_field: str,
+    ) -> None:
+        record[digest_field] = _owned_hash(
+            domain,
+            {
+                key: value
+                for key, value in record.items()
+                if key != digest_field
+            },
+        )
+
+    def assert_nested_rejection(
+        mutate: Callable[[dict[str, object]], None],
+    ) -> None:
+        tampered_validation = json.loads(canonical_json_bytes(validation))
+        assert type(tampered_validation) is dict
+        mutate(tampered_validation)
+        (
+            tampered_run_dir / "validation" / "h6_prefix.json"
+        ).write_bytes(canonical_json_bytes(tampered_validation))
+        manifest = "".join(
+            (
+                f"{hashlib.sha256(payload_path.read_bytes()).hexdigest()}"
+                f"  {relative}\n"
+            )
+            for relative in expected_payload_names
+            for payload_path in (
+                tampered_run_dir.joinpath(*relative.split("/")),
+            )
+        )
+        (tampered_run_dir / "manifest.sha256").write_bytes(
+            manifest.encode("ascii")
+        )
+        with pytest.raises(
+            ArtifactPublicationError,
+            match="bounded H6 Prefix",
+        ):
+            h6_artifacts._reference_from_published_directory(
+                operation="H6-Prefix",
+                resolved_config=config,
+                result=result,
+                run_directory=tampered_run_dir,
+                junit_sha256=junit_sha256,
+            )
+
+    def add_nested_plan_field(payload: dict[str, object]) -> None:
+        plan = first_job(payload)["execution_plan"]
+        assert type(plan) is dict
+        plan["unexpected"] = True
+
+    assert_nested_rejection(add_nested_plan_field)
+
+    def rehash_selection_plan_and_report(
+        payload: dict[str, object],
+    ) -> None:
+        job = first_job(payload)
+        plan = job["execution_plan"]
+        report = job["dynamic_report"]
+        assert type(plan) is dict
+        assert type(report) is dict
+        selection_rows = plan["selection_rows"]
+        assert type(selection_rows) is list
+        first_row = selection_rows[0]
+        assert type(first_row) is dict
+        original_case_sha256 = first_row["case_sha256"]
+        first_row["case_sha256"] = (
+            "0" * 64
+            if original_case_sha256 != "0" * 64
+            else "f" * 64
+        )
+        plan["selection_manifest_sha256"] = _owned_hash(
+            "vfe4.h6.dynamic-selection-manifest.v2",
+            selection_rows,
+        )
+        rehash_record(
+            plan,
+            "vfe4.h6.dynamic-execution-plan.v2",
+            "plan_sha256",
+        )
+        report["execution_plan_sha256"] = plan["plan_sha256"]
+        report["selection_manifest_sha256"] = plan[
+            "selection_manifest_sha256"
+        ]
+        rehash_record(
+            report,
+            "vfe4.h6.dynamic-prefix-report.v2",
+            "report_sha256",
+        )
+
+    assert_nested_rejection(rehash_selection_plan_and_report)
+
+    def rehash_static_report(payload: dict[str, object]) -> None:
+        static_report = payload["static_report"]
+        assert type(static_report) is dict
+        static_report["source_manifest_sha256"] = "0" * 64
+        checks = static_report["checks"]
+        findings = static_report["findings"]
+        assert type(checks) is list
+        assert type(findings) is list
+        static_report["report_sha256"] = _owned_hash(
+            "vfe4.h6.static-audit-report.v1",
+            {
+                "schema_version": static_report["schema_version"],
+                "source_manifest_sha256": static_report[
+                    "source_manifest_sha256"
+                ],
+                "rules_sha256": static_report["rules_sha256"],
+                "case_key_manifest_sha256": static_report[
+                    "case_key_manifest_sha256"
+                ],
+                "checks": tuple(check["check_sha256"] for check in checks),
+                "findings": tuple(
+                    finding["finding_sha256"] for finding in findings
+                ),
+                "status": static_report["status"],
+                "obligations": static_report["obligations"],
+            },
+        )
+
+    assert_nested_rejection(rehash_static_report)
+
+    def reorder_jobs(payload: dict[str, object]) -> None:
+        families = payload["semantic_families"]
+        assert type(families) is list
+        family_value = families[0]
+        assert type(family_value) is dict
+        jobs_value = family_value["jobs"]
+        assert type(jobs_value) is list
+        jobs_value[0], jobs_value[1] = jobs_value[1], jobs_value[0]
+
+    assert_nested_rejection(reorder_jobs)
+
+    def change_observed_call_count(payload: dict[str, object]) -> None:
+        job = first_job(payload)
+        observed = job["observed_predictor_call_count"]
+        assert type(observed) is int
+        job["observed_predictor_call_count"] = observed + 1
+
+    assert_nested_rejection(change_observed_call_count)
+
+    def change_runner_totals(payload: dict[str, object]) -> None:
+        totals = payload["runner_totals"]
+        assert type(totals) is dict
+        planned = totals["planned_case_count"]
+        assert type(planned) is int
+        totals["planned_case_count"] = planned + 1
+
+    assert_nested_rejection(change_runner_totals)
+
+    with pytest.raises(ArtifactPublicationError, match="already exists"):
+        h6_prefix_gate.run_h6_prefix(
+            config=config,
+            junit_sha256=junit_sha256,
+        )
+    assert len(publication_calls) == 2
+
+
 def test_v3_input_mismatch_blocks_arms_and_public_v2_v3_publication_remains_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _bounded_v3_resolved_config(tmp_path)
     plan = h6_prefix_gate._build_h6_prefix_runner_plan(config)
+    publication_calls: list[object] = []
+
+    def forbidden_publication(*args: object, **kwargs: object) -> object:
+        publication_calls.append((args, kwargs))
+        raise AssertionError("failed or v2 input reached v3 publication")
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "publish_h6_bounded_prefix_artifact",
+        forbidden_publication,
+        raising=False,
+    )
 
     for failure in (
         "fixture-bytes",
@@ -2291,15 +2952,28 @@ def test_v3_input_mismatch_blocks_arms_and_public_v2_v3_publication_remains_clos
         with pytest.raises((ValueError, RuntimeError)):
             h6_prefix_gate._execute_h6_prefix_v3_plan(plan, executor)
         assert "build-arm" not in events
+        assert publication_calls == []
+
+    v2_config = _bounded_resolved_config(tmp_path)
+
+    def matching_source_identity(
+        repo_root: Path,
+        artifact_root: Path,
+    ) -> tuple[str, str, str]:
+        del repo_root
+        for resolved in (config, v2_config):
+            if artifact_root == resolved.artifact_root:
+                return (
+                    resolved.source.git_head,
+                    resolved.source.dirty_digest,
+                    resolved.source.source_sha256,
+                )
+        raise AssertionError("unexpected artifact root requested source identity")
 
     monkeypatch.setattr(
         h6_prefix_gate,
         "current_source_identity",
-        lambda repo_root, artifact_root: (
-            config.source.git_head,
-            config.source.dirty_digest,
-            config.source.source_sha256,
-        ),
+        matching_source_identity,
     )
 
     def forbidden(*args: object, **kwargs: object) -> object:
@@ -2323,14 +2997,91 @@ def test_v3_input_mismatch_blocks_arms_and_public_v2_v3_publication_remains_clos
     monkeypatch.setattr(h6_prefix_gate, "build_arm", forbidden)
     with pytest.raises(RuntimeError, match="h6-prefix-config-v2.*blocked"):
         h6_prefix_gate.run_h6_prefix(
-            config=_bounded_resolved_config(tmp_path),
+            config=v2_config,
             junit_sha256=None,
         )
-    with pytest.raises(RuntimeError, match="Task 3E2C3|publication"):
-        h6_prefix_gate.run_h6_prefix(
-            config=config,
-            junit_sha256=None,
+    assert publication_calls == []
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "read_validation_safety_fixture_payload",
+        lambda reference: _v3_fixture_payload(config),
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "load_h6_validation_perturbation_artifact_payload",
+        lambda path: (
+            h6_validation_candidate.H6ValidationPerturbationArtifactPayload(
+                reference=config.validation_perturbation_reference,
+                candidate_bytes=_V3_CANDIDATE_BYTES,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "load_frozen_validation_perturbations",
+        lambda source, *, expected_vocabulary, validation_fixture,
+        validation_fixture_bytes: _v3_full_perturbations(
+            config,
+            expected_vocabulary,
+        ),
+    )
+    success_events: list[str] = []
+    success_executor = _V3FakeExecutor(
+        events=success_events,
+        loader=lambda expected: (
+            h6_prefix_gate._load_h6_prefix_v3_validation_inputs(
+                config,
+                expected_vocabulary=expected,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "_LiveH6PrefixV3RunnerExecutor",
+        lambda observed_config: success_executor,
+    )
+
+    def capture_publication(
+        *,
+        artifact_root: Path,
+        run_name: str,
+        config_payload: object,
+        provenance_payload: object,
+        environment_payload: object,
+        runner_evidence: object,
+        certificate_set: object,
+    ) -> tuple[object, Path]:
+        del provenance_payload, environment_payload
+        assert artifact_root == config.artifact_root
+        assert run_name.startswith(f"h6-prefix-{config.source.git_head}-")
+        assert config_payload == json.loads(config.canonical_json)
+        assert runner_evidence.plan.config == config
+        assert len(runner_evidence.dynamic_results) == 8
+        assert type(certificate_set) is (
+            vfe4_types.BoundedPrefixCertificateSet
         )
+        publication_calls.append(certificate_set)
+        return (
+            vfe4_types.H6BoundedPrefixGateResult.from_certificate_set(
+                certificate_set
+            ),
+            tmp_path / "captured-v3-publication",
+        )
+
+    monkeypatch.setattr(
+        h6_prefix_gate,
+        "publish_h6_bounded_prefix_artifact",
+        capture_publication,
+    )
+    result, run_dir = h6_prefix_gate.run_h6_prefix(
+        config=config,
+        junit_sha256=None,
+    )
+    assert type(result) is vfe4_types.H6BoundedPrefixGateResult
+    assert run_dir == tmp_path / "captured-v3-publication"
+    assert len(publication_calls) == 1
+    assert success_events.count("build-arm") == 2
 
 
 def test_source_mask_observer_reuses_first_prediction_without_a_sixth_call(

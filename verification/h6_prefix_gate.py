@@ -51,6 +51,7 @@ from vfe4.training.arms import BuiltArm, LatentLanguageArmModel, build_arm
 from vfe4.types.h6 import (
     ArmConfig,
     BoundedPrefixCertificate,
+    BoundedPrefixCertificateSet,
     BoundedPrefixReportBinding,
     BoundedPrefixReportReference,
     EstimatorSpec,
@@ -66,7 +67,10 @@ from vfe4.types.h6 import (
     VocabularyIdentity,
     canonical_json_bytes,
 )
-from vfe4.types.results import H6PrefixGateResult
+from vfe4.types.results import (
+    H6BoundedPrefixGateResult,
+    H6PrefixGateResult,
+)
 from vfe4.validation.h6_prefix import (
     SMALL_EXPECTED_BY_POSITION,
     SMALL_EXPECTED_TOTAL,
@@ -154,6 +158,15 @@ _FORBIDDEN_PREFIX_DEPENDENCY_FIELDS = (
     "checkpoint",
     "opening",
     "prediction",
+)
+_OWNED_PREFIX_WORKLOAD_DEPENDENCY_LIKE_FIELDS = frozenset(
+    {
+        "prediction_calls_per_case",
+        "representative_prediction_calls",
+        "ladder_subset_prediction_calls",
+        "amended_total_prediction_calls",
+        "finite_smc_accuracy_particle_count",
+    }
 )
 
 
@@ -1338,17 +1351,404 @@ def _static_report_payload(report: StaticAuditReport) -> dict[str, object]:
     }
 
 
+def _compose_bounded_prefix_certificate_set(
+    *,
+    config: H6PrefixV3ResolvedConfig,
+    runner_evidence: _H6PrefixRunnerEvidence,
+) -> BoundedPrefixCertificateSet:
+    """Compose the ordered bounded family set from retained runner evidence."""
+
+    if type(config) is not H6PrefixV3ResolvedConfig:
+        raise ValueError("bounded publication requires an exact v3 config")
+    _validate_v3_resolved_runner_config(config)
+    if (
+        type(runner_evidence) is not _H6PrefixRunnerEvidence
+        or type(runner_evidence.plan) is not _H6PrefixRunnerPlan
+        or runner_evidence.plan.config != config
+        or runner_evidence.plan
+        != _build_h6_prefix_runner_plan(config)
+    ):
+        raise ValueError(
+            "bounded publication evidence differs from its exact v3 plan"
+        )
+    plan = runner_evidence.plan
+    if type(runner_evidence.static_report) is not StaticAuditReport:
+        raise ValueError(
+            "bounded publication requires one exact static report"
+        )
+    runner_evidence.static_report.__post_init__()
+    if (
+        runner_evidence.static_report.case_key_manifest_sha256
+        != plan.static_audit_job.case_key_manifest_sha256
+    ):
+        raise ValueError(
+            "bounded publication static report differs from the plan"
+        )
+    expected_jobs = tuple(
+        job
+        for family in plan.semantic_families
+        for job in family.dynamic_jobs
+    )
+    if (
+        type(runner_evidence.dynamic_results) is not tuple
+        or len(runner_evidence.dynamic_results) != len(expected_jobs)
+        or tuple(
+            result.job for result in runner_evidence.dynamic_results
+        )
+        != expected_jobs
+    ):
+        raise ValueError(
+            "bounded publication dynamic evidence is missing or reordered"
+        )
+    observed_calls = 0
+    for job, evidence in zip(
+        expected_jobs,
+        runner_evidence.dynamic_results,
+        strict=True,
+    ):
+        if type(evidence) is not _H6PrefixDynamicJobEvidence:
+            raise ValueError(
+                "bounded publication requires exact dynamic evidence"
+            )
+        _, _, calls = _validated_dynamic_job_result(
+            plan=plan,
+            job=job,
+            result=evidence,
+        )
+        observed_calls += calls
+    if (
+        observed_calls != runner_evidence.observed_predictor_call_count
+        or observed_calls != plan.expected_predictor_call_count
+    ):
+        raise ValueError(
+            "bounded publication predictor-call total differs from the plan"
+        )
+
+    certificates: list[BoundedPrefixCertificate] = []
+    offset = 0
+    for family in plan.semantic_families:
+        family_results = runner_evidence.dynamic_results[
+            offset : offset + len(family.dynamic_jobs)
+        ]
+        offset += len(family_results)
+        certificate = compose_bounded_prefix_certificate(
+            family_bundle=H6BoundedPrefixFamilyBundle(
+                profiles=family.profiles,
+                reports=tuple(result.report for result in family_results),
+            ),
+            static_report=runner_evidence.static_report,
+            global_case_keys=plan.static_audit_job.report_keys,
+            source_sha256=config.source.source_sha256,
+        )
+        certificates.append(certificate)
+    if offset != len(runner_evidence.dynamic_results):
+        raise ValueError("bounded publication retained extra dynamic evidence")
+    ordered_certificates = tuple(certificates)
+    return BoundedPrefixCertificateSet.create(
+        config_sha256=config.config_sha256,
+        semantic_family_sha256s=tuple(
+            certificate.semantic_family_sha256
+            for certificate in ordered_certificates
+        ),
+        certificates=ordered_certificates,
+    )
+
+
+def _bounded_execution_plan_payload(
+    plan: DynamicExecutionPlan,
+) -> dict[str, object]:
+    plan.__post_init__()
+    return {**plan.canonical_payload(), "plan_sha256": plan.plan_sha256}
+
+
+def _bounded_certificate_payload(
+    certificate: BoundedPrefixCertificate,
+) -> dict[str, object]:
+    certificate.__post_init__()
+    return {
+        "schema_version": certificate.schema_version,
+        "semantic_family_sha256": certificate.semantic_family_sha256,
+        "report_binding": certificate.report_binding.canonical_payload(),
+        "validation_payload": json.loads(
+            certificate.validation_payload_canonical_json
+        ),
+        "validation_payload_sha256": (
+            certificate.validation_payload_sha256
+        ),
+        "status": certificate.status.value,
+        "obligations": certificate.obligations,
+        "checks": dict(certificate.checks),
+        "certificate_sha256": certificate.certificate_sha256,
+    }
+
+
+def h6_bounded_prefix_artifact_payloads(
+    *,
+    config_payload: Mapping[str, object],
+    provenance_payload: Mapping[str, object],
+    environment_payload: Mapping[str, object],
+    runner_evidence: _H6PrefixRunnerEvidence,
+    certificate_set: BoundedPrefixCertificateSet,
+) -> dict[str, object]:
+    """Construct the exact bounded-v3 five-payload artifact."""
+
+    if type(certificate_set) is not BoundedPrefixCertificateSet:
+        raise ValueError(
+            "bounded payloads require an exact certificate set"
+        )
+    certificate_set.__post_init__()
+    if (
+        type(runner_evidence) is not _H6PrefixRunnerEvidence
+        or type(runner_evidence.plan) is not _H6PrefixRunnerPlan
+        or type(runner_evidence.plan.config) is not H6PrefixV3ResolvedConfig
+    ):
+        raise ValueError("bounded payloads require exact v3 runner evidence")
+    config = runner_evidence.plan.config
+    expected_set = _compose_bounded_prefix_certificate_set(
+        config=config,
+        runner_evidence=runner_evidence,
+    )
+    if certificate_set != expected_set:
+        raise ValueError(
+            "bounded certificate set differs from runner evidence"
+        )
+    result = H6BoundedPrefixGateResult.from_certificate_set(
+        certificate_set
+    )
+    resolved_config = _canonical_object(config_payload, "config_payload")
+    provenance = _canonical_object(
+        provenance_payload,
+        "provenance_payload",
+    )
+    environment = _canonical_object(
+        environment_payload,
+        "environment_payload",
+    )
+    if (
+        frozenset(resolved_config) != _RESOLVED_PREFIX_CONFIG_V3_FIELDS
+        or resolved_config.get("schema_version") != "h6-prefix-config-v3"
+        or resolved_config.get("operation") != "H6-Prefix"
+        or canonical_json_bytes(resolved_config)
+        != config.canonical_json.encode("ascii")
+        or hashlib.sha256(canonical_json_bytes(resolved_config)).hexdigest()
+        != config.config_sha256
+    ):
+        raise ValueError("bounded payload config differs from exact v3 config")
+    if (
+        frozenset(provenance)
+        != frozenset(
+            {
+                "schema_version",
+                "git_head",
+                "dirty_digest",
+                "source_sha256",
+                "junit_sha256",
+            }
+        )
+        or provenance.get("schema_version")
+        != "h6-prefix-provenance-v1"
+        or provenance.get("git_head") != certificate_set.git_head
+        or provenance.get("dirty_digest") != certificate_set.dirty_digest
+        or provenance.get("source_sha256")
+        != certificate_set.source_sha256
+    ):
+        raise ValueError(
+            "bounded provenance differs from certificate-set source"
+        )
+    junit_sha256 = provenance.get("junit_sha256")
+    if junit_sha256 is not None:
+        _require_sha256(junit_sha256, "provenance.junit_sha256")
+    if (
+        frozenset(environment)
+        != frozenset(
+            {
+                "schema_version",
+                "device",
+                "dtype",
+                "python_implementation",
+                "python_version",
+            }
+        )
+        or environment.get("schema_version")
+        != "h6-prefix-environment-v1"
+    ):
+        raise ValueError("bounded environment payload is not exact")
+    for name, payload in (
+        ("config_payload", resolved_config),
+        ("provenance_payload", provenance),
+        ("environment_payload", environment),
+    ):
+        _reject_prefix_dependencies(payload, name)
+
+    plan = runner_evidence.plan
+    family_entries: list[dict[str, object]] = []
+    offset = 0
+    for family, certificate in zip(
+        plan.semantic_families,
+        certificate_set.certificates,
+        strict=True,
+    ):
+        family_results = runner_evidence.dynamic_results[
+            offset : offset + len(family.dynamic_jobs)
+        ]
+        offset += len(family_results)
+        jobs = tuple(
+            {
+                "job_index": job_index,
+                "particle_count": evidence.job.particle_count,
+                "case_family": evidence.job.case_family,
+                "scope": evidence.job.scope,
+                "profile_pair_sha256": (
+                    evidence.job.profile.profile_pair_sha256
+                ),
+                "execution_plan": _bounded_execution_plan_payload(
+                    evidence.execution_plan
+                ),
+                "dynamic_report": _dynamic_report_payload(
+                    evidence.report
+                ),
+                "observed_predictor_call_count": (
+                    evidence.observed_predictor_call_count
+                ),
+            }
+            for job_index, evidence in enumerate(family_results)
+        )
+        family_entries.append(
+            {
+                "semantic_family_index": family.semantic_family_index,
+                "semantic_family_sha256": (
+                    certificate.semantic_family_sha256
+                ),
+                "jobs": jobs,
+                "validation_payload_sha256": (
+                    certificate.validation_payload_sha256
+                ),
+                "certificate_sha256": certificate.certificate_sha256,
+            }
+        )
+    if offset != len(runner_evidence.dynamic_results):
+        raise ValueError("bounded payloads retained extra dynamic evidence")
+    runner_totals = {
+        "semantic_family_count": len(plan.semantic_families),
+        "planned_fixture_load_count": plan.fixture_load_count,
+        "planned_static_audit_count": plan.static_audit_count,
+        "planned_arm_build_count": sum(
+            family.arm_build_count for family in plan.semantic_families
+        ),
+        "planned_predictor_boundary_count": sum(
+            family.predictor_boundary_count
+            for family in plan.semantic_families
+        ),
+        "planned_dynamic_report_count": sum(
+            family.dynamic_report_count
+            for family in plan.semantic_families
+        ),
+        "observed_dynamic_report_count": len(
+            runner_evidence.dynamic_results
+        ),
+        "planned_case_count": plan.expected_case_count,
+        "planned_predictor_call_count": (
+            plan.expected_predictor_call_count
+        ),
+        "observed_predictor_call_count": (
+            runner_evidence.observed_predictor_call_count
+        ),
+        "planned_particle_call_units": (
+            plan.expected_particle_call_units
+        ),
+    }
+    validation = {
+        "schema_version": "h6-prefix-validation-set-v2",
+        "gate": "H6-Prefix",
+        "status": result.status.value,
+        "obligations": result.obligations,
+        "config_sha256": result.config_sha256,
+        "workload_plan_sha256": result.workload_plan_sha256,
+        "validation_payload_sha256": result.validation_payload_sha256,
+        "prefix_certificate_set_sha256": (
+            result.prefix_certificate_set_sha256
+        ),
+        "runner_totals": runner_totals,
+        "semantic_families": tuple(family_entries),
+        "static_report": _static_report_payload(
+            runner_evidence.static_report
+        ),
+    }
+    certificates_payload = {
+        "schema_version": certificate_set.schema_version,
+        "config_sha256": certificate_set.config_sha256,
+        "workload_plan_sha256": certificate_set.workload_plan_sha256,
+        "git_head": certificate_set.git_head,
+        "dirty_digest": certificate_set.dirty_digest,
+        "source_sha256": certificate_set.source_sha256,
+        "semantic_family_sha256s": (
+            certificate_set.semantic_family_sha256s
+        ),
+        "validation_payload_sha256": (
+            certificate_set.validation_payload_sha256
+        ),
+        "prefix_certificate_set_sha256": (
+            certificate_set.prefix_certificate_set_sha256
+        ),
+        "certificates": tuple(
+            _bounded_certificate_payload(certificate)
+            for certificate in certificate_set.certificates
+        ),
+    }
+    return {
+        "certificates/prefix_set.json": certificates_payload,
+        "config.json": resolved_config,
+        "environment.json": environment,
+        "provenance.json": provenance,
+        "validation/h6_prefix.json": validation,
+    }
+
+
+def publish_h6_bounded_prefix_artifact(
+    *,
+    artifact_root: Path,
+    run_name: str,
+    config_payload: Mapping[str, object],
+    provenance_payload: Mapping[str, object],
+    environment_payload: Mapping[str, object],
+    runner_evidence: _H6PrefixRunnerEvidence,
+    certificate_set: BoundedPrefixCertificateSet,
+) -> tuple[H6BoundedPrefixGateResult, Path]:
+    """Atomically publish one complete bounded Prefix v3 artifact."""
+
+    payloads = h6_bounded_prefix_artifact_payloads(
+        config_payload=config_payload,
+        provenance_payload=provenance_payload,
+        environment_payload=environment_payload,
+        runner_evidence=runner_evidence,
+        certificate_set=certificate_set,
+    )
+    result = H6BoundedPrefixGateResult.from_certificate_set(
+        certificate_set
+    )
+    run_dir = publish_run_directory(artifact_root, run_name, payloads)
+    return result, run_dir
+
+
 def _reject_prefix_dependencies(value: object, path: str) -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
             if type(key) is not str or not key:
                 raise ValueError(f"{path} contains an invalid field name")
             folded = key.casefold()
+            owned_workload_metric = (
+                path == "config_payload.workload_plan"
+                and key
+                in _OWNED_PREFIX_WORKLOAD_DEPENDENCY_LIKE_FIELDS
+            )
             if (
-                folded in {"h1", "h2", "h3", "h4", "h5"}
-                or any(
-                    fragment in folded
-                    for fragment in _FORBIDDEN_PREFIX_DEPENDENCY_FIELDS
+                not owned_workload_metric
+                and (
+                    folded in {"h1", "h2", "h3", "h4", "h5"}
+                    or any(
+                        fragment in folded
+                        for fragment in _FORBIDDEN_PREFIX_DEPENDENCY_FIELDS
+                    )
                 )
             ):
                 raise ValueError(
@@ -2856,17 +3256,46 @@ def run_h6_prefix(
     *,
     config: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig,
     junit_sha256: str | None,
-) -> tuple[H6PrefixGateResult, Path]:
+) -> tuple[H6PrefixGateResult | H6BoundedPrefixGateResult, Path]:
     """Run bounded typed Prefix checks and publish only their derived status."""
 
     _validate_resolved_runner_config(config)
     if junit_sha256 is not None:
         _require_sha256(junit_sha256, "junit_sha256")
     if type(config) is H6PrefixV3ResolvedConfig:
-        _build_h6_prefix_runner_plan(config)
-        raise RuntimeError(
-            "h6-prefix-config-v3 publication is blocked until Task 3E2C3 "
-            "adds the bounded result, certificate-set, and artifact branch"
+        plan = _build_h6_prefix_runner_plan(config)
+        runner_evidence = _execute_h6_prefix_v3_plan(
+            plan,
+            _LiveH6PrefixV3RunnerExecutor(config),
+        )
+        certificate_set = _compose_bounded_prefix_certificate_set(
+            config=config,
+            runner_evidence=runner_evidence,
+        )
+        _validate_resolved_runner_config(config)
+        return publish_h6_bounded_prefix_artifact(
+            artifact_root=config.artifact_root,
+            run_name=(
+                f"h6-prefix-{config.source.git_head}-"
+                f"{config.config_sha256[:16]}"
+            ),
+            config_payload=json.loads(config.canonical_json),
+            provenance_payload={
+                "schema_version": "h6-prefix-provenance-v1",
+                "git_head": config.source.git_head,
+                "dirty_digest": config.source.dirty_digest,
+                "source_sha256": config.source.source_sha256,
+                "junit_sha256": junit_sha256,
+            },
+            environment_payload={
+                "schema_version": "h6-prefix-environment-v1",
+                "device": "cpu",
+                "dtype": "float64",
+                "python_implementation": platform.python_implementation(),
+                "python_version": sys.version.split()[0],
+            },
+            runner_evidence=runner_evidence,
+            certificate_set=certificate_set,
         )
     if getattr(config, "schema_version", "h6-prefix-config-v1") == (
         "h6-prefix-config-v2"
@@ -3027,7 +3456,9 @@ __all__ = [
     "H6PrefixReportBundle",
     "compose_bounded_prefix_certificate",
     "compose_prefix_certificate",
+    "h6_bounded_prefix_artifact_payloads",
     "h6_prefix_artifact_payloads",
+    "publish_h6_bounded_prefix_artifact",
     "publish_h6_prefix_artifact",
     "run_h6_prefix",
 ]

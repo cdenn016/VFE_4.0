@@ -759,3 +759,67 @@ future H7 consumer. A1, A2, and B2 repin H6-Prediction and its future H8
 consumer only; H6-Prediction is not an H7 premise. H4, H6, H7, and H8 retain
 their current evidence states until separately authorized exact-revision
 artifacts exist.
+
+## July 26, 2026 bounded Prefix v3 wire amendment (normative)
+
+The bounded H6-Prefix v3 artifact is one atomic, reference-complete H6
+producer artifact. Its certificate-set schema is
+`h6-prefix-certificate-set-v2`; its validation schema is
+`h6-prefix-validation-set-v2`. The order-preserving aggregate hash domains
+are:
+
+```text
+vfe4.h6.prefix-validation-payload-set.v2
+vfe4.h6.prefix-certificate-set.v2
+```
+
+Semantic families are aggregated in the exact bounded runner-plan order.
+Within each family, the eight dynamic jobs remain in exact `N`/case order.
+The individual bounded-certificate domain remains unchanged:
+
+```text
+vfe4.h6.prefix-certificate.v2
+```
+
+The artifact has exactly these five canonical JSON payloads:
+
+```text
+certificates/prefix_set.json
+config.json
+environment.json
+provenance.json
+validation/h6_prefix.json
+```
+
+Its LF `manifest.sha256` lists that inventory in sorted path order. The exact
+v3 `config.json` is the only payload containing the complete external
+validation-safety fixture and perturbation-artifact references. The outer v3
+authorization belongs only to that config. Every internal dynamic execution
+plan retains the separately frozen v2 workload authorization. Neither
+authorization may be substituted for the other.
+
+`validation/h6_prefix.json` contains one ordered semantic-family entry per
+runner family, all eight complete job execution/report records per family,
+each family validation-payload and certificate hash, the exact planned and
+observed runner totals, and the one complete global static report. The
+certificate-set payload contains every complete bounded certificate and the
+ordered set identities. Individual certificates do not duplicate the external
+fixture or perturbation references; their transitive reference binding is the
+exact v3 `config_sha256`.
+
+The bounded certificate set and bounded gate result are exact sibling types.
+They are not widened legacy `PrefixCertificate` or `H6PrefixGateResult`
+records, and no bounded certificate is converted to a legacy certificate.
+The legacy v1 payload schemas, hash domains, canonical bytes, and behavior
+remain unchanged. Public v2 execution remains closed before executor
+construction or publication.
+
+This v3 artifact is H6-owned and reference-complete, but it is not yet an
+authorizing input for H7, H8, or H6-Prediction readiness. H7 still requires an
+exact v3 validation/certificate parser that validates the current consumer
+source while permitting the independently bound perturbation-producer source
+inside config. H8 still reconstructs legacy certificates and assumes one
+singular `PrefixCaseKey`. H6-Prediction readiness remains legacy-only. Those
+consumer migrations are separate tasks; this amendment does not select a
+single report key for a semantic family, migrate any consumer, claim H7/H8
+compatibility, or produce evidence.
