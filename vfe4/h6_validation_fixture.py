@@ -272,11 +272,24 @@ class ValidationSafetyFixturePayload:
             raise ValueError("fixture bytes must be exact immutable bytes")
         if type(self.validation_token_sha256) is not str:
             raise ValueError("parsed validation-token SHA-256 must be exact text")
-        if type(self.starts) is not tuple:
-            raise ValueError("parsed starts must be an immutable tuple")
-        if type(self.real_target_counts) is not tuple:
+        if (
+            type(self.starts) is not tuple
+            or len(self.starts) != _ROW_COUNT
+            or any(type(value) is not int for value in self.starts)
+        ):
             raise ValueError(
-                "parsed real-target counts must be an immutable tuple"
+                "parsed starts must be exactly 4,096 exact integers"
+            )
+        if (
+            type(self.real_target_counts) is not tuple
+            or len(self.real_target_counts) != _ROW_COUNT
+            or any(
+                type(value) is not int
+                for value in self.real_target_counts
+            )
+        ):
+            raise ValueError(
+                "parsed real-target counts must be exactly 4,096 exact integers"
             )
         parsed = _parse_fixture_bytes(self.reference, self.fixture_bytes)
         if parsed != (

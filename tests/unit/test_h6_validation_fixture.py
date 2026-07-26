@@ -166,3 +166,32 @@ def test_fixture_payload_reader_rejects_redirect_hash_header_or_row_mutation(
     os.link(source, fixture_path)
     with pytest.raises(ValueError, match="link|redirect"):
         module.read_validation_safety_fixture_payload(redirect_reference)
+
+    direct_root = tmp_path / "direct-construction"
+    module, direct_reference = _write_reference(direct_root, valid)
+    payload = module.read_validation_safety_fixture_payload(direct_reference)
+    direct_mutations = (
+        ("starts", (False, *payload.starts[1:])),
+        ("starts", (0.0, *payload.starts[1:])),
+        ("starts", payload.starts[:-1]),
+        (
+            "real_target_counts",
+            (True, *payload.real_target_counts[1:]),
+        ),
+        (
+            "real_target_counts",
+            (1.0, *payload.real_target_counts[1:]),
+        ),
+        ("real_target_counts", payload.real_target_counts[:-1]),
+    )
+    for field_name, values in direct_mutations:
+        arguments = {
+            "reference": payload.reference,
+            "fixture_bytes": payload.fixture_bytes,
+            "validation_token_sha256": payload.validation_token_sha256,
+            "starts": payload.starts,
+            "real_target_counts": payload.real_target_counts,
+        }
+        arguments[field_name] = values
+        with pytest.raises(ValueError, match="parsed (starts|real-target counts)"):
+            module.ValidationSafetyFixturePayload(**arguments)
