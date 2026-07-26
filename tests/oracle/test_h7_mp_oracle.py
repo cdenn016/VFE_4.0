@@ -26,6 +26,7 @@ from verification.mp_oracles.h7_covariance import (
     H7_COMPLETE_LOCAL_TERM_IDS,
     H7OracleInconclusive,
     MPTrialResult,
+    build_h7_scalar_probe_table_bytes,
     evaluate_h7_from_raw_bytes,
     evaluate_h7_task5_wiring,
     standard_normal_gauss_hermite,
@@ -74,6 +75,55 @@ def _mutated_json_bytes(
         sort_keys=True,
         separators=(",", ":"),
     ).encode("ascii")
+
+
+def test_h7_scalar_probe_builder_is_exact_and_self_validating() -> None:
+    h1_bytes = H1_FIXTURE.read_bytes()
+
+    table_bytes = build_h7_scalar_probe_table_bytes(h1_bytes)
+    table = json.loads(table_bytes)
+
+    assert table_bytes == (
+        json.dumps(
+            table,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("ascii")
+        + b"\n"
+    )
+    assert tuple(table) == (
+        "anchor_provenance",
+        "ordered_source_path_ids",
+        "probe_set_sha256",
+        "probe_table_schema",
+        "raw_fixture_sha256",
+        "records",
+        "scalar_trial_action_sha256",
+    )
+    assert table["probe_table_schema"] == "h7-scalar-density-probe-table-v1"
+    assert table["raw_fixture_sha256"] == hashlib.sha256(h1_bytes).hexdigest()
+    assert table["ordered_source_path_ids"] == [
+        "h1-path-0:a0-b0",
+        "h1-path-1:a1-b0",
+        "h1-path-2:a0-b1",
+        "h1-path-3:a1-b1",
+    ]
+    assert len(table["scalar_trial_action_sha256"]) == 2
+    assert len(table["records"]) == 8
+    assert [record["probe_id"] for record in table["records"]] == [
+        "scalar-base-transformed:h1.p.global.source_path:h1-path-0:a0-b0",
+        "scalar-base-transformed:h1.p.global.source_path:h1-path-1:a1-b0",
+        "scalar-base-transformed:h1.p.global.source_path:h1-path-2:a0-b1",
+        "scalar-base-transformed:h1.p.global.source_path:h1-path-3:a1-b1",
+        "scalar-internal-transformed:h1.p.global.source_path:h1-path-0:a0-b0",
+        "scalar-internal-transformed:h1.p.global.source_path:h1-path-1:a1-b0",
+        "scalar-internal-transformed:h1.p.global.source_path:h1-path-2:a0-b1",
+        "scalar-internal-transformed:h1.p.global.source_path:h1-path-3:a1-b1",
+    ]
+    with pytest.raises(ValueError, match="raw H1 fixture identity"):
+        build_h7_scalar_probe_table_bytes(h1_bytes + b"\n")
 
 
 def _local_import_graph(entry: Path) -> tuple[set[Path], set[str]]:

@@ -2084,6 +2084,136 @@ def _validate_scalar_probe_table(
         )
 
 
+def build_h7_scalar_probe_table_bytes(h1_fixture_bytes: bytes) -> bytes:
+    """Build the exact frozen scalar H1 density-probe table from raw bytes."""
+
+    if type(h1_fixture_bytes) is not bytes or not h1_fixture_bytes:
+        raise ValueError("h1_fixture_bytes must be nonempty exact bytes")
+    previous_precision = mp.mp.dps
+    mp.mp.dps = 100
+    try:
+        h1 = _parse_raw_json(h1_fixture_bytes)
+        _validate_h1_fixture(h1)
+        if hashlib.sha256(h1_fixture_bytes).hexdigest() != _H1_RAW_SHA256:
+            raise _H7ExternalDataError("raw H1 fixture identity changed")
+        paths = _h1_source_paths(h1)
+        h1_law = _make_h1_law(h1, paths)
+        anchor_provenance = "original-generative-conditional-global-mean-v1"
+        trial_actions = (
+            ("scalar-base-transformed", ("1.25", "1.25", "1.25")),
+            ("scalar-internal-transformed", ("0.8", "1.1", "1.4")),
+        )
+        action_hashes = tuple(
+            _action_hash(
+                [[[value]] for value in action_values],
+                dimension=1,
+                kind=(
+                    "diagonal_base"
+                    if trial_id == "scalar-base-transformed"
+                    else "internal_product"
+                ),
+                scalar=True,
+                location=f"scalar_probe_table.actions.{trial_id}",
+            )
+            for trial_id, action_values in trial_actions
+        )
+        records: list[dict[str, object]] = []
+        pair_records: list[Mapping[str, object]] = []
+        row_index = 0
+        for trial_index, (trial_id, action_values) in enumerate(trial_actions):
+            action = _diag(
+                tuple(value for value in action_values for _channel in range(2))
+            )
+            global_shift = _decimal(
+                2 * mp.fsum(mp.log(_mp(value)) for value in action_values)
+            )
+            for path in paths:
+                anchor = _joint_moments(h1_law, path, role="p").mean
+                x = [_decimal(anchor[index]) for index in range(anchor.rows)]
+                x_prime_matrix = action * anchor
+                x_prime = [
+                    _decimal(x_prime_matrix[index])
+                    for index in range(x_prime_matrix.rows)
+                ]
+                record: dict[str, object] = {
+                    "row_index": str(row_index),
+                    "probe_id": (
+                        f"{trial_id}:h1.p.global.source_path:{path.path_id}"
+                    ),
+                    "fixture_id": "h1-v1",
+                    "component_id": "h1.p.global.source_path",
+                    "source_id": path.path_id,
+                    "action_sha256": action_hashes[trial_index],
+                    "anchor_sha256": "",
+                    "anchor_provenance": (
+                        f"{anchor_provenance}|raw_fixture_sha256={_H1_RAW_SHA256}"
+                        f"|source_id={path.path_id}"
+                    ),
+                    "x": x,
+                    "x_prime": x_prime,
+                    "initial_log_jacobian_shift": "0.0",
+                    "receiver_log_jacobian_shift": "0.0",
+                    "global_log_jacobian_shift": global_shift,
+                    "probe_sha256": "",
+                }
+                semantic = _density_probe_semantic(
+                    record,
+                    6,
+                    f"scalar_probe_table.records[{row_index}]",
+                )
+                record["anchor_sha256"] = _h7_hash(
+                    "vfe4.h7.scalar-density-anchor.v1",
+                    {
+                        "raw_fixture_sha256": _H1_RAW_SHA256,
+                        "source_id": path.path_id,
+                        "anchor": semantic["x"],
+                    },
+                )
+                semantic = _density_probe_semantic(
+                    record,
+                    6,
+                    f"scalar_probe_table.records[{row_index}]",
+                )
+                record["probe_sha256"] = _density_probe_hash(semantic)
+                final_semantic = _density_probe_semantic(
+                    record,
+                    6,
+                    f"scalar_probe_table.records[{row_index}]",
+                )
+                pair_records.append(
+                    {**final_semantic, "probe_sha256": record["probe_sha256"]}
+                )
+                records.append(record)
+                row_index += 1
+        table = {
+            "probe_table_schema": "h7-scalar-density-probe-table-v1",
+            "raw_fixture_sha256": _H1_RAW_SHA256,
+            "ordered_source_path_ids": list(_H1_PATH_IDS),
+            "scalar_trial_action_sha256": list(action_hashes),
+            "anchor_provenance": anchor_provenance,
+            "probe_set_sha256": _h7_hash(
+                "vfe4.h7.scalar-probe-set.v1",
+                {
+                    "raw_fixture_sha256": _H1_RAW_SHA256,
+                    "ordered_source_path_ids": _H1_PATH_IDS,
+                    "scalar_trial_action_sha256": action_hashes,
+                    "anchor_provenance": anchor_provenance,
+                    "probe_pairs": tuple(pair_records),
+                },
+            ),
+            "records": records,
+        }
+        table_bytes = _canonical_bytes(table) + b"\n"
+        _validate_scalar_probe_table(
+            _parse_raw_json(table_bytes),
+            h1,
+            paths,
+        )
+        return table_bytes
+    finally:
+        mp.mp.dps = previous_precision
+
+
 def _validate_precision_operand_table(
     value: Mapping[str, Any],
 ) -> _MPPrecisionOperandSource:
@@ -5730,6 +5860,7 @@ __all__ = [
     "MPTask5WiringResult",
     "MPTrialResult",
     "MPValueRecord",
+    "build_h7_scalar_probe_table_bytes",
     "evaluate_h7_from_raw_bytes",
     "evaluate_h7_task5_wiring",
     "standard_normal_gauss_hermite",

@@ -48,6 +48,9 @@ H7_FIXTURE_PATH = Path(__file__).with_name("fixtures") / "h7_v1.json"
 H7_DENSITY_PROBE_TABLE_PATH = (
     Path(__file__).with_name("fixtures") / "h7_density_probes_v1.json"
 )
+H7_SCALAR_PROBE_TABLE_PATH = (
+    Path(__file__).with_name("fixtures") / "h7_scalar_density_probes_v1.json"
+)
 H1_FIXTURE_RAW_SHA256 = (
     "388e38cc8c16d8b5e2c61919c1e712a134d88fb0bbd8ec1f2939b9859c9a583b"
 )
@@ -59,6 +62,12 @@ H7_DENSITY_PROBE_SET_SHA256 = (
 )
 H7_DENSITY_PROBE_TABLE_RAW_SHA256 = (
     "4857af296e84a33f47964c3bca65e0d42967009aa5c79a52bcc98d6db04382c6"
+)
+H7_SCALAR_PROBE_SET_SHA256 = (
+    "6fe0d911ac2fc91579c46a7b8963e63d08c5e9fa64af1bb298995fa9a124903a"
+)
+H7_SCALAR_PROBE_TABLE_RAW_SHA256 = (
+    "ab41d363c7929f1c7551fa0077182bed1399e91ee04cdf81c124a4e8a98cd3d6"
 )
 H7_DENSITY_PROBE_EXPANSION = "all-actions-components-directions-v1"
 
@@ -1849,6 +1858,9 @@ __all__ = [
     "H7_DENSITY_PROBE_TABLE_RAW_SHA256",
     "H7_FIXTURE_PATH",
     "H7_FIXTURE_RAW_SHA256",
+    "H7_SCALAR_PROBE_SET_SHA256",
+    "H7_SCALAR_PROBE_TABLE_PATH",
+    "H7_SCALAR_PROBE_TABLE_RAW_SHA256",
     "adapt_optional_h1_fixture_bytes",
     "h7_scalar_trial_specs",
     "h7_trial_specs_from_config",

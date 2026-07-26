@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -26,9 +27,13 @@ from vfe4.validation.h7_fixture import (
     H7_DENSITY_PROBE_TABLE_RAW_SHA256,
     H7_FIXTURE_PATH,
     H7_FIXTURE_RAW_SHA256,
+    H7_SCALAR_PROBE_SET_SHA256,
+    H7_SCALAR_PROBE_TABLE_PATH,
+    H7_SCALAR_PROBE_TABLE_RAW_SHA256,
     adapt_optional_h1_fixture_bytes,
     parse_h7_fixture_bytes,
 )
+from verification.mp_oracles.h7_covariance import build_h7_scalar_probe_table_bytes
 
 
 def test_h7_raw_fixture_parses_to_the_frozen_matrix_contract() -> None:
@@ -147,6 +152,21 @@ def test_h7_raw_fixture_rejects_any_byte_or_schema_drift() -> None:
         parse_h7_fixture_bytes(data + b"\n")
     with pytest.raises(ValueError):
         parse_h7_fixture_bytes(memoryview(data))  # type: ignore[arg-type]
+
+
+def test_frozen_h7_scalar_probe_table_matches_independent_builder() -> None:
+    h1_bytes = (
+        Path(__file__).parents[2] / "vfe4" / "validation" / "fixtures" / "h1_v1.json"
+    ).read_bytes()
+    table_bytes = H7_SCALAR_PROBE_TABLE_PATH.read_bytes()
+    table = json.loads(table_bytes)
+
+    assert table_bytes == build_h7_scalar_probe_table_bytes(h1_bytes)
+    assert hashlib.sha256(table_bytes).hexdigest() == H7_SCALAR_PROBE_TABLE_RAW_SHA256
+    assert table["probe_set_sha256"] == H7_SCALAR_PROBE_SET_SHA256
+    assert tuple(record["row_index"] for record in table["records"]) == tuple(
+        str(index) for index in range(8)
+    )
 
 
 def test_borrowed_views_preserve_identity_and_owned_snapshots_clone() -> None:
