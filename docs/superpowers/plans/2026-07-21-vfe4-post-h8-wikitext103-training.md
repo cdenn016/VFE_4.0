@@ -6,7 +6,7 @@
 
 **Architecture:** A new VFE4-owned WikiText-103 cache begins from the official raw archive, seals each split behind typed capabilities, binds a pinned GPT-2/tiktoken specification, and produces deterministic exactly-once causal windows. Immutable factories create the H6-defined target-blind VFE4 prior scorer and H5-labeled training phases; atomic run/checkpoint/metric manifests make every result resumable and auditable. A separate import-safe click launcher renders figures only from immutable recorded metrics and run-group manifests, never by importing training or recomputing metrics from checkpoints.
 
-**Tech Stack:** Python 3.10+, PyTorch, NumPy, a source-lock-validated candidate `tiktoken==0.12.0`, Matplotlib with the noninteractive `Agg` backend, ZIP/CRC/SHA-256 validation from the standard library, frozen dataclasses and `Literal` types, JSON/JSONL/CSV, OS-specific tested durability backends, pytest with one final JUnit XML, and the installed evidence-gated verification ledger.
+**Tech Stack:** Python 3.10+, PyTorch, NumPy, a source-lock-validated candidate `tiktoken==0.12.0`, candidate-pinned `matplotlib==3.10.6` with the noninteractive `Agg` backend, ZIP/CRC/SHA-256 validation from the standard library, frozen dataclasses and `Literal` types, JSON/JSONL/CSV, OS-specific tested durability backends, pytest with one final JUnit XML, and the installed evidence-gated verification ledger.
 
 ## Global Constraints
 
@@ -550,6 +550,12 @@ Figure generation publishes into a new content-addressed `figures/<figure_set_sh
 
 ## File and Interface Map
 
+Paths already present in the H1–H8/H6 implementation are modify-in-place
+surfaces, not replacement modules. Post-H8 work must preserve their existing
+public contracts and tests. Production WT103 model code is isolated in
+`vfe4/training/wt103_models.py`; the H6 byte-vocabulary CPU/float64 models are
+predecessor evidence and are not repurposed as the WT103 architecture.
+
 | Path | Responsibility |
 |---|---|
 | `vfe4/types/training.py` | Frozen `WT103ArmSpec`, `WT103GateSpec`, `EndpointInventory`, shared profile, run, update, data cursor, sparsity, metric, checkpoint, evaluation, and experiment records. |
@@ -561,6 +567,7 @@ Figure generation publishes into a new content-addressed `figures/<figure_set_sh
 | `vfe4/data/tokenizer.py` | Pinned GPT-2/tiktoken spec, split encoding, round trip, int32 cache publication. |
 | `vfe4/data/windows.py` | Exactly-once shifted windows, masks, counts, permutations, batches, and cursor replay. |
 | `vfe4/data/access.py` | Sealed split references and train/test capability boundary. |
+| `vfe4/training/wt103_models.py` | Production WikiText-103 A0 and structured-arm modules; Flash-only A0 attention and WT103 dimensions remain isolated from the existing H6 CPU/float64 models. |
 | `vfe4/training/factories.py` | Explicit factories for all five immutable `WT103ArmSpec` rows, including model/recognition/predictor/optimizer/scheduler construction and match reports. |
 | `vfe4/training/formulas.py` | Frozen A0 architecture, exact parameter formula, analytical semantic FLOP operator ledger, and canonical hashes. |
 | `vfe4/training/sparsity.py` | Revision-bound inventory-wide shape/allocation traces, formulas, classifications, negative controls, and certificate. |
@@ -933,9 +940,9 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 ### Task 3: Implement Candidate Archive Acquisition, Source/License Recording, and Offline Reuse
 
 **Files:**
-- Create: `vfe4/data/__init__.py`
+- Modify: `vfe4/data/__init__.py`
 - Create: `vfe4/data/wikitext103.py`
-- Create: `vfe4/data/access.py`
+- Modify: `vfe4/data/access.py`
 - Create: `tests/unit/test_wikitext103_source.py`
 
 **Interfaces:** Produce `acquire_wikitext103`, `WikiText103SourceRecord`, `SealedDatasetRef`, split identities, and bounded source-record generation. No model-facing tensor is returned.
@@ -966,7 +973,7 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 ### Task 5: Build Exactly-Once Windows, Deterministic Schedules, and Split Capabilities
 
 **Files:**
-- Create: `vfe4/data/windows.py`
+- Modify: `vfe4/data/windows.py`
 - Modify: `vfe4/data/access.py`
 - Create: `tests/unit/test_training_windows.py`
 
@@ -982,7 +989,8 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 ### Task 6: Create the Five Explicit Arm Factories, Training Sparsity, and Post-H8 Readiness
 
 **Files:**
-- Create: `vfe4/training/__init__.py`
+- Modify: `vfe4/training/__init__.py`
+- Create: `vfe4/training/wt103_models.py`
 - Create: `vfe4/training/factories.py`
 - Create: `vfe4/training/formulas.py`
 - Create: `vfe4/training/sparsity.py`
@@ -991,7 +999,7 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 - Create: `tests/promotion/test_training_sparsity.py`
 - Create: `tests/promotion/test_post_h8_training_readiness.py`
 
-**Interfaces:** Consume the exact `WT103ArmSpec`/`WT103GateSpec`/`EndpointInventory` records from Task 1 and produce `A0ArchitectureProfile`, `A0FormulaRecord`, `reconstruct_a0_parameters`, `reconstruct_a0_flops`, `build_training_arm`, `audit_arm_matching`, `certify_training_sparsity`, `TrainingSparsityCertificate`, `validate_post_h8_readiness`, `PostH8ReadinessToken`, exact factory/config/inventory hashes, and `WT103PredictorSafetyCertificate`.
+**Interfaces:** Consume the exact `WT103ArmSpec`/`WT103GateSpec`/`EndpointInventory` records from Task 1 and produce `A0ArchitectureProfile`, `A0FormulaRecord`, `reconstruct_a0_parameters`, `reconstruct_a0_flops`, `build_training_arm`, `audit_arm_matching`, `certify_training_sparsity`, `TrainingSparsityCertificate`, `validate_post_h8_readiness`, `PostH8ReadinessToken`, exact factory/config/inventory hashes, and `WT103PredictorSafetyCertificate`. Readiness consumes the bounded H6 Prefix v2 certificate set and the narrowed H6 Prediction v3 result; legacy H6 v1 evidence cannot satisfy either dependency.
 
 - [ ] **Step 1: Write failing factory/formula tests.** Assert A0 exactly matches `A0ArchitectureProfile`: full causal two-head `flash_attention_only_no_fallback` policy mapped to the frozen `sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION])` API with alternatives disabled and no mask/weights/fallback, learned absolute positions, pre-norm plus final norm, exact residual topology, tanh-GELU, and every projection/bias/tie choice. Assert the resolved PyTorch version/API/backend hashes enter the architecture hash; substitute another backend or fallback and require rejection. A0 has no latent/recognition/snapshot phase and exactly one CE/model optimizer phase. Reconstruct `P_A0(h)=2Vh+128h+12h^2+15h+V` from actual named tensor shapes with every parameter counted once. Independently hand-enumerate a tiny full-causal operator ledger, including semantic attention pairs, decoder chunks, backward, CE, and AdamW, and require exact equality with `A0FormulaRecord`, whole-schedule `F_A0`, and both canonical schema hashes; decoder rechunking must preserve FLOPs. Assert each of the five factories exactly follows its arm spec: both complete rows use complete ELBO, the parent-specific emission row uses only its bound non-ELBO objective intervention, no-latent has no recognition/snapshot/SMC work, and scorer dispatch follows `scorer_kind` rather than the A0/A5 label. Forbid filler/no-op/dormant capacity and enforce 1%/5% PRIMARY training matching from the deterministic finite search.
 - [ ] **Step 2: Write failing training-sparsity tests.** Bind the literal profile and exact ordered five-arm factory inventory, then trace every distinct enumerated train, applicable E-like proposal, snapshot, backward, optimizer, scorer, and checkpoint path. Require permitted vocabulary/logit chunks, A0 Q/K/V/result tensors, the exact nonmaterialized Flash operator, and block/banded population shapes. Reject backend fallback, explicit/materialized attention masks or weights, `[B,2,L,L]` or aggregate pair-axis storage, and every forbidden population/source/pair/logit shape; reconcile every unique storage as `numel*element_size` with allocator overhead separate and zero unclassified bytes. Require each math-SDPA/materialized-attention, dense-population, batch-dense, full-source, pair-slab, full-decoder, selector/RHS, and unclassified-checkpoint negative control to fire before allocation or serialization. Prove H8 and the 85% capacity preflight cannot populate or replace this certificate.
@@ -1047,8 +1055,8 @@ Before Task 13, `CandidateTokenizerContract` is the only production-scope tokeni
 ### Task 9: Add Prior Evaluation, Estimator-Aware Statistics, and One Test Opening
 
 **Files:**
-- Create: `vfe4/evaluation/__init__.py`
-- Create: `vfe4/evaluation/prior_nll.py`
+- Modify: `vfe4/evaluation/__init__.py`
+- Modify: `vfe4/evaluation/prior_nll.py`
 - Create: `vfe4/evaluation/statistics.py`
 - Create: `vfe4/evaluation/test_opening.py`
 - Create: `tests/unit/test_training_evaluation.py`
@@ -1088,6 +1096,7 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 ### Task 11: Implement Deterministic Figure Generation from Immutable Metrics Only
 
 **Files:**
+- Modify: `pyproject.toml`
 - Create: `vfe4/figures/__init__.py`
 - Create: `vfe4/figures/spec.py`
 - Create: `vfe4/figures/load.py`
@@ -1097,7 +1106,7 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 - Create: `tests/unit/test_training_figures.py`
 - Create: `tests/integration/test_generate_vfe4_figures.py`
 
-**Interfaces:** Produce eight explicit plot functions, `render_figure_set`, `FigureSpec`, `FigureSetManifest`, and import-safe figure `CONFIG` resolution.
+**Interfaces:** Pin `matplotlib==3.10.6`; produce eight explicit plot functions, `render_figure_set`, `FigureSpec`, `FigureSetManifest`, and import-safe figure `CONFIG` resolution.
 
 - [ ] **Step 1: Write failing import/dependency tests.** Import the launcher and every figure module while blocking CUDA/data/model/training/checkpoint calls. Assert no side effects and statically reject forbidden imports. Require one explicit manifest path and reject newest/glob/path escape/unknown config.
 - [ ] **Step 2: Write failing figure-schema tests.** Build terminal-manifest-validated finalized JSONL plus frozen final result-table JSON for the exact `EndpointInventory`. Require exact equality with its derived `figure_panel_keys` and ordered `figure_series_keys`, plus the frozen required-figure registry, aggregations, uncertainty, labels, units, applicability, SVG+PNG+PDF, plotted CSV+JSON, caption+alt text, stable spec/input/output hashes, and a content-addressed figure set. Regenerate published `metrics.csv` from JSONL and require byte equality before rendering. Delete one required finalized numerator, panel key, or series key; substitute a partial run; alter CSV; collapse controls into one VFE series; or mark an inapplicable field applicable and prove rendering fails rather than opening a checkpoint, trusting CSV, recomputing, or fabricating zero.
@@ -1110,15 +1119,15 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 ### Task 12: Add the Click Training Launcher and Tiny End-to-End Smoke
 
 **Files:**
-- Create: `train_vfe4.py`
+- Modify: `train_vfe4.py`
 - Create: `tests/integration/test_train_vfe4.py`
 - Modify: `README.md`
 
 **Interfaces:** The launcher orchestrates resolver, exact refs, acquisition/readiness, the immutable arm inventory, training/evaluation/checkpoint/recording/artifacts, and no figure logic. `generate_vfe4_figures.py` is the separate pure figure launcher. Neither owns probability/data/metric logic.
 
-- [ ] **Step 1: Write failing launcher tests.** Install blockers for `tiktoken`, live distribution/RECORD discovery, and live tokenizer tables/golden vectors; inject only synthetic tokenizer adapters. Import the live editable dictionary with every external side effect mocked and require none. Assert the complete literal `WT103ExperimentProfile`/`A0ArchitectureProfile`, exact five-arm/gate inventory, explicit `source_lock|readiness|train|resume` modes, durability roots, and resource ceilings resolve without hidden defaults. Replace only paths/data sizes/arm dimensions/steps through a typed test helper, and run generated smoke data through every distinct arm path, interruption from a `resume_only` checkpoint, validation, terminal `terminal_scoring` scientific/artifact identity, and stable metrics CSV. Separately import and exercise the pure figure launcher from finalized tiny artifacts. Unknown live key, unresolved source-lock fact in training mode, stale H8/sparsity/inventory ref, failed durability probe, or failed forecast fails before reservation.
+- [ ] **Step 1: Write failing launcher tests.** Install blockers for `tiktoken`, live distribution/RECORD discovery, and live tokenizer tables/golden vectors; inject only synthetic tokenizer adapters. Import the live editable dictionary with every external side effect mocked and require none. Assert the complete literal `WT103ExperimentProfile`/`A0ArchitectureProfile`, exact five-arm/gate inventory, explicit `idle|source_lock|readiness|train|resume` modes, durability roots, and resource ceilings resolve without hidden defaults. Replace only paths/data sizes/arm dimensions/steps through a typed test helper, and run generated smoke data through every distinct arm path, interruption from a `resume_only` checkpoint, validation, terminal `terminal_scoring` scientific/artifact identity, and stable metrics CSV. Separately import and exercise the pure figure launcher from finalized tiny artifacts. Unknown live key, unresolved source-lock fact in training mode, stale H8/sparsity/inventory ref, failed durability probe, or failed forecast fails before reservation.
 - [ ] **Step 2: Run focused RED.** Run `python -m pytest tests/integration/test_train_vfe4.py -q`. Expected: FAIL on missing launcher.
-- [ ] **Step 3: Implement one-click orchestration.** Keep one editable dictionary, one main, one guard, clear constants for cache/run roots, `operation="idle"` by default, and exact `source_lock|readiness|train|resume` operation values. Source-lock mode builds all derived manifests before exposing their hashes; readiness creates no corpus optimizer update; train/resume modes require the literal profile, frozen source/schedule/inventory identities, durability probes, training-sparsity certificate, capacity preflight, and resource authorization. Print resolved run identity, predecessor statuses, data/tokenizer/schedule/inventory identities, forecast/actual usage, arm/seed progress, terminal status, and artifact path. Add no argparse/env-required setting or hidden fallback. Keep figure roots and figure operations exclusively in the separate editable `generate_vfe4_figures.py` dictionary.
+- [ ] **Step 3: Implement one-click orchestration.** Keep one editable dictionary, one main, one guard, clear constants for cache/run roots, `operation="idle"` by default, and exact `idle|source_lock|readiness|train|resume` operation values. Source-lock mode builds all derived manifests before exposing their hashes; readiness creates no corpus optimizer update; train/resume modes require the literal profile, frozen source/schedule/inventory identities, durability probes, training-sparsity certificate, capacity preflight, and resource authorization. Print resolved run identity, predecessor statuses, data/tokenizer/schedule/inventory identities, forecast/actual usage, arm/seed progress, terminal status, and artifact path. Add no argparse/env-required setting or hidden fallback. Keep figure roots and figure operations exclusively in the separate editable `generate_vfe4_figures.py` dictionary.
 - [ ] **Step 4: Document operator workflow and V3 boundary.** README gives click Run instructions for source lock, training, resume, and figure regeneration; exact disk/device preflights; one-opening warning; cache location; and explicit statements that V3 files are only design references and H8 is not training-memory evidence.
 - [ ] **Step 5: Run focused GREEN.** Run the Step 2 command. Expected: PASS on generated smoke data only.
 - [ ] **Step 6: Review and commit.** Reviewer checks click UX, import safety, no real data access, no CLI, and artifact paths. Commit `feat(training): add click-run VFE4 experiment`.
