@@ -16,6 +16,28 @@ _REFERENCE_SCHEMA: Final = "vfe4-h6-validation-safety-fixture-reference-v1"
 _REFERENCE_HASH_DOMAIN: Final = (
     "vfe4.h6.validation-safety-fixture-reference.v1"
 )
+_PERTURBATION_REFERENCE_HASH_DOMAIN: Final = (
+    "vfe4.h6.validation-perturbation-artifact-reference.v1"
+)
+_PERTURBATION_SOURCE_DOMAIN: Final = (
+    b"VFE4-H6-SOURCE-CANDIDATE-V1\x00"
+)
+_PERTURBATION_SCHEMA: Final = "h6-validation-perturbations-v1"
+_PERTURBATION_SEED: Final = 2026072197
+_PERTURBATION_COUNT: Final = 4096
+_PERTURBATION_VOCABULARY_ID: Final = "wikitext-2-byte-v1"
+_PERTURBATION_VOCABULARY_SIZE: Final = 258
+_PERTURBATION_TOKENIZER_SPEC_SHA256: Final = (
+    "1c924ca10bed173c8aaa0e2cb6389df02524269d6405bb1339aa3903834689d4"
+)
+_PERTURBATION_VOCABULARY_SHA256: Final = (
+    "5aea771bc9b54b0e6ad0ce9b5cddbd6d32e89a4201e4f9cd11bb00bf8713dd68"
+)
+_PERTURBATION_PAYLOAD_NAMES: Final = (
+    "config.json",
+    "provenance.json",
+    "validation/h6_validation_perturbations_v1.json",
+)
 _LOGICAL_PAYLOAD_NAME: Final = "validation_safety_fixture.bin"
 _MANIFEST_NAME: Final = "manifest.sha256"
 _FIXTURE_DOMAIN: Final = b"VFE4-H6-VALIDATION-SAFETY-FIXTURE-V1\x00"
@@ -55,6 +77,28 @@ def _require_sha256(value: object, name: str) -> str:
         or any(character not in _LOWER_HEX for character in value)
     ):
         raise ValueError(f"{name} must be lowercase SHA-256 hex")
+    return value
+
+
+def _require_git_head(value: object) -> str:
+    if (
+        type(value) is not str
+        or len(value) != 40
+        or any(character not in _LOWER_HEX for character in value)
+    ):
+        raise ValueError("git_head must be lowercase SHA-1 hex")
+    return value
+
+
+def _require_exact_dict(
+    value: object,
+    expected_keys: frozenset[str],
+    label: str,
+) -> dict[str, object]:
+    if type(value) is not dict:
+        raise ValueError(f"{label} must be an exact object")
+    if frozenset(value) != expected_keys:
+        raise ValueError(f"{label} keys are not exact")
     return value
 
 
@@ -200,6 +244,437 @@ class ValidationSafetyFixtureReference:
             reference_sha256=_owned_hash(
                 _REFERENCE_HASH_DOMAIN, identity_payload
             ),
+        )
+
+    def to_payload(self) -> dict[str, object]:
+        """Serialize the complete reference without reading its local path."""
+
+        self.__post_init__()
+        return {
+            "access_policy_sha256": self.access_policy_sha256,
+            "binary_directory_manifest_sha256": (
+                self.binary_directory_manifest_sha256
+            ),
+            "data_identity_sha256": self.data_identity_sha256,
+            "fixture_raw_length": self.fixture_raw_length,
+            "fixture_raw_sha256": self.fixture_raw_sha256,
+            "local_payload_path": self.local_payload_path.as_posix(),
+            "logical_payload_name": self.logical_payload_name,
+            "reference_sha256": self.reference_sha256,
+            "row_count": self.row_count,
+            "schema_version": self.schema_version,
+            "validation_token_sha256": self.validation_token_sha256,
+        }
+
+    @classmethod
+    def from_payload(
+        cls,
+        value: object,
+    ) -> "ValidationSafetyFixtureReference":
+        """Parse one closed, identity-only fixture-reference payload."""
+
+        payload = _require_exact_dict(
+            value,
+            frozenset(
+                {
+                    "access_policy_sha256",
+                    "binary_directory_manifest_sha256",
+                    "data_identity_sha256",
+                    "fixture_raw_length",
+                    "fixture_raw_sha256",
+                    "local_payload_path",
+                    "logical_payload_name",
+                    "reference_sha256",
+                    "row_count",
+                    "schema_version",
+                    "validation_token_sha256",
+                }
+            ),
+            "validation fixture reference",
+        )
+        local_payload_path = payload["local_payload_path"]
+        if type(local_payload_path) is not str:
+            raise ValueError(
+                "validation fixture local_payload_path must be exact text"
+            )
+        return cls(
+            schema_version=payload["schema_version"],  # type: ignore[arg-type]
+            logical_payload_name=payload[  # type: ignore[arg-type]
+                "logical_payload_name"
+            ],
+            local_payload_path=Path(local_payload_path),
+            binary_directory_manifest_sha256=payload[
+                "binary_directory_manifest_sha256"
+            ],  # type: ignore[arg-type]
+            data_identity_sha256=payload[  # type: ignore[arg-type]
+                "data_identity_sha256"
+            ],
+            access_policy_sha256=payload[  # type: ignore[arg-type]
+                "access_policy_sha256"
+            ],
+            validation_token_sha256=payload[  # type: ignore[arg-type]
+                "validation_token_sha256"
+            ],
+            fixture_raw_sha256=payload[  # type: ignore[arg-type]
+                "fixture_raw_sha256"
+            ],
+            fixture_raw_length=payload[  # type: ignore[arg-type]
+                "fixture_raw_length"
+            ],
+            row_count=payload["row_count"],  # type: ignore[arg-type]
+            reference_sha256=payload["reference_sha256"],  # type: ignore[arg-type]
+        )
+
+
+def _perturbation_reference_identity_payload(
+    reference: "H6ValidationPerturbationArtifactReference",
+) -> dict[str, object]:
+    return {
+        "access_policy_sha256": reference.access_policy_sha256,
+        "binary_directory_manifest_sha256": (
+            reference.binary_directory_manifest_sha256
+        ),
+        "config_sha256": reference.config_sha256,
+        "data_identity_sha256": reference.data_identity_sha256,
+        "directory_manifest_sha256": reference.directory_manifest_sha256,
+        "fixture_raw_sha256": reference.fixture_raw_sha256,
+        "full_count": reference.full_count,
+        "generator_version": reference.generator_version,
+        "materialized_count": reference.materialized_count,
+        "payload_sha256s": [
+            {"path": path, "sha256": sha256}
+            for path, sha256 in reference.payload_sha256s
+        ],
+        "perturbation_inner_manifest_sha256": (
+            reference.perturbation_inner_manifest_sha256
+        ),
+        "perturbation_raw_sha256": reference.perturbation_raw_sha256,
+        "perturbation_schema_version": (
+            reference.perturbation_schema_version
+        ),
+        "seed": reference.seed,
+        "source": {
+            "dirty_digest": reference.dirty_digest,
+            "git_head": reference.git_head,
+            "source_sha256": reference.source_sha256,
+        },
+        "validation_fixture_reference_sha256": (
+            reference.validation_fixture_reference_sha256
+        ),
+        "validation_token_sha256": reference.validation_token_sha256,
+        "vocabulary": {
+            "size": reference.vocabulary_size,
+            "tokenizer_spec_sha256": reference.tokenizer_spec_sha256,
+            "vocabulary_id": reference.vocabulary_id,
+            "vocabulary_sha256": reference.vocabulary_sha256,
+        },
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class H6ValidationPerturbationArtifactReference:
+    """Complete identity-only reference to one immutable 4,096-case set."""
+
+    local_artifact_path: Path
+    git_head: str
+    dirty_digest: str
+    source_sha256: str
+    config_sha256: str
+    validation_fixture_reference_sha256: str
+    binary_directory_manifest_sha256: str
+    data_identity_sha256: str
+    access_policy_sha256: str
+    validation_token_sha256: str
+    fixture_raw_sha256: str
+    vocabulary_id: str
+    vocabulary_size: int
+    tokenizer_spec_sha256: str
+    vocabulary_sha256: str
+    perturbation_schema_version: str
+    generator_version: str
+    seed: int
+    full_count: int
+    materialized_count: int
+    perturbation_inner_manifest_sha256: str
+    perturbation_raw_sha256: str
+    payload_sha256s: tuple[tuple[str, str], ...]
+    directory_manifest_sha256: str
+    reference_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self) is not H6ValidationPerturbationArtifactReference:
+            raise TypeError("artifact reference requires its exact record type")
+        if (
+            not isinstance(self.local_artifact_path, Path)
+            or not self.local_artifact_path.is_absolute()
+            or self.local_artifact_path.resolve(strict=False)
+            != self.local_artifact_path
+        ):
+            raise ValueError(
+                "artifact reference path must be normalized and absolute"
+            )
+        _require_git_head(self.git_head)
+        for name in (
+            "dirty_digest",
+            "source_sha256",
+            "config_sha256",
+            "validation_fixture_reference_sha256",
+            "binary_directory_manifest_sha256",
+            "data_identity_sha256",
+            "access_policy_sha256",
+            "validation_token_sha256",
+            "fixture_raw_sha256",
+            "tokenizer_spec_sha256",
+            "vocabulary_sha256",
+            "perturbation_inner_manifest_sha256",
+            "perturbation_raw_sha256",
+            "directory_manifest_sha256",
+            "reference_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        expected_source_sha256 = hashlib.sha256(
+            _PERTURBATION_SOURCE_DOMAIN
+            + bytes.fromhex(self.git_head)
+            + bytes.fromhex(self.dirty_digest)
+        ).hexdigest()
+        if self.source_sha256 != expected_source_sha256:
+            raise ValueError(
+                "source_sha256 is stale for Git head and dirty digest"
+            )
+        if (
+            type(self.vocabulary_id) is not str
+            or self.vocabulary_id != _PERTURBATION_VOCABULARY_ID
+            or type(self.vocabulary_size) is not int
+            or self.vocabulary_size != _PERTURBATION_VOCABULARY_SIZE
+            or self.tokenizer_spec_sha256
+            != _PERTURBATION_TOKENIZER_SPEC_SHA256
+            or self.vocabulary_sha256 != _PERTURBATION_VOCABULARY_SHA256
+            or type(self.perturbation_schema_version) is not str
+            or self.perturbation_schema_version != _PERTURBATION_SCHEMA
+            or type(self.generator_version) is not str
+            or self.generator_version != _PERTURBATION_SCHEMA
+            or type(self.seed) is not int
+            or self.seed != _PERTURBATION_SEED
+            or type(self.full_count) is not int
+            or self.full_count != _PERTURBATION_COUNT
+            or type(self.materialized_count) is not int
+            or self.materialized_count != _PERTURBATION_COUNT
+        ):
+            raise ValueError(
+                "artifact reference frozen identities are invalid"
+            )
+        if (
+            type(self.payload_sha256s) is not tuple
+            or len(self.payload_sha256s) != len(_PERTURBATION_PAYLOAD_NAMES)
+            or any(
+                type(item) is not tuple or len(item) != 2
+                for item in self.payload_sha256s
+            )
+            or tuple(path for path, _ in self.payload_sha256s)
+            != _PERTURBATION_PAYLOAD_NAMES
+        ):
+            raise ValueError(
+                "artifact reference payload identities are unordered"
+            )
+        for path, sha256 in self.payload_sha256s:
+            if type(path) is not str:
+                raise ValueError(
+                    "artifact reference payload path is invalid"
+                )
+            _require_sha256(sha256, f"payload SHA-256 for {path}")
+        expected_reference_sha256 = _owned_hash(
+            _PERTURBATION_REFERENCE_HASH_DOMAIN,
+            _perturbation_reference_identity_payload(self),
+        )
+        if self.reference_sha256 != expected_reference_sha256:
+            raise ValueError("artifact reference SHA-256 is stale")
+
+    def to_payload(self) -> dict[str, object]:
+        """Serialize the complete reference without reading the artifact."""
+
+        self.__post_init__()
+        return {
+            "access_policy_sha256": self.access_policy_sha256,
+            "binary_directory_manifest_sha256": (
+                self.binary_directory_manifest_sha256
+            ),
+            "config_sha256": self.config_sha256,
+            "data_identity_sha256": self.data_identity_sha256,
+            "directory_manifest_sha256": self.directory_manifest_sha256,
+            "fixture_raw_sha256": self.fixture_raw_sha256,
+            "full_count": self.full_count,
+            "generator_version": self.generator_version,
+            "local_artifact_path": self.local_artifact_path.as_posix(),
+            "materialized_count": self.materialized_count,
+            "payload_sha256s": [
+                {"path": path, "sha256": sha256}
+                for path, sha256 in self.payload_sha256s
+            ],
+            "perturbation_inner_manifest_sha256": (
+                self.perturbation_inner_manifest_sha256
+            ),
+            "perturbation_raw_sha256": self.perturbation_raw_sha256,
+            "perturbation_schema_version": (
+                self.perturbation_schema_version
+            ),
+            "reference_sha256": self.reference_sha256,
+            "seed": self.seed,
+            "source": {
+                "dirty_digest": self.dirty_digest,
+                "git_head": self.git_head,
+                "source_sha256": self.source_sha256,
+            },
+            "validation_fixture_reference_sha256": (
+                self.validation_fixture_reference_sha256
+            ),
+            "validation_token_sha256": self.validation_token_sha256,
+            "vocabulary": {
+                "size": self.vocabulary_size,
+                "tokenizer_spec_sha256": self.tokenizer_spec_sha256,
+                "vocabulary_id": self.vocabulary_id,
+                "vocabulary_sha256": self.vocabulary_sha256,
+            },
+        }
+
+    @classmethod
+    def from_payload(
+        cls,
+        value: object,
+    ) -> "H6ValidationPerturbationArtifactReference":
+        """Parse one closed, complete perturbation-reference payload."""
+
+        payload = _require_exact_dict(
+            value,
+            frozenset(
+                {
+                    "access_policy_sha256",
+                    "binary_directory_manifest_sha256",
+                    "config_sha256",
+                    "data_identity_sha256",
+                    "directory_manifest_sha256",
+                    "fixture_raw_sha256",
+                    "full_count",
+                    "generator_version",
+                    "local_artifact_path",
+                    "materialized_count",
+                    "payload_sha256s",
+                    "perturbation_inner_manifest_sha256",
+                    "perturbation_raw_sha256",
+                    "perturbation_schema_version",
+                    "reference_sha256",
+                    "seed",
+                    "source",
+                    "validation_fixture_reference_sha256",
+                    "validation_token_sha256",
+                    "vocabulary",
+                }
+            ),
+            "validation perturbation reference",
+        )
+        source = _require_exact_dict(
+            payload["source"],
+            frozenset({"dirty_digest", "git_head", "source_sha256"}),
+            "validation perturbation source",
+        )
+        vocabulary = _require_exact_dict(
+            payload["vocabulary"],
+            frozenset(
+                {
+                    "size",
+                    "tokenizer_spec_sha256",
+                    "vocabulary_id",
+                    "vocabulary_sha256",
+                }
+            ),
+            "validation perturbation vocabulary",
+        )
+        raw_payload_sha256s = payload["payload_sha256s"]
+        if (
+            type(raw_payload_sha256s) is not list
+            or len(raw_payload_sha256s) != len(_PERTURBATION_PAYLOAD_NAMES)
+        ):
+            raise ValueError(
+                "validation perturbation payload_sha256s cardinality is invalid"
+            )
+        parsed_payload_sha256s: list[tuple[str, str]] = []
+        for index, raw_item in enumerate(raw_payload_sha256s):
+            item = _require_exact_dict(
+                raw_item,
+                frozenset({"path", "sha256"}),
+                f"validation perturbation payload_sha256s[{index}]",
+            )
+            path = item["path"]
+            sha256 = item["sha256"]
+            if type(path) is not str:
+                raise ValueError(
+                    "validation perturbation payload path must be exact text"
+                )
+            _require_sha256(
+                sha256,
+                f"validation perturbation payload SHA-256 for {path}",
+            )
+            parsed_payload_sha256s.append((path, sha256))
+        local_artifact_path = payload["local_artifact_path"]
+        if type(local_artifact_path) is not str:
+            raise ValueError(
+                "validation perturbation local_artifact_path must be exact text"
+            )
+        return cls(
+            local_artifact_path=Path(local_artifact_path),
+            git_head=source["git_head"],  # type: ignore[arg-type]
+            dirty_digest=source["dirty_digest"],  # type: ignore[arg-type]
+            source_sha256=source["source_sha256"],  # type: ignore[arg-type]
+            config_sha256=payload["config_sha256"],  # type: ignore[arg-type]
+            validation_fixture_reference_sha256=payload[
+                "validation_fixture_reference_sha256"
+            ],  # type: ignore[arg-type]
+            binary_directory_manifest_sha256=payload[
+                "binary_directory_manifest_sha256"
+            ],  # type: ignore[arg-type]
+            data_identity_sha256=payload[  # type: ignore[arg-type]
+                "data_identity_sha256"
+            ],
+            access_policy_sha256=payload[  # type: ignore[arg-type]
+                "access_policy_sha256"
+            ],
+            validation_token_sha256=payload[  # type: ignore[arg-type]
+                "validation_token_sha256"
+            ],
+            fixture_raw_sha256=payload[  # type: ignore[arg-type]
+                "fixture_raw_sha256"
+            ],
+            vocabulary_id=vocabulary["vocabulary_id"],  # type: ignore[arg-type]
+            vocabulary_size=vocabulary["size"],  # type: ignore[arg-type]
+            tokenizer_spec_sha256=vocabulary[
+                "tokenizer_spec_sha256"
+            ],  # type: ignore[arg-type]
+            vocabulary_sha256=vocabulary[  # type: ignore[arg-type]
+                "vocabulary_sha256"
+            ],
+            perturbation_schema_version=payload[
+                "perturbation_schema_version"
+            ],  # type: ignore[arg-type]
+            generator_version=payload[  # type: ignore[arg-type]
+                "generator_version"
+            ],
+            seed=payload["seed"],  # type: ignore[arg-type]
+            full_count=payload["full_count"],  # type: ignore[arg-type]
+            materialized_count=payload[  # type: ignore[arg-type]
+                "materialized_count"
+            ],
+            perturbation_inner_manifest_sha256=payload[
+                "perturbation_inner_manifest_sha256"
+            ],  # type: ignore[arg-type]
+            perturbation_raw_sha256=payload[
+                "perturbation_raw_sha256"
+            ],  # type: ignore[arg-type]
+            payload_sha256s=tuple(parsed_payload_sha256s),
+            directory_manifest_sha256=payload[
+                "directory_manifest_sha256"
+            ],  # type: ignore[arg-type]
+            reference_sha256=payload[  # type: ignore[arg-type]
+                "reference_sha256"
+            ],
         )
 
 
@@ -458,6 +933,7 @@ def read_validation_safety_fixture_payload(
 
 
 __all__ = [
+    "H6ValidationPerturbationArtifactReference",
     "ValidationSafetyFixturePayload",
     "ValidationSafetyFixtureReference",
     "read_validation_safety_fixture_payload",

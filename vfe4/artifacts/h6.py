@@ -296,6 +296,7 @@ def _project(
             "h1-prefix-prior-config-v2",
             "h6-prefix-config-v1",
             "h6-prefix-config-v2",
+            "h6-prefix-config-v3",
         ],
         ...,
     ],
@@ -365,7 +366,11 @@ def project_h6_prefix_config(
         raw_config,
         operation_key="h6_prefix",
         operation="H6-Prefix",
-        schema_versions=("h6-prefix-config-v1", "h6-prefix-config-v2"),
+        schema_versions=(
+            "h6-prefix-config-v1",
+            "h6-prefix-config-v2",
+            "h6-prefix-config-v3",
+        ),
     )
 
 

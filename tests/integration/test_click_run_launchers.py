@@ -77,7 +77,7 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
             assert operations["h6_prefix"]["config"] == {}
             assert (
                 module._VERIFY_AUTHORIZATIONS["h6_prefix"]
-                == "AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
+                == "AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V3"
             )
         else:
             assert idle.status == "IDLE" and idle.operation is None

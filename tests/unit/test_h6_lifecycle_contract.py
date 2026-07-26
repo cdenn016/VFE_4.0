@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -225,6 +226,124 @@ def test_h6_prefix_projector_accepts_v1_focus_and_v2_bounded_only(
 
     with pytest.raises(ValueError, match="bounded v2 workload"):
         project_h6_prefix_config(legacy_full)
+
+
+def test_h6_prefix_v3_projector_preserves_external_validation_references_without_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Project v3 references by value without reading or running them."""
+
+    fixture_reference = {
+        "schema_version": "vfe4-h6-validation-safety-fixture-reference-v1",
+        "logical_payload_name": "validation_safety_fixture.bin",
+        "local_payload_path": (
+            tmp_path / "fixture" / "validation_safety_fixture.bin"
+        ).as_posix(),
+        "binary_directory_manifest_sha256": "4" * 64,
+        "data_identity_sha256": "5" * 64,
+        "access_policy_sha256": "6" * 64,
+        "validation_token_sha256": "7" * 64,
+        "fixture_raw_sha256": "8" * 64,
+        "fixture_raw_length": 311_369,
+        "row_count": 4096,
+        "reference_sha256": "9" * 64,
+    }
+    candidate_reference = {
+        "local_artifact_path": (tmp_path / "candidate").as_posix(),
+        "source": {
+            "git_head": "a" * 40,
+            "dirty_digest": "b" * 64,
+            "source_sha256": "c" * 64,
+        },
+        "config_sha256": "d" * 64,
+        "validation_fixture_reference_sha256": "9" * 64,
+        "binary_directory_manifest_sha256": "4" * 64,
+        "data_identity_sha256": "5" * 64,
+        "access_policy_sha256": "6" * 64,
+        "validation_token_sha256": "7" * 64,
+        "fixture_raw_sha256": "8" * 64,
+        "vocabulary": {
+            "vocabulary_id": "wikitext-2-byte-v1",
+            "size": 258,
+            "tokenizer_spec_sha256": "e" * 64,
+            "vocabulary_sha256": "f" * 64,
+        },
+        "perturbation_schema_version": "h6-validation-perturbations-v1",
+        "generator_version": "h6-validation-perturbations-v1",
+        "seed": 2026072197,
+        "full_count": 4096,
+        "materialized_count": 4096,
+        "perturbation_inner_manifest_sha256": "1" * 64,
+        "perturbation_raw_sha256": "2" * 64,
+        "payload_sha256s": [
+            {"path": "config.json", "sha256": "3" * 64},
+            {"path": "provenance.json", "sha256": "4" * 64},
+            {
+                "path": "validation/h6_validation_perturbations_v1.json",
+                "sha256": "5" * 64,
+            },
+        ],
+        "directory_manifest_sha256": "6" * 64,
+        "reference_sha256": "7" * 64,
+    }
+    raw = {
+        "schema_version": "h6-prefix-config-v3",
+        "operation": "H6-Prefix",
+        "validation_fixture_reference": fixture_reference,
+        "validation_perturbation_reference": candidate_reference,
+    }
+    before = copy.deepcopy(raw)
+    expected_sha256 = hashlib.sha256(canonical_json_bytes(raw)).hexdigest()
+    resolver_calls: list[dict[str, object]] = []
+
+    def resolved_v3(
+        selected: object,
+        *,
+        repo_root: Path,
+    ) -> SimpleNamespace:
+        assert repo_root == Path(__file__).resolve().parents[2]
+        assert isinstance(selected, dict)
+        resolver_calls.append(copy.deepcopy(selected))
+        return SimpleNamespace(
+            operation="H6-Prefix",
+            schema_version="h6-prefix-config-v3",
+            config_sha256=expected_sha256,
+        )
+
+    def forbidden_io(*args: object, **kwargs: object) -> object:
+        raise AssertionError("pure v3 projection attempted filesystem I/O")
+
+    import vfe4.config as config_module
+
+    monkeypatch.setattr(
+        config_module,
+        "resolve_h6_prefix_config",
+        resolved_v3,
+    )
+    monkeypatch.setattr(Path, "open", forbidden_io)
+    monkeypatch.setattr(Path, "read_bytes", forbidden_io)
+    projected = project_h6_prefix_config(raw)
+
+    def thaw(value: object) -> object:
+        if isinstance(value, Mapping):
+            return {key: thaw(item) for key, item in value.items()}
+        if isinstance(value, tuple):
+            return [thaw(item) for item in value]
+        return value
+
+    assert raw == before
+    assert resolver_calls == [before, before]
+    assert projected.canonical_sha256 == expected_sha256
+    assert thaw(projected.raw_config["validation_fixture_reference"]) == (
+        fixture_reference
+    )
+    assert thaw(projected.raw_config["validation_perturbation_reference"]) == (
+        candidate_reference
+    )
+    assert tuple(inspect.signature(project_h6_prefix_config).parameters) == (
+        "raw_config",
+    )
 
 
 def test_h6_lifecycle_adapters_match_the_frozen_h7_h8_consumer_contract(

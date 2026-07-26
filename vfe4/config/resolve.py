@@ -11,6 +11,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from vfe4.h6_validation_fixture import (
+    H6ValidationPerturbationArtifactReference,
+    ValidationSafetyFixtureReference,
+)
 from vfe4.types.h3 import (
     H3DecisionConfig,
     H3InitializationConfig,
@@ -69,6 +73,7 @@ from .schema import (
     H5_POSITIVE_CASE_IDS,
     H5_UPDATE_SPEC_CANONICAL_SHA256,
     H6_PREFIX_V2_AUTHORIZATION_SHA256,
+    H6_PREFIX_V3_AUTHORIZATION_SHA256,
     H1PrefixPriorResolvedConfig,
     H1PrefixPriorV2ResolvedConfig,
     H6ArmMatchingResolvedConfig,
@@ -77,6 +82,7 @@ from .schema import (
     H6PredictionResolvedConfig,
     H6PredictionV2ResolvedConfig,
     H6PrefixResolvedConfig,
+    H6PrefixV3ResolvedConfig,
     H6ArchiveMemberExpectation,
     H6DataConfig,
     H6ObservedArchive,
@@ -1554,11 +1560,137 @@ def _require_h6_prefix_v2_execution_mode(
     return "authorized_full", plan, authorization
 
 
+def _resolve_h6_prefix_v3_config(
+    raw: Mapping[str, object],
+    *,
+    repo_root: Path,
+) -> H6PrefixV3ResolvedConfig:
+    """Resolve the pure Prefix v3 binding without reading either reference."""
+
+    root = _require_mapping(raw, "h6_prefix")
+    _validate_keys(
+        root,
+        frozenset(
+            {
+                "schema_version",
+                "operation",
+                "source",
+                "execution_mode",
+                "profiles",
+                "workload_plan_sha256",
+                "workload_authorization_sha256",
+                "validation_fixture_reference",
+                "validation_perturbation_reference",
+                "authorization_sha256",
+                "artifact_root",
+            }
+        ),
+        "h6_prefix",
+    )
+    schema_version = _require_exact(
+        root["schema_version"],
+        "h6-prefix-config-v3",
+        "h6_prefix.schema_version",
+    )
+    operation = _require_exact(
+        root["operation"], "H6-Prefix", "h6_prefix.operation"
+    )
+    source = _resolve_h6_source(root["source"])
+    raw_profiles = root["profiles"]
+    if type(raw_profiles) is not list or not raw_profiles:
+        raise ValueError("h6_prefix.profiles must be a nonempty list")
+    profiles = tuple(
+        _resolve_h6_prefix_profile(
+            value, location=f"h6_prefix.profiles[{index}]"
+        )
+        for index, value in enumerate(raw_profiles)
+    )
+    if len({profile.profile_id for profile in profiles}) != len(profiles):
+        raise ValueError("h6_prefix profile_id values must be unique")
+    if len({profile.profile_pair_sha256 for profile in profiles}) != len(
+        profiles
+    ):
+        raise ValueError("h6_prefix profile-pair identities must be unique")
+    execution_mode, workload_plan, workload_authorization_sha256 = (
+        _require_h6_prefix_v2_execution_mode(
+            root["execution_mode"],
+            profiles,
+            root["workload_authorization_sha256"],
+            root["workload_plan_sha256"],
+        )
+    )
+    authorization_sha256 = _require_h6_sha256(
+        root["authorization_sha256"],
+        "h6_prefix.authorization_sha256",
+    )
+    if authorization_sha256 != H6_PREFIX_V3_AUTHORIZATION_SHA256:
+        raise ValueError(
+            "h6_prefix.authorization_sha256 must bind the exact v3 "
+            "validation-evidence authorization phrase"
+        )
+    try:
+        fixture_reference = ValidationSafetyFixtureReference.from_payload(
+            root["validation_fixture_reference"]
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"h6_prefix validation fixture reference is invalid: {exc}"
+        ) from exc
+    try:
+        perturbation_reference = (
+            H6ValidationPerturbationArtifactReference.from_payload(
+                root["validation_perturbation_reference"]
+            )
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"h6_prefix validation perturbation reference is invalid: {exc}"
+        ) from exc
+    artifact_root = _resolve_run_root(root["artifact_root"], repo_root)
+    payload = {
+        "schema_version": schema_version,
+        "operation": operation,
+        "source": asdict(source),
+        "execution_mode": execution_mode,
+        "profiles": tuple(
+            _h6_prefix_profile_payload(profile) for profile in profiles
+        ),
+        "workload_plan": workload_plan.canonical_payload(),
+        "workload_plan_sha256": workload_plan.workload_plan_sha256,
+        "workload_authorization_sha256": workload_authorization_sha256,
+        "validation_fixture_reference": fixture_reference.to_payload(),
+        "validation_perturbation_reference": (
+            perturbation_reference.to_payload()
+        ),
+        "authorization_sha256": authorization_sha256,
+        "artifact_root": artifact_root.as_posix(),
+    }
+    canonical_json, config_sha256 = _h6_json(payload)
+    return H6PrefixV3ResolvedConfig(
+        schema_version=schema_version,
+        operation=operation,
+        source=source,
+        execution_mode=execution_mode,
+        profiles=profiles,
+        workload_plan=workload_plan,
+        workload_plan_sha256=workload_plan.workload_plan_sha256,
+        workload_authorization_sha256=workload_authorization_sha256,
+        validation_fixture_reference=fixture_reference,
+        validation_perturbation_reference=perturbation_reference,
+        authorization_sha256=authorization_sha256,
+        artifact_root=artifact_root,
+        canonical_json=canonical_json,
+        config_sha256=config_sha256,
+    )
+
+
 def _resolve_h6_prefix_config(
     raw: Mapping[str, object], *, repo_root: Path
-) -> H6PrefixResolvedConfig:
+) -> H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig:
     """Resolve the independent predecessor-free H6 Prefix configuration."""
 
+    if raw.get("schema_version") == "h6-prefix-config-v3":
+        return _resolve_h6_prefix_v3_config(raw, repo_root=repo_root)
     root = _require_mapping(raw, "h6_prefix")
     raw_schema_version = root.get("schema_version")
     if raw_schema_version == "h6-prefix-config-v1":
@@ -2340,6 +2472,7 @@ def resolve_config(
     | H1PrefixPriorResolvedConfig
     | H1PrefixPriorV2ResolvedConfig
     | H6PrefixResolvedConfig
+    | H6PrefixV3ResolvedConfig
     | H6PredictionResolvedConfig
     | H6PredictionV2ResolvedConfig
     | H6ArmMatchingResolvedConfig
@@ -2362,6 +2495,7 @@ def resolve_config(
     if discriminator in (
         ("h6-prefix-config-v1", "H6-Prefix"),
         ("h6-prefix-config-v2", "H6-Prefix"),
+        ("h6-prefix-config-v3", "H6-Prefix"),
     ):
         return _resolve_h6_prefix_config(root, repo_root=repo_root)
     if discriminator == ("h6-prediction-config-v1", "H6-Prediction"):
@@ -2415,11 +2549,14 @@ def resolve_h1_prefix_prior_v2_config(
 
 def resolve_h6_prefix_config(
     raw: Mapping[str, object], *, repo_root: Path
-) -> H6PrefixResolvedConfig:
+) -> H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig:
     """Resolve H6 Prefix through the single public configuration resolver."""
 
     resolved = resolve_config(raw, repo_root=repo_root)
-    if not isinstance(resolved, H6PrefixResolvedConfig):
+    if not isinstance(
+        resolved,
+        (H6PrefixResolvedConfig, H6PrefixV3ResolvedConfig),
+    ):
         raise ValueError("configuration is not an H6 Prefix configuration")
     return resolved
 

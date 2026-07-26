@@ -9,6 +9,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
+from vfe4.h6_validation_fixture import (
+    H6ValidationPerturbationArtifactReference,
+    ValidationSafetyFixtureReference,
+)
 from vfe4.types.h3 import (
     H3DecisionConfig,
     H3InitializationConfig,
@@ -669,6 +673,9 @@ class H1PrefixPriorV2ResolvedConfig:
 H6_PREFIX_V2_AUTHORIZATION_SHA256 = hashlib.sha256(
     b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
 ).hexdigest()
+H6_PREFIX_V3_AUTHORIZATION_SHA256 = hashlib.sha256(
+    b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V3"
+).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -711,6 +718,164 @@ class H6PrefixResolvedConfig:
             raise ValueError(
                 "h6-prefix-config-v2 authorization_sha256 must equal the exact "
                 "bounded workload authorization digest"
+            )
+
+
+@dataclass(frozen=True)
+class H6PrefixV3ResolvedConfig:
+    """Bounded Prefix configuration with complete external validation evidence."""
+
+    schema_version: Literal["h6-prefix-config-v3"]
+    operation: Literal["H6-Prefix"]
+    source: H6SourceIdentity
+    execution_mode: Literal["authorized_full"]
+    profiles: tuple[H6PrefixProfilePair, ...]
+    workload_plan: H6PrefixWorkloadPlan
+    workload_plan_sha256: str
+    workload_authorization_sha256: str
+    validation_fixture_reference: ValidationSafetyFixtureReference
+    validation_perturbation_reference: (
+        H6ValidationPerturbationArtifactReference
+    )
+    authorization_sha256: str
+    artifact_root: Path
+    canonical_json: str
+    config_sha256: str
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != "h6-prefix-config-v3"
+            or self.operation != "H6-Prefix"
+            or self.execution_mode != "authorized_full"
+            or type(self.source) is not H6SourceIdentity
+            or type(self.profiles) is not tuple
+            or not self.profiles
+            or any(
+                type(profile) is not H6PrefixProfilePair
+                for profile in self.profiles
+            )
+            or type(self.workload_plan) is not H6PrefixWorkloadPlan
+            or self.workload_plan_sha256
+            != self.workload_plan.workload_plan_sha256
+            or self.workload_authorization_sha256
+            != H6_PREFIX_V2_AUTHORIZATION_SHA256
+            or self.authorization_sha256
+            != H6_PREFIX_V3_AUTHORIZATION_SHA256
+        ):
+            raise ValueError(
+                "h6-prefix-config-v3 must bind the exact bounded workload "
+                "and both authorization identities"
+            )
+        if type(self.validation_fixture_reference) is not (
+            ValidationSafetyFixtureReference
+        ):
+            raise ValueError(
+                "h6-prefix-config-v3 fixture reference type is invalid"
+            )
+        if type(self.validation_perturbation_reference) is not (
+            H6ValidationPerturbationArtifactReference
+        ):
+            raise ValueError(
+                "h6-prefix-config-v3 perturbation reference type is invalid"
+            )
+        self.validation_fixture_reference.__post_init__()
+        self.validation_perturbation_reference.__post_init__()
+        fixture = self.validation_fixture_reference
+        candidate = self.validation_perturbation_reference
+        if (
+            candidate.validation_fixture_reference_sha256
+            != fixture.reference_sha256
+            or candidate.binary_directory_manifest_sha256
+            != fixture.binary_directory_manifest_sha256
+            or candidate.data_identity_sha256
+            != fixture.data_identity_sha256
+            or candidate.access_policy_sha256
+            != fixture.access_policy_sha256
+            or candidate.validation_token_sha256
+            != fixture.validation_token_sha256
+            or candidate.fixture_raw_sha256 != fixture.fixture_raw_sha256
+        ):
+            raise ValueError(
+                "H6 Prefix v3 validation references do not agree exactly"
+            )
+        expected_particles = self.workload_plan.production_particle_counts
+        observed_particles = tuple(
+            profile.estimator.particle_count for profile in self.profiles
+        )
+        if (
+            len(observed_particles) % len(expected_particles) != 0
+            or any(
+                observed_particles[offset : offset + len(expected_particles)]
+                != expected_particles
+                for offset in range(
+                    0, len(observed_particles), len(expected_particles)
+                )
+            )
+        ):
+            raise ValueError(
+                "H6 Prefix v3 profiles do not match the bounded particle ladder"
+            )
+        for profile in self.profiles:
+            vocabulary = profile.production_arm_config.vocabulary
+            vocabulary_payload = {
+                "vocabulary_id": vocabulary.vocabulary_id,
+                "size": vocabulary.size,
+                "tokenizer_spec_sha256": (
+                    vocabulary.tokenizer_spec_sha256
+                ),
+            }
+            vocabulary_sha256 = hashlib.sha256(
+                b"vfe4.h6.vocabulary-identity.v1\x00"
+                + json.dumps(
+                    vocabulary_payload,
+                    ensure_ascii=True,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ).encode("utf-8")
+            ).hexdigest()
+            if (
+                vocabulary.vocabulary_id != candidate.vocabulary_id
+                or vocabulary.size != candidate.vocabulary_size
+                or vocabulary.tokenizer_spec_sha256
+                != candidate.tokenizer_spec_sha256
+                or vocabulary_sha256 != candidate.vocabulary_sha256
+            ):
+                raise ValueError(
+                    "H6 Prefix v3 production vocabulary does not match "
+                    "the perturbation candidate"
+                )
+        if (
+            not isinstance(self.artifact_root, Path)
+            or not self.artifact_root.is_absolute()
+            or self.artifact_root.resolve(strict=False) != self.artifact_root
+            or type(self.canonical_json) is not str
+        ):
+            raise ValueError(
+                "H6 Prefix v3 artifact root or canonical JSON is invalid"
+            )
+        try:
+            decoded = json.loads(self.canonical_json)
+        except json.JSONDecodeError as exc:
+            raise ValueError("H6 Prefix v3 canonical JSON is invalid") from exc
+        canonical = json.dumps(
+            decoded,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        if (
+            canonical != self.canonical_json
+            or hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+            != self.config_sha256
+            or decoded.get("validation_fixture_reference")
+            != fixture.to_payload()
+            or decoded.get("validation_perturbation_reference")
+            != candidate.to_payload()
+        ):
+            raise ValueError(
+                "H6 Prefix v3 canonical bytes or reference binding is stale"
             )
 
 
@@ -1483,7 +1648,7 @@ class ResolvedConfig:
     h3: H3ValidationConfig | None = None
     h4: H4ValidationConfig | None = None
     h5: H5ValidationConfig | None = None
-    h6_prefix: H6PrefixResolvedConfig | None = None
+    h6_prefix: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig | None = None
     h6_prediction: H6PredictionResolvedConfig | None = None
     h7: H7ValidationConfig | None = None
     h8: H8ValidationConfig | None = None

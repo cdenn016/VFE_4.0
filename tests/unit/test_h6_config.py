@@ -45,6 +45,15 @@ FULL_PREFIX_AUTHORIZATION_SHA256 = hashlib.sha256(
 BOUNDED_PREFIX_V2_AUTHORIZATION_SHA256 = hashlib.sha256(
     b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V2"
 ).hexdigest()
+BOUNDED_PREFIX_V3_AUTHORIZATION_SHA256 = hashlib.sha256(
+    b"AUTHORIZE_VFE4_H6_PREFIX_BOUNDED_WORKLOAD_V3"
+).hexdigest()
+H6_VALIDATION_TOKENIZER_SPEC_SHA256 = (
+    "1c924ca10bed173c8aaa0e2cb6389df02524269d6405bb1339aa3903834689d4"
+)
+H6_VALIDATION_VOCABULARY_SHA256 = (
+    "5aea771bc9b54b0e6ad0ce9b5cddbd6d32e89a4201e4f9cd11bb00bf8713dd68"
+)
 
 
 def test_h6_workload_amendment_freezes_representative_and_stratified_indices(
@@ -220,13 +229,18 @@ def _typed_structure(
     )
 
 
-def _arm_config(*, vocabulary_size: int, horizon: int) -> ArmConfig:
+def _arm_config(
+    *,
+    vocabulary_size: int,
+    horizon: int,
+    tokenizer_spec_sha256: str = _sha("5"),
+) -> ArmConfig:
     vocabulary = VocabularyIdentity(
         "h6-prefix-small-v1"
         if vocabulary_size == 3
         else "wikitext-2-byte-v1",
         vocabulary_size,
-        _sha("5"),
+        tokenizer_spec_sha256,
     )
     return ArmConfig.create(
         arm=ArmId.A0,
@@ -258,10 +272,17 @@ def _raw_arm_config(config: ArmConfig) -> dict[str, object]:
 
 
 def _profile(
-    particle_count: int, *, immediate_predecessor_only: bool = False
+    particle_count: int,
+    *,
+    immediate_predecessor_only: bool = False,
+    production_tokenizer_spec_sha256: str = _sha("5"),
 ) -> dict[str, object]:
     small = _arm_config(vocabulary_size=3, horizon=4)
-    production = _arm_config(vocabulary_size=258, horizon=32)
+    production = _arm_config(
+        vocabulary_size=258,
+        horizon=32,
+        tokenizer_spec_sha256=production_tokenizer_spec_sha256,
+    )
     estimator = EstimatorSpec.create(
         kind="weighted_smc",
         particle_count=particle_count,
@@ -357,6 +378,146 @@ def _prefix_v2_config() -> dict[str, object]:
         ],
         "workload_plan_sha256": plan.workload_plan_sha256,
         "authorization_sha256": BOUNDED_PREFIX_V2_AUTHORIZATION_SHA256,
+        "artifact_root": "runs/h6-prefix",
+    }
+
+
+def _fixture_reference_payload(tmp_path: Path) -> dict[str, object]:
+    from vfe4.h6_validation_fixture import ValidationSafetyFixtureReference
+
+    reference = ValidationSafetyFixtureReference.create(
+        local_payload_path=(
+            tmp_path / "fixture" / "validation_safety_fixture.bin"
+        ),
+        binary_directory_manifest_sha256=_sha("6"),
+        data_identity_sha256=_sha("7"),
+        access_policy_sha256=_sha("8"),
+        validation_token_sha256=_sha("9"),
+        fixture_raw_sha256=_sha("a"),
+        fixture_raw_length=311_369,
+        row_count=4096,
+    )
+    return reference.to_payload()
+
+
+def _candidate_reference_payload(
+    tmp_path: Path,
+    fixture: dict[str, object],
+) -> dict[str, object]:
+    from vfe4.h6_validation_fixture import (
+        H6ValidationPerturbationArtifactReference,
+    )
+
+    git_head = "b" * 40
+    dirty_digest = _sha("c")
+    source_sha256 = hashlib.sha256(
+        b"VFE4-H6-SOURCE-CANDIDATE-V1\x00"
+        + bytes.fromhex(git_head)
+        + bytes.fromhex(dirty_digest)
+    ).hexdigest()
+    payload_sha256s = (
+        ("config.json", _sha("d")),
+        ("provenance.json", _sha("e")),
+        (
+            "validation/h6_validation_perturbations_v1.json",
+            _sha("f"),
+        ),
+    )
+    identity = {
+        "access_policy_sha256": fixture["access_policy_sha256"],
+        "binary_directory_manifest_sha256": (
+            fixture["binary_directory_manifest_sha256"]
+        ),
+        "config_sha256": _sha("1"),
+        "data_identity_sha256": fixture["data_identity_sha256"],
+        "directory_manifest_sha256": _sha("2"),
+        "fixture_raw_sha256": fixture["fixture_raw_sha256"],
+        "full_count": 4096,
+        "generator_version": "h6-validation-perturbations-v1",
+        "materialized_count": 4096,
+        "payload_sha256s": [
+            {"path": path, "sha256": sha256}
+            for path, sha256 in payload_sha256s
+        ],
+        "perturbation_inner_manifest_sha256": _sha("3"),
+        "perturbation_raw_sha256": _sha("4"),
+        "perturbation_schema_version": "h6-validation-perturbations-v1",
+        "seed": 2026072197,
+        "source": {
+            "dirty_digest": dirty_digest,
+            "git_head": git_head,
+            "source_sha256": source_sha256,
+        },
+        "validation_fixture_reference_sha256": fixture["reference_sha256"],
+        "validation_token_sha256": fixture["validation_token_sha256"],
+        "vocabulary": {
+            "size": 258,
+            "tokenizer_spec_sha256": H6_VALIDATION_TOKENIZER_SPEC_SHA256,
+            "vocabulary_id": "wikitext-2-byte-v1",
+            "vocabulary_sha256": H6_VALIDATION_VOCABULARY_SHA256,
+        },
+    }
+    reference_sha256 = hashlib.sha256(
+        b"vfe4.h6.validation-perturbation-artifact-reference.v1\x00"
+        + canonical_json_bytes(identity)
+    ).hexdigest()
+    reference = H6ValidationPerturbationArtifactReference(
+        local_artifact_path=(tmp_path / "candidate").resolve(strict=False),
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+        source_sha256=source_sha256,
+        config_sha256=_sha("1"),
+        validation_fixture_reference_sha256=fixture["reference_sha256"],
+        binary_directory_manifest_sha256=fixture[
+            "binary_directory_manifest_sha256"
+        ],
+        data_identity_sha256=fixture["data_identity_sha256"],
+        access_policy_sha256=fixture["access_policy_sha256"],
+        validation_token_sha256=fixture["validation_token_sha256"],
+        fixture_raw_sha256=fixture["fixture_raw_sha256"],
+        vocabulary_id="wikitext-2-byte-v1",
+        vocabulary_size=258,
+        tokenizer_spec_sha256=H6_VALIDATION_TOKENIZER_SPEC_SHA256,
+        vocabulary_sha256=H6_VALIDATION_VOCABULARY_SHA256,
+        perturbation_schema_version="h6-validation-perturbations-v1",
+        generator_version="h6-validation-perturbations-v1",
+        seed=2026072197,
+        full_count=4096,
+        materialized_count=4096,
+        perturbation_inner_manifest_sha256=_sha("3"),
+        perturbation_raw_sha256=_sha("4"),
+        payload_sha256s=payload_sha256s,
+        directory_manifest_sha256=_sha("2"),
+        reference_sha256=reference_sha256,
+    )
+    return reference.to_payload()
+
+
+def _prefix_v3_config(tmp_path: Path) -> dict[str, object]:
+    plan = H6PrefixWorkloadPlan()
+    fixture = _fixture_reference_payload(tmp_path)
+    candidate = _candidate_reference_payload(tmp_path, fixture)
+    return {
+        "schema_version": "h6-prefix-config-v3",
+        "operation": "H6-Prefix",
+        "source": _source(),
+        "execution_mode": "authorized_full",
+        "profiles": [
+            _profile(
+                particle_count,
+                production_tokenizer_spec_sha256=(
+                    H6_VALIDATION_TOKENIZER_SPEC_SHA256
+                ),
+            )
+            for particle_count in plan.production_particle_counts
+        ],
+        "workload_plan_sha256": plan.workload_plan_sha256,
+        "workload_authorization_sha256": (
+            BOUNDED_PREFIX_V2_AUTHORIZATION_SHA256
+        ),
+        "validation_fixture_reference": fixture,
+        "validation_perturbation_reference": candidate,
+        "authorization_sha256": BOUNDED_PREFIX_V3_AUTHORIZATION_SHA256,
         "artifact_root": "runs/h6-prefix",
     }
 
@@ -606,6 +767,131 @@ def test_prefix_v2_config_binds_workload_and_rejects_legacy_full(
     )
     with pytest.raises(ValueError, match="128.*256.*512.*1024|ladder"):
         resolve_h6_prefix_config(mixed_structures, repo_root=tmp_path)
+
+
+def test_prefix_v3_config_round_trips_and_cross_binds_external_validation_references(
+    tmp_path: Path,
+) -> None:
+    from vfe4.config import H6PrefixV3ResolvedConfig
+    from vfe4.h6_validation_fixture import (
+        H6ValidationPerturbationArtifactReference,
+        ValidationSafetyFixtureReference,
+    )
+
+    legacy_pins = (
+        (_prefix_config(), "7bd19201b13cad676867df1a72653c35cc2438c840e691162924056cdcf91171"),
+        (_prefix_v2_config(), "e2c41dac44756984fec99e6c145b9302c44733008dd3ace9b71bc96c4431263c"),
+    )
+    for legacy_raw, expected_sha256 in legacy_pins:
+        legacy = resolve_h6_prefix_config(legacy_raw, repo_root=tmp_path)
+        normalized = json.loads(legacy.canonical_json)
+        normalized["artifact_root"] = "<PINNED>"
+        assert hashlib.sha256(canonical_json_bytes(normalized)).hexdigest() == (
+            expected_sha256
+        )
+        assert "validation_fixture_reference" not in normalized
+        assert "validation_perturbation_reference" not in normalized
+        assert "workload_authorization_sha256" not in normalized
+
+    raw = _prefix_v3_config(tmp_path)
+    before = copy.deepcopy(raw)
+    resolved = resolve_h6_prefix_config(raw, repo_root=tmp_path)
+    assert type(resolved) is H6PrefixV3ResolvedConfig
+    assert raw == before
+    assert resolved.schema_version == "h6-prefix-config-v3"
+    assert resolved.workload_plan == H6PrefixWorkloadPlan()
+    assert (
+        resolved.workload_authorization_sha256
+        == BOUNDED_PREFIX_V2_AUTHORIZATION_SHA256
+    )
+    assert (
+        resolved.authorization_sha256
+        == BOUNDED_PREFIX_V3_AUTHORIZATION_SHA256
+    )
+    assert type(resolved.validation_fixture_reference) is (
+        ValidationSafetyFixtureReference
+    )
+    assert type(resolved.validation_perturbation_reference) is (
+        H6ValidationPerturbationArtifactReference
+    )
+    assert (
+        resolved.source.source_sha256
+        != resolved.validation_perturbation_reference.source_sha256
+    )
+    canonical = json.loads(resolved.canonical_json)
+    assert canonical_json_bytes(canonical).decode("utf-8") == (
+        resolved.canonical_json
+    )
+    assert canonical["validation_fixture_reference"] == (
+        resolved.validation_fixture_reference.to_payload()
+    )
+    assert canonical["validation_perturbation_reference"] == (
+        resolved.validation_perturbation_reference.to_payload()
+    )
+
+    fixture_fields = (
+        "validation_fixture_reference_sha256",
+        "binary_directory_manifest_sha256",
+        "data_identity_sha256",
+        "access_policy_sha256",
+        "validation_token_sha256",
+        "fixture_raw_sha256",
+    )
+    for field in fixture_fields:
+        mutated = copy.deepcopy(raw)
+        candidate = mutated["validation_perturbation_reference"]
+        assert isinstance(candidate, dict)
+        candidate[field] = _sha("0")
+        candidate_without_path = {
+            key: value
+            for key, value in candidate.items()
+            if key not in {"local_artifact_path", "reference_sha256"}
+        }
+        candidate["reference_sha256"] = hashlib.sha256(
+            b"vfe4.h6.validation-perturbation-artifact-reference.v1\x00"
+            + canonical_json_bytes(candidate_without_path)
+        ).hexdigest()
+        with pytest.raises(ValueError, match="reference|agree|bind"):
+            resolve_h6_prefix_config(mutated, repo_root=tmp_path)
+
+    malformed_mutations = (
+        (("seed",), True),
+        (("config_sha256",), "A" * 64),
+        (("local_artifact_path",), "relative/candidate"),
+        (("reference_sha256",), _sha("0")),
+        (("payload_sha256s",), list(reversed(
+            raw["validation_perturbation_reference"]["payload_sha256s"]  # type: ignore[index]
+        ))),
+    )
+    for path, replacement in malformed_mutations:
+        mutated = copy.deepcopy(raw)
+        candidate = mutated["validation_perturbation_reference"]
+        assert isinstance(candidate, dict)
+        candidate[path[0]] = replacement
+        with pytest.raises(ValueError):
+            resolve_h6_prefix_config(mutated, repo_root=tmp_path)
+
+    unknown = copy.deepcopy(raw)
+    unknown_candidate = unknown["validation_perturbation_reference"]
+    assert isinstance(unknown_candidate, dict)
+    unknown_candidate["unknown"] = "forbidden"
+    with pytest.raises(ValueError, match="keys|unknown"):
+        resolve_h6_prefix_config(unknown, repo_root=tmp_path)
+
+    missing = copy.deepcopy(raw)
+    missing_candidate = missing["validation_perturbation_reference"]
+    assert isinstance(missing_candidate, dict)
+    del missing_candidate["directory_manifest_sha256"]
+    with pytest.raises(ValueError, match="keys|missing"):
+        resolve_h6_prefix_config(missing, repo_root=tmp_path)
+
+    wrong_vocabulary = _prefix_v3_config(tmp_path)
+    wrong_vocabulary["profiles"] = [
+        _profile(particle_count)
+        for particle_count in H6PrefixWorkloadPlan().production_particle_counts
+    ]
+    with pytest.raises(ValueError, match="vocabulary|tokenizer"):
+        resolve_h6_prefix_config(wrong_vocabulary, repo_root=tmp_path)
 
 
 def test_h6_helpers_delegate_to_the_single_public_resolver(tmp_path: Path) -> None:
