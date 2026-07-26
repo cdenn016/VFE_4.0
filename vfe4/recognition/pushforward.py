@@ -427,9 +427,24 @@ def freeze_h7_recognition(
         for item in affine
         if "same_receiver_model_map" in item.tensors
     )
-    if tuple(item.receiver_t for item in model) != (1, 2) or tuple(
-        item.receiver_t for item in state
-    ) != (1, 2):
+    if law.scalar_source_law is None:
+        inventory_valid = (
+            tuple(item.receiver_t for item in model) == (1, 2)
+            and tuple(item.receiver_t for item in state) == (1, 2)
+        )
+    else:
+        inventory_valid = tuple(item.component_id for item in model) == (
+            "h1.q.model.1<-0",
+            "h1.q.model.2<-0",
+            "h1.q.model.2<-1",
+        ) and tuple(item.component_id for item in state) == (
+            "h1.q.state.1.a_0.b_0.row_0",
+            "h1.q.state.2.a_0.b_0.row_0",
+            "h1.q.state.2.a_1.b_0.row_1",
+            "h1.q.state.2.a_0.b_1.row_2",
+            "h1.q.state.2.a_1.b_1.row_3",
+        )
+    if not inventory_valid:
         raise ValueError("recognition conditional inventory is incomplete")
     return H7RecognitionSnapshot.create(
         origin_family=law.origin_family,

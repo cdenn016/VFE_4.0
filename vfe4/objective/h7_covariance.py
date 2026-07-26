@@ -38,15 +38,20 @@ from vfe4.types.h7 import (
     H7GLPlus2Action,
     H7IndependentH1EvidenceRecord,
     H7InitialJointKlRecord,
+    H7InjectedGlobalPrecisionSnapshot,
     H7LawPairSnapshot,
     H7LocalTermRecord,
     H7ObjectiveCovarianceEvaluation,
+    H7OwnedTensorSnapshot,
     H7RecognitionSnapshot,
     H7ResidualCategory,
     H7ResidualRecord,
     H7ScalarReplayAction,
     H7SourceScorerRowSnapshot,
+    H7Task5PrecisionCaptureBatch,
+    H7Task5PrecisionOperandSnapshot,
     H7TensorActionSnapshot,
+    H7TrialSpec,
     h7_owned_sha256,
 )
 from vfe4.validation.h7_fixture import H1_FIXTURE_RAW_SHA256
@@ -695,6 +700,119 @@ def evaluate_h7_law_pair_covariance(
     )
 
 
+def capture_h7_task5_precision_batch(
+    law_pair: H7LawPairSnapshot,
+    action: H7TensorActionSnapshot,
+    *,
+    trial_spec: H7TrialSpec,
+    original_factor_trace: CompleteLanguageELBOFactorTrace,
+    injected_global_precisions: tuple[
+        H7InjectedGlobalPrecisionSnapshot, ...
+    ],
+) -> H7Task5PrecisionCaptureBatch:
+    """Freeze one original-law precision batch without deriving an inverse."""
+
+    _validate_law_pair_action(law_pair, action)
+    if type(trial_spec) is not H7TrialSpec:
+        raise ValueError("trial_spec must be an exact frozen H7 trial")
+    trial_spec.__post_init__()
+    action.__post_init__()
+    if (
+        trial_spec.action_sha256 != action.action_sha256
+        or trial_spec.fixture_id != law_pair.original.fixture_id
+        or law_pair.action_sha256 != trial_spec.action_sha256
+    ):
+        raise ValueError(
+            "Task-5 precision capture trial/action/fixture binding changed"
+        )
+    _require_task5_capture_frame_profile(law_pair.original, trial_spec)
+    if type(original_factor_trace) is not CompleteLanguageELBOFactorTrace:
+        raise ValueError(
+            "original_factor_trace must be an exact complete post-H6 trace"
+        )
+    original_factor_trace.__post_init__()
+    original_values = _evaluate_complete_law(
+        law_pair.original,
+        factor_trace=original_factor_trace,
+        quadrature_order=51,
+    )
+    gaussian_ids = _task5_precision_gaussian_ids(law_pair.original)
+    owned_components = _task5_owned_precision_components(law_pair.original)
+    owned_count = len(owned_components)
+    operands = [
+        H7Task5PrecisionOperandSnapshot.create(
+            trial_id=trial_spec.trial_id,
+            batch_index=index,
+            gaussian_id=gaussian_ids[index],
+            source_kind="owned_component",
+            covariance=component.covariance,
+            precision=component.precision,
+        )
+        for index, component in enumerate(owned_components)
+    ]
+    global_moments = (
+        *original_values.q_moments.values(),
+        *original_values.p_moments.values(),
+    )
+    expected_global_ids = gaussian_ids[owned_count:]
+    if (
+        type(injected_global_precisions) is not tuple
+        or len(injected_global_precisions) != len(expected_global_ids)
+        or len(global_moments) != len(expected_global_ids)
+        or any(
+            type(item) is not H7InjectedGlobalPrecisionSnapshot
+            for item in injected_global_precisions
+        )
+    ):
+        raise ValueError(
+            "Task-5 precision capture requires the exact injected global precision "
+            "tuple"
+        )
+    for offset, (gaussian_id, moments, injected) in enumerate(
+        zip(
+            expected_global_ids,
+            global_moments,
+            injected_global_precisions,
+            strict=True,
+        ),
+        start=owned_count,
+    ):
+        injected.__post_init__()
+        if (
+            injected.trial_id != trial_spec.trial_id
+            or injected.gaussian_id != gaussian_id
+        ):
+            raise ValueError(
+                "injected global precision changed trial/Gaussian identity/order"
+            )
+        covariance = H7OwnedTensorSnapshot.capture(moments.covariance)
+        if (
+            injected.covariance_snapshot_sha256
+            != covariance.snapshot_sha256
+        ):
+            raise ValueError(
+                "injected global precision does not bind its Task-5 covariance "
+                "snapshot"
+            )
+        operands.append(
+            H7Task5PrecisionOperandSnapshot.create(
+                trial_id=trial_spec.trial_id,
+                batch_index=offset,
+                gaussian_id=gaussian_id,
+                source_kind="injected_global",
+                covariance=covariance,
+                precision=injected.precision,
+            )
+        )
+    return H7Task5PrecisionCaptureBatch.create(
+        trial_id=trial_spec.trial_id,
+        fixture_id=law_pair.original.fixture_id,
+        raw_fixture_sha256=law_pair.original.raw_fixture_sha256,
+        recognition_family=law_pair.original.recognition.origin_family,
+        operands=tuple(operands),
+    )
+
+
 def _validate_law_pair_action(
     law_pair: H7LawPairSnapshot,
     action: H7TensorActionSnapshot,
@@ -712,6 +830,154 @@ def _validate_law_pair_action(
         or (fixture_id == "h7-v1" and type(action) is not H7GLPlus2Action)
     ):
         raise ValueError("law-pair fixture/action dimensions disagree")
+
+
+def _require_task5_capture_frame_profile(
+    law: H7CompleteLawSnapshot,
+    trial_spec: H7TrialSpec,
+) -> None:
+    frames = tuple(item.value() for item in law.generative.frames)
+    dimension = frames[0].shape[0]
+    identity = torch.eye(dimension, dtype=torch.float64, device=frames[0].device)
+    all_identity = all(torch.equal(frame, identity) for frame in frames)
+    if (
+        (trial_spec.frame_profile == "h1_v1" and law.fixture_id != "h1-v1")
+        or (
+            trial_spec.frame_profile == "identity"
+            and (law.fixture_id != "h7-v1" or not all_identity)
+        )
+        or (
+            trial_spec.frame_profile == "nonidentity"
+            and (law.fixture_id != "h7-v1" or all_identity)
+        )
+    ):
+        raise ValueError("Task-5 precision capture frame profile changed")
+
+
+def _task5_owned_precision_components(
+    law: H7CompleteLawSnapshot,
+) -> tuple[H7GaussianComponentSnapshot, ...]:
+    generative = law.generative
+    recognition = law.recognition
+    if law.fixture_id == "h1-v1":
+        if tuple(
+            (item.bank, item.receiver_t, item.source_j)
+            for item in generative.transitions
+        ) != (
+            ("model", 1, 0),
+            ("state", 1, 0),
+            ("model", 2, 0),
+            ("state", 2, 0),
+            ("model", 2, 1),
+            ("state", 2, 1),
+        ):
+            raise ValueError("scalar generative precision order changed")
+        if tuple(
+            (item.receiver_t, item.source_j)
+            for item in recognition.model_conditionals
+        ) != ((1, 0), (2, 0), (2, 1)):
+            raise ValueError("scalar recognition-model precision order changed")
+        if tuple(item.component_id for item in recognition.state_conditionals) != (
+            "h1.q.state.1.a_0.b_0.row_0",
+            "h1.q.state.2.a_0.b_0.row_0",
+            "h1.q.state.2.a_1.b_0.row_1",
+            "h1.q.state.2.a_0.b_1.row_2",
+            "h1.q.state.2.a_1.b_1.row_3",
+        ):
+            raise ValueError("scalar recognition-state precision order changed")
+    else:
+        if tuple(
+            (item.bank, item.receiver_t, item.source_j)
+            for item in generative.transitions
+        ) != (
+            ("model", 1, 0),
+            ("state", 1, 0),
+            ("model", 2, 1),
+            ("state", 2, 1),
+        ):
+            raise ValueError("matrix generative precision order changed")
+        if tuple(
+            (item.bank, item.receiver_t, item.source_j)
+            for item in recognition.model_conditionals
+        ) != (("model", 1, 0), ("model", 2, 1)):
+            raise ValueError("matrix recognition-model precision order changed")
+        if tuple(
+            (item.bank, item.receiver_t, item.source_j)
+            for item in recognition.state_conditionals
+        ) != (("state", 1, 0), ("state", 2, 1)):
+            raise ValueError("matrix recognition-state precision order changed")
+    components = (
+        generative.initial_joint,
+        recognition.initial_joint,
+        *(item.receiver_law for item in generative.transitions),
+        *(item.receiver_law for item in recognition.model_conditionals),
+        *(item.receiver_law for item in recognition.state_conditionals),
+    )
+    expected_count = 16 if law.fixture_id == "h1-v1" else 10
+    if (
+        len(components) != expected_count
+        or any(
+            type(component) is not H7GaussianComponentSnapshot
+            for component in components
+        )
+    ):
+        raise ValueError("Task-5 owned precision component cardinality changed")
+    for component in components:
+        component.__post_init__()
+    return components
+
+
+def _task5_precision_gaussian_ids(
+    law: H7CompleteLawSnapshot,
+) -> tuple[str, ...]:
+    if law.fixture_id == "h1-v1":
+        paths = tuple(path.path_id for path in _source_paths(law))
+        if paths != (
+            "h1-path-0:a0-b0",
+            "h1-path-1:a1-b0",
+            "h1-path-2:a0-b1",
+            "h1-path-3:a1-b1",
+        ):
+            raise ValueError("scalar precision source-path order changed")
+        return (
+            "scalar.p.initial_joint",
+            "scalar.q.initial_joint",
+            "scalar.p.p.model.receiver_1.source_0.receiver_offset",
+            "scalar.p.p.state.receiver_1.source_0.receiver_offset",
+            "scalar.p.p.model.receiver_2.source_0.receiver_offset",
+            "scalar.p.p.state.receiver_2.source_0.receiver_offset",
+            "scalar.p.p.model.receiver_2.source_1.receiver_offset",
+            "scalar.p.p.state.receiver_2.source_1.receiver_offset",
+            "scalar.q_model.q.model.receiver_1.source_0.receiver_offset",
+            "scalar.q_model.q.model.receiver_2.source_0.receiver_offset",
+            "scalar.q_model.q.model.receiver_2.source_1.receiver_offset",
+            "scalar.q_state.q.state.receiver_1.a_0.b_0.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_0.b_0.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_1.b_0.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_0.b_1.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_1.b_1.receiver_offset",
+            *(f"scalar.q.global[{path_id}]" for path_id in paths),
+            *(f"scalar.p.global[{path_id}]" for path_id in paths),
+        )
+    prefix = (
+        "structured"
+        if law.recognition.origin_family == "structured_full_block"
+        else "factorized"
+    )
+    return (
+        f"{prefix}.p.initial_joint",
+        f"{prefix}.q.initial_joint",
+        f"{prefix}.p.p.model.receiver_1.receiver_offset",
+        f"{prefix}.p.p.state.receiver_1.receiver_offset",
+        f"{prefix}.p.p.model.receiver_2.receiver_offset",
+        f"{prefix}.p.p.state.receiver_2.receiver_offset",
+        f"{prefix}.q_model.q.{prefix}.model.receiver_1.receiver_offset",
+        f"{prefix}.q_model.q.{prefix}.model.receiver_2.receiver_offset",
+        f"{prefix}.q_state.q.{prefix}.state.receiver_1.receiver_offset",
+        f"{prefix}.q_state.q.{prefix}.state.receiver_2.receiver_offset",
+        f"{prefix}.q.global[matrix-singleton-path]",
+        f"{prefix}.p.global[matrix-singleton-path]",
+    )
 
 
 def _require_scalar_evidence_provenance(
@@ -2218,6 +2484,7 @@ __all__ = [
     "H7_SCALAR_EVIDENCE_INVARIANT_ID",
     "H7_SCALAR_POSTERIOR_KL_INVARIANT_ID",
     "H7IndependentH1EvidenceRecord",
+    "capture_h7_task5_precision_batch",
     "evaluate_h7_complete_covariance",
     "evaluate_h7_law_pair_covariance",
     "h7_joint_gaussian_kl",

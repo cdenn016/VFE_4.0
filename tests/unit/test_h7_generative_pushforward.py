@@ -252,12 +252,28 @@ def test_live_generative_pushforward_keeps_graph_and_jacobian_scopes() -> None:
         == transformed.jacobian.global_logabsdet.identity
     )
     assert frozen.jacobian.entropy_shift is None
+    with pytest.raises(
+        ValueError,
+        match="Jacobian receiver component ID has an ambiguous bank",
+    ):
+        H7JacobianMetadataSnapshot.create(
+            scope="generative",
+            initial_logabsdet=frozen.jacobian.initial_logabsdet,
+            receiver_logabsdet={
+                f"wrong.receiver.{index}": value
+                for index, value in enumerate(
+                    frozen.jacobian.receiver_logabsdet.values()
+                )
+            },
+            global_logabsdet=frozen.jacobian.global_logabsdet,
+            entropy_shift=None,
+        )
     misbound_jacobian = H7JacobianMetadataSnapshot.create(
         scope="generative",
         initial_logabsdet=frozen.jacobian.initial_logabsdet,
         receiver_logabsdet={
-            f"wrong.receiver.{index}": value
-            for index, value in enumerate(frozen.jacobian.receiver_logabsdet.values())
+            f"wrong.{name}": value
+            for name, value in frozen.jacobian.receiver_logabsdet.items()
         },
         global_logabsdet=frozen.jacobian.global_logabsdet,
         entropy_shift=None,

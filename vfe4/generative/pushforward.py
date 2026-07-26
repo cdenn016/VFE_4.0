@@ -48,6 +48,7 @@ from vfe4.types.h7 import (
     H7SourceScorerRowSnapshot,
     H7SourceScorerRowView,
     H7TensorLawComponent,
+    _jacobian_grouped_local_total,
     canonical_h7_bytes,
     h7_owned_sha256,
 )
@@ -202,7 +203,7 @@ def _action_jacobian(
     if len(receiver_values) != len(_affine_components(components)):
         raise ValueError("affine Jacobian scope is missing receiver_t")
     global_shift = logabsdet_measure_shift(action)
-    local_total = initial + torch.stack(tuple(receiver_values.values())).sum()
+    local_total = _jacobian_grouped_local_total(initial, receiver_values)
     eps = torch.finfo(torch.float64).eps
     scale = max(
         1.0,

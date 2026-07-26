@@ -508,7 +508,7 @@ class _H7IntegrityRecord:
         for item in fields(self):
             value = getattr(self, item.name)
             _require_exact_primitive_field(value, item.type, item.name)
-            if item.name.endswith("_sha256") and value is not None:
+            if item.name.endswith("_sha256") and type(value) is str:
                 _require_sha256(value, item.name)
             if type(value) is float and not math.isfinite(value):
                 raise ValueError(f"{item.name} must be finite")
@@ -1902,6 +1902,234 @@ class H7GaussianComponentSnapshot(_H7IntegrityRecord):
         super().__post_init__()
 
 
+def _require_task5_precision_matrix(
+    snapshot: H7OwnedTensorSnapshot,
+    name: str,
+) -> torch.Tensor:
+    matrix = _require_owned_tensor(snapshot, name, ndim=2)
+    if (
+        snapshot.device != "cpu"
+        or matrix.shape[0] <= 0
+        or matrix.shape[0] != matrix.shape[1]
+    ):
+        raise ValueError(f"{name} must be a nonempty square float64 CPU matrix")
+    eps = torch.finfo(torch.float64).eps
+    with torch.no_grad():
+        scale = max(1.0, float(matrix.abs().max()))
+        if not torch.allclose(
+            matrix,
+            matrix.T,
+            rtol=256.0 * eps,
+            atol=256.0 * eps * scale,
+        ):
+            raise ValueError(f"{name} must be symmetric")
+        if bool(torch.any(torch.linalg.cholesky_ex(matrix).info != 0).item()):
+            raise ValueError(f"{name} must be positive definite")
+    return matrix
+
+
+def _require_task5_precision_pair(
+    covariance_snapshot: H7OwnedTensorSnapshot,
+    precision_snapshot: H7OwnedTensorSnapshot,
+) -> None:
+    covariance = _require_task5_precision_matrix(
+        covariance_snapshot,
+        "Task-5 covariance",
+    )
+    precision = _require_task5_precision_matrix(
+        precision_snapshot,
+        "Task-5 precision",
+    )
+    if covariance.shape != precision.shape:
+        raise ValueError("Task-5 covariance/precision shapes disagree")
+    identity = torch.eye(
+        covariance.shape[0],
+        dtype=torch.float64,
+        device=covariance.device,
+    )
+    eps = torch.finfo(torch.float64).eps
+    with torch.no_grad():
+        for observed in (precision @ covariance, covariance @ precision):
+            scale = max(1.0, float(observed.abs().max()))
+            if not torch.allclose(
+                observed,
+                identity,
+                rtol=256.0 * eps,
+                atol=256.0 * eps * scale,
+            ):
+                raise ValueError(
+                    "Task-5 precision is not the two-sided inverse of covariance"
+                )
+
+
+def _task5_precision_gaussian_ids(
+    *,
+    fixture_id: Literal["h1-v1", "h7-v1"],
+    recognition_family: H7RecognitionFamily,
+) -> tuple[str, ...]:
+    if fixture_id == "h1-v1":
+        if recognition_family != "structured_full_block":
+            raise ValueError("scalar precision capture has the wrong recognition family")
+        return (
+            "scalar.p.initial_joint",
+            "scalar.q.initial_joint",
+            "scalar.p.p.model.receiver_1.source_0.receiver_offset",
+            "scalar.p.p.state.receiver_1.source_0.receiver_offset",
+            "scalar.p.p.model.receiver_2.source_0.receiver_offset",
+            "scalar.p.p.state.receiver_2.source_0.receiver_offset",
+            "scalar.p.p.model.receiver_2.source_1.receiver_offset",
+            "scalar.p.p.state.receiver_2.source_1.receiver_offset",
+            "scalar.q_model.q.model.receiver_1.source_0.receiver_offset",
+            "scalar.q_model.q.model.receiver_2.source_0.receiver_offset",
+            "scalar.q_model.q.model.receiver_2.source_1.receiver_offset",
+            "scalar.q_state.q.state.receiver_1.a_0.b_0.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_0.b_0.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_1.b_0.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_0.b_1.receiver_offset",
+            "scalar.q_state.q.state.receiver_2.a_1.b_1.receiver_offset",
+            "scalar.q.global[h1-path-0:a0-b0]",
+            "scalar.q.global[h1-path-1:a1-b0]",
+            "scalar.q.global[h1-path-2:a0-b1]",
+            "scalar.q.global[h1-path-3:a1-b1]",
+            "scalar.p.global[h1-path-0:a0-b0]",
+            "scalar.p.global[h1-path-1:a1-b0]",
+            "scalar.p.global[h1-path-2:a0-b1]",
+            "scalar.p.global[h1-path-3:a1-b1]",
+        )
+    prefix = (
+        "structured"
+        if recognition_family == "structured_full_block"
+        else "factorized"
+    )
+    return (
+        f"{prefix}.p.initial_joint",
+        f"{prefix}.q.initial_joint",
+        f"{prefix}.p.p.model.receiver_1.receiver_offset",
+        f"{prefix}.p.p.state.receiver_1.receiver_offset",
+        f"{prefix}.p.p.model.receiver_2.receiver_offset",
+        f"{prefix}.p.p.state.receiver_2.receiver_offset",
+        f"{prefix}.q_model.q.{prefix}.model.receiver_1.receiver_offset",
+        f"{prefix}.q_model.q.{prefix}.model.receiver_2.receiver_offset",
+        f"{prefix}.q_state.q.{prefix}.state.receiver_1.receiver_offset",
+        f"{prefix}.q_state.q.{prefix}.state.receiver_2.receiver_offset",
+        f"{prefix}.q.global[matrix-singleton-path]",
+        f"{prefix}.p.global[matrix-singleton-path]",
+    )
+
+
+@dataclass(frozen=True)
+class H7InjectedGlobalPrecisionSnapshot(_H7IntegrityRecord):
+    _integrity_field: ClassVar[str] = "input_sha256"
+    _hash_domain: ClassVar[str] = "vfe4.h7.injected-global-precision.v1"
+
+    trial_id: H7TrialId
+    gaussian_id: str
+    covariance_snapshot_sha256: str
+    precision: H7OwnedTensorSnapshot
+    input_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.trial_id not in H7_REQUIRED_TRIAL_IDS:
+            raise ValueError("injected precision trial_id is outside H7")
+        _require_nonempty(self.gaussian_id, "gaussian_id")
+        if ".global[" not in self.gaussian_id or not self.gaussian_id.endswith("]"):
+            raise ValueError("injected precision gaussian_id must select a global law")
+        _require_sha256(
+            self.covariance_snapshot_sha256,
+            "covariance_snapshot_sha256",
+        )
+        _require_task5_precision_matrix(
+            self.precision,
+            "injected Task-5 precision",
+        )
+        super().__post_init__()
+
+
+@dataclass(frozen=True)
+class H7Task5PrecisionOperandSnapshot(_H7IntegrityRecord):
+    _integrity_field: ClassVar[str] = "operand_sha256"
+    _hash_domain: ClassVar[str] = "vfe4.h7.task5-precision-operand.v1"
+
+    trial_id: H7TrialId
+    batch_index: int
+    gaussian_id: str
+    source_kind: Literal["owned_component", "injected_global"]
+    covariance: H7OwnedTensorSnapshot
+    precision: H7OwnedTensorSnapshot
+    operand_sha256: str
+
+    def __post_init__(self) -> None:
+        if (
+            self.trial_id not in H7_REQUIRED_TRIAL_IDS
+            or type(self.batch_index) is not int
+            or self.batch_index < 0
+            or self.source_kind not in ("owned_component", "injected_global")
+        ):
+            raise ValueError("Task-5 precision operand identity is invalid")
+        _require_nonempty(self.gaussian_id, "gaussian_id")
+        _require_task5_precision_pair(self.covariance, self.precision)
+        super().__post_init__()
+
+
+@dataclass(frozen=True)
+class H7Task5PrecisionCaptureBatch(_H7IntegrityRecord):
+    _integrity_field: ClassVar[str] = "capture_sha256"
+    _hash_domain: ClassVar[str] = "vfe4.h7.task5-precision-capture-batch.v1"
+
+    trial_id: H7TrialId
+    fixture_id: Literal["h1-v1", "h7-v1"]
+    raw_fixture_sha256: str
+    recognition_family: H7RecognitionFamily
+    operands: tuple[H7Task5PrecisionOperandSnapshot, ...]
+    capture_sha256: str
+
+    def __post_init__(self) -> None:
+        contract = H7_TRIAL_CONTRACTS.get(self.trial_id)
+        if (
+            contract is None
+            or self.fixture_id != contract[2]
+            or self.recognition_family
+            not in (
+                "structured_full_block",
+                "factorized_diagonal_within_fiber",
+            )
+        ):
+            raise ValueError("Task-5 precision capture identity is invalid")
+        _require_sha256(self.raw_fixture_sha256, "raw_fixture_sha256")
+        expected_ids = _task5_precision_gaussian_ids(
+            fixture_id=self.fixture_id,
+            recognition_family=self.recognition_family,
+        )
+        owned_count = 16 if self.fixture_id == "h1-v1" else 10
+        if (
+            type(self.operands) is not tuple
+            or len(self.operands) != len(expected_ids)
+            or any(
+                type(item) is not H7Task5PrecisionOperandSnapshot
+                for item in self.operands
+            )
+            or tuple(item.trial_id for item in self.operands)
+            != (self.trial_id,) * len(expected_ids)
+            or tuple(item.batch_index for item in self.operands)
+            != tuple(range(len(expected_ids)))
+            or tuple(item.gaussian_id for item in self.operands) != expected_ids
+            or tuple(item.source_kind for item in self.operands)
+            != (
+                *("owned_component" for _ in range(owned_count)),
+                *(
+                    "injected_global"
+                    for _ in range(len(expected_ids) - owned_count)
+                ),
+            )
+        ):
+            raise ValueError(
+                "Task-5 precision capture changed operand identity/order/cardinality"
+            )
+        for operand in self.operands:
+            operand.__post_init__()
+        super().__post_init__()
+
+
 @dataclass(frozen=True)
 class H7AffineComponentSnapshot(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "component_sha256"
@@ -2019,6 +2247,75 @@ class H7TensorLawComponent:
             raise ValueError("tensor-law component live identity changed")
 
 
+_JACOBIAN_RECEIVER_SCOPE_ORDER = (
+    ("model", 1),
+    ("state", 1),
+    ("model", 2),
+    ("state", 2),
+)
+
+
+def _jacobian_receiver_scope(component_id: str) -> tuple[str, int]:
+    _require_nonempty(component_id, "Jacobian receiver component ID")
+    fields = component_id.split(".")
+    bank_locations = tuple(
+        (index, field)
+        for index, field in enumerate(fields)
+        if field in ("model", "state")
+    )
+    if len(bank_locations) != 1:
+        raise ValueError("Jacobian receiver component ID has an ambiguous bank")
+    bank_index, bank = bank_locations[0]
+    if bank_index + 1 >= len(fields):
+        raise ValueError("Jacobian receiver component ID lacks a receiver")
+    receiver_label = fields[bank_index + 1]
+    if receiver_label.startswith("receiver_"):
+        receiver_label = receiver_label.removeprefix("receiver_")
+    else:
+        receiver_label = receiver_label.split("<-", maxsplit=1)[0]
+    try:
+        receiver_t = int(receiver_label)
+    except ValueError as error:
+        raise ValueError(
+            "Jacobian receiver component ID has a malformed receiver"
+        ) from error
+    if receiver_t not in (1, 2):
+        raise ValueError("Jacobian receiver component ID is outside H7")
+    return bank, receiver_t
+
+
+def _jacobian_grouped_local_total(
+    initial: torch.Tensor,
+    receiver_values: Mapping[str, torch.Tensor],
+) -> torch.Tensor:
+    if (
+        not isinstance(initial, torch.Tensor)
+        or initial.shape != ()
+        or not isinstance(receiver_values, Mapping)
+        or not receiver_values
+    ):
+        raise ValueError("Jacobian local scopes must be nonempty scalar tensors")
+    grouped: dict[tuple[str, int], torch.Tensor] = {}
+    for component_id, value in receiver_values.items():
+        if not isinstance(value, torch.Tensor) or value.shape != ():
+            raise ValueError("Jacobian receiver scopes must be scalar tensors")
+        scope = _jacobian_receiver_scope(component_id)
+        previous = grouped.get(scope)
+        if previous is not None and not torch.equal(previous, value):
+            raise ValueError(
+                "duplicate Jacobian receiver scopes disagree within a source "
+                "family"
+            )
+        grouped[scope] = value
+    if set(grouped) != set(_JACOBIAN_RECEIVER_SCOPE_ORDER):
+        raise ValueError(
+            "Jacobian receiver scopes must cover model/state at receivers 1/2"
+        )
+    return initial + torch.stack(
+        tuple(grouped[scope] for scope in _JACOBIAN_RECEIVER_SCOPE_ORDER)
+    ).sum()
+
+
 @dataclass(frozen=True)
 class H7JacobianMetadataView:
     """Live per-scope measure shifts retained on the autograd graph."""
@@ -2090,8 +2387,13 @@ class H7JacobianMetadataView:
             ):
                 raise ValueError("Jacobian metadata requires borrowed float64 scalars")
             view.assert_intact()
-        receiver_values = tuple(view.tensor for view in receivers.values())
-        local_total = initial.tensor + torch.stack(receiver_values).sum()
+        local_total = _jacobian_grouped_local_total(
+            initial.tensor,
+            {
+                component_id: view.tensor
+                for component_id, view in receivers.items()
+            },
+        )
         eps = torch.finfo(torch.float64).eps
         scale = max(
             1.0,
@@ -2179,15 +2481,13 @@ class H7JacobianMetadataSnapshot(_H7IntegrityRecord):
             self.receiver_logabsdet
         ):
             raise ValueError("owned Jacobian metadata requires receiver scopes")
-        receiver_values: list[torch.Tensor] = []
+        receiver_values: dict[str, torch.Tensor] = {}
         for name, value in self.receiver_logabsdet.items():
             _require_nonempty(name, "Jacobian scope")
-            receiver_values.append(
-                _require_owned_tensor(
-                    value,
-                    f"receiver_logabsdet[{name}]",
-                    shape=(),
-                )
+            receiver_values[name] = _require_owned_tensor(
+                value,
+                f"receiver_logabsdet[{name}]",
+                shape=(),
             )
         global_shift = _require_owned_tensor(
             self.global_logabsdet,
@@ -2195,7 +2495,10 @@ class H7JacobianMetadataSnapshot(_H7IntegrityRecord):
             shape=(),
         )
         with torch.no_grad():
-            local_total = initial + torch.stack(tuple(receiver_values)).sum()
+            local_total = _jacobian_grouped_local_total(
+                initial,
+                receiver_values,
+            )
             eps = torch.finfo(torch.float64).eps
             scale = max(
                 1.0,

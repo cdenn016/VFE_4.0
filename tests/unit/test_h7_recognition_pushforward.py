@@ -275,12 +275,28 @@ def test_live_recognition_union_promotes_factorized_and_tracks_entropy() -> None
         frozen.jacobian.entropy_shift.capture_identity
         == transformed.jacobian.entropy_shift.identity
     )
+    with pytest.raises(
+        ValueError,
+        match="Jacobian receiver component ID has an ambiguous bank",
+    ):
+        H7JacobianMetadataSnapshot.create(
+            scope="recognition",
+            initial_logabsdet=frozen.jacobian.initial_logabsdet,
+            receiver_logabsdet={
+                f"wrong.receiver.{index}": value
+                for index, value in enumerate(
+                    frozen.jacobian.receiver_logabsdet.values()
+                )
+            },
+            global_logabsdet=frozen.jacobian.global_logabsdet,
+            entropy_shift=frozen.jacobian.entropy_shift,
+        )
     misbound_jacobian = H7JacobianMetadataSnapshot.create(
         scope="recognition",
         initial_logabsdet=frozen.jacobian.initial_logabsdet,
         receiver_logabsdet={
-            f"wrong.receiver.{index}": value
-            for index, value in enumerate(frozen.jacobian.receiver_logabsdet.values())
+            f"wrong.{name}": value
+            for name, value in frozen.jacobian.receiver_logabsdet.items()
         },
         global_logabsdet=frozen.jacobian.global_logabsdet,
         entropy_shift=frozen.jacobian.entropy_shift,
