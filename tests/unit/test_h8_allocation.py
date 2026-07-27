@@ -3491,3 +3491,195 @@ def test_post_h8_protocol_is_inventory_derived_and_click_run() -> None:
     )
     assert "No implementation task, data acquisition, source-lock operation" in plan
     assert "Figure generation uses a separate editable dictionary" in amendment
+
+
+def test_h8_lossless_runtime_views_require_six_way_consensus_and_exact_run_order(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_runtime import (
+        build_h8_lossless_runtime_evidence_views,
+    )
+    from verification.h8_wire import (
+        H8_COLD_REPETITIONS,
+        H8_PRODUCTION_SEEDS,
+    )
+
+    problem_keys = (
+        "problem_seed",
+        "sample_noise_seed",
+        "input_sha256",
+        "sample_noise_sha256",
+        "generative_sha256",
+        "recognition_sha256",
+        "local_spd_diagnostics",
+        "transition_norms",
+        "observation_sha256",
+    )
+    factor_keys = (
+        "mode",
+        "seed",
+        "repetition",
+        "input_sha256",
+        "fill",
+        "workspace",
+        "condition_diagnostics",
+        "counters",
+        "reconstruction_invariants",
+    )
+    allocation_keys = (
+        "mode",
+        "seed",
+        "repetition",
+        "input_sha256",
+        "allocation",
+        "resources",
+    )
+
+    def exact_result(attempt: H8ChildAttemptRecord) -> H8ChildResult:
+        assert type(attempt.result) is H8ChildResult
+        return attempt.result
+
+    production_attempts: list[H8ChildAttemptRecord] = []
+    for seed in H8_PRODUCTION_SEEDS:
+        for repetition in range(H8_COLD_REPETITIONS):
+            envelope = _child_envelope(seed=seed, repetition=repetition)
+            if seed == H8_PRODUCTION_SEEDS[0] and repetition == 4:
+                result = envelope["result"]
+                assert isinstance(result, dict)
+                problem = result["problem_evidence"]
+                assert isinstance(problem, dict)
+                problem["generative_sha256"] = "8" * 64
+            attempt, _payload = _attempt_from_fake_envelope(tmp_path, envelope)
+            production_attempts.append(attempt)
+
+    profiler_attempts = [
+        _attempt_from_fake_envelope(
+            tmp_path,
+            _profiler_child_envelope(seed=seed),
+        )[0]
+        for seed in H8_PRODUCTION_SEEDS
+    ]
+    drifted_attempts = (*production_attempts, *profiler_attempts)
+    drifted_production_runs = tuple(
+        exact_result(attempt) for attempt in production_attempts
+    )
+    profiler_runs = tuple(
+        exact_result(attempt) for attempt in profiler_attempts
+    )
+    with pytest.raises(ValueError, match="consensus"):
+        build_h8_lossless_runtime_evidence_views(
+            child_attempts=drifted_attempts,
+            production_runs=drifted_production_runs,
+            profiler_runs=profiler_runs,
+        )
+
+    replacement, _payload = _attempt_from_fake_envelope(
+        tmp_path,
+        _child_envelope(
+            seed=H8_PRODUCTION_SEEDS[0],
+            repetition=4,
+        ),
+    )
+    production_attempts[4] = replacement
+    child_attempts = (*production_attempts, *profiler_attempts)
+    production_runs = tuple(
+        exact_result(attempt) for attempt in production_attempts
+    )
+    views = build_h8_lossless_runtime_evidence_views(
+        child_attempts=child_attempts,
+        production_runs=production_runs,
+        profiler_runs=profiler_runs,
+    )
+
+    expected_run_order = (
+        *(
+            ("production", seed, repetition)
+            for seed in H8_PRODUCTION_SEEDS
+            for repetition in range(H8_COLD_REPETITIONS)
+        ),
+        *(("profiler", seed, None) for seed in H8_PRODUCTION_SEEDS),
+    )
+    assert tuple(problem["problem_seed"] for problem in views.problems) == (
+        H8_PRODUCTION_SEEDS
+    )
+    assert len(views.problems) == 3
+    assert len(views.factor_runs) == 18
+    assert len(views.allocation_runs) == 18
+    assert all(tuple(problem) == problem_keys for problem in views.problems)
+    assert all(tuple(run) == factor_keys for run in views.factor_runs)
+    assert all(tuple(run) == allocation_keys for run in views.allocation_runs)
+    assert tuple(
+        (run["mode"], run["seed"], run["repetition"])
+        for run in views.factor_runs
+    ) == expected_run_order
+    assert tuple(
+        (run["mode"], run["seed"], run["repetition"])
+        for run in views.allocation_runs
+    ) == expected_run_order
+
+    for factor_run, allocation_run, attempt in zip(
+        views.factor_runs,
+        views.allocation_runs,
+        child_attempts,
+        strict=True,
+    ):
+        result = exact_result(attempt)
+        evidence = attempt.pass_evidence
+        decisions = attempt.resource_decisions
+        assert evidence is not None
+        assert decisions is not None
+        assert _fixture_jsonable(factor_run["fill"]) == _fixture_jsonable(
+            result.fill
+        )
+        assert _fixture_jsonable(factor_run["workspace"]) == _fixture_jsonable(
+            result.workspace
+        )
+        assert _fixture_jsonable(
+            factor_run["condition_diagnostics"]
+        ) == _fixture_jsonable(evidence.condition_diagnostics)
+        assert _fixture_jsonable(factor_run["counters"]) == _fixture_jsonable(
+            result.counters
+        )
+        reconstruction = factor_run["reconstruction_invariants"]
+        assert isinstance(reconstruction, Mapping)
+        assert tuple(reconstruction) == (
+            "residuals",
+            "residual_allowances",
+        )
+        assert reconstruction["residuals"] == attempt.residuals
+        assert (
+            reconstruction["residual_allowances"]
+            == decisions["residual_allowances"]
+        )
+        assert isinstance(allocation_run["allocation"], Mapping)
+        assert tuple(allocation_run["allocation"]) == tuple(evidence.allocation)
+        assert _fixture_jsonable(
+            allocation_run["allocation"]
+        ) == _fixture_jsonable(evidence.allocation)
+        assert _fixture_jsonable(
+            allocation_run["resources"]
+        ) == _fixture_jsonable(result.resources)
+        resources = allocation_run["resources"]
+        assert isinstance(resources, Mapping)
+        assert resources["parent_elapsed_ns"] == 0
+
+    with pytest.raises(TypeError):
+        views.problems[0]["problem_seed"] = 0  # type: ignore[index]
+    with pytest.raises(TypeError):
+        views.allocation_runs[0]["allocation"][
+            "dispatch_event_count"
+        ] = 0  # type: ignore[index]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        views.factor_runs = ()  # type: ignore[misc]
+
+    swapped_attempts = (
+        child_attempts[1],
+        child_attempts[0],
+        *child_attempts[2:],
+    )
+    with pytest.raises(ValueError, match="authoritative"):
+        build_h8_lossless_runtime_evidence_views(
+            child_attempts=swapped_attempts,
+            production_runs=production_runs,
+            profiler_runs=profiler_runs,
+        )
