@@ -15,33 +15,54 @@ there are no command-line flags or parser. Importing it performs no work.
 
 The separate H8 selection reads only
 `.verification/h8-current-candidate-<FULL_HEAD>-refs.json`, binds its exact
-current-candidate prerequisite variants, and publishes six JSON payloads plus
-one manifest through the generic artifact publisher. Parent orchestration is
-the next H8 implementation slice; it is not implemented or measured yet.
-Until that slice supplies the frozen runtime inventories, the H8 result is
-explicitly `INCONCLUSIVE` and cannot report PASS. It does not rerun or copy
-H1--H7 or H6-Prediction evidence, and it writes no external current-candidate
-pointer inside the artifact.
+current-candidate `h8-current-candidate-refs-v3` variants, and executes only
+H8. The direct H1--H5, active H1-prefix-prior, and independently produced
+H6-Prefix variants must match H7's transitive references exactly.
+H6-Prediction remains a separate scientific prerequisite bound to its own
+frozen producer and dependency closure. H8 reopens and validates those
+references but never reruns or copies their payloads, certificates, or
+ledgers.
 
-The frozen `h8-sparse-scale-v3` validation contract adds a parent-owned
-`child_attempts` array between `controls` and `production_runs`. The frozen
-request plan has 30 slots: 15 production requests in seed-major/repetition
-order, three profiler requests in seed-major order, and 12 controls in the
-frozen control order using seed `20260721`. The array retains the ordered
-prefix of launches actually issued. A witnessed failure may stop that prefix;
-PASS would require all 30 attempts after the parent-orchestrator blocker is
-removed. A timeout, abnormal exit, or malformed child output still has an
-attempt record even when no typed result exists. A parseable envelope from a
-timed-out launch, a parseable non-PASS envelope, or an identity-rejected
-envelope is retained immutably as `nonpass_envelope` without being trusted as
-a decoded result. The decoded `production_runs`,
-`profiler_runs`, and `controls` inventories must cross-bind to result-bearing
-attempts. Actual parent timing is recorded on the attempt and never overwrites
-the child-authored `resources.parent_elapsed_ns=0`. Witnessed attempt failure
-dominates as FAIL; missing evidence without a witnessed violation is
-INCONCLUSIVE. The current gate retains
-`h8_parent_orchestrator_not_implemented`, so no H8 PASS or measured endpoint is
-claimed here.
+The implemented `h8-sparse-scale-v4` selected route runs the frozen 12-cell
+correctness grid, mints parent authority only after a valid prerequisite
+start, and retains the exact issued prefix of the 30-slot request plan:
+15 cold production children in seed-major/repetition order, three separate
+profiler children in seed-major order, and 12 isolated controls in frozen
+order using seed `20260721`. PASS requires all 30 attempts and the complete
+15/3/12 decoded inventories. A witnessed timeout, abnormal exit, forbidden
+operation or allocation, off-band fill, nonfinite value, solver failure,
+resource or pivot breach, identity mismatch, invalid profiler transition, or
+missed control dominates as FAIL. Missing or nonunique evidence without a
+witnessed violation is INCONCLUSIVE. Direct evaluation, incomplete
+inventories, or caller-supplied runtime sections cannot clear the runtime PASS
+locks.
+
+The inclusive per-child limits are 60.0 seconds, 134,217,728 bytes of
+incremental process high-water memory, 67,108,864 bytes of live PyTorch
+population storage, 411,200 float64-equivalent scalars in each precision,
+factor, and selected-inverse category, solve RHS width at most 40, sample width
+exactly 1, and zero forbidden attempts or off-band fill. The four primary
+observability channels are PyTorch dispatch/live-storage tracing, a separate
+profiler child with lossless raw-event joins, backend
+fill/workspace/RHS/sample/selected-block counters, and clean-subprocess OS
+high-water memory. The NumPy guard supplies its assigned controls.
+`tracemalloc_supplementary` is literal JSON `null` and cannot affect status.
+Actual parent timing is retained on the attempt and never overwrites the
+child-authored `resources.parent_elapsed_ns=0`.
+
+One selected publication contains exactly `config.json`, `provenance.json`,
+`environment.json`, `references/h7.json`,
+`references/h6_prediction.json`, `validation/h8.json`, and
+`manifest.sha256`. The post-publication current-candidate result pointer is
+external to that manifest. The exact ordered nonclaims are
+`no_language_result`, `no_training_result`, `no_prediction_result`,
+`no_large_language_model_scale`, `no_asymptotic_scaling_law`,
+`no_gpu_claim`, `no_exact_global_spectrum`, and
+`no_post_h8_training_memory_transfer`.
+
+This is an implemented, PASS-capable protocol surface, not a measured result.
+No v4 scientific or milestone execution, JUnit total, residual, resource
+endpoint, or H8 PASS is reported here.
 
 `verification/h8_preflight.py` remains a separate metadata-only, zero-compute
 advisor. It launches no tests, correctness cells, runtime children, profilers,

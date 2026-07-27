@@ -14,17 +14,18 @@ H8 is a synthetic empirical systems gate for one block-tridiagonal Gaussian
 chain. It is click-run through the single editable `CONFIG` dictionary in
 `verify_vfe4.py`; it has no required CLI or second launcher.
 
-The implemented shared-integration path currently binds the exact current-HEAD
-`CurrentH8PrerequisiteRefs`; the frozen parent request planner and injected
-issued-prefix runner now exist. Lossless typed child evidence and exact problem
-endpoints, authoritative runtime-section derivation and independent
-revalidation, selected H8 runner/click-run wiring, and removal of the remaining
-PASS blockers are still pending. Until all of those slices exist and
-revalidate, H8 remains fail-closed `INCONCLUSIVE` in the absence of a witnessed
-failure. The separate `verification/h8_preflight.py` path remains
-metadata-only and zero-compute: it launches no correctness cell, runtime child,
-profiler, control, or test. This preregistration contains no measured endpoint
-and no PASS claim.
+The implemented selected route binds the exact current-HEAD
+`CurrentH8PrerequisiteRefs`, executes the frozen correctness preflight, derives
+child-start authorization from the current prerequisite and correctness
+identities, runs the frozen parent request plan, owns and independently
+revalidates the complete v4 runtime sections, and publishes through the
+gate-agnostic artifact family. Only minted parent authority over the exact
+issued attempt prefix can clear the runtime PASS locks; a direct evaluation,
+caller-supplied inventory, incomplete PASS prefix, or replayed authority cannot.
+The separate `verification/h8_preflight.py` path remains metadata-only and
+zero-compute: it launches no correctness cell, runtime child, profiler,
+control, or test. This implementation status is not promotion evidence. This
+preregistration contains no measured endpoint and no PASS claim.
 
 ## Scope and source pins
 
@@ -882,16 +883,15 @@ joined and reconciled profiler events, complete operation reachability,
 bounded storage/RHS/sample/fill/pivots/time/memory, matching child identities,
 finite outputs, and every residual within its own allowance.
 
-The current staged gate has the frozen parent request planner and injected
-issued-prefix runner, but it still lacks lossless typed child evidence,
-authoritative runtime-section derivation and independent revalidation, and
-selected H8 runner/click-run wiring. The remaining PASS locks, including
-runtime sections not being bound and the staged parent-orchestrator blocker,
-may be removed only after those paths are complete and independently
-revalidated. Until then, the schema and status logic above are PASS-capable
-contracts, not a claim that the current shared runner can attain PASS;
-fail-closed `INCONCLUSIVE` semantics remain in force absent a witnessed
-failure.
+The selected gate now carries lossless typed child evidence, exact
+cross-repetition problem evidence, authority-owned runtime-section derivation,
+independent revalidation, and the single click-run integration. Its runtime
+PASS locks clear only when the minted authority attests the exact complete
+30-attempt PASS inventory and every derived invariant above; incomplete
+prefixes and nonauthoritative direct construction retain those locks. This
+PASS-capable implementation is not a claim that H8 has passed. No real v4
+scientific or milestone execution, measured residual, resource endpoint, or
+JUnit total is recorded in this preregistration.
 
 ## Claims and nonclaims
 
