@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
-from dataclasses import dataclass, field
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Literal
@@ -1126,6 +1126,8 @@ class H8GateResult:
             raise ValueError("H8 gate result must declare gate H8")
         if not isinstance(self.status, GateStatus):
             raise ValueError("H8 status must be a GateStatus")
+        if self.status is GateStatus.PASS:
+            _require_h8_gate_pass_result(self)
         _require_sha256(self.config_sha256, "config_sha256")
         prerequisite_hash_names = (
             "candidate_junit_sha256",
@@ -1296,6 +1298,144 @@ class H8GateResult:
             raise ValueError("FAIL H8 requires retained witnessed-failure evidence")
         if self.status is GateStatus.INCONCLUSIVE and witnessed_fail:
             raise ValueError("a witnessed H8 failure cannot be masked as INCONCLUSIVE")
+
+
+@dataclass(frozen=True)
+class _IssuedH8GatePass:
+    result: H8GateResult
+    fingerprint: str
+    revalidator: Callable[[H8GateResult], None]
+
+
+_ISSUED_H8_GATE_PASSES: dict[int, _IssuedH8GatePass] = {}
+
+
+def _h8_gate_pass_fingerprint(result: H8GateResult) -> str:
+    """Deeply bind one exact result without importing verification modules."""
+
+    def normalized(value: object) -> object:
+        if value is None or type(value) in (str, bool, int):
+            return value
+        if type(value) is float:
+            if not math.isfinite(value):
+                raise ValueError("H8 PASS fingerprint cannot contain nonfinite values")
+            return value
+        if type(value) is bytes:
+            return {"__bytes__": value.hex()}
+        if isinstance(value, Enum):
+            return {
+                "__enum__": f"{type(value).__module__}.{type(value).__qualname__}",
+                "value": normalized(value.value),
+            }
+        if is_dataclass(value) and not isinstance(value, type):
+            return {
+                "__dataclass__": (
+                    f"{type(value).__module__}.{type(value).__qualname__}"
+                ),
+                "fields": {
+                    item.name: normalized(getattr(value, item.name))
+                    for item in fields(value)
+                },
+            }
+        if isinstance(value, Mapping):
+            return {
+                "__mapping__": [
+                    (normalized(key), normalized(item))
+                    for key, item in sorted(
+                        value.items(),
+                        key=lambda pair: repr(pair[0]),
+                    )
+                ]
+            }
+        if type(value) in (tuple, list):
+            return [normalized(item) for item in value]
+        raise ValueError(
+            "H8 PASS fingerprint encountered unsupported "
+            f"{type(value).__module__}.{type(value).__qualname__}"
+        )
+
+    payload = json.dumps(
+        normalized(result),
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _issue_h8_gate_pass_result(
+    *,
+    config_sha256: str,
+    candidate_junit_sha256: str,
+    current_refs_registry_sha256: str,
+    h7_manifest_sha256: str,
+    h6_prediction_manifest_sha256: str,
+    correctness: tuple["H8CorrectnessCell", ...],
+    child_attempts: tuple["H8ChildAttemptRecord", ...],
+    production_runs: tuple["H8ChildResult", ...],
+    profiler_runs: tuple["H8ChildResult", ...],
+    controls: tuple["H8ControlResult", ...],
+    revalidator: Callable[[H8GateResult], None],
+) -> H8GateResult:
+    """Issue PASS only behind one retained authoritative gate revalidator."""
+
+    if not callable(revalidator):
+        raise ValueError("H8 PASS revalidator must be callable")
+    result = object.__new__(H8GateResult)
+    for name, value in (
+        ("gate", "H8"),
+        ("status", GateStatus.PASS),
+        ("config_sha256", config_sha256),
+        ("candidate_junit_sha256", candidate_junit_sha256),
+        ("current_refs_registry_sha256", current_refs_registry_sha256),
+        ("h7_manifest_sha256", h7_manifest_sha256),
+        ("h6_prediction_manifest_sha256", h6_prediction_manifest_sha256),
+        ("correctness", correctness),
+        ("child_attempts", child_attempts),
+        ("production_runs", production_runs),
+        ("profiler_runs", profiler_runs),
+        ("controls", controls),
+        ("obligations", ()),
+    ):
+        object.__setattr__(result, name, value)
+    issued = _IssuedH8GatePass(
+        result=result,
+        fingerprint=_h8_gate_pass_fingerprint(result),
+        revalidator=revalidator,
+    )
+    _ISSUED_H8_GATE_PASSES[id(result)] = issued
+    try:
+        result.__post_init__()
+    except BaseException:
+        _ISSUED_H8_GATE_PASSES.pop(id(result), None)
+        raise
+    return result
+
+
+def _require_h8_gate_pass_result(
+    value: object,
+    *,
+    revalidator: Callable[[H8GateResult], None] | None = None,
+) -> H8GateResult:
+    """Require one exact, strongly retained, unmodified PASS issuance."""
+
+    if type(value) is not H8GateResult:
+        raise ValueError("PASS H8 result must retain its exact result type")
+    issued = _ISSUED_H8_GATE_PASSES.get(id(value))
+    if issued is None or issued.result is not value:
+        raise ValueError(
+            "PASS H8 result must be factory-issued by the authoritative gate"
+        )
+    if (
+        revalidator is not None
+        and issued.revalidator is not revalidator
+    ):
+        raise ValueError("PASS H8 result belongs to another gate revalidator")
+    if _h8_gate_pass_fingerprint(value) != issued.fingerprint:
+        raise ValueError("factory-issued PASS H8 result fingerprint is stale")
+    issued.revalidator(value)
+    return value
 
 
 def _require_h8_inventory_prefix(

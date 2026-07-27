@@ -1589,12 +1589,8 @@ def test_h8_click_run_executes_fake_selected_runner_and_publishes_runtime_result
     class DerivedH8GateResult(H8GateResult):
         pass
 
-    derived_result = DerivedH8GateResult(**vars(result))
-    with pytest.raises(ValueError, match="exact immutable gate results"):
-        gates.VerificationRunResult(
-            (derived_result,),
-            published.run_directory,
-        )
+    with pytest.raises(ValueError, match="exact result type"):
+        DerivedH8GateResult(**vars(result))
 
     config_bytes = (published.run_directory / "config.json").read_bytes()
     validation = json.loads(
@@ -1655,15 +1651,35 @@ def test_h8_click_run_executes_fake_selected_runner_and_publishes_runtime_result
     assert manifest_names == sorted(name for name in files if name != "manifest.sha256")
     assert len(pointer_payloads) == 1
     pointer = pointer_payloads[0]
-    assert pointer["schema_version"] == "h8-current-candidate-result-v2"
-    assert pointer["artifact"]["config_sha256"] == result.config_sha256
-    assert pointer["artifact"]["validation_sha256"] == (
-        provenance["validation_sha256"]
+    assert tuple(pointer) == (
+        "schema_version",
+        "candidate",
+        "artifact",
+        "current_refs",
+        "predecessors",
     )
+    assert pointer["schema_version"] == "h8-current-candidate-result-v2"
+    assert pointer["candidate"] == {
+        "git_head": head,
+        "dirty_digest": dirty,
+        "junit_sha256": junit,
+    }
+    manifest_sha256 = hashlib.sha256(
+        (published.run_directory / "manifest.sha256").read_bytes()
+    ).hexdigest()
+    assert pointer["artifact"] == {
+        "path": published.run_directory.resolve(strict=True).as_posix(),
+        "manifest_sha256": manifest_sha256,
+        "config_sha256": result.config_sha256,
+        "validation_sha256": provenance["validation_sha256"],
+    }
     assert pointer["current_refs"] == {
         "path": registry_path.resolve(strict=False).as_posix(),
         "sha256": refs.registry_sha256,
     }
+    assert set(pointer["predecessors"]) == set(
+        h8_gate.H8_POINTER_PREDECESSOR_KEYS
+    )
     assert pointer["predecessors"] == {
         name: json.loads(h8_gate.canonical_h8_json_bytes(getattr(refs, name)))
         for name in h8_gate.H8_POINTER_PREDECESSOR_KEYS

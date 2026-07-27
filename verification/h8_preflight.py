@@ -1494,88 +1494,278 @@ def _runtime_records(
             return called.attr
         return None
 
-    runner_function = next(
-        (
+    def top_level_function(
+        tree: ast.Module,
+        name: str,
+    ) -> ast.FunctionDef | None:
+        matches = tuple(
             node
-            for node in ast.walk(runner_tree)
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "run_h8_verification"
-        ),
-        None,
-    )
-    observed_runtime_calls: set[str] = set()
-    assembly_argument_names: set[str] = set()
-    parent_authority_assigned = False
-    invalid_start_guarded = False
-    if runner_function is not None:
-        for child in ast.walk(runner_function):
-            if isinstance(child, ast.Call):
-                name = called_name(child)
-                if name in H8_SELECTED_RUNTIME_CALL_NAMES:
-                    observed_runtime_calls.add(name)
-                if name == "assemble_h8_gate_evaluation":
-                    assembly_argument_names = {
-                        keyword.arg
-                        for keyword in child.keywords
-                        if keyword.arg is not None
-                    }
-            if (
-                isinstance(child, ast.Assign)
-                and any(
-                    isinstance(target, ast.Name)
-                    and target.id == "parent_authority"
-                    for target in child.targets
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == name
+        )
+        return matches[0] if len(matches) == 1 else None
+
+    def direct_call(statement: ast.stmt) -> ast.Call | None:
+        value: ast.expr | None
+        if isinstance(statement, ast.Assign):
+            value = statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            value = statement.value
+        elif isinstance(statement, (ast.Expr, ast.Return)):
+            value = statement.value
+        else:
+            value = None
+        return value if isinstance(value, ast.Call) else None
+
+    def assigned_call(
+        statement: ast.stmt,
+        *,
+        target_name: str,
+        call_name: str,
+    ) -> ast.Call | None:
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            return None
+        targets = (
+            statement.targets
+            if isinstance(statement, ast.Assign)
+            else (statement.target,)
+        )
+        call = direct_call(statement)
+        if (
+            call is None
+            or called_name(call) != call_name
+            or not any(
+                isinstance(target, ast.Name)
+                and target.id == target_name
+                for target in targets
+            )
+        ):
+            return None
+        return call
+
+    def assigned_attribute(
+        statement: ast.stmt,
+        *,
+        target_name: str,
+        owner_name: str,
+        attribute_name: str,
+    ) -> bool:
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            return False
+        targets = (
+            statement.targets
+            if isinstance(statement, ast.Assign)
+            else (statement.target,)
+        )
+        value = statement.value
+        return (
+            any(
+                isinstance(target, ast.Name)
+                and target.id == target_name
+                for target in targets
+            )
+            and isinstance(value, ast.Attribute)
+            and isinstance(value.value, ast.Name)
+            and value.value.id == owner_name
+            and value.attr == attribute_name
+        )
+
+    def keyword_name_bindings(call: ast.Call) -> dict[str, str]:
+        return {
+            cast(str, keyword.arg): keyword.value.id
+            for keyword in call.keywords
+            if keyword.arg is not None
+            and isinstance(keyword.value, ast.Name)
+        }
+
+    class ReachableCallVisitor(ast.NodeVisitor):
+        """Collect calls without counting nested definition decoys."""
+
+        def __init__(self) -> None:
+            self.calls: list[ast.Call] = []
+
+        def visit_Call(self, node: ast.Call) -> None:
+            self.calls.append(node)
+            self.generic_visit(node)
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            return
+
+        def visit_AsyncFunctionDef(
+            self,
+            node: ast.AsyncFunctionDef,
+        ) -> None:
+            return
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            return
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            return
+
+    def reachable_calls(statements: list[ast.stmt]) -> tuple[ast.Call, ...]:
+        visitor = ReachableCallVisitor()
+        for statement in statements:
+            visitor.visit(statement)
+        return tuple(visitor.calls)
+
+    def invalid_start_guard(statement: ast.stmt) -> bool:
+        if not isinstance(statement, ast.If):
+            return False
+        test = statement.test
+        return (
+            isinstance(test, ast.UnaryOp)
+            and isinstance(test.op, ast.Not)
+            and isinstance(test.operand, ast.Attribute)
+            and isinstance(test.operand.value, ast.Name)
+            and test.operand.value.id == "authorization"
+            and test.operand.attr == "valid_start"
+        )
+
+    def terminal_branch(statements: list[ast.stmt]) -> bool:
+        return bool(statements) and isinstance(
+            statements[-1],
+            (ast.Return, ast.Raise),
+        )
+
+    def direct_assignment_index(
+        statements: list[ast.stmt],
+        *,
+        target_name: str,
+        call_name: str,
+    ) -> int | None:
+        return next(
+            (
+                index
+                for index, statement in enumerate(statements)
+                if assigned_call(
+                    statement,
+                    target_name=target_name,
+                    call_name=call_name,
                 )
-                and isinstance(child.value, ast.Call)
-                and called_name(child.value) == "run_h8_parent_attempt"
-            ):
-                parent_authority_assigned = True
-            if isinstance(child, ast.If):
-                test = child.test
-                if (
-                    isinstance(test, ast.UnaryOp)
-                    and isinstance(test.op, ast.Not)
-                    and isinstance(test.operand, ast.Attribute)
-                    and test.operand.attr == "valid_start"
-                ):
-                    invalid_start_guarded = True
-    missing_runtime_calls = tuple(
-        name
-        for name in H8_SELECTED_RUNTIME_CALL_NAMES
-        if name not in observed_runtime_calls
+                is not None
+            ),
+            None,
+        )
+
+    runner_function = top_level_function(
+        runner_tree,
+        "run_h8_verification",
     )
-    missing_assembly_arguments = tuple(
-        name
-        for name in H8_SELECTED_GATE_ARGUMENT_NAMES
-        if name not in assembly_argument_names
-    )
-    runtime_available = (
-        runner_function is not None
-        and not missing_runtime_calls
-        and not missing_assembly_arguments
-        and parent_authority_assigned
-        and invalid_start_guarded
-    )
+    runtime_available = False
+    runtime_failure = "run_h8_verification is absent or duplicated"
+    if runner_function is not None:
+        runner_body = runner_function.body
+        prerequisite_index = direct_assignment_index(
+            runner_body,
+            target_name="prerequisite_validation",
+            call_name="validate_h8_prerequisite_artifacts",
+        )
+        correctness_index = direct_assignment_index(
+            runner_body,
+            target_name="correctness",
+            call_name="produce_h8_correctness_grid",
+        )
+        authorization_index = direct_assignment_index(
+            runner_body,
+            target_name="authorization",
+            call_name="derive_h8_child_start_authorization",
+        )
+        guard_index = next(
+            (
+                index
+                for index, statement in enumerate(runner_body)
+                if invalid_start_guard(statement)
+            ),
+            None,
+        )
+        ordered_prefix = (
+            prerequisite_index is not None
+            and correctness_index is not None
+            and authorization_index is not None
+            and guard_index is not None
+            and prerequisite_index < correctness_index
+            < authorization_index < guard_index
+            and not any(
+                isinstance(statement, ast.Return)
+                for statement in runner_body[:guard_index]
+            )
+        )
+        if not ordered_prefix:
+            runtime_failure = (
+                "selected prerequisite/correctness/authorization chain does "
+                "not dominate the invalid-start guard"
+            )
+        else:
+            guard = cast(ast.If, runner_body[cast(int, guard_index)])
+            invalid_calls = reachable_calls(guard.body)
+            invalid_launches = any(
+                called_name(call)
+                in {"run_h8_parent_attempt", "assemble_h8_gate_evaluation"}
+                for call in invalid_calls
+            )
+            if guard.orelse:
+                valid_branch = guard.orelse
+            elif terminal_branch(guard.body):
+                valid_branch = runner_body[cast(int, guard_index) + 1 :]
+            else:
+                valid_branch = []
+            parent_index = direct_assignment_index(
+                valid_branch,
+                target_name="parent_authority",
+                call_name="run_h8_parent_attempt",
+            )
+            assembly_index = next(
+                (
+                    index
+                    for index, statement in enumerate(valid_branch)
+                    if (
+                        (call := direct_call(statement)) is not None
+                        and called_name(call)
+                        == "assemble_h8_gate_evaluation"
+                    )
+                ),
+                None,
+            )
+            assembly_call = (
+                direct_call(valid_branch[assembly_index])
+                if assembly_index is not None
+                else None
+            )
+            assembly_bindings = (
+                keyword_name_bindings(assembly_call)
+                if assembly_call is not None
+                else {}
+            )
+            exact_assembly_bindings = all(
+                assembly_bindings.get(name) == name
+                for name in H8_SELECTED_GATE_ARGUMENT_NAMES
+            )
+            runtime_available = (
+                not invalid_launches
+                and parent_index is not None
+                and assembly_index is not None
+                and parent_index < assembly_index
+                and exact_assembly_bindings
+            )
+            if invalid_launches:
+                runtime_failure = (
+                    "invalid-start branch can reach a parent launch or "
+                    "authoritative gate"
+                )
+            elif not runtime_available:
+                runtime_failure = (
+                    "authority launch and exact gate bindings do not share "
+                    "the guarded valid-start branch"
+                )
     if runner_function is None:
-        runtime_detail = "run_h8_verification is absent"
-    elif missing_runtime_calls:
-        runtime_detail = (
-            "selected H8 runtime chain is incomplete: "
-            + ", ".join(missing_runtime_calls)
-        )
-    elif missing_assembly_arguments:
-        runtime_detail = (
-            "selected H8 gate assembly lacks authority-bound inputs: "
-            + ", ".join(missing_assembly_arguments)
-        )
-    elif not parent_authority_assigned:
-        runtime_detail = "public parent authority result is not retained"
-    elif not invalid_start_guarded:
-        runtime_detail = "invalid child-start authorization is not guarded"
+        runtime_detail = runtime_failure
+    elif not runtime_available:
+        runtime_detail = runtime_failure
     else:
         runtime_detail = (
             "selected prerequisite, correctness, authorization, parent, and "
-            "gate chain is visible; behavior unvalidated"
+            "gate chain shares one dominated branch; behavior unvalidated"
         )
     runtime_record = _record(
         "h8_runtime_orchestrator",
@@ -1583,68 +1773,206 @@ def _runtime_records(
         path=runner_path,
         detail=runtime_detail,
     )
-    cross_binding_structure = False
-    for node in ast.walk(gate_tree):
-        if (
-            not isinstance(node, ast.FunctionDef)
-            or node.name != "assemble_h8_gate_evaluation"
-        ):
-            continue
-        argument_names = tuple(item.arg for item in node.args.args) + tuple(
-            item.arg for item in node.args.kwonlyargs
+    gate_function = top_level_function(
+        gate_tree,
+        "assemble_h8_gate_evaluation",
+    )
+    forbidden_legacy_authorization = any(
+        (
+            isinstance(node, ast.Name)
+            and node.id
+            in {
+                "runtime_authorized",
+                "_assemble_h8_gate_evaluation_from_inventories",
+            }
         )
-        calls = tuple(
-            child
-            for child in ast.walk(node)
-            if isinstance(child, ast.Call)
+        or (
+            isinstance(node, ast.keyword)
+            and node.arg == "runtime_authorized"
         )
-        authority_required = any(
-            called_name(call) == "require_h8_parent_attempt_authority"
-            for call in calls
-        )
-        authority_attempts_projected = any(
-            isinstance(child, ast.Attribute)
-            and isinstance(child.value, ast.Name)
-            and child.value.id == "authority"
-            and child.attr == "attempts"
-            for child in ast.walk(node)
-        )
-        authorized_inventory_assembly = any(
-            called_name(call)
-            == "_assemble_h8_gate_evaluation_from_inventories"
-            and any(
-                keyword.arg == "runtime_authorized"
-                and isinstance(keyword.value, ast.Constant)
-                and keyword.value.value is True
-                for keyword in call.keywords
-            )
-            for call in calls
-        )
-        cross_binding_structure = (
-            set(H8_SELECTED_GATE_ARGUMENT_NAMES).issubset(argument_names)
-            and authority_required
-            and authority_attempts_projected
-            and authorized_inventory_assembly
-        )
-    gate_owns_v4_derivation = any(
-        isinstance(node, ast.Call)
-        and called_name(node) == "build_h8_v4_runtime_sections"
         for node in ast.walk(gate_tree)
     )
-    cross_binding_available = (
-        cross_binding_structure and gate_owns_v4_derivation
+    cross_binding_available = False
+    cross_binding_failure = (
+        "authoritative H8 gate is absent or duplicated"
     )
-    if not cross_binding_structure:
-        cross_binding_detail = (
-            "factory authority projection or authorized inventory assembly "
-            "is absent"
+    if gate_function is not None and not forbidden_legacy_authorization:
+        argument_names = {
+            item.arg
+            for item in (
+                *gate_function.args.args,
+                *gate_function.args.kwonlyargs,
+            )
+        }
+        gate_body = gate_function.body
+        authority_index = direct_assignment_index(
+            gate_body,
+            target_name="authority",
+            call_name="require_h8_parent_attempt_authority",
         )
-    elif not gate_owns_v4_derivation:
-        cross_binding_detail = "gate-owned v4 runtime derivation is absent"
+        attempts_index = next(
+            (
+                index
+                for index, statement in enumerate(gate_body)
+                if assigned_attribute(
+                    statement,
+                    target_name="child_attempts",
+                    owner_name="authority",
+                    attribute_name="attempts",
+                )
+            ),
+            None,
+        )
+        pass_index = next(
+            (
+                index
+                for index, statement in enumerate(gate_body)
+                if (
+                    isinstance(statement, ast.If)
+                    and isinstance(statement.test, ast.Compare)
+                    and isinstance(statement.test.left, ast.Name)
+                    and statement.test.left.id == "status"
+                    and len(statement.test.ops) == 1
+                    and isinstance(statement.test.ops[0], ast.Is)
+                    and len(statement.test.comparators) == 1
+                    and isinstance(
+                        statement.test.comparators[0],
+                        ast.Attribute,
+                    )
+                    and isinstance(
+                        statement.test.comparators[0].value,
+                        ast.Name,
+                    )
+                    and statement.test.comparators[0].value.id
+                    == "GateStatus"
+                    and statement.test.comparators[0].attr == "PASS"
+                )
+            ),
+            None,
+        )
+        finalize_index = next(
+            (
+                index
+                for index, statement in enumerate(gate_body)
+                if (
+                    (call := direct_call(statement)) is not None
+                    and called_name(call)
+                    == "_finalize_h8_gate_evaluation"
+                )
+            ),
+            None,
+        )
+        authority_call = (
+            direct_call(gate_body[authority_index])
+            if authority_index is not None
+            else None
+        )
+        authority_input_exact = (
+            authority_call is not None
+            and len(authority_call.args) == 1
+            and isinstance(authority_call.args[0], ast.Name)
+            and authority_call.args[0].id == "parent_authority"
+        )
+        pass_calls: tuple[ast.Call, ...] = ()
+        if pass_index is not None:
+            pass_calls = reachable_calls(
+                cast(ast.If, gate_body[pass_index]).body
+            )
+        named_pass_calls = {
+            name: tuple(
+                call
+                for call in pass_calls
+                if called_name(call) == name
+            )
+            for name in (
+                "build_h8_v4_runtime_sections",
+                "require_h8_parent_attempt_authority",
+                "_issue_h8_gate_pass_result",
+            )
+        }
+        build_calls = named_pass_calls["build_h8_v4_runtime_sections"]
+        revalidation_calls = named_pass_calls[
+            "require_h8_parent_attempt_authority"
+        ]
+        issuer_calls = named_pass_calls["_issue_h8_gate_pass_result"]
+        pass_calls_ordered = (
+            bool(build_calls)
+            and bool(revalidation_calls)
+            and bool(issuer_calls)
+            and build_calls[0].lineno
+            < revalidation_calls[0].lineno
+            < issuer_calls[0].lineno
+        )
+        build_bindings = (
+            keyword_name_bindings(build_calls[0])
+            if build_calls
+            else {}
+        )
+        issuer_bindings = (
+            keyword_name_bindings(issuer_calls[0])
+            if issuer_calls
+            else {}
+        )
+        exact_inventory_bindings = all(
+            build_bindings.get(name) == name
+            and issuer_bindings.get(name) == name
+            for name in (
+                "correctness",
+                "child_attempts",
+                "production_runs",
+                "profiler_runs",
+                "controls",
+            )
+        )
+        exact_revalidation = any(
+            len(call.args) == 1
+            and isinstance(call.args[0], ast.Name)
+            and call.args[0].id == "authority"
+            for call in revalidation_calls
+        )
+        finalize_call = (
+            direct_call(gate_body[finalize_index])
+            if finalize_index is not None
+            else None
+        )
+        finalize_bindings = (
+            keyword_name_bindings(finalize_call)
+            if finalize_call is not None
+            else {}
+        )
+        exact_finalization = (
+            finalize_bindings.get("result") == "result"
+            and finalize_bindings.get("retained_runtime_sections")
+            == "retained_runtime_sections"
+        )
+        cross_binding_available = (
+            set(H8_SELECTED_GATE_ARGUMENT_NAMES).issubset(argument_names)
+            and authority_input_exact
+            and authority_index is not None
+            and attempts_index is not None
+            and pass_index is not None
+            and finalize_index is not None
+            and authority_index < attempts_index < pass_index < finalize_index
+            and pass_calls_ordered
+            and exact_inventory_bindings
+            and exact_revalidation
+            and exact_finalization
+        )
+        if not cross_binding_available:
+            cross_binding_failure = (
+                "authority, owned-v4 PASS issuance, and final assembly do "
+                "not share one reachable dominated branch"
+            )
+    elif forbidden_legacy_authorization:
+        cross_binding_failure = (
+            "legacy caller-provided runtime authorization remains reachable"
+        )
+    if not cross_binding_available:
+        cross_binding_detail = cross_binding_failure
     else:
         cross_binding_detail = (
-            "authority projection and gate-owned v4 derivation are visible; "
-            "behavior unvalidated"
+            "authority projection, owned-v4 revalidation, private PASS "
+            "issuance, and final assembly are visible; behavior unvalidated"
         )
     cross_binding_record = _record(
         "h8_complete_runtime_cross_binding",

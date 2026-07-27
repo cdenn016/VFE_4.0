@@ -9,11 +9,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
-from verification.h8_budget import (
-    H8ChildProcessRecord,
-    make_h8_identity_record,
+from test_support.h8_runtime_fakes import (
+    make_test_parent_identities as _parent_identities,
 )
+
+from verification.h8_budget import H8ChildProcessRecord
 from verification.h8_gate import H8PrerequisiteArtifactValidation
 from vfe4.config.schema import H8ValidationConfig
 from vfe4.types.h8 import (
@@ -23,52 +23,6 @@ from vfe4.types.h8 import (
     H8ChildRequest,
 )
 from vfe4.types.results import GateStatus
-
-
-def _parent_identities() -> dict[str, object]:
-    return {
-        name: make_h8_identity_record(name, payload)
-        for name, payload in (
-            (
-                "hardware",
-                {
-                    "platform": "test",
-                    "release": "test-release",
-                    "system": "test",
-                    "machine": "test",
-                    "processor": "test",
-                    "cpu_count": 1,
-                    "python": "test",
-                    "implementation": "test",
-                },
-            ),
-            ("affinity", {"adapter": "test", "cpus": [0]}),
-            (
-                "thread",
-                {
-                    "environment": {
-                        "OMP_NUM_THREADS": "1",
-                        "MKL_NUM_THREADS": "1",
-                        "OPENBLAS_NUM_THREADS": "1",
-                        "NUMEXPR_NUM_THREADS": "1",
-                        "VECLIB_MAXIMUM_THREADS": "1",
-                    },
-                    "torch_num_threads": 1,
-                    "torch_num_interop_threads": 1,
-                },
-            ),
-            (
-                "blas",
-                {
-                        "torch_version": "2.9.1",
-                    "numpy_version": "test",
-                    "torch_config": "test",
-                    "numpy_config": "test",
-                },
-            ),
-        )
-    }
-
 
 def _start_authorization(
     *,

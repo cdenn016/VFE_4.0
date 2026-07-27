@@ -373,28 +373,17 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
         "        return assemble_h8_source_only_evaluation(correctness=correctness)\n"
         "    parent_authority = run_h8_parent_attempt(authorization=authorization)\n"
         "    return assemble_h8_gate_evaluation(\n"
-        "        correctness=correctness_records,\n"
+        "        correctness=correctness,\n"
         "        parent_authority=parent_authority,\n"
         "        prerequisite_validation=prerequisite_validation,\n"
         "    )\n",
         encoding="utf-8",
     )
     (runtime_root / "h8_gate.py").write_text(
-        "def _assemble_h8_gate_evaluation_from_inventories(*, child_attempts):\n"
-        "    return classify_h8_status(exact_inventory_complete=bool(child_attempts))\n"
-        "\n"
         "def assemble_h8_gate_evaluation(\n"
         "    *, correctness, parent_authority, prerequisite_validation\n"
         "):\n"
-        "    authority = require_h8_parent_attempt_authority(parent_authority)\n"
-        "    child_attempts = authority.attempts\n"
-        "    runtime_sections = build_h8_v4_runtime_sections(\n"
-        "        child_attempts=child_attempts,\n"
-        "    )\n"
-        "    return _assemble_h8_gate_evaluation_from_inventories(\n"
-        "        child_attempts=child_attempts,\n"
-        "        runtime_authorized=True,\n"
-        "    )\n",
+        + _synthetic_authority_gate_body(),
         encoding="utf-8",
     )
 
@@ -422,6 +411,201 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
     assert result.obligations == ()
     assert not hasattr(result, "status")
     assert "pass" not in result.as_dict().values()
+
+
+def _synthetic_runtime_states(
+    tmp_path: Path,
+    *,
+    runner_source: str,
+    gate_source: str,
+) -> tuple[str, str]:
+    from verification.h8_preflight import _runtime_records
+
+    runtime_root = tmp_path / "verification"
+    runtime_root.mkdir(parents=True)
+    (runtime_root / "run_gates.py").write_text(
+        runner_source,
+        encoding="utf-8",
+    )
+    (runtime_root / "h8_gate.py").write_text(
+        gate_source,
+        encoding="utf-8",
+    )
+    runner, gate = _runtime_records(tmp_path)
+    return runner.state, gate.state
+
+
+def _synthetic_selected_runner_body(indent: str = "    ") -> str:
+    return (
+        f"{indent}prerequisite_validation = "
+        "validate_h8_prerequisite_artifacts(refs)\n"
+        f"{indent}correctness = produce_h8_correctness_grid()\n"
+        f"{indent}authorization = derive_h8_child_start_authorization(\n"
+        f"{indent}    prerequisite_validation=prerequisite_validation,\n"
+        f"{indent}    correctness_statuses=correctness,\n"
+        f"{indent})\n"
+        f"{indent}if not authorization.valid_start:\n"
+        f"{indent}    return assemble_h8_source_only_evaluation(\n"
+        f"{indent}        correctness=correctness,\n"
+        f"{indent}    )\n"
+        f"{indent}parent_authority = run_h8_parent_attempt(\n"
+        f"{indent}    authorization=authorization,\n"
+        f"{indent})\n"
+        f"{indent}return assemble_h8_gate_evaluation(\n"
+        f"{indent}    correctness=correctness,\n"
+        f"{indent}    parent_authority=parent_authority,\n"
+        f"{indent}    prerequisite_validation=prerequisite_validation,\n"
+        f"{indent})\n"
+    )
+
+
+def _synthetic_authority_gate_body(indent: str = "    ") -> str:
+    return (
+        f"{indent}authority = require_h8_parent_attempt_authority(\n"
+        f"{indent}    parent_authority,\n"
+        f"{indent})\n"
+        f"{indent}child_attempts = authority.attempts\n"
+        f"{indent}production_runs = production_from(child_attempts)\n"
+        f"{indent}profiler_runs = profiler_from(child_attempts)\n"
+        f"{indent}controls = controls_from(child_attempts)\n"
+        f"{indent}status = GateStatus.PASS\n"
+        f"{indent}retained_runtime_sections = None\n"
+        f"{indent}if status is GateStatus.PASS:\n"
+        f"{indent}    retained_runtime_sections = "
+        "build_h8_v4_runtime_sections(\n"
+        f"{indent}        correctness=correctness,\n"
+        f"{indent}        child_attempts=child_attempts,\n"
+        f"{indent}        production_runs=production_runs,\n"
+        f"{indent}        profiler_runs=profiler_runs,\n"
+        f"{indent}        controls=controls,\n"
+        f"{indent}    )\n"
+        f"{indent}    if require_h8_parent_attempt_authority(\n"
+        f"{indent}        authority,\n"
+        f"{indent}    ) is not authority:\n"
+        f"{indent}        raise ValueError\n"
+        f"{indent}    result = _issue_h8_gate_pass_result(\n"
+        f"{indent}        correctness=correctness,\n"
+        f"{indent}        child_attempts=child_attempts,\n"
+        f"{indent}        production_runs=production_runs,\n"
+        f"{indent}        profiler_runs=profiler_runs,\n"
+        f"{indent}        controls=controls,\n"
+        f"{indent}    )\n"
+        f"{indent}else:\n"
+        f"{indent}    result = H8GateResult(status=status)\n"
+        f"{indent}return _finalize_h8_gate_evaluation(\n"
+        f"{indent}    result=result,\n"
+        f"{indent}    retained_runtime_sections="
+        "retained_runtime_sections,\n"
+        f"{indent})\n"
+    )
+
+
+def test_runtime_scan_rejects_dead_early_and_wrong_branch_runner_decoys(
+    tmp_path: Path,
+) -> None:
+    gate_source = (
+        "def assemble_h8_gate_evaluation(\n"
+        "    *, correctness, parent_authority, prerequisite_validation\n"
+        "):\n"
+        + _synthetic_authority_gate_body()
+    )
+    cases = {
+        "dead_if_false": (
+            "def run_h8_verification():\n"
+            "    if False:\n"
+            + _synthetic_selected_runner_body("        ")
+            + "    return None\n"
+        ),
+        "early_return": (
+            "def run_h8_verification():\n"
+            "    return None\n"
+            + _synthetic_selected_runner_body()
+        ),
+        "wrong_branch": (
+            "def run_h8_verification():\n"
+            "    prerequisite_validation = "
+            "validate_h8_prerequisite_artifacts(refs)\n"
+            "    correctness = produce_h8_correctness_grid()\n"
+            "    authorization = derive_h8_child_start_authorization(\n"
+            "        prerequisite_validation=prerequisite_validation,\n"
+            "        correctness_statuses=correctness,\n"
+            "    )\n"
+            "    if not authorization.valid_start:\n"
+            "        parent_authority = run_h8_parent_attempt(\n"
+            "            authorization=authorization,\n"
+            "        )\n"
+            "        return assemble_h8_gate_evaluation(\n"
+            "            correctness=correctness,\n"
+            "            parent_authority=parent_authority,\n"
+            "            prerequisite_validation=prerequisite_validation,\n"
+            "        )\n"
+            "    return assemble_h8_source_only_evaluation(\n"
+            "        correctness=correctness,\n"
+            "    )\n"
+        ),
+    }
+
+    for case_index, runner_source in enumerate(cases.values()):
+        case_root = tmp_path / f"case-{case_index}"
+        runner_state, _gate_state = _synthetic_runtime_states(
+            case_root,
+            runner_source=runner_source,
+            gate_source=gate_source,
+        )
+        assert runner_state == "blocked"
+
+
+def test_runtime_cross_binding_scan_rejects_module_and_dead_branch_decoys(
+    tmp_path: Path,
+) -> None:
+    runner_source = (
+        "def run_h8_verification():\n"
+        + _synthetic_selected_runner_body()
+    )
+    cases = (
+        (
+            "build_h8_v4_runtime_sections(\n"
+            "    correctness=decoy_correctness,\n"
+            "    child_attempts=decoy_attempts,\n"
+            "    production_runs=decoy_production,\n"
+            "    profiler_runs=decoy_profiler,\n"
+            "    controls=decoy_controls,\n"
+            ")\n"
+            "_issue_h8_gate_pass_result(\n"
+            "    correctness=decoy_correctness,\n"
+            "    child_attempts=decoy_attempts,\n"
+            "    production_runs=decoy_production,\n"
+            "    profiler_runs=decoy_profiler,\n"
+            "    controls=decoy_controls,\n"
+            ")\n"
+            "\n"
+            "def assemble_h8_gate_evaluation(\n"
+            "    *, correctness, parent_authority, prerequisite_validation\n"
+            "):\n"
+            "    authority = require_h8_parent_attempt_authority(\n"
+            "        parent_authority,\n"
+            "    )\n"
+            "    child_attempts = authority.attempts\n"
+            "    return None\n"
+        ),
+        (
+            "def assemble_h8_gate_evaluation(\n"
+            "    *, correctness, parent_authority, prerequisite_validation\n"
+            "):\n"
+            "    if False:\n"
+            + _synthetic_authority_gate_body("        ")
+            + "    return None\n"
+        ),
+    )
+
+    for case_index, gate_source in enumerate(cases):
+        case_root = tmp_path / f"case-{case_index}"
+        _runner_state, gate_state = _synthetic_runtime_states(
+            case_root,
+            runner_source=runner_source,
+            gate_source=gate_source,
+        )
+        assert gate_state == "blocked"
 
 
 def test_runtime_scan_requires_parent_attempts_and_derived_sections(
@@ -559,11 +743,17 @@ def test_runtime_cross_binding_scan_honors_parent_orchestrator_blocker(
         "):\n"
         "    authority = require_h8_parent_attempt_authority(parent_authority)\n"
         "    child_attempts = authority.attempts\n"
-        "    build_h8_v4_runtime_sections(child_attempts=child_attempts)\n"
-        "    return _assemble_h8_gate_evaluation_from_inventories(\n"
-        "        child_attempts=child_attempts,\n"
-        "        runtime_authorized=False,\n"
-        "    )\n",
+        "    status = GateStatus.INCONCLUSIVE\n"
+        "    retained_runtime_sections = None\n"
+        "    if status is GateStatus.PASS:\n"
+        "        retained_runtime_sections = build_h8_v4_runtime_sections(\n"
+        "            correctness=correctness,\n"
+        "            child_attempts=child_attempts,\n"
+        "            production_runs=production_runs,\n"
+        "            profiler_runs=profiler_runs,\n"
+        "            controls=controls,\n"
+        "        )\n"
+        "    return None\n",
         encoding="utf-8",
     )
 
