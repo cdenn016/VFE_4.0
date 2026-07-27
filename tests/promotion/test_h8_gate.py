@@ -469,6 +469,75 @@ def test_h8_gate_requires_authority_and_keeps_two_config_commitments_distinct(
         )
 
 
+def test_h8_authority_incomplete_inventory_retains_runtime_pass_locks(
+    tmp_path: Path,
+) -> None:
+    from test_support.h8_runtime_fakes import (
+        make_fake_h8_process_record,
+        make_pass_correctness_cells,
+        make_test_parent_identities,
+    )
+    from vfe4.config.schema import H8ValidationConfig
+    from verification.h8_budget import H8ChildProcessRecord
+    from verification.h8_orchestrator import (
+        _mint_h8_parent_attempt_authority,
+        _run_h8_parent_attempt_for_test,
+        derive_h8_child_start_authorization,
+    )
+
+    refs = _current_refs()
+    correctness = make_pass_correctness_cells()
+    prerequisite_validation = h8_gate.H8PrerequisiteArtifactValidation.create(
+        registry_sha256=refs.registry_sha256,
+        revalidated_reference_names=h8_gate.H8_POINTER_PREDECESSOR_KEYS,
+        obligations=(),
+    )
+    authorization = derive_h8_child_start_authorization(
+        config=H8ValidationConfig.create(),
+        current_registry_sha256=refs.registry_sha256,
+        prerequisite_validation=prerequisite_validation,
+        correctness_statuses=tuple(
+            (cell.cell_id, cell.status) for cell in correctness
+        ),
+    )
+
+    def inconclusive_child(invocation):
+        passing = make_fake_h8_process_record(invocation)
+        payload = json.loads(passing.stdout)
+        payload.update(
+            {
+                "status": "inconclusive",
+                "obligations": ["test-only incomplete child evidence"],
+                "result": None,
+                "control": None,
+            }
+        )
+        return H8ChildProcessRecord.from_payload(payload)
+
+    parent_run = _run_h8_parent_attempt_for_test(
+        authorization=authorization,
+        repository_root=tmp_path,
+        identities=make_test_parent_identities(),
+        child_runner=inconclusive_child,
+    )
+    authority = _mint_h8_parent_attempt_authority(parent_run)
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        publication_config_sha256="f" * 64,
+        current_refs=refs,
+        correctness=correctness,
+        parent_authority=authority,
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+        prerequisite_validation=prerequisite_validation,
+    )
+
+    assert evaluation.result.status is GateStatus.INCONCLUSIVE
+    assert evaluation.runtime_sections is None
+    assert set(h8_gate.H8_SOURCE_ONLY_OBLIGATIONS[4:]).issubset(
+        evaluation.result.obligations
+    )
+
+
 def test_h8_gate_rejects_parent_authority_replayed_to_another_registry(
     tmp_path: Path,
 ) -> None:

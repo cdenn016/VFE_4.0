@@ -51,15 +51,21 @@ from verification.h7_gate import (
     assemble_h7_gate_evaluation,
     h7_validation_payload,
 )
+from verification.h8_correctness import produce_h8_correctness_grid
 from verification.h8_gate import (
     H8_PUBLICATION_PAYLOAD_KEYS,
     H8_VERIFIER_PREFIX,
     assemble_h8_gate_evaluation,
+    assemble_h8_source_only_evaluation,
     build_h8_publication_payloads,
     canonical_h8_json_bytes,
     h8_current_candidate_result_payload,
     h8_current_refs_registry_payload,
     validate_h8_prerequisite_artifacts,
+)
+from verification.h8_orchestrator import (
+    derive_h8_child_start_authorization,
+    run_h8_parent_attempt,
 )
 from vfe4.artifacts import (
     CandidateArtifactReference,
@@ -142,20 +148,20 @@ class VerificationRunResult:
 
     def __post_init__(self) -> None:
         if type(self.gate_results) is not tuple or not all(
-            isinstance(
-                result,
-                (
-                    GateResult,
-                    H3GateResult,
-                    H4GateResult,
-                    H5GateResult,
-                    H7GateResult,
-                    H8GateResult,
-                ),
+            type(result)
+            in (
+                GateResult,
+                H3GateResult,
+                H4GateResult,
+                H5GateResult,
+                H7GateResult,
+                H8GateResult,
             )
             for result in self.gate_results
         ):
-            raise ValueError("gate_results must contain immutable gate results")
+            raise ValueError(
+                "gate_results must contain exact immutable gate results"
+            )
         gate_names = tuple(result.gate for result in self.gate_results)
         if gate_names not in _ALLOWED_RESULT_PREFIXES:
             raise ValueError("gate_results must contain an implemented ordered prefix")
@@ -1172,7 +1178,7 @@ def _h8_dependency_closure_sha256(
     return hashlib.sha256(
         canonical_h8_json_bytes(
             {
-                "domain": "vfe4.h8.source-only-dependency-closure.v1",
+                "domain": "vfe4.h8.selected-runtime-dependency-closure.v1",
                 "source_sha256": source_sha256,
                 "config_sha256": config_sha256,
                 "registry_sha256": registry_sha256,
@@ -1231,7 +1237,7 @@ def run_h8_verification(
     registry_path: Path,
     registry_bytes: bytes,
 ) -> VerificationRunResult:
-    """Publish one H8-only source record without executing any predecessor/runtime."""
+    """Run and publish the exact selected H8 parent-orchestrated operation."""
 
     canonical = _canonical_h8_config(config)
     refs = canonical.h8_current_refs
@@ -1267,6 +1273,7 @@ def run_h8_verification(
         != canonical_h8_json_bytes(h8_current_refs_registry_payload(refs))
     ):
         raise ValueError("captured H8 registry differs from the bound current refs")
+    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)
     if (
         not H8_PREREGISTRATION_PATH.is_file()
         or H8_PREREGISTRATION_PATH.is_symlink()
@@ -1281,18 +1288,43 @@ def run_h8_verification(
         registry_sha256=refs.registry_sha256,
         preregistration_sha256=preregistration_sha256,
     )
-    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)
-    evaluation = assemble_h8_gate_evaluation(
-        config_sha256=canonical.config_sha256,
-        current_refs=refs,
-        correctness=(),
-        production_runs=(),
-        profiler_runs=(),
-        controls=(),
-        dependency_closure_sha256=dependency_closure_sha256,
-        preregistration_sha256=preregistration_sha256,
+    correctness = produce_h8_correctness_grid()
+    authorization = derive_h8_child_start_authorization(
+        config=canonical.h8,
+        current_registry_sha256=refs.registry_sha256,
         prerequisite_validation=prerequisite_validation,
+        correctness_statuses=tuple(
+            (cell.cell_id, cell.status)
+            for cell in correctness
+        ),
     )
+    if not authorization.valid_start:
+        evaluation = assemble_h8_source_only_evaluation(
+            config_sha256=canonical.config_sha256,
+            current_refs=refs,
+            correctness=correctness,
+            production_runs=(),
+            profiler_runs=(),
+            controls=(),
+            dependency_closure_sha256=dependency_closure_sha256,
+            preregistration_sha256=preregistration_sha256,
+            additional_obligations=authorization.obligations,
+            prerequisite_validation=prerequisite_validation,
+        )
+    else:
+        parent_authority = run_h8_parent_attempt(
+            authorization=authorization,
+            repository_root=REPO_ROOT,
+        )
+        evaluation = assemble_h8_gate_evaluation(
+            publication_config_sha256=canonical.config_sha256,
+            current_refs=refs,
+            correctness=correctness,
+            parent_authority=parent_authority,
+            dependency_closure_sha256=dependency_closure_sha256,
+            preregistration_sha256=preregistration_sha256,
+            prerequisite_validation=prerequisite_validation,
+        )
     ended = _utc_now()
     environment = build_h8_environment(
         config=canonical,

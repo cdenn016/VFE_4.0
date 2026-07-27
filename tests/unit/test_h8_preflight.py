@@ -363,24 +363,37 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(
         "def run_h8_verification():\n"
+        "    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)\n"
+        "    correctness = produce_h8_correctness_grid()\n"
+        "    authorization = derive_h8_child_start_authorization(\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
+        "        correctness_statuses=correctness_statuses,\n"
+        "    )\n"
+        "    if not authorization.valid_start:\n"
+        "        return assemble_h8_source_only_evaluation(correctness=correctness)\n"
+        "    parent_authority = run_h8_parent_attempt(authorization=authorization)\n"
         "    return assemble_h8_gate_evaluation(\n"
         "        correctness=correctness_records,\n"
-        "        child_attempts=child_attempt_records,\n"
-        "        production_runs=production_records,\n"
-        "        profiler_runs=profiler_records,\n"
-        "        controls=control_records,\n"
-        "        runtime_sections=runtime_section_records,\n"
+        "        parent_authority=parent_authority,\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
         "    )\n",
         encoding="utf-8",
     )
     (runtime_root / "h8_gate.py").write_text(
-        "def classify_h8_status(*, exact_inventory_complete):\n"
-        "    return exact_inventory_complete\n"
+        "def _assemble_h8_gate_evaluation_from_inventories(*, child_attempts):\n"
+        "    return classify_h8_status(exact_inventory_complete=bool(child_attempts))\n"
         "\n"
-        "def assemble_h8_gate_evaluation(*, child_attempts, runtime_sections):\n"
-        "    complete = bool(child_attempts) and bool(runtime_sections)\n"
-        "    return child_attempts, runtime_sections, classify_h8_status(\n"
-        "        exact_inventory_complete=complete,\n"
+        "def assemble_h8_gate_evaluation(\n"
+        "    *, correctness, parent_authority, prerequisite_validation\n"
+        "):\n"
+        "    authority = require_h8_parent_attempt_authority(parent_authority)\n"
+        "    child_attempts = authority.attempts\n"
+        "    runtime_sections = build_h8_v4_runtime_sections(\n"
+        "        child_attempts=child_attempts,\n"
+        "    )\n"
+        "    return _assemble_h8_gate_evaluation_from_inventories(\n"
+        "        child_attempts=child_attempts,\n"
+        "        runtime_authorized=True,\n"
         "    )\n",
         encoding="utf-8",
     )
@@ -466,13 +479,19 @@ def test_runtime_cross_binding_scan_requires_parent_attempt_input(
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(
         "def run_h8_verification():\n"
+        "    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)\n"
+        "    correctness = produce_h8_correctness_grid()\n"
+        "    authorization = derive_h8_child_start_authorization(\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
+        "        correctness_statuses=correctness_statuses,\n"
+        "    )\n"
+        "    if not authorization.valid_start:\n"
+        "        return assemble_h8_source_only_evaluation(correctness=correctness)\n"
+        "    parent_authority = run_h8_parent_attempt(authorization=authorization)\n"
         "    return assemble_h8_gate_evaluation(\n"
-        "        correctness=correctness_records,\n"
-        "        child_attempts=child_attempt_records,\n"
-        "        production_runs=production_records,\n"
-        "        profiler_runs=profiler_records,\n"
-        "        controls=control_records,\n"
-        "        runtime_sections=runtime_section_records,\n"
+        "        correctness=correctness,\n"
+        "        parent_authority=parent_authority,\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
         "    )\n",
         encoding="utf-8",
     )
@@ -511,13 +530,19 @@ def test_runtime_cross_binding_scan_honors_parent_orchestrator_blocker(
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(
         "def run_h8_verification():\n"
+        "    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)\n"
+        "    correctness = produce_h8_correctness_grid()\n"
+        "    authorization = derive_h8_child_start_authorization(\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
+        "        correctness_statuses=correctness_statuses,\n"
+        "    )\n"
+        "    if not authorization.valid_start:\n"
+        "        return assemble_h8_source_only_evaluation(correctness=correctness)\n"
+        "    parent_authority = run_h8_parent_attempt(authorization=authorization)\n"
         "    return assemble_h8_gate_evaluation(\n"
-        "        correctness=correctness_records,\n"
-        "        child_attempts=child_attempt_records,\n"
-        "        production_runs=production_records,\n"
-        "        profiler_runs=profiler_records,\n"
-        "        controls=control_records,\n"
-        "        runtime_sections=runtime_section_records,\n"
+        "        correctness=correctness,\n"
+        "        parent_authority=parent_authority,\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
         "    )\n",
         encoding="utf-8",
     )
@@ -526,13 +551,18 @@ def test_runtime_cross_binding_scan_honors_parent_orchestrator_blocker(
         "    'h8_parent_orchestrator_not_implemented',\n"
         ")\n"
         "\n"
-        "def classify_h8_status(*, exact_inventory_complete):\n"
-        "    return exact_inventory_complete\n"
+        "def build_h8_v4_runtime_sections(*, child_attempts):\n"
+        "    return child_attempts\n"
         "\n"
-        "def assemble_h8_gate_evaluation(*, child_attempts, runtime_sections):\n"
-        "    complete = bool(child_attempts) and bool(runtime_sections)\n"
-        "    return child_attempts, runtime_sections, classify_h8_status(\n"
-        "        exact_inventory_complete=complete,\n"
+        "def assemble_h8_gate_evaluation(\n"
+        "    *, correctness, parent_authority, prerequisite_validation\n"
+        "):\n"
+        "    authority = require_h8_parent_attempt_authority(parent_authority)\n"
+        "    child_attempts = authority.attempts\n"
+        "    build_h8_v4_runtime_sections(child_attempts=child_attempts)\n"
+        "    return _assemble_h8_gate_evaluation_from_inventories(\n"
+        "        child_attempts=child_attempts,\n"
+        "        runtime_authorized=False,\n"
         "    )\n",
         encoding="utf-8",
     )

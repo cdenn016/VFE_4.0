@@ -1126,11 +1126,6 @@ class H8GateResult:
             raise ValueError("H8 gate result must declare gate H8")
         if not isinstance(self.status, GateStatus):
             raise ValueError("H8 status must be a GateStatus")
-        if self.status is GateStatus.PASS:
-            raise ValueError(
-                "PASS H8 remains unavailable until parent orchestration "
-                "and runtime revalidation are implemented"
-            )
         _require_sha256(self.config_sha256, "config_sha256")
         prerequisite_hash_names = (
             "candidate_junit_sha256",

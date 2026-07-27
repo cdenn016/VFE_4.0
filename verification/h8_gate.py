@@ -1600,7 +1600,7 @@ def _correctness_cell_payload(item: H8CorrectnessCell) -> dict[str, object]:
         "d_m": layout.d_m,
         "N": layout.population_size,
         "b": layout.block_size,
-        "D": layout.total_dimension,
+        "D": layout.dimension,
         "problem_seed": item.problem_seed,
         "sample_noise_seed": item.sample_noise_seed,
         "problem_sha256": item.problem_sha256,
@@ -1831,16 +1831,13 @@ def _validation_payload_from_context(
         raise ValueError("H8 result is not bound to its retained current references")
     if (
         result.status is not GateStatus.FAIL
-        and (
-            any(
-                item not in result.obligations
-                for item in prerequisite_obligations
-            )
-            or H8_SOURCE_ONLY_OBLIGATIONS[5] not in result.obligations
+        and any(
+            item not in result.obligations
+            for item in prerequisite_obligations
         )
     ):
         raise ValueError(
-            "H8 result does not retain its prerequisite/orchestrator obligations"
+            "H8 result does not retain its prerequisite obligations"
         )
 
     prerequisites_current_and_pass = not prerequisite_obligations
@@ -1854,6 +1851,7 @@ def _validation_payload_from_context(
     if runtime_sections is None:
         if (
             result.status is not GateStatus.FAIL
+            and not result.child_attempts
             and H8_SOURCE_ONLY_OBLIGATIONS[4] not in result.obligations
         ):
             raise ValueError(
@@ -1954,6 +1952,7 @@ def _assemble_h8_gate_evaluation_from_inventories(
     child_attempts: tuple[H8ChildAttemptRecord, ...] = (),
     dependency_closure_sha256: str,
     preregistration_sha256: str,
+    runtime_authorized: bool,
     additional_obligations: tuple[str, ...] = (),
     prerequisite_validation: H8PrerequisiteArtifactValidation | None = None,
 ) -> H8GateEvaluation:
@@ -1968,6 +1967,8 @@ def _assemble_h8_gate_evaluation_from_inventories(
     )
     _sha256(dependency_closure_sha256, "dependency_closure_sha256")
     _sha256(preregistration_sha256, "preregistration_sha256")
+    if type(runtime_authorized) is not bool:
+        raise ValueError("runtime_authorized must be a bool")
     _typed_records(correctness, H8CorrectnessCell, "correctness")
     _typed_records(child_attempts, H8ChildAttemptRecord, "child_attempts")
     _typed_records(production_runs, H8ChildResult, "production_runs")
@@ -2031,11 +2032,8 @@ def _assemble_h8_gate_evaluation_from_inventories(
             obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[2])
         if tuple(item.control_id for item in controls) != H8_NEGATIVE_CONTROL_IDS:
             obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[3])
-    obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[4])
-    # The v3 attempt schema retains parent evidence, but this source slice does
-    # not yet own the runtime orchestrator/protocol/environment revalidation
-    # required to authorize PASS. Witnessed FAIL still dominates this blocker.
-    obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[5])
+    if not runtime_authorized or not complete:
+        obligations.extend(H8_SOURCE_ONLY_OBLIGATIONS[4:])
     obligations = list(dict.fromkeys(obligations))
     statuses = _retained_statuses(
         correctness,
@@ -2131,6 +2129,7 @@ def assemble_h8_source_only_evaluation(
         controls=controls,
         dependency_closure_sha256=dependency_closure_sha256,
         preregistration_sha256=preregistration_sha256,
+        runtime_authorized=False,
         additional_obligations=additional_obligations,
         prerequisite_validation=prerequisite_validation,
     )
@@ -2215,6 +2214,7 @@ def assemble_h8_gate_evaluation(
         controls=controls,
         dependency_closure_sha256=dependency_closure_sha256,
         preregistration_sha256=preregistration_sha256,
+        runtime_authorized=True,
         additional_obligations=additional_obligations,
         prerequisite_validation=prerequisite_validation,
     )

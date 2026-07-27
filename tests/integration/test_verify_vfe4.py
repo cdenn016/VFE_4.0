@@ -1404,14 +1404,23 @@ def test_provenance_schema_is_frozen_and_content_hashes_recompute(tmp_path: Path
     assert provenance["h3_profile"] == raw["h3"]
 
 
-def test_h8_click_run_captures_once_and_publishes_only_source_record(
+def test_h8_click_run_executes_fake_selected_runner_and_publishes_runtime_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import verification.h8_gate as h8_gate
+    import verification.h8_orchestrator as h8_orchestrator
     import verification.run_gates as gates
     import vfe4.artifacts as artifact_api
     import vfe4.config as config_api
+    from test_support.h8_runtime_fakes import (
+        make_fake_h8_process_record,
+        make_pass_correctness_cells,
+        make_test_parent_identities,
+    )
     from vfe4.artifacts import source_candidate_sha256
+    from vfe4.config import H8ValidationConfig
+    from vfe4.types.results import H8GateResult
 
     module = _load_launcher()
     head, dirty, junit = "1" * 40, "2" * 64, "3" * 64
@@ -1421,7 +1430,7 @@ def test_h8_click_run_captures_once_and_publishes_only_source_record(
     registry_path = refs_root / f"h8-current-candidate-{head}-refs.json"
     registry_path.write_bytes(registry_bytes)
     preregistration = tmp_path / "h8-preregistration.md"
-    preregistration.write_bytes(b"source-only H8 preregistration\n")
+    preregistration.write_bytes(b"selected runtime H8 preregistration\n")
     run_root = tmp_path / "runs"
 
     launcher = copy.deepcopy(module.CONFIG)
@@ -1430,10 +1439,23 @@ def test_h8_click_run_captures_once_and_publishes_only_source_record(
     h8_entry["authorization"] = module._VERIFY_AUTHORIZATIONS["h8"]
     h8_entry["config"]["artifacts"]["run_root"] = str(run_root)
 
-    counts = {"read": 0, "parse": 0, "bind": 0, "launch": 0}
+    counts = {
+        "read": 0,
+        "parse": 0,
+        "bind": 0,
+        "prerequisites": 0,
+        "correctness": 0,
+        "parent": 0,
+        "identities": 0,
+        "child": 0,
+        "pointer": 0,
+        "subprocess": 0,
+    }
+    pointer_payloads: list[dict[str, object]] = []
     original_read_bytes = Path.read_bytes
     original_parse = gates.parse_h8_reference_registry_bytes
     original_bind = config_api.bind_h8_current_refs
+    original_pointer_builder = gates.h8_current_candidate_result_payload
 
     def counted_read_bytes(path: Path) -> bytes:
         if path.resolve(strict=False) == registry_path.resolve(strict=False):
@@ -1450,9 +1472,54 @@ def test_h8_click_run_captures_once_and_publishes_only_source_record(
         assert current_refs == refs
         return original_bind(scientific, current_refs)  # type: ignore[arg-type]
 
-    def forbidden_launch(*_args: object, **_kwargs: object) -> object:
-        counts["launch"] += 1
-        raise AssertionError("H8 source-only integration launched runtime work")
+    def validate_prerequisites(current_refs: object):
+        counts["prerequisites"] += 1
+        assert current_refs == refs
+        return h8_gate.H8PrerequisiteArtifactValidation.create(
+            registry_sha256=refs.registry_sha256,
+            revalidated_reference_names=h8_gate.H8_POINTER_PREDECESSOR_KEYS,
+            obligations=(),
+        )
+
+    correctness = make_pass_correctness_cells()
+
+    def produce_correctness():
+        counts["correctness"] += 1
+        return correctness
+
+    def fake_parent_attempt(
+        *,
+        authorization: object,
+        repository_root: str | Path,
+        base_environment: object = None,
+    ):
+        counts["parent"] += 1
+        assert authorization.valid_start is True
+        counts["identities"] += 1
+        identities = make_test_parent_identities()
+
+        def fake_child(invocation: object):
+            counts["child"] += 1
+            return make_fake_h8_process_record(invocation)  # type: ignore[arg-type]
+
+        parent_run = h8_orchestrator._run_h8_parent_attempt_for_test(
+            authorization=authorization,
+            repository_root=repository_root,
+            identities=identities,
+            base_environment=base_environment,
+            child_runner=fake_child,
+        )
+        return h8_orchestrator._mint_h8_parent_attempt_authority(parent_run)
+
+    def counted_pointer(*args: object, **kwargs: object) -> dict[str, object]:
+        counts["pointer"] += 1
+        payload = original_pointer_builder(*args, **kwargs)
+        pointer_payloads.append(payload)
+        return payload
+
+    def forbidden_subprocess(*_args: object, **_kwargs: object) -> object:
+        counts["subprocess"] += 1
+        raise AssertionError("fake selected H8 runner launched a subprocess")
 
     source_identity = (
         head,
@@ -1472,22 +1539,99 @@ def test_h8_click_run_captures_once_and_publishes_only_source_record(
     monkeypatch.setattr(gates, "parse_h8_reference_registry_bytes", counted_parse)
     monkeypatch.setattr(config_api, "bind_h8_current_refs", counted_bind)
     monkeypatch.setattr(
+        gates,
+        "validate_h8_prerequisite_artifacts",
+        validate_prerequisites,
+    )
+    monkeypatch.setattr(gates, "produce_h8_correctness_grid", produce_correctness)
+    monkeypatch.setattr(gates, "run_h8_parent_attempt", fake_parent_attempt)
+    monkeypatch.setattr(
+        gates,
+        "h8_current_candidate_result_payload",
+        counted_pointer,
+    )
+    monkeypatch.setattr(
         artifact_api, "current_source_identity", lambda *_args: source_identity
     )
     monkeypatch.setattr(gates, "current_source_identity", lambda *_args: source_identity)
     monkeypatch.setattr(gates, "_utc_now", lambda: next(timestamps))
-    monkeypatch.setattr(gates, "run_verification", forbidden_launch)
-    monkeypatch.setattr(gates, "run_h7_verification", forbidden_launch)
-    monkeypatch.setattr(subprocess, "run", forbidden_launch)
-    monkeypatch.setattr(subprocess, "Popen", forbidden_launch)
+    monkeypatch.setattr(gates, "run_verification", forbidden_subprocess)
+    monkeypatch.setattr(gates, "run_h7_verification", forbidden_subprocess)
+    monkeypatch.setattr(subprocess, "run", forbidden_subprocess)
+    monkeypatch.setattr(subprocess, "Popen", forbidden_subprocess)
 
     published = module.main(launcher)
 
-    assert counts == {"read": 1, "parse": 1, "bind": 1, "launch": 0}
+    assert counts == {
+        "read": 1,
+        "parse": 1,
+        "bind": 1,
+        "prerequisites": 1,
+        "correctness": 1,
+        "parent": 1,
+        "identities": 1,
+        "child": 30,
+        "pointer": 1,
+        "subprocess": 0,
+    }
+    assert len(published.gate_results) == 1
     result = published.gate_results[0]
-    assert result.status is GateStatus.INCONCLUSIVE
-    assert result.correctness == result.production_runs == result.profiler_runs == ()
-    assert result.controls == ()
+    assert type(result) is H8GateResult
+    assert result.gate == "H8"
+    assert result.status is GateStatus.PASS
+    assert result.obligations == ()
+    assert len(result.correctness) == 12
+    assert len(result.child_attempts) == 30
+    assert len(result.production_runs) == 15
+    assert len(result.profiler_runs) == 3
+    assert len(result.controls) == 12
+
+    class DerivedH8GateResult(H8GateResult):
+        pass
+
+    derived_result = DerivedH8GateResult(**vars(result))
+    with pytest.raises(ValueError, match="exact immutable gate results"):
+        gates.VerificationRunResult(
+            (derived_result,),
+            published.run_directory,
+        )
+
+    config_bytes = (published.run_directory / "config.json").read_bytes()
+    validation = json.loads(
+        (published.run_directory / "validation" / "h8.json").read_bytes()
+    )
+    environment = json.loads(
+        (published.run_directory / "environment.json").read_bytes()
+    )
+    provenance = json.loads(
+        (published.run_directory / "provenance.json").read_bytes()
+    )
+    h8_config_sha256 = H8ValidationConfig.create().config_sha256
+    assert hashlib.sha256(config_bytes).hexdigest() == result.config_sha256
+    assert result.config_sha256 != h8_config_sha256
+    assert validation["config"]["config_sha256"] == h8_config_sha256
+    assert validation["config"]["canonical_json_sha256"] == h8_config_sha256
+    assert validation["status"] == "pass"
+    assert validation["correctness"]["cell_count"] == 12
+    assert validation["correctness"]["all_pass"] is True
+    assert len(validation["child_attempts"]) == 30
+    assert len(validation["production_runs"]) == 15
+    assert len(validation["profiler_runs"]) == 3
+    assert len(validation["controls"]) == 12
+    assert validation["invariants"]["all_pass"] is True
+    assert environment == validation["environment"]
+    assert environment["platform"] == "test"
+    assert environment["hardware_identity_sha256"]
+    assert environment["thread_identity_sha256"]
+    assert environment["blas_identity_sha256"]
+    assert provenance["config_sha256"] == result.config_sha256
+    assert provenance["validation_sha256"] == hashlib.sha256(
+        (published.run_directory / "validation" / "h8.json").read_bytes()
+    ).hexdigest()
+    assert provenance["status"] == "pass"
+    assert provenance["execution_scope"] == "h8-parent-orchestrated-runtime-v1"
+    assert provenance["external_pointer_in_artifact"] is False
+
     files = sorted(
         path.relative_to(published.run_directory).as_posix()
         for path in published.run_directory.rglob("*")
@@ -1509,7 +1653,104 @@ def test_h8_click_run_captures_once_and_publishes_only_source_record(
         .splitlines()
     ]
     assert manifest_names == sorted(name for name in files if name != "manifest.sha256")
+    assert len(pointer_payloads) == 1
+    pointer = pointer_payloads[0]
+    assert pointer["schema_version"] == "h8-current-candidate-result-v2"
+    assert pointer["artifact"]["config_sha256"] == result.config_sha256
+    assert pointer["artifact"]["validation_sha256"] == (
+        provenance["validation_sha256"]
+    )
+    assert pointer["current_refs"] == {
+        "path": registry_path.resolve(strict=False).as_posix(),
+        "sha256": refs.registry_sha256,
+    }
+    assert pointer["predecessors"] == {
+        name: json.loads(h8_gate.canonical_h8_json_bytes(getattr(refs, name)))
+        for name in h8_gate.H8_POINTER_PREDECESSOR_KEYS
+    }
     assert sorted(path.name for path in refs_root.iterdir()) == [registry_path.name]
+
+
+def test_h8_selected_runner_rejects_invalid_start_without_parent_launch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import verification.h8_gate as h8_gate
+    import verification.run_gates as gates
+    import vfe4.config as config_api
+    from test_support.h8_runtime_fakes import make_pass_correctness_cells
+    from vfe4.artifacts import source_candidate_sha256
+
+    module = _load_launcher()
+    head, dirty, junit = "1" * 40, "2" * 64, "3" * 64
+    refs, registry_bytes = _h8_current_refs(head, dirty, junit)
+    refs_root = tmp_path / ".verification"
+    refs_root.mkdir()
+    registry_path = refs_root / f"h8-current-candidate-{head}-refs.json"
+    registry_path.write_bytes(registry_bytes)
+    preregistration = tmp_path / "h8-preregistration.md"
+    preregistration.write_bytes(b"selected runtime H8 preregistration\n")
+    scientific = copy.deepcopy(module.CONFIG["operations"]["h8"]["config"])
+    scientific["artifacts"]["run_root"] = str(tmp_path / "runs")
+    canonical = config_api.bind_h8_current_refs(scientific, refs)
+    source_identity = (
+        head,
+        dirty,
+        source_candidate_sha256(
+            git_head_value=head,
+            dirty_digest_value=dirty,
+        ),
+    )
+    prerequisite_validation = h8_gate.H8PrerequisiteArtifactValidation.create(
+        registry_sha256=refs.registry_sha256,
+        revalidated_reference_names=(),
+        obligations=("h8_test_prerequisite_unavailable",),
+    )
+    parent_calls = 0
+
+    def forbidden_parent(*_args: object, **_kwargs: object) -> object:
+        nonlocal parent_calls
+        parent_calls += 1
+        raise AssertionError("invalid H8 authorization reached the parent runner")
+
+    timestamps = iter(
+        ("2026-07-23T00:00:00.000000Z", "2026-07-23T00:00:00.000001Z")
+    )
+    monkeypatch.setattr(gates, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(gates, "H8_PREREGISTRATION_PATH", preregistration)
+    monkeypatch.setattr(
+        gates,
+        "current_source_identity",
+        lambda *_args: source_identity,
+    )
+    monkeypatch.setattr(gates, "_utc_now", lambda: next(timestamps))
+    monkeypatch.setattr(
+        gates,
+        "validate_h8_prerequisite_artifacts",
+        lambda current_refs: (
+            prerequisite_validation
+            if current_refs == refs
+            else pytest.fail("validated another current-reference object")
+        ),
+    )
+    monkeypatch.setattr(
+        gates,
+        "produce_h8_correctness_grid",
+        make_pass_correctness_cells,
+    )
+    monkeypatch.setattr(gates, "run_h8_parent_attempt", forbidden_parent)
+
+    published = gates.run_h8_verification(
+        canonical,
+        registry_path=registry_path,
+        registry_bytes=registry_bytes,
+    )
+
+    assert parent_calls == 0
+    result = published.gate_results[0]
+    assert result.status is GateStatus.INCONCLUSIVE
+    assert "h8_test_prerequisite_unavailable" in result.obligations
+    assert result.child_attempts == ()
 
 
 def test_h8_preflight_click_run_is_advisory_and_writes_nothing(

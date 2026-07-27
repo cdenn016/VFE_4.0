@@ -39,13 +39,17 @@ H8_PREDICTION_V2_SCHEMAS = {
     "metrics_schema": "h6-prediction-metrics-v2",
     "result_schema": "h6-prediction-result-v2",
 }
-H8_RUNTIME_SECTION_NAMES = (
+H8_SELECTED_RUNTIME_CALL_NAMES = (
+    "validate_h8_prerequisite_artifacts",
+    "produce_h8_correctness_grid",
+    "derive_h8_child_start_authorization",
+    "run_h8_parent_attempt",
+    "assemble_h8_gate_evaluation",
+)
+H8_SELECTED_GATE_ARGUMENT_NAMES = (
     "correctness",
-    "child_attempts",
-    "production_runs",
-    "profiler_runs",
-    "controls",
-    "runtime_sections",
+    "parent_authority",
+    "prerequisite_validation",
 )
 H7_COMPATIBILITY_FIELDS = frozenset(
     {
@@ -1482,69 +1486,102 @@ def _runtime_records(
                 detail=f"H8 gate source is not parseable UTF-8 Python: {exc}",
             ),
         )
-    found_runtime_call = False
-    complete_runtime_arguments = False
-    empty_sections = False
-    for node in ast.walk(runner_tree):
-        if not isinstance(node, ast.FunctionDef) or node.name != "run_h8_verification":
-            continue
-        for child in ast.walk(node):
-            if not isinstance(child, ast.Call):
-                continue
-            called = child.func
-            called_name = (
-                called.id
-                if isinstance(called, ast.Name)
-                else called.attr
-                if isinstance(called, ast.Attribute)
-                else None
-            )
-            if called_name != "assemble_h8_gate_evaluation":
-                continue
-            found_runtime_call = True
-            keyword_values = {
-                item.arg: item.value
-                for item in child.keywords
-                if item.arg in H8_RUNTIME_SECTION_NAMES
-            }
-            complete_runtime_arguments = set(keyword_values) == set(
-                H8_RUNTIME_SECTION_NAMES
-            )
-            empty_sections = complete_runtime_arguments and any(
-                (isinstance(value, (ast.Tuple, ast.List, ast.Set)) and not value.elts)
-                or (isinstance(value, ast.Dict) and not value.keys)
-                or (isinstance(value, ast.Constant) and value.value is None)
-                for value in keyword_values.values()
-            )
-    runtime_available = (
-        found_runtime_call and complete_runtime_arguments and not empty_sections
+    def called_name(call: ast.Call) -> str | None:
+        called = call.func
+        if isinstance(called, ast.Name):
+            return called.id
+        if isinstance(called, ast.Attribute):
+            return called.attr
+        return None
+
+    runner_function = next(
+        (
+            node
+            for node in ast.walk(runner_tree)
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "run_h8_verification"
+        ),
+        None,
     )
-    if empty_sections:
+    observed_runtime_calls: set[str] = set()
+    assembly_argument_names: set[str] = set()
+    parent_authority_assigned = False
+    invalid_start_guarded = False
+    if runner_function is not None:
+        for child in ast.walk(runner_function):
+            if isinstance(child, ast.Call):
+                name = called_name(child)
+                if name in H8_SELECTED_RUNTIME_CALL_NAMES:
+                    observed_runtime_calls.add(name)
+                if name == "assemble_h8_gate_evaluation":
+                    assembly_argument_names = {
+                        keyword.arg
+                        for keyword in child.keywords
+                        if keyword.arg is not None
+                    }
+            if (
+                isinstance(child, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name)
+                    and target.id == "parent_authority"
+                    for target in child.targets
+                )
+                and isinstance(child.value, ast.Call)
+                and called_name(child.value) == "run_h8_parent_attempt"
+            ):
+                parent_authority_assigned = True
+            if isinstance(child, ast.If):
+                test = child.test
+                if (
+                    isinstance(test, ast.UnaryOp)
+                    and isinstance(test.op, ast.Not)
+                    and isinstance(test.operand, ast.Attribute)
+                    and test.operand.attr == "valid_start"
+                ):
+                    invalid_start_guarded = True
+    missing_runtime_calls = tuple(
+        name
+        for name in H8_SELECTED_RUNTIME_CALL_NAMES
+        if name not in observed_runtime_calls
+    )
+    missing_assembly_arguments = tuple(
+        name
+        for name in H8_SELECTED_GATE_ARGUMENT_NAMES
+        if name not in assembly_argument_names
+    )
+    runtime_available = (
+        runner_function is not None
+        and not missing_runtime_calls
+        and not missing_assembly_arguments
+        and parent_authority_assigned
+        and invalid_start_guarded
+    )
+    if runner_function is None:
+        runtime_detail = "run_h8_verification is absent"
+    elif missing_runtime_calls:
         runtime_detail = (
-            "run_h8_verification supplies an empty H8 runtime evidence section"
+            "selected H8 runtime chain is incomplete: "
+            + ", ".join(missing_runtime_calls)
         )
-    elif not found_runtime_call:
+    elif missing_assembly_arguments:
         runtime_detail = (
-            "run_h8_verification has no visible H8 evaluation assembly call"
+            "selected H8 gate assembly lacks authority-bound inputs: "
+            + ", ".join(missing_assembly_arguments)
         )
-    elif not complete_runtime_arguments:
-        runtime_detail = (
-            "H8 evaluation assembly does not bind all six runtime evidence "
-            "sections"
-        )
+    elif not parent_authority_assigned:
+        runtime_detail = "public parent authority result is not retained"
+    elif not invalid_start_guarded:
+        runtime_detail = "invalid child-start authorization is not guarded"
     else:
         runtime_detail = (
-            "all six H8 runtime evidence inputs are visibly supplied; "
-            "behavior unvalidated"
+            "selected prerequisite, correctness, authorization, parent, and "
+            "gate chain is visible; behavior unvalidated"
         )
     runtime_record = _record(
         "h8_runtime_orchestrator",
         "present_unvalidated" if runtime_available else "blocked",
         path=runner_path,
         detail=runtime_detail,
-    )
-    cross_binding_marker = (
-        "h8_parent_orchestrator_not_implemented" in gate_source
     )
     cross_binding_structure = False
     for node in ast.walk(gate_tree):
@@ -1556,53 +1593,58 @@ def _runtime_records(
         argument_names = tuple(item.arg for item in node.args.args) + tuple(
             item.arg for item in node.args.kwonlyargs
         )
-        runtime_mentions = sum(
-            isinstance(child, ast.Name) and child.id == "runtime_sections"
+        calls = tuple(
+            child
+            for child in ast.walk(node)
+            if isinstance(child, ast.Call)
+        )
+        authority_required = any(
+            called_name(call) == "require_h8_parent_attempt_authority"
+            for call in calls
+        )
+        authority_attempts_projected = any(
+            isinstance(child, ast.Attribute)
+            and isinstance(child.value, ast.Name)
+            and child.value.id == "authority"
+            and child.attr == "attempts"
             for child in ast.walk(node)
         )
-        attempt_mentions = sum(
-            isinstance(child, ast.Name) and child.id == "child_attempts"
-            for child in ast.walk(node)
-        )
-        dynamic_inventory_binding = any(
-            isinstance(child, ast.Call)
-            and (
-                (
-                    isinstance(child.func, ast.Name)
-                    and child.func.id == "classify_h8_status"
-                )
-                or (
-                    isinstance(child.func, ast.Attribute)
-                    and child.func.attr == "classify_h8_status"
-                )
-            )
+        authorized_inventory_assembly = any(
+            called_name(call)
+            == "_assemble_h8_gate_evaluation_from_inventories"
             and any(
-                keyword.arg == "exact_inventory_complete"
-                and not isinstance(keyword.value, ast.Constant)
-                for keyword in child.keywords
+                keyword.arg == "runtime_authorized"
+                and isinstance(keyword.value, ast.Constant)
+                and keyword.value.value is True
+                for keyword in call.keywords
             )
-            for child in ast.walk(node)
+            for call in calls
         )
         cross_binding_structure = (
-            "child_attempts" in argument_names
-            and "runtime_sections" in argument_names
-            and attempt_mentions >= 2
-            and runtime_mentions >= 2
-            and dynamic_inventory_binding
+            set(H8_SELECTED_GATE_ARGUMENT_NAMES).issubset(argument_names)
+            and authority_required
+            and authority_attempts_projected
+            and authorized_inventory_assembly
         )
-    cross_binding_available = not cross_binding_marker and cross_binding_structure
-    if cross_binding_marker:
+    gate_owns_v4_derivation = any(
+        isinstance(node, ast.Call)
+        and called_name(node) == "build_h8_v4_runtime_sections"
+        for node in ast.walk(gate_tree)
+    )
+    cross_binding_available = (
+        cross_binding_structure and gate_owns_v4_derivation
+    )
+    if not cross_binding_structure:
         cross_binding_detail = (
-            "explicit parent-orchestrator blocker remains in source"
+            "factory authority projection or authorized inventory assembly "
+            "is absent"
         )
-    elif not cross_binding_structure:
-        cross_binding_detail = (
-            "positive runtime-section and dynamic-inventory cross-binding "
-            "structure is absent"
-        )
+    elif not gate_owns_v4_derivation:
+        cross_binding_detail = "gate-owned v4 runtime derivation is absent"
     else:
         cross_binding_detail = (
-            "positive cross-binding structure is visible; behavior unvalidated"
+            "authority projection and gate-owned v4 derivation are visible; "
+            "behavior unvalidated"
         )
     cross_binding_record = _record(
         "h8_complete_runtime_cross_binding",
