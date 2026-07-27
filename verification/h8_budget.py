@@ -464,6 +464,7 @@ def _validate_identity_payload(
         if keys != {
             "kind",
             "platform",
+            "release",
             "system",
             "machine",
             "processor",
@@ -474,10 +475,18 @@ def _validate_identity_payload(
             raise ValueError("hardware identity does not use its exact schema")
         if any(
             type(record[name]) is not str
-            for name in ("platform", "system", "machine", "processor", "python", "implementation")
+            for name in (
+                "platform",
+                "release",
+                "system",
+                "machine",
+                "processor",
+                "python",
+                "implementation",
+            )
         ) or any(
             not record[name]
-            for name in ("platform", "system", "python", "implementation")
+            for name in ("platform", "release", "system", "python", "implementation")
         ):
             raise ValueError("hardware identity text is unavailable")
         if type(record["cpu_count"]) is not int or record["cpu_count"] <= 0:

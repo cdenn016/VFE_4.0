@@ -407,7 +407,7 @@ def _validate_child_local_contract() -> None:
 def _runtime_protocol_sha256(config: object) -> str:
     """Recompute the v2 protocol after runtime imports and reject local drift."""
 
-    from verification.h8_orchestrator import build_h8_protocol_sha256
+    from verification.h8_protocol import build_h8_protocol_sha256
     from vfe4.config.schema import H8ValidationConfig
 
     if type(config) is not H8ValidationConfig:
@@ -562,6 +562,7 @@ def _validate_identity_payload(
         if keys != {
             "kind",
             "platform",
+            "release",
             "system",
             "machine",
             "processor",
@@ -575,6 +576,7 @@ def _validate_identity_payload(
                 type(record[name]) is not str
                 for name in (
                     "platform",
+                    "release",
                     "system",
                     "machine",
                     "processor",
@@ -584,7 +586,7 @@ def _validate_identity_payload(
             )
             or any(
                 not record[name]
-                for name in ("platform", "system", "python", "implementation")
+                for name in ("platform", "release", "system", "python", "implementation")
             )
             or type(record["cpu_count"]) is not int
             or record["cpu_count"] <= 0
@@ -769,6 +771,7 @@ def _fallback_identities(message: str) -> dict[str, dict[str, object]]:
 def _hardware_payload() -> dict[str, object]:
     payload = {
         "platform": platform.platform(),
+        "release": platform.release(),
         "system": platform.system(),
         "machine": platform.machine(),
         "processor": platform.processor(),
