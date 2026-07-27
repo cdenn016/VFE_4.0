@@ -362,7 +362,8 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
     runtime_root = tmp_path / "verification"
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(
-        "def run_h8_verification():\n"
+        _synthetic_runner_imports()
+        + "def run_h8_verification():\n"
         "    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)\n"
         "    correctness = produce_h8_correctness_grid()\n"
         "    authorization = derive_h8_child_start_authorization(\n"
@@ -380,7 +381,8 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
         encoding="utf-8",
     )
     (runtime_root / "h8_gate.py").write_text(
-        "def assemble_h8_gate_evaluation(\n"
+        _synthetic_gate_bindings()
+        + "def assemble_h8_gate_evaluation(\n"
         "    *, correctness, parent_authority, prerequisite_validation\n"
         "):\n"
         + _synthetic_authority_gate_body(),
@@ -433,6 +435,46 @@ def _synthetic_runtime_states(
     )
     runner, gate = _runtime_records(tmp_path)
     return runner.state, gate.state
+
+
+def _synthetic_runner_imports() -> str:
+    return (
+        "from verification.h8_correctness import "
+        "produce_h8_correctness_grid\n"
+        "from verification.h8_gate import (\n"
+        "    assemble_h8_gate_evaluation,\n"
+        "    assemble_h8_source_only_evaluation,\n"
+        "    validate_h8_prerequisite_artifacts,\n"
+        ")\n"
+        "from verification.h8_orchestrator import (\n"
+        "    derive_h8_child_start_authorization,\n"
+        "    run_h8_parent_attempt,\n"
+        ")\n"
+    )
+
+
+def _synthetic_gate_imports() -> str:
+    return (
+        "from verification.h8_parent_authority import "
+        "require_h8_parent_attempt_authority\n"
+        "from verification.h8_runtime import "
+        "build_h8_v4_runtime_sections\n"
+        "from vfe4.types.results import _issue_h8_gate_pass_result\n"
+    )
+
+
+def _synthetic_finalizer_binding() -> str:
+    return (
+        "def _finalize_h8_gate_evaluation(\n"
+        "    *, result, retained_runtime_sections\n"
+        "):\n"
+        "    return result\n"
+        "\n"
+    )
+
+
+def _synthetic_gate_bindings() -> str:
+    return _synthetic_gate_imports() + _synthetic_finalizer_binding()
 
 
 def _synthetic_selected_runner_body(indent: str = "    ") -> str:
@@ -564,8 +606,10 @@ def test_runtime_scan_rejects_aliased_and_dynamic_invalid_start_launches(
         "):\n"
         + _synthetic_authority_gate_body()
     )
+    runner_imports = _synthetic_runner_imports()
     prefix = (
-        "def run_h8_verification():\n"
+        runner_imports
+        + "def run_h8_verification():\n"
         "    prerequisite_validation = "
         "validate_h8_prerequisite_artifacts(refs)\n"
         "    correctness = produce_h8_correctness_grid()\n"
@@ -629,6 +673,67 @@ def test_runtime_scan_rejects_aliased_and_dynamic_invalid_start_launches(
 
         assert runner_state == "blocked"
 
+    spoofed_import_runner = (
+        runner_imports
+        + "from decoy import launch as run_h8_parent_attempt\n"
+        + prefix.removeprefix(runner_imports)
+        + "    if not authorization.valid_start:\n"
+        "        return assemble_h8_source_only_evaluation(\n"
+        "            correctness=correctness,\n"
+        "        )\n"
+        + valid_branch
+    )
+    runner_state, _gate_state = _synthetic_runtime_states(
+        tmp_path / "spoofed-import",
+        runner_source=spoofed_import_runner,
+        gate_source=gate_source,
+    )
+    assert runner_state == "blocked"
+
+    conditional_import_runner = (
+        "if False:\n"
+        "    from verification.h8_correctness import "
+        "produce_h8_correctness_grid\n"
+        "    from verification.h8_gate import (\n"
+        "        assemble_h8_gate_evaluation,\n"
+        "        assemble_h8_source_only_evaluation,\n"
+        "        validate_h8_prerequisite_artifacts,\n"
+        "    )\n"
+        "    from verification.h8_orchestrator import (\n"
+        "        derive_h8_child_start_authorization,\n"
+        "        run_h8_parent_attempt,\n"
+        "    )\n"
+        + prefix.removeprefix(runner_imports)
+        + "    if not authorization.valid_start:\n"
+        "        return assemble_h8_source_only_evaluation(\n"
+        "            correctness=correctness,\n"
+        "        )\n"
+        + valid_branch
+    )
+    runner_state, _gate_state = _synthetic_runtime_states(
+        tmp_path / "conditional-import",
+        runner_source=conditional_import_runner,
+        gate_source=gate_source,
+    )
+    assert runner_state == "blocked"
+
+    wildcard_import_runner = (
+        runner_imports
+        + "from decoy import *\n"
+        + prefix.removeprefix(runner_imports)
+        + "    if not authorization.valid_start:\n"
+        "        return assemble_h8_source_only_evaluation(\n"
+        "            correctness=correctness,\n"
+        "        )\n"
+        + valid_branch
+    )
+    runner_state, _gate_state = _synthetic_runtime_states(
+        tmp_path / "wildcard-import",
+        runner_source=wildcard_import_runner,
+        gate_source=gate_source,
+    )
+    assert runner_state == "blocked"
+
 
 def test_runtime_cross_binding_scan_rejects_module_and_dead_branch_decoys(
     tmp_path: Path,
@@ -690,7 +795,10 @@ def test_runtime_cross_binding_requires_direct_dominating_pass_chain(
         "def run_h8_verification():\n"
         + _synthetic_selected_runner_body()
     )
-    gate_prefix = (
+    gate_imports = _synthetic_gate_bindings()
+    direct_imports = _synthetic_gate_imports()
+    direct_finalizer = _synthetic_finalizer_binding()
+    gate_function_prefix = (
         "def assemble_h8_gate_evaluation(\n"
         "    *, correctness, parent_authority, prerequisite_validation\n"
         "):\n"
@@ -705,6 +813,7 @@ def test_runtime_cross_binding_requires_direct_dominating_pass_chain(
         "    retained_runtime_sections = None\n"
         "    if status is GateStatus.PASS:\n"
     )
+    gate_prefix = gate_imports + gate_function_prefix
     build_call = (
         "retained_runtime_sections = build_h8_v4_runtime_sections(\n"
         "    correctness=correctness,\n"
@@ -794,6 +903,50 @@ def test_runtime_cross_binding_requires_direct_dominating_pass_chain(
             + indented(build_call + revalidation_call + issuer_call, 8)
             + gate_suffix
         ),
+        (
+            gate_imports
+            + "from decoy import build as build_h8_v4_runtime_sections\n"
+            + gate_function_prefix
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
+        (
+            gate_prefix
+            + "        if shortcut:\n"
+            "            return None\n"
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
+        (
+            "if False:\n"
+            + indented(direct_imports, 4)
+            + direct_finalizer
+            + gate_function_prefix
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
+        (
+            gate_imports
+            + "from decoy import *\n"
+            + gate_function_prefix
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
+        (
+            gate_imports
+            + "_finalize_h8_gate_evaluation = decoy.finalize\n"
+            + gate_function_prefix
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
+        (
+            gate_imports
+            + "if condition:\n"
+            + indented(direct_finalizer, 4)
+            + gate_function_prefix
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
     )
 
     for case_index, gate_source in enumerate(cases):
@@ -860,7 +1013,8 @@ def test_runtime_cross_binding_scan_requires_parent_attempt_input(
     runtime_root = tmp_path / "verification"
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(
-        "def run_h8_verification():\n"
+        _synthetic_runner_imports()
+        + "def run_h8_verification():\n"
         "    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)\n"
         "    correctness = produce_h8_correctness_grid()\n"
         "    authorization = derive_h8_child_start_authorization(\n"
@@ -911,7 +1065,8 @@ def test_runtime_cross_binding_scan_honors_parent_orchestrator_blocker(
     runtime_root = tmp_path / "verification"
     runtime_root.mkdir()
     (runtime_root / "run_gates.py").write_text(
-        "def run_h8_verification():\n"
+        _synthetic_runner_imports()
+        + "def run_h8_verification():\n"
         "    prerequisite_validation = validate_h8_prerequisite_artifacts(refs)\n"
         "    correctness = produce_h8_correctness_grid()\n"
         "    authorization = derive_h8_child_start_authorization(\n"

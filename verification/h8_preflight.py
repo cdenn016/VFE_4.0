@@ -1509,45 +1509,61 @@ def _runtime_records(
         def __init__(self, *, include_imports: bool) -> None:
             self.include_imports = include_imports
             self.names: set[str] = set()
+            self.counts: dict[str, int] = {}
+
+        def _record(self, name: str) -> None:
+            self.names.add(name)
+            self.counts[name] = self.counts.get(name, 0) + 1
 
         def visit_Name(self, node: ast.Name) -> None:
-            if isinstance(node.ctx, ast.Store):
-                self.names.add(node.id)
+            if isinstance(node.ctx, (ast.Store, ast.Del)):
+                self._record(node.id)
 
         def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            self.names.add(node.name)
+            self._record(node.name)
 
         def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            self.names.add(node.name)
+            self._record(node.name)
 
         def visit_ClassDef(self, node: ast.ClassDef) -> None:
-            self.names.add(node.name)
+            self._record(node.name)
 
         def visit_Lambda(self, node: ast.Lambda) -> None:
             return
 
         def visit_Import(self, node: ast.Import) -> None:
             if self.include_imports:
-                self.names.update(
-                    item.asname or item.name.split(".", maxsplit=1)[0]
-                    for item in node.names
-                )
+                for item in node.names:
+                    self._record(
+                        item.asname or item.name.split(".", maxsplit=1)[0]
+                    )
 
         def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
             if self.include_imports:
-                self.names.update(item.asname or item.name for item in node.names)
+                for item in node.names:
+                    self._record(item.asname or item.name)
 
     def lexical_rebindings(
         statements: list[ast.stmt],
         protected_names: frozenset[str],
         *,
         include_imports: bool,
-        allowed_definitions: frozenset[str] = frozenset(),
     ) -> frozenset[str]:
         visitor = ScopeBindingVisitor(include_imports=include_imports)
         for statement in statements:
             visitor.visit(statement)
-        return frozenset(visitor.names & protected_names) - allowed_definitions
+        return frozenset(visitor.names & protected_names)
+
+    def lexical_binding_count(
+        statements: list[ast.stmt],
+        name: str,
+        *,
+        include_imports: bool,
+    ) -> int:
+        visitor = ScopeBindingVisitor(include_imports=include_imports)
+        for statement in statements:
+            visitor.visit(statement)
+        return visitor.counts.get(name, 0)
 
     def function_rebindings(
         function: ast.FunctionDef,
@@ -1570,6 +1586,98 @@ def _runtime_records(
             protected_names,
             include_imports=True,
         ) | frozenset(parameters & protected_names)
+
+    class ModuleImportBindingVisitor(ast.NodeVisitor):
+        """Collect import bindings in one module without entering nested scopes."""
+
+        def __init__(self, protected_names: frozenset[str]) -> None:
+            self.protected_names = protected_names
+            self.bindings: dict[str, list[tuple[str, str, str]]] = {}
+            self.unsafe = False
+
+        def _record(
+            self,
+            local_name: str,
+            binding: tuple[str, str, str],
+        ) -> None:
+            if local_name in self.protected_names:
+                self.bindings.setdefault(local_name, []).append(binding)
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            return
+
+        def visit_AsyncFunctionDef(
+            self,
+            node: ast.AsyncFunctionDef,
+        ) -> None:
+            return
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            return
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            return
+
+        def _record_direct_import(self, node: ast.Import) -> None:
+            for item in node.names:
+                local_name = item.asname or item.name.split(".", maxsplit=1)[0]
+                self._record(
+                    local_name,
+                    ("import", item.name, item.asname or ""),
+                )
+
+        def _record_direct_import_from(self, node: ast.ImportFrom) -> None:
+            module_name = "." * node.level + (node.module or "")
+            for item in node.names:
+                if item.name == "*":
+                    self.unsafe = True
+                    continue
+                self._record(
+                    item.asname or item.name,
+                    ("from", module_name, item.name),
+                )
+
+        def visit_Import(self, node: ast.Import) -> None:
+            if any(
+                (item.asname or item.name.split(".", maxsplit=1)[0])
+                in self.protected_names
+                for item in node.names
+            ):
+                self.unsafe = True
+
+        def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+            if any(
+                item.name == "*"
+                or (item.asname or item.name) in self.protected_names
+                for item in node.names
+            ):
+                self.unsafe = True
+
+        def collect(self, tree: ast.Module) -> None:
+            for statement in tree.body:
+                if isinstance(statement, ast.Import):
+                    self._record_direct_import(statement)
+                elif isinstance(statement, ast.ImportFrom):
+                    self._record_direct_import_from(statement)
+                else:
+                    self.visit(statement)
+
+    def exact_module_import_bindings(
+        tree: ast.Module,
+        protected_names: frozenset[str],
+        expected: Mapping[str, tuple[str, str]],
+    ) -> bool:
+        visitor = ModuleImportBindingVisitor(protected_names)
+        visitor.collect(tree)
+        return not visitor.unsafe and all(
+            tuple(visitor.bindings.get(name, ()))
+            == (
+                (("from", *expected[name]),)
+                if name in expected
+                else ()
+            )
+            for name in protected_names
+        )
 
     def direct_call(statement: ast.stmt) -> ast.Call | None:
         value: ast.expr | None
@@ -1678,6 +1786,34 @@ def _runtime_records(
     def dominating_calls(statements: list[ast.stmt]) -> tuple[ast.Call, ...]:
         """Collect exact calls evaluated before every path reaching the next statement."""
 
+        class DirectScopeReturnVisitor(ast.NodeVisitor):
+            def __init__(self) -> None:
+                self.found = False
+
+            def visit_Return(self, node: ast.Return) -> None:
+                self.found = True
+
+            def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+                return
+
+            def visit_AsyncFunctionDef(
+                self,
+                node: ast.AsyncFunctionDef,
+            ) -> None:
+                return
+
+            def visit_ClassDef(self, node: ast.ClassDef) -> None:
+                return
+
+            def visit_Lambda(self, node: ast.Lambda) -> None:
+                return
+
+        return_visitor = DirectScopeReturnVisitor()
+        for statement in statements:
+            return_visitor.visit(statement)
+        if return_visitor.found:
+            return ()
+
         calls: list[ast.Call] = []
         for statement in statements:
             if (call := direct_call(statement)) is not None:
@@ -1744,13 +1880,47 @@ def _runtime_records(
         runner_protected_names = frozenset(
             (*H8_SELECTED_RUNTIME_CALL_NAMES, "assemble_h8_source_only_evaluation")
         )
-        runner_bindings_clean = not function_rebindings(
-            runner_function,
-            runner_protected_names,
-        ) and not lexical_rebindings(
-            runner_tree.body,
-            runner_protected_names,
-            include_imports=False,
+        runner_import_bindings = {
+            "produce_h8_correctness_grid": (
+                "verification.h8_correctness",
+                "produce_h8_correctness_grid",
+            ),
+            "assemble_h8_gate_evaluation": (
+                "verification.h8_gate",
+                "assemble_h8_gate_evaluation",
+            ),
+            "assemble_h8_source_only_evaluation": (
+                "verification.h8_gate",
+                "assemble_h8_source_only_evaluation",
+            ),
+            "validate_h8_prerequisite_artifacts": (
+                "verification.h8_gate",
+                "validate_h8_prerequisite_artifacts",
+            ),
+            "derive_h8_child_start_authorization": (
+                "verification.h8_orchestrator",
+                "derive_h8_child_start_authorization",
+            ),
+            "run_h8_parent_attempt": (
+                "verification.h8_orchestrator",
+                "run_h8_parent_attempt",
+            ),
+        }
+        runner_bindings_clean = (
+            exact_module_import_bindings(
+                runner_tree,
+                runner_protected_names,
+                runner_import_bindings,
+            )
+            and not function_rebindings(
+                runner_function,
+                runner_protected_names,
+            )
+            and not lexical_rebindings(
+                runner_tree.body,
+                runner_protected_names,
+                include_imports=False,
+            )
         )
         prerequisite_index = direct_assignment_index(
             runner_body,
@@ -1913,19 +2083,47 @@ def _runtime_records(
                 "_finalize_h8_gate_evaluation",
             }
         )
-        gate_bindings_clean = not function_rebindings(
-            gate_function,
-            gate_protected_names,
-        ) and not lexical_rebindings(
-            gate_tree.body,
-            gate_protected_names,
-            include_imports=False,
-            allowed_definitions=frozenset(
-                {
-                    "build_h8_v4_runtime_sections",
-                    "_finalize_h8_gate_evaluation",
-                }
+        gate_import_bindings = {
+            "build_h8_v4_runtime_sections": (
+                "verification.h8_runtime",
+                "build_h8_v4_runtime_sections",
             ),
+            "require_h8_parent_attempt_authority": (
+                "verification.h8_parent_authority",
+                "require_h8_parent_attempt_authority",
+            ),
+            "_issue_h8_gate_pass_result": (
+                "vfe4.types.results",
+                "_issue_h8_gate_pass_result",
+            ),
+        }
+        gate_imported_names = frozenset(gate_import_bindings)
+        gate_bindings_clean = (
+            exact_module_import_bindings(
+                gate_tree,
+                gate_protected_names,
+                gate_import_bindings,
+            )
+            and top_level_function(
+                gate_tree,
+                "_finalize_h8_gate_evaluation",
+            )
+            is not None
+            and lexical_binding_count(
+                gate_tree.body,
+                "_finalize_h8_gate_evaluation",
+                include_imports=False,
+            )
+            == 1
+            and not function_rebindings(
+                gate_function,
+                gate_protected_names,
+            )
+            and not lexical_rebindings(
+                gate_tree.body,
+                gate_imported_names,
+                include_imports=False,
+            )
         )
         argument_names = {
             item.arg
