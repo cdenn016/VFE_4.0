@@ -225,33 +225,6 @@ class H8PrerequisiteArtifactValidation:
 
 
 _HEX = frozenset("0123456789abcdef")
-_RUNTIME_SECTION_KEYS = (
-    "revision",
-    "config",
-    "interpretation",
-    "protocol",
-    "environment",
-    "problems",
-    "storage",
-    "factor",
-    "allocation",
-    "budgets",
-    "invariants",
-    "artifacts",
-)
-
-_PROBLEM_KEYS = (
-    "problem_seed",
-    "sample_noise_seed",
-    "input_sha256",
-    "sample_noise_sha256",
-    "generative_sha256",
-    "recognition_sha256",
-    "local_spd_diagnostics",
-    "transition_norms",
-    "observation_sha256",
-)
-
 _NESTED_KEYS: Mapping[str, tuple[str, ...]] = {
     "revision": (
         "git_head",
@@ -765,38 +738,6 @@ def _source_only_sections(
     }
 
 
-def _validate_runtime_sections(value: Mapping[str, object]) -> dict[str, object]:
-    if not isinstance(value, Mapping) or tuple(value) != _SUPPLIED_RUNTIME_SECTION_KEYS:
-        raise ValueError("runtime sections must retain the exact H8 section order")
-    copied: dict[str, object] = {}
-    for name in _SUPPLIED_RUNTIME_SECTION_KEYS:
-        section = value[name]
-        if name == "problems":
-            if type(section) not in (tuple, list):
-                raise ValueError("problems must be an ordered array")
-            ordered_problems: list[dict[str, object]] = []
-            for problem in section:
-                if not isinstance(problem, Mapping) or tuple(problem) != _PROBLEM_KEYS:
-                    raise ValueError(
-                        "every problem must retain the exact H8 problem schema"
-                    )
-                ordered_problems.append(
-                    {
-                        key: _json_value(problem[key])
-                        for key in _PROBLEM_KEYS
-                    }
-                )
-            copied[name] = tuple(ordered_problems)
-        else:
-            if not isinstance(section, Mapping) or tuple(section) != _NESTED_KEYS[name]:
-                raise ValueError(f"{name} must retain its exact nested key inventory")
-            copied[name] = {
-                key: _json_value(section[key])
-                for key in _NESTED_KEYS[name]
-            }
-    return copied
-
-
 def _validate_section_bindings(
     sections: Mapping[str, object],
     *,
@@ -821,9 +762,26 @@ def _validate_section_bindings(
         or revision["h7_plan_sha256"] != H8_H7_PLAN_SHA256
     ):
         raise ValueError("H8 revision section is not bound to current inputs")
+    validation_config = H8ValidationConfig.create()
+    source_only_config = config["objective_schema_sha256"] is None
     if (
-        config["config_sha256"] != result.config_sha256
-        or config["canonical_json_sha256"] != result.config_sha256
+        (
+            source_only_config
+            and (
+                config["config_sha256"] != result.config_sha256
+                or config["canonical_json_sha256"] != result.config_sha256
+            )
+        )
+        or (
+            not source_only_config
+            and (
+                config["config_sha256"] != validation_config.config_sha256
+                or config["canonical_json_sha256"]
+                != hashlib.sha256(
+                    validation_config.canonical_json.encode("utf-8")
+                ).hexdigest()
+            )
+        )
         or config["selected_operation"] != "H8"
         or tuple(cast(object, config["ordered_gates"])) != H8_VERIFIER_PREFIX
         or config["current_refs_registry_sha256"] != refs.registry_sha256
@@ -1765,12 +1723,48 @@ def _evaluation_sha256(
     return hashlib.sha256(preimage).hexdigest()
 
 
+def _owned_runtime_sections_from_context(
+    *,
+    result: H8GateResult,
+    current_refs: CurrentH8PrerequisiteRefs,
+    prerequisite_obligations: tuple[str, ...],
+    dependency_closure_sha256: str,
+    preregistration_sha256: str,
+) -> Mapping[str, object] | None:
+    """Derive runtime sections only after the complete typed inventory exists."""
+
+    if not _inventory_complete(
+        result.correctness,
+        result.child_attempts,
+        result.production_runs,
+        result.profiler_runs,
+        result.controls,
+    ):
+        return None
+    return build_h8_v4_runtime_sections(
+        config=H8ValidationConfig.create(),
+        candidate_head=current_refs.candidate_head,
+        candidate_dirty_digest=current_refs.candidate_dirty_digest,
+        candidate_junit_sha256=current_refs.candidate_junit_sha256,
+        current_refs_registry_sha256=current_refs.registry_sha256,
+        dependency_closure_sha256=dependency_closure_sha256,
+        preregistration_sha256=preregistration_sha256,
+        prerequisites_current_and_pass=not prerequisite_obligations,
+        correctness=result.correctness,
+        child_attempts=result.child_attempts,
+        production_runs=result.production_runs,
+        profiler_runs=result.profiler_runs,
+        controls=result.controls,
+        result_status=result.status,
+        result_obligations=result.obligations,
+    )
+
+
 def _validation_payload_from_context(
     *,
     result: H8GateResult,
     current_refs: CurrentH8PrerequisiteRefs,
     prerequisite_obligations: tuple[str, ...],
-    runtime_sections: Mapping[str, object] | None,
     dependency_closure_sha256: str,
     preregistration_sha256: str,
 ) -> dict[str, object]:
@@ -1823,6 +1817,13 @@ def _validation_payload_from_context(
         )
 
     prerequisites_current_and_pass = not prerequisite_obligations
+    runtime_sections = _owned_runtime_sections_from_context(
+        result=result,
+        current_refs=current_refs,
+        prerequisite_obligations=prerequisite_obligations,
+        dependency_closure_sha256=dependency_closure_sha256,
+        preregistration_sha256=preregistration_sha256,
+    )
     if runtime_sections is None:
         if (
             result.status is not GateStatus.FAIL
@@ -1839,7 +1840,7 @@ def _validation_payload_from_context(
             prerequisites_current_and_pass=prerequisites_current_and_pass,
         )
     else:
-        sections = _validate_runtime_sections(runtime_sections)
+        sections = runtime_sections
     _validate_section_bindings(
         sections,
         result=result,
@@ -1928,7 +1929,6 @@ def assemble_h8_gate_evaluation(
     preregistration_sha256: str,
     additional_obligations: tuple[str, ...] = (),
     prerequisite_validation: H8PrerequisiteArtifactValidation | None = None,
-    runtime_sections: Mapping[str, object] | None = None,
 ) -> H8GateEvaluation:
     """Freeze typed evidence; never launch, retry, or synthesize a child run."""
 
@@ -2001,8 +2001,7 @@ def assemble_h8_gate_evaluation(
             obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[2])
         if tuple(item.control_id for item in controls) != H8_NEGATIVE_CONTROL_IDS:
             obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[3])
-    if runtime_sections is None:
-        obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[4])
+    obligations.append(H8_SOURCE_ONLY_OBLIGATIONS[4])
     # The v3 attempt schema retains parent evidence, but this source slice does
     # not yet own the runtime orchestrator/protocol/environment revalidation
     # required to authorize PASS. Witnessed FAIL still dominates this blocker.
@@ -2038,16 +2037,17 @@ def assemble_h8_gate_evaluation(
         controls=controls,
         obligations=final_obligations,
     )
-    retained_runtime_sections = (
-        None
-        if runtime_sections is None
-        else _validate_runtime_sections(runtime_sections)
+    retained_runtime_sections = _owned_runtime_sections_from_context(
+        result=result,
+        current_refs=current_refs,
+        prerequisite_obligations=bound_prerequisite_obligations,
+        dependency_closure_sha256=dependency_closure_sha256,
+        preregistration_sha256=preregistration_sha256,
     )
     payload = _validation_payload_from_context(
         result=result,
         current_refs=current_refs,
         prerequisite_obligations=bound_prerequisite_obligations,
-        runtime_sections=retained_runtime_sections,
         dependency_closure_sha256=dependency_closure_sha256,
         preregistration_sha256=preregistration_sha256,
     )
@@ -2104,13 +2104,21 @@ def h8_validation_payload(evaluation: H8GateEvaluation) -> dict[str, object]:
             result=result,
             current_refs=evaluation.current_refs,
             prerequisite_obligations=evaluation.prerequisite_obligations,
-            runtime_sections=evaluation.runtime_sections,
             dependency_closure_sha256=evaluation.dependency_closure_sha256,
             preregistration_sha256=evaluation.preregistration_sha256,
         )
     )
     if not isinstance(expected_payload, dict):
         raise RuntimeError("internal H8 context reconstruction is not a mapping")
+    expected_runtime_sections = _owned_runtime_sections_from_context(
+        result=result,
+        current_refs=evaluation.current_refs,
+        prerequisite_obligations=evaluation.prerequisite_obligations,
+        dependency_closure_sha256=evaluation.dependency_closure_sha256,
+        preregistration_sha256=evaluation.preregistration_sha256,
+    )
+    if evaluation.runtime_sections != expected_runtime_sections:
+        raise ValueError("H8 runtime sections are not gate-owned reconstruction")
     expected_inventories = {
         name: expected_payload[name]
         for name in (

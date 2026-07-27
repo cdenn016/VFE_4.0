@@ -862,7 +862,10 @@ class H8AllocationPolicy:
                 input_shapes=input_shapes,
                 outputs=(
                     *local_outputs("local"),
-                    *rhs_outputs(),
+                    *(
+                        _CompositeOutputSpec(shape, "rhs")
+                        for shape in sorted(rhs_shapes - {(n, b, b)})
+                    ),
                     _CompositeOutputSpec(
                         (n, b, b),
                         "transient.sparse.diagonal",
@@ -889,7 +892,7 @@ class H8AllocationPolicy:
                     _CompositeOutputSpec((n, b), "rhs"),
                     *(
                         _CompositeOutputSpec(shape, "rhs")
-                        for shape in sorted(rhs_shapes - {(n, b)})
+                        for shape in sorted(rhs_shapes - {(n, b), (n, b, b)})
                     ),
                     _CompositeOutputSpec(
                         (n, b, b),
@@ -937,7 +940,14 @@ class H8AllocationPolicy:
                 input_shapes=input_shapes,
                 outputs=(
                     *local_outputs("local"),
-                    *rhs_outputs(),
+                    *(
+                        _CompositeOutputSpec(shape, "rhs")
+                        for shape in sorted(
+                            rhs_shapes
+                            - {(n, b, b)}
+                            - objective_population_shapes
+                        )
+                    ),
                     _CompositeOutputSpec(
                         (n, b, b),
                         "objective.diagonal",
