@@ -1469,6 +1469,7 @@ def _child_envelope(**updates: object) -> dict[str, object]:
                     "hardware",
                     {
                         "platform": "test",
+                        "release": "test-release",
                         "system": "test",
                         "machine": "test",
                         "processor": "test",

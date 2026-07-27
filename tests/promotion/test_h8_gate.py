@@ -217,6 +217,7 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result(
                 "hardware",
                 {
                     "platform": "test",
+                    "release": "test-release",
                     "system": "test",
                     "machine": "test",
                     "processor": "test",
