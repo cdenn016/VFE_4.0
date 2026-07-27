@@ -520,52 +520,6 @@ class H8ParentAttemptRun:
             raise ValueError("parent run continued after the first witnessed FAIL")
 
 
-def _request_plan_sha256(request_plan: tuple[H8ChildRequest, ...]) -> str:
-    return hashlib.sha256(
-        canonical_json_bytes(
-            {
-                "domain": "vfe4.h8.parent-request-plan.v1",
-                "requests": tuple(
-                    {
-                        name: getattr(request, name)
-                        for name in H8_CHILD_REQUEST_KEYS
-                    }
-                    for request in request_plan
-                ),
-            }
-        )
-    ).hexdigest()
-
-
-def _issued_prefix_sha256(
-    issued: tuple[H8IssuedLaunchRecord, ...],
-) -> str:
-    return hashlib.sha256(
-        canonical_json_bytes(
-            {
-                "domain": "vfe4.h8.parent-issued-prefix.v1",
-                "issued": tuple(
-                    {
-                        "launch_contract_sha256": item.launch_contract_sha256,
-                        "timed_out": item.process_record.timed_out,
-                        "exit_code": item.process_record.exit_code,
-                        "parent_elapsed_ns": (
-                            item.process_record.parent_elapsed_ns
-                        ),
-                        "status": item.attempt.status.value,
-                        "reasons": item.attempt.reasons,
-                        "request_sha256": item.attempt.request_sha256,
-                        "identities_sha256": item.attempt.identities_sha256,
-                        "stdout_sha256": item.attempt.stdout_sha256,
-                        "stderr_sha256": item.attempt.stderr_sha256,
-                    }
-                    for item in issued
-                ),
-            }
-        )
-    ).hexdigest()
-
-
 def _mint_h8_parent_attempt_authority(
     parent_run: H8ParentAttemptRun,
 ) -> H8ParentAttemptAuthority:
@@ -578,14 +532,10 @@ def _mint_h8_parent_attempt_authority(
         raise ValueError("an unauthorized parent run cannot mint authority")
     return _issue_h8_parent_attempt_authority(
         source_run=parent_run,
+        source_authorization=parent_run.authorization,
         request_plan=parent_run.request_plan,
         issued_prefix=parent_run.issued,
         attempts=parent_run.attempts,
-        child_config_sha256=parent_run.authorization.config_sha256,
-        protocol_sha256=parent_run.authorization.protocol_sha256,
-        authorization_sha256=parent_run.authorization.authorization_sha256,
-        request_plan_sha256=_request_plan_sha256(parent_run.request_plan),
-        issued_prefix_sha256=_issued_prefix_sha256(parent_run.issued),
     )
 
 

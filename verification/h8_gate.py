@@ -18,6 +18,7 @@ from typing import cast
 from verification.h8_budget import _require_h8_budget_issued_attempt
 from verification.h8_parent_authority import (
     H8ParentAttemptAuthority,
+    h8_correctness_statuses_sha256,
     require_h8_parent_attempt_authority,
 )
 from verification.h8_protocol import build_h8_protocol_sha256
@@ -2149,6 +2150,35 @@ def assemble_h8_gate_evaluation(
     """Project runtime inventories from one factory-issued parent authority."""
 
     authority = require_h8_parent_attempt_authority(parent_authority)
+    if type(current_refs) is not CurrentH8PrerequisiteRefs:
+        raise ValueError("current_refs must be an exact bound H8 registry")
+    current_refs.__post_init__()
+    if authority.current_registry_sha256 != current_refs.registry_sha256:
+        raise ValueError("parent authority belongs to another candidate registry")
+    if type(prerequisite_validation) is not H8PrerequisiteArtifactValidation:
+        raise ValueError("prerequisite validation must retain its exact type")
+    prerequisite_validation.__post_init__()
+    if (
+        authority.prerequisite_validation_sha256
+        != prerequisite_validation.validation_sha256
+    ):
+        raise ValueError(
+            "parent authority belongs to another prerequisite validation"
+        )
+    _typed_records(correctness, H8CorrectnessCell, "correctness")
+    correctness_statuses_sha256 = h8_correctness_statuses_sha256(
+        tuple(
+            (item.cell_id, item.status.value)
+            for item in correctness
+        )
+    )
+    if (
+        authority.correctness_statuses_sha256
+        != correctness_statuses_sha256
+    ):
+        raise ValueError(
+            "parent authority belongs to another correctness preflight"
+        )
     validation_config = H8ValidationConfig.create()
     if authority.child_config_sha256 != validation_config.config_sha256:
         raise ValueError("parent authority binds another H8 child config")

@@ -444,6 +444,45 @@ def test_parent_authority_is_nonforgeable_and_bound_to_exact_source_run(
         require_h8_parent_attempt_authority(authority)
 
 
+def test_parent_authority_rejects_post_mint_source_authorization_replacement(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_orchestrator import (
+        _mint_h8_parent_attempt_authority,
+        _run_h8_parent_attempt_for_test,
+    )
+    from verification.h8_parent_authority import (
+        require_h8_parent_attempt_authority,
+    )
+
+    authorization = _start_authorization()
+
+    def timed_out_child(_invocation):
+        return H8ChildProcessRecord(
+            timed_out=True,
+            exit_code=None,
+            stdout=b"",
+            stderr=b"fake timeout",
+            parent_elapsed_ns=60_000_000_001,
+        )
+
+    parent_run = _run_h8_parent_attempt_for_test(
+        authorization=authorization,
+        repository_root=tmp_path,
+        identities=_parent_identities(),
+        child_runner=timed_out_child,
+    )
+    authority = _mint_h8_parent_attempt_authority(parent_run)
+    replacement = _start_authorization()
+    assert replacement == authorization
+    assert replacement is not authorization
+
+    object.__setattr__(parent_run, "authorization", replacement)
+
+    with pytest.raises(ValueError, match="source authorization"):
+        require_h8_parent_attempt_authority(authority)
+
+
 def test_public_parent_identity_collection_uses_neutral_patchable_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
