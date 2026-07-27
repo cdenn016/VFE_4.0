@@ -3778,9 +3778,18 @@ def test_h8_lossless_runtime_views_require_six_way_consensus_and_exact_run_order
         )
 
 
-def test_h8_v4_runtime_sections_are_owned_lossless_and_evidence_derived(
+def _h8_v4_fake_evidence(
     tmp_path: Path,
-) -> None:
+) -> tuple[
+    object,
+    str,
+    tuple[H8ChildAttemptRecord, ...],
+    tuple[H8ChildResult, ...],
+    tuple[H8ChildResult, ...],
+    tuple[H8ControlResult, ...],
+    tuple[object, ...],
+    tuple[str, ...],
+]:
     from vfe4.config.schema import H8ValidationConfig
     from vfe4.types.h8 import (
         H8_CORRECTNESS_CASES,
@@ -3794,9 +3803,7 @@ def test_h8_v4_runtime_sections_are_owned_lossless_and_evidence_derived(
         H8InvariantRecord,
         h8_correctness_endpoint_ids,
     )
-    from verification.h8_gate import assemble_h8_gate_evaluation
     from verification.h8_protocol import build_h8_protocol_sha256
-    from verification.h8_runtime import build_h8_v4_runtime_sections
     from verification.h8_wire import (
         H8_COLD_REPETITIONS,
         H8_PRODUCTION_SEEDS,
@@ -3947,6 +3954,35 @@ def test_h8_v4_runtime_sections_are_owned_lossless_and_evidence_derived(
         "h8_parent_orchestrator_not_implemented",
     )
 
+    return (
+        config,
+        protocol_sha256,
+        child_attempts,
+        production_runs,
+        profiler_runs,
+        controls,
+        correctness,
+        open_locks,
+    )
+
+
+def test_h8_v4_runtime_sections_are_owned_lossless_and_evidence_derived(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_gate import assemble_h8_gate_evaluation
+    from verification.h8_runtime import build_h8_v4_runtime_sections
+
+    (
+        config,
+        protocol_sha256,
+        child_attempts,
+        production_runs,
+        profiler_runs,
+        controls,
+        correctness,
+        open_locks,
+    ) = _h8_v4_fake_evidence(tmp_path)
+
     sections = build_h8_v4_runtime_sections(
         config=config,
         candidate_head="1" * 40,
@@ -4040,4 +4076,109 @@ def test_h8_v4_runtime_sections_are_owned_lossless_and_evidence_derived(
             controls=controls,
             result_status=GateStatus.INCONCLUSIVE,
             result_obligations=open_locks,
+        )
+
+
+def test_h8_v4_runtime_sections_retain_complete_runs_for_control_fail_prefixes(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_gate import (
+        _attempts_cross_bound,
+        _attempt_ids,
+        _exact_attempt_prefix,
+        _inventory_complete,
+        H8_EXPECTED_CHILD_ATTEMPT_IDS,
+    )
+    from verification.h8_runtime import build_h8_v4_runtime_sections
+
+    (
+        config,
+        protocol_sha256,
+        child_attempts,
+        production_runs,
+        profiler_runs,
+        controls,
+        correctness,
+        _open_locks,
+    ) = _h8_v4_fake_evidence(tmp_path)
+    run_attempts = child_attempts[:18]
+    control_attempts = child_attempts[18:]
+    specs = h8_negative_control_specs(_production_policy().layout)
+
+    for failure_index in (0, len(controls) // 2, len(controls) - 1):
+        spec = specs[failure_index]
+        failed_envelope = _control_child_envelope(spec)
+        failed_envelope.update(
+            {
+                "config_sha256": config.config_sha256,
+                "protocol_sha256": protocol_sha256,
+                "status": "fail",
+                "obligations": [],
+                "control": None,
+                "error": {
+                    "kind": "negative_control_executed_past_detector",
+                    "message": "test-only witnessed negative-control failure",
+                    "witnessed_violation": True,
+                },
+            }
+        )
+        failed_attempt, _payload = _attempt_from_fake_envelope(
+            tmp_path,
+            failed_envelope,
+        )
+        prefix_attempts = (
+            *run_attempts,
+            *control_attempts[:failure_index],
+            failed_attempt,
+        )
+        prefix_controls = controls[:failure_index]
+
+        assert _attempt_ids(prefix_attempts) == H8_EXPECTED_CHILD_ATTEMPT_IDS[
+            : len(prefix_attempts)
+        ]
+        assert [attempt.status for attempt in prefix_attempts[:-1]] == [
+            GateStatus.PASS
+        ] * (len(prefix_attempts) - 1)
+        assert prefix_attempts[-1].status is GateStatus.FAIL
+        assert _exact_attempt_prefix(prefix_attempts)
+        assert _attempts_cross_bound(
+            prefix_attempts,
+            production_runs,
+            profiler_runs,
+            prefix_controls,
+        )
+        assert _inventory_complete(
+            correctness,
+            prefix_attempts,
+            production_runs,
+            profiler_runs,
+            prefix_controls,
+        )
+        sections = build_h8_v4_runtime_sections(
+            config=config,
+            candidate_head="1" * 40,
+            candidate_dirty_digest="a" * 64,
+            candidate_junit_sha256="b" * 64,
+            current_refs_registry_sha256="c" * 64,
+            dependency_closure_sha256="d" * 64,
+            preregistration_sha256="e" * 64,
+            prerequisites_current_and_pass=True,
+            correctness=correctness,
+            child_attempts=prefix_attempts,
+            production_runs=production_runs,
+            profiler_runs=profiler_runs,
+            controls=prefix_controls,
+            result_status=GateStatus.FAIL,
+            result_obligations=(),
+        )
+
+        assert len(sections["problems"]) == 3
+        assert len(sections["factor"]["runs"]) == 18
+        assert len(sections["allocation"]["runs"]) == 18
+        assert len(prefix_attempts) == 19 + failure_index
+        assert sections["invariants"]["controls_complete"] is False
+        assert sections["invariants"]["all_pass"] is False
+        assert (
+            sections["invariants"]["witnessed_failure_dominance_applied"]
+            is True
         )

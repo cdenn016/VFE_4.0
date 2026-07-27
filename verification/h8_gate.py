@@ -492,8 +492,7 @@ def _inventory_complete(
     return (
         tuple(item.cell_id for item in correctness)
         == tuple(range(1, len(H8_CORRECTNESS_CASES) + 1))
-        and _attempt_ids(child_attempts) == H8_EXPECTED_CHILD_ATTEMPT_IDS
-        and all(item.status is GateStatus.PASS for item in child_attempts)
+        and _exact_attempt_prefix(child_attempts)
         and _attempts_cross_bound(
             child_attempts,
             production_runs,
@@ -507,7 +506,27 @@ def _inventory_complete(
             for repetition in range(5)
         )
         and tuple(item.seed for item in profiler_runs) == H8_PRODUCTION_SEEDS
-        and tuple(item.control_id for item in controls) == H8_NEGATIVE_CONTROL_IDS
+        and tuple(item.control_id for item in controls)
+        == H8_NEGATIVE_CONTROL_IDS[: len(controls)]
+        and all(item.status is GateStatus.PASS for item in controls)
+    )
+
+
+def _exact_attempt_prefix(
+    child_attempts: tuple[H8ChildAttemptRecord, ...],
+) -> bool:
+    """Accept a full PASS inventory or one exact prefix ending in FAIL."""
+
+    if (
+        len(child_attempts) < 18
+        or len(child_attempts) > len(H8_EXPECTED_CHILD_ATTEMPT_IDS)
+        or _attempt_ids(child_attempts)
+        != H8_EXPECTED_CHILD_ATTEMPT_IDS[: len(child_attempts)]
+    ):
+        return False
+    return all(item.status is GateStatus.PASS for item in child_attempts) or (
+        all(item.status is GateStatus.PASS for item in child_attempts[:-1])
+        and child_attempts[-1].status is GateStatus.FAIL
     )
 
 

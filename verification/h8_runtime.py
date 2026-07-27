@@ -265,8 +265,6 @@ def _issued_attempt_inventory(
     )
     if len(set(identities)) != len(identities):
         raise ValueError("child_attempts contains a duplicate request identity")
-    if any(attempt.status is not GateStatus.PASS for attempt in attempts):
-        raise ValueError("every supplied H8 attempt must have exact PASS status")
     return attempts
 
 
@@ -292,7 +290,11 @@ def _run_attempt_inventory(
             "15-production-then-3-profiler order"
         )
     for attempt in run_attempts:
-        if type(attempt.result) is not H8ChildResult or attempt.pass_evidence is None:
+        if (
+            attempt.status is not GateStatus.PASS
+            or type(attempt.result) is not H8ChildResult
+            or attempt.pass_evidence is None
+        ):
             raise ValueError(
                 "every PASS production/profiler attempt must retain its "
                 "exact result and private evidence"
@@ -505,10 +507,23 @@ def _exact_v4_inventories(
     tuple[H8ControlResult, ...],
 ]:
     attempts = _issued_attempt_inventory(child_attempts)
-    if tuple(_attempt_identity(attempt) for attempt in attempts) != (
-        _EXPECTED_ATTEMPT_ORDER
+    if (
+        len(attempts) < len(_EXPECTED_RUN_ORDER)
+        or len(attempts) > len(_EXPECTED_ATTEMPT_ORDER)
+        or tuple(_attempt_identity(attempt) for attempt in attempts)
+        != _EXPECTED_ATTEMPT_ORDER[: len(attempts)]
     ):
-        raise ValueError("child attempts must retain the exact 30-run order")
+        raise ValueError("child attempts must retain the exact issued prefix")
+    control_attempts = attempts[len(_EXPECTED_RUN_ORDER) :]
+    if not (
+        all(attempt.status is GateStatus.PASS for attempt in attempts)
+        or (
+            control_attempts
+            and all(attempt.status is GateStatus.PASS for attempt in attempts[:-1])
+            and attempts[-1].status is GateStatus.FAIL
+        )
+    ):
+        raise ValueError("partial child inventory must end at first witnessed FAIL")
     if any(
         attempt.request.config_sha256 != config.config_sha256
         or attempt.request.protocol_sha256 != protocol_sha256
@@ -525,26 +540,28 @@ def _exact_v4_inventories(
         type(production_runs) is not tuple
         or type(profiler_runs) is not tuple
         or type(controls) is not tuple
-        or len(controls) != len(H8_NEGATIVE_CONTROL_IDS)
         or any(type(control) is not H8ControlResult for control in controls)
     ):
         raise ValueError("runtime inventories must retain exact typed tuples")
     typed_production = cast(tuple[H8ChildResult, ...], production_runs)
     typed_profiler = cast(tuple[H8ChildResult, ...], profiler_runs)
     typed_controls = cast(tuple[H8ControlResult, ...], controls)
-    control_attempts = attempts[len(run_attempts) :]
-    if any(
-        attempt.result is not control
-        for attempt, control in zip(control_attempts, typed_controls, strict=True)
-    ):
+    expected_controls = tuple(
+        attempt.result
+        for attempt in control_attempts
+        if type(attempt.result) is H8ControlResult
+    )
+    if typed_controls != expected_controls:
         raise ValueError(
             "supplied controls must be the exact result objects retained by "
             "their issued attempts"
         )
-    if tuple(control.control_id for control in typed_controls) != (
-        H8_NEGATIVE_CONTROL_IDS
+    if (
+        tuple(control.control_id for control in typed_controls)
+        != H8_NEGATIVE_CONTROL_IDS[: len(typed_controls)]
+        or any(control.status is not GateStatus.PASS for control in typed_controls)
     ):
-        raise ValueError("controls must retain the exact frozen order")
+        raise ValueError("controls must retain the exact PASS prefix")
     return (
         attempts,
         run_attempts,
@@ -788,7 +805,7 @@ def _derived_invariants(
     child_attempts_complete = len(attempts) == len(_EXPECTED_ATTEMPT_ORDER)
     child_attempts_exact_order = tuple(
         _attempt_identity(attempt) for attempt in attempts
-    ) == _EXPECTED_ATTEMPT_ORDER
+    ) == _EXPECTED_ATTEMPT_ORDER[: len(attempts)]
     child_attempts_cross_bound = (
         all(
             attempt.result is run
@@ -798,13 +815,11 @@ def _derived_invariants(
                 strict=True,
             )
         )
-        and all(
-            attempt.result is control
-            for attempt, control in zip(
-                attempts[len(run_attempts) :],
-                controls,
-                strict=True,
-            )
+        and controls
+        == tuple(
+            attempt.result
+            for attempt in attempts[len(run_attempts) :]
+            if type(attempt.result) is H8ControlResult
         )
     )
     observability_complete = all(
