@@ -5,21 +5,52 @@ from __future__ import annotations
 import copy
 import hmac
 import json
+import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-from vfe4.types.h4 import H4_PRIMARY_TIMED_BALANCE, H4_PROBLEM_SEEDS
-from vfe4.types.h5_schema import (
+from verification.h8_wire import (
+    prepare_h8_script_environment,
+    require_h8_startup_environment,
+)
+
+
+_H8_PREIMPORT_NUMERICAL_MODULES = tuple(
+    name for name in ("numpy", "torch") if name in sys.modules
+)
+
+if __name__ == "__main__":
+    try:
+        prepare_h8_script_environment(os.environ)
+    except (TypeError, ValueError) as exc:
+        print(
+            f"VFE4 H8 startup environment invalid: {exc}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
+
+try:
+    _H8_IMPORT_STARTUP_ENVIRONMENT = require_h8_startup_environment(
+        os.environ
+    )
+    _H8_IMPORT_STARTUP_ERROR: str | None = None
+except (TypeError, ValueError) as exc:
+    _H8_IMPORT_STARTUP_ENVIRONMENT = None
+    _H8_IMPORT_STARTUP_ERROR = f"{type(exc).__name__}: {exc}"
+
+
+from vfe4.types.h4 import H4_PRIMARY_TIMED_BALANCE, H4_PROBLEM_SEEDS  # noqa: E402
+from vfe4.types.h5_schema import (  # noqa: E402
     H5_FACTOR_INPUT_SCHEMA_SHA256,
     H5_FACTOR_UNIVERSE,
     H5_MODEL_BLOCK_UNIVERSE,
     H5_OBJECTIVE_SCHEMA_SHA256,
     H5_RECOGNITION_COORDINATE_UNIVERSE,
 )
-from vfe4.types.updates import H5UpdateRule, UpdateLabel
-from vfe4.config import H8ValidationConfig
-from vfe4.validation.h7_fixture import h7_validation_config_mapping
+from vfe4.types.updates import H5UpdateRule, UpdateLabel  # noqa: E402
+from vfe4.config import H8ValidationConfig  # noqa: E402
+from vfe4.validation.h7_fixture import h7_validation_config_mapping  # noqa: E402
 
 
 CONFIG: dict[str, object] = {
@@ -544,6 +575,25 @@ def _run_projected(
     scientific: Mapping[str, object],
 ) -> object:
     if operation == "h8":
+        if _H8_PREIMPORT_NUMERICAL_MODULES:
+            raise ValueError(
+                "H8 package callers require a fresh numerical runtime; "
+                "set the startup environment before importing verify_vfe4 "
+                f"(already imported: {_H8_PREIMPORT_NUMERICAL_MODULES!r})"
+            )
+        if _H8_IMPORT_STARTUP_ENVIRONMENT is None:
+            raise ValueError(
+                "H8 package callers must establish the startup environment "
+                "before importing verify_vfe4; retroactive repair is "
+                f"non-authorizing ({_H8_IMPORT_STARTUP_ERROR})"
+            )
+        current_startup_environment = require_h8_startup_environment(
+            os.environ
+        )
+        if current_startup_environment != _H8_IMPORT_STARTUP_ENVIRONMENT:
+            raise ValueError(
+                "H8 startup environment drifted after verify_vfe4 import"
+            )
         from verification.run_gates import (
             parse_h8_reference_registry_bytes,
             run_h8_verification,

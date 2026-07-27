@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import hashlib
 import inspect
+import io
 import json
+import sys
 from collections.abc import Mapping
 from pathlib import Path
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 
 import numpy as np
 import pytest
@@ -75,6 +78,13 @@ from verification.h8_budget import (
     make_h8_identity_record,
     parse_h8_child_stdout,
     windows_process_memory_layout,
+)
+from verification.h8_wire import (
+    H8_FORBIDDEN_ENVIRONMENT,
+    H8_THREAD_ENVIRONMENT_ITEMS,
+    canonical_json_bytes,
+    prepare_h8_script_environment,
+    require_h8_startup_environment,
 )
 
 
@@ -1031,6 +1041,7 @@ def _attempt_from_fake_envelope(
 
 def test_child_invocation_is_exact_and_freezes_thread_environment(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     request = {
         "mode": "production",
@@ -1041,7 +1052,11 @@ def test_child_invocation_is_exact_and_freezes_thread_environment(
         "control_id": None,
     }
     identities = _child_envelope()["identities"]
-    base_environment = {"PATH": "preserved"}
+    base_environment = {
+        "PATH": "preserved",
+        "mkl_threading_layer": "hostile-alias",
+        "vfe4_h8_child_identities_json": "hostile-alias",
+    }
     invocation = build_h8_child_invocation(
         request,
         repository_root=tmp_path,
@@ -1064,17 +1079,117 @@ def test_child_invocation_is_exact_and_freezes_thread_environment(
     assert invocation.capture_stderr
     assert invocation.environment["PATH"] == "preserved"
     assert {
-        invocation.environment[name]
-        for name in (
-            "OMP_NUM_THREADS",
-            "MKL_NUM_THREADS",
-            "OPENBLAS_NUM_THREADS",
-            "NUMEXPR_NUM_THREADS",
-            "VECLIB_MAXIMUM_THREADS",
+        name: invocation.environment[name]
+        for name, _value in H8_THREAD_ENVIRONMENT_ITEMS
+    } == dict(H8_THREAD_ENVIRONMENT_ITEMS)
+    assert "mkl_threading_layer" not in invocation.environment
+    assert "vfe4_h8_child_identities_json" not in invocation.environment
+    assert tuple(
+        key
+        for key in invocation.environment
+        if key.casefold() == H8_CHILD_IDENTITY_ENV.casefold()
+    ) == (H8_CHILD_IDENTITY_ENV,)
+    aliased_identity_environment = dict(invocation.environment)
+    identity_payload = aliased_identity_environment.pop(H8_CHILD_IDENTITY_ENV)
+    aliased_identity_environment[
+        H8_CHILD_IDENTITY_ENV.casefold()
+    ] = identity_payload
+    with pytest.raises(ValueError, match="canonical key"):
+        dataclasses.replace(
+            invocation,
+            environment=aliased_identity_environment,
         )
-    } == {"1"}
+    assert not any(
+        key.casefold()
+        in {name.casefold() for name in H8_FORBIDDEN_ENVIRONMENT}
+        for key in invocation.environment
+    )
+    assert require_h8_startup_environment(invocation.environment) == dict(
+        H8_THREAD_ENVIRONMENT_ITEMS
+    )
+
+    script_environment = {
+        "Path": "preserved",
+        "mkl_threading_layer": "hostile-alias",
+        "omp_num_threads": "99",
+    }
+    prepare_h8_script_environment(script_environment)
+    assert script_environment["Path"] == "preserved"
+    assert {
+        name: script_environment[name]
+        for name, _value in H8_THREAD_ENVIRONMENT_ITEMS
+    } == dict(H8_THREAD_ENVIRONMENT_ITEMS)
+    assert "mkl_threading_layer" not in script_environment
+    assert "omp_num_threads" not in script_environment
+
+    with pytest.raises(ValueError, match="KMP_DUPLICATE_LIB_OK"):
+        prepare_h8_script_environment(
+            {"kmp_duplicate_lib_ok": "TRUE"},
+        )
     with pytest.raises(TypeError):
         invocation.environment["PATH"] = "mutated"  # type: ignore[index]
+
+    import verification.h8_child as h8_child
+    from vfe4.config import H8ValidationConfig
+    from verification.h8_protocol import build_h8_protocol_sha256
+
+    runtime_config = H8ValidationConfig.create()
+    control_id = str(_control_child_envelope()["control_id"])
+    child_request = {
+        "mode": "negative_control",
+        "seed": 20260721,
+        "repetition": None,
+        "config_sha256": runtime_config.config_sha256,
+        "protocol_sha256": build_h8_protocol_sha256(runtime_config),
+        "control_id": control_id,
+    }
+    child_identities = _child_envelope()["identities"]
+    assert isinstance(child_identities, Mapping)
+    monkeypatch.setenv(
+        H8_CHILD_IDENTITY_ENV,
+        canonical_json_bytes(child_identities).decode("ascii"),
+    )
+    fake_torch = SimpleNamespace(
+        no_grad=lambda: contextlib.nullcontext(),
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_load_runtime",
+        lambda: (fake_torch, object()),
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_set_and_verify_torch_threads",
+        lambda _torch: None,
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_collect_identities",
+        lambda **_kwargs: dict(child_identities),
+    )
+
+    def drifting_control(*_args: object, **_kwargs: object) -> object:
+        monkeypatch.setenv("kMp_DuPlIcAtE_LiB_oK", "TRUE")
+        return _control_child_envelope()["control"]
+
+    monkeypatch.setattr(
+        h8_child,
+        "_run_negative_control",
+        drifting_control,
+    )
+    stdin_bytes = io.BytesIO(canonical_json_bytes(child_request) + b"\n")
+    stdout_bytes = io.BytesIO()
+    stdin_text = io.TextIOWrapper(stdin_bytes, encoding="utf-8")
+    stdout_text = io.TextIOWrapper(stdout_bytes, encoding="utf-8")
+    monkeypatch.setattr(sys, "stdin", stdin_text)
+    monkeypatch.setattr(sys, "stdout", stdout_text)
+
+    assert h8_child.main() == 0
+    stdout_text.flush()
+    drift_payload = json.loads(stdout_bytes.getvalue())
+    assert drift_payload["status"] == "inconclusive"
+    assert drift_payload["error"]["kind"] == "environment_observability_gap"
+    assert "KMP_DUPLICATE_LIB_OK" in drift_payload["error"]["message"]
 
 
 @pytest.mark.parametrize(
@@ -1090,6 +1205,14 @@ def test_child_invocation_is_exact_and_freezes_thread_environment(
                 "OPENBLAS_NUM_THREADS": "1",
                 "NUMEXPR_NUM_THREADS": "1",
                 "VECLIB_MAXIMUM_THREADS": "1",
+                "MKL_THREADING_LAYER": "SEQUENTIAL",
+            },
+        },
+        {
+            "environment": {
+                H8_CHILD_IDENTITY_ENV: "{}",
+                **dict(H8_THREAD_ENVIRONMENT_ITEMS),
+                "kMp_DuPlIcAtE_LiB_oK": "TRUE",
             },
         },
     ),
@@ -1113,7 +1236,7 @@ def test_child_invocation_rejects_noncanonical_launch_contract(
         base_environment={},
     )
 
-    with pytest.raises(ValueError, match="exact|thread"):
+    with pytest.raises(ValueError, match="exact|thread|environment|KMP"):
         dataclasses.replace(invocation, **changes)
 
 

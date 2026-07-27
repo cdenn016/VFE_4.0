@@ -5,6 +5,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from dataclasses import replace
@@ -1421,8 +1422,67 @@ def test_h8_click_run_executes_fake_selected_runner_and_publishes_runtime_result
     from vfe4.artifacts import source_candidate_sha256
     from vfe4.config import H8ValidationConfig
     from vfe4.types.results import H8GateResult
+    from verification.h8_wire import H8_THREAD_ENVIRONMENT_ITEMS
+
+    hostile_environment = dict(os.environ)
+    hostile_environment["OMP_NUM_THREADS"] = "2"
+    hostile_environment["MKL_NUM_THREADS"] = "1"
+    hostile_environment["OPENBLAS_NUM_THREADS"] = "1"
+    hostile_environment["NUMEXPR_NUM_THREADS"] = "1"
+    hostile_environment["VECLIB_MAXIMUM_THREADS"] = "1"
+    hostile_environment["MKL_THREADING_LAYER"] = "SEQUENTIAL"
+    for key in tuple(hostile_environment):
+        if key.casefold() == "kmp_duplicate_lib_ok":
+            del hostile_environment[key]
+    hostile_import = subprocess.run(
+        (
+            sys.executable,
+            "-c",
+            (
+                "import os, verify_vfe4 as launcher; "
+                "from verification.h8_wire import "
+                "prepare_h8_script_environment; "
+                "prepare_h8_script_environment(os.environ); "
+                "\ntry:\n"
+                " launcher._run_projected('h8', {})\n"
+                "except ValueError as exc:\n"
+                " print(str(exc)); "
+                "raise SystemExit(0 if 'retroactive repair' in str(exc) else 3)\n"
+                "raise SystemExit(4)\n"
+            ),
+        ),
+        cwd=REPO_ROOT,
+        env=hostile_environment,
+        capture_output=True,
+        text=True,
+        timeout=30.0,
+        check=False,
+    )
+    assert hostile_import.returncode == 0, hostile_import.stderr
+    assert "retroactive repair" in hostile_import.stdout
 
     module = _load_launcher()
+    monkeypatch.setattr(
+        module,
+        "_H8_PREIMPORT_NUMERICAL_MODULES",
+        ("torch",),
+    )
+    with pytest.raises(ValueError, match="fresh numerical runtime"):
+        module._run_projected("h8", {})
+    monkeypatch.setattr(module, "_H8_PREIMPORT_NUMERICAL_MODULES", ())
+    monkeypatch.setattr(module, "_H8_IMPORT_STARTUP_ENVIRONMENT", None)
+    monkeypatch.setattr(
+        module,
+        "_H8_IMPORT_STARTUP_ERROR",
+        "test retroactive repair",
+    )
+    with pytest.raises(ValueError, match="retroactive repair"):
+        module._run_projected("h8", {})
+    monkeypatch.setattr(
+        module,
+        "_H8_IMPORT_STARTUP_ENVIRONMENT",
+        dict(H8_THREAD_ENVIRONMENT_ITEMS),
+    )
     head, dirty, junit = "1" * 40, "2" * 64, "3" * 64
     refs, registry_bytes = _h8_current_refs(head, dirty, junit)
     refs_root = tmp_path / ".verification"

@@ -28,7 +28,11 @@ The ordered minimum inventory is:
 5. `WT103-A5-NOLATENT-v1`
 
 The source implementation must represent each row as an immutable
-`WT103ArmSpec`. At minimum it binds:
+`WT103ArmSpec`. The five specs use exactly four constructors:
+`build_wt103_a0`, `build_wt103_a5_parent_specific`,
+`build_wt103_a5_fixed`, and `build_wt103_a5_nolatent`; the two
+parent-specific rows share `build_wt103_a5_parent_specific` and differ through
+their exact bound objective field. At minimum each spec binds:
 
 ```text
 arm_id
@@ -173,9 +177,16 @@ recursively.
 `train_vfe4.py` remains import-safe and uses one editable dictionary with
 `operation="idle"` by default and explicit
 `source_lock|readiness|train|resume` operations.
-`generate_vfe4_figures.py` remains a separate import-safe editable dictionary.
+Figure generation uses a separate editable dictionary.
+`generate_vfe4_figures.py` remains import-safe.
 Neither launcher uses a product CLI.
 
 No WikiText-103 loader, download, cache creation, source lock, training engine,
 test opening, or figure render may begin until an exact H8 PASS exists for the
 same implementation revision and this endpoint inventory is frozen in source.
+The first source-lock revision and the later revision containing the committed
+finalized production source record each require their own exact same-revision
+H8 v4 PASS. Post-H8 readiness accepts only amended H6-Prediction v2
+(`h6-prediction-amended-v2`, `h6-prediction-config-v2`,
+`h6-prediction-readiness-v2`, `h6-prediction-metrics-v2`, and
+`h6-prediction-result-v2`), never legacy v1 or an invented v3 identity.

@@ -23,6 +23,18 @@ frozen producer and dependency closure. H8 reopens and validates those
 references but never reruns or copies their payloads, certificates, or
 ledgers.
 
+For direct click execution, `verify_vfe4.py` establishes the recorded H8
+startup contract before importing project numerical code: the five thread
+limits equal one and `MKL_THREADING_LAYER=SEQUENTIAL`.
+`KMP_DUPLICATE_LIB_OK` is forbidden rather than used to mask duplicate OpenMP
+runtimes. Package callers must establish the same environment before selecting
+H8. Parent and children record/revalidate the exact values and forbidden
+absence; this is a runtime-safety contract, not scientific H8 PASS evidence.
+The direct verifier applies this bounded startup preamble before resolving any
+editable operation because operation resolution imports numerical project
+types; programmatic H8 use additionally requires a fresh numerical runtime and
+an environment that was already valid when `verify_vfe4` was imported.
+
 The implemented `h8-sparse-scale-v4` selected route runs the frozen 12-cell
 correctness grid, mints parent authority only after a valid prerequisite
 start, and retains the exact issued prefix of the 30-slot request plan:

@@ -678,6 +678,7 @@ def _environment_section(
         != {
             "kind",
             "environment",
+            "forbidden_environment_present",
             "torch_num_threads",
             "torch_num_interop_threads",
             "sha256",
@@ -691,6 +692,7 @@ def _environment_section(
             "numpy_config",
             "sha256",
         }
+        or thread["forbidden_environment_present"] is not False
         or blas["torch_version"] != config.torch_version
     ):
         raise ValueError("runtime identity payloads differ from the v4 schema")

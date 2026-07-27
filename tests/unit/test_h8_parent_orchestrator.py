@@ -679,16 +679,15 @@ def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
         "d_z": 20,
         "d_m": 20,
     }
-    assert runtime["thread_environment"] == tuple(
-        (name, "1")
-        for name in (
-            "OMP_NUM_THREADS",
-            "MKL_NUM_THREADS",
-            "OPENBLAS_NUM_THREADS",
-            "NUMEXPR_NUM_THREADS",
-            "VECLIB_MAXIMUM_THREADS",
-        )
+    assert runtime["thread_environment"] == (
+        ("OMP_NUM_THREADS", "1"),
+        ("MKL_NUM_THREADS", "1"),
+        ("OPENBLAS_NUM_THREADS", "1"),
+        ("NUMEXPR_NUM_THREADS", "1"),
+        ("VECLIB_MAXIMUM_THREADS", "1"),
+        ("MKL_THREADING_LAYER", "SEQUENTIAL"),
     )
+    assert runtime["forbidden_environment"] == ("KMP_DUPLICATE_LIB_OK",)
     assert runtime["torch_num_threads"] == 1
     assert runtime["torch_num_interop_threads"] == 1
     assert runtime["fresh_process_per_request"] is True

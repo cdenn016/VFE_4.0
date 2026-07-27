@@ -11,8 +11,7 @@ import sys
 from collections.abc import Mapping
 from typing import Any
 
-from verification.h8_budget import make_h8_identity_record
-from verification.h8_wire import H8_THREAD_ENVIRONMENT_ITEMS
+from verification.h8_wire import require_h8_startup_environment
 
 
 def _hardware_payload() -> dict[str, object]:
@@ -84,9 +83,15 @@ def _blas_payload(torch: Any, np: Any) -> dict[str, object]:
 def collect_h8_runtime_identities() -> Mapping[str, object]:
     """Collect the exact hardware, affinity, thread, and BLAS identities."""
 
+    thread_environment = require_h8_startup_environment(os.environ)
+    from verification.h8_budget import make_h8_identity_record
+
     import numpy as np
     import torch
 
+    post_import_environment = require_h8_startup_environment(os.environ)
+    if post_import_environment != thread_environment:
+        raise ValueError("H8 parent startup environment drifted during imports")
     torch.set_num_threads(1)
     try:
         torch.set_num_interop_threads(1)
@@ -100,7 +105,6 @@ def collect_h8_runtime_identities() -> Mapping[str, object]:
         or int(torch.get_num_interop_threads()) != 1
     ):
         raise ValueError("H8 parent torch threads are not frozen to one")
-    thread_environment = dict(H8_THREAD_ENVIRONMENT_ITEMS)
     return {
         name: make_h8_identity_record(name, payload)
         for name, payload in (
@@ -110,6 +114,7 @@ def collect_h8_runtime_identities() -> Mapping[str, object]:
                 "thread",
                 {
                     "environment": thread_environment,
+                    "forbidden_environment_present": False,
                     "torch_num_threads": int(torch.get_num_threads()),
                     "torch_num_interop_threads": int(
                         torch.get_num_interop_threads()

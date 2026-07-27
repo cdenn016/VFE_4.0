@@ -18,7 +18,23 @@
 - Preregister `K=d_z=d_m=20`, `T=128`, `N=T+1=129`, combined population block size `b=d_z+d_m=40`, and `D=N*b=5160`, in population-major coordinate order `[z_0,m_0,...,z_T,m_T]`, as an **operational H8 choice**. The manuscript text is compatible with, but does not prove or uniquely determine, this interpretation; `K` means each channel dimension here, not the combined block dimension. Bind the exact choice, coordinate order, rationale, and source hashes into `interpretation_sha256`. If the author later changes or clarifies `K`, do not translate silently: invalidate the preregistration and return `INCONCLUSIVE` until a new interpretation is frozen.
 - The sole singular manuscript binding is the raw-byte SHA-256 `d733880d3613d32a97b7a12c93ff6c037d0abdfd9ce4810e411769997dbad03c` for `Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex`, carried by `revision.manuscript_sha256`. Bind no MAgent manuscript and assert no theorem-level reduction between the VFE4 and MAgent theories. The existing preregistration/source-pin digest separately binds the imported VFE4 module bytes.
 - Use a chain only: the initial slice has no parent; every `t>=1` state and model parent/source support is the singleton `{t-1}`. Use a normalized synthetic categorical emission with `V=3`. Do not expand parent width, enumerate source mixtures, ingest a corpus, or enter any training path.
-- Normative execution is no-grad PyTorch float64 on CPU with one intra-op thread and one inter-op thread. Set `OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`, `NUMEXPR_NUM_THREADS=1`, and `VECLIB_MAXIMUM_THREADS=1` in the parent environment before the child imports NumPy or PyTorch. Every child, before any tensor work, must call `torch.set_num_threads(1)` and `torch.set_num_interop_threads(1)`, then verify both getters equal one; an unavailable setter/getter or API error is an environment observability obligation, never silently accepted.
+- Normative execution is no-grad PyTorch float64 on CPU with one intra-op
+  thread and one inter-op thread. Before any parent or child numerical import,
+  set `OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`,
+  `OPENBLAS_NUM_THREADS=1`, `NUMEXPR_NUM_THREADS=1`,
+  `VECLIB_MAXIMUM_THREADS=1`, and
+  `MKL_THREADING_LAYER=SEQUENTIAL`; require
+  `KMP_DUPLICATE_LIB_OK` to be absent in every case spelling. The single
+  click-run script establishes the required values before its project imports,
+  while package callers fail closed unless they imported `verify_vfe4` into a
+  fresh numerical runtime after establishing the same environment. Every child
+  revalidates required values and forbidden absence before and after
+  NumPy/PyTorch/initial project imports and after all mode-specific imports and
+  request execution, then calls
+  `torch.set_num_threads(1)` and `torch.set_num_interop_threads(1)` and
+  verifies both getters equal one. A mismatch, unsafe override, unavailable
+  setter/getter, or API error is an environment observability obligation,
+  never silently accepted.
 - Production precision storage is `J_diag[N,b,b]` plus `J_lower[N-1,b,b]`, exactly `411,200` float64 scalars, with `h[N,b]` stored separately (`5,160` scalars). Factor storage `L_diag/L_lower` and selected inverse storage `Sigma_diag/Sigma_lower` are each exactly `411,200` scalars. Each of the three bounded categories must remain `<=411,200`; upper adjacent blocks are transpose views, never duplicate storage.
 - The production allocation whitelist admits only registered scalar/local/channel arrays, `[N,b]`, `[N,b,1]`, `[N,b,r]` with `1<=r<=b`, `[N,b,b]`, `[N-1,b,b]`, and the exact generator/objective arrays whose sole population axis is `T`, `N`, or `N-1` and whose remaining axes are each `<=b` or `V=3`. Reject before allocation any tensor/array with an axis of length `D`, any single storage above `411,200` float64-equivalent scalars, any two population/pair axes, any triangular or equivalent all-pairs slab, and any unregistered production shape. Thus a dense population `J`, `Sigma`, moment matrix `M`, identity, selector, Cholesky factor, length-`D` vector, flat or near-`D^2` buffer, `(D,D)` batch/RHS, `(N,N,b,b)` block tensor, triangular pair storage, or combined slab of all block pairs is forbidden. No convenience diagnostic is exempt.
 - The factor interface retains `solve`, `logdet`, `selected_inverse`, `sample`, `quadratic`, and `trace_inverse_product`, and exposes immutable layout, pattern, storage, fill, workspace, condition-estimate, and backend-counter records. Maximum solve RHS width is `b`; H8 sampling accepts exactly one vector/noise path at a time.
@@ -820,7 +836,23 @@ For small-grid dense operands only, exact local/dense `kappa_2` from `eigvalsh`/
 - Consumes: Tasks 2--5 and exact `H8ChildRequest` JSON.
 - Produces: one import-disciplined `h8-child-v2` envelope with `production`, `profiler`, and `negative_control` modes; exact production/profiler `problem_evidence`; raw OS/process/torch/backend/objective endpoints; and one canonical JSON line on stdout.
 
-- [ ] **Step 1: Write RED child-protocol and identity tests.** Parent invocation is exactly `[sys.executable, "-m", "verification.h8_child"]` with repository root as `cwd`, canonical request JSON on stdin, captured stdout/stderr, the frozen thread environment, and `timeout=60.0` for production. Spawn with a small logical fixture and assert environment variables exist before NumPy/PyTorch import; the child calls and then verifies `torch.set_num_threads(1)`/`torch.get_num_threads()==1` and `torch.set_num_interop_threads(1)`/`torch.get_num_interop_threads()==1` before tensor work; request/result schemas require `h8-child-v2`, the frozen production/profiler result-key order, exact `problem_evidence`, and control-body omission of that production field; stdout contains one canonical JSON object plus newline only; stderr is captured separately; and malformed/unknown modes fail without partial PASS output. Canonical hardware, affinity, thread, and BLAS records each carry a SHA-256 and every child identity must match the parent-frozen values.
+- [ ] **Step 1: Write RED child-protocol and identity tests.** Parent
+  invocation is exactly `[sys.executable, "-m", "verification.h8_child"]`
+  with repository root as `cwd`, canonical request JSON on stdin, captured
+  stdout/stderr, the frozen mixed-value startup environment, forbidden
+  `KMP_DUPLICATE_LIB_OK` absence, and `timeout=60.0` for production. Spawn
+  with a small logical fixture and assert the startup environment exists
+  before NumPy/PyTorch import and remains exact after runtime/project imports;
+  the child calls and then verifies
+  `torch.set_num_threads(1)`/`torch.get_num_threads()==1` and
+  `torch.set_num_interop_threads(1)`/`torch.get_num_interop_threads()==1`
+  before tensor work; request/result schemas require `h8-child-v2`, the
+  frozen production/profiler result-key order, exact `problem_evidence`, and
+  control-body omission of that production field; stdout contains one
+  canonical JSON object plus newline only; stderr is captured separately; and
+  malformed/unknown modes fail without partial PASS output. Canonical
+  hardware, affinity, thread, and BLAS records each carry a SHA-256 and every
+  child identity must match the parent-frozen values.
 
 - [ ] **Step 2: Implement platform HWM adapters.** On Windows implement the exact `PROCESS_MEMORY_COUNTERS_EX` field order/types/`cb`/`GetProcessMemoryInfo` error contract frozen above and capture current RSS, lifetime peak, and private bytes immediately before the production operation graph and immediately after it. On Linux/macOS use `resource.getrusage` with explicit platform unit conversion and record the same available semantics. Compute primary `conservative_incremental_hwm_bytes=max(0,post_lifetime_peak-pre_current_rss)`; record `peak_to_peak_diagnostic_bytes=max(0,post_lifetime_peak-pre_lifetime_peak)` separately and never use it to lower the primary endpoint. Unknown platform, API failure, wrong structure layout, or missing required field is an observability error, not zero.
 

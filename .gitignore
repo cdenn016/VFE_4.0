@@ -25,6 +25,7 @@ __pycache__/
 
 # Generated experiment outputs.
 runs/
+.verification/
 
 # Common desktop metadata.
 .DS_Store

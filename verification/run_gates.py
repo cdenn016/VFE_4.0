@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import Mapping
 from dataclasses import asdict
 from dataclasses import dataclass
@@ -67,6 +68,7 @@ from verification.h8_orchestrator import (
     derive_h8_child_start_authorization,
     run_h8_parent_attempt,
 )
+from verification.h8_wire import require_h8_startup_environment
 from vfe4.artifacts import (
     CandidateArtifactReference,
     build_environment,
@@ -1291,7 +1293,12 @@ def run_h8_verification(
         registry_sha256=refs.registry_sha256,
         preregistration_sha256=preregistration_sha256,
     )
+    startup_environment = require_h8_startup_environment(os.environ)
     correctness = produce_h8_correctness_grid()
+    if require_h8_startup_environment(os.environ) != startup_environment:
+        raise ValueError(
+            "H8 startup environment drifted during correctness execution"
+        )
     authorization = derive_h8_child_start_authorization(
         config=canonical.h8,
         current_registry_sha256=refs.registry_sha256,

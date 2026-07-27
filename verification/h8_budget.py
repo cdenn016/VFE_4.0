@@ -41,7 +41,10 @@ from verification.h8_wire import (
     H8_PROFILER_TORCH_VERSION,
     H8_REQUIRED_OPERATIONS,
     H8_THREAD_ENVIRONMENT,
+    H8_THREAD_ENVIRONMENT_ITEMS,
     canonical_json_bytes,
+    prepare_h8_script_environment,
+    require_h8_startup_environment,
 )
 from vfe4.numerics.block_layout import (
     H8_MAX_STORAGE_SCALARS,
@@ -227,12 +230,19 @@ class H8ChildInvocation:
             for key, value in owned_environment.items()
         ):
             raise ValueError("child environment must map strings to strings")
-        if any(
-            owned_environment.get(name) != "1"
-            for name in H8_THREAD_ENVIRONMENT
+        require_h8_startup_environment(owned_environment)
+        identity_entries = tuple(
+            (key, value)
+            for key, value in owned_environment.items()
+            if key.casefold() == H8_CHILD_IDENTITY_ENV.casefold()
+        )
+        if (
+            len(identity_entries) != 1
+            or identity_entries[0][0] != H8_CHILD_IDENTITY_ENV
+            or not identity_entries[0][1]
         ):
             raise ValueError(
-                "child thread environment must retain every frozen one-thread value"
+                "child identity environment must use exactly one canonical key"
             )
         object.__setattr__(
             self,
@@ -519,6 +529,7 @@ def _validate_identity_payload(
         if keys != {
             "kind",
             "environment",
+            "forbidden_environment_present",
             "torch_num_threads",
             "torch_num_interop_threads",
         }:
@@ -527,7 +538,8 @@ def _validate_identity_payload(
         if (
             not isinstance(environment, Mapping)
             or set(environment) != set(H8_THREAD_ENVIRONMENT)
-            or any(environment[name] != "1" for name in H8_THREAD_ENVIRONMENT)
+            or dict(environment) != dict(H8_THREAD_ENVIRONMENT_ITEMS)
+            or record["forbidden_environment_present"] is not False
             or record["torch_num_threads"] != 1
             or record["torch_num_interop_threads"] != 1
         ):
@@ -586,8 +598,10 @@ def build_h8_child_invocation(
     if not root.is_dir():
         raise ValueError("repository_root must be an existing directory")
     environment = dict(os.environ if base_environment is None else base_environment)
-    for name in H8_THREAD_ENVIRONMENT:
-        environment[name] = "1"
+    prepare_h8_script_environment(environment)
+    for key in tuple(environment):
+        if key.casefold() == H8_CHILD_IDENTITY_ENV.casefold():
+            del environment[key]
     environment[H8_CHILD_IDENTITY_ENV] = canonical_json_bytes(
         checked_identities
     ).decode("ascii")

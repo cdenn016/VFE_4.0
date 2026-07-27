@@ -10,24 +10,24 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from types import MappingProxyType
 
 
 H8_CHILD_MODULE = "verification.h8_child"
 H8_CHILD_SCHEMA_VERSION = "h8-child-v2"
 H8_CHILD_IDENTITY_ENV = "VFE4_H8_CHILD_IDENTITIES_JSON"
-H8_THREAD_ENVIRONMENT = (
-    "OMP_NUM_THREADS",
-    "MKL_NUM_THREADS",
-    "OPENBLAS_NUM_THREADS",
-    "NUMEXPR_NUM_THREADS",
-    "VECLIB_MAXIMUM_THREADS",
-)
 H8_THREAD_ENVIRONMENT_VALUE = "1"
-H8_THREAD_ENVIRONMENT_ITEMS = tuple(
-    (name, H8_THREAD_ENVIRONMENT_VALUE) for name in H8_THREAD_ENVIRONMENT
+H8_THREAD_ENVIRONMENT_ITEMS = (
+    ("OMP_NUM_THREADS", H8_THREAD_ENVIRONMENT_VALUE),
+    ("MKL_NUM_THREADS", H8_THREAD_ENVIRONMENT_VALUE),
+    ("OPENBLAS_NUM_THREADS", H8_THREAD_ENVIRONMENT_VALUE),
+    ("NUMEXPR_NUM_THREADS", H8_THREAD_ENVIRONMENT_VALUE),
+    ("VECLIB_MAXIMUM_THREADS", H8_THREAD_ENVIRONMENT_VALUE),
+    ("MKL_THREADING_LAYER", "SEQUENTIAL"),
 )
+H8_THREAD_ENVIRONMENT = tuple(name for name, _value in H8_THREAD_ENVIRONMENT_ITEMS)
+H8_FORBIDDEN_ENVIRONMENT = ("KMP_DUPLICATE_LIB_OK",)
 H8_TORCH_NUM_THREADS = 1
 H8_TORCH_NUM_INTEROP_THREADS = 1
 H8_CHILD_REQUEST_KEYS = (
@@ -71,6 +71,86 @@ H8_CHILD_RESULT_KEYS = (
     "resource_decisions",
     "invariants",
 )
+
+
+def _validated_environment(value: Mapping[str, str]) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        raise TypeError("H8 startup environment must be a mapping")
+    copied = dict(value)
+    if any(
+        type(key) is not str
+        or not key
+        or type(item) is not str
+        for key, item in copied.items()
+    ):
+        raise TypeError("H8 startup environment must map strings to strings")
+    return copied
+
+
+def _forbidden_environment_keys(
+    environment: Mapping[str, str],
+) -> tuple[str, ...]:
+    forbidden = {name.casefold() for name in H8_FORBIDDEN_ENVIRONMENT}
+    return tuple(
+        sorted(
+            key
+            for key in environment
+            if key.casefold() in forbidden
+        )
+    )
+
+
+def require_h8_startup_environment(
+    environment: Mapping[str, str],
+) -> dict[str, str]:
+    """Return the canonical H8 startup values or fail closed."""
+
+    copied = _validated_environment(environment)
+    forbidden = _forbidden_environment_keys(copied)
+    if forbidden:
+        raise ValueError(
+            "H8 forbids KMP_DUPLICATE_LIB_OK in every spelling: "
+            f"{forbidden!r}"
+        )
+    by_folded_name: dict[str, list[tuple[str, str]]] = {}
+    for key, value in copied.items():
+        by_folded_name.setdefault(key.casefold(), []).append((key, value))
+    for expected_name, expected_value in H8_THREAD_ENVIRONMENT_ITEMS:
+        matches = by_folded_name.get(expected_name.casefold(), [])
+        if matches != [(expected_name, expected_value)]:
+            raise ValueError(
+                "H8 startup environment is missing, aliased, duplicated, "
+                f"or mismatched for {expected_name}"
+            )
+    return dict(H8_THREAD_ENVIRONMENT_ITEMS)
+
+
+def prepare_h8_script_environment(
+    environment: MutableMapping[str, str],
+) -> dict[str, str]:
+    """Establish the safe H8 script environment before numerical imports."""
+
+    if not isinstance(environment, MutableMapping):
+        raise TypeError("H8 script environment must be mutable")
+    copied = _validated_environment(environment)
+    forbidden = _forbidden_environment_keys(copied)
+    if forbidden:
+        raise ValueError(
+            "H8 forbids KMP_DUPLICATE_LIB_OK in every spelling: "
+            f"{forbidden!r}"
+        )
+    required = {
+        name.casefold()
+        for name, _value in H8_THREAD_ENVIRONMENT_ITEMS
+    }
+    for key in tuple(environment):
+        if key.casefold() in required:
+            del environment[key]
+    for name, value in H8_THREAD_ENVIRONMENT_ITEMS:
+        environment[name] = value
+    return require_h8_startup_environment(environment)
+
+
 H8_CHILD_IDENTITY_KEYS = ("hardware", "affinity", "thread", "blas")
 H8_CHILD_ERROR_KEYS = ("kind", "message", "witnessed_violation")
 H8_CHILD_MODES = ("production", "profiler", "negative_control")
@@ -347,6 +427,7 @@ __all__ = [
     "H8_CHILD_RESULT_KEYS",
     "H8_CHILD_SCHEMA_VERSION",
     "H8_COLD_REPETITIONS",
+    "H8_FORBIDDEN_ENVIRONMENT",
     "H8_LOCAL_CONTRACT_DRIFT_KIND",
     "H8_MAX_PROCESS_INCREMENTAL_BYTES",
     "H8_MAX_RHS_WIDTH",
@@ -379,5 +460,7 @@ __all__ = [
     "canonical_h8_local_contract_drift_line",
     "canonical_json_bytes",
     "canonical_json_line",
+    "prepare_h8_script_environment",
     "recover_h8_child_request",
+    "require_h8_startup_environment",
 ]

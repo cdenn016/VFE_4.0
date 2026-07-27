@@ -3,8 +3,9 @@
 Only standard-library modules and the standard-library-only stable wire
 authority are imported at module load time.  NumPy, PyTorch, and runtime
 project modules are imported from :func:`main` only after the five one-thread
-environment variables and the exact request have been validated.  The process
-writes exactly one canonical JSON line to stdout.
+variables, ``MKL_THREADING_LAYER=SEQUENTIAL``, forbidden
+``KMP_DUPLICATE_LIB_OK`` absence, and the exact request have been validated.
+The process writes exactly one canonical JSON line to stdout.
 """
 
 from __future__ import annotations
@@ -34,14 +35,17 @@ from verification import h8_wire as _h8_wire
 
 _SCHEMA_VERSION = "h8-child-v2"
 _IDENTITY_ENV = "VFE4_H8_CHILD_IDENTITIES_JSON"
-_THREAD_ENVIRONMENT = (
-    "OMP_NUM_THREADS",
-    "MKL_NUM_THREADS",
-    "OPENBLAS_NUM_THREADS",
-    "NUMEXPR_NUM_THREADS",
-    "VECLIB_MAXIMUM_THREADS",
-)
 _THREAD_ENVIRONMENT_VALUE = "1"
+_THREAD_ENVIRONMENT_ITEMS = (
+    ("OMP_NUM_THREADS", _THREAD_ENVIRONMENT_VALUE),
+    ("MKL_NUM_THREADS", _THREAD_ENVIRONMENT_VALUE),
+    ("OPENBLAS_NUM_THREADS", _THREAD_ENVIRONMENT_VALUE),
+    ("NUMEXPR_NUM_THREADS", _THREAD_ENVIRONMENT_VALUE),
+    ("VECLIB_MAXIMUM_THREADS", _THREAD_ENVIRONMENT_VALUE),
+    ("MKL_THREADING_LAYER", "SEQUENTIAL"),
+)
+_THREAD_ENVIRONMENT = tuple(name for name, _value in _THREAD_ENVIRONMENT_ITEMS)
+_FORBIDDEN_ENVIRONMENT = ("KMP_DUPLICATE_LIB_OK",)
 _TORCH_NUM_THREADS = 1
 _TORCH_NUM_INTEROP_THREADS = 1
 _REQUEST_KEYS = (
@@ -203,10 +207,7 @@ def _validate_child_local_contract() -> None:
         if type(_PRODUCTION_SAMPLE_SEEDS) is not dict:
             raise TypeError("production sample-seed mirror is not a dict")
         local_sample_seed_pairs = tuple(_PRODUCTION_SAMPLE_SEEDS.items())
-        local_thread_environment_items = tuple(
-            (name, _THREAD_ENVIRONMENT_VALUE)
-            for name in _THREAD_ENVIRONMENT
-        )
+        local_thread_environment_items = _THREAD_ENVIRONMENT_ITEMS
     except Exception as error:
         raise _ChildLocalContractDrift(
             "child-local execution inventory is unavailable"
@@ -219,6 +220,11 @@ def _validate_child_local_contract() -> None:
             "thread environment values",
             local_thread_environment_items,
             _h8_wire.H8_THREAD_ENVIRONMENT_ITEMS,
+        ),
+        (
+            "forbidden environment",
+            _FORBIDDEN_ENVIRONMENT,
+            _h8_wire.H8_FORBIDDEN_ENVIRONMENT,
         ),
         (
             "torch intra-op threads",
@@ -619,6 +625,7 @@ def _validate_identity_payload(
         if keys != {
             "kind",
             "environment",
+            "forbidden_environment_present",
             "torch_num_threads",
             "torch_num_interop_threads",
         }:
@@ -626,11 +633,8 @@ def _validate_identity_payload(
         environment = record["environment"]
         if (
             not isinstance(environment, Mapping)
-            or set(environment) != set(_THREAD_ENVIRONMENT)
-            or any(
-                environment[name] != _THREAD_ENVIRONMENT_VALUE
-                for name in _THREAD_ENVIRONMENT
-            )
+            or dict(environment) != dict(_THREAD_ENVIRONMENT_ITEMS)
+            or record["forbidden_environment_present"] is not False
             or record["torch_num_threads"] != _TORCH_NUM_THREADS
             or record["torch_num_interop_threads"]
             != _TORCH_NUM_INTEROP_THREADS
@@ -665,20 +669,33 @@ def _validate_identity_payload(
 
 
 def _require_thread_environment() -> dict[str, str]:
-    observed = {name: os.environ.get(name) for name in _THREAD_ENVIRONMENT}
-    missing = tuple(
-        name
-        for name, value in observed.items()
-        if value != _THREAD_ENVIRONMENT_VALUE
-    )
-    if missing:
-        raise _ChildObservabilityError(
-            f"one-thread environment is missing or mismatched: {missing!r}"
+    forbidden_names = {name.casefold() for name in _FORBIDDEN_ENVIRONMENT}
+    forbidden = tuple(
+        sorted(
+            key
+            for key in os.environ
+            if key.casefold() in forbidden_names
         )
-    return {
-        name: _THREAD_ENVIRONMENT_VALUE
-        for name in _THREAD_ENVIRONMENT
-    }
+    )
+    if forbidden:
+        raise _ChildObservabilityError(
+            "forbidden KMP_DUPLICATE_LIB_OK environment is present: "
+            f"{forbidden!r}"
+        )
+    by_folded_name: dict[str, list[tuple[str, str]]] = {}
+    for key, value in os.environ.items():
+        by_folded_name.setdefault(key.casefold(), []).append((key, value))
+    mismatched = tuple(
+        name
+        for name, value in _THREAD_ENVIRONMENT_ITEMS
+        if by_folded_name.get(name.casefold(), []) != [(name, value)]
+    )
+    if mismatched:
+        raise _ChildObservabilityError(
+            "startup environment is missing, aliased, duplicated, or "
+            f"mismatched: {mismatched!r}"
+        )
+    return dict(_THREAD_ENVIRONMENT_ITEMS)
 
 
 def _parse_request(raw: bytes) -> tuple[dict[str, object], str]:
@@ -852,6 +869,7 @@ def _collect_identities(
                 "thread",
                 {
                     "environment": dict(thread_environment),
+                    "forbidden_environment_present": False,
                     "torch_num_threads": int(torch.get_num_threads()),
                     "torch_num_interop_threads": int(
                         torch.get_num_interop_threads()
@@ -3228,6 +3246,10 @@ def main() -> int:
         )
         with contextlib.redirect_stdout(sys.stderr):
             torch, np = _load_runtime()
+            if _require_thread_environment() != thread_environment:
+                raise _ChildObservabilityError(
+                    "startup environment drifted during NumPy/PyTorch imports"
+                )
             _set_and_verify_torch_threads(torch)
             identities = _collect_identities(
                 torch=torch,
@@ -3237,6 +3259,10 @@ def main() -> int:
             _verify_identity_match(expected_identities, identities)
             from vfe4.config.schema import H8ValidationConfig
 
+            if _require_thread_environment() != thread_environment:
+                raise _ChildObservabilityError(
+                    "startup environment drifted during project imports"
+                )
             try:
                 runtime_config = H8ValidationConfig.create()
             except (TypeError, ValueError) as error:
@@ -3321,6 +3347,10 @@ def main() -> int:
                     obligations=obligations,
                     identities=identities,
                     result=result,
+                )
+            if _require_thread_environment() != thread_environment:
+                raise _ChildObservabilityError(
+                    "startup environment drifted during request execution"
                 )
         exit_code = 0
     except _ChildLocalContractDrift as error:

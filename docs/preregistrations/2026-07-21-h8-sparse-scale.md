@@ -1,6 +1,6 @@
 # H8 Sparse-Scale Systems Preregistration
 
-Protocol revision: `h8-sparse-scale-v4` (amended 2026-07-26)
+Protocol revision: `h8-sparse-scale-v4` (amended 2026-07-27)
 
 This v4 contract supersedes the underspecified staged v3 contract before any
 v4 scientific or milestone execution may be accepted as promotion evidence.
@@ -320,11 +320,31 @@ be decisive under its own correct-path allowance.
 ## One-thread child and 30-attempt resource protocol
 
 Normative production is PyTorch float64 CPU under `torch.no_grad()`, one
-intra-op thread, and one inter-op thread. Before a child imports NumPy or
-PyTorch, the parent sets `OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`,
-`OPENBLAS_NUM_THREADS=1`, `NUMEXPR_NUM_THREADS=1`, and
-`VECLIB_MAXIMUM_THREADS=1`. Before tensor work, the child sets and verifies
-both PyTorch thread getters equal one.
+intra-op thread, and one inter-op thread. Before any parent or child numerical
+import, require this exact canonical startup environment:
+
+```text
+OMP_NUM_THREADS=1
+MKL_NUM_THREADS=1
+OPENBLAS_NUM_THREADS=1
+NUMEXPR_NUM_THREADS=1
+VECLIB_MAXIMUM_THREADS=1
+MKL_THREADING_LAYER=SEQUENTIAL
+KMP_DUPLICATE_LIB_OK absent in every case spelling
+```
+
+Direct click execution of `verify_vfe4.py` establishes the six required
+values before its project imports. Package callers must establish them before
+importing `verify_vfe4` into a fresh numerical runtime and fail closed on
+retroactive repair or a preimported NumPy/PyTorch runtime. The parent removes
+case-insensitive aliases before inserting canonical startup and child-identity
+keys, rejects rather than propagates any `KMP_DUPLICATE_LIB_OK`, and hashes
+both required values and forbidden absence into the protocol/thread identity.
+Each child checks the contract before and after NumPy, PyTorch, and initial
+project imports and again after all mode-specific imports and request
+execution, before emitting an envelope. Before tensor work, it sets and
+verifies both PyTorch thread getters equal one. A Python-level NumPy BLAS
+bootstrap and `KMP_DUPLICATE_LIB_OK` are not permitted workarounds.
 
 Production traversal is seed-major:
 
@@ -679,8 +699,9 @@ Required nested inventories:
   literal, the complete required-operation and negative-control inventories,
   and every frozen numerical and boundary constant.
 - `environment`: platform, processor, CPU count, affinity, Python/PyTorch/
-  NumPy, CPU/float64/no-grad, threads, thread environment, BLAS, and separate
-  hardware/affinity/thread/BLAS hashes
+  NumPy, CPU/float64/no-grad, threads, the six exact startup-environment
+  values, recorded forbidden-override absence through the thread-identity
+  hash, BLAS, and separate hardware/affinity/thread/BLAS hashes
 - `problems`: exactly three seed-major records
   `{problem_seed,sample_noise_seed,input_sha256,sample_noise_sha256,
   generative_sha256,recognition_sha256,local_spd_diagnostics,
