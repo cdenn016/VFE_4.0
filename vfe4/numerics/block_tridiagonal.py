@@ -28,6 +28,26 @@ from vfe4.types.h8 import (
 )
 
 
+H8_HAGER_HIGHAM_MAXIMUM_ITERATIONS = 8
+H8_HAGER_HIGHAM_1NORM_POLICY = (
+    ("initial_probe", "uniform_all_positive_1_over_dimension"),
+    ("zero_sign", "positive_one"),
+    ("argmax_tie_break", "first_population_major_index"),
+    (
+        "stop_order",
+        ("repeated_index", "selected_less_than_or_equal_dot_product"),
+    ),
+    ("repeated_index_appended_before_stop", True),
+    ("dot_product_stop_operator", "<="),
+    ("next_probe", "one_hot_selected_index"),
+    ("maximum_iterations", H8_HAGER_HIGHAM_MAXIMUM_ITERATIONS),
+    (
+        "convergence_reasons",
+        ("repeated_index", "dot_product_stop", "maximum_iterations"),
+    ),
+)
+
+
 def _block_vector_raw_sha256(
     value: Tensor,
     layout: BlockChainLayout,
@@ -627,7 +647,7 @@ class BlockTridiagonalCholesky:
         sign_hashes: list[str] = []
         convergence_reason = "maximum_iterations"
         iterations = 0
-        for iteration in range(1, 9):
+        for iteration in range(1, H8_HAGER_HIGHAM_MAXIMUM_ITERATIONS + 1):
             iterations = iteration
             y = self.solve(x)
             estimate = max(estimate, float(y.abs().sum().item()))
@@ -681,4 +701,8 @@ class BlockTridiagonalCholesky:
         )
 
 
-__all__ = ["BlockTridiagonalCholesky"]
+__all__ = [
+    "H8_HAGER_HIGHAM_1NORM_POLICY",
+    "H8_HAGER_HIGHAM_MAXIMUM_ITERATIONS",
+    "BlockTridiagonalCholesky",
+]

@@ -15,7 +15,6 @@ from vfe4.types.h6 import BoundedPrefixCertificateSet
 from vfe4.types.h7 import H7PredecessorReference
 from vfe4.types.h8 import (
     CurrentH8PrerequisiteRefs,
-    H8ChildAttemptRecord,
     H8ChildRequest,
     H8GateEvaluation,
     H8H1H5Reference,
@@ -191,7 +190,17 @@ def test_h8_preflight_keeps_optional_hashes_and_failure_dominates() -> None:
     )
 
 
-def test_h8_gate_retains_parent_attempt_failure_without_a_child_result() -> None:
+def test_h8_gate_retains_parent_attempt_failure_without_a_child_result(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_budget import (
+        H8ChildProcessRecord,
+        build_h8_child_invocation,
+        classify_h8_child_outcome,
+        make_h8_child_attempt_record,
+        make_h8_identity_record,
+    )
+
     refs = _current_refs()
     request = H8ChildRequest(
         mode="production",
@@ -201,25 +210,77 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result() -> None
         protocol_sha256="c" * 64,
         control_id=None,
     )
-    request_sha256 = hashlib.sha256(
-        h8_gate.canonical_h8_json_bytes(request)
-    ).hexdigest()
-    attempt = H8ChildAttemptRecord(
-        request=request,
-        status=GateStatus.FAIL,
-        reasons=("child_timeout",),
-        result=None,
-        pass_evidence=None,
+    identities = {
+        name: make_h8_identity_record(name, payload)
+        for name, payload in (
+            (
+                "hardware",
+                {
+                    "platform": "test",
+                    "system": "test",
+                    "machine": "test",
+                    "processor": "test",
+                    "cpu_count": 1,
+                    "python": "test",
+                    "implementation": "test",
+                },
+            ),
+            ("affinity", {"adapter": "test", "cpus": [0]}),
+            (
+                "thread",
+                {
+                    "environment": {
+                        "OMP_NUM_THREADS": "1",
+                        "MKL_NUM_THREADS": "1",
+                        "OPENBLAS_NUM_THREADS": "1",
+                        "NUMEXPR_NUM_THREADS": "1",
+                        "VECLIB_MAXIMUM_THREADS": "1",
+                    },
+                    "torch_num_threads": 1,
+                    "torch_num_interop_threads": 1,
+                },
+            ),
+            (
+                "blas",
+                {
+                    "torch_version": "test",
+                    "numpy_version": "test",
+                    "torch_config": "test",
+                    "numpy_config": "test",
+                },
+            ),
+        )
+    }
+    invocation = build_h8_child_invocation(
+        {
+            "mode": request.mode,
+            "seed": request.seed,
+            "repetition": request.repetition,
+            "config_sha256": request.config_sha256,
+            "protocol_sha256": request.protocol_sha256,
+            "control_id": request.control_id,
+        },
+        repository_root=tmp_path,
+        identities=identities,
+        base_environment={},
+    )
+    process_record = H8ChildProcessRecord(
         timed_out=True,
         exit_code=None,
+        stdout=b"",
+        stderr=b"fake timeout",
         parent_elapsed_ns=60_000_000_001,
-        request_sha256=request_sha256,
-        identities_sha256="d" * 64,
-        stdout_sha256="e" * 64,
-        stderr_sha256="f" * 64,
-        operation_reachability=None,
-        residuals=None,
-        resource_decisions=None,
+    )
+    decision = classify_h8_child_outcome(
+        process_record,
+        valid_start=True,
+        invocation=invocation,
+    )
+    attempt = make_h8_child_attempt_record(
+        request,
+        invocation,
+        process_record,
+        decision,
     )
     prerequisite_validation = h8_gate.H8PrerequisiteArtifactValidation.create(
         registry_sha256=refs.registry_sha256,
@@ -263,10 +324,10 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result() -> None
             "timed_out": True,
             "exit_code": None,
             "parent_elapsed_ns": 60_000_000_001,
-            "request_sha256": request_sha256,
-            "identities_sha256": "d" * 64,
-            "stdout_sha256": "e" * 64,
-            "stderr_sha256": "f" * 64,
+            "request_sha256": attempt.request_sha256,
+            "identities_sha256": attempt.identities_sha256,
+            "stdout_sha256": attempt.stdout_sha256,
+            "stderr_sha256": attempt.stderr_sha256,
             "operation_reachability": None,
             "residuals": None,
             "resource_decisions": None,

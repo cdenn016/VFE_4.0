@@ -47,6 +47,9 @@ from vfe4.types.h8 import (
     H8ChildResult,
     H8ControlResult,
     H8ProfilerEventRecord,
+    H8_PROFILER_API_CONTRACT_SHA256,
+    H8_PROFILER_MEMORY_SOURCE_SHA256,
+    H8_PROFILER_SOURCE_SHA256,
     H8TensorKey,
 )
 from vfe4.types.results import GateStatus
@@ -1567,9 +1570,11 @@ def _profiler_child_envelope(**updates: object) -> dict[str, object]:
             ],
             "profiler_api": {
                 "torch_version": "2.9.1",
-                "memory_profile_source_sha256": "d" * 64,
-                "profiler_source_sha256": "e" * 64,
-                "api_contract_sha256": "f" * 64,
+                "memory_profile_source_sha256": (
+                    H8_PROFILER_MEMORY_SOURCE_SHA256
+                ),
+                "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
+                "api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
             },
         }
     )
@@ -2060,6 +2065,7 @@ def _verified_h8_production_attempt_inputs(
 
 def test_h8_child_v2_retains_lossless_private_evidence_without_public_schema_drift(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import vfe4.types as public_types
     import vfe4.types.h8 as h8_types
@@ -2165,11 +2171,11 @@ def test_h8_child_v2_retains_lossless_private_evidence_without_public_schema_dri
             "thread",
             "blas",
         )
-        with pytest.raises(ValueError, match="private PASS evidence"):
+        with pytest.raises(TypeError, match="factory-only"):
             dataclasses.replace(attempt, pass_evidence=None)
     assert control_attempt.pass_evidence is None
     assert all(attempt.pass_evidence is None for attempt in nonpass_attempts)
-    with pytest.raises(ValueError, match="private PASS evidence"):
+    with pytest.raises(TypeError, match="factory-only"):
         dataclasses.replace(
             control_attempt,
             pass_evidence=production_attempt.pass_evidence,
@@ -2264,6 +2270,235 @@ def test_h8_child_v2_retains_lossless_private_evidence_without_public_schema_dri
     for attempt in (production_attempt, profiler_attempt):
         assert type(attempt.result) is H8ChildResult
         assert tuple(_child_payload(attempt.result, attempt)) == published_keys
+
+    with pytest.raises(TypeError, match="factory-only"):
+        private_type(
+            sample_noise_sha256=retained.sample_noise_sha256,
+            problem_evidence=retained.problem_evidence,
+            condition_diagnostics=retained.condition_diagnostics,
+            allocation=retained.allocation,
+            child_identities=retained.child_identities,
+        )
+    with pytest.raises(TypeError, match="factory-only"):
+        H8ChildAttemptRecord(
+            **{
+                field.name: getattr(production_attempt, field.name)
+                for field in dataclasses.fields(production_attempt)
+            }
+        )
+    forged_attempt = object.__new__(H8ChildAttemptRecord)
+    for field in dataclasses.fields(production_attempt):
+        object.__setattr__(
+            forged_attempt,
+            field.name,
+            getattr(production_attempt, field.name),
+        )
+    with pytest.raises(ValueError, match="factory-issued"):
+        h8_types._require_h8_child_attempt_record(forged_attempt)
+
+    assert type(production_attempt.result) is H8ChildResult
+    retained_input_sha256 = production_attempt.result.input_sha256
+    object.__setattr__(
+        production_attempt.result,
+        "input_sha256",
+        "0" * 64,
+    )
+    with pytest.raises(ValueError, match="factory-issued"):
+        h8_types._require_h8_child_attempt_record(production_attempt)
+    object.__setattr__(
+        production_attempt.result,
+        "input_sha256",
+        retained_input_sha256,
+    )
+    assert h8_types._require_h8_child_attempt_record(
+        production_attempt
+    ) is production_attempt
+
+    retained_generative_sha256 = retained.problem_evidence.generative_sha256
+    object.__setattr__(
+        retained.problem_evidence,
+        "generative_sha256",
+        "0" * 64,
+    )
+    with pytest.raises(ValueError, match="factory-issued"):
+        h8_types._require_h8_child_attempt_record(production_attempt)
+    object.__setattr__(
+        retained.problem_evidence,
+        "generative_sha256",
+        retained_generative_sha256,
+    )
+    assert h8_types._require_h8_decoded_pass_evidence(retained) is retained
+
+    for exit_code, parent_elapsed_ns, expected_reason in (
+        (9, 37, "nonzero_child_exit"),
+        (0, 60_000_000_001, "parent_elapsed_budget_breach"),
+    ):
+        request, invocation, _, _, payload = (
+            _verified_h8_production_attempt_inputs(tmp_path)
+        )
+        process_record = H8ChildProcessRecord.from_payload(
+            payload,
+            exit_code=exit_code,
+            parent_elapsed_ns=parent_elapsed_ns,
+        )
+        decision = classify_h8_child_outcome(
+            process_record,
+            valid_start=True,
+            invocation=invocation,
+        )
+        attempt = make_h8_child_attempt_record(
+            request,
+            invocation,
+            process_record,
+            decision,
+        )
+        assert attempt.status is GateStatus.FAIL
+        assert expected_reason in attempt.reasons
+        assert attempt.result is None
+        assert attempt.pass_evidence is None
+        assert attempt.operation_reachability is None
+        assert attempt.residuals is None
+        assert attempt.resource_decisions is None
+        assert attempt.nonpass_envelope is not None
+        assert attempt.nonpass_envelope["status"] == "pass"
+
+    from vfe4.types.h8 import (
+        H8_PROFILER_API_CONTRACT_SHA256,
+        H8_PROFILER_MEMORY_SOURCE_SHA256,
+        H8_PROFILER_SOURCE_SHA256,
+    )
+
+    profiler_pins = {
+        "torch_version": "2.9.1",
+        "memory_profile_source_sha256": H8_PROFILER_MEMORY_SOURCE_SHA256,
+        "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
+        "api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
+    }
+    for name, expected in profiler_pins.items():
+        drifted = _profiler_child_envelope()
+        drifted_result = drifted["result"]
+        assert isinstance(drifted_result, dict)
+        drifted_allocation = drifted_result["allocation"]
+        assert isinstance(drifted_allocation, dict)
+        drifted_api = drifted_allocation["profiler_api"]
+        assert isinstance(drifted_api, dict)
+        assert drifted_api[name] == expected
+        drifted_api[name] = (
+            "forged-torch-version"
+            if name == "torch_version"
+            else "0" * 64
+        )
+        with pytest.raises(ValueError, match="profiler"):
+            decode_h8_child_result(drifted)
+
+    import verification.h8_budget as h8_budget
+    from verification.h8_orchestrator import (
+        H8IssuedLaunchRecord,
+        build_h8_launch_contract_sha256,
+    )
+
+    type_only_attempt = h8_types._issue_h8_child_attempt_record(
+        **{
+            field.name: getattr(production_attempt, field.name)
+            for field in dataclasses.fields(production_attempt)
+        }
+    )
+    with pytest.raises(ValueError, match="validated process bundle"):
+        h8_budget._require_h8_budget_issued_attempt(type_only_attempt)
+    assert h8_budget._require_h8_budget_issued_attempt(
+        production_attempt
+    ) is production_attempt
+
+    validation_counts = {
+        "allocation": 0,
+        "relationships": 0,
+        "profiler_events": 0,
+    }
+    original_allocation = h8_budget._validate_allocation_evidence
+    original_relationships = h8_budget._validate_pass_relationships
+    original_profiler_events = h8_budget._decode_profiler_events
+
+    def counted_allocation(*args, **kwargs):
+        validation_counts["allocation"] += 1
+        return original_allocation(*args, **kwargs)
+
+    def counted_relationships(*args, **kwargs):
+        validation_counts["relationships"] += 1
+        return original_relationships(*args, **kwargs)
+
+    def counted_profiler_events(*args, **kwargs):
+        validation_counts["profiler_events"] += 1
+        return original_profiler_events(*args, **kwargs)
+
+    monkeypatch.setattr(
+        h8_budget,
+        "_validate_allocation_evidence",
+        counted_allocation,
+    )
+    monkeypatch.setattr(
+        h8_budget,
+        "_validate_pass_relationships",
+        counted_relationships,
+    )
+    monkeypatch.setattr(
+        h8_budget,
+        "_decode_profiler_events",
+        counted_profiler_events,
+    )
+    single_pass_envelope = _profiler_child_envelope()
+    single_pass_request = H8ChildRequest(
+        mode="profiler",
+        seed=single_pass_envelope["seed"],  # type: ignore[arg-type]
+        repetition=None,
+        config_sha256=single_pass_envelope["config_sha256"],  # type: ignore[arg-type]
+        protocol_sha256=single_pass_envelope["protocol_sha256"],  # type: ignore[arg-type]
+        control_id=None,
+    )
+    single_pass_identities = single_pass_envelope["identities"]
+    assert isinstance(single_pass_identities, dict)
+    single_pass_invocation = build_h8_child_invocation(
+        dataclasses.asdict(single_pass_request),
+        repository_root=tmp_path,
+        identities=single_pass_identities,
+        base_environment={},
+    )
+    single_pass_envelope["request_sha256"] = hashlib.sha256(
+        single_pass_invocation.stdin[:-1]
+    ).hexdigest()
+    single_pass_process = H8ChildProcessRecord.from_payload(
+        single_pass_envelope
+    )
+    single_pass_decision = classify_h8_child_outcome(
+        single_pass_process,
+        valid_start=True,
+        invocation=single_pass_invocation,
+    )
+    single_pass_attempt = make_h8_child_attempt_record(
+        single_pass_request,
+        single_pass_invocation,
+        single_pass_process,
+        single_pass_decision,
+    )
+    issued = H8IssuedLaunchRecord(
+        request=single_pass_request,
+        invocation=single_pass_invocation,
+        process_record=single_pass_process,
+        repository_root=tmp_path.resolve(),
+        launch_contract_sha256=build_h8_launch_contract_sha256(
+            single_pass_invocation,
+            repository_root=tmp_path,
+        ),
+        attempt=single_pass_attempt,
+    )
+    issued.__post_init__()
+    assert h8_types._require_h8_child_attempt_record(
+        single_pass_attempt
+    ) is single_pass_attempt
+    assert validation_counts == {
+        "allocation": 1,
+        "relationships": 1,
+        "profiler_events": 1,
+    }
 
 
 def test_child_attempt_factory_decodes_and_binds_verified_pass(

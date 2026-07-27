@@ -56,6 +56,8 @@ from vfe4.types.h8 import (
     H8ProductionProblemEvidence,
     H8TransitionNorms,
     SparseConditionDiagnostics,
+    _issue_h8_child_attempt_record,
+    _issue_h8_decoded_pass_evidence,
 )
 
 
@@ -711,7 +713,7 @@ def _h8_private_pass_evidence() -> H8DecodedPassEvidence:
         max_state_model_coupling_norm=0.1,
         max_recognition_transition_norm=0.1,
     )
-    return H8DecodedPassEvidence(
+    return _issue_h8_decoded_pass_evidence(
         sample_noise_sha256="0" * 64,
         problem_evidence=H8ProductionProblemEvidence(
             generative_sha256="1" * 64,
@@ -753,7 +755,7 @@ def _h8_attempt(
     resource_decisions: Mapping[str, object] | None = None,
     nonpass_envelope: Mapping[str, object] | None = None,
 ) -> H8ChildAttemptRecord:
-    return H8ChildAttemptRecord(
+    return _issue_h8_child_attempt_record(
         request=request,
         status=status,
         reasons=reasons,
@@ -778,6 +780,18 @@ def _h8_attempt(
         resource_decisions=resource_decisions,
         nonpass_envelope=nonpass_envelope,
     )
+
+
+def _replace_h8_attempt(
+    attempt: H8ChildAttemptRecord,
+    **changes: object,
+) -> H8ChildAttemptRecord:
+    values = {
+        field.name: getattr(attempt, field.name)
+        for field in dataclasses.fields(attempt)
+    }
+    values.update(changes)
+    return _issue_h8_child_attempt_record(**values)  # type: ignore[arg-type]
 
 
 def _h8_pass_child_attempt(
@@ -885,7 +899,7 @@ def test_h8_child_attempt_rejects_status_and_request_hash_drift(
     )
 
     with pytest.raises(ValueError, match=match):
-        dataclasses.replace(attempt, **changes)
+        _replace_h8_attempt(attempt, **changes)
 
 
 @pytest.mark.parametrize(
@@ -925,7 +939,7 @@ def test_h8_child_attempt_cannot_mask_retained_failure_as_inconclusive(
     )
 
     with pytest.raises(ValueError, match="witnessed.*INCONCLUSIVE"):
-        dataclasses.replace(inconclusive, **changes)
+        _replace_h8_attempt(inconclusive, **changes)
 
 
 def test_h8_child_attempt_binds_request_to_result_and_parent_timing() -> None:
@@ -934,17 +948,17 @@ def test_h8_child_attempt_binds_request_to_result_and_parent_timing() -> None:
     assert attempt.result is result
     assert result.resources.parent_elapsed_ns == 0
     with pytest.raises(ValueError, match="request identity"):
-        dataclasses.replace(
+        _replace_h8_attempt(
             attempt,
             result=_h8_child_result(seed=H8_PRODUCTION_SEEDS[1]),
         )
     with pytest.raises(ValueError, match="parent-owned"):
-        dataclasses.replace(
+        _replace_h8_attempt(
             attempt,
             result=_h8_child_result(resource_parent_elapsed_ns=1),
         )
     with pytest.raises(ValueError, match="operation_reachability"):
-        dataclasses.replace(
+        _replace_h8_attempt(
             attempt,
             operation_reachability={"factorization": True},
         )
@@ -967,9 +981,9 @@ def test_h8_child_attempt_pass_control_has_control_only_endpoints() -> None:
 
     assert attempt.result is result
     with pytest.raises(ValueError, match="control endpoints"):
-        dataclasses.replace(attempt, residuals={"unexpected": 0.0})
+        _replace_h8_attempt(attempt, residuals={"unexpected": 0.0})
     with pytest.raises(ValueError, match="request identity"):
-        dataclasses.replace(
+        _replace_h8_attempt(
             attempt,
             result=_h8_control_result(H8_NEGATIVE_CONTROL_IDS[1]),
         )

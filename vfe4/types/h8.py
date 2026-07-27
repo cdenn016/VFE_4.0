@@ -5,8 +5,10 @@ from __future__ import annotations
 import math
 import hashlib
 import json
+import threading
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields as dataclass_fields, is_dataclass
+from enum import Enum
 from types import MappingProxyType
 from typing import Literal, Protocol, Sequence, runtime_checkable
 
@@ -2003,7 +2005,7 @@ class H8ChildResult:
             raise ValueError("negative-control results cannot carry production endpoints")
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class H8DecodedPassEvidence:
     """Parent-owned lossless evidence retained only on trusted PASS attempts."""
 
@@ -2012,6 +2014,13 @@ class H8DecodedPassEvidence:
     condition_diagnostics: SparseConditionDiagnostics
     allocation: Mapping[str, object]
     child_identities: Mapping[str, object]
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise TypeError(
+            "H8DecodedPassEvidence is factory-only; "
+            "use the trusted H8 child decoder"
+        )
 
     def __post_init__(self) -> None:
         _sha256(self.sample_noise_sha256, "sample_noise_sha256")
@@ -2054,7 +2063,139 @@ class H8DecodedPassEvidence:
         object.__setattr__(self, "child_identities", frozen_identities)
 
 
-@dataclass(frozen=True, slots=True)
+_H8_PASS_EVIDENCE_FIELDS = (
+    "sample_noise_sha256",
+    "problem_evidence",
+    "condition_diagnostics",
+    "allocation",
+    "child_identities",
+)
+_ISSUED_H8_PASS_EVIDENCE: dict[
+    int,
+    tuple[H8DecodedPassEvidence, str],
+] = {}
+_H8_ISSUANCE_LOCK = threading.RLock()
+
+
+def _h8_issuance_canonical_value(value: object) -> object:
+    """Return a typed JSON value for deep issuance-integrity hashing."""
+
+    if value is None or type(value) in (str, bool, int):
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("issuance evidence cannot contain nonfinite floats")
+        return value
+    if isinstance(value, Enum):
+        return {
+            "enum_type": f"{type(value).__module__}.{type(value).__qualname__}",
+            "value": _h8_issuance_canonical_value(value.value),
+        }
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            "dataclass_type": (
+                f"{type(value).__module__}.{type(value).__qualname__}"
+            ),
+            "fields": [
+                [
+                    item.name,
+                    _h8_issuance_canonical_value(
+                        getattr(value, item.name)
+                    ),
+                ]
+                for item in dataclass_fields(value)
+            ],
+        }
+    if isinstance(value, Mapping):
+        copied = dict(value)
+        if len(copied) != len(value) or any(
+            type(key) is not str or not key for key in copied
+        ):
+            raise ValueError(
+                "issuance evidence mappings require unique nonempty string keys"
+            )
+        return {
+            "mapping": [
+                [key, _h8_issuance_canonical_value(copied[key])]
+                for key in sorted(copied)
+            ]
+        }
+    if type(value) in (tuple, list):
+        return {
+            "sequence_type": type(value).__name__,
+            "items": [
+                _h8_issuance_canonical_value(item) for item in value
+            ],
+        }
+    raise ValueError(
+        "issuance evidence contains unsupported "
+        f"{type(value).__module__}.{type(value).__qualname__}"
+    )
+
+
+def _h8_issuance_fingerprint(value: object) -> str:
+    preimage = {
+        "domain": "vfe4.h8.issuance-integrity.v1",
+        "value": _h8_issuance_canonical_value(value),
+    }
+    canonical = json.dumps(
+        preimage,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _issue_h8_decoded_pass_evidence(
+    *,
+    sample_noise_sha256: str,
+    problem_evidence: H8ProductionProblemEvidence,
+    condition_diagnostics: SparseConditionDiagnostics,
+    allocation: Mapping[str, object],
+    child_identities: Mapping[str, object],
+) -> H8DecodedPassEvidence:
+    evidence = object.__new__(H8DecodedPassEvidence)
+    for name, value in (
+        ("sample_noise_sha256", sample_noise_sha256),
+        ("problem_evidence", problem_evidence),
+        ("condition_diagnostics", condition_diagnostics),
+        ("allocation", allocation),
+        ("child_identities", child_identities),
+    ):
+        object.__setattr__(evidence, name, value)
+    evidence.__post_init__()
+    fingerprint = _h8_issuance_fingerprint(evidence)
+    with _H8_ISSUANCE_LOCK:
+        _ISSUED_H8_PASS_EVIDENCE[id(evidence)] = (
+            evidence,
+            fingerprint,
+        )
+    return evidence
+
+
+def _require_h8_decoded_pass_evidence(
+    evidence: object,
+) -> H8DecodedPassEvidence:
+    if type(evidence) is not H8DecodedPassEvidence:
+        raise ValueError(
+            "pass evidence must be exact factory-issued private evidence"
+        )
+    with _H8_ISSUANCE_LOCK:
+        issued = _ISSUED_H8_PASS_EVIDENCE.get(id(evidence))
+    if (
+        issued is None
+        or issued[0] is not evidence
+        or _h8_issuance_fingerprint(evidence) != issued[1]
+    ):
+        raise ValueError(
+            "pass evidence must be exact factory-issued private evidence"
+        )
+    return evidence
+
+
+@dataclass(frozen=True, slots=True, init=False)
 class H8ChildAttemptRecord:
     """Parent-owned evidence for exactly one isolated H8 child launch."""
 
@@ -2074,6 +2215,13 @@ class H8ChildAttemptRecord:
     residuals: Mapping[str, float] | None
     resource_decisions: Mapping[str, object] | None
     nonpass_envelope: Mapping[str, object] | None = None
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise TypeError(
+            "H8ChildAttemptRecord is factory-only; "
+            "use make_h8_child_attempt_record"
+        )
 
     def __post_init__(self) -> None:
         if type(self.request) is not H8ChildRequest:
@@ -2098,11 +2246,7 @@ class H8ChildAttemptRecord:
         ):
             raise ValueError("result must retain one exact typed child result")
         if self.pass_evidence is not None:
-            if type(self.pass_evidence) is not H8DecodedPassEvidence:
-                raise ValueError(
-                    "pass_evidence must be exact private PASS evidence"
-                )
-            self.pass_evidence.__post_init__()
+            _require_h8_decoded_pass_evidence(self.pass_evidence)
         if type(self.timed_out) is not bool:
             raise ValueError("timed_out must be a bool")
         if self.exit_code is not None and type(self.exit_code) is not int:
@@ -2262,6 +2406,101 @@ class H8ChildAttemptRecord:
                 or self.result.status is not GateStatus.PASS
             ):
                 raise ValueError("PASS requires a typed result")
+
+
+_H8_CHILD_ATTEMPT_FIELDS = (
+    "request",
+    "status",
+    "reasons",
+    "result",
+    "pass_evidence",
+    "timed_out",
+    "exit_code",
+    "parent_elapsed_ns",
+    "request_sha256",
+    "identities_sha256",
+    "stdout_sha256",
+    "stderr_sha256",
+    "operation_reachability",
+    "residuals",
+    "resource_decisions",
+    "nonpass_envelope",
+)
+_ISSUED_H8_CHILD_ATTEMPTS: dict[
+    int,
+    tuple[H8ChildAttemptRecord, str],
+] = {}
+
+
+def _issue_h8_child_attempt_record(
+    *,
+    request: H8ChildRequest,
+    status: GateStatus,
+    reasons: tuple[str, ...],
+    result: H8ChildResult | H8ControlResult | None,
+    pass_evidence: H8DecodedPassEvidence | None,
+    timed_out: bool,
+    exit_code: int | None,
+    parent_elapsed_ns: int,
+    request_sha256: str,
+    identities_sha256: str,
+    stdout_sha256: str,
+    stderr_sha256: str,
+    operation_reachability: Mapping[str, bool] | None,
+    residuals: Mapping[str, float] | None,
+    resource_decisions: Mapping[str, object] | None,
+    nonpass_envelope: Mapping[str, object] | None = None,
+) -> H8ChildAttemptRecord:
+    attempt = object.__new__(H8ChildAttemptRecord)
+    values = (
+        request,
+        status,
+        reasons,
+        result,
+        pass_evidence,
+        timed_out,
+        exit_code,
+        parent_elapsed_ns,
+        request_sha256,
+        identities_sha256,
+        stdout_sha256,
+        stderr_sha256,
+        operation_reachability,
+        residuals,
+        resource_decisions,
+        nonpass_envelope,
+    )
+    for name, value in zip(_H8_CHILD_ATTEMPT_FIELDS, values, strict=True):
+        object.__setattr__(attempt, name, value)
+    attempt.__post_init__()
+    fingerprint = _h8_issuance_fingerprint(attempt)
+    with _H8_ISSUANCE_LOCK:
+        _ISSUED_H8_CHILD_ATTEMPTS[id(attempt)] = (
+            attempt,
+            fingerprint,
+        )
+    return attempt
+
+
+def _require_h8_child_attempt_record(
+    attempt: object,
+    *,
+    request: H8ChildRequest | None = None,
+) -> H8ChildAttemptRecord:
+    if type(attempt) is not H8ChildAttemptRecord:
+        raise ValueError("child attempt must be exact and factory-issued")
+    with _H8_ISSUANCE_LOCK:
+        issued = _ISSUED_H8_CHILD_ATTEMPTS.get(id(attempt))
+    if (
+        issued is None
+        or issued[0] is not attempt
+        or _h8_issuance_fingerprint(attempt) != issued[1]
+        or (request is not None and attempt.request is not request)
+    ):
+        raise ValueError("child attempt must be exact and factory-issued")
+    if attempt.pass_evidence is not None:
+        _require_h8_decoded_pass_evidence(attempt.pass_evidence)
+    return attempt
 
 
 def _validate_reference_common(value: object, *, expected_kind: str) -> None:

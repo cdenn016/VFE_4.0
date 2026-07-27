@@ -1,9 +1,10 @@
 """Isolated stdin/stdout runner for the frozen H8 sparse-scale exercise.
 
-Only standard-library modules are imported at module load time.  NumPy,
-PyTorch, and project modules are imported from :func:`main` only after the
-five one-thread environment variables and the exact request have been
-validated.  The process writes exactly one canonical JSON line to stdout.
+Only standard-library modules and the standard-library-only stable wire
+authority are imported at module load time.  NumPy, PyTorch, and runtime
+project modules are imported from :func:`main` only after the five one-thread
+environment variables and the exact request have been validated.  The process
+writes exactly one canonical JSON line to stdout.
 """
 
 from __future__ import annotations
@@ -28,6 +29,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from verification import h8_wire as _h8_wire
+
 
 _SCHEMA_VERSION = "h8-child-v2"
 _IDENTITY_ENV = "VFE4_H8_CHILD_IDENTITIES_JSON"
@@ -38,6 +41,9 @@ _THREAD_ENVIRONMENT = (
     "NUMEXPR_NUM_THREADS",
     "VECLIB_MAXIMUM_THREADS",
 )
+_THREAD_ENVIRONMENT_VALUE = "1"
+_TORCH_NUM_THREADS = 1
+_TORCH_NUM_INTEROP_THREADS = 1
 _REQUEST_KEYS = (
     "mode",
     "seed",
@@ -100,6 +106,15 @@ _PRODUCTION_SAMPLE_SEEDS = {
     20260722: 20261722,
     20260723: 20261723,
 }
+_COLD_REPETITIONS = 5
+_LAYOUT_HORIZON = 128
+_LAYOUT_D_Z = 20
+_LAYOUT_D_M = 20
+_MAX_RHS_WIDTH = 40
+_SAMPLE_WIDTH = 1
+_MAX_STORAGE_SCALARS = 411_200
+_OFFBAND_FILL_LIMIT = 0
+_FORBIDDEN_ATTEMPT_LIMIT = 0
 _REQUIRED_OPERATIONS = (
     "factorization",
     "forward_substitution",
@@ -119,6 +134,7 @@ _MAX_PROCESS_BYTES = 128 * 1024 * 1024
 _MAX_TORCH_BYTES = 64 * 1024 * 1024
 _MAX_SECONDS = 60.0
 _MIN_PIVOT = 1e-8
+_PROFILER_TORCH_VERSION = "2.9.1"
 _PROFILER_MEMORY_SOURCE_SHA256 = (
     "b80b4d5b58e91d581b18082c462ec7f088ec6b46ea50a1a62e2714d517a6a1b1"
 )
@@ -127,6 +143,12 @@ _PROFILER_SOURCE_SHA256 = (
 )
 _PROFILER_API_CONTRACT_SHA256 = (
     "161a78f04c26fba19bb01ba6417f2cf8c00730ebeb8d007a4af0f4da433ba043"
+)
+_PROFILER_INVOCATION_ITEMS = (
+    ("activities", ("CPU",)),
+    ("profile_memory", True),
+    ("record_shapes", True),
+    ("with_stack", True),
 )
 _WINDOWS_MEMORY_FIELDS = (
     "cb",
@@ -166,20 +188,225 @@ class _ChildWitnessedFailure(RuntimeError):
     pass
 
 
+class _ChildLocalContractDrift(RuntimeError):
+    pass
+
+
 class _ProfilerUnavailable(_ChildObservabilityError):
     pass
+
+
+def _validate_child_local_contract() -> None:
+    """Reject local executable mirrors before relying on their parser/emitter."""
+
+    try:
+        if type(_PRODUCTION_SAMPLE_SEEDS) is not dict:
+            raise TypeError("production sample-seed mirror is not a dict")
+        local_sample_seed_pairs = tuple(_PRODUCTION_SAMPLE_SEEDS.items())
+        local_thread_environment_items = tuple(
+            (name, _THREAD_ENVIRONMENT_VALUE)
+            for name in _THREAD_ENVIRONMENT
+        )
+    except Exception as error:
+        raise _ChildLocalContractDrift(
+            "child-local execution inventory is unavailable"
+        ) from error
+    mirrors = (
+        ("schema version", _SCHEMA_VERSION, _h8_wire.H8_CHILD_SCHEMA_VERSION),
+        ("identity environment", _IDENTITY_ENV, _h8_wire.H8_CHILD_IDENTITY_ENV),
+        ("thread environment", _THREAD_ENVIRONMENT, _h8_wire.H8_THREAD_ENVIRONMENT),
+        (
+            "thread environment values",
+            local_thread_environment_items,
+            _h8_wire.H8_THREAD_ENVIRONMENT_ITEMS,
+        ),
+        (
+            "torch intra-op threads",
+            _TORCH_NUM_THREADS,
+            _h8_wire.H8_TORCH_NUM_THREADS,
+        ),
+        (
+            "torch inter-op threads",
+            _TORCH_NUM_INTEROP_THREADS,
+            _h8_wire.H8_TORCH_NUM_INTEROP_THREADS,
+        ),
+        ("request keys", _REQUEST_KEYS, _h8_wire.H8_CHILD_REQUEST_KEYS),
+        ("envelope keys", _ENVELOPE_KEYS, _h8_wire.H8_CHILD_ENVELOPE_KEYS),
+        ("result keys", _RESULT_KEYS, _h8_wire.H8_CHILD_RESULT_KEYS),
+        ("identity keys", _IDENTITY_KEYS, _h8_wire.H8_CHILD_IDENTITY_KEYS),
+        ("modes", _MODES, _h8_wire.H8_CHILD_MODES),
+        ("control IDs", _CONTROL_IDS, _h8_wire.H8_NEGATIVE_CONTROL_IDS),
+        (
+            "production sample seeds",
+            local_sample_seed_pairs,
+            _h8_wire.H8_PRODUCTION_SAMPLE_SEED_PAIRS,
+        ),
+        (
+            "cold repetitions",
+            _COLD_REPETITIONS,
+            _h8_wire.H8_COLD_REPETITIONS,
+        ),
+        (
+            "scale horizon",
+            _LAYOUT_HORIZON,
+            _h8_wire.H8_LAYOUT_HORIZON,
+        ),
+        ("scale d_z", _LAYOUT_D_Z, _h8_wire.H8_LAYOUT_D_Z),
+        ("scale d_m", _LAYOUT_D_M, _h8_wire.H8_LAYOUT_D_M),
+        (
+            "maximum RHS width",
+            _MAX_RHS_WIDTH,
+            _h8_wire.H8_MAX_RHS_WIDTH,
+        ),
+        ("sample width", _SAMPLE_WIDTH, _h8_wire.H8_SAMPLE_WIDTH),
+        (
+            "maximum storage scalars",
+            _MAX_STORAGE_SCALARS,
+            _h8_wire.H8_MAX_STORAGE_SCALARS,
+        ),
+        (
+            "offband fill limit",
+            _OFFBAND_FILL_LIMIT,
+            _h8_wire.H8_OFFBAND_FILL_LIMIT,
+        ),
+        (
+            "forbidden-attempt limit",
+            _FORBIDDEN_ATTEMPT_LIMIT,
+            _h8_wire.H8_FORBIDDEN_ATTEMPT_LIMIT,
+        ),
+        (
+            "required operations",
+            _REQUIRED_OPERATIONS,
+            _h8_wire.H8_REQUIRED_OPERATIONS,
+        ),
+        (
+            "maximum process bytes",
+            _MAX_PROCESS_BYTES,
+            _h8_wire.H8_MAX_PROCESS_INCREMENTAL_BYTES,
+        ),
+        (
+            "maximum torch bytes",
+            _MAX_TORCH_BYTES,
+            _h8_wire.H8_MAX_TORCH_POPULATION_BYTES,
+        ),
+        ("maximum seconds", _MAX_SECONDS, _h8_wire.H8_MAX_SECONDS),
+        (
+            "minimum pivot",
+            _MIN_PIVOT,
+            _h8_wire.H8_MIN_CHOLESKY_PIVOT,
+        ),
+        (
+            "profiler torch version",
+            _PROFILER_TORCH_VERSION,
+            _h8_wire.H8_PROFILER_TORCH_VERSION,
+        ),
+        (
+            "profiler memory source",
+            _PROFILER_MEMORY_SOURCE_SHA256,
+            _h8_wire.H8_PROFILER_MEMORY_SOURCE_SHA256,
+        ),
+        (
+            "profiler source",
+            _PROFILER_SOURCE_SHA256,
+            _h8_wire.H8_PROFILER_SOURCE_SHA256,
+        ),
+        (
+            "profiler API contract",
+            _PROFILER_API_CONTRACT_SHA256,
+            _h8_wire.H8_PROFILER_API_CONTRACT_SHA256,
+        ),
+        (
+            "profiler invocation",
+            _PROFILER_INVOCATION_ITEMS,
+            _h8_wire.H8_PROFILER_INVOCATION_ITEMS,
+        ),
+    )
+    for name, local, stable in mirrors:
+        try:
+            matches = type(local) is type(stable) and local == stable
+        except Exception as error:
+            raise _ChildLocalContractDrift(
+                f"child-local {name} cannot be compared to the stable parent wire"
+            ) from error
+        if not matches:
+            raise _ChildLocalContractDrift(
+                f"child-local {name} drifted from the stable parent wire"
+            )
+
+    probe_sha256 = "2" * 64
+    probe_error = _ChildLocalContractDrift("emitter inventory probe")
+    detail = f"{type(probe_error).__name__}: {probe_error}"
+    seed = _h8_wire.H8_PRODUCTION_SAMPLE_SEED_PAIRS[0][0]
+    probe_requests = (
+        {
+            "mode": "production",
+            "seed": seed,
+            "repetition": 0,
+            "config_sha256": "0" * 64,
+            "protocol_sha256": "1" * 64,
+            "control_id": None,
+        },
+        {
+            "mode": "profiler",
+            "seed": seed,
+            "repetition": None,
+            "config_sha256": "0" * 64,
+            "protocol_sha256": "1" * 64,
+            "control_id": None,
+        },
+        {
+            "mode": "negative_control",
+            "seed": seed,
+            "repetition": None,
+            "config_sha256": "0" * 64,
+            "protocol_sha256": "1" * 64,
+            "control_id": _h8_wire.H8_NEGATIVE_CONTROL_IDS[0],
+        },
+    )
+    for probe_request in probe_requests:
+        expected = _h8_wire.build_h8_local_contract_drift_envelope(
+            probe_request,
+            probe_sha256,
+            detail,
+        )
+        try:
+            observed = _error_envelope(
+                probe_request,
+                probe_sha256,
+                expected["identities"],  # type: ignore[arg-type]
+                kind=_h8_wire.H8_LOCAL_CONTRACT_DRIFT_KIND,
+                error=probe_error,
+                witnessed=False,
+            )
+            observed_line = _canonical_json_bytes(observed) + b"\n"
+            observed_error = (
+                observed.get("error")
+                if isinstance(observed, Mapping)
+                else None
+            )
+            emitter_matches = (
+                type(observed) is dict
+                and tuple(observed) == _h8_wire.H8_CHILD_ENVELOPE_KEYS
+                and isinstance(observed_error, Mapping)
+                and tuple(observed_error) == _h8_wire.H8_CHILD_ERROR_KEYS
+                and observed == expected
+                and observed_line == _h8_wire.canonical_json_line(expected)
+            )
+        except _ChildLocalContractDrift:
+            raise
+        except Exception as error:
+            raise _ChildLocalContractDrift(
+                "child-local error emitter cannot reproduce the stable inventory"
+            ) from error
+        if not emitter_matches:
+            raise _ChildLocalContractDrift(
+                "child-local error emitter drifted from the stable parent wire"
+            )
 
 
 def _runtime_protocol_sha256(config: object) -> str:
     """Recompute the v2 protocol after runtime imports and reject local drift."""
 
-    from verification.h8_budget import (
-        H8_CHILD_ENVELOPE_KEYS,
-        H8_CHILD_IDENTITY_KEYS,
-        H8_CHILD_REQUEST_KEYS,
-        H8_CHILD_RESULT_KEYS,
-        H8_CHILD_SCHEMA_VERSION,
-    )
     from verification.h8_orchestrator import build_h8_protocol_sha256
     from vfe4.config.schema import H8ValidationConfig
 
@@ -194,22 +421,24 @@ def _runtime_protocol_sha256(config: object) -> str:
         _RESULT_KEYS,
         _IDENTITY_KEYS,
     )
-    parent_contract = (
-        H8_CHILD_SCHEMA_VERSION,
-        H8_CHILD_REQUEST_KEYS,
-        H8_CHILD_ENVELOPE_KEYS,
-        H8_CHILD_RESULT_KEYS,
-        H8_CHILD_IDENTITY_KEYS,
+    stable_contract = (
+        _h8_wire.H8_CHILD_SCHEMA_VERSION,
+        _h8_wire.H8_CHILD_REQUEST_KEYS,
+        _h8_wire.H8_CHILD_ENVELOPE_KEYS,
+        _h8_wire.H8_CHILD_RESULT_KEYS,
+        _h8_wire.H8_CHILD_IDENTITY_KEYS,
     )
-    if local_contract != parent_contract or config.child_schema != (
-        _SCHEMA_VERSION
-    ):
+    if local_contract != stable_contract:
+        raise _ChildLocalContractDrift(
+            "child-local schema or key inventory drifted from the stable parent wire"
+        )
+    if config.child_schema != _h8_wire.H8_CHILD_SCHEMA_VERSION:
         raise _ChildObservabilityError(
-            "child-local schema or key inventory drifted from the parent"
+            "runtime config child schema drifted from the stable parent wire"
         )
     try:
         return build_h8_protocol_sha256(config)
-    except ValueError as error:
+    except (TypeError, ValueError) as error:
         raise _ChildObservabilityError(
             f"child protocol preimage is unavailable: {error}"
         ) from error
@@ -396,9 +625,13 @@ def _validate_identity_payload(
         if (
             not isinstance(environment, Mapping)
             or set(environment) != set(_THREAD_ENVIRONMENT)
-            or any(environment[name] != "1" for name in _THREAD_ENVIRONMENT)
-            or record["torch_num_threads"] != 1
-            or record["torch_num_interop_threads"] != 1
+            or any(
+                environment[name] != _THREAD_ENVIRONMENT_VALUE
+                for name in _THREAD_ENVIRONMENT
+            )
+            or record["torch_num_threads"] != _TORCH_NUM_THREADS
+            or record["torch_num_interop_threads"]
+            != _TORCH_NUM_INTEROP_THREADS
         ):
             raise _ChildObservabilityError("parent thread identity is not one-thread")
         return
@@ -431,12 +664,19 @@ def _validate_identity_payload(
 
 def _require_thread_environment() -> dict[str, str]:
     observed = {name: os.environ.get(name) for name in _THREAD_ENVIRONMENT}
-    missing = tuple(name for name, value in observed.items() if value != "1")
+    missing = tuple(
+        name
+        for name, value in observed.items()
+        if value != _THREAD_ENVIRONMENT_VALUE
+    )
     if missing:
         raise _ChildObservabilityError(
             f"one-thread environment is missing or mismatched: {missing!r}"
         )
-    return {name: "1" for name in _THREAD_ENVIRONMENT}
+    return {
+        name: _THREAD_ENVIRONMENT_VALUE
+        for name in _THREAD_ENVIRONMENT
+    }
 
 
 def _parse_request(raw: bytes) -> tuple[dict[str, object], str]:
@@ -470,7 +710,7 @@ def _parse_request(raw: bytes) -> tuple[dict[str, object], str]:
         if (
             seed not in _PRODUCTION_SAMPLE_SEEDS
             or type(repetition) is not int
-            or not 0 <= repetition <= 4
+            or not 0 <= repetition < _COLD_REPETITIONS
             or control_id is not None
         ):
             raise ValueError("production request identity is invalid")
@@ -636,15 +876,18 @@ def _verify_identity_match(
 
 def _set_and_verify_torch_threads(torch: Any) -> None:
     try:
-        torch.set_num_threads(1)
-        torch.set_num_interop_threads(1)
+        torch.set_num_threads(_TORCH_NUM_THREADS)
+        torch.set_num_interop_threads(_TORCH_NUM_INTEROP_THREADS)
         intra = int(torch.get_num_threads())
         inter = int(torch.get_num_interop_threads())
     except Exception as error:
         raise _ChildObservabilityError(
             f"PyTorch thread setter/getter failed: {type(error).__name__}: {error}"
         ) from error
-    if intra != 1 or inter != 1:
+    if (
+        intra != _TORCH_NUM_THREADS
+        or inter != _TORCH_NUM_INTEROP_THREADS
+    ):
         raise _ChildWitnessedFailure(
             f"PyTorch thread identity mismatch: intra={intra}, inter={inter}"
         )
@@ -1523,7 +1766,8 @@ def _operation_graph(
             and counters.selected_coverage_complete
         ),
         "sample_width_one": (
-            counters.sample_calls > 0 and counters.maximum_sample_rhs_width == 1
+            counters.sample_calls > 0
+            and counters.maximum_sample_rhs_width == _SAMPLE_WIDTH
         ),
         "quadratic": counters.quadratic_calls > 0,
         "sparse_trace": counters.trace_calls > 0,
@@ -1723,13 +1967,27 @@ def _resource_decisions(
             if torch_peak_bytes is None
             else torch_peak_bytes <= _MAX_TORCH_BYTES
         ),
-        "rhs_width_pass": counters.maximum_rhs_width <= graph["problem"].layout.block_size,
-        "sample_width_pass": counters.maximum_sample_rhs_width == 1,
-        "storage_pass": storage.matches_expectation,
-        "offband_fill_pass": fill.matches_expected_fill,
+        "rhs_width_pass": counters.maximum_rhs_width <= _MAX_RHS_WIDTH,
+        "sample_width_pass": (
+            counters.maximum_sample_rhs_width == _SAMPLE_WIDTH
+        ),
+        "storage_pass": (
+            storage.matches_expectation
+            and storage.precision_scalar_count <= _MAX_STORAGE_SCALARS
+            and storage.factor_scalar_count <= _MAX_STORAGE_SCALARS
+            and storage.selected_inverse_scalar_count
+            <= _MAX_STORAGE_SCALARS
+        ),
+        "offband_fill_pass": (
+            fill.matches_expected_fill
+            and fill.observed_offband_blocks <= _OFFBAND_FILL_LIMIT
+            and fill.duplicated_upper_blocks <= _OFFBAND_FILL_LIMIT
+        ),
         "forbidden_attempts_zero": (
-            counters.attempted_forbidden_selected_blocks == 0
-            and not counters.attempted_forbidden_rhs_widths
+            counters.attempted_forbidden_selected_blocks
+            <= _FORBIDDEN_ATTEMPT_LIMIT
+            and len(counters.attempted_forbidden_rhs_widths)
+            <= _FORBIDDEN_ATTEMPT_LIMIT
         ),
         "pivot_margin_pass": graph["diagnostics"].global_min_pivot >= _MIN_PIVOT,
         "finite_pass": all(
@@ -1810,7 +2068,9 @@ def _production_result_payload(
         "invariants": _invariant_records(decisions),
     }
     if tuple(result) != _RESULT_KEYS:
-        raise RuntimeError("production/profiler result key order drifted")
+        raise _ChildLocalContractDrift(
+            "production/profiler result key order drifted"
+        )
     return result
 
 
@@ -1822,7 +2082,13 @@ def _run_production(torch: Any, np: Any, seed: int) -> dict[str, object]:
     )
     from vfe4.numerics.block_layout import BlockChainLayout
 
-    policy = H8AllocationPolicy(BlockChainLayout(horizon=128, d_z=20, d_m=20))
+    policy = H8AllocationPolicy(
+        BlockChainLayout(
+            horizon=_LAYOUT_HORIZON,
+            d_z=_LAYOUT_D_Z,
+            d_m=_LAYOUT_D_M,
+        )
+    )
     dispatch = H8DispatchTrace(policy)
     numpy_guard = H8NumpyAllocationGuard(policy)
     pre = _memory_snapshot()
@@ -2584,20 +2850,35 @@ def _run_profiler(torch: Any, np: Any, seed: int) -> dict[str, object]:
     )
     from vfe4.numerics.block_layout import BlockChainLayout
 
-    if str(torch.__version__).split("+", maxsplit=1)[0] != "2.9.1":
-        raise _ProfilerUnavailable("profiler mode requires exactly torch==2.9.1")
+    if (
+        str(torch.__version__).split("+", maxsplit=1)[0]
+        != _PROFILER_TORCH_VERSION
+    ):
+        raise _ProfilerUnavailable(
+            "profiler mode requires exactly "
+            f"torch=={_PROFILER_TORCH_VERSION}"
+        )
     profiler_api = _verify_profiler_pins(torch)
-    policy = H8AllocationPolicy(BlockChainLayout(horizon=128, d_z=20, d_m=20))
+    policy = H8AllocationPolicy(
+        BlockChainLayout(
+            horizon=_LAYOUT_HORIZON,
+            d_z=_LAYOUT_D_Z,
+            d_m=_LAYOUT_D_M,
+        )
+    )
     dispatch = H8DispatchTrace(policy)
     numpy_guard = H8NumpyAllocationGuard(policy)
     pre = _memory_snapshot()
     started = time.perf_counter_ns()
     with torch.no_grad():
         with torch.profiler.profile(
-            activities=[torch.profiler.ProfilerActivity.CPU],
-            profile_memory=True,
-            record_shapes=True,
-            with_stack=True,
+            activities=[
+                getattr(torch.profiler.ProfilerActivity, activity)
+                for activity in _PROFILER_INVOCATION_ITEMS[0][1]
+            ],
+            profile_memory=_PROFILER_INVOCATION_ITEMS[1][1],
+            record_shapes=_PROFILER_INVOCATION_ITEMS[2][1],
+            with_stack=_PROFILER_INVOCATION_ITEMS[3][1],
         ) as profile:
             graph = _operation_graph(torch, np, seed, dispatch, numpy_guard)
     elapsed = time.perf_counter_ns() - started
@@ -2605,7 +2886,11 @@ def _run_profiler(torch: Any, np: Any, seed: int) -> dict[str, object]:
     profiler_allocation, profiler_peak = _profiler_records(
         profile,
         policy=H8AllocationPolicy(
-            BlockChainLayout(horizon=128, d_z=20, d_m=20)
+            BlockChainLayout(
+                horizon=_LAYOUT_HORIZON,
+                d_z=_LAYOUT_D_Z,
+                d_m=_LAYOUT_D_M,
+            )
         ),
     )
     allocation, cross_check = _dispatch_allocation_record(
@@ -2675,7 +2960,7 @@ def _verify_profiler_pins(torch: Any) -> dict[str, object]:
     if observed["profiler"] != _PROFILER_SOURCE_SHA256:
         raise _ProfilerUnavailable("pinned profiler source hash mismatch")
     return {
-        "torch_version": "2.9.1",
+        "torch_version": _PROFILER_TORCH_VERSION,
         "memory_profile_source_sha256": observed["memory_profile"],
         "profiler_source_sha256": observed["profiler"],
         "api_contract_sha256": _PROFILER_API_CONTRACT_SHA256,
@@ -2735,7 +3020,11 @@ def _run_negative_control(
     )
     from vfe4.numerics.block_layout import BlockChainLayout
 
-    layout = BlockChainLayout(horizon=128, d_z=20, d_m=20)
+    layout = BlockChainLayout(
+        horizon=_LAYOUT_HORIZON,
+        d_z=_LAYOUT_D_Z,
+        d_m=_LAYOUT_D_M,
+    )
     policy = H8AllocationPolicy(layout)
     if control_id.startswith("numpy_"):
         guard = H8NumpyAllocationGuard(policy)
@@ -2834,7 +3123,7 @@ def _envelope(
         "error": error,
     }
     if tuple(value) != _ENVELOPE_KEYS:
-        raise RuntimeError("child envelope key order drifted")
+        raise _ChildLocalContractDrift("child envelope key order drifted")
     return value
 
 
@@ -2865,13 +3154,66 @@ def _error_envelope(
 
 def main() -> int:
     raw = sys.stdin.buffer.read()
-    request, request_sha256 = _fallback_request(raw)
+    stable_request: dict[str, object] | None
+    stable_request_sha256: str | None
+    stable_recovery_error: Exception | None = None
+    try:
+        stable_request, stable_request_sha256 = (
+            _h8_wire.recover_h8_child_request(raw)
+        )
+    except ValueError:
+        stable_request = None
+        stable_request_sha256 = None
+    except Exception as error:
+        stable_request = None
+        stable_request_sha256 = None
+        stable_recovery_error = error
+
+    if stable_request is None:
+        request, request_sha256 = _fallback_request(raw)
+    else:
+        request = stable_request
+        request_sha256 = stable_request_sha256
+        assert request_sha256 is not None
+        try:
+            _validate_child_local_contract()
+        except _ChildLocalContractDrift as error:
+            sys.stdout.buffer.write(
+                _h8_wire.canonical_h8_local_contract_drift_line(
+                    request,
+                    request_sha256,
+                    f"{type(error).__name__}: {error}",
+                )
+            )
+            sys.stdout.buffer.flush()
+            return 0
+
     identities: dict[str, dict[str, object]] = _fallback_identities(
         "runtime not initialized"
     )
     try:
         thread_environment = _require_thread_environment()
-        request, request_sha256 = _parse_request(raw)
+        if stable_recovery_error is not None:
+            raise stable_recovery_error
+        if stable_request is None:
+            request, request_sha256 = _parse_request(raw)
+        else:
+            try:
+                local_request, local_request_sha256 = _parse_request(raw)
+            except Exception as error:
+                raise _ChildLocalContractDrift(
+                    "child-local request parser rejected the stable parent request"
+                ) from error
+            if (
+                local_request != stable_request
+                or local_request_sha256 != stable_request_sha256
+            ):
+                raise _ChildLocalContractDrift(
+                    "child-local request recovery drifted from the stable parent wire"
+                )
+            request = stable_request
+            request_sha256 = stable_request_sha256
+            assert request_sha256 is not None
         expected_raw = os.environ.get(_IDENTITY_ENV)
         if expected_raw is None:
             raise _ChildObservabilityError("parent identity environment is absent")
@@ -2892,7 +3234,12 @@ def main() -> int:
             _verify_identity_match(expected_identities, identities)
             from vfe4.config.schema import H8ValidationConfig
 
-            runtime_config = H8ValidationConfig.create()
+            try:
+                runtime_config = H8ValidationConfig.create()
+            except (TypeError, ValueError) as error:
+                raise _ChildObservabilityError(
+                    f"child runtime config is unavailable: {error}"
+                ) from error
             runtime_protocol_sha256 = _runtime_protocol_sha256(
                 runtime_config
             )
@@ -2973,6 +3320,17 @@ def main() -> int:
                     result=result,
                 )
         exit_code = 0
+    except _ChildLocalContractDrift as error:
+        if stable_request is None or stable_request_sha256 is None:
+            raise
+        envelope_line = _h8_wire.canonical_h8_local_contract_drift_line(
+            stable_request,
+            stable_request_sha256,
+            f"{type(error).__name__}: {error}",
+        )
+        sys.stdout.buffer.write(envelope_line)
+        sys.stdout.buffer.flush()
+        return 0
     except MemoryError as error:
         envelope = _error_envelope(
             request,

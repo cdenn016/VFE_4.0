@@ -11,17 +11,12 @@ from pathlib import Path
 
 from verification.h8_budget import (
     EPS,
-    H8_CHILD_IDENTITY_ENV,
-    H8_CHILD_ENVELOPE_KEYS,
-    H8_CHILD_IDENTITY_KEYS,
-    H8_CHILD_REQUEST_KEYS,
-    H8_CHILD_RESULT_KEYS,
-    H8_CHILD_SCHEMA_VERSION,
     H8_OPERATION_SCOPES,
     H8_REQUIRED_NUMPY_PRODUCERS,
     H8_REQUIRED_PASS_DECISIONS,
     H8_REQUIRED_RESIDUALS,
-    H8_THREAD_ENVIRONMENT,
+    H8_SCALE_RESIDUAL_SPECS,
+    H8_SETUP_SCOPES,
     MAX_ALLOWANCE_FRACTION,
     ROUNDING_MULTIPLIER,
     SOLVER_RELATIVE_BUDGET,
@@ -32,27 +27,49 @@ from verification.h8_budget import (
     classify_h8_child_outcome,
     make_h8_child_attempt_record,
     run_h8_child,
+    _require_h8_issued_attempt_binding,
 )
 from verification.h8_gate import H8PrerequisiteArtifactValidation
+from verification.h8_wire import (
+    H8_CHILD_ENVELOPE_KEYS,
+    H8_CHILD_IDENTITY_ENV,
+    H8_CHILD_IDENTITY_KEYS,
+    H8_CHILD_MODULE,
+    H8_CHILD_REQUEST_KEYS,
+    H8_CHILD_RESULT_KEYS,
+    H8_CHILD_SCHEMA_VERSION,
+    H8_MAX_PROCESS_INCREMENTAL_BYTES,
+    H8_MAX_SECONDS,
+    H8_MAX_STORAGE_SCALARS,
+    H8_MAX_TORCH_POPULATION_BYTES,
+    H8_MIN_CHOLESKY_PIVOT,
+    H8_NEGATIVE_CONTROL_IDS,
+    H8_LAYOUT_D_M,
+    H8_LAYOUT_D_Z,
+    H8_LAYOUT_HORIZON,
+    H8_PRODUCTION_SAMPLE_SEED_PAIRS,
+    H8_PRODUCTION_SEEDS,
+    H8_PROFILER_API_CONTRACT_SHA256,
+    H8_PROFILER_INVOCATION_ITEMS,
+    H8_PROFILER_MEMORY_SOURCE_SHA256,
+    H8_PROFILER_SOURCE_SHA256,
+    H8_PROFILER_TORCH_VERSION,
+    H8_REQUIRED_OPERATIONS,
+    H8_THREAD_ENVIRONMENT_ITEMS,
+    H8_TORCH_NUM_INTEROP_THREADS,
+    H8_TORCH_NUM_THREADS,
+)
 from vfe4.config.schema import H8ValidationConfig
-from vfe4.numerics.block_layout import H8_MAX_STORAGE_SCALARS
+from vfe4.numerics.block_tridiagonal import (
+    H8_HAGER_HIGHAM_1NORM_POLICY,
+    H8_HAGER_HIGHAM_MAXIMUM_ITERATIONS,
+)
 from vfe4.types.h8 import (
     H8_CORRECTNESS_CASES,
     H8_CORRECTNESS_CONTROL_IDS,
     H8_CORRECTNESS_ORDERED_SOURCE_PAIRS,
     H8_CORRECTNESS_SOURCES,
-    H8_MAX_PROCESS_INCREMENTAL_BYTES,
-    H8_MAX_SECONDS,
-    H8_MAX_TORCH_POPULATION_BYTES,
-    H8_MIN_CHOLESKY_PIVOT,
-    H8_NEGATIVE_CONTROL_IDS,
     H8_PROBLEM_DRAW_SCHEMA_SHA256,
-    H8_PRODUCTION_SEEDS,
-    H8_PRODUCTION_SAMPLE_SEED_PAIRS,
-    H8_PROFILER_API_CONTRACT_SHA256,
-    H8_PROFILER_MEMORY_SOURCE_SHA256,
-    H8_PROFILER_SOURCE_SHA256,
-    H8_REQUIRED_OPERATIONS,
     H8ChildAttemptRecord,
     H8ChildRequest,
 )
@@ -60,7 +77,7 @@ from vfe4.types.results import GateStatus
 
 
 _HEX = frozenset("0123456789abcdef")
-_H8_CHILD_MODULE = "verification.h8_child"
+_H8_CHILD_MODULE = H8_CHILD_MODULE
 _H8_PARENT_POLICY = "continue_after_inconclusive_stop_after_first_fail"
 _H8_REVALIDATED_REFERENCE_NAMES = (
     "h1_h5",
@@ -132,6 +149,10 @@ def _h8_protocol_preimage(config: H8ValidationConfig) -> dict[str, object]:
         raise ValueError(
             "H8 config child schema does not match the executable protocol"
         )
+    if config.torch_version != H8_PROFILER_TORCH_VERSION:
+        raise ValueError(
+            "H8 config Torch version does not match the executable protocol"
+        )
     if tuple(item[0] for item in _H8_NEGATIVE_CONTROL_CONTRACT) != (
         H8_NEGATIVE_CONTROL_IDS
     ):
@@ -170,6 +191,15 @@ def _h8_protocol_preimage(config: H8ValidationConfig) -> dict[str, object]:
             "profiler_api_contract_sha256": (
                 H8_PROFILER_API_CONTRACT_SHA256
             ),
+            "profiler_api": {
+                "torch_version": H8_PROFILER_TORCH_VERSION,
+                "memory_profile_source_sha256": (
+                    H8_PROFILER_MEMORY_SOURCE_SHA256
+                ),
+                "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
+                "api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
+                "invocation": dict(H8_PROFILER_INVOCATION_ITEMS),
+            },
         },
         "execution_inventories": {
             "production_order": tuple(
@@ -194,6 +224,14 @@ def _h8_protocol_preimage(config: H8ValidationConfig) -> dict[str, object]:
                 for name in H8_REQUIRED_OPERATIONS
             ),
             "required_residuals": H8_REQUIRED_RESIDUALS,
+            "setup_scopes": tuple(sorted(H8_SETUP_SCOPES)),
+            "scale_residual_specs": tuple(
+                (
+                    residual_id,
+                    H8_SCALE_RESIDUAL_SPECS[residual_id],
+                )
+                for residual_id in H8_REQUIRED_RESIDUALS
+            ),
             "required_pass_decisions": H8_REQUIRED_PASS_DECISIONS,
             "required_numpy_producers": tuple(
                 sorted(H8_REQUIRED_NUMPY_PRODUCERS)
@@ -220,8 +258,45 @@ def _h8_protocol_preimage(config: H8ValidationConfig) -> dict[str, object]:
             "condition_estimator": {
                 "schema": config.condition_estimator_schema,
                 "norm": "matrix_1_norm",
-                "maximum_iterations": 8,
+                "maximum_iterations": (
+                    H8_HAGER_HIGHAM_MAXIMUM_ITERATIONS
+                ),
+                "policy": H8_HAGER_HIGHAM_1NORM_POLICY,
                 "estimate_is_diagnostic_not_exact_spectrum": True,
+            },
+            "residual_allowance_policy": {
+                "allowance_sum": "math.fsum",
+                "component_order": (
+                    "left_rounding",
+                    "left_solver",
+                    "left_quadrature",
+                    "right_rounding",
+                    "right_solver",
+                    "right_quadrature",
+                    "pair_reduction",
+                ),
+                "gamma": "n_times_eps_over_1_minus_n_times_eps",
+                "operand_rounding": (
+                    "rounding_multiplier_times_gamma_local_operation_count"
+                    "_times_max_1_absolute_sum_bound"
+                ),
+                "operand_solver": (
+                    "solver_relative_budget_times_max_1_infinity_norm"
+                    "_iff_solver_produced_else_zero"
+                ),
+                "pair_reduction": (
+                    "rounding_multiplier_times_gamma_compared_scalar_count"
+                    "_plus_1_times_max_1_left_inf_right_inf"
+                ),
+                "scale": (
+                    "max(1,left_infinity_norm,right_infinity_norm)"
+                ),
+                "decisive_operator": "<",
+                "decisive_fraction": MAX_ALLOWANCE_FRACTION,
+                "decisive_equality_status": "inconclusive",
+                "residual_pass_operator": "<=",
+                "residual_equality_status": "pass",
+                "condition_estimate_in_allowance": False,
             },
         },
         "boundary_contract": {
@@ -243,9 +318,14 @@ def _h8_protocol_preimage(config: H8ValidationConfig) -> dict[str, object]:
             "device": "cpu",
             "dtype": "float64",
             "grad_enabled": False,
-            "thread_environment": tuple(
-                (name, "1") for name in H8_THREAD_ENVIRONMENT
-            ),
+            "scale_layout": {
+                "horizon": H8_LAYOUT_HORIZON,
+                "d_z": H8_LAYOUT_D_Z,
+                "d_m": H8_LAYOUT_D_M,
+            },
+            "thread_environment": H8_THREAD_ENVIRONMENT_ITEMS,
+            "torch_num_threads": H8_TORCH_NUM_THREADS,
+            "torch_num_interop_threads": H8_TORCH_NUM_INTEROP_THREADS,
             "fresh_process_per_request": True,
             "launch": {
                 "argv_tail": ("-m", _H8_CHILD_MODULE),
@@ -660,21 +740,12 @@ class H8IssuedLaunchRecord:
             raise ValueError(
                 "issued request, process, and attempt identities are not cross-bound"
             )
-        decision = classify_h8_child_outcome(
-            self.process_record,
-            valid_start=True,
+        _require_h8_issued_attempt_binding(
+            self.attempt,
+            request=self.request,
             invocation=self.invocation,
+            process_record=self.process_record,
         )
-        expected_attempt = make_h8_child_attempt_record(
-            self.request,
-            self.invocation,
-            self.process_record,
-            decision,
-        )
-        if self.attempt != expected_attempt:
-            raise ValueError(
-                "issued attempt does not match fresh child classification"
-            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -699,6 +770,8 @@ class H8ParentAttemptRun:
             )
         ):
             raise ValueError("parent run inventories must be exact typed tuples")
+        for item in self.issued:
+            item.__post_init__()
         if not self.authorization.valid_start:
             if self.request_plan or self.issued or self.attempts:
                 raise ValueError(
@@ -745,7 +818,7 @@ def _abnormal_spawn_record(
     )
 
 
-def run_h8_parent_attempt(
+def _run_h8_parent_attempt_with_runner(
     *,
     authorization: H8ChildStartAuthorization,
     repository_root: str | Path,
@@ -839,6 +912,46 @@ def run_h8_parent_attempt(
         request_plan=request_plan,
         issued=tuple(issued),
         attempts=tuple(attempts),
+    )
+
+
+def _run_h8_parent_attempt_for_test(
+    *,
+    authorization: H8ChildStartAuthorization,
+    repository_root: str | Path,
+    identities: Mapping[str, object],
+    child_runner: Callable[
+        [H8ChildInvocation],
+        H8ChildProcessRecord,
+    ],
+    base_environment: Mapping[str, str] | None = None,
+) -> H8ParentAttemptRun:
+    """Private fake-runner seam; production authority never accepts it."""
+
+    return _run_h8_parent_attempt_with_runner(
+        authorization=authorization,
+        repository_root=repository_root,
+        identities=identities,
+        base_environment=base_environment,
+        child_runner=child_runner,
+    )
+
+
+def run_h8_parent_attempt(
+    *,
+    authorization: H8ChildStartAuthorization,
+    repository_root: str | Path,
+    identities: Mapping[str, object],
+    base_environment: Mapping[str, str] | None = None,
+) -> H8ParentAttemptRun:
+    """Run the fixed production child entry point for one authorized prefix."""
+
+    return _run_h8_parent_attempt_with_runner(
+        authorization=authorization,
+        repository_root=repository_root,
+        identities=identities,
+        base_environment=base_environment,
+        child_runner=run_h8_child,
     )
 
 

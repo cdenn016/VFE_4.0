@@ -16,6 +16,7 @@ import os
 import struct
 import subprocess
 import sys
+import threading
 import time
 import zlib
 from collections.abc import Iterable, Mapping
@@ -23,6 +24,25 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
+from verification.h8_wire import (
+    H8_CHILD_ENVELOPE_KEYS,
+    H8_CHILD_IDENTITY_ENV,
+    H8_CHILD_IDENTITY_KEYS,
+    H8_CHILD_REQUEST_KEYS,
+    H8_CHILD_RESULT_KEYS,
+    H8_CHILD_SCHEMA_VERSION,
+    H8_MAX_PROCESS_INCREMENTAL_BYTES,
+    H8_MAX_SECONDS,
+    H8_MAX_TORCH_POPULATION_BYTES,
+    H8_MIN_CHOLESKY_PIVOT,
+    H8_PROFILER_API_CONTRACT_SHA256,
+    H8_PROFILER_MEMORY_SOURCE_SHA256,
+    H8_PROFILER_SOURCE_SHA256,
+    H8_PROFILER_TORCH_VERSION,
+    H8_REQUIRED_OPERATIONS,
+    H8_THREAD_ENVIRONMENT,
+    canonical_json_bytes,
+)
 from vfe4.numerics.block_layout import (
     H8_MAX_STORAGE_SCALARS,
     BlockChainLayout,
@@ -33,10 +53,6 @@ from vfe4.types.h8 import (
     BlockFillRecord,
     BlockStorageRecord,
     BlockWorkspaceRecord,
-    H8_MAX_PROCESS_INCREMENTAL_BYTES,
-    H8_MAX_SECONDS,
-    H8_MAX_TORCH_POPULATION_BYTES,
-    H8_MIN_CHOLESKY_PIVOT,
     H8AllocationRecord,
     H8AllowanceRecord,
     H8ChildAttemptRecord,
@@ -55,6 +71,9 @@ from vfe4.types.h8 import (
     H8TensorKey,
     H8TransitionNorms,
     SparseConditionDiagnostics,
+    _issue_h8_child_attempt_record,
+    _issue_h8_decoded_pass_evidence,
+    _require_h8_child_attempt_record,
 )
 from vfe4.types.results import GateStatus
 
@@ -63,72 +82,6 @@ EPS = float.fromhex("0x1.0000000000000p-52")
 ROUNDING_MULTIPLIER = 4096.0
 SOLVER_RELATIVE_BUDGET = 1e-9
 MAX_ALLOWANCE_FRACTION = 1e-4
-H8_CHILD_SCHEMA_VERSION = "h8-child-v2"
-H8_CHILD_IDENTITY_ENV = "VFE4_H8_CHILD_IDENTITIES_JSON"
-H8_THREAD_ENVIRONMENT = (
-    "OMP_NUM_THREADS",
-    "MKL_NUM_THREADS",
-    "OPENBLAS_NUM_THREADS",
-    "NUMEXPR_NUM_THREADS",
-    "VECLIB_MAXIMUM_THREADS",
-)
-H8_CHILD_REQUEST_KEYS = (
-    "mode",
-    "seed",
-    "repetition",
-    "config_sha256",
-    "protocol_sha256",
-    "control_id",
-)
-H8_CHILD_ENVELOPE_KEYS = (
-    "schema_version",
-    "mode",
-    "seed",
-    "repetition",
-    "control_id",
-    "request_sha256",
-    "config_sha256",
-    "protocol_sha256",
-    "status",
-    "obligations",
-    "identities",
-    "result",
-    "control",
-    "error",
-)
-H8_CHILD_RESULT_KEYS = (
-    "input_sha256",
-    "sample_noise_sha256",
-    "problem_evidence",
-    "objective",
-    "storage",
-    "fill",
-    "workspace",
-    "counters",
-    "allocation",
-    "resources",
-    "diagnostics",
-    "operation_reachability",
-    "residuals",
-    "resource_decisions",
-    "invariants",
-)
-H8_CHILD_IDENTITY_KEYS = ("hardware", "affinity", "thread", "blas")
-H8_REQUIRED_OPERATIONS = (
-    "factorization",
-    "forward_substitution",
-    "backward_substitution",
-    "mean_solve",
-    "logdet",
-    "selected_inverse",
-    "sample_width_one",
-    "quadratic",
-    "sparse_trace",
-    "condition_estimate",
-    "entropy",
-    "log_normalizer",
-    "complete_objective",
-)
 H8_OPERATION_SCOPES = {
     operation: f"production.{scope}"
     for operation, scope in (
@@ -355,16 +308,95 @@ class H8ChildDecision:
     stderr_sha256: str
 
 
-def canonical_json_bytes(value: object) -> bytes:
-    """Return strict UTF-8 canonical JSON without a trailing newline."""
+@dataclass(frozen=True, slots=True)
+class _H8ValidatedProcessBundle:
+    """One strict stdout traversal bound to its exact process launch."""
 
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    ).encode("utf-8")
+    process_record: H8ChildProcessRecord
+    invocation: H8ChildInvocation | None
+    valid_start: bool
+    decision: H8ChildDecision
+    decision_snapshot: tuple[object, ...]
+    process_snapshot: tuple[object, ...]
+    typed_result: H8ChildResult | H8ControlResult | None
+    pass_evidence: H8DecodedPassEvidence | None
+    operation_reachability: Mapping[str, bool] | None
+    residuals: Mapping[str, float] | None
+    resource_decisions: Mapping[str, object] | None
+    nonpass_envelope: Mapping[str, object] | None
+
+
+_H8_VALIDATED_BUNDLE_LOCK = threading.RLock()
+_H8_VALIDATED_PROCESS_BUNDLES: dict[
+    tuple[int, int | None, bool],
+    _H8ValidatedProcessBundle,
+] = {}
+_H8_ISSUED_DECISION_BUNDLES: dict[
+    int,
+    tuple[H8ChildDecision, _H8ValidatedProcessBundle],
+] = {}
+_H8_ISSUED_ATTEMPT_BUNDLES: dict[
+    int,
+    tuple[
+        H8ChildAttemptRecord,
+        H8ChildRequest,
+        H8ChildInvocation,
+        H8ChildProcessRecord,
+        _H8ValidatedProcessBundle,
+    ],
+] = {}
+
+
+def _h8_decision_snapshot(
+    decision: H8ChildDecision,
+) -> tuple[object, ...]:
+    return (
+        decision.status,
+        decision.reasons,
+        decision.payload,
+        decision.timed_out,
+        decision.exit_code,
+        decision.parent_elapsed_ns,
+        decision.stdout_sha256,
+        decision.stderr_sha256,
+    )
+
+
+def _h8_decision_snapshot_matches(
+    decision: H8ChildDecision,
+    expected: tuple[object, ...],
+) -> bool:
+    observed = _h8_decision_snapshot(decision)
+    return (
+        observed[:2] == expected[:2]
+        and observed[2] is expected[2]
+        and observed[3:] == expected[3:]
+    )
+
+
+def _h8_process_snapshot(
+    record: H8ChildProcessRecord,
+) -> tuple[object, ...]:
+    return (
+        record.timed_out,
+        record.exit_code,
+        record.stdout,
+        record.stderr,
+        record.parent_elapsed_ns,
+    )
+
+
+def _h8_process_snapshot_matches(
+    record: H8ChildProcessRecord,
+    expected: tuple[object, ...],
+) -> bool:
+    observed = _h8_process_snapshot(record)
+    return (
+        observed[:2] == expected[:2]
+        and observed[2] is expected[2]
+        and observed[3] is expected[3]
+        and observed[4] == expected[4]
+    )
 
 
 def make_h8_identity_record(
@@ -578,10 +610,6 @@ def run_h8_child(invocation: H8ChildInvocation) -> H8ChildProcessRecord:
         )
     except subprocess.TimeoutExpired as error:
         stdout = _timeout_bytes(error.stdout)
-        try:
-            parse_h8_child_stdout(stdout)
-        except ValueError:
-            pass
         elapsed = time.perf_counter_ns() - started
         return H8ChildProcessRecord(
             timed_out=True,
@@ -590,10 +618,6 @@ def run_h8_child(invocation: H8ChildInvocation) -> H8ChildProcessRecord:
             stderr=_timeout_bytes(error.stderr),
             parent_elapsed_ns=elapsed,
         )
-    try:
-        parse_h8_child_stdout(completed.stdout)
-    except ValueError:
-        pass
     return H8ChildProcessRecord(
         timed_out=False,
         exit_code=completed.returncode,
@@ -609,9 +633,7 @@ def _timeout_bytes(value: bytes | str | None) -> bytes:
     return value if type(value) is bytes else value.encode("utf-8", errors="replace")
 
 
-def parse_h8_child_stdout(stdout: bytes) -> dict[str, object]:
-    """Parse one strict, canonical, newline-terminated H8 child envelope."""
-
+def _parse_h8_child_stdout_value(stdout: bytes) -> dict[str, object]:
     if type(stdout) is not bytes or not stdout.endswith(b"\n"):
         raise ValueError("child stdout must contain one canonical JSON line")
     if stdout.count(b"\n") != 1 or not stdout[:-1]:
@@ -629,6 +651,13 @@ def parse_h8_child_stdout(stdout: bytes) -> dict[str, object]:
         raise ValueError("child stdout must contain one JSON object")
     if canonical_json_bytes(value) + b"\n" != stdout:
         raise ValueError("child stdout JSON is not canonical")
+    return value
+
+
+def parse_h8_child_stdout(stdout: bytes) -> dict[str, object]:
+    """Parse one strict, canonical, newline-terminated H8 child envelope."""
+
+    value = _parse_h8_child_stdout_value(stdout)
     _validate_child_envelope(value)
     return value
 
@@ -1486,7 +1515,7 @@ def _validate_complete_pass_result(
         resources=typed["resources"],  # type: ignore[arg-type]
         invariants=typed["invariants"],  # type: ignore[arg-type]
     )
-    private_evidence = H8DecodedPassEvidence(
+    private_evidence = _issue_h8_decoded_pass_evidence(
         sample_noise_sha256=result["sample_noise_sha256"],  # type: ignore[arg-type]
         problem_evidence=typed["problem_evidence"],  # type: ignore[arg-type]
         condition_diagnostics=typed["diagnostics"],  # type: ignore[arg-type]
@@ -1694,20 +1723,20 @@ def _validate_allocation_evidence(
             ),
             name="allocation.profiler_api",
         )
+        expected_api = {
+            "torch_version": H8_PROFILER_TORCH_VERSION,
+            "memory_profile_source_sha256": (
+                H8_PROFILER_MEMORY_SOURCE_SHA256
+            ),
+            "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
+            "api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
+        }
         profiler_events = _exact_list(
             allocation["profiler_events"],
             name="allocation.profiler_events",
         )
         if (
-            api["torch_version"] != "2.9.1"
-            or any(
-                not _is_sha256(api[name])
-                for name in (
-                    "memory_profile_source_sha256",
-                    "profiler_source_sha256",
-                    "api_contract_sha256",
-                )
-            )
+            api != expected_api
             or not _is_sha256(allocation["profiler_trace_sha256"])
             or not profiler_events
             or allocation["profiler_lossy_rows"] != []
@@ -3110,22 +3139,142 @@ def _validate_pass_relationships(
             raise ValueError("PASS invariant does not derive from its decision")
 
 
+def _register_h8_validated_process_bundle(
+    bundle: _H8ValidatedProcessBundle,
+) -> H8ChildDecision:
+    key = (
+        id(bundle.process_record),
+        None if bundle.invocation is None else id(bundle.invocation),
+        bundle.valid_start,
+    )
+    with _H8_VALIDATED_BUNDLE_LOCK:
+        _H8_VALIDATED_PROCESS_BUNDLES[key] = bundle
+        _H8_ISSUED_DECISION_BUNDLES[id(bundle.decision)] = (
+            bundle.decision,
+            bundle,
+        )
+    return bundle.decision
+
+
+def _retained_h8_attempt_endpoints(
+    payload: Mapping[str, object],
+    *,
+    trusted: bool,
+) -> tuple[
+    Mapping[str, bool] | None,
+    Mapping[str, float] | None,
+    Mapping[str, object] | None,
+]:
+    if (
+        not trusted
+        or payload.get("mode") not in ("production", "profiler")
+        or not isinstance(payload.get("result"), Mapping)
+    ):
+        return None, None, None
+    result_payload = payload["result"]
+    assert isinstance(result_payload, Mapping)
+    endpoints: dict[str, Mapping[str, object]] = {}
+    for name in (
+        "operation_reachability",
+        "residuals",
+        "resource_decisions",
+    ):
+        endpoint = result_payload.get(name)
+        if payload.get("status") == "pass" and not isinstance(
+            endpoint,
+            Mapping,
+        ):
+            raise ValueError(f"child result {name} must be a mapping")
+        if isinstance(endpoint, Mapping):
+            endpoints[name] = endpoint
+
+    operation_reachability: Mapping[str, bool] | None = None
+    observed_reachability = endpoints.get("operation_reachability")
+    if observed_reachability is not None:
+        if all(
+            type(operation) is str
+            and operation
+            and type(reached) is bool
+            for operation, reached in observed_reachability.items()
+        ):
+            operation_reachability = (
+                {
+                    operation: observed_reachability[operation]  # type: ignore[assignment]
+                    for operation in H8_REQUIRED_OPERATIONS
+                }
+                if set(observed_reachability) == set(H8_REQUIRED_OPERATIONS)
+                else observed_reachability  # type: ignore[assignment]
+            )
+        elif payload.get("status") == "pass":
+            raise ValueError(
+                "child result operation reachability must be boolean"
+            )
+
+    residuals: Mapping[str, float] | None = None
+    observed_residuals = endpoints.get("residuals")
+    if observed_residuals is not None:
+        if all(
+            type(name) is str
+            and name
+            and type(residual) in (int, float)
+            and math.isfinite(float(residual))
+            and float(residual) >= 0.0
+            for name, residual in observed_residuals.items()
+        ):
+            residuals = {
+                name: float(residual)
+                for name, residual in observed_residuals.items()
+            }
+        elif payload.get("status") == "pass":
+            raise ValueError(
+                "child result residuals must be finite and nonnegative"
+            )
+    return (
+        operation_reachability,
+        residuals,
+        endpoints.get("resource_decisions"),
+    )
+
+
 def classify_h8_child_outcome(
     record: H8ChildProcessRecord,
     *,
     valid_start: bool,
     invocation: H8ChildInvocation | None = None,
 ) -> H8ChildDecision:
-    """Apply witnessed-failure dominance without discarding malformed evidence."""
+    """Validate stdout once and apply witnessed-failure dominance."""
 
     if type(record) is not H8ChildProcessRecord:
         raise ValueError("record must be an H8ChildProcessRecord")
     if type(valid_start) is not bool:
         raise ValueError("valid_start must be a bool")
+    key = (
+        id(record),
+        None if invocation is None else id(invocation),
+        valid_start,
+    )
+    with _H8_VALIDATED_BUNDLE_LOCK:
+        cached = _H8_VALIDATED_PROCESS_BUNDLES.get(key)
+    if cached is not None:
+        if (
+            cached.process_record is not record
+            or cached.invocation is not invocation
+            or not _h8_process_snapshot_matches(
+                record,
+                cached.process_snapshot,
+            )
+            or not _h8_decision_snapshot_matches(
+                cached.decision,
+                cached.decision_snapshot,
+            )
+        ):
+            raise ValueError("cached child evidence was mutated")
+        return cached.decision
+
     stdout_sha256 = hashlib.sha256(record.stdout).hexdigest()
     stderr_sha256 = hashlib.sha256(record.stderr).hexdigest()
     if not valid_start:
-        return H8ChildDecision(
+        decision = H8ChildDecision(
             status=GateStatus.INCONCLUSIVE,
             reasons=("child_start_not_established",),
             payload=None,
@@ -3135,6 +3284,23 @@ def classify_h8_child_outcome(
             stdout_sha256=stdout_sha256,
             stderr_sha256=stderr_sha256,
         )
+        return _register_h8_validated_process_bundle(
+            _H8ValidatedProcessBundle(
+                process_record=record,
+                invocation=invocation,
+                valid_start=False,
+                decision=decision,
+                decision_snapshot=_h8_decision_snapshot(decision),
+                process_snapshot=_h8_process_snapshot(record),
+                typed_result=None,
+                pass_evidence=None,
+                operation_reachability=None,
+                residuals=None,
+                resource_decisions=None,
+                nonpass_envelope=None,
+            )
+        )
+
     reasons: list[str] = []
     witnessed_failure = False
     identity_verified = False
@@ -3148,10 +3314,19 @@ def classify_h8_child_outcome(
         if record.parent_elapsed_ns > int(H8_MAX_SECONDS * 1e9):
             witnessed_failure = True
             reasons.append("parent_elapsed_budget_breach")
+
     payload: dict[str, object] | None = None
+    decoded: (
+        H8ChildResult
+        | H8ControlResult
+        | tuple[H8ChildResult, H8DecodedPassEvidence]
+        | None
+    ) = None
     try:
-        payload = parse_h8_child_stdout(record.stdout)
+        payload = _parse_h8_child_stdout_value(record.stdout)
+        decoded = _validate_child_envelope(payload, retain_private=True)
     except ValueError as error:
+        payload = None
         if not record.timed_out:
             if "nonfinite" in str(error):
                 witnessed_failure = True
@@ -3164,6 +3339,7 @@ def classify_h8_child_outcome(
                 witnessed_failure = True
                 reasons.append(raw_witness)
             reasons.append("invalid_child_stdout")
+
     if payload is not None:
         if invocation is None:
             reasons.append("expected_child_identity_unavailable")
@@ -3177,7 +3353,9 @@ def classify_h8_child_outcome(
                     reasons.append("child_environment_identity_unavailable")
             except ValueError:
                 witnessed_failure = True
-                reasons.append("child_request_or_environment_identity_mismatch")
+                reasons.append(
+                    "child_request_or_environment_identity_mismatch"
+                )
         error = payload.get("error")
         if isinstance(error, Mapping) and error.get("witnessed_violation") is True:
             witnessed_failure = True
@@ -3186,13 +3364,17 @@ def classify_h8_child_outcome(
             witnessed_failure = True
             reasons.append("child_reported_witnessed_failure")
         elif payload["status"] == "inconclusive":
-            reasons.extend(str(item) for item in payload["obligations"])  # type: ignore[union-attr]
+            reasons.extend(
+                str(item)
+                for item in payload["obligations"]  # type: ignore[union-attr]
+            )
         if _payload_has_resource_failure(payload):
             witnessed_failure = True
             reasons.append("finite_resource_budget_breach")
         if _payload_has_operation_failure(payload):
             witnessed_failure = True
             reasons.append("required_operation_omission")
+
     status = (
         GateStatus.FAIL
         if witnessed_failure
@@ -3204,7 +3386,7 @@ def classify_h8_child_outcome(
         )
         else GateStatus.PASS
     )
-    return H8ChildDecision(
+    decision = H8ChildDecision(
         status=status,
         reasons=tuple(dict.fromkeys(reasons)),
         payload=payload,
@@ -3214,6 +3396,57 @@ def classify_h8_child_outcome(
         stdout_sha256=stdout_sha256,
         stderr_sha256=stderr_sha256,
     )
+    trusted_pass = (
+        payload is not None
+        and payload["status"] == "pass"
+        and identity_verified
+        and not record.timed_out
+        and record.exit_code == 0
+        and record.parent_elapsed_ns <= int(H8_MAX_SECONDS * 1e9)
+        and status is GateStatus.PASS
+    )
+    typed_result: H8ChildResult | H8ControlResult | None = None
+    pass_evidence: H8DecodedPassEvidence | None = None
+    if trusted_pass:
+        if type(decoded) is tuple:
+            typed_result, pass_evidence = decoded
+        elif type(decoded) in (H8ChildResult, H8ControlResult):
+            typed_result = decoded
+        else:
+            raise ValueError("trusted PASS lacks one validated typed result")
+    endpoint_trusted = (
+        payload is not None
+        and identity_verified
+        and not record.timed_out
+        and (payload["status"] != "pass" or trusted_pass)
+    )
+    (
+        operation_reachability,
+        residuals,
+        resource_decisions,
+    ) = (
+        _retained_h8_attempt_endpoints(
+            payload,
+            trusted=endpoint_trusted,
+        )
+        if payload is not None
+        else (None, None, None)
+    )
+    bundle = _H8ValidatedProcessBundle(
+        process_record=record,
+        invocation=invocation,
+        valid_start=True,
+        decision=decision,
+        decision_snapshot=_h8_decision_snapshot(decision),
+        process_snapshot=_h8_process_snapshot(record),
+        typed_result=typed_result,
+        pass_evidence=pass_evidence,
+        operation_reachability=operation_reachability,
+        residuals=residuals,
+        resource_decisions=resource_decisions,
+        nonpass_envelope=payload if status is not GateStatus.PASS else None,
+    )
+    return _register_h8_validated_process_bundle(bundle)
 
 
 def make_h8_child_attempt_record(
@@ -3222,7 +3455,7 @@ def make_h8_child_attempt_record(
     process_record: H8ChildProcessRecord,
     decision: H8ChildDecision,
 ) -> H8ChildAttemptRecord:
-    """Bind one exact request, launch, process, and decision into evidence."""
+    """Bind a factory-issued decision without reparsing child stdout."""
 
     if type(request) is not H8ChildRequest:
         raise ValueError("request must be an H8ChildRequest")
@@ -3234,158 +3467,107 @@ def make_h8_child_attempt_record(
     if type(decision) is not H8ChildDecision:
         raise ValueError("decision must be an H8ChildDecision")
 
+    with _H8_VALIDATED_BUNDLE_LOCK:
+        issued = _H8_ISSUED_DECISION_BUNDLES.get(id(decision))
+    if issued is None or issued[0] is not decision:
+        raise ValueError("decision must be issued by child classification")
+    bundle = issued[1]
+    if (
+        bundle.decision is not decision
+        or bundle.process_record is not process_record
+        or bundle.invocation is not invocation
+        or bundle.valid_start is not True
+        or not _h8_decision_snapshot_matches(
+            decision,
+            bundle.decision_snapshot,
+        )
+        or not _h8_process_snapshot_matches(
+            process_record,
+            bundle.process_snapshot,
+        )
+    ):
+        raise ValueError("decision does not match its validated process bundle")
+
     invocation_request, request_bytes = _decode_h8_invocation_request(
         invocation
     )
     if invocation_request != request:
         raise ValueError("request does not match canonical invocation stdin")
     identity_bytes = _canonical_h8_invocation_identity_bytes(invocation)
-
-    stdout_sha256 = hashlib.sha256(process_record.stdout).hexdigest()
-    stderr_sha256 = hashlib.sha256(process_record.stderr).hexdigest()
-    if (
-        type(decision.timed_out) is not bool
-        or decision.timed_out is not process_record.timed_out
-        or type(decision.exit_code) is not type(process_record.exit_code)
-        or decision.exit_code != process_record.exit_code
-        or type(decision.parent_elapsed_ns) is not int
-        or decision.parent_elapsed_ns != process_record.parent_elapsed_ns
-        or type(decision.stdout_sha256) is not str
-        or decision.stdout_sha256 != stdout_sha256
-        or type(decision.stderr_sha256) is not str
-        or decision.stderr_sha256 != stderr_sha256
-    ):
-        raise ValueError("decision does not match process endpoints")
-    recomputed_decision = classify_h8_child_outcome(
-        process_record,
-        valid_start=True,
-        invocation=invocation,
-    )
-    if decision != recomputed_decision:
-        raise ValueError("decision does not match fresh child classification")
-    decision = recomputed_decision
-
-    typed_result: H8ChildResult | H8ControlResult | None = None
-    pass_evidence: H8DecodedPassEvidence | None = None
-    operation_reachability: Mapping[str, object] | None = None
-    residuals: Mapping[str, object] | None = None
-    resource_decisions: Mapping[str, object] | None = None
-    nonpass_envelope: Mapping[str, object] | None = None
-    if decision.payload is not None:
-        if not isinstance(decision.payload, Mapping):
-            raise ValueError("decision payload must be a mapping or None")
-        process_payload = parse_h8_child_stdout(process_record.stdout)
-        if process_payload != decision.payload:
-            raise ValueError("decision payload does not match process stdout")
-        identity_verified = True
-        try:
-            identity_verified = _verify_result_identity(
-                decision.payload,
-                invocation,
-            )
-        except ValueError:
-            identity_verified = False
-            if (
-                decision.status is not GateStatus.FAIL
-                or "child_request_or_environment_identity_mismatch"
-                not in decision.reasons
-            ):
-                raise
-        trusted_payload = identity_verified and not process_record.timed_out
-        if trusted_payload and decision.payload["status"] == "pass":
-            if decision.payload["mode"] == "negative_control":
-                typed_result = decode_h8_control_result(decision.payload)
-            else:
-                typed_result, pass_evidence = _decode_h8_child_pass(
-                    decision.payload
-                )
-        if (
-            process_record.timed_out
-            or not identity_verified
-            or decision.payload["status"] != "pass"
-        ):
-            nonpass_envelope = decision.payload
-        result_payload = decision.payload["result"]
-        if (
-            trusted_payload
-            and decision.payload["mode"] in ("production", "profiler")
-            and result_payload is not None
-        ):
-            if not isinstance(result_payload, Mapping):
-                raise ValueError("child result payload must be a mapping")
-            endpoints: dict[str, Mapping[str, object]] = {}
-            for name in (
-                "operation_reachability",
-                "residuals",
-                "resource_decisions",
-            ):
-                endpoint = result_payload[name]
-                if (
-                    decision.payload["status"] == "pass"
-                    and not isinstance(endpoint, Mapping)
-                ):
-                    raise ValueError(f"child result {name} must be a mapping")
-                if isinstance(endpoint, Mapping):
-                    endpoints[name] = endpoint
-            observed_reachability = endpoints.get("operation_reachability")
-            if observed_reachability is not None:
-                if all(
-                    type(operation) is str
-                    and operation
-                    and type(reached) is bool
-                    for operation, reached in observed_reachability.items()
-                ):
-                    operation_reachability = (
-                        {
-                            operation: observed_reachability[operation]
-                            for operation in H8_REQUIRED_OPERATIONS
-                        }
-                        if set(observed_reachability)
-                        == set(H8_REQUIRED_OPERATIONS)
-                        else observed_reachability
-                    )
-                elif decision.payload["status"] == "pass":
-                    raise ValueError(
-                        "child result operation reachability must be boolean"
-                    )
-            observed_residuals = endpoints.get("residuals")
-            if observed_residuals is not None:
-                if all(
-                    type(name) is str
-                    and name
-                    and type(residual) in (int, float)
-                    and math.isfinite(float(residual))
-                    and float(residual) >= 0.0
-                    for name, residual in observed_residuals.items()
-                ):
-                    residuals = {
-                        name: float(residual)
-                        for name, residual in observed_residuals.items()
-                    }
-                elif decision.payload["status"] == "pass":
-                    raise ValueError(
-                        "child result residuals must be finite and nonnegative"
-                    )
-            resource_decisions = endpoints.get("resource_decisions")
-
-    return H8ChildAttemptRecord(
+    attempt = _issue_h8_child_attempt_record(
         request=request,
         status=decision.status,
         reasons=decision.reasons,
-        result=typed_result,
-        pass_evidence=pass_evidence,
+        result=bundle.typed_result,
+        pass_evidence=bundle.pass_evidence,
         timed_out=process_record.timed_out,
         exit_code=process_record.exit_code,
         parent_elapsed_ns=process_record.parent_elapsed_ns,
         request_sha256=hashlib.sha256(request_bytes).hexdigest(),
         identities_sha256=hashlib.sha256(identity_bytes).hexdigest(),
-        stdout_sha256=stdout_sha256,
-        stderr_sha256=stderr_sha256,
-        operation_reachability=operation_reachability,  # type: ignore[arg-type]
-        residuals=residuals,  # type: ignore[arg-type]
-        resource_decisions=resource_decisions,
-        nonpass_envelope=nonpass_envelope,
+        stdout_sha256=decision.stdout_sha256,
+        stderr_sha256=decision.stderr_sha256,
+        operation_reachability=bundle.operation_reachability,
+        residuals=bundle.residuals,
+        resource_decisions=bundle.resource_decisions,
+        nonpass_envelope=bundle.nonpass_envelope,
     )
+    with _H8_VALIDATED_BUNDLE_LOCK:
+        _H8_ISSUED_ATTEMPT_BUNDLES[id(attempt)] = (
+            attempt,
+            request,
+            invocation,
+            process_record,
+            bundle,
+        )
+    return attempt
+
+
+def _require_h8_budget_issued_attempt(
+    attempt: object,
+) -> H8ChildAttemptRecord:
+    checked = _require_h8_child_attempt_record(attempt)
+    with _H8_VALIDATED_BUNDLE_LOCK:
+        issued = _H8_ISSUED_ATTEMPT_BUNDLES.get(id(checked))
+    if (
+        issued is None
+        or issued[0] is not checked
+        or issued[4].process_record is not issued[3]
+        or issued[4].invocation is not issued[2]
+        or not _h8_decision_snapshot_matches(
+            issued[4].decision,
+            issued[4].decision_snapshot,
+        )
+        or not _h8_process_snapshot_matches(
+            issued[3],
+            issued[4].process_snapshot,
+        )
+    ):
+        raise ValueError(
+            "issued attempt does not match its validated process bundle"
+        )
+    return checked
+
+
+def _require_h8_issued_attempt_binding(
+    attempt: object,
+    *,
+    request: H8ChildRequest,
+    invocation: H8ChildInvocation,
+    process_record: H8ChildProcessRecord,
+) -> H8ChildAttemptRecord:
+    checked = _require_h8_budget_issued_attempt(attempt)
+    with _H8_VALIDATED_BUNDLE_LOCK:
+        issued = _H8_ISSUED_ATTEMPT_BUNDLES[id(checked)]
+    if (
+        issued[1] is not request
+        or issued[2] is not invocation
+        or issued[3] is not process_record
+    ):
+        raise ValueError(
+            "issued attempt does not match its validated process bundle"
+        )
+    return checked
 
 
 def _decode_h8_invocation_request(

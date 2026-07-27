@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import cast
 
+from verification.h8_budget import _require_h8_budget_issued_attempt
 from vfe4.artifacts.atomic import canonical_json_bytes
 from vfe4.artifacts.h6 import (
     CandidateArtifactReference,
@@ -605,7 +606,10 @@ def _typed_records(
     if type(values) is not tuple or any(type(item) is not expected for item in values):
         raise ValueError(f"{name} must retain exact typed records")
     for item in values:
-        cast(object, item).__post_init__()  # type: ignore[attr-defined]
+        if expected is H8ChildAttemptRecord:
+            _require_h8_budget_issued_attempt(item)
+        else:
+            cast(object, item).__post_init__()  # type: ignore[attr-defined]
     return values
 
 
