@@ -368,6 +368,7 @@ def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
         h8_child,
         h8_orchestrator,
         h8_preflight,
+        h8_protocol,
         h8_wire,
     )
     from verification.h8_budget import (
@@ -634,7 +635,7 @@ def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
     )
     with monkeypatch.context() as context:
         context.setattr(
-            h8_orchestrator,
+            h8_protocol,
             "build_h8_protocol_sha256",
             lambda _config: (_ for _ in ()).throw(
                 TypeError("synthetic protocol signature drift")
