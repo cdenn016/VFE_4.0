@@ -516,7 +516,10 @@ def _exact_v4_inventories(
         raise ValueError("child attempts must retain the exact issued prefix")
     control_attempts = attempts[len(_EXPECTED_RUN_ORDER) :]
     if not (
-        all(attempt.status is GateStatus.PASS for attempt in attempts)
+        (
+            len(attempts) == len(_EXPECTED_ATTEMPT_ORDER)
+            and all(attempt.status is GateStatus.PASS for attempt in attempts)
+        )
         or (
             control_attempts
             and all(attempt.status is GateStatus.PASS for attempt in attempts[:-1])
@@ -551,7 +554,17 @@ def _exact_v4_inventories(
         for attempt in control_attempts
         if type(attempt.result) is H8ControlResult
     )
-    if typed_controls != expected_controls:
+    if (
+        len(typed_controls) != len(expected_controls)
+        or any(
+            control is not retained
+            for control, retained in zip(
+                typed_controls,
+                expected_controls,
+                strict=True,
+            )
+        )
+    ):
         raise ValueError(
             "supplied controls must be the exact result objects retained by "
             "their issued attempts"

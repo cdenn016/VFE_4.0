@@ -524,7 +524,10 @@ def _exact_attempt_prefix(
         != H8_EXPECTED_CHILD_ATTEMPT_IDS[: len(child_attempts)]
     ):
         return False
-    return all(item.status is GateStatus.PASS for item in child_attempts) or (
+    return (
+        len(child_attempts) == len(H8_EXPECTED_CHILD_ATTEMPT_IDS)
+        and all(item.status is GateStatus.PASS for item in child_attempts)
+    ) or (
         all(item.status is GateStatus.PASS for item in child_attempts[:-1])
         and child_attempts[-1].status is GateStatus.FAIL
     )
@@ -550,6 +553,12 @@ def _attempts_cross_bound(
     profiler_runs: tuple[H8ChildResult, ...],
     controls: tuple[H8ControlResult, ...],
 ) -> bool:
+    retained_controls = tuple(
+        item.result
+        for item in child_attempts
+        if item.request.mode == "negative_control"
+        and type(item.result) is H8ControlResult
+    )
     return (
         production_runs
         == tuple(
@@ -565,12 +574,14 @@ def _attempts_cross_bound(
             if item.request.mode == "profiler"
             and type(item.result) is H8ChildResult
         )
-        and controls
-        == tuple(
-            item.result
-            for item in child_attempts
-            if item.request.mode == "negative_control"
-            and type(item.result) is H8ControlResult
+        and len(controls) == len(retained_controls)
+        and all(
+            control is retained
+            for control, retained in zip(
+                controls,
+                retained_controls,
+                strict=True,
+            )
         )
     )
 

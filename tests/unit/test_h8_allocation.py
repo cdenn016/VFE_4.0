@@ -4105,6 +4105,29 @@ def test_h8_v4_runtime_sections_retain_complete_runs_for_control_fail_prefixes(
     control_attempts = child_attempts[18:]
     specs = h8_negative_control_specs(_production_policy().layout)
 
+    for all_pass_length in (18, 19, 29):
+        with pytest.raises(ValueError, match="first witnessed FAIL"):
+            build_h8_v4_runtime_sections(
+                config=config,
+                candidate_head="1" * 40,
+                candidate_dirty_digest="a" * 64,
+                candidate_junit_sha256="b" * 64,
+                current_refs_registry_sha256="c" * 64,
+                dependency_closure_sha256="d" * 64,
+                preregistration_sha256="e" * 64,
+                prerequisites_current_and_pass=True,
+                correctness=correctness,
+                child_attempts=child_attempts[:all_pass_length],
+                production_runs=production_runs,
+                profiler_runs=profiler_runs,
+                controls=controls[: all_pass_length - len(run_attempts)],
+                result_status=GateStatus.INCONCLUSIVE,
+                result_obligations=(
+                    "h8_runtime_sections_not_bound",
+                    "h8_parent_orchestrator_not_implemented",
+                ),
+            )
+
     for failure_index in (0, len(controls) // 2, len(controls) - 1):
         spec = specs[failure_index]
         failed_envelope = _control_child_envelope(spec)
