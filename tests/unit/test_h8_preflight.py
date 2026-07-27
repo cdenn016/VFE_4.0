@@ -555,6 +555,81 @@ def test_runtime_scan_rejects_dead_early_and_wrong_branch_runner_decoys(
         assert runner_state == "blocked"
 
 
+def test_runtime_scan_rejects_aliased_and_dynamic_invalid_start_launches(
+    tmp_path: Path,
+) -> None:
+    gate_source = (
+        "def assemble_h8_gate_evaluation(\n"
+        "    *, correctness, parent_authority, prerequisite_validation\n"
+        "):\n"
+        + _synthetic_authority_gate_body()
+    )
+    prefix = (
+        "def run_h8_verification():\n"
+        "    prerequisite_validation = "
+        "validate_h8_prerequisite_artifacts(refs)\n"
+        "    correctness = produce_h8_correctness_grid()\n"
+        "    authorization = derive_h8_child_start_authorization(\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
+        "        correctness_statuses=correctness,\n"
+        "    )\n"
+    )
+    valid_branch = (
+        "    parent_authority = run_h8_parent_attempt(\n"
+        "        authorization=authorization,\n"
+        "    )\n"
+        "    return assemble_h8_gate_evaluation(\n"
+        "        correctness=correctness,\n"
+        "        parent_authority=parent_authority,\n"
+        "        prerequisite_validation=prerequisite_validation,\n"
+        "    )\n"
+    )
+    cases = (
+        (
+            "    launch = run_h8_parent_attempt\n"
+            "    finish = assemble_h8_gate_evaluation\n"
+            "    if not authorization.valid_start:\n"
+            "        parent_authority = launch(authorization=authorization)\n"
+            "        return finish(\n"
+            "            correctness=correctness,\n"
+            "            parent_authority=parent_authority,\n"
+            "            prerequisite_validation=prerequisite_validation,\n"
+            "        )\n"
+        ),
+        (
+            "    if not authorization.valid_start:\n"
+            "        parent_authority = globals()[\n"
+            "            'run_h8_parent_attempt'\n"
+            "        ](authorization=authorization)\n"
+            "        return globals()['assemble_h8_gate_evaluation'](\n"
+            "            correctness=correctness,\n"
+            "            parent_authority=parent_authority,\n"
+            "            prerequisite_validation=prerequisite_validation,\n"
+            "        )\n"
+        ),
+        (
+            "    assemble_h8_source_only_evaluation = run_h8_parent_attempt\n"
+            "    if not authorization.valid_start:\n"
+            "        return assemble_h8_source_only_evaluation(\n"
+            "            correctness=correctness,\n"
+            "        )\n"
+        ),
+        (
+            "    if not authorization.valid_start:\n"
+            "        return None\n"
+        ),
+    )
+
+    for case_index, invalid_branch in enumerate(cases):
+        runner_state, _gate_state = _synthetic_runtime_states(
+            tmp_path / f"case-{case_index}",
+            runner_source=prefix + invalid_branch + valid_branch,
+            gate_source=gate_source,
+        )
+
+        assert runner_state == "blocked"
+
+
 def test_runtime_cross_binding_scan_rejects_module_and_dead_branch_decoys(
     tmp_path: Path,
 ) -> None:
@@ -605,6 +680,129 @@ def test_runtime_cross_binding_scan_rejects_module_and_dead_branch_decoys(
             runner_source=runner_source,
             gate_source=gate_source,
         )
+        assert gate_state == "blocked"
+
+
+def test_runtime_cross_binding_requires_direct_dominating_pass_chain(
+    tmp_path: Path,
+) -> None:
+    runner_source = (
+        "def run_h8_verification():\n"
+        + _synthetic_selected_runner_body()
+    )
+    gate_prefix = (
+        "def assemble_h8_gate_evaluation(\n"
+        "    *, correctness, parent_authority, prerequisite_validation\n"
+        "):\n"
+        "    authority = require_h8_parent_attempt_authority(\n"
+        "        parent_authority,\n"
+        "    )\n"
+        "    child_attempts = authority.attempts\n"
+        "    production_runs = production_from(child_attempts)\n"
+        "    profiler_runs = profiler_from(child_attempts)\n"
+        "    controls = controls_from(child_attempts)\n"
+        "    status = GateStatus.PASS\n"
+        "    retained_runtime_sections = None\n"
+        "    if status is GateStatus.PASS:\n"
+    )
+    build_call = (
+        "retained_runtime_sections = build_h8_v4_runtime_sections(\n"
+        "    correctness=correctness,\n"
+        "    child_attempts=child_attempts,\n"
+        "    production_runs=production_runs,\n"
+        "    profiler_runs=profiler_runs,\n"
+        "    controls=controls,\n"
+        ")\n"
+    )
+    revalidation_call = (
+        "if require_h8_parent_attempt_authority(authority) is not authority:\n"
+        "    raise ValueError\n"
+    )
+    issuer_call = (
+        "result = _issue_h8_gate_pass_result(\n"
+        "    correctness=correctness,\n"
+        "    child_attempts=child_attempts,\n"
+        "    production_runs=production_runs,\n"
+        "    profiler_runs=profiler_runs,\n"
+        "    controls=controls,\n"
+        ")\n"
+    )
+    gate_suffix = (
+        "    return _finalize_h8_gate_evaluation(\n"
+        "        result=result,\n"
+        "        retained_runtime_sections=retained_runtime_sections,\n"
+        "    )\n"
+    )
+
+    def indented(source: str, spaces: int) -> str:
+        prefix = " " * spaces
+        return "".join(
+            f"{prefix}{line}" if line.strip() else line
+            for line in source.splitlines(keepends=True)
+        )
+
+    cases = (
+        (
+            gate_prefix
+            + "        if False:\n"
+            + indented(build_call + revalidation_call + issuer_call, 12)
+            + gate_suffix
+        ),
+        (
+            gate_prefix
+            + "        if route == 'build':\n"
+            + indented(build_call, 12)
+            + "        elif route == 'revalidate':\n"
+            + indented(revalidation_call, 12)
+            + "        else:\n"
+            + indented(issuer_call, 12)
+            + gate_suffix
+        ),
+        (
+            gate_prefix
+            + indented(
+                build_call.replace(
+                    "build_h8_v4_runtime_sections",
+                    "decoy.build_h8_v4_runtime_sections",
+                )
+                + revalidation_call.replace(
+                    "require_h8_parent_attempt_authority",
+                    "decoy.require_h8_parent_attempt_authority",
+                )
+                + issuer_call.replace(
+                    "_issue_h8_gate_pass_result",
+                    "decoy._issue_h8_gate_pass_result",
+                ),
+                8,
+            )
+            + gate_suffix
+        ),
+        (
+            "build_h8_v4_runtime_sections = decoy.build\n"
+            "require_h8_parent_attempt_authority = decoy.require\n"
+            "_issue_h8_gate_pass_result = decoy.issue\n"
+            + gate_prefix
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
+        (
+            gate_prefix.replace(
+                "    *, correctness, parent_authority, prerequisite_validation\n",
+                "    *, correctness, parent_authority, prerequisite_validation,\n"
+                "    build_h8_v4_runtime_sections=decoy.build\n",
+            )
+            + indented(build_call + revalidation_call + issuer_call, 8)
+            + gate_suffix
+        ),
+    )
+
+    for case_index, gate_source in enumerate(cases):
+        _runner_state, gate_state = _synthetic_runtime_states(
+            tmp_path / f"case-{case_index}",
+            runner_source=runner_source,
+            gate_source=gate_source,
+        )
+
         assert gate_state == "blocked"
 
 

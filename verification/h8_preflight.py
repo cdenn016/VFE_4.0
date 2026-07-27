@@ -1490,8 +1490,6 @@ def _runtime_records(
         called = call.func
         if isinstance(called, ast.Name):
             return called.id
-        if isinstance(called, ast.Attribute):
-            return called.attr
         return None
 
     def top_level_function(
@@ -1504,6 +1502,74 @@ def _runtime_records(
             if isinstance(node, ast.FunctionDef) and node.name == name
         )
         return matches[0] if len(matches) == 1 else None
+
+    class ScopeBindingVisitor(ast.NodeVisitor):
+        """Collect bindings in one lexical scope without entering nested scopes."""
+
+        def __init__(self, *, include_imports: bool) -> None:
+            self.include_imports = include_imports
+            self.names: set[str] = set()
+
+        def visit_Name(self, node: ast.Name) -> None:
+            if isinstance(node.ctx, ast.Store):
+                self.names.add(node.id)
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.names.add(node.name)
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+            self.names.add(node.name)
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            self.names.add(node.name)
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            return
+
+        def visit_Import(self, node: ast.Import) -> None:
+            if self.include_imports:
+                self.names.update(
+                    item.asname or item.name.split(".", maxsplit=1)[0]
+                    for item in node.names
+                )
+
+        def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+            if self.include_imports:
+                self.names.update(item.asname or item.name for item in node.names)
+
+    def lexical_rebindings(
+        statements: list[ast.stmt],
+        protected_names: frozenset[str],
+        *,
+        include_imports: bool,
+        allowed_definitions: frozenset[str] = frozenset(),
+    ) -> frozenset[str]:
+        visitor = ScopeBindingVisitor(include_imports=include_imports)
+        for statement in statements:
+            visitor.visit(statement)
+        return frozenset(visitor.names & protected_names) - allowed_definitions
+
+    def function_rebindings(
+        function: ast.FunctionDef,
+        protected_names: frozenset[str],
+    ) -> frozenset[str]:
+        parameters = {
+            item.arg
+            for item in (
+                *function.args.posonlyargs,
+                *function.args.args,
+                *function.args.kwonlyargs,
+            )
+        }
+        if function.args.vararg is not None:
+            parameters.add(function.args.vararg.arg)
+        if function.args.kwarg is not None:
+            parameters.add(function.args.kwarg.arg)
+        return lexical_rebindings(
+            function.body,
+            protected_names,
+            include_imports=True,
+        ) | frozenset(parameters & protected_names)
 
     def direct_call(statement: ast.stmt) -> ast.Call | None:
         value: ast.expr | None
@@ -1609,6 +1675,25 @@ def _runtime_records(
             visitor.visit(statement)
         return tuple(visitor.calls)
 
+    def dominating_calls(statements: list[ast.stmt]) -> tuple[ast.Call, ...]:
+        """Collect exact calls evaluated before every path reaching the next statement."""
+
+        calls: list[ast.Call] = []
+        for statement in statements:
+            if (call := direct_call(statement)) is not None:
+                calls.append(call)
+            elif (
+                isinstance(statement, ast.If)
+                and isinstance(statement.test, ast.Compare)
+                and len(statement.test.ops) == 1
+                and len(statement.test.comparators) == 1
+                and isinstance(statement.test.left, ast.Call)
+            ):
+                calls.append(statement.test.left)
+            if isinstance(statement, (ast.Return, ast.Raise)):
+                break
+        return tuple(calls)
+
     def invalid_start_guard(statement: ast.stmt) -> bool:
         if not isinstance(statement, ast.If):
             return False
@@ -1656,6 +1741,17 @@ def _runtime_records(
     runtime_failure = "run_h8_verification is absent or duplicated"
     if runner_function is not None:
         runner_body = runner_function.body
+        runner_protected_names = frozenset(
+            (*H8_SELECTED_RUNTIME_CALL_NAMES, "assemble_h8_source_only_evaluation")
+        )
+        runner_bindings_clean = not function_rebindings(
+            runner_function,
+            runner_protected_names,
+        ) and not lexical_rebindings(
+            runner_tree.body,
+            runner_protected_names,
+            include_imports=False,
+        )
         prerequisite_index = direct_assignment_index(
             runner_body,
             target_name="prerequisite_validation",
@@ -1699,10 +1795,16 @@ def _runtime_records(
         else:
             guard = cast(ast.If, runner_body[cast(int, guard_index)])
             invalid_calls = reachable_calls(guard.body)
-            invalid_launches = any(
-                called_name(call)
-                in {"run_h8_parent_attempt", "assemble_h8_gate_evaluation"}
-                for call in invalid_calls
+            invalid_call = (
+                direct_call(guard.body[0])
+                if len(guard.body) == 1
+                else None
+            )
+            invalid_calls_are_source_only = (
+                invalid_call is not None
+                and called_name(invalid_call)
+                == "assemble_h8_source_only_evaluation"
+                and invalid_calls == (invalid_call,)
             )
             if guard.orelse:
                 valid_branch = guard.orelse
@@ -1742,16 +1844,22 @@ def _runtime_records(
                 for name in H8_SELECTED_GATE_ARGUMENT_NAMES
             )
             runtime_available = (
-                not invalid_launches
+                runner_bindings_clean
+                and invalid_calls_are_source_only
                 and parent_index is not None
                 and assembly_index is not None
                 and parent_index < assembly_index
                 and exact_assembly_bindings
             )
-            if invalid_launches:
+            if not runner_bindings_clean:
                 runtime_failure = (
-                    "invalid-start branch can reach a parent launch or "
-                    "authoritative gate"
+                    "selected runtime call names are rebound outside their "
+                    "direct module bindings"
+                )
+            elif not invalid_calls_are_source_only:
+                runtime_failure = (
+                    "invalid-start branch contains a call outside the exact "
+                    "source-only gate"
                 )
             elif not runtime_available:
                 runtime_failure = (
@@ -1797,6 +1905,28 @@ def _runtime_records(
         "authoritative H8 gate is absent or duplicated"
     )
     if gate_function is not None and not forbidden_legacy_authorization:
+        gate_protected_names = frozenset(
+            {
+                "build_h8_v4_runtime_sections",
+                "require_h8_parent_attempt_authority",
+                "_issue_h8_gate_pass_result",
+                "_finalize_h8_gate_evaluation",
+            }
+        )
+        gate_bindings_clean = not function_rebindings(
+            gate_function,
+            gate_protected_names,
+        ) and not lexical_rebindings(
+            gate_tree.body,
+            gate_protected_names,
+            include_imports=False,
+            allowed_definitions=frozenset(
+                {
+                    "build_h8_v4_runtime_sections",
+                    "_finalize_h8_gate_evaluation",
+                }
+            ),
+        )
         argument_names = {
             item.arg
             for item in (
@@ -1875,7 +2005,7 @@ def _runtime_records(
         )
         pass_calls: tuple[ast.Call, ...] = ()
         if pass_index is not None:
-            pass_calls = reachable_calls(
+            pass_calls = dominating_calls(
                 cast(ast.If, gate_body[pass_index]).body
             )
         named_pass_calls = {
@@ -1947,6 +2077,7 @@ def _runtime_records(
         )
         cross_binding_available = (
             set(H8_SELECTED_GATE_ARGUMENT_NAMES).issubset(argument_names)
+            and gate_bindings_clean
             and authority_input_exact
             and authority_index is not None
             and attempts_index is not None
@@ -1959,10 +2090,16 @@ def _runtime_records(
             and exact_finalization
         )
         if not cross_binding_available:
-            cross_binding_failure = (
-                "authority, owned-v4 PASS issuance, and final assembly do "
-                "not share one reachable dominated branch"
-            )
+            if not gate_bindings_clean:
+                cross_binding_failure = (
+                    "authoritative PASS call names are rebound outside their "
+                    "direct module bindings"
+                )
+            else:
+                cross_binding_failure = (
+                    "authority, owned-v4 PASS issuance, and final assembly do "
+                    "not share one reachable dominated branch"
+                )
     elif forbidden_legacy_authorization:
         cross_binding_failure = (
             "legacy caller-provided runtime authorization remains reachable"

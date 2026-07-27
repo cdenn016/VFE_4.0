@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import inspect
 import json
@@ -571,6 +572,37 @@ def test_h8_direct_complete_pass_result_requires_authoritative_factory(
                 for field in fields(authoritative)
             }
         )
+
+
+def test_verification_run_result_rejects_shallow_copied_h8_pass(
+    tmp_path: Path,
+) -> None:
+    from verification.run_gates import VerificationRunResult
+
+    refs = _current_refs()
+    authority, prerequisite_validation, correctness = _passing_parent_authority(
+        tmp_path,
+        refs,
+    )
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        publication_config_sha256="f" * 64,
+        current_refs=refs,
+        correctness=correctness,
+        parent_authority=authority,
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+        prerequisite_validation=prerequisite_validation,
+    )
+    authoritative = evaluation.result
+    copied = copy.copy(authoritative)
+    assert type(copied) is H8GateResult
+    assert copied is not authoritative
+
+    with pytest.raises(ValueError, match="factory-issued"):
+        VerificationRunResult((copied,), tmp_path)
+
+    accepted = VerificationRunResult((authoritative,), tmp_path)
+    assert accepted.gate_results == (authoritative,)
 
 
 def test_h8_gate_rejects_parent_authority_replayed_to_another_registry(

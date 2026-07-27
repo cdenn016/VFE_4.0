@@ -162,6 +162,9 @@ class VerificationRunResult:
             raise ValueError(
                 "gate_results must contain exact immutable gate results"
             )
+        for result in self.gate_results:
+            if type(result) is H8GateResult:
+                result.__post_init__()
         gate_names = tuple(result.gate for result in self.gate_results)
         if gate_names not in _ALLOWED_RESULT_PREFIXES:
             raise ValueError("gate_results must contain an implemented ordered prefix")
