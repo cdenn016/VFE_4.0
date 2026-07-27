@@ -16,6 +16,11 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 
 from verification.h8_budget import _require_h8_budget_issued_attempt
+from verification.h8_parent_authority import (
+    H8ParentAttemptAuthority,
+    require_h8_parent_attempt_authority,
+)
+from verification.h8_protocol import build_h8_protocol_sha256
 from verification.h8_runtime import build_h8_v4_runtime_sections
 from vfe4.config.schema import H8ValidationConfig
 from vfe4.artifacts.atomic import canonical_json_bytes
@@ -624,10 +629,12 @@ def _source_only_sections(
             "h7_plan_sha256": H8_H7_PLAN_SHA256,
         },
         "config": {
-            "config_sha256": result.config_sha256,
+            "config_sha256": frozen_config.config_sha256,
             "objective_schema_sha256": None,
-            "protocol_sha256": None,
-            "canonical_json_sha256": result.config_sha256,
+            "protocol_sha256": build_h8_protocol_sha256(frozen_config),
+            "canonical_json_sha256": hashlib.sha256(
+                frozen_config.canonical_json.encode("utf-8")
+            ).hexdigest(),
             "selected_operation": "H8",
             "ordered_gates": H8_VERIFIER_PREFIX,
             "current_refs_registry_sha256": refs.registry_sha256,
@@ -793,25 +800,14 @@ def _validate_section_bindings(
     ):
         raise ValueError("H8 revision section is not bound to current inputs")
     validation_config = H8ValidationConfig.create()
-    source_only_config = config["objective_schema_sha256"] is None
     if (
-        (
-            source_only_config
-            and (
-                config["config_sha256"] != result.config_sha256
-                or config["canonical_json_sha256"] != result.config_sha256
-            )
-        )
-        or (
-            not source_only_config
-            and (
-                config["config_sha256"] != validation_config.config_sha256
-                or config["canonical_json_sha256"]
-                != hashlib.sha256(
-                    validation_config.canonical_json.encode("utf-8")
-                ).hexdigest()
-            )
-        )
+        config["config_sha256"] != validation_config.config_sha256
+        or config["canonical_json_sha256"]
+        != hashlib.sha256(
+            validation_config.canonical_json.encode("utf-8")
+        ).hexdigest()
+        or config["protocol_sha256"]
+        != build_h8_protocol_sha256(validation_config)
         or config["selected_operation"] != "H8"
         or tuple(cast(object, config["ordered_gates"])) != H8_VERIFIER_PREFIX
         or config["current_refs_registry_sha256"] != refs.registry_sha256
@@ -1946,9 +1942,9 @@ def _validation_payload_from_context(
     return payload
 
 
-def assemble_h8_gate_evaluation(
+def _assemble_h8_gate_evaluation_from_inventories(
     *,
-    config_sha256: str,
+    publication_config_sha256: str,
     current_refs: CurrentH8PrerequisiteRefs,
     correctness: tuple[H8CorrectnessCell, ...],
     production_runs: tuple[H8ChildResult, ...],
@@ -1965,7 +1961,10 @@ def assemble_h8_gate_evaluation(
     if type(current_refs) is not CurrentH8PrerequisiteRefs:
         raise ValueError("current_refs must be an exact bound H8 registry")
     current_refs.__post_init__()
-    _sha256(config_sha256, "config_sha256")
+    _sha256(
+        publication_config_sha256,
+        "publication_config_sha256",
+    )
     _sha256(dependency_closure_sha256, "dependency_closure_sha256")
     _sha256(preregistration_sha256, "preregistration_sha256")
     _typed_records(correctness, H8CorrectnessCell, "correctness")
@@ -2053,7 +2052,7 @@ def assemble_h8_gate_evaluation(
     result = H8GateResult(
         gate="H8",
         status=status,
-        config_sha256=config_sha256,
+        config_sha256=publication_config_sha256,
         candidate_junit_sha256=current_refs.candidate_junit_sha256,
         current_refs_registry_sha256=current_refs.registry_sha256,
         h7_manifest_sha256=current_refs.h7.manifest_sha256,
@@ -2102,6 +2101,92 @@ def assemble_h8_gate_evaluation(
             dependency_closure_sha256=dependency_closure_sha256,
             preregistration_sha256=preregistration_sha256,
         ),
+    )
+
+
+def assemble_h8_source_only_evaluation(
+    *,
+    config_sha256: str,
+    current_refs: CurrentH8PrerequisiteRefs,
+    correctness: tuple[H8CorrectnessCell, ...],
+    production_runs: tuple[H8ChildResult, ...],
+    profiler_runs: tuple[H8ChildResult, ...],
+    controls: tuple[H8ControlResult, ...],
+    child_attempts: tuple[H8ChildAttemptRecord, ...] = (),
+    dependency_closure_sha256: str,
+    preregistration_sha256: str,
+    additional_obligations: tuple[str, ...] = (),
+    prerequisite_validation: H8PrerequisiteArtifactValidation | None = None,
+) -> H8GateEvaluation:
+    """Retain direct evidence behind the permanent source-only PASS locks."""
+
+    return _assemble_h8_gate_evaluation_from_inventories(
+        publication_config_sha256=config_sha256,
+        current_refs=current_refs,
+        correctness=correctness,
+        child_attempts=child_attempts,
+        production_runs=production_runs,
+        profiler_runs=profiler_runs,
+        controls=controls,
+        dependency_closure_sha256=dependency_closure_sha256,
+        preregistration_sha256=preregistration_sha256,
+        additional_obligations=additional_obligations,
+        prerequisite_validation=prerequisite_validation,
+    )
+
+
+def assemble_h8_gate_evaluation(
+    *,
+    publication_config_sha256: str,
+    current_refs: CurrentH8PrerequisiteRefs,
+    correctness: tuple[H8CorrectnessCell, ...],
+    parent_authority: H8ParentAttemptAuthority,
+    dependency_closure_sha256: str,
+    preregistration_sha256: str,
+    prerequisite_validation: H8PrerequisiteArtifactValidation,
+    additional_obligations: tuple[str, ...] = (),
+) -> H8GateEvaluation:
+    """Project runtime inventories from one factory-issued parent authority."""
+
+    authority = require_h8_parent_attempt_authority(parent_authority)
+    validation_config = H8ValidationConfig.create()
+    if authority.child_config_sha256 != validation_config.config_sha256:
+        raise ValueError("parent authority binds another H8 child config")
+    if authority.protocol_sha256 != build_h8_protocol_sha256(
+        validation_config
+    ):
+        raise ValueError("parent authority binds another H8 protocol")
+    child_attempts = authority.attempts
+    production_runs = tuple(
+        attempt.result
+        for attempt in child_attempts
+        if attempt.request.mode == "production"
+        and type(attempt.result) is H8ChildResult
+    )
+    profiler_runs = tuple(
+        attempt.result
+        for attempt in child_attempts
+        if attempt.request.mode == "profiler"
+        and type(attempt.result) is H8ChildResult
+    )
+    controls = tuple(
+        attempt.result
+        for attempt in child_attempts
+        if attempt.request.mode == "negative_control"
+        and type(attempt.result) is H8ControlResult
+    )
+    return _assemble_h8_gate_evaluation_from_inventories(
+        publication_config_sha256=publication_config_sha256,
+        current_refs=current_refs,
+        correctness=correctness,
+        child_attempts=child_attempts,
+        production_runs=production_runs,
+        profiler_runs=profiler_runs,
+        controls=controls,
+        dependency_closure_sha256=dependency_closure_sha256,
+        preregistration_sha256=preregistration_sha256,
+        additional_obligations=additional_obligations,
+        prerequisite_validation=prerequisite_validation,
     )
 
 
@@ -2596,6 +2681,7 @@ __all__ = [
     "H8_VALIDATION_SCHEMA",
     "H8_VALIDATION_TOP_LEVEL_KEYS",
     "assemble_h8_gate_evaluation",
+    "assemble_h8_source_only_evaluation",
     "build_h8_publication_payloads",
     "canonical_h8_json_bytes",
     "classify_h8_status",

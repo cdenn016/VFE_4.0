@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -200,13 +201,15 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result(
         make_h8_child_attempt_record,
         make_h8_identity_record,
     )
+    from vfe4.config.schema import H8ValidationConfig
 
     refs = _current_refs()
+    validation_config = H8ValidationConfig.create()
     request = H8ChildRequest(
         mode="production",
         seed=20260721,
         repetition=0,
-        config_sha256="b" * 64,
+        config_sha256=validation_config.config_sha256,
         protocol_sha256="c" * 64,
         control_id=None,
     )
@@ -289,7 +292,7 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result(
         obligations=(),
     )
 
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,
         current_refs=refs,
         correctness=(),
@@ -313,7 +316,7 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result(
                 "mode": "production",
                 "seed": 20260721,
                 "repetition": 0,
-                "config_sha256": "b" * 64,
+                "config_sha256": validation_config.config_sha256,
                 "protocol_sha256": "c" * 64,
                 "control_id": None,
             },
@@ -334,6 +337,134 @@ def test_h8_gate_retains_parent_attempt_failure_without_a_child_result(
             "resource_decisions": None,
         }
     ]
+
+
+def test_h8_gate_derives_inventories_from_authority_and_keeps_two_config_domains(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_budget import (
+        H8ChildProcessRecord,
+        make_h8_identity_record,
+    )
+    from verification.h8_orchestrator import (
+        _mint_h8_parent_attempt_authority,
+        _run_h8_parent_attempt_for_test,
+        derive_h8_child_start_authorization,
+    )
+    from vfe4.config.schema import H8ValidationConfig
+
+    refs = _current_refs()
+    validation_config = H8ValidationConfig.create()
+    publication_config_sha256 = "f" * 64
+    prerequisite_validation = h8_gate.H8PrerequisiteArtifactValidation.create(
+        registry_sha256=refs.registry_sha256,
+        revalidated_reference_names=h8_gate.H8_POINTER_PREDECESSOR_KEYS,
+        obligations=(),
+    )
+    authorization = derive_h8_child_start_authorization(
+        config=validation_config,
+        current_registry_sha256=refs.registry_sha256,
+        prerequisite_validation=prerequisite_validation,
+        correctness_statuses=tuple(
+            (cell_id, GateStatus.PASS) for cell_id in range(1, 13)
+        ),
+    )
+    identities = {
+        name: make_h8_identity_record(name, payload)
+        for name, payload in (
+            (
+                "hardware",
+                {
+                    "platform": "test",
+                    "release": "test-release",
+                    "system": "test",
+                    "machine": "test",
+                    "processor": "test",
+                    "cpu_count": 1,
+                    "python": "test",
+                    "implementation": "test",
+                },
+            ),
+            ("affinity", {"adapter": "test", "cpus": [0]}),
+            (
+                "thread",
+                {
+                    "environment": {
+                        "OMP_NUM_THREADS": "1",
+                        "MKL_NUM_THREADS": "1",
+                        "OPENBLAS_NUM_THREADS": "1",
+                        "NUMEXPR_NUM_THREADS": "1",
+                        "VECLIB_MAXIMUM_THREADS": "1",
+                    },
+                    "torch_num_threads": 1,
+                    "torch_num_interop_threads": 1,
+                },
+            ),
+            (
+                "blas",
+                {
+                    "torch_version": "2.9.1",
+                    "numpy_version": "test",
+                    "torch_config": "test",
+                    "numpy_config": "test",
+                },
+            ),
+        )
+    }
+
+    def timed_out_child(_invocation):
+        return H8ChildProcessRecord(
+            timed_out=True,
+            exit_code=None,
+            stdout=b"",
+            stderr=b"fake timeout",
+            parent_elapsed_ns=60_000_000_001,
+        )
+
+    parent_run = _run_h8_parent_attempt_for_test(
+        authorization=authorization,
+        repository_root=tmp_path,
+        identities=identities,
+        child_runner=timed_out_child,
+    )
+    authority = _mint_h8_parent_attempt_authority(parent_run)
+
+    signature = inspect.signature(h8_gate.assemble_h8_gate_evaluation)
+    assert "parent_authority" in signature.parameters
+    assert {
+        "child_attempts",
+        "production_runs",
+        "profiler_runs",
+        "controls",
+    }.isdisjoint(signature.parameters)
+
+    evaluation = h8_gate.assemble_h8_gate_evaluation(
+        publication_config_sha256=publication_config_sha256,
+        current_refs=refs,
+        correctness=(),
+        parent_authority=authority,
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+        prerequisite_validation=prerequisite_validation,
+    )
+    payload = h8_gate.h8_validation_payload(evaluation)
+
+    assert evaluation.result.status is GateStatus.FAIL
+    assert evaluation.result.config_sha256 == publication_config_sha256
+    assert evaluation.result.child_attempts is authority.attempts
+    assert evaluation.result.production_runs == ()
+    assert evaluation.result.profiler_runs == ()
+    assert evaluation.result.controls == ()
+    assert (
+        evaluation.result.child_attempts[0].request.config_sha256
+        == validation_config.config_sha256
+    )
+    assert payload["config"]["config_sha256"] == validation_config.config_sha256
+    assert (
+        payload["config"]["canonical_json_sha256"]
+        == validation_config.config_sha256
+    )
+    assert payload["config"]["config_sha256"] != publication_config_sha256
 
 
 def _forge_h8_validation_payload(
@@ -374,7 +505,7 @@ def test_h8_validation_payload_rejects_inventory_drift_from_typed_result(
     inventory_name: str,
 ) -> None:
     refs = _current_refs()
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,
         current_refs=refs,
         correctness=(),
@@ -417,7 +548,7 @@ def test_h8_validation_payload_rejects_noninventory_context_drift(
     forged_value: object,
 ) -> None:
     refs = _current_refs()
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,
         current_refs=refs,
         correctness=(),
@@ -441,7 +572,7 @@ def test_h8_validation_payload_rejects_noninventory_context_drift(
 
 
 def test_h8_evaluation_rejects_interpretation_context_drift() -> None:
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,
         current_refs=_current_refs(),
         correctness=(),
@@ -458,7 +589,7 @@ def test_h8_evaluation_rejects_interpretation_context_drift() -> None:
 
 def test_h8_supplied_runtime_context_round_trips_in_declared_schema_order() -> None:
     refs = _current_refs()
-    source_only = h8_gate.assemble_h8_gate_evaluation(
+    source_only = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,
         current_refs=refs,
         correctness=(),
@@ -476,7 +607,7 @@ def test_h8_supplied_runtime_context_round_trips_in_declared_schema_order() -> N
         prerequisites_current_and_pass=False,
     )
 
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,
         current_refs=refs,
         correctness=(),
@@ -689,7 +820,7 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
         "h8_prerequisite_h7_immutable_artifact_revalidation_required",
         "h8_prerequisite_h6_prediction_v2_artifact_revalidation_required",
     )
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,
         current_refs=refs,
         correctness=(),
@@ -711,7 +842,7 @@ def test_h8_payload_inventories_are_exact_and_private() -> None:
     refs = _current_refs()
     config_bytes = b'{"operation":"H8"}'
     config_sha256 = hashlib.sha256(config_bytes).hexdigest()
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256=config_sha256,
         current_refs=refs,
         correctness=(),
@@ -772,7 +903,7 @@ def test_h8_external_pointer_round_trips_all_reference_variants(
     config_sha256 = hashlib.sha256(
         h8_gate.canonical_h8_json_bytes(config_payload)
     ).hexdigest()
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256=config_sha256,
         current_refs=refs,
         correctness=(),

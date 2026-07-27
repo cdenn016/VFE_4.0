@@ -1110,6 +1110,8 @@ class H8GateResult:
     obligations: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        from vfe4.config.schema import H8ValidationConfig
+
         from .h8 import (
             H8_CORRECTNESS_CASES,
             H8_NEGATIVE_CONTROL_IDS,
@@ -1216,10 +1218,13 @@ class H8GateResult:
             "child attempts",
         )
         if any(
-            attempt.request.config_sha256 != self.config_sha256
+            attempt.request.config_sha256
+            != H8ValidationConfig.create().config_sha256
             for attempt in self.child_attempts
         ):
-            raise ValueError("child attempts must bind the H8 config")
+            raise ValueError(
+                "child attempts must bind the exact H8 validation config"
+            )
 
         attempt_production_runs = tuple(
             item.result

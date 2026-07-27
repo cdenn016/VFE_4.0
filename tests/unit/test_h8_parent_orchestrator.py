@@ -361,6 +361,121 @@ def test_parent_cross_binds_fake_child_records_without_launching_a_real_child(
     assert blocked_run.attempts == ()
 
 
+def test_parent_authority_is_nonforgeable_and_bound_to_exact_source_run(
+    tmp_path: Path,
+) -> None:
+    from verification.h8_orchestrator import (
+        H8ParentAttemptRun,
+        _mint_h8_parent_attempt_authority,
+        _run_h8_parent_attempt_for_test,
+    )
+    from verification.h8_parent_authority import (
+        H8ParentAttemptAuthority,
+        require_h8_parent_attempt_authority,
+    )
+
+    authorization = _start_authorization()
+
+    def timed_out_child(_invocation):
+        return H8ChildProcessRecord(
+            timed_out=True,
+            exit_code=None,
+            stdout=b"",
+            stderr=b"fake timeout",
+            parent_elapsed_ns=60_000_000_001,
+        )
+
+    parent_run = _run_h8_parent_attempt_for_test(
+        authorization=authorization,
+        repository_root=tmp_path,
+        identities=_parent_identities(),
+        child_runner=timed_out_child,
+    )
+    authority = _mint_h8_parent_attempt_authority(parent_run)
+
+    assert type(authority) is H8ParentAttemptAuthority
+    assert authority.child_config_sha256 == H8ValidationConfig.create().config_sha256
+    assert authority.protocol_sha256 == authorization.protocol_sha256
+    assert authority.authorization_sha256 == authorization.authorization_sha256
+    assert authority.attempts is parent_run.attempts
+    assert require_h8_parent_attempt_authority(authority) is authority
+    assert (
+        require_h8_parent_attempt_authority(authority, source_run=parent_run)
+        is authority
+    )
+    assert all(
+        len(getattr(authority, name)) == 64
+        for name in (
+            "request_plan_sha256",
+            "issued_prefix_sha256",
+            "authority_sha256",
+        )
+    )
+
+    with pytest.raises(TypeError, match="factory-only"):
+        H8ParentAttemptAuthority()
+
+    copied_authority = object.__new__(H8ParentAttemptAuthority)
+    for field in dataclasses.fields(authority):
+        object.__setattr__(
+            copied_authority,
+            field.name,
+            getattr(authority, field.name),
+        )
+    with pytest.raises(ValueError, match="factory-issued"):
+        require_h8_parent_attempt_authority(copied_authority)
+
+    equal_source_run = H8ParentAttemptRun(
+        authorization=parent_run.authorization,
+        request_plan=parent_run.request_plan,
+        issued=parent_run.issued,
+        attempts=parent_run.attempts,
+    )
+    assert equal_source_run == parent_run
+    assert equal_source_run is not parent_run
+    with pytest.raises(ValueError, match="source run"):
+        require_h8_parent_attempt_authority(
+            authority,
+            source_run=equal_source_run,
+        )
+
+    object.__setattr__(authority, "authority_sha256", "f" * 64)
+    with pytest.raises(ValueError, match="authority SHA-256"):
+        require_h8_parent_attempt_authority(authority)
+
+
+def test_public_parent_identity_collection_uses_neutral_patchable_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from verification import h8_child, h8_orchestrator
+
+    expected = _parent_identities()
+    calls = []
+
+    def fake_collector():
+        calls.append("called")
+        return expected
+
+    def forbidden_child_private(*_args, **_kwargs):
+        raise AssertionError("parent reached into child-private identity collection")
+
+    monkeypatch.setattr(
+        h8_orchestrator,
+        "_collect_h8_runtime_identities",
+        fake_collector,
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_collect_identities",
+        forbidden_child_private,
+    )
+
+    observed = h8_orchestrator.collect_h8_parent_identities()
+
+    assert observed is expected
+    assert calls == ["called"]
+
+
 def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -20,6 +20,13 @@ from verification.h8_budget import (
     _require_h8_issued_attempt_binding,
 )
 from verification.h8_gate import H8PrerequisiteArtifactValidation
+from verification.h8_parent_authority import (
+    H8ParentAttemptAuthority,
+    _issue_h8_parent_attempt_authority,
+)
+from verification.h8_parent_identities import (
+    collect_h8_runtime_identities as _collect_h8_runtime_identities,
+)
 from verification.h8_protocol import (
     _h8_protocol_preimage,  # noqa: F401
     build_h8_protocol_sha256,
@@ -513,6 +520,81 @@ class H8ParentAttemptRun:
             raise ValueError("parent run continued after the first witnessed FAIL")
 
 
+def _request_plan_sha256(request_plan: tuple[H8ChildRequest, ...]) -> str:
+    return hashlib.sha256(
+        canonical_json_bytes(
+            {
+                "domain": "vfe4.h8.parent-request-plan.v1",
+                "requests": tuple(
+                    {
+                        name: getattr(request, name)
+                        for name in H8_CHILD_REQUEST_KEYS
+                    }
+                    for request in request_plan
+                ),
+            }
+        )
+    ).hexdigest()
+
+
+def _issued_prefix_sha256(
+    issued: tuple[H8IssuedLaunchRecord, ...],
+) -> str:
+    return hashlib.sha256(
+        canonical_json_bytes(
+            {
+                "domain": "vfe4.h8.parent-issued-prefix.v1",
+                "issued": tuple(
+                    {
+                        "launch_contract_sha256": item.launch_contract_sha256,
+                        "timed_out": item.process_record.timed_out,
+                        "exit_code": item.process_record.exit_code,
+                        "parent_elapsed_ns": (
+                            item.process_record.parent_elapsed_ns
+                        ),
+                        "status": item.attempt.status.value,
+                        "reasons": item.attempt.reasons,
+                        "request_sha256": item.attempt.request_sha256,
+                        "identities_sha256": item.attempt.identities_sha256,
+                        "stdout_sha256": item.attempt.stdout_sha256,
+                        "stderr_sha256": item.attempt.stderr_sha256,
+                    }
+                    for item in issued
+                ),
+            }
+        )
+    ).hexdigest()
+
+
+def _mint_h8_parent_attempt_authority(
+    parent_run: H8ParentAttemptRun,
+) -> H8ParentAttemptAuthority:
+    """Mint authority only after exact parent-run validation succeeds."""
+
+    if type(parent_run) is not H8ParentAttemptRun:
+        raise ValueError("parent_run must be an exact H8ParentAttemptRun")
+    parent_run.__post_init__()
+    if not parent_run.authorization.valid_start:
+        raise ValueError("an unauthorized parent run cannot mint authority")
+    return _issue_h8_parent_attempt_authority(
+        source_run=parent_run,
+        request_plan=parent_run.request_plan,
+        issued_prefix=parent_run.issued,
+        attempts=parent_run.attempts,
+        child_config_sha256=parent_run.authorization.config_sha256,
+        protocol_sha256=parent_run.authorization.protocol_sha256,
+        authorization_sha256=parent_run.authorization.authorization_sha256,
+        request_plan_sha256=_request_plan_sha256(parent_run.request_plan),
+        issued_prefix_sha256=_issued_prefix_sha256(parent_run.issued),
+    )
+
+
+def collect_h8_parent_identities() -> Mapping[str, object]:
+    """Collect the patchable parent-owned H8 runtime identity inventory."""
+
+    return _collect_h8_runtime_identities()
+
+
 def _abnormal_spawn_record(
     error: OSError,
     *,
@@ -655,27 +737,31 @@ def run_h8_parent_attempt(
     *,
     authorization: H8ChildStartAuthorization,
     repository_root: str | Path,
-    identities: Mapping[str, object],
     base_environment: Mapping[str, str] | None = None,
-) -> H8ParentAttemptRun:
+) -> H8ParentAttemptAuthority:
     """Run the fixed production child entry point for one authorized prefix."""
 
-    return _run_h8_parent_attempt_with_runner(
-        authorization=authorization,
-        repository_root=repository_root,
-        identities=identities,
-        base_environment=base_environment,
-        child_runner=run_h8_child,
+    identities = collect_h8_parent_identities()
+    return _mint_h8_parent_attempt_authority(
+        _run_h8_parent_attempt_with_runner(
+            authorization=authorization,
+            repository_root=repository_root,
+            identities=identities,
+            base_environment=base_environment,
+            child_runner=run_h8_child,
+        )
     )
 
 
 __all__ = [
     "H8ChildStartAuthorization",
     "H8IssuedLaunchRecord",
+    "H8ParentAttemptAuthority",
     "H8ParentAttemptRun",
     "build_h8_child_request_plan",
     "build_h8_launch_contract_sha256",
     "build_h8_protocol_sha256",
+    "collect_h8_parent_identities",
     "derive_h8_child_start_authorization",
     "run_h8_parent_attempt",
 ]

@@ -339,7 +339,7 @@ def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
         )
         == legacy_bytes
     )
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="4" * 64,
         current_refs=parsed,
         correctness=(),
@@ -378,7 +378,7 @@ def test_h8_registry_v2_is_readable_but_never_authorizing() -> None:
         )
         == legacy_bytes
     )
-    evaluation = h8_gate.assemble_h8_gate_evaluation(
+    evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="4" * 64,
         current_refs=parsed,
         correctness=(),
