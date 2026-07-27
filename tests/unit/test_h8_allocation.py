@@ -1469,6 +1469,7 @@ def _child_envelope(**updates: object) -> dict[str, object]:
                     "hardware",
                     {
                         "platform": "test",
+                        "release": "test-release",
                         "system": "test",
                         "machine": "test",
                         "processor": "test",
@@ -1495,7 +1496,7 @@ def _child_envelope(**updates: object) -> dict[str, object]:
                 (
                     "blas",
                     {
-                        "torch_version": "test",
+                        "torch_version": "2.9.1",
                         "numpy_version": "test",
                         "torch_config": "test",
                         "numpy_config": "test",
@@ -1522,44 +1523,103 @@ def _profiler_child_envelope(**updates: object) -> dict[str, object]:
     assert isinstance(decisions, dict)
     assert isinstance(invariants, list)
 
-    tensor_key = H8TensorKey(
+    baseline_key = H8TensorKey(
         tensor_id=1,
         storage_ptr=8,
         allocation_id=1,
         device="cpu",
     )
-    event = H8ProfilerEventRecord(
-        source_row_index=0,
-        timestamp_ns=-1,
-        action="PREEXISTING",
-        tensor_key=tensor_key,
-        version=0,
-        nbytes=8,
-        dtype="torch.float64",
+    transient_key = H8TensorKey(
+        tensor_id=2,
+        storage_ptr=16,
+        allocation_id=2,
         device="cpu",
-        operator="aten::empty",
-        stack=("test.py:1",),
-        logical_shape=(1,),
-        classification="local",
-        matched_event_node_indices=(0,),
-        join_witness_sha256="c" * 64,
-        live_bytes_after=8,
+    )
+    events = (
+        H8ProfilerEventRecord(
+            source_row_index=0,
+            timestamp_ns=-1,
+            action="PREEXISTING",
+            tensor_key=baseline_key,
+            version=0,
+            nbytes=8,
+            dtype="torch.float64",
+            device="cpu",
+            operator="aten::empty",
+            stack=("test.py:1",),
+            logical_shape=(1,),
+            classification="local",
+            matched_event_node_indices=(0,),
+            join_witness_sha256="c" * 64,
+            live_bytes_after=8,
+        ),
+        H8ProfilerEventRecord(
+            source_row_index=1,
+            timestamp_ns=0,
+            action="CREATE",
+            tensor_key=transient_key,
+            version=0,
+            nbytes=8,
+            dtype="torch.float64",
+            device="cpu",
+            operator="aten::empty",
+            stack=("test.py:2",),
+            logical_shape=(1,),
+            classification="local",
+            matched_event_node_indices=(1,),
+            join_witness_sha256="d" * 64,
+            live_bytes_after=16,
+        ),
+        H8ProfilerEventRecord(
+            source_row_index=2,
+            timestamp_ns=1,
+            action="INCREMENT_VERSION",
+            tensor_key=transient_key,
+            version=1,
+            nbytes=0,
+            dtype="torch.float64",
+            device="cpu",
+            operator="aten::add_",
+            stack=("test.py:3",),
+            logical_shape=(1,),
+            classification="local",
+            matched_event_node_indices=(2,),
+            join_witness_sha256="e" * 64,
+            live_bytes_after=16,
+        ),
+        H8ProfilerEventRecord(
+            source_row_index=3,
+            timestamp_ns=2,
+            action="DESTROY",
+            tensor_key=transient_key,
+            version=1,
+            nbytes=-8,
+            dtype="torch.float64",
+            device="cpu",
+            operator="aten::empty",
+            stack=("test.py:4",),
+            logical_shape=(1,),
+            classification="local",
+            matched_event_node_indices=(3,),
+            join_witness_sha256="f" * 64,
+            live_bytes_after=8,
+        ),
     )
     allocation.update(
         {
             "profiler_trace_sha256": hashlib.sha256(
                 json.dumps(
-                    [event],
+                    events,
                     sort_keys=True,
                     separators=(",", ":"),
                     default=str,
                 ).encode("utf-8")
             ).hexdigest(),
-            "profiler_events": [_fixture_jsonable(event)],
+            "profiler_events": [_fixture_jsonable(event) for event in events],
             "preexisting_storage_count": 1,
             "preexisting_bytes": 8,
             "baseline_live_bytes": 8,
-            "profiler_reconstructed_live_peak_bytes": 8,
+            "profiler_reconstructed_live_peak_bytes": 16,
             "profiler_all_joined_and_liveness_reconciled": True,
             "observed_channels": [
                 "dispatch",
@@ -1585,7 +1645,7 @@ def _profiler_child_envelope(**updates: object) -> dict[str, object]:
     decisions.update(
         {
             "profiler_join_pass": True,
-            "profiler_reconstructed_live_peak_bytes": 8,
+            "profiler_reconstructed_live_peak_bytes": 16,
             "dispatch_backend_cross_check_pass": dispatch_pass,
             "dispatch_backend_cross_check_obligations": dispatch_obligations,
         }
@@ -1611,56 +1671,89 @@ def _profiler_child_envelope(**updates: object) -> dict[str, object]:
     return envelope
 
 
-def _control_child_envelope() -> dict[str, object]:
-    spec = H8NegativeControlSpec(
-        control_id="torch_eye_full_rhs",
-        requested_operation="torch.eye",
-        logical_shapes=((5160, 5160), (5160, 5160)),
-        assigned_channels=("backend", "dispatch"),
-        expected_reason="dense global identity is forbidden",
-    )
-    dispatch_event = H8DispatchEvent(
-        sequence=0,
-        operator=spec.requested_operation,
-        semantic_site=None,
-        control_id=spec.control_id,
-        input_shapes=(),
-        output_shapes=(spec.logical_shapes[0],),
-        physical_output_shapes=(),
-        stack_member_shapes=(),
-        stack_member_count=0,
-        dtype="torch.float64",
-        device="cpu",
-        float64_equivalent_scalars=0,
-        classifications=(),
-        storage_spans=(),
-        alias_storage_keys=(),
-        new_storage_keys=(),
-        allocated_float64_equivalent_scalars=0,
-        live_float64_equivalent_scalars_by_site=(),
-        stack=("test.py:1",),
-        executed=False,
-        forbidden_reason=spec.expected_reason,
-        live_storage_bytes_after=0,
-        population_live_storage_bytes_after=0,
-    )
-    evidence = {
-        "dispatch": (dispatch_event,),
-        "backend": {
-            "before": (),
-            "after": (5160,),
-            "detected": True,
+def _control_child_envelope(
+    spec: H8NegativeControlSpec | None = None,
+) -> dict[str, object]:
+    if spec is None:
+        spec = next(
+            item
+            for item in h8_negative_control_specs(_production_policy().layout)
+            if item.control_id == "torch_eye_full_rhs"
+        )
+    if spec.control_id.startswith("numpy_"):
+        event: H8DispatchEvent | H8NumpyGuardEvent = H8NumpyGuardEvent(
+            sequence=0,
+            operator=spec.requested_operation,
+            semantic_site=None,
+            control_id=spec.control_id,
+            input_shapes=spec.logical_shapes[:-1],
+            output_shapes=(spec.logical_shapes[-1],),
+            dtype="float64",
+            float64_equivalent_scalars=0,
+            executed=False,
+            forbidden_reason=spec.expected_reason,
+        )
+        observed_channels = ("numpy_guard",)
+        evidence = {
+            "events": (event,),
+            "operation_returned": False,
+            "caught_forbidden": True,
+            "pre_execution_detected": True,
             "executed_past_detector": False,
-            "unexpected_exception": None,
-        },
-        "operation_returned": False,
-        "caught_forbidden": True,
-        "pre_execution_detected": True,
-        "executed_past_detector": False,
-    }
+        }
+    else:
+        event = H8DispatchEvent(
+            sequence=0,
+            operator=spec.requested_operation,
+            semantic_site=None,
+            control_id=spec.control_id,
+            input_shapes=spec.logical_shapes[:-1],
+            output_shapes=(spec.logical_shapes[-1],),
+            physical_output_shapes=(),
+            stack_member_shapes=(),
+            stack_member_count=0,
+            dtype="torch.float64",
+            device="cpu",
+            float64_equivalent_scalars=0,
+            classifications=(),
+            storage_spans=(),
+            alias_storage_keys=(),
+            new_storage_keys=(),
+            allocated_float64_equivalent_scalars=0,
+            live_float64_equivalent_scalars_by_site=(),
+            stack=("test.py:1",),
+            executed=False,
+            forbidden_reason=spec.expected_reason,
+            live_storage_bytes_after=0,
+            population_live_storage_bytes_after=0,
+        )
+        backend = (
+            {
+                "before": (),
+                "after": (_production_policy().layout.dimension,),
+                "detected": True,
+                "executed_past_detector": False,
+                "unexpected_exception": None,
+            }
+            if spec.control_id == "torch_eye_full_rhs"
+            else None
+        )
+        observed_channels = (
+            ("dispatch", "backend")
+            if backend is not None
+            else ("dispatch",)
+        )
+        evidence = {
+            "dispatch": (event,),
+            "backend": backend,
+            "operation_returned": False,
+            "caught_forbidden": True,
+            "pre_execution_detected": True,
+            "executed_past_detector": False,
+        }
     result = make_h8_control_result(
         spec,
-        observed_channels=("dispatch", "backend"),
+        observed_channels=observed_channels,
         detected=True,
         event_payload=evidence,
     )
@@ -3682,4 +3775,269 @@ def test_h8_lossless_runtime_views_require_six_way_consensus_and_exact_run_order
             child_attempts=swapped_attempts,
             production_runs=production_runs,
             profiler_runs=profiler_runs,
+        )
+
+
+def test_h8_v4_runtime_sections_are_owned_lossless_and_evidence_derived(
+    tmp_path: Path,
+) -> None:
+    from vfe4.config.schema import H8ValidationConfig
+    from vfe4.types.h8 import (
+        H8_CORRECTNESS_CASES,
+        H8_CORRECTNESS_CONTROL_IDS,
+        H8_CORRECTNESS_ORDERED_SOURCE_PAIRS,
+        H8_CORRECTNESS_SOURCES,
+        H8CorrectnessCell,
+        H8CorrectnessControlResult,
+        H8CorrectnessEndpointRecord,
+        H8CorrectnessSourceResult,
+        H8InvariantRecord,
+        h8_correctness_endpoint_ids,
+    )
+    from verification.h8_gate import assemble_h8_gate_evaluation
+    from verification.h8_protocol import build_h8_protocol_sha256
+    from verification.h8_runtime import build_h8_v4_runtime_sections
+    from verification.h8_wire import (
+        H8_COLD_REPETITIONS,
+        H8_PRODUCTION_SEEDS,
+    )
+
+    config = H8ValidationConfig.create()
+    protocol_sha256 = build_h8_protocol_sha256(config)
+
+    production_attempts = tuple(
+        _attempt_from_fake_envelope(
+            tmp_path,
+            _child_envelope(
+                seed=seed,
+                repetition=repetition,
+                config_sha256=config.config_sha256,
+                protocol_sha256=protocol_sha256,
+            ),
+        )[0]
+        for seed in H8_PRODUCTION_SEEDS
+        for repetition in range(H8_COLD_REPETITIONS)
+    )
+    profiler_attempts = tuple(
+        _attempt_from_fake_envelope(
+            tmp_path,
+            _profiler_child_envelope(
+                seed=seed,
+                config_sha256=config.config_sha256,
+                protocol_sha256=protocol_sha256,
+            ),
+        )[0]
+        for seed in H8_PRODUCTION_SEEDS
+    )
+    control_attempts = tuple(
+        _attempt_from_fake_envelope(
+            tmp_path,
+            _control_child_envelope(spec)
+            | {
+                "config_sha256": config.config_sha256,
+                "protocol_sha256": protocol_sha256,
+            },
+        )[0]
+        for spec in h8_negative_control_specs(_production_policy().layout)
+    )
+    child_attempts = (
+        *production_attempts,
+        *profiler_attempts,
+        *control_attempts,
+    )
+    production_runs = tuple(
+        attempt.result
+        for attempt in production_attempts
+        if type(attempt.result) is H8ChildResult
+    )
+    profiler_runs = tuple(
+        attempt.result
+        for attempt in profiler_attempts
+        if type(attempt.result) is H8ChildResult
+    )
+    controls = tuple(
+        attempt.result
+        for attempt in control_attempts
+        if type(attempt.result) is H8ControlResult
+    )
+
+    correctness_cells: list[H8CorrectnessCell] = []
+    for cell_id, (horizon, k, problem_seed, noise_seed) in enumerate(
+        H8_CORRECTNESS_CASES,
+        start=1,
+    ):
+        layout = BlockChainLayout(horizon=horizon, d_z=k, d_m=k)
+        endpoint_ids = h8_correctness_endpoint_ids(horizon)
+        operands: dict[tuple[str, str], object] = {}
+        source_results: list[H8CorrectnessSourceResult] = []
+        for source in H8_CORRECTNESS_SOURCES:
+            endpoints: list[H8CorrectnessEndpointRecord] = []
+            for endpoint_id in endpoint_ids:
+                operand = make_operand_record(
+                    operand_id=f"{source}:{endpoint_id}",
+                    shape=(1,),
+                    infinity_norm=0.0,
+                    absolute_sum_bound=0.0,
+                    local_operation_count=1,
+                    source=source,
+                    solver_produced=False,
+                )
+                operands[(source, endpoint_id)] = operand
+                endpoints.append(
+                    H8CorrectnessEndpointRecord(
+                        endpoint_id=endpoint_id,
+                        raw_values=(0.0,),
+                        operand=operand,
+                    )
+                )
+            source_results.append(
+                H8CorrectnessSourceResult(
+                    source=source,
+                    endpoints=tuple(endpoints),
+                )
+            )
+        comparisons = tuple(
+            compare_operands(
+                comparison_id=f"{endpoint_id}:{left}->{right}",
+                left=operands[(left, endpoint_id)],  # type: ignore[arg-type]
+                right=operands[(right, endpoint_id)],  # type: ignore[arg-type]
+                residual=0.0,
+            )
+            for endpoint_id in endpoint_ids
+            for left, right in H8_CORRECTNESS_ORDERED_SOURCE_PAIRS
+        )
+        correctness_cells.append(
+            H8CorrectnessCell(
+                cell_id=cell_id,
+                layout=layout,
+                problem_seed=problem_seed,
+                sample_noise_seed=noise_seed,
+                problem_sha256=f"{cell_id:x}" * 64,
+                sample_noise_sha256=f"{cell_id + 1:x}" * 64,
+                source_results=tuple(source_results),
+                pair_comparisons=comparisons,
+                wrong_path_controls=tuple(
+                    H8CorrectnessControlResult(
+                        control_id=control_id,
+                        residual=1.0,
+                        allowance=0.0,
+                        decisive=True,
+                        status=GateStatus.PASS,
+                        obligations=(),
+                    )
+                    for control_id in H8_CORRECTNESS_CONTROL_IDS
+                ),
+                invariants=(
+                    H8InvariantRecord(
+                        invariant_id="fake_cell_complete",
+                        status=GateStatus.PASS,
+                        value=1,
+                        limit=1,
+                        detail="test-only typed evidence",
+                        obligations=(),
+                    ),
+                ),
+                status=GateStatus.PASS,
+                obligations=(),
+            )
+        )
+    correctness = tuple(correctness_cells)
+    open_locks = (
+        "h8_runtime_sections_not_bound",
+        "h8_parent_orchestrator_not_implemented",
+    )
+
+    sections = build_h8_v4_runtime_sections(
+        config=config,
+        candidate_head="1" * 40,
+        candidate_dirty_digest="a" * 64,
+        candidate_junit_sha256="b" * 64,
+        current_refs_registry_sha256="c" * 64,
+        dependency_closure_sha256="d" * 64,
+        preregistration_sha256="e" * 64,
+        prerequisites_current_and_pass=True,
+        correctness=correctness,
+        child_attempts=child_attempts,
+        production_runs=production_runs,
+        profiler_runs=profiler_runs,
+        controls=controls,
+        result_status=GateStatus.INCONCLUSIVE,
+        result_obligations=open_locks,
+    )
+
+    assert tuple(sections) == (
+        "revision",
+        "config",
+        "interpretation",
+        "protocol",
+        "environment",
+        "problems",
+        "storage",
+        "factor",
+        "allocation",
+        "budgets",
+        "invariants",
+        "artifacts",
+    )
+    assert sections["revision"]["manuscript_sha256"] == (
+        "d733880d3613d32a97b7a12c93ff6c037d0abdfd9ce4810e411769997dbad03c"
+    )
+    assert sections["config"]["protocol_sha256"] == protocol_sha256
+    assert sections["environment"]["platform_release"] == "test-release"
+    assert len(sections["problems"]) == 3
+    assert tuple(sections["factor"]) == (
+        "schema_version",
+        "algorithm",
+        "pattern",
+        "runs",
+    )
+    assert len(sections["factor"]["runs"]) == 18
+    assert tuple(sections["allocation"]) == (
+        "schema_version",
+        "whitelist",
+        "runs",
+        "tracemalloc_supplementary",
+        "all_observable",
+        "no_forbidden_attempts",
+    )
+    assert len(sections["allocation"]["runs"]) == 18
+    assert sections["allocation"]["tracemalloc_supplementary"] is None
+    assert sections["storage"] == {
+        "h_scalars": 5_160,
+        "input_precision_scalars": 411_200,
+        "factor_scalars": 411_200,
+        "selected_inverse_scalars": 411_200,
+        "category_cap_scalars": 411_200,
+        "dense_forbidden_scalars": 26_625_600,
+        "input_within_cap": True,
+        "factor_within_cap": True,
+        "selected_within_cap": True,
+    }
+    assert sections["invariants"]["all_pass"] is True
+    assert "runtime_sections" not in inspect.signature(
+        assemble_h8_gate_evaluation
+    ).parameters
+
+    with pytest.raises(TypeError):
+        sections["environment"]["platform_release"] = "forged"  # type: ignore[index]
+    with pytest.raises(ValueError, match="exact result objects"):
+        build_h8_v4_runtime_sections(
+            config=config,
+            candidate_head="1" * 40,
+            candidate_dirty_digest="a" * 64,
+            candidate_junit_sha256="b" * 64,
+            current_refs_registry_sha256="c" * 64,
+            dependency_closure_sha256="d" * 64,
+            preregistration_sha256="e" * 64,
+            prerequisites_current_and_pass=True,
+            correctness=correctness,
+            child_attempts=child_attempts,
+            production_runs=(
+                dataclasses.replace(production_runs[0]),
+                *production_runs[1:],
+            ),
+            profiler_runs=profiler_runs,
+            controls=controls,
+            result_status=GateStatus.INCONCLUSIVE,
+            result_obligations=open_locks,
         )

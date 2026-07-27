@@ -33,6 +33,7 @@ def _parent_identities() -> dict[str, object]:
                 "hardware",
                 {
                     "platform": "test",
+                    "release": "test-release",
                     "system": "test",
                     "machine": "test",
                     "processor": "test",
@@ -59,7 +60,7 @@ def _parent_identities() -> dict[str, object]:
             (
                 "blas",
                 {
-                    "torch_version": "test",
+                        "torch_version": "2.9.1",
                     "numpy_version": "test",
                     "torch_config": "test",
                     "numpy_config": "test",

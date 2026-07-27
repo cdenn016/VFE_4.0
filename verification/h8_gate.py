@@ -16,6 +16,8 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 
 from verification.h8_budget import _require_h8_budget_issued_attempt
+from verification.h8_runtime import build_h8_v4_runtime_sections
+from vfe4.config.schema import H8ValidationConfig
 from vfe4.artifacts.atomic import canonical_json_bytes
 from vfe4.artifacts.h6 import (
     CandidateArtifactReference,
@@ -61,7 +63,7 @@ from vfe4.types.h6 import BoundedPrefixCertificateSet
 from vfe4.types.results import GateStatus, H8GateResult
 
 
-H8_VALIDATION_SCHEMA = "h8-sparse-scale-v3"
+H8_VALIDATION_SCHEMA = "h8-sparse-scale-v4"
 H8_CURRENT_CANDIDATE_RESULT_SCHEMA = "h8-current-candidate-result-v2"
 H8_BOUNDED_CLAIM = (
     "The frozen T=128, K=d_z=d_m=20 synthetic chain completed within the "
@@ -223,7 +225,7 @@ class H8PrerequisiteArtifactValidation:
 
 
 _HEX = frozenset("0123456789abcdef")
-_SUPPLIED_RUNTIME_SECTION_KEYS = (
+_RUNTIME_SECTION_KEYS = (
     "revision",
     "config",
     "interpretation",
@@ -341,33 +343,16 @@ _NESTED_KEYS: Mapping[str, tuple[str, ...]] = {
         "selected_within_cap",
     ),
     "factor": (
+        "schema_version",
         "algorithm",
         "pattern",
-        "fill",
-        "workspace",
-        "condition_estimate",
-        "per_block_min_pivots",
-        "per_block_pivot_margins",
-        "global_min_pivot",
-        "global_pivot_margin",
-        "counters",
-        "reconstruction_invariants",
+        "runs",
     ),
     "allocation": (
+        "schema_version",
         "whitelist",
-        "dispatch",
-        "live_storage",
-        "profiler_api",
-        "profiler_raw_events",
-        "preexisting_storage_count",
-        "preexisting_bytes",
-        "baseline_live_bytes",
-        "profiler_reconstructed_live_peak",
-        "profiler_net_deltas_supplementary",
-        "backend",
-        "os_hwm",
+        "runs",
         "tracemalloc_supplementary",
-        "cross_checks",
         "all_observable",
         "no_forbidden_attempts",
     ),
@@ -623,12 +608,15 @@ def _source_only_sections(
 ) -> dict[str, object]:
     """Build an exact-key, explicitly unavailable source-only section set."""
 
+    frozen_config = H8ValidationConfig.create()
     return {
         "revision": {
             "git_head": refs.candidate_head,
             "dirty_digest": refs.candidate_dirty_digest,
             "dependency_closure_sha256": dependency_closure_sha256,
-            "manuscript_sha256": None,
+            "manuscript_sha256": (
+                "d733880d3613d32a97b7a12c93ff6c037d0abdfd9ce4810e411769997dbad03c"
+            ),
             "preregistration_sha256": preregistration_sha256,
             "h7_plan_sha256": H8_H7_PLAN_SHA256,
         },
@@ -655,28 +643,34 @@ def _source_only_sections(
             "D": 5160,
             "V": 3,
             "coordinate_order": "[z_0,m_0,...,z_T,m_T]",
-            "state_parent_sets": None,
-            "model_parent_sets": None,
-            "state_source_support": None,
-            "model_source_support": None,
-            "ambiguity_policy": "reject_alternative_K_semantics",
+            "state_parent_sets": "t0:none;t>=1:{t-1}",
+            "model_parent_sets": "t0:none;t>=1:{t-1}",
+            "state_source_support": "singleton_previous_slice",
+            "model_source_support": "singleton_previous_slice",
+            "ambiguity_policy": (
+                "changed_or_clarified_K_invalidates_and_yields_INCONCLUSIVE"
+            ),
         },
         "protocol": {
-            "generator_schema": "h8-synthetic-chain-v1",
+            "generator_schema": frozen_config.generator_schema,
             "generator_draw_schema_sha256": H8_PROBLEM_DRAW_SCHEMA_SHA256,
-            "sample_schema": "h8-pcg64-sample-v1",
-            "factor_schema": None,
-            "selected_inverse_schema": None,
-            "condition_estimator_schema": None,
-            "allocation_schema": None,
-            "torch_version": "2.9.1",
+            "sample_schema": frozen_config.sample_schema,
+            "factor_schema": frozen_config.factor_schema,
+            "selected_inverse_schema": frozen_config.selected_inverse_schema,
+            "condition_estimator_schema": (
+                frozen_config.condition_estimator_schema
+            ),
+            "allocation_schema": frozen_config.allocation_schema,
+            "torch_version": frozen_config.torch_version,
             "profiler_source_hashes": {
                 "memory_profile": H8_PROFILER_MEMORY_SOURCE_SHA256,
                 "profiler": H8_PROFILER_SOURCE_SHA256,
             },
             "profiler_api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
-            "profiler_raw_event_schema": None,
-            "child_schema": "h8-child-v2",
+            "profiler_raw_event_schema": (
+                frozen_config.profiler_raw_event_schema
+            ),
+            "child_schema": frozen_config.child_schema,
             "production_seed_order": H8_PRODUCTION_SEEDS,
             "production_sample_seed_map": H8_PRODUCTION_SAMPLE_SEED_PAIRS,
             "repetition_order": tuple(range(5)),
@@ -707,10 +701,17 @@ def _source_only_sections(
         },
         "problems": (),
         "storage": {key: None for key in _NESTED_KEYS["storage"]},
-        "factor": {key: None for key in _NESTED_KEYS["factor"]},
+        "factor": {
+            "schema_version": "h8-factor-evidence-v1",
+            "algorithm": "block_tridiagonal_cholesky_local_recursion",
+            "pattern": "symmetric_block_tridiagonal_diag_lower_only",
+            "runs": (),
+        },
         "allocation": {
-            **{key: None for key in _NESTED_KEYS["allocation"]},
-            "profiler_raw_events": (),
+            "schema_version": "h8-allocation-evidence-v1",
+            "whitelist": None,
+            "runs": (),
+            "tracemalloc_supplementary": None,
             "all_observable": False,
             "no_forbidden_attempts": False,
         },
@@ -725,7 +726,7 @@ def _source_only_sections(
             "max_seconds": H8_MAX_SECONDS,
             "max_process_incremental_bytes": H8_MAX_PROCESS_INCREMENTAL_BYTES,
             "max_torch_population_bytes": H8_MAX_TORCH_POPULATION_BYTES,
-            "max_storage_scalars": None,
+            "max_storage_scalars": 411_200,
             "boundary_policy": "residual_le_allowance_and_fraction_lt_limit",
         },
         "invariants": {
@@ -750,7 +751,7 @@ def _source_only_sections(
                 )
             ),
             "witnessed_failure_dominance_applied": True,
-            "all_pass": result.status is GateStatus.PASS,
+            "all_pass": False,
         },
         "artifacts": {
             "config_path": "config.json",

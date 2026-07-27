@@ -988,6 +988,61 @@ class H8AllocationPolicy:
     def registered_composite_sites(self) -> tuple[str, ...]:
         return tuple(self._composite_sites)
 
+    def descriptor(self) -> dict[str, object]:
+        """Serialize the executable whitelist without caller-authored policy data."""
+
+        return {
+            "schema_version": "h8-allocation-whitelist-v1",
+            "layout": {
+                "horizon": self.layout.horizon,
+                "population_size": self.layout.population_size,
+                "d_z": self.layout.d_z,
+                "d_m": self.layout.d_m,
+                "block_size": self.layout.block_size,
+                "population_dimension": self.layout.dimension,
+            },
+            "registered_sites": tuple(
+                {
+                    "name": name,
+                    "kind": spec.kind,
+                    "exact_shapes": tuple(sorted(spec.exact_shapes)),
+                }
+                for name, spec in sorted(self._sites.items())
+            ),
+            "registered_composite_sites": tuple(
+                {
+                    "name": name,
+                    "operators": tuple(sorted(spec.operators)),
+                    "input_shapes": tuple(sorted(spec.input_shapes)),
+                    "outputs": tuple(
+                        {
+                            "logical_shape": output.logical_shape,
+                            "site": output.site,
+                            "transient_site": output.transient_site,
+                            "canonical_operators": tuple(
+                                sorted(output.canonical_operators)
+                            ),
+                        }
+                        for output in sorted(
+                            spec.outputs,
+                            key=lambda item: item.logical_shape,
+                        )
+                    ),
+                    "default_site": spec.default_site,
+                    "unregistered_input_operators": tuple(
+                        sorted(spec.unregistered_input_operators)
+                    ),
+                }
+                for name, spec in sorted(self._composite_sites.items())
+            ),
+            "global_rules": {
+                "forbidden_axis_D": self.layout.dimension,
+                "float64_equivalent_scalar_cap": H8_MAX_STORAGE_SCALARS,
+                "maximum_population_axes": 1,
+                "unregistered_shapes_forbidden": True,
+            },
+        }
+
     def validate_composite_dispatch(
         self,
         *,
