@@ -48,6 +48,11 @@ from vfe4.types.h6 import (
     H6TrainingSchedule,
     ObjectiveGateSpec,
 )
+from vfe4.types.h6_prediction_v3 import (
+    H6PredictionRuntimeIdentity,
+    H6RecognitionEstimatorSpec,
+    H6TrainingScheduleV3,
+)
 from vfe4.types.h7 import (
     H7_CONTROL_IDS,
     H7_REQUIRED_TRIAL_IDS,
@@ -929,6 +934,49 @@ class H6PredictionV2ResolvedConfig:
     config_sha256: str
 
 
+@dataclass(frozen=True)
+class H6PredictionV3ResolvedConfig:
+    schema_version: Literal["h6-prediction-config-v3"]
+    operation: Literal["H6-Prediction"]
+    source: H6SourceIdentity
+    data: H6DataConfig
+    correctness_manifests: tuple[tuple[str, str], ...]
+    h1_prefix_prior_manifest_sha256: str
+    h1_prefix_prior_generative_factor_schema_sha256: str
+    smc_bias_semantics_sha256: str
+    smc_validation_manifest_sha256: str
+    prefix_certificate_set_sha256: str
+    h5_update_binding_sha256: str
+    training_schedule: H6TrainingScheduleV3
+    critical_values_sha256: str
+    endpoint_smc_protocol: EndpointSmcProtocol
+    attribution_matrix_sha256: str
+    matching_policy_schema: Literal["h6-amended-matching-policy-v3"]
+    matching_policy_sha256: str
+    matching_set_schema: Literal["h6-amended-matching-set-v3"]
+    matching_set_sha256: str
+    objective_gate: ObjectiveGateSpec
+    data_identity_sha256: str
+    access_policy_sha256: str
+    recognition_trajectory_schema: Literal[
+        "h6-language-recognition-trajectory-v3"
+    ]
+    categorical_posterior_schema: Literal[
+        "h6-categorical-source-posterior-v3"
+    ]
+    terminal_mixture_schema: Literal["h6-terminal-source-mixture-v1"]
+    recognition_estimator: H6RecognitionEstimatorSpec
+    runtime: H6PredictionRuntimeIdentity
+    counter_mapping_sha256: str
+    phase_ownership_sha256: str
+    checkpoint_codec_sha256: str
+    scoring_inventory_sha256: str
+    expected_test_row_count: Literal[4104]
+    artifact_root: Path
+    canonical_json: str
+    config_sha256: str
+
+
 @dataclass(frozen=True, slots=True)
 class H6ArmMatchingResolvedConfig:
     """Standalone typed Task 7 projection; not an H6-Prediction v1 section."""
@@ -1678,7 +1726,12 @@ class ResolvedConfig:
     h4: H4ValidationConfig | None = None
     h5: H5ValidationConfig | None = None
     h6_prefix: H6PrefixResolvedConfig | H6PrefixV3ResolvedConfig | None = None
-    h6_prediction: H6PredictionResolvedConfig | None = None
+    h6_prediction: (
+        H6PredictionResolvedConfig
+        | H6PredictionV2ResolvedConfig
+        | H6PredictionV3ResolvedConfig
+        | None
+    ) = None
     h7: H7ValidationConfig | None = None
     h8: H8ValidationConfig | None = None
     h8_current_refs: CurrentH8PrerequisiteRefs | None = None

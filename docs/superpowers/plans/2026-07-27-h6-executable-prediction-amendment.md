@@ -47,6 +47,8 @@ opening, activate H8, or claim a scientific result.
 - `H6PredictionV3ResolvedConfig`
 - `H6PredictionRuntimeIdentity`
 - `H6RecognitionEstimatorSpec`
+- `H6TrainingScheduleV3` with an additive v3 schema/hash domain; never widen
+  the existing v2 schedule type
 - `H6PredictionV3ReadinessToken`
 - `H6AttemptSpecV3`
 - `H6AttemptCursorV3`

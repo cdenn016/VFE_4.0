@@ -55,6 +55,15 @@ from vfe4.types.h6 import (
     ZeroDimensionalBase,
     arm_model_family_sha256,
 )
+from vfe4.types.h6_prediction_v3 import (
+    H6_CHECKPOINT_CODEC_SHA256,
+    H6_COUNTER_MAPPING_SHA256,
+    H6_PHASE_OWNERSHIP_SHA256,
+    H6_SCORING_INVENTORY_SHA256,
+    H6PredictionRuntimeIdentity,
+    H6RecognitionEstimatorSpec,
+    H6TrainingScheduleV3,
+)
 from vfe4.types.h7 import H7PredecessorReference
 from vfe4.types.h8 import CurrentH8PrerequisiteRefs
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
@@ -83,6 +92,7 @@ from .schema import (
     InferenceConfig,
     H6PredictionResolvedConfig,
     H6PredictionV2ResolvedConfig,
+    H6PredictionV3ResolvedConfig,
     H6PrefixResolvedConfig,
     H6PrefixV3ResolvedConfig,
     H6ArchiveMemberExpectation,
@@ -2215,6 +2225,417 @@ def _resolve_h6_prediction_v2_config(
     )
 
 
+def _resolve_h6_prediction_v3_config(
+    raw: Mapping[str, object],
+    *,
+    repo_root: Path,
+) -> H6PredictionV3ResolvedConfig:
+    """Resolve the additive executable Prediction v3 contract.
+
+    The v2 projection is resolved first so every historical invariant remains
+    byte-for-byte owned by the existing reader.  Executable authorities are
+    then parsed through new, type-exact v3 records; no v1/v2 value is upgraded.
+    """
+
+    root = _require_mapping(raw, "h6_prediction_v3")
+    v3_only_root_keys = frozenset(
+        {
+            "recognition_contract",
+            "runtime",
+            "matching_policy_schema",
+            "matching_policy_sha256",
+            "matching_set_schema",
+            "counter_mapping_sha256",
+            "phase_ownership_sha256",
+            "checkpoint_codec_sha256",
+            "scoring_inventory_sha256",
+            "expected_test_row_count",
+        }
+    )
+    v2_root_keys = frozenset(
+        {
+            "schema_version",
+            "operation",
+            "source",
+            "data",
+            "prerequisites",
+            "h5_update_binding_sha256",
+            "training_schedule",
+            "critical_values_sha256",
+            "endpoint_smc_protocol",
+            "smc_bias_semantics_sha256",
+            "attribution_matrix_sha256",
+            "matching_set_sha256",
+            "objective_gate",
+            "data_identity_sha256",
+            "access_policy_sha256",
+            "artifact_root",
+        }
+    )
+    _validate_keys(
+        root,
+        v2_root_keys | v3_only_root_keys,
+        "h6_prediction_v3",
+    )
+    schema_version = _require_exact(
+        root["schema_version"],
+        "h6-prediction-config-v3",
+        "h6_prediction_v3.schema_version",
+    )
+    _require_exact(
+        root["operation"],
+        "H6-Prediction",
+        "h6_prediction_v3.operation",
+    )
+
+    recognition_raw = _require_mapping(
+        root["recognition_contract"],
+        "h6_prediction_v3.recognition_contract",
+    )
+    _validate_keys(
+        recognition_raw,
+        frozenset(
+            {
+                "trajectory_schema",
+                "categorical_posterior_schema",
+                "terminal_mixture_schema",
+                "estimator",
+            }
+        ),
+        "h6_prediction_v3.recognition_contract",
+    )
+    trajectory_schema = _require_exact(
+        recognition_raw["trajectory_schema"],
+        "h6-language-recognition-trajectory-v3",
+        "recognition_contract.trajectory_schema",
+    )
+    categorical_posterior_schema = _require_exact(
+        recognition_raw["categorical_posterior_schema"],
+        "h6-categorical-source-posterior-v3",
+        "recognition_contract.categorical_posterior_schema",
+    )
+    terminal_mixture_schema = _require_exact(
+        recognition_raw["terminal_mixture_schema"],
+        "h6-terminal-source-mixture-v1",
+        "recognition_contract.terminal_mixture_schema",
+    )
+    estimator_raw = _require_mapping(
+        recognition_raw["estimator"],
+        "recognition_contract.estimator",
+    )
+    estimator_fields = tuple(
+        H6RecognitionEstimatorSpec.__dataclass_fields__
+    )
+    _validate_keys(
+        estimator_raw,
+        frozenset(estimator_fields),
+        "recognition_contract.estimator",
+    )
+    recognition_estimator = H6RecognitionEstimatorSpec(
+        **{name: estimator_raw[name] for name in estimator_fields}
+    )  # type: ignore[arg-type]
+
+    runtime_raw = _require_mapping(
+        root["runtime"],
+        "h6_prediction_v3.runtime",
+    )
+    runtime_fields = tuple(H6PredictionRuntimeIdentity.__dataclass_fields__)
+    _validate_keys(
+        runtime_raw,
+        frozenset(runtime_fields),
+        "h6_prediction_v3.runtime",
+    )
+    runtime_values = {
+        name: runtime_raw[name]
+        for name in runtime_fields
+    }
+    capability = runtime_values["cuda_compute_capability"]
+    if type(capability) is not list:
+        raise ValueError(
+            "runtime.cuda_compute_capability must be a two-item list"
+        )
+    runtime_values["cuda_compute_capability"] = tuple(capability)
+    runtime = H6PredictionRuntimeIdentity(
+        **runtime_values  # type: ignore[arg-type]
+    )
+
+    schedule_raw = _require_mapping(
+        root["training_schedule"],
+        "h6_prediction_v3.training_schedule",
+    )
+    v3_schedule_extra_keys = frozenset(
+        {
+            "recognition_estimator_sha256",
+            "runtime_identity_sha256",
+            "training_noise_domain",
+            "counter_mapping_sha256",
+            "phase_ownership_sha256",
+            "checkpoint_codec_sha256",
+        }
+    )
+    _validate_keys(
+        schedule_raw,
+        frozenset(
+            {"schedule_schema", "outer", "endpoint_phases"}
+        )
+        | v3_schedule_extra_keys,
+        "h6_prediction_v3.training_schedule",
+    )
+    _require_exact(
+        schedule_raw["schedule_schema"],
+        "h6-training-schedule-v3",
+        "training_schedule.schedule_schema",
+    )
+
+    v2_projection = copy.deepcopy(dict(root))
+    v2_projection["schema_version"] = "h6-prediction-config-v2"
+    for name in v3_only_root_keys:
+        v2_projection.pop(name)
+    v2_schedule = dict(
+        _require_mapping(
+            v2_projection["training_schedule"],
+            "h6_prediction_v3.training_schedule",
+        )
+    )
+    v2_schedule["schedule_schema"] = "h6-training-schedule-v2"
+    for name in v3_schedule_extra_keys:
+        v2_schedule.pop(name)
+    v2_projection["training_schedule"] = v2_schedule
+    inherited = _resolve_h6_prediction_v2_config(
+        v2_projection,
+        repo_root=repo_root,
+    )
+    training_schedule = H6TrainingScheduleV3.create(
+        outer=inherited.training_schedule.outer,
+        endpoint_phases=inherited.training_schedule.endpoint_phases,
+        estimator=recognition_estimator,
+        runtime=runtime,
+    )
+    expected_schedule_values = {
+        "recognition_estimator_sha256": (
+            recognition_estimator.estimator_sha256
+        ),
+        "runtime_identity_sha256": runtime.runtime_identity_sha256,
+        "training_noise_domain": "vfe4.h6.training-rmc-normal.v1",
+        "counter_mapping_sha256": H6_COUNTER_MAPPING_SHA256,
+        "phase_ownership_sha256": H6_PHASE_OWNERSHIP_SHA256,
+        "checkpoint_codec_sha256": H6_CHECKPOINT_CODEC_SHA256,
+    }
+    for name, expected in expected_schedule_values.items():
+        _require_exact(
+            schedule_raw[name],
+            expected,
+            f"training_schedule.{name}",
+        )
+
+    matching_policy_schema = _require_exact(
+        root["matching_policy_schema"],
+        "h6-amended-matching-policy-v3",
+        "h6_prediction_v3.matching_policy_schema",
+    )
+    matching_policy_sha256 = _require_h6_sha256(
+        root["matching_policy_sha256"],
+        "h6_prediction_v3.matching_policy_sha256",
+    )
+    matching_set_schema = _require_exact(
+        root["matching_set_schema"],
+        "h6-amended-matching-set-v3",
+        "h6_prediction_v3.matching_set_schema",
+    )
+    if matching_policy_sha256 == inherited.matching_set_sha256:
+        raise ValueError(
+            "v3 matching policy and matching set must have distinct identities"
+        )
+    counter_mapping_sha256 = _require_exact(
+        root["counter_mapping_sha256"],
+        H6_COUNTER_MAPPING_SHA256,
+        "h6_prediction_v3.counter_mapping_sha256",
+    )
+    phase_ownership_sha256 = _require_exact(
+        root["phase_ownership_sha256"],
+        H6_PHASE_OWNERSHIP_SHA256,
+        "h6_prediction_v3.phase_ownership_sha256",
+    )
+    checkpoint_codec_sha256 = _require_exact(
+        root["checkpoint_codec_sha256"],
+        H6_CHECKPOINT_CODEC_SHA256,
+        "h6_prediction_v3.checkpoint_codec_sha256",
+    )
+    scoring_inventory_sha256 = _require_exact(
+        root["scoring_inventory_sha256"],
+        H6_SCORING_INVENTORY_SHA256,
+        "h6_prediction_v3.scoring_inventory_sha256",
+    )
+    expected_test_row_count = _require_exact(
+        root["expected_test_row_count"],
+        4104,
+        "h6_prediction_v3.expected_test_row_count",
+    )
+
+    endpoint_protocol = inherited.endpoint_smc_protocol
+    objective_gate = inherited.objective_gate
+    payload = {
+        "schema_version": schema_version,
+        "operation": inherited.operation,
+        "source": {
+            "git_head": inherited.source.git_head,
+            "dirty_digest": inherited.source.dirty_digest,
+            "source_sha256": inherited.source.source_sha256,
+        },
+        "data": asdict(inherited.data),
+        "prerequisites": {
+            "correctness_manifests": dict(
+                inherited.correctness_manifests
+            ),
+            "h1_prefix_prior_manifest_sha256": (
+                inherited.h1_prefix_prior_manifest_sha256
+            ),
+            "h1_prefix_prior_generative_factor_schema_sha256": (
+                inherited.h1_prefix_prior_generative_factor_schema_sha256
+            ),
+            "smc_validation_manifest_sha256": (
+                inherited.smc_validation_manifest_sha256
+            ),
+            "prefix_certificate_set_sha256": (
+                inherited.prefix_certificate_set_sha256
+            ),
+        },
+        "h5_update_binding_sha256": inherited.h5_update_binding_sha256,
+        "training_schedule": {
+            "schedule_schema": training_schedule.schedule_schema,
+            "outer": {
+                "schedule_schema": training_schedule.outer.schedule_schema,
+                "optimizer_class": (
+                    training_schedule.outer.optimizer_class
+                ),
+                "optimizer_policy_sha256": (
+                    training_schedule.outer.optimizer_policy_sha256
+                ),
+                "model_updates_per_batch": (
+                    training_schedule.outer.model_updates_per_batch
+                ),
+                "validation_twentieths_per_pass": (
+                    training_schedule.outer.validation_twentieths_per_pass
+                ),
+                "full_passes": training_schedule.outer.full_passes,
+            },
+            "endpoint_phases": [
+                {
+                    "endpoint_config_sha256": (
+                        phase.endpoint_config_sha256
+                    ),
+                    "latent_enabled": phase.latent_enabled,
+                    "phases": [
+                        item.value for item in phase.phases
+                    ],
+                    "recognition_updates_per_batch": (
+                        phase.recognition_updates_per_batch
+                    ),
+                    "model_updates_per_batch": (
+                        phase.model_updates_per_batch
+                    ),
+                    "no_op_phases": phase.no_op_phases,
+                }
+                for phase in training_schedule.endpoint_phases
+            ],
+            **expected_schedule_values,
+        },
+        "critical_values_sha256": inherited.critical_values_sha256,
+        "endpoint_smc_protocol": {
+            "protocol_schema": endpoint_protocol.protocol_schema,
+            "particle_counts": list(endpoint_protocol.particle_counts),
+            "replicate_count": endpoint_protocol.replicate_count,
+            "registry_root_seed": endpoint_protocol.registry_root_seed,
+            "common_stream_domain": endpoint_protocol.common_stream_domain,
+            "simultaneous_interval_count": (
+                endpoint_protocol.simultaneous_interval_count
+            ),
+            "familywise_alpha": endpoint_protocol.familywise_alpha,
+            "critical_value_df63": endpoint_protocol.critical_value_df63,
+            "remainder_contraction": endpoint_protocol.remainder_contraction,
+        },
+        "smc_bias_semantics_sha256": (
+            inherited.smc_bias_semantics_sha256
+        ),
+        "attribution_matrix_sha256": (
+            inherited.attribution_matrix_sha256
+        ),
+        "matching_set_sha256": inherited.matching_set_sha256,
+        "objective_gate": {
+            "schema_version": objective_gate.schema_version,
+            "complete_arm_id": objective_gate.complete_arm_id,
+            "emission_arm_id": objective_gate.emission_arm_id,
+            "orientation": objective_gate.orientation,
+            "delta_obj": objective_gate.delta_obj,
+            "opening_policy": objective_gate.opening_policy,
+            "evaluation_order": objective_gate.evaluation_order,
+            "spec_sha256": objective_gate.spec_sha256,
+        },
+        "data_identity_sha256": inherited.data_identity_sha256,
+        "access_policy_sha256": inherited.access_policy_sha256,
+        "artifact_root": inherited.artifact_root.as_posix(),
+    }
+    payload["recognition_contract"] = {
+        "trajectory_schema": trajectory_schema,
+        "categorical_posterior_schema": categorical_posterior_schema,
+        "terminal_mixture_schema": terminal_mixture_schema,
+        "estimator": {
+            **recognition_estimator.canonical_payload(),
+            "estimator_sha256": recognition_estimator.estimator_sha256,
+        },
+    }
+    payload["runtime"] = {
+        **runtime.canonical_payload(),
+        "runtime_identity_sha256": runtime.runtime_identity_sha256,
+    }
+    payload["matching_policy_schema"] = matching_policy_schema
+    payload["matching_policy_sha256"] = matching_policy_sha256
+    payload["matching_set_schema"] = matching_set_schema
+    payload["counter_mapping_sha256"] = counter_mapping_sha256
+    payload["phase_ownership_sha256"] = phase_ownership_sha256
+    payload["checkpoint_codec_sha256"] = checkpoint_codec_sha256
+    payload["scoring_inventory_sha256"] = scoring_inventory_sha256
+    payload["expected_test_row_count"] = expected_test_row_count
+    canonical_json, config_sha256 = _h6_json(payload)
+    return H6PredictionV3ResolvedConfig(
+        schema_version,
+        inherited.operation,
+        inherited.source,
+        inherited.data,
+        inherited.correctness_manifests,
+        inherited.h1_prefix_prior_manifest_sha256,
+        inherited.h1_prefix_prior_generative_factor_schema_sha256,
+        inherited.smc_bias_semantics_sha256,
+        inherited.smc_validation_manifest_sha256,
+        inherited.prefix_certificate_set_sha256,
+        inherited.h5_update_binding_sha256,
+        training_schedule,
+        inherited.critical_values_sha256,
+        inherited.endpoint_smc_protocol,
+        inherited.attribution_matrix_sha256,
+        matching_policy_schema,
+        matching_policy_sha256,
+        matching_set_schema,
+        inherited.matching_set_sha256,
+        inherited.objective_gate,
+        inherited.data_identity_sha256,
+        inherited.access_policy_sha256,
+        trajectory_schema,
+        categorical_posterior_schema,
+        terminal_mixture_schema,
+        recognition_estimator,
+        runtime,
+        counter_mapping_sha256,
+        phase_ownership_sha256,
+        checkpoint_codec_sha256,
+        scoring_inventory_sha256,
+        expected_test_row_count,
+        inherited.artifact_root,
+        canonical_json,
+        config_sha256,
+    )
+
+
 def _resolve_h6_arm_matching_values(
     *,
     schema_version: str,
@@ -2483,6 +2904,7 @@ def resolve_config(
     | H6PrefixV3ResolvedConfig
     | H6PredictionResolvedConfig
     | H6PredictionV2ResolvedConfig
+    | H6PredictionV3ResolvedConfig
     | H6ArmMatchingResolvedConfig
     | H6PrimaryMatchingResolvedConfig
 ):
@@ -2510,6 +2932,8 @@ def resolve_config(
         return _resolve_h6_prediction_config(root, repo_root=repo_root)
     if discriminator == ("h6-prediction-config-v2", "H6-Prediction"):
         return _resolve_h6_prediction_v2_config(root, repo_root=repo_root)
+    if discriminator == ("h6-prediction-config-v3", "H6-Prediction"):
+        return _resolve_h6_prediction_v3_config(root, repo_root=repo_root)
     if discriminator == (
         "h6-arm-matching-config-v1",
         "H6-Arm-Matching",
@@ -2571,13 +2995,21 @@ def resolve_h6_prefix_config(
 
 def resolve_h6_prediction_config(
     raw: Mapping[str, object], *, repo_root: Path
-) -> H6PredictionResolvedConfig | H6PredictionV2ResolvedConfig:
+) -> (
+    H6PredictionResolvedConfig
+    | H6PredictionV2ResolvedConfig
+    | H6PredictionV3ResolvedConfig
+):
     """Resolve H6 Prediction through the single public configuration resolver."""
 
     resolved = resolve_config(raw, repo_root=repo_root)
     if not isinstance(
         resolved,
-        (H6PredictionResolvedConfig, H6PredictionV2ResolvedConfig),
+        (
+            H6PredictionResolvedConfig,
+            H6PredictionV2ResolvedConfig,
+            H6PredictionV3ResolvedConfig,
+        ),
     ):
         raise ValueError("configuration is not an H6 Prediction configuration")
     return resolved
@@ -2594,6 +3026,21 @@ def resolve_h6_prediction_v2_config(
     if not isinstance(resolved, H6PredictionV2ResolvedConfig):
         raise ValueError(
             "configuration is not an H6 Prediction v2 configuration"
+        )
+    return resolved
+
+
+def resolve_h6_prediction_v3_config(
+    raw: Mapping[str, object],
+    *,
+    repo_root: Path,
+) -> H6PredictionV3ResolvedConfig:
+    """Resolve executable Prediction v3 without accepting v1 or v2."""
+
+    resolved = resolve_config(raw, repo_root=repo_root)
+    if type(resolved) is not H6PredictionV3ResolvedConfig:
+        raise ValueError(
+            "configuration is not an H6 Prediction v3 configuration"
         )
     return resolved
 
