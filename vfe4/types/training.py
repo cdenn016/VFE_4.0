@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass, fields, is_dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal
 
@@ -2504,6 +2505,10 @@ class MetricValue:
             _require_float(self.numerator, "numerator")
         if self.denominator is not None:
             _require_int(self.denominator, "denominator", minimum=1)
+        if (self.numerator is None) != (self.denominator is None):
+            raise ValueError(
+                "metric raw numerator and denominator are jointly applicable"
+            )
         if self.value is not None:
             _require_float(self.value, "value")
         if self.value is None:
@@ -2514,6 +2519,8 @@ class MetricValue:
 class MetricRecord:
     schema_version: Literal["wt103-metric-record-v1"]
     ordinal: int
+    utc_timestamp: str
+    monotonic_ns: int
     run_id: str
     arm_id: str
     seed_id: int
@@ -2529,6 +2536,23 @@ class MetricRecord:
         if self.schema_version != "wt103-metric-record-v1":
             raise ValueError("unsupported metric schema")
         _require_int(self.ordinal, "ordinal", minimum=0)
+        _require_text(self.utc_timestamp, "utc_timestamp")
+        try:
+            parsed = datetime.fromisoformat(
+                self.utc_timestamp.removesuffix("Z") + "+00:00"
+            )
+        except ValueError as exc:
+            raise ValueError("metric utc_timestamp is not canonical") from exc
+        if (
+            not self.utc_timestamp.endswith("Z")
+            or parsed.tzinfo != timezone.utc
+            or parsed.isoformat(
+                timespec="microseconds"
+            ).replace("+00:00", "Z")
+            != self.utc_timestamp
+        ):
+            raise ValueError("metric utc_timestamp is not canonical")
+        _require_int(self.monotonic_ns, "monotonic_ns", minimum=0)
         _require_text(self.run_id, "run_id")
         if self.arm_id not in WT103_ARM_IDS:
             raise ValueError("metric arm_id is not in the frozen inventory")
@@ -2571,8 +2595,8 @@ class WT103UpdateRecord:
     update_label: Literal["adam_proposal"]
     accepted: bool
     rejection_reason: str | None
-    expected_autograd_scope: Literal["m_step", "e_and_m"]
-    observed_autograd_scope: Literal["m_step", "e_and_m"]
+    expected_autograd_scope: Literal["e_step", "m_step"]
+    observed_autograd_scope: Literal["e_step", "m_step", "not_observed"]
     snapshot_sha256: str | None
     optimizer_state_sha256: str
     scheduler_state_sha256: str
@@ -2584,14 +2608,22 @@ class WT103UpdateRecord:
             or self.arm_id not in WT103_ARM_IDS
             or self.update_label != "adam_proposal"
             or type(self.accepted) is not bool
-            or self.expected_autograd_scope not in ("m_step", "e_and_m")
-            or self.observed_autograd_scope not in ("m_step", "e_and_m")
-            or self.observed_autograd_scope != self.expected_autograd_scope
+            or self.expected_autograd_scope not in ("e_step", "m_step")
+            or self.observed_autograd_scope
+            not in ("e_step", "m_step", "not_observed")
         ):
             raise ValueError("update record literals/scope are invalid")
         _require_text(self.phase, "phase")
         if self.accepted and self.rejection_reason is not None:
             raise ValueError("accepted update cannot retain a rejection reason")
+        if (
+            self.accepted
+            and self.observed_autograd_scope
+            != self.expected_autograd_scope
+        ):
+            raise ValueError(
+                "accepted update must observe its exact autograd scope"
+            )
         if not self.accepted:
             _require_text(self.rejection_reason, "rejection_reason")
         if self.snapshot_sha256 is not None:
