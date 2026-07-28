@@ -834,6 +834,44 @@ def test_h8_supplied_runtime_context_round_trips_in_declared_schema_order() -> N
     )
 
 
+def test_h8_artifact_environment_consumes_frozen_config_torch_version() -> None:
+    import verify_vfe4
+    from vfe4.artifacts.provenance import build_h8_environment
+    from vfe4.config import bind_h8_current_refs
+
+    refs = _current_refs()
+    scientific = copy.deepcopy(
+        verify_vfe4.CONFIG["operations"]["h8"]["config"]  # type: ignore[index]
+    )
+    config = bind_h8_current_refs(scientific, refs)
+    source_only = h8_gate.assemble_h8_source_only_evaluation(
+        config_sha256=config.config_sha256,
+        current_refs=refs,
+        correctness=(),
+        production_runs=(),
+        profiler_runs=(),
+        controls=(),
+        dependency_closure_sha256="c" * 64,
+        preregistration_sha256="d" * 64,
+    )
+    runtime_sections = h8_gate._source_only_sections(
+        result=source_only.result,
+        refs=refs,
+        dependency_closure_sha256=source_only.dependency_closure_sha256,
+        preregistration_sha256=source_only.preregistration_sha256,
+        prerequisites_current_and_pass=False,
+    )
+
+    retained = build_h8_environment(
+        config=config,
+        validation_environment=runtime_sections["environment"],
+    )
+
+    assert config.h8 is not None
+    assert retained["pytorch_version"] == config.h8.torch_version
+    assert retained["pytorch_version"] == "2.10.0.dev20251210+cu128"
+
+
 def test_h8_direct_pass_remains_unavailable_without_parent_orchestration() -> None:
     with pytest.raises(ValueError, match="PASS H8 remains unavailable"):
         H8GateResult(

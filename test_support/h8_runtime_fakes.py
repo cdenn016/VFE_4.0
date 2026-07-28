@@ -32,6 +32,7 @@ from vfe4.types.h8 import (
     H8_PROFILER_API_CONTRACT_SHA256,
     H8_PROFILER_MEMORY_SOURCE_SHA256,
     H8_PROFILER_SOURCE_SHA256,
+    H8_PROFILER_TORCH_VERSION,
     H8CorrectnessCell,
     H8CorrectnessControlResult,
     H8CorrectnessEndpointRecord,
@@ -714,7 +715,7 @@ def make_profiler_envelope(**updates: object) -> dict[str, object]:
                 "os_hwm",
             ],
             "profiler_api": {
-                "torch_version": "2.9.1",
+                "torch_version": H8_PROFILER_TORCH_VERSION,
                 "memory_profile_source_sha256": (
                     H8_PROFILER_MEMORY_SOURCE_SHA256
                 ),

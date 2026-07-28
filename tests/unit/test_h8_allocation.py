@@ -1802,10 +1802,11 @@ def test_h8_child_v2_retains_lossless_private_evidence_without_public_schema_dri
         H8_PROFILER_API_CONTRACT_SHA256,
         H8_PROFILER_MEMORY_SOURCE_SHA256,
         H8_PROFILER_SOURCE_SHA256,
+        H8_PROFILER_TORCH_VERSION,
     )
 
     profiler_pins = {
-        "torch_version": "2.9.1",
+        "torch_version": H8_PROFILER_TORCH_VERSION,
         "memory_profile_source_sha256": H8_PROFILER_MEMORY_SOURCE_SHA256,
         "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
         "api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,

@@ -544,7 +544,8 @@ def build_h8_environment(
         or validation_environment.get("device") != "cpu"
         or validation_environment.get("dtype") != "float64"
         or validation_environment.get("grad_enabled") is not False
-        or validation_environment.get("pytorch_version") != "2.9.1"
+        or validation_environment.get("pytorch_version")
+        != config.h8.torch_version
     ):
         raise ArtifactPublicationError(
             "H8 environment does not match the frozen schema"
