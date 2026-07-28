@@ -634,7 +634,7 @@ def build_h8_provenance(
         "evaluation_sha256": evaluation.evaluation_sha256,
         "status": evaluation.result.status.value,
         "obligations": evaluation.result.obligations,
-        "selected_operation": "H8",
+        "selected_operation": config.h8.operation,
         "ordered_gates": config.validation.gates,
         "execution_scope": (
             "h8-parent-orchestrated-runtime-v1"

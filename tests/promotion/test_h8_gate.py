@@ -1085,7 +1085,9 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
     assert payload["invariants"]["prerequisites_current_and_pass"] is False
 
 
-def test_h8_payload_inventories_are_exact_and_private() -> None:
+def test_h8_payload_inventories_are_exact_and_private(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import verify_vfe4
     from vfe4.artifacts.provenance import build_h8_environment, build_h8_provenance
     from vfe4.config import bind_h8_current_refs
@@ -1096,6 +1098,28 @@ def test_h8_payload_inventories_are_exact_and_private() -> None:
     )
     config = bind_h8_current_refs(scientific, refs)
     assert config.h8 is not None
+    expected_profiler_source_hashes = {
+        "memory_profile": config.h8.profiler_memory_source_sha256,
+        "profiler": config.h8.profiler_source_sha256,
+    }
+    monkeypatch.setattr(
+        h8_gate,
+        "H8_PROFILER_MEMORY_SOURCE_SHA256",
+        "0" * 64,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        h8_gate,
+        "H8_PROFILER_SOURCE_SHA256",
+        "1" * 64,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        h8_gate,
+        "H8_PROFILER_API_CONTRACT_SHA256",
+        "2" * 64,
+        raising=False,
+    )
     evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256=config.config_sha256,
         current_refs=refs,
@@ -1111,6 +1135,8 @@ def test_h8_payload_inventories_are_exact_and_private() -> None:
         config=config,
         validation_environment=validation["environment"],  # type: ignore[arg-type]
     )
+    configured_operation = "H8-config-owned-operation"
+    object.__setattr__(config.h8, "operation", configured_operation)
     provenance = build_h8_provenance(
         config=config,
         evaluation=evaluation,
@@ -1137,8 +1163,14 @@ def test_h8_payload_inventories_are_exact_and_private() -> None:
     assert tuple(validation) == h8_gate.H8_VALIDATION_TOP_LEVEL_KEYS
     assert tuple(payloads) == h8_gate.H8_PUBLICATION_PAYLOAD_KEYS
     assert validation["environment"]["pytorch_version"] == config.h8.torch_version
+    assert validation["protocol"]["profiler_source_hashes"] == (
+        expected_profiler_source_hashes
+    )
+    assert validation["protocol"]["profiler_api_contract_sha256"] == (
+        config.h8.profiler_api_contract_sha256
+    )
     assert payloads["environment.json"]["pytorch_version"] == config.h8.torch_version
-    assert payloads["provenance.json"]["selected_operation"] == config.h8.operation
+    assert payloads["provenance.json"]["selected_operation"] == configured_operation
     assert config.h8.torch_version == "2.10.0.dev20251210+cu128"
     assert "manifest.sha256" not in payloads
     assert "run_h8_child" not in vars(h8_gate)

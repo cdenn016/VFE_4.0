@@ -47,9 +47,6 @@ from vfe4.types.h8 import (
     H8_PROBLEM_DRAW_SCHEMA_SHA256,
     H8_PRODUCTION_SAMPLE_SEED_PAIRS,
     H8_PRODUCTION_SEEDS,
-    H8_PROFILER_API_CONTRACT_SHA256,
-    H8_PROFILER_MEMORY_SOURCE_SHA256,
-    H8_PROFILER_SOURCE_SHA256,
     H8_REQUIRED_OPERATIONS,
     H8_VERIFIER_PREFIX,
     CurrentH8PrerequisiteRefs,
@@ -679,10 +676,12 @@ def _source_only_sections(
             "allocation_schema": frozen_config.allocation_schema,
             "torch_version": frozen_config.torch_version,
             "profiler_source_hashes": {
-                "memory_profile": H8_PROFILER_MEMORY_SOURCE_SHA256,
-                "profiler": H8_PROFILER_SOURCE_SHA256,
+                "memory_profile": frozen_config.profiler_memory_source_sha256,
+                "profiler": frozen_config.profiler_source_sha256,
             },
-            "profiler_api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
+            "profiler_api_contract_sha256": (
+                frozen_config.profiler_api_contract_sha256
+            ),
             "profiler_raw_event_schema": (
                 frozen_config.profiler_raw_event_schema
             ),
