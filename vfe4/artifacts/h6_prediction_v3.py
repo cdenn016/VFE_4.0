@@ -31,7 +31,14 @@ from vfe4.training.h6_experiment_v3 import (
     H6TuningCellV3,
 )
 from vfe4.training.h6_matching_v3 import H6_MATCHING_V3_ENDPOINT_CONFIG_IDS
+from vfe4.predictive.proposal import CounterPurpose
 from vfe4.types.h6 import TrainingPhase, canonical_json_bytes
+from vfe4.types.h6_prediction_v3 import (
+    H6_PREDICTION_METRICS_SCHEMA,
+    H6_PREDICTION_RESULT_SCHEMA,
+    H6_RAW_ENDPOINT_INVENTORY_SCHEMA,
+    H6_SCORING_INVENTORY_SHA256,
+)
 
 
 _LOWER_HEX = frozenset("0123456789abcdef")
@@ -105,9 +112,7 @@ def _require_plan(plan: object) -> H6ExperimentPlanV3:
 
 
 def _config_sha256_by_endpoint(plan: H6ExperimentPlanV3) -> dict[str, str]:
-    return {
-        config.config_id: config.config_sha256 for config in plan.endpoint_configs
-    }
+    return {config.config_id: config.config_sha256 for config in plan.endpoint_configs}
 
 
 def _attempt_key(
@@ -156,9 +161,7 @@ def _validate_planned_checkpoint_v3(
         if stage == "tuning"
         else checked_plan.confirmatory_attempts
     )
-    by_sha256 = {
-        attempt.planned_attempt_sha256: attempt for attempt in inventory
-    }
+    by_sha256 = {attempt.planned_attempt_sha256: attempt for attempt in inventory}
     canonical_attempt = by_sha256.get(planned_attempt.planned_attempt_sha256)
     if canonical_attempt != planned_attempt:
         raise ValueError("planned attempt is not a member of the experiment plan")
@@ -170,8 +173,7 @@ def _validate_planned_checkpoint_v3(
     if (
         checkpoint.attempt_spec.experiment_config_sha256
         != checked_plan.experiment_config_sha256
-        or checkpoint.attempt_spec.readiness_sha256
-        != checked_plan.readiness_sha256
+        or checkpoint.attempt_spec.readiness_sha256 != checked_plan.readiness_sha256
         or checkpoint.attempt_spec.endpoint_config_sha256
         != planned_attempt.endpoint_config_sha256
         or checkpoint.attempt_spec.runtime_identity_sha256
@@ -190,14 +192,10 @@ def _validate_planned_checkpoint_v3(
     terminal_phase = _terminal_phase(planned_attempt)
     if (
         checkpoint.objective_manifest.phase is not terminal_phase
-        or checkpoint.cursor.pass_index
-        != planned_attempt.terminal_pass_index
-        or checkpoint.cursor.batch_index
-        != planned_attempt.terminal_batch_index
-        or checkpoint.cursor.example_ordinal
-        != planned_attempt.terminal_example_ordinal
-        or checkpoint.cursor.draw_block
-        != planned_attempt.terminal_draw_block
+        or checkpoint.cursor.pass_index != planned_attempt.terminal_pass_index
+        or checkpoint.cursor.batch_index != planned_attempt.terminal_batch_index
+        or checkpoint.cursor.example_ordinal != planned_attempt.terminal_example_ordinal
+        or checkpoint.cursor.draw_block != planned_attempt.terminal_draw_block
         or checkpoint.cursor.counter_consumption_sha256
         != planned_attempt.terminal_counter_consumption_sha256
         or checkpoint.cursor.permutation_sha256
@@ -214,7 +212,9 @@ def _validate_planned_checkpoint_v3(
         raise ValueError("checkpoint does not match the declared terminal boundary")
     expected_roots = _expected_module_roots(planned_attempt)
     module_roots = tuple(
-        dict.fromkeys(record.name.partition(".")[0] for record in checkpoint.module_tensors)
+        dict.fromkeys(
+            record.name.partition(".")[0] for record in checkpoint.module_tensors
+        )
     )
     optimizer_roots = tuple(optimizer.name for optimizer in checkpoint.optimizers)
     if module_roots != expected_roots or optimizer_roots != expected_roots:
@@ -328,17 +328,13 @@ class H6ValidationRecordV3:
             "runtime_identity_sha256",
         ):
             _require_sha256(getattr(self, name), name)
-        if (
-            type(self.counted_target_total) is not int
-            or self.counted_target_total <= 0
-        ):
+        if type(self.counted_target_total) is not int or self.counted_target_total <= 0:
             raise ValueError("validation target total must be positive")
         if (
             type(self.total_prior_nll) is not float
             or not math.isfinite(self.total_prior_nll)
             or self.total_prior_nll < 0.0
-            or self.mean_prior_nll
-            != self.total_prior_nll / self.counted_target_total
+            or self.mean_prior_nll != self.total_prior_nll / self.counted_target_total
         ):
             raise ValueError("validation prior NLL totals are invalid")
         if self.validation_record_sha256 != _hash(
@@ -433,9 +429,7 @@ class H6EndpointTuningSelectionV3:
                 "weight_decay": self.tuning_cell.weight_decay,
                 "cell_sha256": self.tuning_cell.cell_sha256,
             },
-            "source_validation_record_sha256s": (
-                self.source_validation_record_sha256s
-            ),
+            "source_validation_record_sha256s": (self.source_validation_record_sha256s),
         }
 
     def __post_init__(self) -> None:
@@ -478,9 +472,7 @@ class H6EndpointTuningSelectionV3:
             "endpoint_config_sha256": endpoint_config_sha256,
             "source_endpoint_config_id": source_endpoint_config_id,
             "tuning_cell": tuning_cell,
-            "source_validation_record_sha256s": tuple(
-                source_validation_record_sha256s
-            ),
+            "source_validation_record_sha256s": tuple(source_validation_record_sha256s),
         }
         payload = {
             **values,
@@ -527,11 +519,7 @@ class H6TuningSelectionV3:
             ),
             "endpoint_selections": tuple(
                 selection.canonical_payload()
-                | {
-                    "endpoint_selection_sha256": (
-                        selection.endpoint_selection_sha256
-                    )
-                }
+                | {"endpoint_selection_sha256": (selection.endpoint_selection_sha256)}
                 for selection in self.endpoint_selections
             ),
         }
@@ -576,8 +564,7 @@ class H6TuningSelectionV3:
             self.runtime_identity_sha256,
         )
         if {
-            _record_identities(record)
-            for record in self.tuning_validation_records
+            _record_identities(record) for record in self.tuning_validation_records
         } != {expected_identity}:
             raise ValueError("tuning records do not match selection authority")
         by_key: dict[
@@ -645,12 +632,8 @@ class H6TuningSelectionV3:
                 (record.endpoint_config_id, record.training_seed),
                 set(),
             ).add(record.attempt_spec_sha256)
-        if (
-            len(attempts_by_endpoint_seed) != 12
-            or any(
-                len(digests) != 1
-                for digests in attempts_by_endpoint_seed.values()
-            )
+        if len(attempts_by_endpoint_seed) != 12 or any(
+            len(digests) != 1 for digests in attempts_by_endpoint_seed.values()
         ):
             raise ValueError("tuning attempt-spec binding is inconsistent")
         for name in (
@@ -659,8 +642,7 @@ class H6TuningSelectionV3:
             "validation_record_sha256",
         ):
             values = tuple(
-                getattr(record, name)
-                for record in self.tuning_validation_records
+                getattr(record, name) for record in self.tuning_validation_records
             )
             if len(set(values)) != 72:
                 raise ValueError(f"tuning {name} inventory contains duplicates")
@@ -787,9 +769,7 @@ class H6CheckpointCandidateV3:
             "readiness_sha256": plan.readiness_sha256,
             "matching_set_sha256": plan.matching_set_sha256,
             "data_identity_sha256": planned_attempt.attempt_spec.data_identity_sha256,
-            "runtime_identity_sha256": (
-                plan.training_schedule.runtime_identity_sha256
-            ),
+            "runtime_identity_sha256": (plan.training_schedule.runtime_identity_sha256),
         }
         payload = {
             **values,
@@ -801,9 +781,7 @@ class H6CheckpointCandidateV3:
         }
         return cls(
             **values,  # type: ignore[arg-type]
-            candidate_sha256=_hash(
-                "vfe4.h6.checkpoint-candidate.v3", payload
-            ),
+            candidate_sha256=_hash("vfe4.h6.checkpoint-candidate.v3", payload),
         )
 
 
@@ -864,10 +842,13 @@ class H6CheckpointSelectionV3:
             for endpoint_id in H6_MATCHING_V3_ENDPOINT_CONFIG_IDS
             for seed in H6_CONFIRMATORY_SEEDS_V3
         )
-        if tuple(
-            (item.endpoint_config_id, item.training_seed)
-            for item in self.checkpoints
-        ) != expected:
+        if (
+            tuple(
+                (item.endpoint_config_id, item.training_seed)
+                for item in self.checkpoints
+            )
+            != expected
+        ):
             raise ValueError("checkpoint selection inventory is incomplete")
         for checkpoint in self.checkpoints:
             checkpoint.__post_init__()
@@ -879,10 +860,9 @@ class H6CheckpointSelectionV3:
             self.data_identity_sha256,
             self.runtime_identity_sha256,
         )
-        if {
-            _record_identities(checkpoint)
-            for checkpoint in self.checkpoints
-        } != {expected_identity}:
+        if {_record_identities(checkpoint) for checkpoint in self.checkpoints} != {
+            expected_identity
+        }:
             raise ValueError("checkpoint candidates do not match selection authority")
         for name in (
             "planned_attempt_sha256",
@@ -891,9 +871,7 @@ class H6CheckpointSelectionV3:
             "checkpoint_bytes_sha256",
             "candidate_sha256",
         ):
-            values = tuple(
-                getattr(checkpoint, name) for checkpoint in self.checkpoints
-            )
+            values = tuple(getattr(checkpoint, name) for checkpoint in self.checkpoints)
             if len(set(values)) != 96:
                 raise ValueError(
                     f"checkpoint {name} inventory must contain 96 unique values"
@@ -935,9 +913,7 @@ class H6ValidationBundleV3:
     def __post_init__(self) -> None:
         if self.bundle_schema != "h6-validation-bundle-v3":
             raise ValueError("unsupported validation-bundle schema")
-        _require_sha256(
-            self.experiment_config_sha256, "experiment_config_sha256"
-        )
+        _require_sha256(self.experiment_config_sha256, "experiment_config_sha256")
         _require_sha256(self.plan_sha256, "plan_sha256")
         if (
             type(self.tuning_selection) is not H6TuningSelectionV3
@@ -976,8 +952,7 @@ class H6ValidationBundleV3:
         for candidate in self.checkpoint_selection.checkpoints:
             endpoint = selected[candidate.endpoint_config_id]
             if (
-                candidate.endpoint_config_sha256
-                != endpoint.endpoint_config_sha256
+                candidate.endpoint_config_sha256 != endpoint.endpoint_config_sha256
                 or candidate.tuning_cell != endpoint.tuning_cell
             ):
                 raise ValueError(
@@ -1017,11 +992,7 @@ class H6ValidationBundleV3:
             "experiment_config_sha256": values["experiment_config_sha256"],
             "plan_sha256": values["plan_sha256"],
             "tuning_selection": tuning_selection.canonical_payload()
-            | {
-                "tuning_selection_sha256": (
-                    tuning_selection.tuning_selection_sha256
-                )
-            },
+            | {"tuning_selection_sha256": (tuning_selection.tuning_selection_sha256)},
             "checkpoint_selection": checkpoint_selection.canonical_payload()
             | {
                 "checkpoint_selection_sha256": (
@@ -1031,9 +1002,7 @@ class H6ValidationBundleV3:
         }
         return cls(
             **values,  # type: ignore[arg-type]
-            validation_bundle_sha256=_hash(
-                "vfe4.h6.validation-bundle.v3", payload
-            ),
+            validation_bundle_sha256=_hash("vfe4.h6.validation-bundle.v3", payload),
         )
 
     def artifact_payload(self) -> dict[str, object]:
@@ -1097,8 +1066,7 @@ def select_h6_tuning_v3(
             attempt is None
             or record.endpoint_config_sha256
             != config_sha256s[record.endpoint_config_id]
-            or record.attempt_spec_sha256
-            != attempt.attempt_spec.attempt_spec_sha256
+            or record.attempt_spec_sha256 != attempt.attempt_spec.attempt_spec_sha256
             or key in by_key
         ):
             raise ValueError("tuning validation plan/attempt inventory drift")
@@ -1113,9 +1081,7 @@ def select_h6_tuning_v3(
     if set(by_key) != expected_keys:
         raise ValueError("tuning endpoint/cell/seed inventory is incomplete")
 
-    source_selections: dict[
-        str, tuple[H6TuningCellV3, tuple[str, ...]]
-    ] = {}
+    source_selections: dict[str, tuple[H6TuningCellV3, tuple[str, ...]]] = {}
     for endpoint_id in H6_TUNED_ENDPOINT_CONFIG_IDS_V3:
         candidates: list[tuple[float, float, float, H6TuningCellV3]] = []
         for cell in cells:
@@ -1170,10 +1136,15 @@ def select_h6_tuning_v3(
         "endpoint_selections": tuple(endpoint_selections),
     }
     payload = {
-        **{name: value for name, value in values.items() if name not in {
-            "tuning_validation_records",
-            "endpoint_selections",
-        }},
+        **{
+            name: value
+            for name, value in values.items()
+            if name
+            not in {
+                "tuning_validation_records",
+                "endpoint_selections",
+            }
+        },
         "tuning_validation_records": tuple(
             record.canonical_payload()
             | {"validation_record_sha256": record.validation_record_sha256}
@@ -1187,16 +1158,12 @@ def select_h6_tuning_v3(
     }
     return H6TuningSelectionV3(
         **values,  # type: ignore[arg-type]
-        tuning_selection_sha256=_hash(
-            "vfe4.h6.tuning-selection.v3", payload
-        ),
+        tuning_selection_sha256=_hash("vfe4.h6.tuning-selection.v3", payload),
     )
 
 
 def bind_h6_checkpoint_selection_v3(
-    checkpoint_bindings: tuple[
-        tuple[H6PlannedAttemptV3, H6CheckpointV3], ...
-    ],
+    checkpoint_bindings: tuple[tuple[H6PlannedAttemptV3, H6CheckpointV3], ...],
     plan: H6ExperimentPlanV3,
     tuning_selection: H6TuningSelectionV3,
 ) -> H6CheckpointSelectionV3:
@@ -1206,7 +1173,9 @@ def bind_h6_checkpoint_selection_v3(
     if (
         type(checkpoint_bindings) is not tuple
         or len(checkpoint_bindings) != 96
-        or any(type(item) is not tuple or len(item) != 2 for item in checkpoint_bindings)
+        or any(
+            type(item) is not tuple or len(item) != 2 for item in checkpoint_bindings
+        )
     ):
         raise ValueError("checkpoint selection requires 96 planned checkpoint pairs")
     if type(tuning_selection) is not H6TuningSelectionV3:
@@ -1265,9 +1234,7 @@ def bind_h6_checkpoint_selection_v3(
     }
     return H6CheckpointSelectionV3(
         **values,  # type: ignore[arg-type]
-        checkpoint_selection_sha256=_hash(
-            "vfe4.h6.checkpoint-selection.v3", payload
-        ),
+        checkpoint_selection_sha256=_hash("vfe4.h6.checkpoint-selection.v3", payload),
     )
 
 
@@ -1294,9 +1261,7 @@ def _mapping(
     name: str,
     expected_keys: frozenset[str],
 ) -> Mapping[str, object]:
-    if type(value) is not dict or any(
-        type(key) is not str for key in value
-    ):
+    if type(value) is not dict or any(type(key) is not str for key in value):
         raise ArtifactPublicationError(f"{name} must be one JSON object")
     if frozenset(value) != expected_keys:
         raise ArtifactPublicationError(f"{name} has an unexpected field inventory")
@@ -1351,9 +1316,7 @@ def _read_bounded_regular_file_once(
             != (path_before.st_dev, path_before.st_ino, path_before.st_size)
             or opened.st_size > maximum_bytes
         ):
-            raise ArtifactPublicationError(
-                f"{label} identity changed before reading"
-            )
+            raise ArtifactPublicationError(f"{label} identity changed before reading")
         chunks: list[bytes] = []
         total = 0
         while total <= maximum_bytes:
@@ -1403,7 +1366,9 @@ def _cell_from_payload(value: object) -> H6TuningCellV3:
             weight_decay=payload["weight_decay"],  # type: ignore[arg-type]
         )
     except (KeyError, TypeError, ValueError) as exc:
-        raise ArtifactPublicationError("validation bundle tuning cell is invalid") from exc
+        raise ArtifactPublicationError(
+            "validation bundle tuning cell is invalid"
+        ) from exc
     if payload.get("cell_sha256") != cell.cell_sha256:
         raise ArtifactPublicationError("validation bundle tuning-cell identity drift")
     return cell
@@ -1597,10 +1562,11 @@ def _candidate_from_payload(value: object) -> H6CheckpointCandidateV3:
             candidate_sha256=payload["candidate_sha256"],  # type: ignore[arg-type]
         )
     except (KeyError, TypeError, ValueError) as exc:
-        raise ArtifactPublicationError("checkpoint candidate cannot be reopened") from exc
+        raise ArtifactPublicationError(
+            "checkpoint candidate cannot be reopened"
+        ) from exc
     if artifact_json_bytes(dict(payload)) != artifact_json_bytes(
-        candidate.canonical_payload()
-        | {"candidate_sha256": candidate.candidate_sha256}
+        candidate.canonical_payload() | {"candidate_sha256": candidate.candidate_sha256}
     ):
         raise ArtifactPublicationError("checkpoint-candidate payload changed")
     return candidate
@@ -1647,11 +1613,7 @@ def _checkpoint_selection_from_payload(value: object) -> H6CheckpointSelectionV3
         ) from exc
     if artifact_json_bytes(dict(payload)) != artifact_json_bytes(
         selection.canonical_payload()
-        | {
-            "checkpoint_selection_sha256": (
-                selection.checkpoint_selection_sha256
-            )
-        }
+        | {"checkpoint_selection_sha256": (selection.checkpoint_selection_sha256)}
     ):
         raise ArtifactPublicationError("checkpoint-selection payload changed")
     return selection
@@ -1684,9 +1646,8 @@ def read_h6_validation_bundle_v3(
         raise ArtifactPublicationError(
             "validation run directory is unavailable"
         ) from exc
-    if (
-        not stat.S_ISDIR(root_status.st_mode)
-        or _is_redirect(run_directory, root_status)
+    if not stat.S_ISDIR(root_status.st_mode) or _is_redirect(
+        run_directory, root_status
     ):
         raise ArtifactPublicationError("validation run directory is unavailable")
     try:
@@ -1732,7 +1693,9 @@ def read_h6_validation_bundle_v3(
             object_pairs_hook=reject_duplicates,
         )
     except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
-        raise ArtifactPublicationError("validation bundle is not canonical JSON") from exc
+        raise ArtifactPublicationError(
+            "validation bundle is not canonical JSON"
+        ) from exc
     if artifact_json_bytes(payload) != raw:
         raise ArtifactPublicationError("validation bundle JSON is not canonical")
     root = _mapping(
@@ -1749,19 +1712,14 @@ def read_h6_validation_bundle_v3(
             }
         ),
     )
-    if (
-        root["validation_bundle_sha256"]
-        != expected_validation_bundle_sha256
-    ):
+    if root["validation_bundle_sha256"] != expected_validation_bundle_sha256:
         raise ArtifactPublicationError("validation bundle identity is not expected")
     try:
         bundle = H6ValidationBundleV3(
             bundle_schema=root["bundle_schema"],  # type: ignore[arg-type]
             experiment_config_sha256=root["experiment_config_sha256"],  # type: ignore[arg-type]
             plan_sha256=root["plan_sha256"],  # type: ignore[arg-type]
-            tuning_selection=_tuning_selection_from_payload(
-                root["tuning_selection"]
-            ),
+            tuning_selection=_tuning_selection_from_payload(root["tuning_selection"]),
             checkpoint_selection=_checkpoint_selection_from_payload(
                 root["checkpoint_selection"]
             ),
@@ -1771,10 +1729,8 @@ def read_h6_validation_bundle_v3(
         raise ArtifactPublicationError("validation bundle cannot be reopened") from exc
     if (
         bundle.plan_sha256 != expected_plan_sha256
-        or bundle.experiment_config_sha256
-        != expected_experiment_config_sha256
-        or bundle.validation_bundle_sha256
-        != expected_validation_bundle_sha256
+        or bundle.experiment_config_sha256 != expected_experiment_config_sha256
+        or bundle.validation_bundle_sha256 != expected_validation_bundle_sha256
     ):
         raise ArtifactPublicationError("validation bundle authority drift")
     if artifact_json_bytes(dict(root)) != artifact_json_bytes(
@@ -1784,15 +1740,1012 @@ def read_h6_validation_bundle_v3(
     return bundle
 
 
+_A0_TEST_ENDPOINT_CONFIG_ID = H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[0]
+_COMPLETE_A5_TEST_ENDPOINT_CONFIG_ID = H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[5]
+_EMISSION_A5_TEST_ENDPOINT_CONFIG_ID = H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[9]
+_H6_TEST_PARTICLE_COUNTS = (128, 256, 512, 1024)
+_H6_TEST_REPLICATES = tuple(range(64))
+H6_WEIGHTED_COMMON_STREAM_ROOT_SEED = 2026072198
+H6_WEIGHTED_COMMON_STREAM_DOMAIN = "h6-wt2-endpoint-mc-v1"
+
+
+def h6_weighted_common_stream_sha256_v3(
+    *,
+    replicate_id: int,
+) -> str:
+    """Return the sole frozen common-stream identity for one replicate."""
+
+    if type(replicate_id) is not int or replicate_id not in _H6_TEST_REPLICATES:
+        raise ValueError("replicate_id is outside the frozen 64 replicates")
+    return _hash(
+        H6_WEIGHTED_COMMON_STREAM_DOMAIN,
+        {
+            "root_seed": H6_WEIGHTED_COMMON_STREAM_ROOT_SEED,
+            "replicate_id": replicate_id,
+            "purpose_stream_sha256s": tuple(
+                (
+                    purpose.value,
+                    hashlib.sha256(
+                        (
+                            f"{H6_WEIGHTED_COMMON_STREAM_DOMAIN}|"
+                            f"{H6_WEIGHTED_COMMON_STREAM_ROOT_SEED}|"
+                            f"{replicate_id}|{purpose.value}"
+                        ).encode("ascii")
+                    ).hexdigest(),
+                )
+                for purpose in CounterPurpose
+            ),
+        },
+    )
+
+
+def _require_finite_float(value: object, name: str, *, nonnegative: bool) -> float:
+    if type(value) is not float or not math.isfinite(value):
+        raise ValueError(f"{name} must be a finite float")
+    if nonnegative and value < 0.0:
+        raise ValueError(f"{name} must be nonnegative")
+    return value
+
+
+def _require_confirmatory_seed(value: object) -> int:
+    if type(value) is not int or value not in H6_CONFIRMATORY_SEEDS_V3:
+        raise ValueError("training seed is outside the frozen confirmatory inventory")
+    return value
+
+
+H6_WEIGHTED_COMMON_STREAM_REGISTRY_SHA256 = _hash(
+    f"{H6_WEIGHTED_COMMON_STREAM_DOMAIN}.registry",
+    {
+        "root_seed": H6_WEIGHTED_COMMON_STREAM_ROOT_SEED,
+        "entries": tuple(
+            {
+                "replicate_id": replicate_id,
+                "common_stream_sha256": h6_weighted_common_stream_sha256_v3(
+                    replicate_id=replicate_id,
+                ),
+            }
+            for replicate_id in _H6_TEST_REPLICATES
+        ),
+    },
+)
+
+
+@dataclass(frozen=True, slots=True)
+class H6ExactA0CorpusTotalV3:
+    """One exact A0 corpus total; weighted-estimator fields do not exist."""
+
+    row_schema: Literal["h6-exact-a0-corpus-total-v3"]
+    row_kind: Literal["exact_a0_corpus_total"]
+    endpoint_config_id: str
+    training_seed: int
+    checkpoint_sha256: str
+    counted_test_targets: int
+    exact_total_nll: float
+    opening_proof_sha256: str
+    row_sha256: str
+
+    def semantic_payload(self) -> dict[str, object]:
+        return {
+            "row_schema": self.row_schema,
+            "row_kind": self.row_kind,
+            "endpoint_config_id": self.endpoint_config_id,
+            "training_seed": self.training_seed,
+            "checkpoint_sha256": self.checkpoint_sha256,
+            "counted_test_targets": self.counted_test_targets,
+            "exact_total_nll": self.exact_total_nll,
+            "opening_proof_sha256": self.opening_proof_sha256,
+        }
+
+    def artifact_payload(self) -> dict[str, object]:
+        return {**self.semantic_payload(), "row_sha256": self.row_sha256}
+
+    def __post_init__(self) -> None:
+        if (
+            self.row_schema != "h6-exact-a0-corpus-total-v3"
+            or self.row_kind != "exact_a0_corpus_total"
+        ):
+            raise ValueError("exact A0 row discriminator is not frozen")
+        if self.endpoint_config_id != _A0_TEST_ENDPOINT_CONFIG_ID:
+            raise ValueError("exact A0 rows require the frozen A0 endpoint")
+        _require_confirmatory_seed(self.training_seed)
+        _require_sha256(self.checkpoint_sha256, "checkpoint_sha256")
+        if type(self.counted_test_targets) is not int or self.counted_test_targets <= 0:
+            raise ValueError("counted_test_targets must be a positive integer")
+        _require_finite_float(
+            self.exact_total_nll,
+            "exact_total_nll",
+            nonnegative=True,
+        )
+        _require_sha256(self.opening_proof_sha256, "opening_proof_sha256")
+        _require_sha256(self.row_sha256, "row_sha256")
+        if self.row_sha256 != _hash(
+            "vfe4.h6.exact-a0-corpus-total.v3",
+            self.semantic_payload(),
+        ):
+            raise ValueError("exact A0 row SHA-256 does not match its fields")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        endpoint_config_id: str,
+        training_seed: int,
+        checkpoint_sha256: str,
+        counted_test_targets: int,
+        exact_total_nll: float,
+        opening_proof_sha256: str,
+    ) -> H6ExactA0CorpusTotalV3:
+        payload = {
+            "row_schema": "h6-exact-a0-corpus-total-v3",
+            "row_kind": "exact_a0_corpus_total",
+            "endpoint_config_id": endpoint_config_id,
+            "training_seed": training_seed,
+            "checkpoint_sha256": checkpoint_sha256,
+            "counted_test_targets": counted_test_targets,
+            "exact_total_nll": exact_total_nll,
+            "opening_proof_sha256": opening_proof_sha256,
+        }
+        return cls(
+            **payload,  # type: ignore[arg-type]
+            row_sha256=_hash(
+                "vfe4.h6.exact-a0-corpus-total.v3",
+                payload,
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class H6WeightedA5CorpusTotalV3:
+    """One weighted A5 SMC corpus-total estimate."""
+
+    row_schema: Literal["h6-weighted-a5-corpus-total-v3"]
+    row_kind: Literal["weighted_a5_smc_corpus_total"]
+    endpoint_role: Literal["complete_a5", "emission_a5"]
+    endpoint_config_id: str
+    training_seed: int
+    checkpoint_sha256: str
+    particle_count: Literal[128, 256, 512, 1024]
+    replicate_id: int
+    common_stream_sha256: str
+    counted_test_targets: int
+    weighted_total_nll: float
+    monte_carlo_half_width: float
+    smc_bias_bound: float
+    opening_proof_sha256: str
+    row_sha256: str
+
+    def semantic_payload(self) -> dict[str, object]:
+        return {
+            "row_schema": self.row_schema,
+            "row_kind": self.row_kind,
+            "endpoint_role": self.endpoint_role,
+            "endpoint_config_id": self.endpoint_config_id,
+            "training_seed": self.training_seed,
+            "checkpoint_sha256": self.checkpoint_sha256,
+            "particle_count": self.particle_count,
+            "replicate_id": self.replicate_id,
+            "common_stream_sha256": self.common_stream_sha256,
+            "counted_test_targets": self.counted_test_targets,
+            "weighted_total_nll": self.weighted_total_nll,
+            "monte_carlo_half_width": self.monte_carlo_half_width,
+            "smc_bias_bound": self.smc_bias_bound,
+            "opening_proof_sha256": self.opening_proof_sha256,
+        }
+
+    def artifact_payload(self) -> dict[str, object]:
+        return {**self.semantic_payload(), "row_sha256": self.row_sha256}
+
+    def __post_init__(self) -> None:
+        if (
+            self.row_schema != "h6-weighted-a5-corpus-total-v3"
+            or self.row_kind != "weighted_a5_smc_corpus_total"
+        ):
+            raise ValueError("weighted A5 row discriminator is not frozen")
+        expected_endpoint = {
+            "complete_a5": _COMPLETE_A5_TEST_ENDPOINT_CONFIG_ID,
+            "emission_a5": _EMISSION_A5_TEST_ENDPOINT_CONFIG_ID,
+        }.get(self.endpoint_role)
+        if expected_endpoint is None or self.endpoint_config_id != expected_endpoint:
+            raise ValueError(
+                "weighted A5 row role requires its frozen weighted A5 endpoint"
+            )
+        _require_confirmatory_seed(self.training_seed)
+        _require_sha256(self.checkpoint_sha256, "checkpoint_sha256")
+        if (
+            type(self.particle_count) is not int
+            or self.particle_count not in _H6_TEST_PARTICLE_COUNTS
+        ):
+            raise ValueError("particle_count is outside the frozen particle levels")
+        if (
+            type(self.replicate_id) is not int
+            or self.replicate_id not in _H6_TEST_REPLICATES
+        ):
+            raise ValueError("replicate_id is outside the frozen 64 replicates")
+        _require_sha256(self.common_stream_sha256, "common_stream_sha256")
+        if self.common_stream_sha256 != h6_weighted_common_stream_sha256_v3(
+            replicate_id=self.replicate_id,
+        ):
+            raise ValueError(
+                "common stream is not derived from the frozen replicate registry"
+            )
+        if type(self.counted_test_targets) is not int or self.counted_test_targets <= 0:
+            raise ValueError("counted_test_targets must be a positive integer")
+        _require_finite_float(
+            self.weighted_total_nll,
+            "weighted_total_nll",
+            nonnegative=True,
+        )
+        _require_finite_float(
+            self.monte_carlo_half_width,
+            "monte_carlo_half_width",
+            nonnegative=True,
+        )
+        _require_finite_float(
+            self.smc_bias_bound,
+            "smc_bias_bound",
+            nonnegative=True,
+        )
+        _require_sha256(self.opening_proof_sha256, "opening_proof_sha256")
+        _require_sha256(self.row_sha256, "row_sha256")
+        if self.row_sha256 != _hash(
+            "vfe4.h6.weighted-a5-corpus-total.v3",
+            self.semantic_payload(),
+        ):
+            raise ValueError("weighted A5 row SHA-256 does not match its fields")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        endpoint_role: Literal["complete_a5", "emission_a5"],
+        endpoint_config_id: str,
+        training_seed: int,
+        checkpoint_sha256: str,
+        particle_count: Literal[128, 256, 512, 1024],
+        replicate_id: int,
+        counted_test_targets: int,
+        weighted_total_nll: float,
+        monte_carlo_half_width: float,
+        smc_bias_bound: float,
+        opening_proof_sha256: str,
+    ) -> H6WeightedA5CorpusTotalV3:
+        payload = {
+            "row_schema": "h6-weighted-a5-corpus-total-v3",
+            "row_kind": "weighted_a5_smc_corpus_total",
+            "endpoint_role": endpoint_role,
+            "endpoint_config_id": endpoint_config_id,
+            "training_seed": training_seed,
+            "checkpoint_sha256": checkpoint_sha256,
+            "particle_count": particle_count,
+            "replicate_id": replicate_id,
+            "common_stream_sha256": h6_weighted_common_stream_sha256_v3(
+                replicate_id=replicate_id,
+            ),
+            "counted_test_targets": counted_test_targets,
+            "weighted_total_nll": weighted_total_nll,
+            "monte_carlo_half_width": monte_carlo_half_width,
+            "smc_bias_bound": smc_bias_bound,
+            "opening_proof_sha256": opening_proof_sha256,
+        }
+        return cls(
+            **payload,  # type: ignore[arg-type]
+            row_sha256=_hash(
+                "vfe4.h6.weighted-a5-corpus-total.v3",
+                payload,
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class H6RawEndpointInventoryV4:
+    """The complete, strictly discriminated held-out H6 row inventory."""
+
+    inventory_schema: Literal["h6-raw-endpoint-inventory-v4"]
+    scoring_inventory_sha256: str
+    common_stream_registry_sha256: str
+    opening_proof_sha256: str
+    logical_row_count: Literal[4104]
+    exact_a0_rows: tuple[H6ExactA0CorpusTotalV3, ...]
+    complete_a5_rows: tuple[H6WeightedA5CorpusTotalV3, ...]
+    emission_a5_rows: tuple[H6WeightedA5CorpusTotalV3, ...]
+    inventory_sha256: str
+
+    def semantic_payload(self) -> dict[str, object]:
+        return {
+            "inventory_schema": self.inventory_schema,
+            "scoring_inventory_sha256": self.scoring_inventory_sha256,
+            "common_stream_registry_sha256": (self.common_stream_registry_sha256),
+            "opening_proof_sha256": self.opening_proof_sha256,
+            "logical_row_count": self.logical_row_count,
+            "exact_a0_rows": tuple(
+                row.artifact_payload() for row in self.exact_a0_rows
+            ),
+            "complete_a5_rows": tuple(
+                row.artifact_payload() for row in self.complete_a5_rows
+            ),
+            "emission_a5_rows": tuple(
+                row.artifact_payload() for row in self.emission_a5_rows
+            ),
+        }
+
+    def artifact_payload(self) -> dict[str, object]:
+        return {
+            **self.semantic_payload(),
+            "inventory_sha256": self.inventory_sha256,
+        }
+
+    def __post_init__(self) -> None:
+        if (
+            self.inventory_schema != H6_RAW_ENDPOINT_INVENTORY_SCHEMA
+            or self.scoring_inventory_sha256 != H6_SCORING_INVENTORY_SHA256
+            or self.common_stream_registry_sha256
+            != H6_WEIGHTED_COMMON_STREAM_REGISTRY_SHA256
+            or self.logical_row_count != 4104
+        ):
+            raise ValueError("raw endpoint inventory is not the frozen 4104-row v4")
+        if (
+            type(self.exact_a0_rows) is not tuple
+            or type(self.complete_a5_rows) is not tuple
+            or type(self.emission_a5_rows) is not tuple
+            or len(self.exact_a0_rows) != 8
+            or len(self.complete_a5_rows) != 2048
+            or len(self.emission_a5_rows) != 2048
+        ):
+            raise ValueError("raw endpoint inventory must contain exactly 4104 rows")
+        if any(type(row) is not H6ExactA0CorpusTotalV3 for row in self.exact_a0_rows):
+            raise ValueError("exact inventory partition contains a non-exact-A0 row")
+        if any(
+            type(row) is not H6WeightedA5CorpusTotalV3
+            for row in (*self.complete_a5_rows, *self.emission_a5_rows)
+        ):
+            raise ValueError(
+                "weighted inventory partition contains a non-weighted-A5 row"
+            )
+        for row in (
+            *self.exact_a0_rows,
+            *self.complete_a5_rows,
+            *self.emission_a5_rows,
+        ):
+            row.__post_init__()
+        expected_exact_keys = tuple(H6_CONFIRMATORY_SEEDS_V3)
+        if (
+            tuple(row.training_seed for row in self.exact_a0_rows)
+            != expected_exact_keys
+        ):
+            raise ValueError("exact A0 rows are duplicated or not in frozen seed order")
+        expected_weighted_keys = tuple(
+            (seed, replicate_id, particle_count)
+            for seed in H6_CONFIRMATORY_SEEDS_V3
+            for replicate_id in _H6_TEST_REPLICATES
+            for particle_count in _H6_TEST_PARTICLE_COUNTS
+        )
+        for role, rows in (
+            ("complete_a5", self.complete_a5_rows),
+            ("emission_a5", self.emission_a5_rows),
+        ):
+            if any(row.endpoint_role != role for row in rows):
+                raise ValueError("weighted row is in the wrong discriminated partition")
+            keys = tuple(
+                (row.training_seed, row.replicate_id, row.particle_count)
+                for row in rows
+            )
+            if keys != expected_weighted_keys:
+                raise ValueError(
+                    "weighted rows contain a duplicate or violate frozen ordering"
+                )
+        row_ids = tuple(
+            row.row_sha256
+            for row in (
+                *self.exact_a0_rows,
+                *self.complete_a5_rows,
+                *self.emission_a5_rows,
+            )
+        )
+        if len(set(row_ids)) != 4104:
+            raise ValueError("raw endpoint inventory contains a duplicate row")
+        openings = {
+            row.opening_proof_sha256
+            for row in (
+                *self.exact_a0_rows,
+                *self.complete_a5_rows,
+                *self.emission_a5_rows,
+            )
+        }
+        if openings != {self.opening_proof_sha256}:
+            raise ValueError("raw endpoint inventory contains another opening")
+        expected_streams = tuple(
+            h6_weighted_common_stream_sha256_v3(
+                replicate_id=replicate_id,
+            )
+            for _seed in H6_CONFIRMATORY_SEEDS_V3
+            for replicate_id in _H6_TEST_REPLICATES
+            for _particle_count in _H6_TEST_PARTICLE_COUNTS
+        )
+        complete_streams = tuple(
+            row.common_stream_sha256 for row in self.complete_a5_rows
+        )
+        emission_streams = tuple(
+            row.common_stream_sha256 for row in self.emission_a5_rows
+        )
+        if (
+            complete_streams != expected_streams
+            or emission_streams != expected_streams
+            or len(set(complete_streams)) != 64
+        ):
+            raise ValueError(
+                "weighted A5 rows do not use the frozen 64-stream registry"
+            )
+        target_counts = {
+            row.counted_test_targets
+            for row in (
+                *self.exact_a0_rows,
+                *self.complete_a5_rows,
+                *self.emission_a5_rows,
+            )
+        }
+        if len(target_counts) != 1:
+            raise ValueError("raw rows disagree on counted test targets")
+        _require_sha256(self.opening_proof_sha256, "opening_proof_sha256")
+        _require_sha256(self.inventory_sha256, "inventory_sha256")
+        if self.inventory_sha256 != _hash(
+            "vfe4.h6.raw-endpoint-inventory.v4",
+            self.semantic_payload(),
+        ):
+            raise ValueError("raw endpoint inventory SHA-256 does not match its rows")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        exact_a0_rows: tuple[H6ExactA0CorpusTotalV3, ...],
+        complete_a5_rows: tuple[H6WeightedA5CorpusTotalV3, ...],
+        emission_a5_rows: tuple[H6WeightedA5CorpusTotalV3, ...],
+    ) -> H6RawEndpointInventoryV4:
+        if (
+            type(exact_a0_rows) is not tuple
+            or type(complete_a5_rows) is not tuple
+            or type(emission_a5_rows) is not tuple
+            or not exact_a0_rows
+        ):
+            raise ValueError(
+                "raw endpoint inventory rows must be nonempty exact tuples"
+            )
+        opening = exact_a0_rows[0].opening_proof_sha256
+        payload = {
+            "inventory_schema": H6_RAW_ENDPOINT_INVENTORY_SCHEMA,
+            "scoring_inventory_sha256": H6_SCORING_INVENTORY_SHA256,
+            "common_stream_registry_sha256": (
+                H6_WEIGHTED_COMMON_STREAM_REGISTRY_SHA256
+            ),
+            "opening_proof_sha256": opening,
+            "logical_row_count": 4104,
+            "exact_a0_rows": tuple(row.artifact_payload() for row in exact_a0_rows),
+            "complete_a5_rows": tuple(
+                row.artifact_payload() for row in complete_a5_rows
+            ),
+            "emission_a5_rows": tuple(
+                row.artifact_payload() for row in emission_a5_rows
+            ),
+        }
+        return cls(
+            inventory_schema=H6_RAW_ENDPOINT_INVENTORY_SCHEMA,
+            scoring_inventory_sha256=H6_SCORING_INVENTORY_SHA256,
+            common_stream_registry_sha256=(H6_WEIGHTED_COMMON_STREAM_REGISTRY_SHA256),
+            opening_proof_sha256=opening,
+            logical_row_count=4104,
+            exact_a0_rows=exact_a0_rows,
+            complete_a5_rows=complete_a5_rows,
+            emission_a5_rows=emission_a5_rows,
+            inventory_sha256=_hash(
+                "vfe4.h6.raw-endpoint-inventory.v4",
+                payload,
+            ),
+        )
+
+    @classmethod
+    def from_rows(
+        cls,
+        rows: tuple[H6ExactA0CorpusTotalV3 | H6WeightedA5CorpusTotalV3, ...],
+    ) -> H6RawEndpointInventoryV4:
+        if type(rows) is not tuple or len(rows) != 4104:
+            raise ValueError("raw endpoint inventory must contain exactly 4104 rows")
+        exact = tuple(row for row in rows if type(row) is H6ExactA0CorpusTotalV3)
+        complete = tuple(
+            row
+            for row in rows
+            if type(row) is H6WeightedA5CorpusTotalV3
+            and row.endpoint_role == "complete_a5"
+        )
+        emission = tuple(
+            row
+            for row in rows
+            if type(row) is H6WeightedA5CorpusTotalV3
+            and row.endpoint_role == "emission_a5"
+        )
+        if len(exact) + len(complete) + len(emission) != 4104:
+            raise ValueError("raw endpoint inventory contains another row type")
+        return cls.create(
+            exact_a0_rows=exact,
+            complete_a5_rows=complete,
+            emission_a5_rows=emission,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class H6PredictionMetricsV3:
+    """Raw-row bindings for the frozen H6 contrasts."""
+
+    metrics_schema: Literal["h6-prediction-metrics-v3"]
+    raw_inventory_sha256: str
+    primary_a0_row_sha256s: tuple[str, ...]
+    primary_complete_a5_row_sha256s: tuple[str, ...]
+    objective_complete_a5_row_sha256s: tuple[str, ...]
+    objective_emission_a5_row_sha256s: tuple[str, ...]
+    metrics_sha256: str
+
+    def semantic_payload(self) -> dict[str, object]:
+        return {
+            "metrics_schema": self.metrics_schema,
+            "raw_inventory_sha256": self.raw_inventory_sha256,
+            "primary_a0_row_sha256s": self.primary_a0_row_sha256s,
+            "primary_complete_a5_row_sha256s": (self.primary_complete_a5_row_sha256s),
+            "objective_complete_a5_row_sha256s": (
+                self.objective_complete_a5_row_sha256s
+            ),
+            "objective_emission_a5_row_sha256s": (
+                self.objective_emission_a5_row_sha256s
+            ),
+        }
+
+    def artifact_payload(self) -> dict[str, object]:
+        return {**self.semantic_payload(), "metrics_sha256": self.metrics_sha256}
+
+    def __post_init__(self) -> None:
+        if self.metrics_schema != H6_PREDICTION_METRICS_SCHEMA:
+            raise ValueError("prediction metrics schema is not v3")
+        _require_sha256(self.raw_inventory_sha256, "raw_inventory_sha256")
+        if (
+            len(self.primary_a0_row_sha256s) != 8
+            or len(self.primary_complete_a5_row_sha256s) != 2048
+            or len(self.objective_complete_a5_row_sha256s) != 2048
+            or len(self.objective_emission_a5_row_sha256s) != 2048
+            or self.primary_complete_a5_row_sha256s
+            != self.objective_complete_a5_row_sha256s
+        ):
+            raise ValueError("prediction metrics do not reuse the frozen raw row sets")
+        for digest in (
+            *self.primary_a0_row_sha256s,
+            *self.primary_complete_a5_row_sha256s,
+            *self.objective_complete_a5_row_sha256s,
+            *self.objective_emission_a5_row_sha256s,
+        ):
+            _require_sha256(digest, "metric row SHA-256")
+        _require_sha256(self.metrics_sha256, "metrics_sha256")
+        if self.metrics_sha256 != _hash(
+            "vfe4.h6.prediction-metrics.v3",
+            self.semantic_payload(),
+        ):
+            raise ValueError("prediction metrics SHA-256 does not match its fields")
+
+    @classmethod
+    def from_raw_inventory(
+        cls,
+        inventory: H6RawEndpointInventoryV4,
+    ) -> H6PredictionMetricsV3:
+        if type(inventory) is not H6RawEndpointInventoryV4:
+            raise ValueError("prediction metrics require an exact raw inventory v4")
+        inventory.__post_init__()
+        a0_ids = tuple(row.row_sha256 for row in inventory.exact_a0_rows)
+        complete_ids = tuple(row.row_sha256 for row in inventory.complete_a5_rows)
+        emission_ids = tuple(row.row_sha256 for row in inventory.emission_a5_rows)
+        payload = {
+            "metrics_schema": H6_PREDICTION_METRICS_SCHEMA,
+            "raw_inventory_sha256": inventory.inventory_sha256,
+            "primary_a0_row_sha256s": a0_ids,
+            "primary_complete_a5_row_sha256s": complete_ids,
+            "objective_complete_a5_row_sha256s": complete_ids,
+            "objective_emission_a5_row_sha256s": emission_ids,
+        }
+        return cls(
+            **payload,  # type: ignore[arg-type]
+            metrics_sha256=_hash(
+                "vfe4.h6.prediction-metrics.v3",
+                payload,
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class H6PredictionResultV3:
+    """Exact terminal H6-Prediction v3 result binding."""
+
+    result_schema: Literal["h6-prediction-result-v3"]
+    reservation_sha256: str
+    opening_proof_sha256: str
+    raw_inventory_sha256: str
+    metrics_sha256: str
+    logical_row_count: Literal[4104]
+    result_sha256: str
+
+    def semantic_payload(self) -> dict[str, object]:
+        return {
+            "result_schema": self.result_schema,
+            "reservation_sha256": self.reservation_sha256,
+            "opening_proof_sha256": self.opening_proof_sha256,
+            "raw_inventory_sha256": self.raw_inventory_sha256,
+            "metrics_sha256": self.metrics_sha256,
+            "logical_row_count": self.logical_row_count,
+        }
+
+    def artifact_payload(self) -> dict[str, object]:
+        return {**self.semantic_payload(), "result_sha256": self.result_sha256}
+
+    def __post_init__(self) -> None:
+        if (
+            self.result_schema != H6_PREDICTION_RESULT_SCHEMA
+            or self.logical_row_count != 4104
+        ):
+            raise ValueError("prediction result is not the exact v3 schema")
+        for name in (
+            "reservation_sha256",
+            "opening_proof_sha256",
+            "raw_inventory_sha256",
+            "metrics_sha256",
+            "result_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        if self.result_sha256 != _hash(
+            "vfe4.h6.prediction-result.v3",
+            self.semantic_payload(),
+        ):
+            raise ValueError("prediction result SHA-256 does not match its fields")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        reservation_sha256: str,
+        opening_proof_sha256: str,
+        inventory: H6RawEndpointInventoryV4,
+        metrics: H6PredictionMetricsV3,
+    ) -> H6PredictionResultV3:
+        if type(inventory) is not H6RawEndpointInventoryV4:
+            raise ValueError("prediction result requires an exact raw inventory v4")
+        if type(metrics) is not H6PredictionMetricsV3:
+            raise ValueError("prediction result requires exact prediction metrics v3")
+        inventory.__post_init__()
+        metrics.__post_init__()
+        if (
+            inventory.opening_proof_sha256 != opening_proof_sha256
+            or metrics.raw_inventory_sha256 != inventory.inventory_sha256
+        ):
+            raise ValueError("prediction result authorities are not cross-bound")
+        payload = {
+            "result_schema": H6_PREDICTION_RESULT_SCHEMA,
+            "reservation_sha256": reservation_sha256,
+            "opening_proof_sha256": opening_proof_sha256,
+            "raw_inventory_sha256": inventory.inventory_sha256,
+            "metrics_sha256": metrics.metrics_sha256,
+            "logical_row_count": 4104,
+        }
+        return cls(
+            **payload,  # type: ignore[arg-type]
+            result_sha256=_hash(
+                "vfe4.h6.prediction-result.v3",
+                payload,
+            ),
+        )
+
+
+def _exact_a0_from_payload(value: object) -> H6ExactA0CorpusTotalV3:
+    payload = _mapping(
+        value,
+        "exact A0 row",
+        frozenset(
+            {
+                "row_schema",
+                "row_kind",
+                "endpoint_config_id",
+                "training_seed",
+                "checkpoint_sha256",
+                "counted_test_targets",
+                "exact_total_nll",
+                "opening_proof_sha256",
+                "row_sha256",
+            }
+        ),
+    )
+    try:
+        return H6ExactA0CorpusTotalV3(**payload)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError("exact A0 row cannot be reopened") from exc
+
+
+def _weighted_a5_from_payload(value: object) -> H6WeightedA5CorpusTotalV3:
+    payload = _mapping(
+        value,
+        "weighted A5 row",
+        frozenset(
+            {
+                "row_schema",
+                "row_kind",
+                "endpoint_role",
+                "endpoint_config_id",
+                "training_seed",
+                "checkpoint_sha256",
+                "particle_count",
+                "replicate_id",
+                "common_stream_sha256",
+                "counted_test_targets",
+                "weighted_total_nll",
+                "monte_carlo_half_width",
+                "smc_bias_bound",
+                "opening_proof_sha256",
+                "row_sha256",
+            }
+        ),
+    )
+    try:
+        return H6WeightedA5CorpusTotalV3(**payload)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError("weighted A5 row cannot be reopened") from exc
+
+
+def _raw_inventory_from_payload(value: object) -> H6RawEndpointInventoryV4:
+    payload = _mapping(
+        value,
+        "raw endpoint inventory",
+        frozenset(
+            {
+                "inventory_schema",
+                "scoring_inventory_sha256",
+                "common_stream_registry_sha256",
+                "opening_proof_sha256",
+                "logical_row_count",
+                "exact_a0_rows",
+                "complete_a5_rows",
+                "emission_a5_rows",
+                "inventory_sha256",
+            }
+        ),
+    )
+    try:
+        return H6RawEndpointInventoryV4(
+            inventory_schema=payload["inventory_schema"],  # type: ignore[arg-type]
+            scoring_inventory_sha256=payload["scoring_inventory_sha256"],  # type: ignore[arg-type]
+            common_stream_registry_sha256=payload[  # type: ignore[arg-type]
+                "common_stream_registry_sha256"
+            ],
+            opening_proof_sha256=payload["opening_proof_sha256"],  # type: ignore[arg-type]
+            logical_row_count=payload["logical_row_count"],  # type: ignore[arg-type]
+            exact_a0_rows=tuple(
+                _exact_a0_from_payload(row)
+                for row in payload["exact_a0_rows"]  # type: ignore[union-attr]
+            ),
+            complete_a5_rows=tuple(
+                _weighted_a5_from_payload(row)
+                for row in payload["complete_a5_rows"]  # type: ignore[union-attr]
+            ),
+            emission_a5_rows=tuple(
+                _weighted_a5_from_payload(row)
+                for row in payload["emission_a5_rows"]  # type: ignore[union-attr]
+            ),
+            inventory_sha256=payload["inventory_sha256"],  # type: ignore[arg-type]
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "raw endpoint inventory cannot be reopened"
+        ) from exc
+
+
+def _prediction_metrics_from_payload(value: object) -> H6PredictionMetricsV3:
+    payload = _mapping(
+        value,
+        "prediction metrics",
+        frozenset(
+            {
+                "metrics_schema",
+                "raw_inventory_sha256",
+                "primary_a0_row_sha256s",
+                "primary_complete_a5_row_sha256s",
+                "objective_complete_a5_row_sha256s",
+                "objective_emission_a5_row_sha256s",
+                "metrics_sha256",
+            }
+        ),
+    )
+    try:
+        return H6PredictionMetricsV3(
+            metrics_schema=payload["metrics_schema"],  # type: ignore[arg-type]
+            raw_inventory_sha256=payload["raw_inventory_sha256"],  # type: ignore[arg-type]
+            primary_a0_row_sha256s=tuple(  # type: ignore[arg-type]
+                payload["primary_a0_row_sha256s"]  # type: ignore[union-attr]
+            ),
+            primary_complete_a5_row_sha256s=tuple(  # type: ignore[arg-type]
+                payload["primary_complete_a5_row_sha256s"]  # type: ignore[union-attr]
+            ),
+            objective_complete_a5_row_sha256s=tuple(  # type: ignore[arg-type]
+                payload["objective_complete_a5_row_sha256s"]  # type: ignore[union-attr]
+            ),
+            objective_emission_a5_row_sha256s=tuple(  # type: ignore[arg-type]
+                payload["objective_emission_a5_row_sha256s"]  # type: ignore[union-attr]
+            ),
+            metrics_sha256=payload["metrics_sha256"],  # type: ignore[arg-type]
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ArtifactPublicationError("prediction metrics cannot be reopened") from exc
+
+
+def publish_h6_prediction_result_v3(
+    run_root: Path,
+    run_name: str,
+    *,
+    result: H6PredictionResultV3,
+    inventory: H6RawEndpointInventoryV4,
+    metrics: H6PredictionMetricsV3,
+) -> Path:
+    """No-replace publish one exact result and its complete evidence."""
+
+    if (
+        type(result) is not H6PredictionResultV3
+        or type(inventory) is not H6RawEndpointInventoryV4
+        or type(metrics) is not H6PredictionMetricsV3
+    ):
+        raise ArtifactPublicationError("exact prediction result records are required")
+    result.__post_init__()
+    inventory.__post_init__()
+    metrics.__post_init__()
+    if (
+        result.opening_proof_sha256 != inventory.opening_proof_sha256
+        or result.raw_inventory_sha256 != inventory.inventory_sha256
+        or result.metrics_sha256 != metrics.metrics_sha256
+        or metrics.raw_inventory_sha256 != inventory.inventory_sha256
+    ):
+        raise ArtifactPublicationError("prediction result records are not cross-bound")
+    published = publish_run_directory(
+        run_root,
+        run_name,
+        {
+            "metrics.json": metrics.artifact_payload(),
+            "raw_inventory.json": inventory.artifact_payload(),
+            "result.json": result.artifact_payload(),
+        },
+    )
+    reopened = read_h6_prediction_result_v3(
+        published,
+        expected_result_sha256=result.result_sha256,
+    )
+    if reopened != (result, inventory, metrics):
+        raise ArtifactPublicationError("published prediction result changed")
+    return published
+
+
+def read_h6_prediction_result_v3(
+    run_directory: Path,
+    *,
+    expected_result_sha256: str | None = None,
+) -> tuple[
+    H6PredictionResultV3,
+    H6RawEndpointInventoryV4,
+    H6PredictionMetricsV3,
+]:
+    """Authenticate and reopen an exact H6-Prediction v3 result."""
+
+    if expected_result_sha256 is not None:
+        _require_sha256(expected_result_sha256, "expected_result_sha256")
+    if not isinstance(run_directory, Path) or not run_directory.is_absolute():
+        raise ArtifactPublicationError("result run_directory must be absolute")
+    try:
+        root_status = os.lstat(run_directory)
+        children = tuple(run_directory.iterdir())
+    except OSError as exc:
+        raise ArtifactPublicationError("prediction result is unavailable") from exc
+    if not stat.S_ISDIR(root_status.st_mode) or _is_redirect(
+        run_directory, root_status
+    ):
+        raise ArtifactPublicationError("prediction result directory is redirected")
+    filenames = ("metrics.json", "raw_inventory.json", "result.json")
+    if {child.name for child in children} != {*filenames, "manifest.sha256"}:
+        raise ArtifactPublicationError("prediction result inventory is not exact")
+    raw_by_name = {
+        name: _read_bounded_regular_file_once(
+            run_directory / name,
+            maximum_bytes=32 * 1024 * 1024,
+            label=f"prediction {name}",
+        )
+        for name in filenames
+    }
+    manifest = _read_bounded_regular_file_once(
+        run_directory / "manifest.sha256",
+        maximum_bytes=512,
+        label="prediction result manifest",
+    )
+    expected_manifest = "".join(
+        f"{hashlib.sha256(raw_by_name[name]).hexdigest()}  {name}\n"
+        for name in filenames
+    ).encode("ascii")
+    if manifest != expected_manifest:
+        raise ArtifactPublicationError("prediction result manifest changed")
+
+    def reject_duplicates(
+        pairs: list[tuple[str, object]],
+    ) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, item in pairs:
+            if key in result:
+                raise ValueError("prediction result contains duplicate JSON keys")
+            result[key] = item
+        return result
+
+    decoded: dict[str, object] = {}
+    try:
+        for name, raw in raw_by_name.items():
+            value = json.loads(
+                raw.decode("utf-8"),
+                object_pairs_hook=reject_duplicates,
+            )
+            if artifact_json_bytes(value) != raw:
+                raise ValueError("noncanonical JSON")
+            decoded[name] = value
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "prediction result JSON is not canonical"
+        ) from exc
+    inventory = _raw_inventory_from_payload(decoded["raw_inventory.json"])
+    metrics = _prediction_metrics_from_payload(decoded["metrics.json"])
+    result_payload = _mapping(
+        decoded["result.json"],
+        "prediction result",
+        frozenset(
+            {
+                "result_schema",
+                "reservation_sha256",
+                "opening_proof_sha256",
+                "raw_inventory_sha256",
+                "metrics_sha256",
+                "logical_row_count",
+                "result_sha256",
+            }
+        ),
+    )
+    try:
+        result = H6PredictionResultV3(**result_payload)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError("prediction result cannot be reopened") from exc
+    if (
+        (
+            expected_result_sha256 is not None
+            and result.result_sha256 != expected_result_sha256
+        )
+        or result.opening_proof_sha256 != inventory.opening_proof_sha256
+        or result.raw_inventory_sha256 != inventory.inventory_sha256
+        or result.metrics_sha256 != metrics.metrics_sha256
+        or metrics.raw_inventory_sha256 != inventory.inventory_sha256
+    ):
+        raise ArtifactPublicationError("prediction result authority drift")
+    return result, inventory, metrics
+
+
 __all__ = [
     "H6CheckpointCandidateV3",
     "H6CheckpointSelectionV3",
     "H6EndpointTuningSelectionV3",
+    "H6ExactA0CorpusTotalV3",
+    "H6PredictionMetricsV3",
+    "H6PredictionResultV3",
+    "H6RawEndpointInventoryV4",
     "H6TuningSelectionV3",
     "H6ValidationBundleV3",
     "H6ValidationRecordV3",
+    "H6WeightedA5CorpusTotalV3",
+    "H6_WEIGHTED_COMMON_STREAM_DOMAIN",
+    "H6_WEIGHTED_COMMON_STREAM_REGISTRY_SHA256",
+    "H6_WEIGHTED_COMMON_STREAM_ROOT_SEED",
     "bind_h6_checkpoint_selection_v3",
+    "h6_weighted_common_stream_sha256_v3",
+    "publish_h6_prediction_result_v3",
     "publish_h6_validation_bundle_v3",
+    "read_h6_prediction_result_v3",
     "read_h6_validation_bundle_v3",
     "select_h6_tuning_v3",
 ]

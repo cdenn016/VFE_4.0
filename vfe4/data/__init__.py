@@ -8,6 +8,7 @@ from .access import (
     open_test_for_scoring,
     open_test_for_scoring_with_receipt,
     reserve_and_issue_durable_test_opening_capability,
+    reserve_and_issue_durable_test_opening_capability_v3,
     validate_durable_test_opening_capability,
     validated_test_opening_identity,
 )
@@ -83,6 +84,7 @@ __all__ = [
     "publish_blinded_binary_directory",
     "quarter_pass_batches",
     "reserve_and_issue_durable_test_opening_capability",
+    "reserve_and_issue_durable_test_opening_capability_v3",
     "schedule_batches",
     "validate_durable_test_opening_capability",
     "validated_test_opening_identity",

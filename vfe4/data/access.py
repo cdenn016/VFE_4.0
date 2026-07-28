@@ -8,6 +8,7 @@ import os
 import stat
 import threading
 import unicodedata
+import uuid
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +30,87 @@ from .wikitext2 import AuthenticatedReopenedDataIdentity, BlindedCorpusStore
 
 class OpeningCapabilityError(RuntimeError):
     """The blinded-data readiness or one-shot opening contract failed."""
+
+
+H6_TEST_RESERVATION_DURABILITY = "process-crash-durable-no-power-loss-claim"
+H6_V3_RESERVATION_AUTHORITY_CHECKS = (
+    "authenticated_store",
+    "destination_absent",
+    "readiness_plan_cross_binding",
+    "experiment_identity",
+    "vocabulary_equality",
+    "complete_reservation_bytes",
+)
+
+
+def _exclusive_write_complete_file(path: Path, content: bytes) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=True) as handle:
+            descriptor = -1
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _install_staged_file_no_replace(source: Path, destination: Path) -> None:
+    """Atomically install one complete sibling file without replacement."""
+
+    if os.name == "nt":
+        # Windows rename is no-replace when the destination already exists.
+        os.rename(source, destination)
+        return
+    # Same-directory hard-link installation is atomic and fails with EEXIST.
+    os.link(source, destination)
+    source.unlink()
+
+
+def _fsync_parent_directory_best_effort(path: Path) -> None:
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
+def _install_complete_reservation_file_no_replace(
+    destination: Path,
+    canonical_bytes: bytes,
+) -> None:
+    """Stage complete bytes, then atomically expose the authoritative name."""
+
+    if type(destination) is not Path or type(canonical_bytes) is not bytes:
+        raise OpeningCapabilityError(
+            "reservation destination and canonical bytes are required"
+        )
+    temporary = destination.with_name(f".reservation-stage-{uuid.uuid4().hex}")
+    installed = False
+    try:
+        _exclusive_write_complete_file(temporary, canonical_bytes)
+        _install_staged_file_no_replace(temporary, destination)
+        installed = True
+        _fsync_parent_directory_best_effort(destination.parent)
+    except OSError as exc:
+        raise OpeningCapabilityError(
+            f"reservation atomic install failed: {exc}"
+        ) from exc
+    finally:
+        if not installed:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _revalidate_blinded_data_identity_for_readiness(
@@ -131,6 +213,7 @@ def _build_access_api():
         reservation_root_identity: tuple[int, int]
         reservation_file_identity: tuple[int, int]
         canonical_bytes: bytes
+        marker_bytes_sha256: str
         proof_identity_sha256: str
         readiness_sha256: str
         experiment_identity_sha256: str
@@ -138,6 +221,7 @@ def _build_access_api():
         sealed_test_sha256: str
         access_policy_sha256: str
         capability: object
+        is_v3_reservation: bool = False
         consumed: bool = False
 
     class DurableOpening:
@@ -538,9 +622,7 @@ def _build_access_api():
                 "v3 validation requires authenticated reopened-store provenance"
             )
         if type(readiness) is not H6PredictionV3ReadinessToken:
-            raise OpeningCapabilityError(
-                "exact H6 Prediction v3 readiness is required"
-            )
+            raise OpeningCapabilityError("exact H6 Prediction v3 readiness is required")
         if type(plan) is not H6ExperimentPlanV3:
             raise OpeningCapabilityError("exact H6 experiment plan v3 is required")
         try:
@@ -554,14 +636,11 @@ def _build_access_api():
         if (
             readiness.status != "PASS"
             or readiness.data_identity_sha256 != store.data_identity_sha256
-            or readiness.access_policy_sha256
-            != data_identity.access_policy_sha256
+            or readiness.access_policy_sha256 != data_identity.access_policy_sha256
             or plan.readiness_sha256 != readiness.readiness_sha256
-            or plan.experiment_config_sha256
-            != readiness.experiment_config_sha256
+            or plan.experiment_config_sha256 != readiness.experiment_config_sha256
             or plan.matching_set_sha256 != readiness.matching_set_sha256
-            or plan.matching_policy_sha256
-            != readiness.matching_policy_sha256
+            or plan.matching_policy_sha256 != readiness.matching_policy_sha256
             or plan.git_head != readiness.git_head
             or plan.dirty_digest != readiness.dirty_digest
             or plan.training_schedule.schedule_sha256
@@ -569,8 +648,7 @@ def _build_access_api():
             or plan.training_schedule.runtime_identity_sha256
             != readiness.runtime_identity_sha256
             or any(
-                attempt.attempt_spec.data_identity_sha256
-                != store.data_identity_sha256
+                attempt.attempt_spec.data_identity_sha256 != store.data_identity_sha256
                 for attempt in plan.attempts
             )
         ):
@@ -579,9 +657,7 @@ def _build_access_api():
             )
         windows = _read_split(store, state, "validation")
         vocabulary = ByteTokenizerV1().vocabulary_identity
-        if any(
-            config.vocabulary != vocabulary for config in plan.endpoint_configs
-        ):
+        if any(config.vocabulary != vocabulary for config in plan.endpoint_configs):
             raise OpeningCapabilityError(
                 "v3 plan vocabulary does not match the authenticated store"
             )
@@ -624,8 +700,7 @@ def _build_access_api():
             )
         if (
             authorized.plan_sha256 != plan.plan_sha256
-            or authorized.experiment_config_sha256
-            != plan.experiment_config_sha256
+            or authorized.experiment_config_sha256 != plan.experiment_config_sha256
             or authorized.readiness_sha256 != plan.readiness_sha256
             or authorized.matching_set_sha256 != plan.matching_set_sha256
             or authorized.runtime_identity_sha256
@@ -756,19 +831,6 @@ def _build_access_api():
             + proof_suffix
         )
 
-    def _fsync_directory(path: Path) -> None:
-        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-        try:
-            descriptor = os.open(path, flags)
-        except OSError:
-            return
-        try:
-            os.fsync(descriptor)
-        except OSError:
-            pass
-        finally:
-            os.close(descriptor)
-
     def _exclusive_reserve(
         reservation_path: Path,
         canonical_bytes: bytes,
@@ -778,19 +840,10 @@ def _build_access_api():
             reservation_path.parent,
             expected_identity=root_identity,
         )
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        flags |= getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(reservation_path, flags, 0o600)
-        try:
-            with os.fdopen(descriptor, "wb", closefd=True) as handle:
-                descriptor = -1
-                handle.write(canonical_bytes)
-                handle.flush()
-                os.fsync(handle.fileno())
-        finally:
-            if descriptor >= 0:
-                os.close(descriptor)
-        _fsync_directory(reservation_path.parent)
+        _install_complete_reservation_file_no_replace(
+            reservation_path,
+            canonical_bytes,
+        )
         _require_directory(
             reservation_path.parent,
             expected_identity=root_identity,
@@ -799,6 +852,55 @@ def _build_access_api():
         if reservation_path.stat().st_size != len(canonical_bytes):
             raise OpeningCapabilityError("opening reservation length changed")
         return file_identity
+
+    def _reserve_and_issue(
+        *,
+        store: BlindedCorpusStore,
+        state: StoreAccessState,
+        readiness_sha256: str,
+        experiment_identity: ExperimentIdentity,
+    ) -> DurableTestOpeningCapability:
+        with registry_lock:
+            reservation_path, root_identity = _reservation_path(store, state)
+            if state.opening is not None:
+                raise FileExistsError(
+                    errno.EEXIST,
+                    "opening reservation already exists",
+                    reservation_path,
+                )
+            canonical_bytes = _proof_bytes(
+                reservation_path,
+                readiness_sha256=readiness_sha256,
+                experiment_identity_sha256=(
+                    experiment_identity.experiment_identity_sha256
+                ),
+                data_identity_sha256=store.data_identity_sha256,
+                sealed_test_sha256=(store.sealed_test_handle.sealed_content_sha256),
+                access_policy_sha256=store.data_identity.access_policy_sha256,
+            )
+            file_identity = _exclusive_reserve(
+                reservation_path,
+                canonical_bytes,
+                root_identity,
+            )
+            proof_identity_sha256 = hashlib.sha256(canonical_bytes).hexdigest()
+            capability = DurableOpening(proof_identity_sha256, issuer_authority)
+            state.opening = RegisteredOpeningProof(
+                reservation_path,
+                root_identity,
+                file_identity,
+                bytes(canonical_bytes),
+                proof_identity_sha256,
+                proof_identity_sha256,
+                readiness_sha256,
+                experiment_identity.experiment_identity_sha256,
+                store.data_identity_sha256,
+                store.sealed_test_handle.sealed_content_sha256,
+                store.data_identity.access_policy_sha256,
+                capability,
+                False,
+            )
+            return capability
 
     def _issue(
         *,
@@ -824,46 +926,170 @@ def _build_access_api():
             raise OpeningCapabilityError(
                 "ExperimentIdentity does not match the store data identity"
             )
+        return _reserve_and_issue(
+            store=store,
+            state=state,
+            readiness_sha256=readiness.readiness_sha256,
+            experiment_identity=experiment_identity,
+        )
 
+    def _issue_v3(
+        *,
+        store: BlindedCorpusStore,
+        readiness: object,
+        plan: object,
+        experiment_identity: ExperimentIdentity,
+        reservation: object,
+    ) -> DurableTestOpeningCapability:
+        from vfe4.training.h6_test_transaction_v3 import H6TestReservationV3
+        from vfe4.training.h6_experiment_v3 import H6ExperimentPlanV3
+        from vfe4.types.h6_prediction_v3 import H6PredictionV3ReadinessToken
+
+        state = _state_for(store)
+        if (
+            state.marker_mode != "production"
+            or type(store.data_identity) is not AuthenticatedReopenedDataIdentity
+        ):
+            raise OpeningCapabilityError(
+                "v3 test opening requires authenticated reopened-store provenance"
+            )
+        if type(readiness) is not H6PredictionV3ReadinessToken:
+            raise OpeningCapabilityError("exact H6 Prediction v3 readiness is required")
+        if type(plan) is not H6ExperimentPlanV3:
+            raise OpeningCapabilityError("exact H6 experiment plan v3 is required")
+        if type(experiment_identity) is not ExperimentIdentity:
+            raise OpeningCapabilityError("exact ExperimentIdentity is required")
+        if type(reservation) is not H6TestReservationV3:
+            raise OpeningCapabilityError(
+                "exact complete H6 test reservation v3 is required"
+            )
+        try:
+            readiness.__post_init__()
+            plan.__post_init__()
+            experiment_identity.__post_init__()
+            reservation.__post_init__()
+        except ValueError as exc:
+            raise OpeningCapabilityError(
+                "v3 test-opening authority failed validation"
+            ) from exc
+        data_identity = store.data_identity
+        if (
+            readiness.status != "PASS"
+            or readiness.data_identity_sha256 != store.data_identity_sha256
+            or readiness.access_policy_sha256 != data_identity.access_policy_sha256
+            or plan.readiness_sha256 != readiness.readiness_sha256
+            or plan.experiment_config_sha256 != readiness.experiment_config_sha256
+            or plan.matching_set_sha256 != readiness.matching_set_sha256
+            or plan.matching_policy_sha256 != readiness.matching_policy_sha256
+            or plan.git_head != readiness.git_head
+            or plan.dirty_digest != readiness.dirty_digest
+            or plan.training_schedule.schedule_sha256
+            != readiness.training_schedule_sha256
+            or plan.training_schedule.runtime_identity_sha256
+            != readiness.runtime_identity_sha256
+            or any(
+                attempt.attempt_spec.data_identity_sha256 != store.data_identity_sha256
+                for attempt in plan.attempts
+            )
+            or experiment_identity.sealed_data_sha256 != store.data_identity_sha256
+            or experiment_identity.access_policy_sha256
+            != data_identity.access_policy_sha256
+            or reservation.experiment_config_sha256
+            != readiness.experiment_config_sha256
+            or reservation.readiness_sha256 != readiness.readiness_sha256
+            or reservation.plan_sha256 != plan.plan_sha256
+            or reservation.experiment_identity_sha256
+            != experiment_identity.experiment_identity_sha256
+            or reservation.data_identity_sha256 != store.data_identity_sha256
+            or reservation.sealed_test_sha256
+            != store.sealed_test_handle.sealed_content_sha256
+            or reservation.test_inventory_sha256
+            != store.sealed_test_handle.handle_sha256
+            or reservation.access_policy_sha256 != data_identity.access_policy_sha256
+        ):
+            raise OpeningCapabilityError(
+                "v3 test-opening store/readiness/plan authority drift"
+            )
+        vocabulary = ByteTokenizerV1().vocabulary_identity
+        if any(config.vocabulary != vocabulary for config in plan.endpoint_configs):
+            raise OpeningCapabilityError(
+                "v3 plan vocabulary does not match the authenticated store"
+            )
+        canonical_bytes = reservation.canonical_bytes()
+        marker_bytes_sha256 = hashlib.sha256(canonical_bytes).hexdigest()
         with registry_lock:
             reservation_path, root_identity = _reservation_path(store, state)
-            if state.opening is not None:
+            if state.opening is not None or os.path.lexists(reservation_path):
                 raise FileExistsError(
                     errno.EEXIST,
                     "opening reservation already exists",
                     reservation_path,
                 )
-            canonical_bytes = _proof_bytes(
-                reservation_path,
-                readiness_sha256=readiness.readiness_sha256,
-                experiment_identity_sha256=(
-                    experiment_identity.experiment_identity_sha256
-                ),
-                data_identity_sha256=store.data_identity_sha256,
-                sealed_test_sha256=(store.sealed_test_handle.sealed_content_sha256),
-                access_policy_sha256=store.data_identity.access_policy_sha256,
-            )
             file_identity = _exclusive_reserve(
                 reservation_path,
                 canonical_bytes,
                 root_identity,
             )
-            proof_identity_sha256 = hashlib.sha256(canonical_bytes).hexdigest()
-            capability = DurableOpening(proof_identity_sha256, issuer_authority)
+            # The complete authoritative reservation exists before a
+            # capability is registered or returned. A process crash in this
+            # narrow gap leaves a recoverable RESERVED record, not test access.
+            capability = DurableOpening(
+                reservation.opening_proof_sha256,
+                issuer_authority,
+            )
             state.opening = RegisteredOpeningProof(
                 reservation_path,
                 root_identity,
                 file_identity,
                 bytes(canonical_bytes),
-                proof_identity_sha256,
+                marker_bytes_sha256,
+                reservation.opening_proof_sha256,
                 readiness.readiness_sha256,
                 experiment_identity.experiment_identity_sha256,
                 store.data_identity_sha256,
                 store.sealed_test_handle.sealed_content_sha256,
                 store.data_identity.access_policy_sha256,
                 capability,
+                True,
             )
             return capability
+
+    def _v3_reservation_destination(store: BlindedCorpusStore) -> Path:
+        state = _state_for(store)
+        if (
+            state.marker_mode != "production"
+            or type(store.data_identity) is not AuthenticatedReopenedDataIdentity
+        ):
+            raise OpeningCapabilityError(
+                "v3 reservation destination requires authenticated reopened store"
+            )
+        with registry_lock:
+            reservation_path, _ = _reservation_path(store, state)
+            if state.opening is not None or os.path.lexists(reservation_path):
+                raise FileExistsError(
+                    errno.EEXIST,
+                    "opening reservation already exists",
+                    reservation_path,
+                )
+            return reservation_path
+
+    def _v3_registered_reservation_path(
+        store: BlindedCorpusStore,
+        opening: DurableTestOpeningCapability,
+    ) -> Path:
+        state = _state_for(store)
+        with registry_lock:
+            proof = state.opening
+            if (
+                type(proof) is not RegisteredOpeningProof
+                or not proof.is_v3_reservation
+                or type(opening) is not DurableOpening
+                or opening is not proof.capability
+            ):
+                raise OpeningCapabilityError(
+                    "exact registered v3 opening capability is required"
+                )
+            return proof.reservation_path
 
     def _read_registered_proof(proof: RegisteredOpeningProof) -> bytes:
         _require_directory(
@@ -874,7 +1100,7 @@ def _build_access_api():
             proof.reservation_path,
             expected_identity=proof.reservation_file_identity,
             expected_length=len(proof.canonical_bytes),
-            expected_sha256=proof.proof_identity_sha256,
+            expected_sha256=proof.marker_bytes_sha256,
         )
 
     def _validate(
@@ -900,19 +1126,41 @@ def _build_access_api():
                 != store.data_identity.access_policy_sha256
             ):
                 raise OpeningCapabilityError("registered opening identities changed")
-            reconstructed = _proof_bytes(
-                proof.reservation_path,
-                readiness_sha256=proof.readiness_sha256,
-                experiment_identity_sha256=proof.experiment_identity_sha256,
-                data_identity_sha256=proof.data_identity_sha256,
-                sealed_test_sha256=proof.sealed_test_sha256,
-                access_policy_sha256=proof.access_policy_sha256,
-            )
             observed = _read_registered_proof(proof)
+            if proof.is_v3_reservation:
+                from vfe4.training.h6_test_transaction_v3 import (
+                    H6TestReservationV3,
+                )
+
+                try:
+                    reservation = H6TestReservationV3.from_canonical_bytes(observed)
+                except (TypeError, ValueError) as exc:
+                    raise OpeningCapabilityError(
+                        "authoritative v3 reservation cannot be reopened"
+                    ) from exc
+                proof_is_valid = (
+                    reservation.opening_proof_sha256 == proof.proof_identity_sha256
+                    and reservation.readiness_sha256 == proof.readiness_sha256
+                    and reservation.experiment_identity_sha256
+                    == proof.experiment_identity_sha256
+                    and reservation.data_identity_sha256 == proof.data_identity_sha256
+                    and reservation.sealed_test_sha256 == proof.sealed_test_sha256
+                    and reservation.access_policy_sha256 == proof.access_policy_sha256
+                )
+            else:
+                reconstructed = _proof_bytes(
+                    proof.reservation_path,
+                    readiness_sha256=proof.readiness_sha256,
+                    experiment_identity_sha256=(proof.experiment_identity_sha256),
+                    data_identity_sha256=proof.data_identity_sha256,
+                    sealed_test_sha256=proof.sealed_test_sha256,
+                    access_policy_sha256=proof.access_policy_sha256,
+                )
+                proof_is_valid = reconstructed == proof.canonical_bytes
             if (
-                reconstructed != proof.canonical_bytes
+                not proof_is_valid
                 or observed != proof.canonical_bytes
-                or hashlib.sha256(observed).hexdigest() != proof.proof_identity_sha256
+                or hashlib.sha256(observed).hexdigest() != proof.marker_bytes_sha256
             ):
                 raise OpeningCapabilityError("durable opening proof changed")
             proof.consumed = True
@@ -954,6 +1202,9 @@ def _build_access_api():
         _issue_validation_v3,
         _consume_validation_v3,
         _issue,
+        _issue_v3,
+        _v3_reservation_destination,
+        _v3_registered_reservation_path,
         _validate,
         _open_test,
         _open_test_with_receipt,
@@ -970,6 +1221,9 @@ def _build_access_api():
     issue_h6_validation_capability_v3,
     _consume_h6_validation_capability_v3,
     reserve_and_issue_durable_test_opening_capability,
+    reserve_and_issue_durable_test_opening_capability_v3,
+    h6_test_reservation_destination_v3,
+    registered_h6_test_reservation_path_v3,
     validate_durable_test_opening_capability,
     open_test_for_scoring,
     open_test_for_scoring_with_receipt,
@@ -979,6 +1233,8 @@ del _build_access_api
 
 
 __all__ = [
+    "H6_TEST_RESERVATION_DURABILITY",
+    "H6_V3_RESERVATION_AUTHORITY_CHECKS",
     "MaterializedPredictionData",
     "OpeningCapabilityError",
     "materialize_prediction_train",
@@ -986,7 +1242,10 @@ __all__ = [
     "issue_h6_validation_capability_v3",
     "open_test_for_scoring",
     "open_test_for_scoring_with_receipt",
+    "h6_test_reservation_destination_v3",
+    "registered_h6_test_reservation_path_v3",
     "reserve_and_issue_durable_test_opening_capability",
+    "reserve_and_issue_durable_test_opening_capability_v3",
     "validate_durable_test_opening_capability",
     "validated_test_opening_identity",
 ]

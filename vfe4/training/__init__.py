@@ -89,8 +89,13 @@ _READINESS_EXPORTS = frozenset(
         "validate_h6_prediction_readiness",
     }
 )
-_EXPERIMENT_EXPORTS = frozenset(
-    {"H6ExperimentRunResult", "run_h6_experiment"}
+_EXPERIMENT_EXPORTS = frozenset({"H6ExperimentRunResult", "run_h6_experiment"})
+_TEST_TRANSACTION_V3_EXPORTS = frozenset(
+    {
+        "execute_h6_test_transaction_v3",
+        "finalize_h6_test_transaction_v3",
+        "recover_h6_test_transaction_v3",
+    }
 )
 
 
@@ -105,7 +110,12 @@ def __getattr__(name: str) -> object:
         from . import h6_experiment
 
         return getattr(h6_experiment, name)
+    if name in _TEST_TRANSACTION_V3_EXPORTS:
+        from . import h6_test_transaction_v3
+
+        return getattr(h6_test_transaction_v3, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "A5_REFERENCE_PARAMETER_COUNT",
@@ -167,6 +177,8 @@ __all__ = [
     "fixed_source_prior_parameter_count",
     "h6_a0_parameter_count",
     "endpoint_formula_profile",
+    "execute_h6_test_transaction_v3",
+    "finalize_h6_test_transaction_v3",
     "literal_arm_semantic_payload",
     "load_h6_checkpoint",
     "mean_pooled_no_latent_parameter_count",
@@ -175,6 +187,7 @@ __all__ = [
     "parameter_count_within_tolerance",
     "plan_h6_attempt",
     "recognition_parameter_count",
+    "recover_h6_test_transaction_v3",
     "save_h6_checkpoint",
     "select_outcome_blind_allocation",
     "select_parent_specific_primary_allocation",
