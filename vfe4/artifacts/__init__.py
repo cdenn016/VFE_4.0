@@ -24,6 +24,11 @@ from .manifest import (
     IntegrityValidationError,
     validate_closed_manifest,
 )
+from .paths import (
+    OwnedArtifactPathError,
+    owned_payload_path,
+    regular_nonlink_payload,
+)
 from .provenance import (
     build_environment,
     build_provenance,
@@ -181,5 +186,8 @@ __all__ = [
     "source_candidate_sha256",
     "replace_canonical_json",
     "IntegrityValidationError",
+    "OwnedArtifactPathError",
+    "owned_payload_path",
+    "regular_nonlink_payload",
     "validate_closed_manifest",
 ]

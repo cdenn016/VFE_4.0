@@ -25,7 +25,17 @@ from vfe4.types.h6 import (
 )
 
 from .byte_tokenizer import ByteTokenizerV1
-from .windows import CausalWindows, build_causal_windows, frozen_batch_schedule
+from .tokenizer import (
+    SyntheticFixtureSplitCapability,
+    SyntheticFixtureTokenCacheRecord,
+    SyntheticFixtureTokenizerSpec,
+)
+from .windows import (
+    CausalWindows,
+    CausalWindowSet,
+    build_causal_windows,
+    frozen_batch_schedule,
+)
 from .wikitext2 import AuthenticatedReopenedDataIdentity, BlindedCorpusStore
 
 
@@ -1410,13 +1420,155 @@ def _build_access_api():
 del _build_access_api
 
 
+_WT103_TRAIN_CAPABILITY_DOMAIN = (
+    b"VFE4-WT103-SYNTHETIC-TRAIN-DATA-CAPABILITY-V1\x00"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class WT103TrainDataCapability:
+    """Readiness-ineligible authority for synthetic train/validation caches."""
+
+    schema_version: str
+    authority: str
+    tokenizer_spec_sha256: str
+    train_cache_record_sha256: str
+    validation_cache_record_sha256: str
+    capability_sha256: str
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version
+            != "wt103-synthetic-train-data-capability-v1"
+            or self.authority != "nonproduction_synthetic_fixture"
+        ):
+            raise ValueError("WT103 train capability scope is invalid")
+        for name in (
+            "tokenizer_spec_sha256",
+            "train_cache_record_sha256",
+            "validation_cache_record_sha256",
+            "capability_sha256",
+        ):
+            value = getattr(self, name)
+            if (
+                type(value) is not str
+                or len(value) != 64
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in value
+                )
+            ):
+                raise ValueError(f"{name} must be a lowercase SHA-256")
+        expected = hashlib.sha256(
+            _WT103_TRAIN_CAPABILITY_DOMAIN
+            + bytes.fromhex(self.tokenizer_spec_sha256)
+            + bytes.fromhex(self.train_cache_record_sha256)
+            + bytes.fromhex(self.validation_cache_record_sha256)
+        ).hexdigest()
+        if self.capability_sha256 != expected:
+            raise ValueError("capability_sha256 does not match WT103 authority")
+
+
+def issue_synthetic_wt103_train_capability(
+    *,
+    split_capability: SyntheticFixtureSplitCapability,
+    tokenizer_spec: SyntheticFixtureTokenizerSpec,
+    train_cache: SyntheticFixtureTokenCacheRecord,
+    validation_cache: SyntheticFixtureTokenCacheRecord,
+) -> WT103TrainDataCapability:
+    if type(split_capability) is not SyntheticFixtureSplitCapability:
+        raise ValueError("split_capability must be exact")
+    split_capability.__post_init__()
+    if type(tokenizer_spec) is not SyntheticFixtureTokenizerSpec:
+        raise ValueError("tokenizer_spec must be exact")
+    tokenizer_spec.__post_init__()
+    if (
+        type(train_cache) is not SyntheticFixtureTokenCacheRecord
+        or train_cache.split != "train"
+        or type(validation_cache) is not SyntheticFixtureTokenCacheRecord
+        or validation_cache.split != "validation"
+    ):
+        raise ValueError("train and validation cache records are required")
+    train_cache.__post_init__()
+    validation_cache.__post_init__()
+    if (
+        train_cache.tokenizer != tokenizer_spec
+        or validation_cache.tokenizer != tokenizer_spec
+        or split_capability.allowed_splits != ("train", "validation")
+        or dict(split_capability.sealed_cache_identity_sha256)
+        != {
+            "train": train_cache.record_sha256,
+            "validation": validation_cache.record_sha256,
+        }
+    ):
+        raise ValueError("split authority does not bind both cache records")
+    digest = hashlib.sha256(
+        _WT103_TRAIN_CAPABILITY_DOMAIN
+        + bytes.fromhex(tokenizer_spec.spec_sha256)
+        + bytes.fromhex(train_cache.record_sha256)
+        + bytes.fromhex(validation_cache.record_sha256)
+    ).hexdigest()
+    return WT103TrainDataCapability(
+        schema_version="wt103-synthetic-train-data-capability-v1",
+        authority="nonproduction_synthetic_fixture",
+        tokenizer_spec_sha256=tokenizer_spec.spec_sha256,
+        train_cache_record_sha256=train_cache.record_sha256,
+        validation_cache_record_sha256=validation_cache.record_sha256,
+        capability_sha256=digest,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class WT103TrainingData:
+    capability: WT103TrainDataCapability
+    train: CausalWindowSet
+    validation: CausalWindowSet
+
+    def __post_init__(self) -> None:
+        if type(self.capability) is not WT103TrainDataCapability:
+            raise ValueError("capability must be exact")
+        self.capability.__post_init__()
+        if (
+            type(self.train) is not CausalWindowSet
+            or self.train.split != "train"
+            or type(self.validation) is not CausalWindowSet
+            or self.validation.split != "validation"
+            or self.capability.train_cache_record_sha256
+            != self.train.cache_record.record_sha256
+            or self.capability.validation_cache_record_sha256
+            != self.validation.cache_record.record_sha256
+        ):
+            raise ValueError("WT103 training data does not match its authority")
+        self.train.__post_init__()
+        self.validation.__post_init__()
+
+
+def materialize_train_data(
+    *,
+    capability: WT103TrainDataCapability,
+    train_windows: CausalWindowSet,
+    validation_windows: CausalWindowSet,
+) -> WT103TrainingData:
+    """Bind validated train/validation windows without held-out bytes."""
+
+    return WT103TrainingData(
+        capability=capability,
+        train=train_windows,
+        validation=validation_windows,
+    )
+
+
 __all__ = [
     "H6_TEST_RESERVATION_DURABILITY",
     "H6_V3_RESERVATION_AUTHORITY_CHECKS",
     "H6TrainingDataV3",
     "MaterializedPredictionData",
     "OpeningCapabilityError",
+    "WT103TrainDataCapability",
+    "WT103TrainingData",
     "issue_h6_train_capability_v3",
+    "issue_synthetic_wt103_train_capability",
+    "materialize_train_data",
     "materialize_prediction_train",
     "materialize_validation_safety_fixture",
     "open_train_for_training_v3",

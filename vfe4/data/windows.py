@@ -4,19 +4,31 @@ from __future__ import annotations
 
 import hashlib
 import math
+import stat
 from dataclasses import dataclass, field
-from typing import Final, Iterable, Literal
+from pathlib import Path
+from typing import Final, Iterable, Iterator, Literal
 
+import numpy as np
 import torch
 
+from vfe4.artifacts.paths import owned_payload_path, regular_nonlink_payload
 from vfe4.types.h6 import (
     EncodedTokenStorageIdentity,
     FrozenBatchSchedule,
     ValidationSafetyFixture,
     VocabularyIdentity,
 )
+from vfe4.types.training import DataCursor, PermutationManifest, WindowManifest
 
 from .byte_tokenizer import BOS_ID, IGNORE_TARGET_ID, VOCABULARY_SIZE, ByteTokenizerV1
+from .tokenizer import (
+    FixtureDurabilityBackend,
+    SyntheticFixtureSplitCapability,
+    SyntheticFixtureTokenCacheRecord,
+    SyntheticFixtureTokenizerSpec,
+    open_fixture_token_cache,
+)
 
 
 SEQUENCE_LENGTH: Final = 32
@@ -395,18 +407,714 @@ def evaluation_batches(window_count: int) -> tuple[tuple[int, ...], ...]:
     )
 
 
+# WikiText-103 uses a parallel, explicitly prefixed contract.  The H6 constants
+# and types above remain unchanged.
+WT103_SEQUENCE_LENGTH: Final = 128
+WT103_WINDOW_STRIDE: Final = 128
+WT103_BATCH_SIZE: Final = 128
+WT103_EOT_TOKEN_ID: Final = 50_256
+WT103_IGNORE_TARGET_ID: Final = -100
+WT103_DATA_ORDER_SEED: Final = 2026072199
+
+_WT103_WINDOW_ROWS_DOMAIN = b"VFE4-WT103-WINDOW-ROWS-V1\x00"
+_WT103_SCHEDULE_DOMAIN = b"VFE4-WT103-WINDOW-SCHEDULE-V1\x00"
+
+
+@dataclass(frozen=True, slots=True)
+class WT103WindowRow:
+    """One exactly-once block of adjacent token transitions."""
+
+    window_id: int
+    start_transition: int
+    counted_targets: int
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.window_id) is not int
+            or self.window_id < 0
+            or type(self.start_transition) is not int
+            or self.start_transition != self.window_id * WT103_WINDOW_STRIDE
+            or type(self.counted_targets) is not int
+            or not 1 <= self.counted_targets <= WT103_SEQUENCE_LENGTH
+        ):
+            raise ValueError("WT103 window row is not canonical")
+
+    def canonical_bytes(self) -> bytes:
+        self.__post_init__()
+        return (
+            self.window_id.to_bytes(8, "little")
+            + self.start_transition.to_bytes(8, "little")
+            + self.counted_targets.to_bytes(4, "little")
+        )
+
+
+def enumerate_wt103_window_rows(
+    token_count: int,
+) -> tuple[WT103WindowRow, ...]:
+    """Enumerate every transition ``token[t] -> token[t+1]`` once."""
+
+    if type(token_count) is not int or token_count < 2:
+        raise ValueError("token_count must be an exact integer of at least two")
+    transition_count = token_count - 1
+    rows = tuple(
+        WT103WindowRow(
+            window_id=window_id,
+            start_transition=start,
+            counted_targets=min(
+                WT103_SEQUENCE_LENGTH, transition_count - start
+            ),
+        )
+        for window_id, start in enumerate(
+            range(0, transition_count, WT103_WINDOW_STRIDE)
+        )
+    )
+    if (
+        sum(row.counted_targets for row in rows) != transition_count
+        or tuple(row.window_id for row in rows) != tuple(range(len(rows)))
+    ):
+        raise RuntimeError("WT103 window enumeration lost a transition")
+    return rows
+
+
+def _regular_payload(path: Path, *, size: int, sha256: str) -> bytes:
+    try:
+        status = path.lstat()
+    except OSError as exc:
+        raise ValueError(f"window payload is unavailable: {exc}") from exc
+    reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if (
+        not stat.S_ISREG(status.st_mode)
+        or stat.S_ISLNK(status.st_mode)
+        or bool(getattr(status, "st_file_attributes", 0) & reparse)
+    ):
+        raise ValueError("window payload must be a regular nonlink file")
+    if status.st_size != size:
+        raise ValueError("window payload size does not match")
+    try:
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise ValueError(f"window payload cannot be reopened: {exc}") from exc
+    if hashlib.sha256(payload).hexdigest() != sha256:
+        raise ValueError("window payload hash does not match")
+    return payload
+
+
+def _publish_window_payload(
+    *,
+    backend: FixtureDurabilityBackend,
+    path: Path,
+    payload: bytes,
+) -> None:
+    if not callable(getattr(backend, "publish_bytes", None)):
+        raise ValueError("durability backend must expose publish_bytes")
+    try:
+        backend.publish_bytes(path, payload)
+    except Exception as exc:
+        raise ValueError(
+            f"durable window publication failed: {exc}"
+        ) from exc
+    _regular_payload(
+        path,
+        size=len(payload),
+        sha256=hashlib.sha256(payload).hexdigest(),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CausalWindow:
+    window_id: int
+    start_transition: int
+    inputs: torch.Tensor = field(repr=False, compare=False)
+    targets: torch.Tensor = field(repr=False, compare=False)
+    attention_mask: torch.Tensor = field(repr=False, compare=False)
+    counted_targets: int
+
+    def __post_init__(self) -> None:
+        if type(self.window_id) is not int or self.window_id < 0:
+            raise ValueError("window_id must be a nonnegative integer")
+        if (
+            type(self.start_transition) is not int
+            or self.start_transition
+            != self.window_id * WT103_WINDOW_STRIDE
+        ):
+            raise ValueError("start_transition does not match window_id")
+        if (
+            type(self.counted_targets) is not int
+            or not 1 <= self.counted_targets <= WT103_SEQUENCE_LENGTH
+        ):
+            raise ValueError("counted_targets is outside 1..128")
+        for tensor, dtype, name in (
+            (self.inputs, torch.int64, "inputs"),
+            (self.targets, torch.int64, "targets"),
+            (self.attention_mask, torch.bool, "attention_mask"),
+        ):
+            if (
+                type(tensor) is not torch.Tensor
+                or tensor.device.type != "cpu"
+                or tensor.dtype is not dtype
+                or tuple(tensor.shape) != (WT103_SEQUENCE_LENGTH,)
+                or not tensor.is_contiguous()
+            ):
+                raise ValueError(f"{name} must be contiguous CPU length 128")
+        real = self.counted_targets
+        if not bool(torch.all(self.attention_mask[:real])):
+            raise ValueError("real input positions must be attended")
+        if bool(torch.any(self.attention_mask[real:])):
+            raise ValueError("padded input positions must be masked")
+        if not bool(torch.all(self.inputs[real:] == WT103_EOT_TOKEN_ID)):
+            raise ValueError("padded inputs must use the GPT-2 EOT token")
+        if not bool(
+            torch.all(self.targets[real:] == WT103_IGNORE_TARGET_ID)
+        ):
+            raise ValueError("padded targets must use -100")
+
+
+@dataclass(frozen=True, slots=True)
+class CausalWindowSet:
+    """Manifest-bound view over one memory-mapped int32 split."""
+
+    split: Literal["train", "validation", "test"]
+    cache_record: SyntheticFixtureTokenCacheRecord
+    tokenizer_spec: SyntheticFixtureTokenizerSpec
+    manifest: WindowManifest
+    rows: tuple[WT103WindowRow, ...]
+    row_payload_relative_path: str
+    token_payload_path: Path
+    _tokens: np.memmap = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self.split not in ("train", "validation", "test"):
+            raise ValueError("WT103 window split is invalid")
+        if type(self.cache_record) is not SyntheticFixtureTokenCacheRecord:
+            raise ValueError("cache_record must be the exact synthetic record")
+        self.cache_record.__post_init__()
+        if self.cache_record.split != self.split:
+            raise ValueError("cache split does not match the window set")
+        if type(self.tokenizer_spec) is not SyntheticFixtureTokenizerSpec:
+            raise ValueError("tokenizer_spec must be the exact synthetic spec")
+        self.tokenizer_spec.__post_init__()
+        if self.cache_record.tokenizer != self.tokenizer_spec:
+            raise ValueError("window cache does not bind the tokenizer spec")
+        if type(self.manifest) is not WindowManifest:
+            raise ValueError("manifest must be the exact WindowManifest")
+        self.manifest.__post_init__()
+        if (
+            self.manifest.split != self.split
+            or self.manifest.token_payload_sha256
+            != self.cache_record.payload_sha256
+            or self.manifest.window_count != len(self.rows)
+            or self.manifest.counted_targets
+            != self.cache_record.token_count - 1
+            or tuple(row.window_id for row in self.rows)
+            != tuple(range(len(self.rows)))
+        ):
+            raise ValueError("window manifest does not bind the complete rows")
+        if (
+            not isinstance(self.token_payload_path, Path)
+            or type(self._tokens) is not np.memmap
+            or self._tokens.dtype != np.dtype("<i4")
+            or tuple(self._tokens.shape)
+            != (self.cache_record.token_count,)
+        ):
+            raise ValueError("window token source must be an exact int32 memmap")
+
+    def window(self, window_id: int) -> CausalWindow:
+        self.__post_init__()
+        if type(window_id) is not int or not 0 <= window_id < len(self.rows):
+            raise IndexError("WT103 window_id is out of range")
+        row = self.rows[window_id]
+        start = row.start_transition
+        real = row.counted_targets
+        input_values = np.asarray(
+            self._tokens[start : start + real], dtype=np.int64
+        ).copy()
+        target_values = np.asarray(
+            self._tokens[start + 1 : start + 1 + real],
+            dtype=np.int64,
+        ).copy()
+        inputs = torch.full(
+            (WT103_SEQUENCE_LENGTH,),
+            WT103_EOT_TOKEN_ID,
+            dtype=torch.int64,
+            device="cpu",
+        )
+        targets = torch.full(
+            (WT103_SEQUENCE_LENGTH,),
+            WT103_IGNORE_TARGET_ID,
+            dtype=torch.int64,
+            device="cpu",
+        )
+        attention_mask = torch.zeros(
+            (WT103_SEQUENCE_LENGTH,), dtype=torch.bool, device="cpu"
+        )
+        inputs[:real] = torch.from_numpy(input_values)
+        targets[:real] = torch.from_numpy(target_values)
+        attention_mask[:real] = True
+        return CausalWindow(
+            window_id=window_id,
+            start_transition=start,
+            inputs=inputs,
+            targets=targets,
+            attention_mask=attention_mask,
+            counted_targets=real,
+        )
+
+
+def materialize_causal_window_set(
+    *,
+    cache_record: SyntheticFixtureTokenCacheRecord,
+    tokenizer_spec: SyntheticFixtureTokenizerSpec,
+    cache_root: Path,
+    split_capability: SyntheticFixtureSplitCapability,
+    artifact_root: Path,
+    durability_backend: FixtureDurabilityBackend,
+) -> CausalWindowSet:
+    """Close row bytes, then expose an on-demand memory-mapped window view."""
+
+    if type(cache_record) is not SyntheticFixtureTokenCacheRecord:
+        raise ValueError("cache_record must be an exact synthetic cache record")
+    cache_record.__post_init__()
+    # This validates the complete payload and capability before mapping it.
+    open_fixture_token_cache(
+        identity=cache_record,
+        spec=tokenizer_spec,
+        cache_root=cache_root,
+        capability=split_capability,
+    )
+    rows = enumerate_wt103_window_rows(cache_record.token_count)
+    row_payload = _WT103_WINDOW_ROWS_DOMAIN + b"".join(
+        row.canonical_bytes() for row in rows
+    )
+    row_payload_sha256 = hashlib.sha256(row_payload).hexdigest()
+    row_relative = (
+        f"window-manifests/{cache_record.split}/"
+        f"{row_payload_sha256}.rows"
+    )
+    row_path = owned_payload_path(
+        root=artifact_root,
+        relative_path=row_relative,
+        prepare_parents=True,
+        forbidden_component_substrings=("v3_transformer",),
+    )
+    _publish_window_payload(
+        backend=durability_backend,
+        path=row_path,
+        payload=row_payload,
+    )
+    manifest = WindowManifest.create(
+        split=cache_record.split,
+        token_payload_sha256=cache_record.payload_sha256,
+        window_count=len(rows),
+        counted_targets=cache_record.token_count - 1,
+        payload_sha256=row_payload_sha256,
+    )
+    token_path = owned_payload_path(
+        root=cache_root,
+        relative_path=cache_record.cache_relative_path,
+        prepare_parents=False,
+        forbidden_component_substrings=("v3_transformer",),
+    )
+    regular_nonlink_payload(
+        token_path,
+        expected_size=cache_record.payload_size_bytes,
+    )
+    tokens = np.memmap(
+        token_path,
+        mode="r",
+        dtype=np.dtype("<i4"),
+        shape=(cache_record.token_count,),
+    )
+    return CausalWindowSet(
+        split=cache_record.split,
+        cache_record=cache_record,
+        tokenizer_spec=tokenizer_spec,
+        manifest=manifest,
+        rows=rows,
+        row_payload_relative_path=row_relative,
+        token_payload_path=token_path,
+        _tokens=tokens,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class WindowSchedule:
+    schema_version: str
+    split: Literal["train", "validation", "test"]
+    pass_index: int
+    window_manifest_sha256: str
+    permutation_manifest: PermutationManifest | None
+    window_ids: tuple[int, ...]
+    batch_size: int
+    schedule_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != "wt103-window-schedule-v1":
+            raise ValueError("unsupported WT103 schedule schema")
+        if self.split not in ("train", "validation", "test"):
+            raise ValueError("WT103 schedule split is invalid")
+        if type(self.pass_index) is not int or self.pass_index < 0:
+            raise ValueError("schedule pass_index must be nonnegative")
+        if (
+            type(self.window_manifest_sha256) is not str
+            or len(self.window_manifest_sha256) != 64
+        ):
+            raise ValueError("window_manifest_sha256 is invalid")
+        if (
+            type(self.window_ids) is not tuple
+            or not self.window_ids
+            or any(type(item) is not int or item < 0 for item in self.window_ids)
+            or sorted(self.window_ids) != list(range(len(self.window_ids)))
+        ):
+            raise ValueError(
+                "schedule window IDs must be one complete unique inventory"
+            )
+        if type(self.batch_size) is not int or self.batch_size <= 0:
+            raise ValueError("schedule batch_size must be positive")
+        if self.split == "train":
+            if (
+                type(self.permutation_manifest) is not PermutationManifest
+                or self.permutation_manifest.pass_index != self.pass_index
+                or self.permutation_manifest.window_manifest_sha256
+                != self.window_manifest_sha256
+            ):
+                raise ValueError("train schedule lacks its exact permutation")
+            self.permutation_manifest.__post_init__()
+        elif self.permutation_manifest is not None:
+            raise ValueError("evaluation schedules cannot carry a permutation")
+        expected = _schedule_sha256(
+            split=self.split,
+            pass_index=self.pass_index,
+            window_manifest_sha256=self.window_manifest_sha256,
+            permutation_manifest=self.permutation_manifest,
+            window_ids=self.window_ids,
+            batch_size=self.batch_size,
+        )
+        if self.schedule_sha256 != expected:
+            raise ValueError("schedule_sha256 does not match schedule")
+
+
+def _schedule_sha256(
+    *,
+    split: str,
+    pass_index: int,
+    window_manifest_sha256: str,
+    permutation_manifest: PermutationManifest | None,
+    window_ids: tuple[int, ...],
+    batch_size: int,
+) -> str:
+    split_bytes = split.encode("ascii")
+    permutation_sha = (
+        b"\x00" * 32
+        if permutation_manifest is None
+        else bytes.fromhex(permutation_manifest.manifest_sha256)
+    )
+    return hashlib.sha256(
+        _WT103_SCHEDULE_DOMAIN
+        + len(split_bytes).to_bytes(1, "little")
+        + split_bytes
+        + pass_index.to_bytes(8, "little")
+        + bytes.fromhex(window_manifest_sha256)
+        + permutation_sha
+        + batch_size.to_bytes(8, "little")
+        + len(window_ids).to_bytes(8, "little")
+        + b"".join(
+            window_id.to_bytes(8, "little") for window_id in window_ids
+        )
+    ).hexdigest()
+
+
+def build_train_schedule(
+    *,
+    windows: CausalWindowSet,
+    pass_index: Literal[0, 1],
+    artifact_root: Path,
+    durability_backend: FixtureDurabilityBackend,
+    batch_size: int = WT103_BATCH_SIZE,
+) -> WindowSchedule:
+    if type(windows) is not CausalWindowSet or windows.split != "train":
+        raise ValueError("train schedule requires an exact train window set")
+    windows.__post_init__()
+    if type(pass_index) is not int or pass_index not in (0, 1):
+        raise ValueError("train pass_index must be 0 or 1")
+    if type(batch_size) is not int or batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    seed_sequence = np.random.SeedSequence(
+        (WT103_DATA_ORDER_SEED, pass_index)
+    )
+    generator = np.random.Generator(np.random.PCG64(seed_sequence))
+    permutation = generator.permutation(
+        windows.manifest.window_count
+    ).astype("<u8", copy=False)
+    window_ids = tuple(int(item) for item in permutation.tolist())
+    payload = permutation.tobytes(order="C")
+    payload_sha256 = hashlib.sha256(payload).hexdigest()
+    manifest = PermutationManifest.create(
+        pass_index=pass_index,
+        numpy_version=np.__version__,
+        window_manifest_sha256=windows.manifest.manifest_sha256,
+        payload_sha256=payload_sha256,
+    )
+    relative = (
+        f"permutations/pass-{pass_index}/{payload_sha256}.u64le"
+    )
+    permutation_path = owned_payload_path(
+        root=artifact_root,
+        relative_path=relative,
+        prepare_parents=True,
+        forbidden_component_substrings=("v3_transformer",),
+    )
+    _publish_window_payload(
+        backend=durability_backend,
+        path=permutation_path,
+        payload=payload,
+    )
+    return WindowSchedule(
+        schema_version="wt103-window-schedule-v1",
+        split="train",
+        pass_index=pass_index,
+        window_manifest_sha256=windows.manifest.manifest_sha256,
+        permutation_manifest=manifest,
+        window_ids=window_ids,
+        batch_size=batch_size,
+        schedule_sha256=_schedule_sha256(
+            split="train",
+            pass_index=pass_index,
+            window_manifest_sha256=windows.manifest.manifest_sha256,
+            permutation_manifest=manifest,
+            window_ids=window_ids,
+            batch_size=batch_size,
+        ),
+    )
+
+
+def build_evaluation_schedule(windows: CausalWindowSet) -> WindowSchedule:
+    if (
+        type(windows) is not CausalWindowSet
+        or windows.split not in ("validation", "test")
+    ):
+        raise ValueError(
+            "evaluation schedule requires validation or test windows"
+        )
+    windows.__post_init__()
+    window_ids = tuple(range(windows.manifest.window_count))
+    return WindowSchedule(
+        schema_version="wt103-window-schedule-v1",
+        split=windows.split,
+        pass_index=0,
+        window_manifest_sha256=windows.manifest.manifest_sha256,
+        permutation_manifest=None,
+        window_ids=window_ids,
+        batch_size=WT103_BATCH_SIZE,
+        schedule_sha256=_schedule_sha256(
+            split=windows.split,
+            pass_index=0,
+            window_manifest_sha256=windows.manifest.manifest_sha256,
+            permutation_manifest=None,
+            window_ids=window_ids,
+            batch_size=WT103_BATCH_SIZE,
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CausalBatch:
+    window_ids: tuple[int, ...]
+    inputs: torch.Tensor = field(repr=False, compare=False)
+    targets: torch.Tensor = field(repr=False, compare=False)
+    attention_mask: torch.Tensor = field(repr=False, compare=False)
+    counted_targets: int
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.window_ids) is not tuple
+            or not self.window_ids
+            or any(type(item) is not int or item < 0 for item in self.window_ids)
+        ):
+            raise ValueError("batch window_ids are invalid")
+        batch_size = len(self.window_ids)
+        for tensor, dtype, name in (
+            (self.inputs, torch.int64, "inputs"),
+            (self.targets, torch.int64, "targets"),
+            (self.attention_mask, torch.bool, "attention_mask"),
+        ):
+            if (
+                type(tensor) is not torch.Tensor
+                or tensor.dtype is not dtype
+                or tensor.device.type != "cpu"
+                or tuple(tensor.shape)
+                != (batch_size, WT103_SEQUENCE_LENGTH)
+                or not tensor.is_contiguous()
+            ):
+                raise ValueError(f"batch {name} has an invalid representation")
+        if (
+            type(self.counted_targets) is not int
+            or self.counted_targets <= 0
+            or self.counted_targets
+            != int(torch.sum(self.targets != WT103_IGNORE_TARGET_ID).item())
+        ):
+            raise ValueError("batch counted_targets is not exact")
+
+
+def _batch_ids(
+    schedule: WindowSchedule, *, batch_size: int
+) -> tuple[tuple[int, ...], ...]:
+    if batch_size != schedule.batch_size:
+        raise ValueError("batch_size differs from the frozen schedule")
+    return tuple(
+        schedule.window_ids[offset : offset + batch_size]
+        for offset in range(0, len(schedule.window_ids), batch_size)
+    )
+
+
+def _cursor_binding_sha256(schedule: WindowSchedule) -> str:
+    if schedule.permutation_manifest is None:
+        return schedule.schedule_sha256
+    return schedule.permutation_manifest.manifest_sha256
+
+
+def cursor_after_batches(
+    *,
+    windows: CausalWindowSet,
+    schedule: WindowSchedule,
+    completed_batch_count: int,
+    batch_size: int = WT103_BATCH_SIZE,
+) -> DataCursor:
+    windows.__post_init__()
+    schedule.__post_init__()
+    if (
+        schedule.window_manifest_sha256
+        != windows.manifest.manifest_sha256
+        or schedule.split != windows.split
+    ):
+        raise ValueError("schedule does not bind the window set")
+    batches = _batch_ids(schedule, batch_size=batch_size)
+    if (
+        type(completed_batch_count) is not int
+        or not 0 <= completed_batch_count <= len(batches)
+    ):
+        raise ValueError("completed_batch_count is outside the schedule")
+    consumed_ids = tuple(
+        window_id
+        for batch in batches[:completed_batch_count]
+        for window_id in batch
+    )
+    counted_targets = sum(
+        windows.rows[window_id].counted_targets for window_id in consumed_ids
+    )
+    next_ids = (
+        batches[completed_batch_count]
+        if completed_batch_count < len(batches)
+        else ()
+    )
+    return DataCursor.create(
+        split=schedule.split,
+        pass_index=schedule.pass_index,
+        permutation_sha256=_cursor_binding_sha256(schedule),
+        next_batch_ordinal=completed_batch_count,
+        next_window_ids=next_ids,
+        counted_targets=counted_targets,
+    )
+
+
+def _validate_cursor(
+    *,
+    cursor: DataCursor,
+    windows: CausalWindowSet,
+    schedule: WindowSchedule,
+    batches: tuple[tuple[int, ...], ...],
+) -> int:
+    if type(cursor) is not DataCursor:
+        raise ValueError("cursor must be the exact DataCursor")
+    cursor.__post_init__()
+    if (
+        cursor.split != schedule.split
+        or cursor.pass_index != schedule.pass_index
+        or cursor.permutation_sha256 != _cursor_binding_sha256(schedule)
+        or cursor.next_batch_ordinal > len(batches)
+    ):
+        raise ValueError("cursor does not bind the exact schedule")
+    expected = cursor_after_batches(
+        windows=windows,
+        schedule=schedule,
+        completed_batch_count=cursor.next_batch_ordinal,
+        batch_size=schedule.batch_size,
+    )
+    if cursor != expected:
+        raise ValueError("cursor next batch or counted denominator changed")
+    return cursor.next_batch_ordinal
+
+
+def iter_causal_batches(
+    *,
+    windows: CausalWindowSet,
+    schedule: WindowSchedule,
+    batch_size: int = WT103_BATCH_SIZE,
+    cursor: DataCursor | None = None,
+) -> Iterator[CausalBatch]:
+    windows.__post_init__()
+    schedule.__post_init__()
+    if (
+        schedule.window_manifest_sha256
+        != windows.manifest.manifest_sha256
+        or schedule.split != windows.split
+    ):
+        raise ValueError("schedule does not bind the supplied window set")
+    batches = _batch_ids(schedule, batch_size=batch_size)
+    start = (
+        0
+        if cursor is None
+        else _validate_cursor(
+            cursor=cursor,
+            windows=windows,
+            schedule=schedule,
+            batches=batches,
+        )
+    )
+    for window_ids in batches[start:]:
+        rows = tuple(windows.window(window_id) for window_id in window_ids)
+        yield CausalBatch(
+            window_ids=window_ids,
+            inputs=torch.stack(tuple(row.inputs for row in rows), dim=0),
+            targets=torch.stack(tuple(row.targets for row in rows), dim=0),
+            attention_mask=torch.stack(
+                tuple(row.attention_mask for row in rows), dim=0
+            ),
+            counted_targets=sum(row.counted_targets for row in rows),
+        )
+
+
 __all__ = [
     "BATCH_SIZE",
+    "CausalBatch",
     "CausalPrefix",
+    "CausalWindow",
+    "CausalWindowSet",
     "CausalWindows",
+    "DataCursor",
+    "PermutationManifest",
     "SEQUENCE_LENGTH",
     "SHARED_DATA_ORDER_SEED",
     "VALIDATION_SAFETY_FIXTURE_COUNT",
     "WINDOW_STRIDE",
+    "WT103_BATCH_SIZE",
+    "WT103_DATA_ORDER_SEED",
+    "WT103_EOT_TOKEN_ID",
+    "WT103_IGNORE_TARGET_ID",
+    "WT103_SEQUENCE_LENGTH",
+    "WT103_WINDOW_STRIDE",
+    "WT103WindowRow",
+    "WindowManifest",
+    "WindowSchedule",
+    "build_evaluation_schedule",
+    "build_train_schedule",
     "build_causal_windows",
     "evaluation_batches",
+    "enumerate_wt103_window_rows",
     "frozen_batch_schedule",
     "materialize_validation_safety_fixture",
+    "materialize_causal_window_set",
+    "cursor_after_batches",
+    "iter_causal_batches",
     "quarter_pass_batches",
     "schedule_batches",
 ]
