@@ -25,11 +25,39 @@ class _DirectoryHandle:
     pass
 
 
+class _BoundedReader:
+    def __init__(
+        self,
+        path: Path,
+        calls: list[tuple[object, ...]],
+        *,
+        fail: bool,
+    ) -> None:
+        self._handle = path.open("rb", buffering=0)
+        self._calls = calls
+        self._fail = fail
+
+    def __enter__(self) -> _BoundedReader:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self._handle.close()
+
+    def read(self, size: int = -1) -> bytes:
+        self._calls.append(("read_stream", size))
+        if self._fail:
+            raise OSError(5, "injected streamed reopen failure")
+        return self._handle.read(size)
+
+
 class _PortablePosixSyscalls:
     def __init__(self, volume_facts: object) -> None:
         self.volume_facts_value = volume_facts
         self.calls: list[tuple[object, ...]] = []
         self.fail_flush = False
+        self.fail_stream_write = False
+        self.fail_stream_reopen = False
+        self.fail_stream_promotion = False
         self.raise_after_replace = False
 
     def volume_facts(self, path: Path) -> object:
@@ -42,6 +70,8 @@ class _PortablePosixSyscalls:
 
     def write_all(self, handle: BinaryIO, payload: bytes) -> None:
         self.calls.append(("write_all", payload))
+        if self.fail_stream_write:
+            raise OSError(5, "injected streamed write failure")
         handle.write(payload)
 
     def flush_file(self, handle: BinaryIO) -> None:
@@ -60,11 +90,25 @@ class _PortablePosixSyscalls:
         self.calls.append(("read_regular_bytes", path))
         return path.read_bytes()
 
+    def open_regular_read(self, path: Path) -> _BoundedReader:
+        self.calls.append(("open_regular_read", path))
+        return _BoundedReader(
+            path,
+            self.calls,
+            fail=self.fail_stream_reopen,
+        )
+
     def replace(self, source: Path, destination: Path) -> None:
         self.calls.append(("replace", source, destination))
         os.replace(source, destination)
         if self.raise_after_replace:
             raise OSError(5, "injected post-replace failure")
+
+    def link(self, source: Path, destination: Path) -> None:
+        self.calls.append(("link", source, destination))
+        if self.fail_stream_promotion:
+            raise OSError(5, "injected streamed promotion failure")
+        os.link(source, destination)
 
     def open_directory(self, path: Path, flags: int) -> _DirectoryHandle:
         self.calls.append(("open_directory", path, flags))
@@ -82,6 +126,9 @@ class _PortableWindowsSyscalls:
     def __init__(self, volume_facts: object) -> None:
         self.volume_facts_value = volume_facts
         self.calls: list[tuple[object, ...]] = []
+        self.fail_stream_write = False
+        self.fail_stream_reopen = False
+        self.fail_stream_promotion = False
         self.raise_after_move = False
 
     def volume_facts(self, path: Path) -> object:
@@ -111,6 +158,8 @@ class _PortableWindowsSyscalls:
 
     def write_all(self, handle: BinaryIO, payload: bytes) -> None:
         self.calls.append(("write_all", payload))
+        if self.fail_stream_write:
+            raise OSError(5, "injected streamed write failure")
         handle.write(payload)
 
     def flush_file(self, handle: BinaryIO) -> None:
@@ -126,8 +175,23 @@ class _PortableWindowsSyscalls:
         self.calls.append(("read_regular_bytes", path))
         return path.read_bytes()
 
+    def open_regular_read(self, path: Path) -> _BoundedReader:
+        self.calls.append(("open_regular_read", path))
+        return _BoundedReader(
+            path,
+            self.calls,
+            fail=self.fail_stream_reopen,
+        )
+
     def move_file_ex(self, source: Path, destination: Path, flags: int) -> None:
         self.calls.append(("move_file_ex", source, destination, flags))
+        if self.fail_stream_promotion:
+            raise OSError(5, "injected streamed promotion failure")
+        if not flags & 0x1 and destination.exists():
+            raise FileExistsError(17, "destination exists", destination)
+        if not flags & 0x1:
+            os.rename(source, destination)
+            return
         os.replace(source, destination)
         if self.raise_after_move:
             raise OSError(5, "injected post-move failure")
@@ -401,6 +465,214 @@ def test_publish_bytes_creates_then_replaces_with_reopen_verified_identity(
     assert created.reopen_verified is True
     assert replaced.reopen_verified is True
     assert target.read_bytes() == b"second"
+
+
+def test_verified_identity_can_be_constructed_without_payload_bytes() -> None:
+    durability = _durability()
+    digest = hashlib.sha256(b"streamed").hexdigest()
+
+    identity = durability.DurableFileIdentity.create_verified(
+        operation="content_addressed",
+        size_bytes=8,
+        sha256=digest,
+        volume_identity="volume-identity",
+    )
+
+    assert identity.operation == "content_addressed"
+    assert identity.size_bytes == 8
+    assert identity.sha256 == digest
+    assert identity.reopen_verified is True
+
+
+def test_regular_nonlink_validator_hashes_only_bounded_blocks(
+    tmp_path: Path,
+) -> None:
+    durability = _durability()
+    payload = b"0123456789abcdef"
+    path = tmp_path / "payload.bin"
+    path.write_bytes(payload)
+    calls: list[tuple[object, ...]] = []
+
+    facts = durability.validate_regular_nonlink_sha256(
+        path,
+        expected_size_bytes=len(payload),
+        expected_sha256=hashlib.sha256(payload).hexdigest(),
+        block_size=3,
+        opener=lambda candidate: _BoundedReader(
+            candidate,
+            calls,
+            fail=False,
+        ),
+    )
+
+    assert facts.size_bytes == len(payload)
+    assert facts.sha256 == hashlib.sha256(payload).hexdigest()
+    assert calls
+    assert all(call[1] == 3 for call in calls if call[0] == "read_stream")
+
+
+def _stream_backend(
+    durability: object,
+    backend_kind: str,
+    volume: object,
+) -> tuple[object, object]:
+    if backend_kind == "posix":
+        syscalls = _PortablePosixSyscalls(volume)
+        return durability.PosixDurabilityBackend(syscalls=syscalls), syscalls
+    syscalls = _PortableWindowsSyscalls(volume)
+    return durability.WindowsDurabilityBackend(syscalls=syscalls), syscalls
+
+
+@pytest.mark.parametrize("backend_kind", ["posix", "windows"])
+def test_content_addressed_stream_is_chunked_bounded_and_digest_derived(
+    tmp_path: Path,
+    backend_kind: str,
+) -> None:
+    durability = _durability()
+    volume = durability.VolumeFacts("/", "device-7", "NTFS", False)
+    backend, syscalls = _stream_backend(durability, backend_kind, volume)
+    chunks = (b"abc", b"de", b"f")
+    payload = b"abcdef"
+    digest = hashlib.sha256(payload).hexdigest()
+
+    identity = backend.publish_content_addressed_stream(
+        tmp_path,
+        iter(chunks),
+        suffix=".bin",
+        chunk_size_limit=3,
+        reopen_block_size=2,
+    )
+
+    target = tmp_path / f"{digest}.bin"
+    assert target.read_bytes() == payload
+    assert identity.operation == "content_addressed"
+    assert identity.size_bytes == len(payload)
+    assert identity.sha256 == digest
+    assert identity.volume_identity == volume.identity
+    assert [call[1] for call in syscalls.calls if call[0] == "write_all"] == [
+        b"abc",
+        b"de",
+        b"f",
+    ]
+    assert all(
+        call[1] == 2 for call in syscalls.calls if call[0] == "read_stream"
+    )
+    reopen_paths = [
+        call[1] for call in syscalls.calls if call[0] == "open_regular_read"
+    ]
+    assert len(reopen_paths) == 2
+    assert reopen_paths[0].parent == target.parent
+    assert reopen_paths[1] == target
+    assert not any(call[0] == "read_regular_bytes" for call in syscalls.calls)
+    volume_paths = [
+        call[1] for call in syscalls.calls if call[0] == "volume_facts"
+    ]
+    assert volume_paths[0] == target.parent
+    assert volume_paths[1].parent == target.parent
+    stage_creates = [
+        call for call in syscalls.calls if call[0] in {"open_exclusive", "create_file"}
+    ]
+    assert len(stage_creates) == 1
+    assert stage_creates[0][1].parent == target.parent
+    if backend_kind == "posix":
+        assert len([call for call in syscalls.calls if call[0] == "link"]) == 1
+    else:
+        move = next(call for call in syscalls.calls if call[0] == "move_file_ex")
+        assert move[3] == durability.WINDOWS_MOVEFILE_WRITE_THROUGH
+
+
+@pytest.mark.parametrize("backend_kind", ["posix", "windows"])
+def test_content_addressed_stream_recovers_idempotently_only_for_exact_target(
+    tmp_path: Path,
+    backend_kind: str,
+) -> None:
+    durability = _durability()
+    volume = durability.VolumeFacts("/", "device-7", "NTFS", False)
+    backend, _ = _stream_backend(durability, backend_kind, volume)
+    payload = b"same-content"
+    digest = hashlib.sha256(payload).hexdigest()
+
+    first = backend.publish_content_addressed_stream(
+        tmp_path,
+        (payload,),
+        suffix=".raw",
+        chunk_size_limit=len(payload),
+        reopen_block_size=4,
+    )
+    second = backend.publish_content_addressed_stream(
+        tmp_path,
+        (b"same-", b"content"),
+        suffix=".raw",
+        chunk_size_limit=7,
+        reopen_block_size=3,
+    )
+
+    assert second == first
+    assert (tmp_path / f"{digest}.raw").read_bytes() == payload
+    assert not tuple(tmp_path.glob(".vfe4-stream-stage-*"))
+
+
+@pytest.mark.parametrize("backend_kind", ["posix", "windows"])
+def test_content_addressed_stream_never_overwrites_conflicting_target(
+    tmp_path: Path,
+    backend_kind: str,
+) -> None:
+    durability = _durability()
+    volume = durability.VolumeFacts("/", "device-7", "NTFS", False)
+    backend, syscalls = _stream_backend(durability, backend_kind, volume)
+    payload = b"intended"
+    digest = hashlib.sha256(payload).hexdigest()
+    target = tmp_path / f"{digest}.bin"
+    target.write_bytes(b"conflict")
+
+    with pytest.raises(durability.DurabilityCollisionError):
+        backend.publish_content_addressed_stream(
+            tmp_path,
+            (payload,),
+            suffix=".bin",
+            chunk_size_limit=len(payload),
+            reopen_block_size=3,
+        )
+
+    assert target.read_bytes() == b"conflict"
+    assert not any(
+        call[0] in {"link", "move_file_ex"} for call in syscalls.calls
+    )
+
+
+@pytest.mark.parametrize("backend_kind", ["posix", "windows"])
+@pytest.mark.parametrize(
+    ("failure_flag", "expected_phase"),
+    [
+        ("fail_stream_write", "write_stream"),
+        ("fail_stream_reopen", "reopen_staging_stream"),
+        ("fail_stream_promotion", "promote_stream"),
+    ],
+)
+def test_content_addressed_stream_reports_injected_failures(
+    tmp_path: Path,
+    backend_kind: str,
+    failure_flag: str,
+    expected_phase: str,
+) -> None:
+    durability = _durability()
+    volume = durability.VolumeFacts("/", "device-7", "NTFS", False)
+    backend, syscalls = _stream_backend(durability, backend_kind, volume)
+    setattr(syscalls, failure_flag, True)
+    payload = b"failure-fixture"
+    digest = hashlib.sha256(payload).hexdigest()
+
+    with pytest.raises(durability.DurabilityOperationError) as captured:
+        backend.publish_content_addressed_stream(
+            tmp_path,
+            (payload,),
+            suffix=".bin",
+            chunk_size_limit=len(payload),
+            reopen_block_size=4,
+        )
+
+    assert captured.value.phase == expected_phase
+    assert not (tmp_path / f"{digest}.bin").exists()
 
 
 def test_closed_manifest_validates_canonical_recursive_regular_files(

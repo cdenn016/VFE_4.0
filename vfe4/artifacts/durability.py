@@ -19,6 +19,7 @@ import os
 import platform
 import stat
 import uuid
+from collections.abc import Callable, Iterable
 from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
@@ -40,6 +41,8 @@ _VOLUME_IDENTITY_DOMAIN = b"vfe4.volume-identity.v1\0"
 _PROBE_CREATE_PAYLOAD = b"vfe4-durability-probe-create-v1\n"
 _PROBE_OLD_PAYLOAD = b"vfe4-durability-probe-old-v1\n"
 _PROBE_REPLACE_PAYLOAD = b"vfe4-durability-probe-replace-v1\n"
+DEFAULT_STREAM_CHUNK_SIZE_LIMIT = 1024 * 1024
+DEFAULT_STREAM_REOPEN_BLOCK_SIZE = 1024 * 1024
 
 _NETWORK_FILESYSTEMS = frozenset(
     {
@@ -185,7 +188,7 @@ class DurableFileIdentity:
     """Typed identity returned only after exact reopen validation."""
 
     schema_version: Literal["vfe4-durable-file-v1"]
-    operation: Literal["exclusive_create", "replace"]
+    operation: Literal["exclusive_create", "replace", "content_addressed"]
     size_bytes: int
     sha256: str
     volume_identity: str
@@ -200,23 +203,71 @@ class DurableFileIdentity:
         payload: bytes,
         volume_identity: str,
     ) -> DurableFileIdentity:
+        return cls.create_verified(
+            operation=operation,
+            size_bytes=len(payload),
+            sha256=_sha256(payload),
+            volume_identity=volume_identity,
+        )
+
+    @classmethod
+    def create_verified(
+        cls,
+        *,
+        operation: Literal[
+            "exclusive_create",
+            "replace",
+            "content_addressed",
+        ],
+        size_bytes: int,
+        sha256: str,
+        volume_identity: str,
+    ) -> DurableFileIdentity:
+        """Construct an identity from already reopen-verified size/SHA facts."""
+
+        if operation not in (
+            "exclusive_create",
+            "replace",
+            "content_addressed",
+        ):
+            raise DurabilityError("durable file operation is invalid")
+        if type(size_bytes) is not int or size_bytes < 0:
+            raise DurabilityError("verified size_bytes must be a nonnegative integer")
+        if not _valid_sha256(sha256):
+            raise DurabilityError("verified sha256 must be lowercase hexadecimal")
+        if type(volume_identity) is not str or not volume_identity:
+            raise DurabilityError("volume_identity must be a nonempty string")
         body = {
             "operation": operation,
             "reopen_verified": True,
             "schema_version": "vfe4-durable-file-v1",
-            "sha256": _sha256(payload),
-            "size_bytes": len(payload),
+            "sha256": sha256,
+            "size_bytes": size_bytes,
             "volume_identity": volume_identity,
         }
         return cls(
             schema_version="vfe4-durable-file-v1",
             operation=operation,
-            size_bytes=len(payload),
-            sha256=body["sha256"],
+            size_bytes=size_bytes,
+            sha256=sha256,
             volume_identity=volume_identity,
             reopen_verified=True,
             identity_sha256=_domain_hash(_DURABLE_FILE_DOMAIN, body),
         )
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class VerifiedFileFacts:
+    """Bounded-read facts for one stable regular nonlink file."""
+
+    size_bytes: int
+    sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self.size_bytes) is not int or self.size_bytes < 0:
+            raise DurabilityError("verified size_bytes must be a nonnegative integer")
+        if not _valid_sha256(self.sha256):
+            raise DurabilityError("verified sha256 must be lowercase hexadecimal")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -334,6 +385,21 @@ class DurabilityBackend(Protocol):
     ) -> DurableFileIdentity: ...
 
 
+@runtime_checkable
+class ContentAddressedDurabilityBackend(DurabilityBackend, Protocol):
+    """Additive bounded-stream surface; byte-only backend checks stay stable."""
+
+    def publish_content_addressed_stream(
+        self,
+        directory: Path,
+        chunks: Iterable[bytes],
+        *,
+        suffix: str,
+        chunk_size_limit: int = DEFAULT_STREAM_CHUNK_SIZE_LIMIT,
+        reopen_block_size: int = DEFAULT_STREAM_REOPEN_BLOCK_SIZE,
+    ) -> DurableFileIdentity: ...
+
+
 def _error_code(error: BaseException) -> int | None:
     for name in ("winerror", "errno"):
         value = getattr(error, name, None)
@@ -409,6 +475,130 @@ def _require_payload(payload: bytes) -> bytes:
             indeterminate=False,
         )
     return payload
+
+
+def _open_regular_read(path: Path) -> Any:
+    return path.open("rb", buffering=0)
+
+
+def validate_regular_nonlink_sha256(
+    path: Path,
+    *,
+    expected_size_bytes: int | None = None,
+    expected_sha256: str | None = None,
+    block_size: int = DEFAULT_STREAM_REOPEN_BLOCK_SIZE,
+    opener: Callable[[Path], Any] | None = None,
+) -> VerifiedFileFacts:
+    """Validate one stable regular nonlink using bounded sequential reads."""
+
+    if not isinstance(path, Path) or path.name in ("", ".", ".."):
+        raise DurabilityOperationError(
+            "validation path must be a concrete pathlib.Path file",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+    if type(block_size) is not int or block_size <= 0:
+        raise DurabilityOperationError(
+            "validation block_size must be a positive integer",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+    if (
+        expected_size_bytes is not None
+        and (
+            type(expected_size_bytes) is not int
+            or expected_size_bytes < 0
+        )
+    ):
+        raise DurabilityOperationError(
+            "expected size must be a nonnegative integer or None",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+    if expected_sha256 is not None and not _valid_sha256(expected_sha256):
+        raise DurabilityOperationError(
+            "expected SHA-256 must be lowercase hexadecimal or None",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+    try:
+        before = path.lstat()
+    except OSError as exc:
+        raise DurabilityOperationError(
+            f"regular-file metadata failed for {path}: {exc}",
+            phase="validate_regular_file",
+            indeterminate=False,
+            error_code=_error_code(exc),
+        ) from exc
+    if not stat.S_ISREG(before.st_mode) or _is_redirect_or_reparse(path, before):
+        raise DurabilityOperationError(
+            f"validation target must be a regular nonlink file: {path}",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+    if (
+        expected_size_bytes is not None
+        and before.st_size != expected_size_bytes
+    ):
+        raise DurabilityOperationError(
+            f"regular-file size did not match for {path}",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+
+    digest = hashlib.sha256()
+    size_bytes = 0
+    open_regular = _open_regular_read if opener is None else opener
+    try:
+        with open_regular(path) as handle:
+            while True:
+                block = handle.read(block_size)
+                if type(block) is not bytes or len(block) > block_size:
+                    raise DurabilityOperationError(
+                        "regular-file reader violated the bounded bytes contract",
+                        phase="validate_regular_file",
+                        indeterminate=False,
+                    )
+                if not block:
+                    break
+                digest.update(block)
+                size_bytes += len(block)
+        after = path.lstat()
+    except DurabilityOperationError:
+        raise
+    except OSError as exc:
+        raise DurabilityOperationError(
+            f"regular-file bounded read failed for {path}: {exc}",
+            phase="validate_regular_file",
+            indeterminate=False,
+            error_code=_error_code(exc),
+        ) from exc
+
+    observed_sha256 = digest.hexdigest()
+    if (
+        not stat.S_ISREG(after.st_mode)
+        or _is_redirect_or_reparse(path, after)
+        or before.st_dev != after.st_dev
+        or before.st_ino != after.st_ino
+        or before.st_size != after.st_size
+        or before.st_mtime_ns != after.st_mtime_ns
+        or size_bytes != before.st_size
+    ):
+        raise DurabilityOperationError(
+            f"regular-file identity changed during validation: {path}",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+    if expected_sha256 is not None and observed_sha256 != expected_sha256:
+        raise DurabilityOperationError(
+            f"regular-file SHA-256 did not match for {path}",
+            phase="validate_regular_file",
+            indeterminate=False,
+        )
+    return VerifiedFileFacts(
+        size_bytes=size_bytes,
+        sha256=observed_sha256,
+    )
 
 
 def _implementation_sha256() -> str:
@@ -542,6 +732,100 @@ class _BackendBase:
     def _replace(self, staging: Path, destination: Path) -> None:
         raise NotImplementedError
 
+    def _create_stream_file(
+        self,
+        path: Path,
+        chunks: Iterable[bytes],
+    ) -> None:
+        raise NotImplementedError
+
+    def _promote_no_replace(
+        self,
+        staging: Path,
+        destination: Path,
+    ) -> None:
+        raise NotImplementedError
+
+    def _validated_stream_chunks(
+        self,
+        chunks: Iterable[bytes],
+        *,
+        chunk_size_limit: int,
+    ) -> Iterable[bytes]:
+        try:
+            iterator = iter(chunks)
+        except TypeError as exc:
+            raise DurabilityOperationError(
+                "stream chunks must be an iterable of exact bytes",
+                phase="validate_stream",
+                indeterminate=False,
+            ) from exc
+        for chunk in iterator:
+            if type(chunk) is not bytes:
+                raise DurabilityOperationError(
+                    "stream chunks must contain exact bytes",
+                    phase="validate_stream_chunk",
+                    indeterminate=False,
+                )
+            if len(chunk) > chunk_size_limit:
+                raise DurabilityOperationError(
+                    "stream chunk exceeds chunk_size_limit",
+                    phase="validate_stream_chunk",
+                    indeterminate=False,
+                )
+            if chunk:
+                yield chunk
+
+    def _validate_stream_file(
+        self,
+        path: Path,
+        *,
+        expected_size_bytes: int | None,
+        expected_sha256: str | None,
+        block_size: int,
+        phase: str,
+        indeterminate: bool,
+    ) -> VerifiedFileFacts:
+        try:
+            return validate_regular_nonlink_sha256(
+                path,
+                expected_size_bytes=expected_size_bytes,
+                expected_sha256=expected_sha256,
+                block_size=block_size,
+                opener=self._syscalls.open_regular_read,
+            )
+        except DurabilityOperationError as exc:
+            raise DurabilityOperationError(
+                str(exc),
+                phase=phase,
+                indeterminate=indeterminate,
+                error_code=exc.error_code,
+                obligations=(
+                    ("the durable state of the target must be investigated",)
+                    if indeterminate
+                    else (f"the retained staging file must be inspected: {path.name}",)
+                ),
+            ) from exc
+
+    def _remove_owned_stage(
+        self,
+        staging: Path,
+        *,
+        target_at_risk: bool,
+    ) -> None:
+        try:
+            self._syscalls.unlink(staging)
+        except OSError as exc:
+            raise DurabilityOperationError(
+                f"owned stream staging cleanup failed for {staging}: {exc}",
+                phase="cleanup_stream_staging",
+                indeterminate=target_at_risk,
+                error_code=_error_code(exc),
+                obligations=(
+                    f"the retained staging file must be inspected: {staging.name}",
+                ),
+            ) from exc
+
     def create_exclusive(
         self, path: Path, payload: bytes
     ) -> DurableFileIdentity:
@@ -646,6 +930,149 @@ class _BackendBase:
                 indeterminate=False,
             )
         return self.replace_durable(path, payload)
+
+    def publish_content_addressed_stream(
+        self,
+        directory: Path,
+        chunks: Iterable[bytes],
+        *,
+        suffix: str,
+        chunk_size_limit: int = DEFAULT_STREAM_CHUNK_SIZE_LIMIT,
+        reopen_block_size: int = DEFAULT_STREAM_REOPEN_BLOCK_SIZE,
+    ) -> DurableFileIdentity:
+        """Publish bounded chunks to ``<sha256><suffix>`` without overwrite."""
+
+        if not isinstance(directory, Path):
+            raise DurabilityOperationError(
+                "stream publication directory must be a pathlib.Path",
+                phase="validate_stream",
+                indeterminate=False,
+            )
+        _require_regular_directory(directory)
+        if (
+            type(suffix) is not str
+            or not suffix.startswith(".")
+            or suffix in (".", "..")
+            or "/" in suffix
+            or "\\" in suffix
+            or Path(suffix).name != suffix
+        ):
+            raise DurabilityOperationError(
+                "stream suffix must be one safe filename suffix",
+                phase="validate_stream",
+                indeterminate=False,
+            )
+        for value, field in (
+            (chunk_size_limit, "chunk_size_limit"),
+            (reopen_block_size, "reopen_block_size"),
+        ):
+            if type(value) is not int or value <= 0:
+                raise DurabilityOperationError(
+                    f"{field} must be a positive integer",
+                    phase="validate_stream",
+                    indeterminate=False,
+                )
+
+        staging = directory / f".vfe4-stream-stage-{uuid.uuid4().hex}"
+        volume = self._same_volume(directory, staging)
+        try:
+            self._create_stream_file(
+                staging,
+                self._validated_stream_chunks(
+                    chunks,
+                    chunk_size_limit=chunk_size_limit,
+                ),
+            )
+        except DurabilityError:
+            raise
+        except (RuntimeError, TypeError, ValueError) as exc:
+            raise DurabilityOperationError(
+                f"stream producer failed while writing {staging}: {exc}",
+                phase="write_stream",
+                indeterminate=False,
+                obligations=(
+                    f"the retained staging file must be inspected: {staging.name}",
+                ),
+            ) from exc
+
+        staged = self._validate_stream_file(
+            staging,
+            expected_size_bytes=None,
+            expected_sha256=None,
+            block_size=reopen_block_size,
+            phase="reopen_staging_stream",
+            indeterminate=False,
+        )
+        destination = directory / f"{staged.sha256}{suffix}"
+
+        def recover_existing() -> DurableFileIdentity:
+            try:
+                self._validate_stream_file(
+                    destination,
+                    expected_size_bytes=staged.size_bytes,
+                    expected_sha256=staged.sha256,
+                    block_size=reopen_block_size,
+                    phase="reopen_existing_stream",
+                    indeterminate=False,
+                )
+            except DurabilityOperationError as exc:
+                self._remove_owned_stage(staging, target_at_risk=False)
+                raise DurabilityCollisionError(
+                    "content-addressed destination exists with conflicting content: "
+                    f"{destination}"
+                ) from exc
+            self._remove_owned_stage(staging, target_at_risk=False)
+            self._sync_parent(directory, target_at_risk=False)
+            return DurableFileIdentity.create_verified(
+                operation="content_addressed",
+                size_bytes=staged.size_bytes,
+                sha256=staged.sha256,
+                volume_identity=volume.identity,
+            )
+
+        try:
+            destination.lstat()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            raise DurabilityOperationError(
+                f"stream destination metadata failed: {exc}",
+                phase="validate_stream_destination",
+                indeterminate=False,
+                error_code=_error_code(exc),
+            ) from exc
+        else:
+            return recover_existing()
+
+        try:
+            self._promote_no_replace(staging, destination)
+        except OSError as exc:
+            if _error_code(exc) in (errno.EEXIST, 80, 183):
+                return recover_existing()
+            raise DurabilityOperationError(
+                f"content-addressed promotion returned an error: {exc}",
+                phase="promote_stream",
+                indeterminate=True,
+                error_code=_error_code(exc),
+                obligations=(
+                    "the destination and retained staging file must be investigated",
+                ),
+            ) from exc
+        self._sync_parent(directory, target_at_risk=True)
+        self._validate_stream_file(
+            destination,
+            expected_size_bytes=staged.size_bytes,
+            expected_sha256=staged.sha256,
+            block_size=reopen_block_size,
+            phase="reopen_destination_stream",
+            indeterminate=True,
+        )
+        return DurableFileIdentity.create_verified(
+            operation="content_addressed",
+            size_bytes=staged.size_bytes,
+            sha256=staged.sha256,
+            volume_identity=volume.identity,
+        )
 
     def probe(self, root: Path) -> DurabilityIdentity:
         errors: list[DurabilityErrorRecord] = []
@@ -777,8 +1204,14 @@ class _RealPosixSyscalls:
         with path.open("rb") as handle:
             return handle.read()
 
+    def open_regular_read(self, path: Path) -> Any:
+        return path.open("rb", buffering=0)
+
     def replace(self, source: Path, destination: Path) -> None:
         os.replace(source, destination)
+
+    def link(self, source: Path, destination: Path) -> None:
+        os.link(source, destination)
 
     def open_directory(self, path: Path, flags: int) -> int:
         return os.open(path, flags)
@@ -925,6 +1358,63 @@ class PosixDurabilityBackend(_BackendBase):
     def _replace(self, staging: Path, destination: Path) -> None:
         self._syscalls.replace(staging, destination)
 
+    def _create_stream_file(
+        self,
+        path: Path,
+        chunks: Iterable[bytes],
+    ) -> None:
+        handle: object | None = None
+        phase = "create_stream_staging"
+        try:
+            handle = self._syscalls.open_exclusive(
+                path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+            )
+            phase = "write_stream"
+            for chunk in chunks:
+                self._syscalls.write_all(handle, chunk)
+            phase = "flush_stream_staging"
+            self._syscalls.flush_file(handle)
+        except DurabilityOperationError:
+            raise
+        except FileExistsError as exc:
+            raise DurabilityCollisionError(
+                f"stream staging target already exists: {path}"
+            ) from exc
+        except OSError as exc:
+            raise DurabilityOperationError(
+                f"{phase} failed for {path}: {exc}",
+                phase=phase,
+                indeterminate=False,
+                error_code=_error_code(exc),
+                obligations=(
+                    f"the retained staging file must be inspected: {path.name}",
+                ),
+            ) from exc
+        finally:
+            if handle is not None:
+                try:
+                    self._syscalls.close(handle)
+                except OSError as exc:
+                    raise DurabilityOperationError(
+                        f"close failed for {path}: {exc}",
+                        phase="close_stream_staging",
+                        indeterminate=False,
+                        error_code=_error_code(exc),
+                        obligations=(
+                            f"the retained staging file must be inspected: {path.name}",
+                        ),
+                    ) from exc
+
+    def _promote_no_replace(
+        self,
+        staging: Path,
+        destination: Path,
+    ) -> None:
+        self._syscalls.link(staging, destination)
+        self._syscalls.unlink(staging)
+
 
 class _RealWindowsSyscalls:
     def __init__(self) -> None:
@@ -1067,6 +1557,9 @@ class _RealWindowsSyscalls:
         with path.open("rb") as handle:
             return handle.read()
 
+    def open_regular_read(self, path: Path) -> Any:
+        return path.open("rb", buffering=0)
+
     def move_file_ex(
         self, source: Path, destination: Path, flags: int
     ) -> None:
@@ -1160,6 +1653,71 @@ class WindowsDurabilityBackend(_BackendBase):
             | WINDOWS_MOVEFILE_WRITE_THROUGH,
         )
 
+    def _create_stream_file(
+        self,
+        path: Path,
+        chunks: Iterable[bytes],
+    ) -> None:
+        handle: object | None = None
+        phase = "create_stream_staging"
+        try:
+            handle = self._syscalls.create_file(
+                path,
+                desired_access=WINDOWS_GENERIC_WRITE,
+                share_mode=0,
+                creation_disposition=WINDOWS_CREATE_NEW,
+                flags_and_attributes=(
+                    WINDOWS_FILE_ATTRIBUTE_NORMAL
+                    | WINDOWS_FILE_FLAG_WRITE_THROUGH
+                ),
+            )
+            phase = "write_stream"
+            for chunk in chunks:
+                self._syscalls.write_all(handle, chunk)
+            phase = "flush_stream_staging"
+            self._syscalls.flush_file(handle)
+        except DurabilityOperationError:
+            raise
+        except OSError as exc:
+            if _error_code(exc) in (errno.EEXIST, 80, 183):
+                raise DurabilityCollisionError(
+                    f"stream staging target already exists: {path}"
+                ) from exc
+            raise DurabilityOperationError(
+                f"{phase} failed for {path}: {exc}",
+                phase=phase,
+                indeterminate=False,
+                error_code=_error_code(exc),
+                obligations=(
+                    f"the retained staging file must be inspected: {path.name}",
+                ),
+            ) from exc
+        finally:
+            if handle is not None:
+                try:
+                    self._syscalls.close(handle)
+                except OSError as exc:
+                    raise DurabilityOperationError(
+                        f"CloseHandle failed for {path}: {exc}",
+                        phase="close_stream_staging",
+                        indeterminate=False,
+                        error_code=_error_code(exc),
+                        obligations=(
+                            f"the retained staging file must be inspected: {path.name}",
+                        ),
+                    ) from exc
+
+    def _promote_no_replace(
+        self,
+        staging: Path,
+        destination: Path,
+    ) -> None:
+        self._syscalls.move_file_ex(
+            staging,
+            destination,
+            WINDOWS_MOVEFILE_WRITE_THROUGH,
+        )
+
 
 def probe_durability(root: Path) -> DurabilityIdentity:
     """Probe the current platform explicitly; unknown platforms fail closed."""
@@ -1200,6 +1758,9 @@ def replace_canonical_json(
 
 
 __all__ = [
+    "ContentAddressedDurabilityBackend",
+    "DEFAULT_STREAM_CHUNK_SIZE_LIMIT",
+    "DEFAULT_STREAM_REOPEN_BLOCK_SIZE",
     "DurabilityBackend",
     "DurabilityCollisionError",
     "DurabilityError",
@@ -1217,8 +1778,10 @@ __all__ = [
     "WINDOWS_MOVEFILE_REPLACE_EXISTING",
     "WINDOWS_MOVEFILE_WRITE_THROUGH",
     "WindowsDurabilityBackend",
+    "VerifiedFileFacts",
     "canonical_json_bytes_generic",
     "create_canonical_json",
     "probe_durability",
     "replace_canonical_json",
+    "validate_regular_nonlink_sha256",
 ]
