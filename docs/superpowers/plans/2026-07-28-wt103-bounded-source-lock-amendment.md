@@ -19,16 +19,16 @@ preserving exact VFE4 source, tokenizer, payload, and durability authority.
 
 ## Task 1: Bounded content-addressed durability
 
-- [ ] Add red tests for chunked same-volume staging, bounded streamed reopen
+- [x] Add red tests for chunked same-volume staging, bounded streamed reopen
   hashing, digest-derived destination, no-overwrite collision behavior,
   idempotent exact-content recovery, and injected write/reopen/promotion
   failures.
-- [ ] Add typed verified-size/digest identity construction without requiring
+- [x] Add typed verified-size/digest identity construction without requiring
   payload bytes.
-- [ ] Implement the narrow content-addressed stream publication API for both
+- [x] Implement the narrow content-addressed stream publication API for both
   POSIX and Windows backends, retaining existing byte APIs unchanged.
-- [ ] Add a reusable bounded regular-nonlink size/SHA validator.
-- [ ] Run only the affected durability tests, Ruff, and `py_compile`.
+- [x] Add a reusable bounded regular-nonlink size/SHA validator.
+- [x] Run only the affected durability tests, Ruff, and `py_compile`.
 
 ## Task 2: Exact bounded tokenizer stream
 
@@ -71,4 +71,3 @@ preserving exact VFE4 source, tokenizer, payload, and durability authority.
   re-review.
 - [ ] Include the final focused tests in the single proportional Tasks 1-12
   verification pass before publication.
-
