@@ -34,6 +34,11 @@ current.
 - Modify: `vfe4/config/schema.py`
 - Modify: `verification/h8_protocol.py`
 - Modify: `verification/h8_gate.py`
+- Inspect: `verify_vfe4.py`
+- Inspect: `verification/h8_runtime.py`
+- Inspect: `verification/h8_budget.py`
+- Inspect: `verification/h8_orchestrator.py`
+- Inspect: `verification/h8_parent_authority.py`
 - Test: `tests/unit/test_h8_parent_orchestrator.py`
 - Test: `tests/unit/test_config.py`
 
@@ -88,7 +93,10 @@ In `verification/h8_wire.py`:
 Synchronize the public/type mirrors. Mint config v3 and protocol domain v3.
 Before hashing the protocol, require exact equality for the version, both
 source hashes, and API hash. Set `H8_VALIDATION_SCHEMA` to
-`h8-sparse-scale-v5`.
+`h8-sparse-scale-v5`. Inspect the five named downstream consumers for direct
+v2/v4 assumptions and update only consumers with an actual identity
+dependency; retain the deliberately internal v4 runtime-section function
+names and shape.
 
 ### Step 4: Run GREEN
 
@@ -114,6 +122,8 @@ Add
 module rooted in temporary profiler source files, monkeypatch only the
 expected hashes for those fixture bytes, and prove:
 
+- the child-local version, both source hashes, and descriptor hash initially
+  equal the stable wire authority;
 - the exact full version is accepted;
 - the suffix-stripped version is rejected;
 - a forged full version is rejected;
@@ -161,8 +171,9 @@ Repeat only the two Step 2 nodes with
 Extend `test_target_rejects_any_frozen_h8_protocol_drift` to perturb each
 profiler identity independently and require rejection. Extend
 `test_h8_payload_inventories_are_exact_and_private` to require the installed
-full version in source-only environment/provenance and no second hardcoded
-version.
+full version in source-only environment and artifact provenance. The test must
+exercise both consumers with a frozen config object; a source-text assertion
+alone is insufficient.
 
 ### Step 2: Run RED
 
@@ -187,15 +198,16 @@ Run only:
 Repeat only the two Step 2 nodes with
 `.verification/pytest-h8-runtime-task3-green`, then commit.
 
-## Task 4: Exercise the real installed private profiler once
+## Task 4: Implement a bounded private-profiler compatibility inspector
 
 **Files:**
 
 - Modify: `verification/h8_child.py`
+- Modify: `tests/unit/test_h8_allocation.py`
 - Modify: `tests/integration/test_verify_vfe4.py`
 - Modify: `verification/fixtures/h8_exact_test_nodes_v1.txt`
 
-### Step 1: Add the tiny compatibility inspector and test
+### Step 1: Add fake RED tests for the tiny inspector
 
 Add `inspect_installed_h8_profiler_schema(torch)` beside the existing private
 profiler helpers. It must:
@@ -204,35 +216,36 @@ profiler helpers. It must:
 - run only a tiny CPU float64 tensor allocation/clone/mutation under the
   frozen profiler flags;
 - read the nonempty private memory timeline and Kineto event tree;
-- require exact four-tuple timeline rows, the frozen action union, decodable
-  complete TensorKey fields, and the required Allocation/TorchOp private event
-  types;
+- require exact four-tuple timeline rows, require every observed action to be
+  a member of the frozen action enum, deterministically witness the minimum
+  allocation/mutation actions, validate the complete four-action enum
+  separately, require decodable complete TensorKey fields, and require the
+  Allocation/TorchOp private event types;
 - return a small immutable/canonical inspection record, not an H8 PASS.
+
+Do not require the tiny workload to observe `PREEXISTING` or `DESTROY`, whose
+appearance may depend on lifetime/GC behavior.
 
 It must not call the H8 production operation graph, dense references,
 correctness grid, 30-child orchestrator, or artifact publisher.
 
-Add `test_installed_h8_profiler_schema_preflight`. Add it and Task 2's new
-full-version pin test—the only two new nodes—to the H8 exact-node manifest.
+Use fake profiler objects in
+`test_h8_profiler_schema_inspector_is_bounded_with_fakes` to test the
+inspector's bounds and schema rejection without executing the installed
+profiler during development. Add
+`test_installed_h8_profiler_schema_preflight` as the sole real-runtime
+integration node. Add it and Task 2's new full-version pin test—the only two
+new exact-milestone nodes—to the H8 exact-node manifest.
 
-### Step 2: Run the real preflight once
+### Step 2: Run fake GREEN only
 
-Verify the authoritative runtime immediately before the node:
+Run only the fake inspector tests and the full-version pin test with a unique
+basetemp. Do **not** run the real integration node in this task.
 
-```powershell
-& 'C:/anaconda/python.exe' -c "import torch; print(torch.__version__, torch.cuda.is_available())"
-& 'C:/anaconda/python.exe' -m pytest `
-  tests/integration/test_verify_vfe4.py::test_installed_h8_profiler_schema_preflight `
-  -q --basetemp .verification/pytest-h8-runtime-task4-real
-```
-
-Expected: one PASS, no H8 production child, and a runtime measured in seconds,
-not minutes.
-
-### Step 3: Commit
+### Step 3: Commit without real-profiler evidence
 
 Commit the tiny inspector, focused integration test, and exact-node inventory
-change.
+change. The commit makes no behavioral compatibility claim yet.
 
 ## Task 5: Amend normative and planning documentation
 
@@ -259,9 +272,12 @@ evidence because none exists.
 
 ### Step 2: Run static consistency checks
 
-Use `rg` to confirm no active source literal still requires 2.9.1, config v2,
-protocol v2, or H8 v4. Run `git diff --check`. No pytest run is needed for this
-documentation-only step.
+Use targeted `rg` searches for the superseded identities
+`h8-validation-config-v2`, `vfe4.h8.parent-child-protocol.v2`, and
+`h8-sparse-scale-v4`. Classify every remaining match as explicitly historical
+or an error. Do not treat the intentionally retained `h8-child-v2` or internal
+v4 runtime-section function names as drift. Run `git diff --check`. No pytest
+run is needed for this documentation-only step.
 
 ### Step 3: Commit
 
@@ -289,29 +305,46 @@ them to check:
 
 Fix findings with only the directly affected focused test nodes.
 
-### Step 2: Run one combined amendment check
+### Step 2: Run one combined development check
 
-Run only the five focused existing nodes plus the new full-version and real
-preflight nodes in one process, writing JUnit XML under `.verification/`.
-Do not run the repository's broad/full suite.
+Run only the focused fake/unit/promotion nodes from Tasks 1-4 in one process.
+Exclude the real installed-runtime integration node. Do not run the
+repository's broad/full suite.
 
-### Step 3: Create and validate the closure ledger
+### Step 3: Commit the final H8 selection
+
+After review fixes are complete, set only `operations.h8.enabled=True` and its
+existing exact authorization literal in the editable top-level `CONFIG`.
+Commit that selection before generating any current-candidate JUnit,
+predecessor artifact, profiler evidence, or closure ledger. Do not toggle the
+tracked selection afterward.
+
+### Step 4: Execute the real profiler exactly once in the candidate milestone
+
+On the final clean activated revision, verify the Anaconda Torch/CUDA identity,
+then run the frozen exact-node manifest once. This one JUnit run is the first
+and only execution of
+`test_installed_h8_profiler_schema_preflight`; reuse its evidence for
+amendment closure and the H8 candidate chain. Do not run that node separately.
+
+Expected: the tiny profiler test completes in seconds, the exact milestone has
+no failures/errors/skips, and no scientific H8 child is launched.
+
+### Step 5: Create and validate the closure ledger
 
 After the final amendment commit, start the verification gate in closure mode,
 record one claim that the installed-runtime amendment is internally bound and
-behaviorally compatible, attach the focused JUnit and reviewer results, and
-validate the ledger. If evidence is missing, record `INCONCLUSIVE`; do not
-launch scientific H8.
+behaviorally compatible, attach the current-candidate exact JUnit and reviewer
+results, and validate the ledger. If evidence is missing, record
+`INCONCLUSIVE`; do not launch scientific H8.
 
-### Step 4: Proceed to H8
+### Step 6: Proceed to H8
 
 Only after Task 6 closes:
 
-1. commit H8 selection and the existing authorization literal;
-2. generate one current-candidate exact-node JUnit;
-3. regenerate the H1-H7/H6-Prediction prerequisite chain in frozen order;
-4. validate the H8 registry;
-5. run the scientific H8 click launcher once.
+1. regenerate the H1-H7/H6-Prediction prerequisite chain in frozen order;
+2. validate the H8 registry;
+3. run the scientific H8 click launcher once.
 
 WikiText-103 implementation begins only after the v5 H8 artifact and ledger
 validate as PASS.
