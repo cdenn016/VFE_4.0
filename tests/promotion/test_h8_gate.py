@@ -1086,11 +1086,18 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
 
 
 def test_h8_payload_inventories_are_exact_and_private() -> None:
+    import verify_vfe4
+    from vfe4.artifacts.provenance import build_h8_environment, build_h8_provenance
+    from vfe4.config import bind_h8_current_refs
+
     refs = _current_refs()
-    config_bytes = b'{"operation":"H8"}'
-    config_sha256 = hashlib.sha256(config_bytes).hexdigest()
+    scientific = copy.deepcopy(
+        verify_vfe4.CONFIG["operations"]["h8"]["config"]  # type: ignore[index]
+    )
+    config = bind_h8_current_refs(scientific, refs)
+    assert config.h8 is not None
     evaluation = h8_gate.assemble_h8_source_only_evaluation(
-        config_sha256=config_sha256,
+        config_sha256=config.config_sha256,
         current_refs=refs,
         correctness=(),
         production_runs=(),
@@ -1100,20 +1107,39 @@ def test_h8_payload_inventories_are_exact_and_private() -> None:
         preregistration_sha256="d" * 64,
     )
     validation = h8_gate.h8_validation_payload(evaluation)
-    config = SimpleNamespace(
-        canonical_json=config_bytes.decode("ascii"),
-        config_sha256=config_sha256,
-        h8_current_refs=refs,
+    environment = build_h8_environment(
+        config=config,
+        validation_environment=validation["environment"],  # type: ignore[arg-type]
+    )
+    provenance = build_h8_provenance(
+        config=config,
+        evaluation=evaluation,
+        git_head_value=refs.candidate_head,
+        dirty_digest_value=refs.candidate_dirty_digest,
+        source_sha256_value=source_candidate_sha256(
+            git_head_value=refs.candidate_head,
+            dirty_digest_value=refs.candidate_dirty_digest,
+        ),
+        reference_registry_path=Path("h8-current-refs.json"),
+        reference_registry_sha256=refs.registry_sha256,
+        started_utc="2026-07-27T00:00:00.000000Z",
+        ended_utc="2026-07-27T00:00:00.000001Z",
     )
     payloads = h8_gate.build_h8_publication_payloads(
         config,
         evaluation,
         h7_reference=refs.h7,
         h6_prediction_reference=refs.h6_prediction,
+        provenance=provenance,
+        environment=environment,
     )
 
     assert tuple(validation) == h8_gate.H8_VALIDATION_TOP_LEVEL_KEYS
     assert tuple(payloads) == h8_gate.H8_PUBLICATION_PAYLOAD_KEYS
+    assert validation["environment"]["pytorch_version"] == config.h8.torch_version
+    assert payloads["environment.json"]["pytorch_version"] == config.h8.torch_version
+    assert payloads["provenance.json"]["selected_operation"] == config.h8.operation
+    assert config.h8.torch_version == "2.10.0.dev20251210+cu128"
     assert "manifest.sha256" not in payloads
     assert "run_h8_child" not in vars(h8_gate)
 

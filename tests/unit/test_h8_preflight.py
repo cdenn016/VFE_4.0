@@ -1168,13 +1168,21 @@ def test_request_rejects_artifact_writes(tmp_path: Path) -> None:
 
 
 def test_target_rejects_any_frozen_h8_protocol_drift(tmp_path: Path) -> None:
-    target = _target()
-    target["h8"]["max_seconds"] = 61.0
+    drifts = {
+        "max_seconds": 61.0,
+        "torch_version": "9.9.9+forged",
+        "profiler_memory_source_sha256": "0" * 64,
+        "profiler_source_sha256": "1" * 64,
+        "profiler_api_contract_sha256": "2" * 64,
+    }
+    for field, forged_value in drifts.items():
+        target = _target()
+        target["h8"][field] = forged_value
 
-    with pytest.raises(ValueError, match="complete frozen protocol"):
-        inspect_h8_preflight(
-            repository_root=tmp_path,
-            target_scientific_config=target,
-            request=_request(),
-            candidate=_candidate(),
-        )
+        with pytest.raises(ValueError, match="complete frozen protocol"):
+            inspect_h8_preflight(
+                repository_root=tmp_path,
+                target_scientific_config=target,
+                request=_request(),
+                candidate=_candidate(),
+            )

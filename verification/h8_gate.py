@@ -50,7 +50,6 @@ from vfe4.types.h8 import (
     H8_PROFILER_API_CONTRACT_SHA256,
     H8_PROFILER_MEMORY_SOURCE_SHA256,
     H8_PROFILER_SOURCE_SHA256,
-    H8_PROFILER_TORCH_VERSION,
     H8_REQUIRED_OPERATIONS,
     H8_VERIFIER_PREFIX,
     CurrentH8PrerequisiteRefs,
@@ -702,7 +701,7 @@ def _source_only_sections(
             "cpu_count": None,
             "affinity": None,
             "python_version": None,
-            "pytorch_version": H8_PROFILER_TORCH_VERSION,
+            "pytorch_version": frozen_config.torch_version,
             "numpy_version": None,
             "device": "cpu",
             "dtype": "float64",
@@ -2666,6 +2665,7 @@ def _revalidate_h8_artifact_semantics(
     source_sha256: str,
     registry_path: Path,
 ) -> None:
+    frozen_config = H8ValidationConfig.create()
     config = _read_canonical_payload(root, "config.json")
     provenance = _read_canonical_payload(root, "provenance.json")
     environment = _read_canonical_payload(root, "environment.json")
@@ -2759,7 +2759,7 @@ def _revalidate_h8_artifact_semantics(
         or provenance.get("evaluation_sha256") != evaluation.evaluation_sha256
         or provenance.get("status") != validation.get("status")
         or provenance.get("obligations") != validation_obligations
-        or provenance.get("selected_operation") != "H8"
+        or provenance.get("selected_operation") != frozen_config.operation
         or tuple(cast(object, provenance.get("ordered_gates", ())))
         != H8_VERIFIER_PREFIX
         or provenance.get("execution_scope")
