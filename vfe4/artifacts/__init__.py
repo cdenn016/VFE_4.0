@@ -5,6 +5,25 @@ from .atomic import (
     canonical_json_bytes,
     publish_run_directory,
 )
+from .durability import (
+    DurabilityBackend,
+    DurabilityCollisionError,
+    DurabilityError,
+    DurabilityIdentity,
+    DurabilityOperationError,
+    DurableFileIdentity,
+    PosixDurabilityBackend,
+    WindowsDurabilityBackend,
+    create_canonical_json,
+    probe_durability,
+    replace_canonical_json,
+)
+from .manifest import (
+    ArtifactIntegrityRecord,
+    ClosedManifestIdentity,
+    IntegrityValidationError,
+    validate_closed_manifest,
+)
 from .provenance import (
     build_environment,
     build_provenance,
@@ -97,8 +116,16 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "ArtifactIntegrityRecord",
     "ArtifactPublicationError",
     "CandidateArtifactReference",
+    "ClosedManifestIdentity",
+    "DurabilityBackend",
+    "DurabilityCollisionError",
+    "DurabilityError",
+    "DurabilityIdentity",
+    "DurabilityOperationError",
+    "DurableFileIdentity",
     "H6MatchingOwnershipRecord",
     "H6MatchingSetRecord",
     "H6CheckpointCandidateV3",
@@ -117,7 +144,10 @@ __all__ = [
     "H6_WEIGHTED_COMMON_STREAM_REGISTRY_SHA256",
     "H6_WEIGHTED_COMMON_STREAM_ROOT_SEED",
     "ProjectedCurrentCandidateConfig",
+    "PosixDurabilityBackend",
+    "WindowsDurabilityBackend",
     "canonical_json_bytes",
+    "create_canonical_json",
     "publish_run_directory",
     "project_h1_prefix_prior_config",
     "project_h1_prefix_prior_v2_config",
@@ -138,6 +168,7 @@ __all__ = [
     "git_head",
     "h6_weighted_common_stream_sha256_v3",
     "process_cpu_affinity",
+    "probe_durability",
     "publish_h6_matching_set",
     "publish_h6_prediction_result_v3",
     "publish_h6_prediction_v3_authorities",
@@ -148,4 +179,7 @@ __all__ = [
     "read_h6_matching_set",
     "select_h6_tuning_v3",
     "source_candidate_sha256",
+    "replace_canonical_json",
+    "IntegrityValidationError",
+    "validate_closed_manifest",
 ]
