@@ -1747,6 +1747,43 @@ def test_h8_click_run_executes_fake_selected_runner_and_publishes_runtime_result
     assert sorted(path.name for path in refs_root.iterdir()) == [registry_path.name]
 
 
+def test_installed_h8_profiler_schema_preflight() -> None:
+    """Inspect the installed private profiler without making an H8 PASS claim."""
+
+    import torch
+
+    from verification.h8_child import inspect_installed_h8_profiler_schema
+    from verification.h8_wire import (
+        H8_PROFILER_API_CONTRACT_SHA256,
+        H8_PROFILER_MEMORY_SOURCE_SHA256,
+        H8_PROFILER_SOURCE_SHA256,
+        H8_PROFILER_TORCH_VERSION,
+    )
+
+    inspection = inspect_installed_h8_profiler_schema(torch)
+
+    assert inspection.schema_version == "h8-installed-profiler-schema-inspection-v1"
+    assert inspection.torch_version == H8_PROFILER_TORCH_VERSION
+    assert (
+        inspection.memory_profile_source_sha256
+        == H8_PROFILER_MEMORY_SOURCE_SHA256
+    )
+    assert inspection.profiler_source_sha256 == H8_PROFILER_SOURCE_SHA256
+    assert inspection.api_contract_sha256 == H8_PROFILER_API_CONTRACT_SHA256
+    assert inspection.action_enum == (
+        "PREEXISTING",
+        "CREATE",
+        "INCREMENT_VERSION",
+        "DESTROY",
+    )
+    assert {"CREATE", "INCREMENT_VERSION"} <= set(inspection.observed_actions)
+    assert inspection.required_event_types == ("Allocation", "TorchOp")
+    assert inspection.timeline_row_count >= 2
+    assert inspection.event_node_count >= 2
+    assert inspection.decoded_tensor_key_count > inspection.timeline_row_count
+    assert not hasattr(inspection, "status")
+
+
 def test_h8_selected_runner_rejects_invalid_start_without_parent_launch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

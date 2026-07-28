@@ -1571,6 +1571,259 @@ def test_h8_profiler_pins_reject_full_torch_version_drift(
         path.write_bytes(original)
 
 
+def test_h8_profiler_schema_inspector_is_bounded_with_fakes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Inspect only the pinned tiny workload and reject private-schema drift."""
+
+    from enum import Enum
+
+    import verification.h8_child as h8_child
+    from verification import h8_wire
+
+    class _Action(Enum):
+        PREEXISTING = 1
+        CREATE = 2
+        INCREMENT_VERSION = 3
+        DESTROY = 4
+
+    class _EventType(Enum):
+        Allocation = 1
+        TorchOp = 2
+
+    class _ExtraFields_Allocation:
+        pass
+
+    class _ExtraFields_TorchOp:
+        pass
+
+    class _FakeTensor:
+        def __init__(self, calls: list[object]) -> None:
+            self._calls = calls
+
+        def clone(self) -> _FakeTensor:
+            self._calls.append("clone")
+            return _FakeTensor(self._calls)
+
+        def add_(self, value: float) -> _FakeTensor:
+            self._calls.append(("add_", value))
+            return self
+
+    class _FakeContext:
+        def __init__(
+            self,
+            calls: list[object],
+            name: str,
+            value: object | None = None,
+        ) -> None:
+            self._calls = calls
+            self._name = name
+            self._value = self if value is None else value
+
+        def __enter__(self) -> object:
+            self._calls.append((self._name, "enter"))
+            return self._value
+
+        def __exit__(self, *error: object) -> None:
+            self._calls.append((self._name, "exit", error[0]))
+
+    def make_fake_torch(
+        *,
+        action_type: type[Enum] = _Action,
+        malformed_row: bool = False,
+        complete_key: bool = True,
+        include_torch_op: bool = True,
+    ) -> tuple[SimpleNamespace, list[object]]:
+        calls: list[object] = []
+        storage = SimpleNamespace(
+            ptr=101,
+            allocation_id=202 if complete_key else None,
+        )
+        private_key = SimpleNamespace(
+            id=303,
+            storage=storage,
+            device="cpu",
+            storage_data_ptr=101,
+            sizes=(2,),
+            dtype="torch.float64",
+        )
+        timeline: tuple[object, ...] = (
+            (
+                11,
+                action_type.CREATE,
+                (private_key, 0),
+                16,
+            ),
+            (
+                12,
+                action_type.INCREMENT_VERSION,
+                (private_key, 0),
+                16,
+            ),
+        )
+        if malformed_row:
+            timeline = (timeline[0][:-1], timeline[1])  # type: ignore[index]
+
+        allocation_fields = _ExtraFields_Allocation()
+        allocation_fields.id = private_key.id
+        allocation_fields.storage = storage
+        allocation_fields.device = private_key.device
+        allocation_fields.alloc_size = 16
+        allocation_node = SimpleNamespace(
+            typed=(_EventType.Allocation, allocation_fields),
+            children=(),
+        )
+        torch_op_fields = _ExtraFields_TorchOp()
+        torch_op_fields.name = "aten::add_"
+        torch_op_fields.inputs = (private_key,)
+        torch_op_node = SimpleNamespace(
+            typed=(_EventType.TorchOp, torch_op_fields),
+            children=(),
+        )
+        roots = (
+            (allocation_node, torch_op_node)
+            if include_torch_op
+            else (allocation_node,)
+        )
+        memory_profile = SimpleNamespace(timeline=timeline)
+        kineto_results = SimpleNamespace(
+            experimental_event_tree=lambda: (
+                calls.append("experimental_event_tree") or roots
+            )
+        )
+        profile_value = SimpleNamespace(
+            _memory_profile=lambda: (
+                calls.append("_memory_profile") or memory_profile
+            ),
+            profiler=SimpleNamespace(kineto_results=kineto_results),
+        )
+
+        def profile(**kwargs: object) -> _FakeContext:
+            calls.append(("profile", kwargs))
+            return _FakeContext(calls, "profile", profile_value)
+
+        def no_grad() -> _FakeContext:
+            calls.append("no_grad")
+            return _FakeContext(calls, "no_grad")
+
+        def empty(
+            shape: tuple[int, ...],
+            *,
+            dtype: object,
+            device: str,
+        ) -> _FakeTensor:
+            calls.append(("empty", shape, dtype, device))
+            return _FakeTensor(calls)
+
+        fake_torch = SimpleNamespace(
+            __file__=str(torch_init),
+            __version__=h8_wire.H8_PROFILER_TORCH_VERSION,
+            float64="fake-float64",
+            no_grad=no_grad,
+            empty=empty,
+            profiler=SimpleNamespace(
+                ProfilerActivity=SimpleNamespace(CPU="fake-cpu-activity"),
+                profile=profile,
+            ),
+        )
+        return fake_torch, calls
+
+    memory_source = b"fixture memory profiler source\n"
+    profiler_source = b"fixture profiler source\n"
+    torch_root = tmp_path / "torch"
+    profiler_root = torch_root / "profiler"
+    profiler_root.mkdir(parents=True)
+    torch_init = torch_root / "__init__.py"
+    torch_init.write_bytes(b"fixture torch package\n")
+    (profiler_root / "_memory_profiler.py").write_bytes(memory_source)
+    (profiler_root / "profiler.py").write_bytes(profiler_source)
+    monkeypatch.setattr(
+        h8_child,
+        "_PROFILER_MEMORY_SOURCE_SHA256",
+        hashlib.sha256(memory_source).hexdigest(),
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_PROFILER_SOURCE_SHA256",
+        hashlib.sha256(profiler_source).hexdigest(),
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_operation_graph",
+        lambda *_args, **_kwargs: pytest.fail(
+            "schema inspection reached the H8 production operation graph"
+        ),
+    )
+
+    fake_torch, calls = make_fake_torch()
+    inspection = h8_child.inspect_installed_h8_profiler_schema(fake_torch)
+
+    assert dataclasses.asdict(inspection) == {
+        "schema_version": "h8-installed-profiler-schema-inspection-v1",
+        "torch_version": h8_wire.H8_PROFILER_TORCH_VERSION,
+        "memory_profile_source_sha256": hashlib.sha256(memory_source).hexdigest(),
+        "profiler_source_sha256": hashlib.sha256(profiler_source).hexdigest(),
+        "api_contract_sha256": h8_wire.H8_PROFILER_API_CONTRACT_SHA256,
+        "profiler_flags": (
+            ("activities", ("CPU",)),
+            ("profile_memory", True),
+            ("record_shapes", True),
+            ("with_stack", True),
+        ),
+        "action_enum": (
+            "PREEXISTING",
+            "CREATE",
+            "INCREMENT_VERSION",
+            "DESTROY",
+        ),
+        "observed_actions": ("CREATE", "INCREMENT_VERSION"),
+        "required_event_types": ("Allocation", "TorchOp"),
+        "timeline_row_count": 2,
+        "event_node_count": 2,
+        "decoded_tensor_key_count": 3,
+    }
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        inspection.timeline_row_count = 0
+    assert not hasattr(inspection, "status")
+    assert calls == [
+        "no_grad",
+        ("no_grad", "enter"),
+        (
+            "profile",
+            {
+                "activities": ["fake-cpu-activity"],
+                "profile_memory": True,
+                "record_shapes": True,
+                "with_stack": True,
+            },
+        ),
+        ("profile", "enter"),
+        ("empty", (2,), "fake-float64", "cpu"),
+        "clone",
+        ("add_", 1.0),
+        ("profile", "exit", None),
+        ("no_grad", "exit", None),
+        "_memory_profile",
+        "experimental_event_tree",
+    ]
+
+    incomplete_action = Enum(
+        "_Action",
+        ("PREEXISTING", "CREATE", "INCREMENT_VERSION"),
+    )
+    rejection_cases = (
+        ({"malformed_row": True}, "exact four-tuple"),
+        ({"action_type": incomplete_action}, "complete four-action enum"),
+        ({"complete_key": False}, "TensorKey"),
+        ({"include_torch_op": False}, "Allocation/TorchOp"),
+    )
+    for overrides, message in rejection_cases:
+        drifted_torch, _calls = make_fake_torch(**overrides)
+        with pytest.raises(h8_child._ProfilerUnavailable, match=message):
+            h8_child.inspect_installed_h8_profiler_schema(drifted_torch)
+
+
 def test_h8_child_v2_retains_lossless_private_evidence_without_public_schema_drift(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

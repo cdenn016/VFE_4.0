@@ -167,6 +167,14 @@ _PROFILER_INVOCATION_ITEMS = (
     ("record_shapes", True),
     ("with_stack", True),
 )
+_PROFILER_ACTION_ENUM = (
+    "PREEXISTING",
+    "CREATE",
+    "INCREMENT_VERSION",
+    "DESTROY",
+)
+_PROFILER_INSPECTION_REQUIRED_ACTIONS = ("CREATE", "INCREMENT_VERSION")
+_PROFILER_INSPECTION_REQUIRED_EVENT_TYPES = ("Allocation", "TorchOp")
 _WINDOWS_MEMORY_FIELDS = (
     "cb",
     "PageFaultCount",
@@ -524,6 +532,24 @@ class _DecodedPrivateProfilerRow:
     source_version: int
     raw_version: int
     raw_nbytes: int
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class H8ProfilerSchemaInspection:
+    """Canonical compatibility facts from the bounded installed-runtime probe."""
+
+    schema_version: str
+    torch_version: str
+    memory_profile_source_sha256: str
+    profiler_source_sha256: str
+    api_contract_sha256: str
+    profiler_flags: tuple[tuple[str, object], ...]
+    action_enum: tuple[str, ...]
+    observed_actions: tuple[str, ...]
+    required_event_types: tuple[str, ...]
+    timeline_row_count: int
+    event_node_count: int
+    decoded_tensor_key_count: int
 
 
 def _canonical_json_bytes(value: object) -> bytes:
@@ -2874,6 +2900,126 @@ def _structured_stack(node: object) -> tuple[str, ...]:
             frames.append(str(name))
         parent = getattr(parent, "parent", None)
     return tuple(reversed(frames)) or ("[profiler-root]",)
+
+
+def inspect_installed_h8_profiler_schema(torch: Any) -> H8ProfilerSchemaInspection:
+    """Inspect the pinned private profiler schema without running H8."""
+
+    from vfe4.types.h8 import H8TensorKey
+
+    profiler_api = _verify_profiler_pins(torch)
+    with torch.no_grad():
+        with torch.profiler.profile(
+            activities=[
+                getattr(torch.profiler.ProfilerActivity, activity)
+                for activity in _PROFILER_INVOCATION_ITEMS[0][1]
+            ],
+            profile_memory=_PROFILER_INVOCATION_ITEMS[1][1],
+            record_shapes=_PROFILER_INVOCATION_ITEMS[2][1],
+            with_stack=_PROFILER_INVOCATION_ITEMS[3][1],
+        ) as profile:
+            allocated = torch.empty((2,), dtype=torch.float64, device="cpu")
+            cloned = allocated.clone()
+            cloned.add_(1.0)
+
+    _memory_profile, timeline, roots = _raw_profiler_rows(profile)
+    for row in timeline:
+        if type(row) is not tuple or len(row) != 4:
+            raise _ProfilerUnavailable(
+                "pinned profiler timeline row is not an exact four-tuple"
+            )
+    action_type = type(timeline[0][1])  # type: ignore[index]
+    try:
+        action_enum = tuple(member.name for member in action_type)
+    except (AttributeError, TypeError) as error:
+        raise _ProfilerUnavailable(
+            "pinned profiler action type is not the complete four-action enum"
+        ) from error
+    if action_type.__name__ != "_Action" or action_enum != _PROFILER_ACTION_ENUM:
+        raise _ProfilerUnavailable(
+            "pinned profiler action type is not the complete four-action enum"
+        )
+
+    observed: set[str] = set()
+    decoded_tensor_key_count = 0
+    for source_row_index, row in enumerate(timeline):
+        if type(row[1]) is not action_type or row[1].name not in _PROFILER_ACTION_ENUM:
+            raise _ProfilerUnavailable(
+                "pinned profiler timeline action is outside the frozen action enum"
+            )
+        decoded = _decode_private_profiler_row(
+            row,
+            source_row_index=source_row_index,
+            tensor_key_type=H8TensorKey,
+        )
+        observed.add(decoded.action)
+        decoded_tensor_key_count += 1
+    missing_actions = tuple(
+        action
+        for action in _PROFILER_INSPECTION_REQUIRED_ACTIONS
+        if action not in observed
+    )
+    if missing_actions:
+        raise _ProfilerUnavailable(
+            "tiny profiler workload did not witness the minimum allocation/mutation "
+            f"actions: {','.join(missing_actions)}"
+        )
+
+    nodes = tuple(_walk_event_nodes(roots))
+    observed_event_types: set[str] = set()
+    for node in nodes:
+        typed = getattr(node, "typed", None)
+        if type(typed) is not tuple or len(typed) != 2:
+            raise _ProfilerUnavailable("pinned profiler event typed union drifted")
+        event_type, fields = typed
+        event_name = getattr(event_type, "name", None)
+        if event_name not in _PROFILER_INSPECTION_REQUIRED_EVENT_TYPES:
+            continue
+        if type(event_type).__name__ != "_EventType":
+            raise _ProfilerUnavailable("pinned profiler private event enum drifted")
+        expected_fields_type = f"_ExtraFields_{event_name}"
+        if type(fields).__name__ != expected_fields_type:
+            raise _ProfilerUnavailable(
+                f"pinned profiler {event_name} private fields drifted"
+            )
+        if event_name == "Allocation":
+            key = _structured_tensor_key(fields, H8TensorKey)
+            if key is not None:
+                decoded_tensor_key_count += 1
+        observed_event_types.add(event_name)
+    missing_event_types = tuple(
+        event_type
+        for event_type in _PROFILER_INSPECTION_REQUIRED_EVENT_TYPES
+        if event_type not in observed_event_types
+    )
+    if missing_event_types:
+        raise _ProfilerUnavailable(
+            "pinned profiler event tree does not contain the required "
+            "Allocation/TorchOp private event types"
+        )
+    if decoded_tensor_key_count <= len(timeline):
+        raise _ProfilerUnavailable(
+            "pinned profiler event tree has no decodable complete TensorKey fields"
+        )
+
+    return H8ProfilerSchemaInspection(
+        schema_version="h8-installed-profiler-schema-inspection-v1",
+        torch_version=str(profiler_api["torch_version"]),
+        memory_profile_source_sha256=str(
+            profiler_api["memory_profile_source_sha256"]
+        ),
+        profiler_source_sha256=str(profiler_api["profiler_source_sha256"]),
+        api_contract_sha256=str(profiler_api["api_contract_sha256"]),
+        profiler_flags=_PROFILER_INVOCATION_ITEMS,
+        action_enum=_PROFILER_ACTION_ENUM,
+        observed_actions=tuple(
+            action for action in _PROFILER_ACTION_ENUM if action in observed
+        ),
+        required_event_types=_PROFILER_INSPECTION_REQUIRED_EVENT_TYPES,
+        timeline_row_count=len(timeline),
+        event_node_count=len(nodes),
+        decoded_tensor_key_count=decoded_tensor_key_count,
+    )
 
 
 def _run_profiler(torch: Any, np: Any, seed: int) -> dict[str, object]:
