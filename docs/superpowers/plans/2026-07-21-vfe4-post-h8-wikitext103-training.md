@@ -1350,7 +1350,7 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 **Precondition:** Tasks 1--12 are reviewed and committed; the user separately authorizes the real network acquisition. No training, optimizer update on corpus data, validation scoring, or test scoring is authorized by source-lock permission.
 
 - [ ] **Step 1: Produce and validate the first same-revision H8 PASS before source lock.** Freeze the exact clean Tasks 1--12 HEAD/digest and require
-  `validation/h8.json` v4 PASS and validate its six-payload artifact,
+  `validation/h8.json` v5 PASS and validate its six-payload artifact,
   `manifest.sha256`, external `h8-current-candidate-result-v2` pointer, exact
   `h8-current-candidate-refs-v3` registry, candidate JUnit, complete
   `(git_head, dirty_digest, config_sha256, validation_sha256,
