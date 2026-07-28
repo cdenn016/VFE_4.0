@@ -477,6 +477,9 @@ capability is opaque, process-local, and nonserializable, so a reservation
 created by one click cannot be scored by another. Historical split operations
 cannot authorize v3.
 
+The existing `prediction_readiness`, `plan`, `train`, and
+`score_validation` click operations retain their exact authorization phrases.
+
 Every other operation retains its existing exact authorization phrase. The
 click-run launcher resolves a complete editable scientific dictionary and
 immutable reference-registry path; it does not require CLI flags or hidden
@@ -582,8 +585,10 @@ The migration is additive and type-exact:
 - reject a v1/v2 typed object at every v3 dispatcher before any effect;
 - bump `train_vfe4.py`'s editable dictionary and returned result envelope to
   v3, removing the two split test operations from the v3 operation union;
-- add a v3 H6 reference and exact reopen validator to H8; do not weaken the
-  existing H8 v2/legacy parsers.
+- add a v3 H6 reference and exact reopen validator to H8 under
+  `h8-current-candidate-refs-v4`, with a pre-outcome H8 preregistration and
+  preflight-hash amendment; keep registry v1/v2/v3 and H6-Prediction
+  v2/legacy parsers unchanged and historical-read-only.
 
 Config v3 binds:
 
