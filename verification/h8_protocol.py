@@ -90,13 +90,10 @@ _H8_NEGATIVE_CONTROL_CONTRACT = (
 
 
 def _h8_protocol_preimage(config: H8ValidationConfig) -> dict[str, object]:
-    """Return the complete pure v2 parent/child protocol preimage."""
+    """Return the complete pure v3 parent/child protocol preimage."""
 
     if type(config) is not H8ValidationConfig:
         raise ValueError("config must be an exact H8ValidationConfig")
-    config.__post_init__()
-    if config != H8ValidationConfig.create():
-        raise ValueError("H8 validation configuration is stale")
     if config.child_schema != H8_CHILD_SCHEMA_VERSION:
         raise ValueError(
             "H8 config child schema does not match the executable protocol"
@@ -105,12 +102,27 @@ def _h8_protocol_preimage(config: H8ValidationConfig) -> dict[str, object]:
         raise ValueError(
             "H8 config Torch version does not match the executable protocol"
         )
+    if config.profiler_memory_source_sha256 != H8_PROFILER_MEMORY_SOURCE_SHA256:
+        raise ValueError(
+            "H8 config profiler memory source does not match the executable protocol"
+        )
+    if config.profiler_source_sha256 != H8_PROFILER_SOURCE_SHA256:
+        raise ValueError(
+            "H8 config profiler source does not match the executable protocol"
+        )
+    if config.profiler_api_contract_sha256 != H8_PROFILER_API_CONTRACT_SHA256:
+        raise ValueError(
+            "H8 config profiler API contract does not match the executable protocol"
+        )
+    config.__post_init__()
+    if config != H8ValidationConfig.create():
+        raise ValueError("H8 validation configuration is stale")
     if tuple(item[0] for item in _H8_NEGATIVE_CONTROL_CONTRACT) != (
         H8_NEGATIVE_CONTROL_IDS
     ):
         raise ValueError("H8 negative-control contract order drifted")
     return {
-        "domain": "vfe4.h8.parent-child-protocol.v2",
+        "domain": "vfe4.h8.parent-child-protocol.v3",
         "validation_config": {
             "schema_version": config.schema_version,
             "config_sha256": config.config_sha256,

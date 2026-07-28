@@ -381,6 +381,14 @@ def test_h8_static_protocol_and_h7_projection_are_exact_and_pure() -> None:
     assert resolved.max_torch_population_mib == 64
     assert (resolved.max_rhs_width, resolved.sample_width) == (40, 1)
     assert resolved.correctness_seed_table == H8_CORRECTNESS_CASES
+    assert resolved.schema_version == "h8-validation-config-v3"
+    assert resolved.torch_version == "2.10.0.dev20251210+cu128"
+    assert resolved.profiler_memory_source_sha256 == (
+        "22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47"
+    )
+    assert resolved.profiler_source_sha256 == (
+        "543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956"
+    )
     assert resolved.profiler_api_contract_sha256 == (
         H8_PROFILER_API_CONTRACT_SHA256
     )

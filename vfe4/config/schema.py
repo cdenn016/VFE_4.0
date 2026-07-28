@@ -65,6 +65,7 @@ from vfe4.types.h8 import (
     H8_PROFILER_API_CONTRACT_SHA256,
     H8_PROFILER_MEMORY_SOURCE_SHA256,
     H8_PROFILER_SOURCE_SHA256,
+    H8_PROFILER_TORCH_VERSION,
 )
 
 from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
@@ -1516,7 +1517,7 @@ def _h8_validation_payload(
 
 def _h8_frozen_values() -> dict[str, object]:
     return {
-        "schema_version": "h8-validation-config-v2",
+        "schema_version": "h8-validation-config-v3",
         "operation": "H8",
         "choice_kind": "operational_preregistration_not_manuscript_theorem",
         "k_semantics": "each_channel_dimension",
@@ -1551,7 +1552,7 @@ def _h8_frozen_values() -> dict[str, object]:
         "max_torch_population_mib": 64,
         "max_rhs_width": 40,
         "sample_width": 1,
-        "torch_version": "2.9.1",
+        "torch_version": H8_PROFILER_TORCH_VERSION,
         "profiler_memory_source_sha256": H8_PROFILER_MEMORY_SOURCE_SHA256,
         "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
         "profiler_api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
@@ -1564,7 +1565,7 @@ def _h8_frozen_values() -> dict[str, object]:
 class H8ValidationConfig:
     """Frozen, unmeasured H8 synthetic systems protocol."""
 
-    schema_version: Literal["h8-validation-config-v2"]
+    schema_version: Literal["h8-validation-config-v3"]
     operation: Literal["H8"]
     choice_kind: Literal["operational_preregistration_not_manuscript_theorem"]
     k_semantics: Literal["each_channel_dimension"]
@@ -1605,7 +1606,7 @@ class H8ValidationConfig:
     max_torch_population_mib: Literal[64]
     max_rhs_width: Literal[40]
     sample_width: Literal[1]
-    torch_version: Literal["2.9.1"]
+    torch_version: Literal["2.10.0.dev20251210+cu128"]
     profiler_memory_source_sha256: str
     profiler_source_sha256: str
     profiler_api_contract_sha256: str

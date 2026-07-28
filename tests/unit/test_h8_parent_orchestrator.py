@@ -522,17 +522,37 @@ def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
         "profiler_raw_event_schema": "h8-torch-profiler-raw-event-v1",
         "child_schema": "h8-child-v2",
     }
-    assert config.schema_version == "h8-validation-config-v2"
-    assert (
-        config.config_sha256
-        == "e2bfda7f74fb04688515594df9ed3bf5ab8bfab6cfca54e64170ef47cbab11a5"
-    )
+    assert config.schema_version == "h8-validation-config-v3"
     assert {
         name: getattr(config, name) for name in expected_schemas
     } == expected_schemas
     assert (
         h8_preflight.H8_FROZEN_SECTION_SHA256
         == config.config_sha256
+    )
+    assert config.torch_version == "2.10.0.dev20251210+cu128"
+    assert config.profiler_memory_source_sha256 == (
+        "22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47"
+    )
+    assert config.profiler_source_sha256 == (
+        "543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956"
+    )
+    assert h8_wire.H8_PROFILER_API_CONTRACT_DESCRIPTOR == (
+        "torch==2.10.0.dev20251210+cu128|runtime=installed-exact|"
+        "memory_profile_source_sha256=22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47|"
+        "profiler_source_sha256=543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956|"
+        "flags=record_shapes:true,profile_memory:true,with_stack:true|"
+        "timeline=profile._memory_profile().timeline:(timestamp_ns,action,key_and_version,numbytes)|"
+        "actions=PREEXISTING,CREATE,INCREMENT_VERSION,DESTROY|"
+        "event_tree=profile.profiler.kineto_results.experimental_event_tree()|"
+        "allocation=_EventType.Allocation+_ExtraFields_Allocation|"
+        "torchop=_EventType.TorchOp+_ExtraFields_TorchOp|"
+        "join=TensorKey(id,storage.ptr,allocation_id,device)+version|"
+        "raw_export=(timestamp_ns,action,numbytes,category)|join_unavailable=INCONCLUSIVE"
+    )
+    assert len(h8_wire.H8_PROFILER_API_CONTRACT_DESCRIPTOR.encode("ascii")) == 757
+    assert h8_wire.H8_PROFILER_API_CONTRACT_SHA256 == (
+        "2ee166166bab997499cc66da85146a031f458fbe0190a75b1a1a3ddea80efc38"
     )
 
     raw = json.loads(config.canonical_json)
@@ -556,7 +576,7 @@ def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
     _h8_protocol_preimage = h8_orchestrator._h8_protocol_preimage
     build_h8_protocol_sha256 = h8_orchestrator.build_h8_protocol_sha256
     preimage = _h8_protocol_preimage(config)
-    assert preimage["domain"] == "vfe4.h8.parent-child-protocol.v2"
+    assert preimage["domain"] == "vfe4.h8.parent-child-protocol.v3"
     assert preimage["validation_config"] == {
         "schema_version": config.schema_version,
         "config_sha256": config.config_sha256,
@@ -703,7 +723,7 @@ def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
         "supplementary": "max(0,post_lifetime_peak-pre_lifetime_peak)",
     }
     assert preimage["source_identities"]["profiler_api"] == {
-        "torch_version": "2.9.1",
+        "torch_version": "2.10.0.dev20251210+cu128",
         "memory_profile_source_sha256": H8_PROFILER_MEMORY_SOURCE_SHA256,
         "profiler_source_sha256": H8_PROFILER_SOURCE_SHA256,
         "api_contract_sha256": H8_PROFILER_API_CONTRACT_SHA256,
@@ -714,6 +734,17 @@ def test_h8_v2_config_and_protocol_contract_are_complete_and_shared(
             "with_stack": True,
         },
     }
+
+    for name, replacement in (
+        ("torch_version", "2.10.0.dev20251210"),
+        ("profiler_memory_source_sha256", "0" * 64),
+        ("profiler_source_sha256", "1" * 64),
+        ("profiler_api_contract_sha256", "2" * 64),
+    ):
+        drifted_config = H8ValidationConfig.create()
+        object.__setattr__(drifted_config, name, replacement)
+        with pytest.raises(ValueError, match="profiler|Torch"):
+            _h8_protocol_preimage(drifted_config)
 
     digest = build_h8_protocol_sha256(config)
     assert digest == hashlib.sha256(

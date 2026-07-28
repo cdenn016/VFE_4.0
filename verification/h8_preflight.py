@@ -19,7 +19,7 @@ H8_PREFLIGHT_CONFIG_SCHEMA = "h8-preflight-config-v1"
 H8_PREFLIGHT_RESULT_SCHEMA = "h8-preflight-result-v1"
 H8_REGISTRY_SCHEMA = "h8-current-candidate-refs-v3"
 H8_FROZEN_SECTION_SHA256 = (
-    "e2bfda7f74fb04688515594df9ed3bf5ab8bfab6cfca54e64170ef47cbab11a5"
+    "c11969f7e27bc4835f1768ee6757c48d46626718ec387d50a27808f8d35373bb"
 )
 H8_PREREGISTRATION_RELATIVE_PATH = (
     Path("docs") / "preregistrations" / "2026-07-21-h8-sparse-scale.md"
@@ -596,10 +596,10 @@ def _validate_target_h8(
         "target_scientific_config.h8",
     )
     if (
-        h8.get("schema_version") != "h8-validation-config-v2"
+        h8.get("schema_version") != "h8-validation-config-v3"
         or h8.get("operation") != "H8"
     ):
-        raise ValueError("target must retain the frozen H8 v2 operation")
+        raise ValueError("target must retain the frozen H8 v3 operation")
     integer_fields = ("T", "N", "K", "d_z", "d_m", "b", "D", "V")
     for name in integer_fields:
         if type(h8.get(name)) is not int or cast(int, h8[name]) <= 0:

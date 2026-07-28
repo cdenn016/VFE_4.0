@@ -50,6 +50,7 @@ from vfe4.types.h8 import (
     H8_PROFILER_API_CONTRACT_SHA256,
     H8_PROFILER_MEMORY_SOURCE_SHA256,
     H8_PROFILER_SOURCE_SHA256,
+    H8_PROFILER_TORCH_VERSION,
     H8_REQUIRED_OPERATIONS,
     H8_VERIFIER_PREFIX,
     CurrentH8PrerequisiteRefs,
@@ -74,7 +75,7 @@ from vfe4.types.results import (
 )
 
 
-H8_VALIDATION_SCHEMA = "h8-sparse-scale-v4"
+H8_VALIDATION_SCHEMA = "h8-sparse-scale-v5"
 H8_CURRENT_CANDIDATE_RESULT_SCHEMA = "h8-current-candidate-result-v2"
 H8_BOUNDED_CLAIM = (
     "The frozen T=128, K=d_z=d_m=20 synthetic chain completed within the "
@@ -701,7 +702,7 @@ def _source_only_sections(
             "cpu_count": None,
             "affinity": None,
             "python_version": None,
-            "pytorch_version": "2.9.1",
+            "pytorch_version": H8_PROFILER_TORCH_VERSION,
             "numpy_version": None,
             "device": "cpu",
             "dtype": "float64",

@@ -208,16 +208,29 @@ H8_MAX_PROCESS_INCREMENTAL_BYTES = 128 * 1024 * 1024
 H8_MAX_TORCH_POPULATION_BYTES = 64 * 1024 * 1024
 H8_MAX_SECONDS = 60.0
 H8_MIN_CHOLESKY_PIVOT = 1e-8
-H8_PROFILER_TORCH_VERSION = "2.9.1"
+H8_PROFILER_TORCH_VERSION = "2.10.0.dev20251210+cu128"
 H8_PROFILER_MEMORY_SOURCE_SHA256 = (
-    "b80b4d5b58e91d581b18082c462ec7f088ec6b46ea50a1a62e2714d517a6a1b1"
+    "22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47"
 )
 H8_PROFILER_SOURCE_SHA256 = (
-    "2c35f649219fb912728819b7dc0be5a5f1bd54c1efcd9502b62d976aeb278d22"
+    "543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956"
 )
-H8_PROFILER_API_CONTRACT_SHA256 = (
-    "161a78f04c26fba19bb01ba6417f2cf8c00730ebeb8d007a4af0f4da433ba043"
+H8_PROFILER_API_CONTRACT_DESCRIPTOR = (
+    "torch==2.10.0.dev20251210+cu128|runtime=installed-exact|"
+    "memory_profile_source_sha256=22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47|"
+    "profiler_source_sha256=543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956|"
+    "flags=record_shapes:true,profile_memory:true,with_stack:true|"
+    "timeline=profile._memory_profile().timeline:(timestamp_ns,action,key_and_version,numbytes)|"
+    "actions=PREEXISTING,CREATE,INCREMENT_VERSION,DESTROY|"
+    "event_tree=profile.profiler.kineto_results.experimental_event_tree()|"
+    "allocation=_EventType.Allocation+_ExtraFields_Allocation|"
+    "torchop=_EventType.TorchOp+_ExtraFields_TorchOp|"
+    "join=TensorKey(id,storage.ptr,allocation_id,device)+version|"
+    "raw_export=(timestamp_ns,action,numbytes,category)|join_unavailable=INCONCLUSIVE"
 )
+H8_PROFILER_API_CONTRACT_SHA256 = hashlib.sha256(
+    H8_PROFILER_API_CONTRACT_DESCRIPTOR.encode("ascii")
+).hexdigest()
 H8_PROFILER_INVOCATION_ITEMS = (
     ("activities", ("CPU",)),
     ("profile_memory", True),
@@ -445,6 +458,7 @@ __all__ = [
     "H8_PRODUCTION_SAMPLE_SEEDS",
     "H8_PRODUCTION_SEEDS",
     "H8_PROFILER_API_CONTRACT_SHA256",
+    "H8_PROFILER_API_CONTRACT_DESCRIPTOR",
     "H8_PROFILER_INVOCATION_ITEMS",
     "H8_PROFILER_MEMORY_SOURCE_SHA256",
     "H8_PROFILER_SOURCE_SHA256",
