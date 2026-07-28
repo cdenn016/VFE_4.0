@@ -582,6 +582,30 @@ def test_content_addressed_stream_is_chunked_bounded_and_digest_derived(
 
 
 @pytest.mark.parametrize("backend_kind", ["posix", "windows"])
+def test_content_addressed_stream_rejects_an_oversized_chunk_before_publication(
+    tmp_path: Path,
+    backend_kind: str,
+) -> None:
+    durability = _durability()
+    volume = durability.VolumeFacts("/", "device-7", "NTFS", False)
+    backend, _ = _stream_backend(durability, backend_kind, volume)
+    payload = b"oversized"
+    destination = tmp_path / f"{hashlib.sha256(payload).hexdigest()}.bin"
+
+    with pytest.raises(durability.DurabilityOperationError) as captured:
+        backend.publish_content_addressed_stream(
+            tmp_path,
+            (payload,),
+            suffix=".bin",
+            chunk_size_limit=len(payload) - 1,
+            reopen_block_size=3,
+        )
+
+    assert captured.value.phase == "validate_stream_chunk"
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize("backend_kind", ["posix", "windows"])
 def test_content_addressed_stream_recovers_idempotently_only_for_exact_target(
     tmp_path: Path,
     backend_kind: str,
