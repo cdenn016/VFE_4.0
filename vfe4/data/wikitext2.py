@@ -31,6 +31,7 @@ from vfe4.config import (
 from vfe4.h6_validation_fixture import ValidationSafetyFixtureReference
 from vfe4.types.h6 import (
     DataIdentity,
+    EncodedTokenStorageIdentity,
     SealedSplitHandle,
     ValidationSafetyFixture,
 )
@@ -39,8 +40,7 @@ from .byte_tokenizer import ByteTokenizerV1
 from .windows import materialize_validation_safety_fixture
 
 WIKITEXT2_RAW_URL: Final = (
-    "https://s3.amazonaws.com/research.metamind.io/wikitext/"
-    "wikitext-2-raw-v1.zip"
+    "https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-raw-v1.zip"
 )
 ARCHIVE_ENTRY_ORDER: Final = (
     "wikitext-2-raw/",
@@ -57,6 +57,8 @@ BINARY_PAYLOAD_ORDER: Final = (
 )
 
 _MANIFEST_DOMAIN = b"VFE4-H6-BINARY-DIRECTORY-MANIFEST-V1\x00"
+_TOKEN_STORAGE_DOMAIN = b"VFE4-H6-U16LE-TOKENS-V1\x00"
+_DATA_IDENTITY_DOMAIN = b"vfe4.h6.data-identity.v1\x00"
 _ACCESS_POLICY_BYTES = (
     b"VFE4-H6-BLINDED-DATA-ACCESS-POLICY-V1\x00"
     b"validation-safety-before-readiness\x00"
@@ -74,6 +76,46 @@ class BinaryPublicationError(RuntimeError):
     """A five-payload blinded directory could not be atomically published."""
 
 
+def _require_lower_sha256(value: object, name: str) -> str:
+    if (
+        type(value) is not str
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError(f"{name} must be lowercase SHA-256 hex")
+    return value
+
+
+def _semantic_data_identity_sha256(identity: object) -> str:
+    payload = {
+        "data_schema": getattr(identity, "data_schema"),
+        "archive_sha256": getattr(identity, "archive_sha256"),
+        "train_raw_sha256": getattr(identity, "train_raw_sha256"),
+        "validation_raw_sha256": getattr(identity, "validation_raw_sha256"),
+        "test_raw_sha256": getattr(identity, "test_raw_sha256"),
+        "train_token_sha256": getattr(
+            getattr(identity, "train_tokens"),
+            "encoded_token_sha256",
+        ),
+        "validation_token_sha256": getattr(
+            getattr(identity, "validation_tokens"),
+            "encoded_token_sha256",
+        ),
+        "test_token_sha256": getattr(
+            getattr(identity, "test_tokens"),
+            "encoded_token_sha256",
+        ),
+        "validation_fixture_sha256": getattr(
+            getattr(identity, "validation_fixture"),
+            "fixture_sha256",
+        ),
+        "access_policy_sha256": getattr(identity, "access_policy_sha256"),
+    }
+    return hashlib.sha256(
+        _DATA_IDENTITY_DOMAIN + canonical_json_bytes(payload)
+    ).hexdigest()
+
+
 @dataclass(frozen=True)
 class H6DataAcquisitionRequest:
     """Exact resolved inputs for one identity-bound blinded acquisition."""
@@ -86,7 +128,10 @@ class H6DataAcquisitionRequest:
     def __post_init__(self) -> None:
         if type(self.data) is not H6DataConfig:
             raise ValueError("data must be the exact resolved H6DataConfig")
-        if not isinstance(self.artifact_root, Path) or not self.artifact_root.is_absolute():
+        if (
+            not isinstance(self.artifact_root, Path)
+            or not self.artifact_root.is_absolute()
+        ):
             raise ValueError("artifact_root must be an absolute pathlib.Path")
         if self.access_policy_sha256 != ACCESS_POLICY_SHA256:
             raise ValueError("access policy does not match the frozen H6 data policy")
@@ -132,6 +177,83 @@ class BinaryDirectoryReference:
 
 
 @dataclass(frozen=True)
+class AuthenticatedSealedTokenIdentity:
+    """Hash-only token identity for a split that remains unopened."""
+
+    storage_schema: str
+    token_count: int
+    byte_length: int
+    encoded_token_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.storage_schema != "vfe4-h6-u16le-tokens-v1":
+            raise ValueError("unsupported sealed token storage schema")
+        if type(self.token_count) is not int or self.token_count <= 0:
+            raise ValueError("sealed token_count must be positive")
+        if (
+            type(self.byte_length) is not int
+            or self.byte_length != len(_TOKEN_STORAGE_DOMAIN) + 8 + 2 * self.token_count
+        ):
+            raise ValueError("sealed token byte_length is inconsistent")
+        _require_lower_sha256(
+            self.encoded_token_sha256,
+            "sealed encoded_token_sha256",
+        )
+
+
+@dataclass(frozen=True)
+class AuthenticatedReopenedDataIdentity:
+    """Authenticated identity retaining no held-out test token bytes."""
+
+    data_schema: str
+    archive_sha256: str
+    train_raw_sha256: str
+    validation_raw_sha256: str
+    test_raw_sha256: str
+    train_tokens: EncodedTokenStorageIdentity
+    validation_tokens: EncodedTokenStorageIdentity
+    test_tokens: AuthenticatedSealedTokenIdentity
+    validation_fixture: ValidationSafetyFixture
+    access_policy_sha256: str
+    data_identity_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.data_schema != "vfe4-h6-data-identity-v1":
+            raise ValueError("unsupported authenticated reopened data schema")
+        for name in (
+            "archive_sha256",
+            "train_raw_sha256",
+            "validation_raw_sha256",
+            "test_raw_sha256",
+            "access_policy_sha256",
+            "data_identity_sha256",
+        ):
+            _require_lower_sha256(getattr(self, name), name)
+        for name in ("train_tokens", "validation_tokens"):
+            identity = getattr(self, name)
+            if type(identity) is not EncodedTokenStorageIdentity:
+                raise ValueError(
+                    "opened token identities must retain exact token bytes"
+                )
+            identity.__post_init__()
+        if type(self.test_tokens) is not AuthenticatedSealedTokenIdentity:
+            raise ValueError("test token identity must remain hash-only")
+        self.test_tokens.__post_init__()
+        if type(self.validation_fixture) is not ValidationSafetyFixture:
+            raise ValueError("validation fixture must be exact")
+        self.validation_fixture.__post_init__()
+        if (
+            self.validation_fixture.validation_token_sha256
+            != self.validation_tokens.encoded_token_sha256
+        ):
+            raise ValueError(
+                "validation fixture must bind the validation token identity"
+            )
+        if self.data_identity_sha256 != _semantic_data_identity_sha256(self):
+            raise ValueError("authenticated reopened data identity changed")
+
+
+@dataclass(frozen=True)
 class BlindedCorpusStore:
     """Public identities and opaque handles; access owns all filesystem state."""
 
@@ -141,11 +263,17 @@ class BlindedCorpusStore:
     frozen_validation_fixture: ValidationSafetyFixture
     validation_safety_fixture_reference: ValidationSafetyFixtureReference
     sealed_test_handle: SealedSplitHandle
-    _data_identity: DataIdentity = field(repr=False, compare=False)
+    _data_identity: DataIdentity | AuthenticatedReopenedDataIdentity = field(
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
-        if type(self._data_identity) is not DataIdentity:
-            raise ValueError("store requires an exact DataIdentity")
+        if type(self._data_identity) not in (
+            DataIdentity,
+            AuthenticatedReopenedDataIdentity,
+        ):
+            raise ValueError("store requires an authenticated data identity")
         self._data_identity.__post_init__()
         if self.data_identity_sha256 != self._data_identity.data_identity_sha256:
             raise ValueError("store data identity does not match its retained record")
@@ -161,14 +289,17 @@ class BlindedCorpusStore:
             if (
                 handle.split != split
                 or handle.data_identity_sha256 != self.data_identity_sha256
-                or handle.access_policy_sha256 != self._data_identity.access_policy_sha256
+                or handle.access_policy_sha256
+                != self._data_identity.access_policy_sha256
             ):
                 raise ValueError("sealed split handle does not match the store")
         if type(self.frozen_validation_fixture) is not ValidationSafetyFixture:
             raise ValueError("store requires the frozen validation safety fixture")
         self.frozen_validation_fixture.__post_init__()
         if self.frozen_validation_fixture != self._data_identity.validation_fixture:
-            raise ValueError("store validation fixture does not match its data identity")
+            raise ValueError(
+                "store validation fixture does not match its data identity"
+            )
         if (
             type(self.validation_safety_fixture_reference)
             is not ValidationSafetyFixtureReference
@@ -192,9 +323,22 @@ class BlindedCorpusStore:
             )
 
     @property
-    def data_identity(self) -> DataIdentity:
+    def data_identity(
+        self,
+    ) -> DataIdentity | AuthenticatedReopenedDataIdentity:
         self._data_identity.__post_init__()
         return self._data_identity
+
+
+@dataclass(frozen=True)
+class _RehydratedBlindedData:
+    """Private, short-lived materials used to authenticate a sealed reopening."""
+
+    directory_reference: BinaryDirectoryReference
+    data_identity: DataIdentity
+    fixture_reference: ValidationSafetyFixtureReference
+    raw_splits: tuple[bytes, bytes, bytes]
+    token_splits: tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]
 
 
 def _source_bytes(source: object) -> bytes:
@@ -210,17 +354,23 @@ def _source_bytes(source: object) -> bytes:
                     break
                 total += len(chunk)
                 if total > 33_554_432:
-                    raise BinaryPublicationError("binary payload exceeds the frozen bound")
+                    raise BinaryPublicationError(
+                        "binary payload exceeds the frozen bound"
+                    )
                 chunks.append(chunk)
         return b"".join(chunks)
-    raise BinaryPublicationError("binary payload sources must be immutable bytes or Path")
+    raise BinaryPublicationError(
+        "binary payload sources must be immutable bytes or Path"
+    )
 
 
 def _validate_data_identity_json(content: bytes) -> None:
     try:
         decoded = json.loads(content.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
-        raise BinaryPublicationError("data_identity.json must be canonical UTF-8 JSON") from exc
+        raise BinaryPublicationError(
+            "data_identity.json must be canonical UTF-8 JSON"
+        ) from exc
     if not isinstance(decoded, Mapping):
         raise BinaryPublicationError("data_identity.json must contain one JSON object")
 
@@ -235,7 +385,9 @@ def _validate_data_identity_json(content: bytes) -> None:
         if isinstance(value, Mapping):
             for key, nested in value.items():
                 if type(key) is not str:
-                    raise BinaryPublicationError("data identity JSON keys must be strings")
+                    raise BinaryPublicationError(
+                        "data identity JSON keys must be strings"
+                    )
                 if key.casefold() in forbidden:
                     raise BinaryPublicationError(
                         "data_identity.json cannot contain its enclosing manifest identity"
@@ -247,7 +399,9 @@ def _validate_data_identity_json(content: bytes) -> None:
 
     walk(decoded)
     if canonical_json_bytes(decoded) != content:
-        raise BinaryPublicationError("data_identity.json must use exact canonical JSON bytes")
+        raise BinaryPublicationError(
+            "data_identity.json must use exact canonical JSON bytes"
+        )
 
 
 def _payload_items(payloads: Mapping[str, object]) -> dict[str, bytes]:
@@ -260,10 +414,18 @@ def _payload_items(payloads: Mapping[str, object]) -> dict[str, bytes]:
     names = [name for name, _ in items]
     if any(type(name) is not str for name in names):
         raise BinaryPublicationError("payload paths must be exact strings")
-    if len(names) != len(set(names)) or len(names) != len({name.casefold() for name in names}):
-        raise BinaryPublicationError("duplicate or case-colliding payload paths are forbidden")
-    if set(names) != set(BINARY_PAYLOAD_ORDER) or len(names) != len(BINARY_PAYLOAD_ORDER):
-        raise BinaryPublicationError("caller must supply exactly the five frozen payload paths")
+    if len(names) != len(set(names)) or len(names) != len(
+        {name.casefold() for name in names}
+    ):
+        raise BinaryPublicationError(
+            "duplicate or case-colliding payload paths are forbidden"
+        )
+    if set(names) != set(BINARY_PAYLOAD_ORDER) or len(names) != len(
+        BINARY_PAYLOAD_ORDER
+    ):
+        raise BinaryPublicationError(
+            "caller must supply exactly the five frozen payload paths"
+        )
     result = {name: _source_bytes(source) for name, source in items}
     _validate_data_identity_json(result["data_identity.json"])
     return result
@@ -348,7 +510,9 @@ def publish_blinded_binary_directory(
         staging = parent / f".{final.name}.staging-{uuid.uuid4().hex}"
         staging.mkdir()
         if staging.stat().st_dev != parent.stat().st_dev:
-            raise BinaryPublicationError("blinded stage must be on the destination volume")
+            raise BinaryPublicationError(
+                "blinded stage must be on the destination volume"
+            )
         records: list[BinaryPayloadRecord] = []
         for name in BINARY_PAYLOAD_ORDER:
             relative = PurePosixPath(name)
@@ -390,7 +554,9 @@ def publish_blinded_binary_directory(
     except BinaryPublicationError:
         raise
     except (OSError, RuntimeError, TypeError, ValueError, UnicodeError) as exc:
-        raise BinaryPublicationError(f"blinded binary publication failed: {exc}") from exc
+        raise BinaryPublicationError(
+            f"blinded binary publication failed: {exc}"
+        ) from exc
     finally:
         if staging is not None and not installed and staging.exists():
             try:
@@ -403,9 +569,7 @@ def _read_blinded_payload(
     directory: Path, relative_path: str, *, maximum_bytes: int
 ) -> bytes:
     target = directory.joinpath(*PurePosixPath(relative_path).parts)
-    if target.is_symlink() or (
-        hasattr(target, "is_junction") and target.is_junction()
-    ):
+    if target.is_symlink() or (hasattr(target, "is_junction") and target.is_junction()):
         raise BlindedDataError("blinded artifact cannot contain redirected payloads")
     try:
         parent_metadata = target.parent.stat()
@@ -432,8 +596,7 @@ def _read_blinded_payload(
         opened = os.fstat(descriptor)
         if (
             not stat.S_ISREG(opened.st_mode)
-            or (opened.st_dev, opened.st_ino)
-            != (metadata.st_dev, metadata.st_ino)
+            or (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino)
             or opened.st_size != metadata.st_size
         ):
             raise BlindedDataError(
@@ -484,14 +647,14 @@ def _read_blinded_payload(
     return content
 
 
-def _rehydrate_blinded_data_identity(
+def _rehydrate_blinded_data_materials(
     directory: Path,
     *,
     expected_archive_sha256: str,
     expected_data_identity_sha256: str,
     expected_access_policy_sha256: str,
-) -> DataIdentity:
-    """Privately reconstruct a typed identity without exposing model-facing data."""
+) -> _RehydratedBlindedData:
+    """Privately reconstruct every short-lived input needed for v3 authentication."""
 
     if not isinstance(directory, Path):
         raise BlindedDataError("blinded artifact root must be a pathlib.Path")
@@ -517,12 +680,12 @@ def _rehydrate_blinded_data_identity(
     except OSError as exc:
         raise BlindedDataError("blinded artifact root is unavailable") from exc
     if root.is_symlink() or not root.is_dir():
-        raise BlindedDataError("blinded artifact root must be a non-redirected directory")
+        raise BlindedDataError(
+            "blinded artifact root must be a non-redirected directory"
+        )
     observed_files: set[str] = set()
     for path in root.rglob("*"):
-        if path.is_symlink() or (
-            hasattr(path, "is_junction") and path.is_junction()
-        ):
+        if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
             raise BlindedDataError("blinded artifact cannot contain a redirect")
         if path.is_file():
             observed_files.add(path.relative_to(root).as_posix())
@@ -536,15 +699,11 @@ def _rehydrate_blinded_data_identity(
         name: _read_blinded_payload(
             root,
             name,
-            maximum_bytes=(
-                16_777_216 if name.startswith("sealed/") else 33_554_432
-            ),
+            maximum_bytes=(16_777_216 if name.startswith("sealed/") else 33_554_432),
         )
         for name in BINARY_PAYLOAD_ORDER
     }
-    manifest_bytes = _read_blinded_payload(
-        root, "manifest.sha256", maximum_bytes=65
-    )
+    manifest_bytes = _read_blinded_payload(root, "manifest.sha256", maximum_bytes=65)
     manifest_preimage = bytearray(
         _MANIFEST_DOMAIN + len(BINARY_PAYLOAD_ORDER).to_bytes(4, "little")
     )
@@ -615,8 +774,7 @@ def _rehydrate_blinded_data_identity(
             split_summary["raw_sha256"]
             != hashlib.sha256(raw_by_split[split]).hexdigest()
             or split_summary["token_count"] != identities[split].token_count
-            or split_summary["token_sha256"]
-            != identities[split].encoded_token_sha256
+            or split_summary["token_sha256"] != identities[split].encoded_token_sha256
         ):
             raise BlindedDataError(f"blinded {split} identity is stale")
 
@@ -634,9 +792,7 @@ def _rehydrate_blinded_data_identity(
     identity = DataIdentity.create(
         archive_sha256=expected_archive_sha256,
         train_raw_sha256=hashlib.sha256(raw_by_split["train"]).hexdigest(),
-        validation_raw_sha256=hashlib.sha256(
-            raw_by_split["validation"]
-        ).hexdigest(),
+        validation_raw_sha256=hashlib.sha256(raw_by_split["validation"]).hexdigest(),
         test_raw_sha256=hashlib.sha256(raw_by_split["test"]).hexdigest(),
         train_tokens=identities["train"],
         validation_tokens=identities["validation"],
@@ -662,12 +818,43 @@ def _rehydrate_blinded_data_identity(
         expected_manifest,
         payload_records,
     )
-    _validation_fixture_reference(
+    fixture_reference = _validation_fixture_reference(
         directory_reference=directory_reference,
         fixture_payload=validation_fixture,
         data_identity=identity,
     )
-    return identity
+    return _RehydratedBlindedData(
+        directory_reference=directory_reference,
+        data_identity=identity,
+        fixture_reference=fixture_reference,
+        raw_splits=(
+            raw_by_split["train"],
+            raw_by_split["validation"],
+            raw_by_split["test"],
+        ),
+        token_splits=(
+            tokens_by_split["train"],
+            tokens_by_split["validation"],
+            tokens_by_split["test"],
+        ),
+    )
+
+
+def _rehydrate_blinded_data_identity(
+    directory: Path,
+    *,
+    expected_archive_sha256: str,
+    expected_data_identity_sha256: str,
+    expected_access_policy_sha256: str,
+) -> DataIdentity:
+    """Preserve the historical v1/v2 readiness revalidation API."""
+
+    return _rehydrate_blinded_data_materials(
+        directory,
+        expected_archive_sha256=expected_archive_sha256,
+        expected_data_identity_sha256=expected_data_identity_sha256,
+        expected_access_policy_sha256=expected_access_policy_sha256,
+    ).data_identity
 
 
 def _official_urlopen(url: str) -> BinaryIO:
@@ -738,16 +925,22 @@ def _stream_zip_member(
                     break
                 total += len(chunk)
                 if total > maximum:
-                    raise BlindedDataError("archive member decompressed beyond its bound")
+                    raise BlindedDataError(
+                        "archive member decompressed beyond its bound"
+                    )
                 crc = zlib.crc32(chunk, crc)
                 chunks.append(chunk)
     except (OSError, EOFError, zipfile.BadZipFile, RuntimeError) as exc:
         raise BlindedDataError(f"archive member stream failed: {exc}") from exc
     content = b"".join(chunks)
     if total != info.file_size:
-        raise BlindedDataError("archive member streamed size disagrees with its directory")
+        raise BlindedDataError(
+            "archive member streamed size disagrees with its directory"
+        )
     if (crc & 0xFFFFFFFF) != info.CRC:
-        raise BlindedDataError("archive member streamed CRC disagrees with its directory")
+        raise BlindedDataError(
+            "archive member streamed CRC disagrees with its directory"
+        )
     return content
 
 
@@ -755,7 +948,9 @@ def _normalized_request(
     config: H6DataAcquisitionRequest,
 ) -> tuple[H6DataConfig, Path, str, str | None]:
     if type(config) is not H6DataAcquisitionRequest:
-        raise BlindedDataError("acquisition requires the exact H6DataAcquisitionRequest")
+        raise BlindedDataError(
+            "acquisition requires the exact H6DataAcquisitionRequest"
+        )
     try:
         config.__post_init__()
     except ValueError as exc:
@@ -774,7 +969,9 @@ def _normalized_request(
     ):
         raise BlindedDataError("H6 data bounds differ from the frozen archive contract")
     if data.observed_archive is None:
-        raise BlindedDataError("observed archive identities must be frozen before acquisition")
+        raise BlindedDataError(
+            "observed archive identities must be frozen before acquisition"
+        )
     artifact_root = config.artifact_root
     access_policy_sha256 = config.access_policy_sha256
     if access_policy_sha256 != ACCESS_POLICY_SHA256:
@@ -820,16 +1017,23 @@ def _validation_fixture_reference(
     *,
     directory_reference: BinaryDirectoryReference,
     fixture_payload: ValidationSafetyFixture,
-    data_identity: DataIdentity,
+    data_identity: DataIdentity | AuthenticatedReopenedDataIdentity,
 ) -> ValidationSafetyFixtureReference:
     """Bind the published fixture record without opening or deriving a split."""
 
     if type(directory_reference) is not BinaryDirectoryReference:
-        raise BlindedDataError("fixture reference requires the exact directory reference")
+        raise BlindedDataError(
+            "fixture reference requires the exact directory reference"
+        )
     if type(fixture_payload) is not ValidationSafetyFixture:
         raise BlindedDataError("fixture reference requires the exact fixture payload")
-    if type(data_identity) is not DataIdentity:
-        raise BlindedDataError("fixture reference requires the exact data identity")
+    if type(data_identity) not in (
+        DataIdentity,
+        AuthenticatedReopenedDataIdentity,
+    ):
+        raise BlindedDataError(
+            "fixture reference requires an authenticated data identity"
+        )
     try:
         fixture_payload.__post_init__()
         data_identity.__post_init__()
@@ -855,9 +1059,7 @@ def _validation_fixture_reference(
     fixture_record = directory_reference.payloads[
         BINARY_PAYLOAD_ORDER.index("validation_safety_fixture.bin")
     ]
-    retained_fixture_bytes = object.__getattribute__(
-        fixture_payload, "_fixture_bytes"
-    )
+    retained_fixture_bytes = object.__getattribute__(fixture_payload, "_fixture_bytes")
     if (
         type(retained_fixture_bytes) is not bytes
         or fixture_record.raw_length != len(retained_fixture_bytes)
@@ -872,12 +1074,9 @@ def _validation_fixture_reference(
     try:
         return ValidationSafetyFixtureReference.create(
             local_payload_path=(
-                directory_reference.directory
-                / "validation_safety_fixture.bin"
+                directory_reference.directory / "validation_safety_fixture.bin"
             ),
-            binary_directory_manifest_sha256=(
-                directory_reference.manifest_sha256
-            ),
+            binary_directory_manifest_sha256=(directory_reference.manifest_sha256),
             data_identity_sha256=data_identity.data_identity_sha256,
             access_policy_sha256=data_identity.access_policy_sha256,
             validation_token_sha256=fixture_payload.validation_token_sha256,
@@ -890,7 +1089,9 @@ def _validation_fixture_reference(
 
 
 def _acquire_wikitext2_blinded_impl(
-    config: H6DataAcquisitionRequest, opener, register_store
+    config: H6DataAcquisitionRequest,
+    opener,
+    register_store,
 ) -> BlindedCorpusStore:
     """Shared acquisition mechanics behind fixed production and synthetic wrappers."""
     data_config, artifact_root, access_policy_sha256, expected_data_identity = (
@@ -906,13 +1107,17 @@ def _acquire_wikitext2_blinded_impl(
     observed = data_config.observed_archive
     assert observed is not None
     if len(archive_bytes) != observed.archive_byte_length:
-        raise BlindedDataError("archive_byte_length does not match the frozen observation")
+        raise BlindedDataError(
+            "archive_byte_length does not match the frozen observation"
+        )
     if hashlib.sha256(archive_bytes).hexdigest() != observed.archive_sha256:
         raise BlindedDataError("archive_sha256 does not match the frozen observation")
 
     expected_members = {member.path: member for member in observed.members}
     if tuple(expected_members) != ARCHIVE_ENTRY_ORDER[1:]:
-        raise BlindedDataError("observed member inventory/order is not the exact three files")
+        raise BlindedDataError(
+            "observed member inventory/order is not the exact three files"
+        )
     raw_by_path: dict[str, bytes] = {}
     try:
         with zipfile.ZipFile(io.BytesIO(archive_bytes), "r") as archive:
@@ -923,7 +1128,9 @@ def _acquire_wikitext2_blinded_impl(
                 or len(set(names)) != len(names)
                 or len({name.casefold() for name in names}) != len(names)
             ):
-                raise BlindedDataError("archive must contain exactly one directory and three files")
+                raise BlindedDataError(
+                    "archive must contain exactly one directory and three files"
+                )
             total_uncompressed = 0
             for info in entries:
                 _validate_zip_entry_type(info)
@@ -938,9 +1145,12 @@ def _acquire_wikitext2_blinded_impl(
                     or info.file_size <= 0
                     or info.compress_size > data_config.max_member_bytes
                     or info.file_size > data_config.max_member_bytes
-                    or info.file_size > data_config.max_compression_ratio * info.compress_size
+                    or info.file_size
+                    > data_config.max_compression_ratio * info.compress_size
                 ):
-                    raise BlindedDataError("archive member violates size or ratio bounds")
+                    raise BlindedDataError(
+                        "archive member violates size or ratio bounds"
+                    )
                 total_uncompressed += info.file_size
                 expectation = expected_members.get(info.filename)
                 if expectation is None:
@@ -951,13 +1161,19 @@ def _acquire_wikitext2_blinded_impl(
                     or info.compress_type != expectation.compression_method
                     or info.CRC != expectation.crc32
                 ):
-                    raise BlindedDataError("archive member metadata differs from the frozen observation")
+                    raise BlindedDataError(
+                        "archive member metadata differs from the frozen observation"
+                    )
                 raw = _stream_zip_member(archive, info, data_config.max_member_bytes)
                 if hashlib.sha256(raw).hexdigest() != expectation.raw_sha256:
-                    raise BlindedDataError("archive member raw hash differs from the frozen observation")
+                    raise BlindedDataError(
+                        "archive member raw hash differs from the frozen observation"
+                    )
                 raw_by_path[info.filename] = raw
             if total_uncompressed > data_config.max_total_uncompressed_bytes:
-                raise BlindedDataError("archive total uncompressed bytes exceed the frozen bound")
+                raise BlindedDataError(
+                    "archive total uncompressed bytes exceed the frozen bound"
+                )
     except BlindedDataError:
         raise
     except (OSError, EOFError, zipfile.BadZipFile, RuntimeError, ValueError) as exc:
@@ -1031,6 +1247,17 @@ def _acquire_wikitext2_blinded_impl(
         validation_safety_fixture_reference=fixture_reference,
         sealed_test_handle=handles["test"],
         _data_identity=data_identity,
+    )
+    from .h6_sealed_store_v3 import (
+        _publish_authenticated_blinded_store_manifest_v3,
+    )
+
+    _publish_authenticated_blinded_store_manifest_v3(
+        artifact_root=artifact_root,
+        data_config=data_config,
+        directory_reference=reference,
+        data_identity=data_identity,
+        token_splits=(train_tokens, validation_tokens, test_tokens),
     )
     register_store(store, reference.directory)
     return store

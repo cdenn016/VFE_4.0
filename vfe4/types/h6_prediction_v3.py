@@ -67,6 +67,7 @@ H6_DETERMINISTIC_POLICY_DESCRIPTOR = {
     "cuda_matmul_allow_fp16_accumulation": False,
     "flash_sdp": False,
     "memory_efficient_sdp": False,
+    "cudnn_sdp": False,
     "math_sdp": True,
 }
 H6_DETERMINISTIC_POLICY_SHA256 = _owned_hash(
@@ -139,6 +140,22 @@ H6_TRAINING_SCHEDULE_SCHEMA = "h6-training-schedule-v3"
 H6_ATTEMPT_SPEC_SCHEMA = "h6-attempt-spec-v3"
 H6_ATTEMPT_CURSOR_SCHEMA = "h6-attempt-cursor-v3"
 H6_OBJECTIVE_MANIFEST_SCHEMA = "h6-objective-manifest-v3"
+H6_OBJECTIVE_MANIFEST_SCHEMA_SHA256 = _owned_hash(
+    "vfe4.h6.objective-manifest-schema.v3",
+    {
+        "schema_version": H6_OBJECTIVE_MANIFEST_SCHEMA,
+        "objective_kinds": (
+            "cross_entropy",
+            "complete_elbo",
+            "emission_only_ablation_non_elbo",
+        ),
+        "phase_field": "TrainingPhase",
+        "recognition_law": "evaluated-v3-or-none",
+        "detached_snapshot": "fresh-post-recognition-step-or-none",
+        "factor_binding_order": "partition_receiver_digest",
+        "raw_total_binding": "canonical-float64-bytes-sha256",
+    },
+)
 H6_CHECKPOINT_SCHEMA = "h6-checkpoint-v3"
 H6_RAW_ENDPOINT_INVENTORY_SCHEMA = "h6-raw-endpoint-inventory-v4"
 H6_PREDICTION_METRICS_SCHEMA = "h6-prediction-metrics-v3"
@@ -157,8 +174,7 @@ class H6RecognitionEstimatorSpec:
 
     def canonical_payload(self) -> dict[str, object]:
         return {
-            name: getattr(self, name)
-            for name in tuple(self.__dataclass_fields__)[:-1]
+            name: getattr(self, name) for name in tuple(self.__dataclass_fields__)[:-1]
         }
 
     def __post_init__(self) -> None:
@@ -189,9 +205,7 @@ class H6RecognitionEstimatorSpec:
         }
         return cls(
             **payload,  # type: ignore[arg-type]
-            estimator_sha256=_owned_hash(
-                "vfe4.h6.recognition-estimator.v3", payload
-            ),
+            estimator_sha256=_owned_hash("vfe4.h6.recognition-estimator.v3", payload),
         )
 
 
@@ -214,8 +228,7 @@ class H6PredictionRuntimeIdentity:
 
     def canonical_payload(self) -> dict[str, object]:
         return {
-            name: getattr(self, name)
-            for name in tuple(self.__dataclass_fields__)[:-1]
+            name: getattr(self, name) for name in tuple(self.__dataclass_fields__)[:-1]
         }
 
     def __post_init__(self) -> None:
@@ -239,7 +252,10 @@ class H6PredictionRuntimeIdentity:
         if (
             type(self.cuda_compute_capability) is not tuple
             or len(self.cuda_compute_capability) != 2
-            or any(type(value) is not int or value < 0 for value in self.cuda_compute_capability)
+            or any(
+                type(value) is not int or value < 0
+                for value in self.cuda_compute_capability
+            )
         ):
             raise ValueError("CUDA compute capability must be an integer pair")
         if self.deterministic_policy_sha256 != H6_DETERMINISTIC_POLICY_SHA256:
@@ -316,7 +332,9 @@ class H6TrainingScheduleV3:
             or type(self.outer) is not H6OuterSchedule
             or type(self.endpoint_phases) is not tuple
             or not self.endpoint_phases
-            or any(type(item) is not H6ArmPhaseSchedule for item in self.endpoint_phases)
+            or any(
+                type(item) is not H6ArmPhaseSchedule for item in self.endpoint_phases
+            )
         ):
             raise ValueError("v3 training schedule has invalid typed records")
         self.outer.__post_init__()
@@ -393,11 +411,24 @@ class H6PredictionV3ReadinessToken:
     git_head: str
     dirty_digest: str
     experiment_config_sha256: str
+    correctness_manifests: tuple[tuple[str, str], ...]
+    h1_prefix_prior_manifest_sha256: str
+    h1_prefix_prior_generative_factor_schema_sha256: str
+    smc_bias_semantics_sha256: str
+    smc_validation_manifest_sha256: str
+    prefix_certificate_set_sha256: str
+    h5_update_binding_sha256: str
+    critical_values_sha256: str
+    endpoint_smc_protocol_sha256: str
+    attribution_matrix_sha256: str
+    objective_gate_spec_sha256: str
     matching_policy_sha256: str
     matching_set_sha256: str
     training_schedule_sha256: str
     recognition_estimator_sha256: str
     runtime_identity_sha256: str
+    counter_mapping_sha256: str
+    phase_ownership_sha256: str
     deterministic_policy_sha256: str
     checkpoint_codec_sha256: str
     objective_manifest_schema_sha256: str
@@ -408,19 +439,57 @@ class H6PredictionV3ReadinessToken:
 
     def canonical_payload(self) -> dict[str, object]:
         return {
-            name: getattr(self, name)
-            for name in tuple(self.__dataclass_fields__)[:-1]
+            name: getattr(self, name) for name in tuple(self.__dataclass_fields__)[:-1]
         }
 
     def __post_init__(self) -> None:
-        if self.readiness_schema != "h6-prediction-readiness-v3" or self.status != "PASS":
+        if (
+            self.readiness_schema != "h6-prediction-readiness-v3"
+            or self.status != "PASS"
+        ):
             raise ValueError("v3 readiness must be an exact PASS token")
         _require_git_head(self.git_head)
-        for name in tuple(self.__dataclass_fields__)[3:-1]:
+        if type(self.correctness_manifests) is not tuple or tuple(
+            gate for gate, _ in self.correctness_manifests
+        ) != ("H1", "H2", "H3", "H5"):
+            raise ValueError("v3 readiness correctness manifests must be H1,H2,H3,H5")
+        for _, digest in self.correctness_manifests:
+            _require_sha256(digest, "correctness manifest")
+        for name in (
+            "dirty_digest",
+            "experiment_config_sha256",
+            "h1_prefix_prior_manifest_sha256",
+            "h1_prefix_prior_generative_factor_schema_sha256",
+            "smc_bias_semantics_sha256",
+            "smc_validation_manifest_sha256",
+            "prefix_certificate_set_sha256",
+            "h5_update_binding_sha256",
+            "critical_values_sha256",
+            "endpoint_smc_protocol_sha256",
+            "attribution_matrix_sha256",
+            "objective_gate_spec_sha256",
+            "matching_policy_sha256",
+            "matching_set_sha256",
+            "training_schedule_sha256",
+            "recognition_estimator_sha256",
+            "runtime_identity_sha256",
+            "counter_mapping_sha256",
+            "phase_ownership_sha256",
+            "deterministic_policy_sha256",
+            "checkpoint_codec_sha256",
+            "objective_manifest_schema_sha256",
+            "scoring_inventory_sha256",
+            "data_identity_sha256",
+            "access_policy_sha256",
+        ):
             _require_sha256(getattr(self, name), name)
         if (
-            self.deterministic_policy_sha256 != H6_DETERMINISTIC_POLICY_SHA256
+            self.counter_mapping_sha256 != H6_COUNTER_MAPPING_SHA256
+            or self.phase_ownership_sha256 != H6_PHASE_OWNERSHIP_SHA256
+            or self.deterministic_policy_sha256 != H6_DETERMINISTIC_POLICY_SHA256
             or self.checkpoint_codec_sha256 != H6_CHECKPOINT_CODEC_SHA256
+            or self.objective_manifest_schema_sha256
+            != H6_OBJECTIVE_MANIFEST_SCHEMA_SHA256
             or self.scoring_inventory_sha256 != H6_SCORING_INVENTORY_SHA256
         ):
             raise ValueError("v3 readiness authority is stale")
@@ -436,11 +505,24 @@ class H6PredictionV3ReadinessToken:
         git_head: str,
         dirty_digest: str,
         experiment_config_sha256: str,
+        correctness_manifests: tuple[tuple[str, str], ...],
+        h1_prefix_prior_manifest_sha256: str,
+        h1_prefix_prior_generative_factor_schema_sha256: str,
+        smc_bias_semantics_sha256: str,
+        smc_validation_manifest_sha256: str,
+        prefix_certificate_set_sha256: str,
+        h5_update_binding_sha256: str,
+        critical_values_sha256: str,
+        endpoint_smc_protocol_sha256: str,
+        attribution_matrix_sha256: str,
+        objective_gate_spec_sha256: str,
         matching_policy_sha256: str,
         matching_set_sha256: str,
         training_schedule_sha256: str,
         recognition_estimator_sha256: str,
         runtime_identity_sha256: str,
+        counter_mapping_sha256: str,
+        phase_ownership_sha256: str,
         objective_manifest_schema_sha256: str,
         data_identity_sha256: str,
         access_policy_sha256: str,
@@ -451,20 +533,29 @@ class H6PredictionV3ReadinessToken:
             "git_head": git_head,
             "dirty_digest": dirty_digest,
             "experiment_config_sha256": experiment_config_sha256,
+            "correctness_manifests": tuple(correctness_manifests),
+            "h1_prefix_prior_manifest_sha256": (h1_prefix_prior_manifest_sha256),
+            "h1_prefix_prior_generative_factor_schema_sha256": (
+                h1_prefix_prior_generative_factor_schema_sha256
+            ),
+            "smc_bias_semantics_sha256": smc_bias_semantics_sha256,
+            "smc_validation_manifest_sha256": (smc_validation_manifest_sha256),
+            "prefix_certificate_set_sha256": (prefix_certificate_set_sha256),
+            "h5_update_binding_sha256": h5_update_binding_sha256,
+            "critical_values_sha256": critical_values_sha256,
+            "endpoint_smc_protocol_sha256": endpoint_smc_protocol_sha256,
+            "attribution_matrix_sha256": attribution_matrix_sha256,
+            "objective_gate_spec_sha256": objective_gate_spec_sha256,
             "matching_policy_sha256": matching_policy_sha256,
             "matching_set_sha256": matching_set_sha256,
             "training_schedule_sha256": training_schedule_sha256,
-            "recognition_estimator_sha256": (
-                recognition_estimator_sha256
-            ),
+            "recognition_estimator_sha256": (recognition_estimator_sha256),
             "runtime_identity_sha256": runtime_identity_sha256,
-            "deterministic_policy_sha256": (
-                H6_DETERMINISTIC_POLICY_SHA256
-            ),
+            "counter_mapping_sha256": counter_mapping_sha256,
+            "phase_ownership_sha256": phase_ownership_sha256,
+            "deterministic_policy_sha256": (H6_DETERMINISTIC_POLICY_SHA256),
             "checkpoint_codec_sha256": H6_CHECKPOINT_CODEC_SHA256,
-            "objective_manifest_schema_sha256": (
-                objective_manifest_schema_sha256
-            ),
+            "objective_manifest_schema_sha256": (objective_manifest_schema_sha256),
             "scoring_inventory_sha256": H6_SCORING_INVENTORY_SHA256,
             "data_identity_sha256": data_identity_sha256,
             "access_policy_sha256": access_policy_sha256,
@@ -511,8 +602,7 @@ class H6AttemptSpecV3:
 
     def canonical_payload(self) -> dict[str, object]:
         return {
-            name: getattr(self, name)
-            for name in tuple(self.__dataclass_fields__)[:-1]
+            name: getattr(self, name) for name in tuple(self.__dataclass_fields__)[:-1]
         }
 
     def __post_init__(self) -> None:
@@ -612,9 +702,7 @@ class H6AttemptSpecV3:
             "batch_schedule_sha256": batch_schedule_sha256,
             "phase_schedule_sha256": phase_schedule_sha256,
             "training_schedule_sha256": training_schedule_sha256,
-            "recognition_estimator_sha256": (
-                recognition_estimator_sha256
-            ),
+            "recognition_estimator_sha256": (recognition_estimator_sha256),
             "runtime_identity_sha256": runtime_identity_sha256,
             "counter_mapping_sha256": H6_COUNTER_MAPPING_SHA256,
             "checkpoint_codec_sha256": H6_CHECKPOINT_CODEC_SHA256,
@@ -668,9 +756,7 @@ class H6AttemptCursorV3:
         if self.cursor_schema != "h6-attempt-cursor-v3":
             raise ValueError("unsupported v3 cursor schema")
         _require_sha256(self.attempt_spec_sha256, "attempt_spec_sha256")
-        _require_sha256(
-            self.counter_consumption_sha256, "counter_consumption_sha256"
-        )
+        _require_sha256(self.counter_consumption_sha256, "counter_consumption_sha256")
         _require_sha256(self.permutation_sha256, "permutation_sha256")
         if type(self.next_phase) is not TrainingPhase:
             raise ValueError("next_phase must be an exact TrainingPhase")
@@ -839,12 +925,8 @@ class H6ObjectiveManifestV3:
             "objective_kind": objective_kind,
             "is_elbo": objective_kind == "complete_elbo",
             "phase": phase,
-            "recognition_estimator_sha256": (
-                recognition_estimator_sha256
-            ),
-            "counter_consumption_sha256": (
-                counter_consumption_sha256
-            ),
+            "recognition_estimator_sha256": (recognition_estimator_sha256),
+            "counter_consumption_sha256": (counter_consumption_sha256),
             "recognition_law_sha256": recognition_law_sha256,
             "detached_snapshot_sha256": detached_snapshot_sha256,
             "ordered_factor_bindings": tuple(ordered_factor_bindings),
@@ -875,6 +957,7 @@ __all__ = [
     "H6_DETERMINISTIC_POLICY_SHA256",
     "H6ObjectiveManifestV3",
     "H6_OBJECTIVE_MANIFEST_SCHEMA",
+    "H6_OBJECTIVE_MANIFEST_SCHEMA_SHA256",
     "H6_PHASE_OWNERSHIP_SHA256",
     "H6_PREDICTION_CONFIG_SCHEMA",
     "H6_PREDICTION_METRICS_SCHEMA",

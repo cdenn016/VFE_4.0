@@ -151,33 +151,30 @@ The A5 candidate inventory is the finite Cartesian product
 ```text
 latent_width D         = (2,4,8)
 prior_context_width C  = (4,6,8)
-emission_width E       = (84,85,86,87,88,89)
+emission_width E       = (72,84,85,86,87,88,89)
 recognition_width R    = (113,114,115,116,117,118)
 ```
 
-The 324 candidates are enumerated in ascending lexicographic `(d,c,e,r)`
+This is a v3-only PRIMARY amendment: it adds the single ascending emission
+width `72` without changing the legacy v2 constants or any frozen component
+grid. The resulting 378 candidates are enumerated in ascending lexicographic
+`(d,c,e,r)`
 order. The search may not inspect corpus bytes, losses, gradients, validation
 metrics, test metrics, or prediction FLOPs. After filtering on the two hard
-gates, the winner is the minimum deterministic key
+gates, the first eligible row in that order is selected. If the eligible set
+is empty, no winner exists.
 
-```text
-(abs(log(P_A5/P_A0)),
- abs(log(F_A5/F_A0)),
- d,c,e,r).
-```
-
-The final tuple fields make every tie deterministic. If the eligible set is
-empty, no winner exists.
-
-The tuple `(e,d,r,c)=(89,2,113,6)` with `P_A5=62,112` is only a provisional
-parameter-feasibility probe. Its 130-parameter gap from A0 is about `0.209%`.
-A bounded static audit found joint arithmetic feasibility but also found
-multiple plausible winners whose ordering depends on the implemented cache
-ledger. The probe becomes a frozen endpoint only if the implemented
-transformer and cached-A5 operator ledgers select it prospectively. If no
-candidate satisfies both gates, PRIMARY is ineligible and INCONCLUSIVE. The
-implementation may not add filler parameters, dormant state, redundant
-recomputation, fake phases, no-op optimizer work, or wider tolerances.
+The pre-outcome v3 formula audit selects `(d,c,e,r)=(2,8,72,117)` first.
+Against `P_A0=61,982`, it has `P_A5=61,454`, an exact relative gap of
+`0.851860%`. On the 258-token synthetic matching fixture its exact
+whole-training arithmetic totals are `F_A0=178,715,214` and
+`F_A5=187,045,140`, a `4.661006%` gap; the independently checked
+production/asymptotic workload gives approximately `4.73217%`. The next
+eligible lexicographic row is `(2,8,72,118)`, so first-lexicographic selection
+still chooses `r=117`. These are analytical pre-outcome matching facts, not
+training evidence. The implementation may not add filler parameters, dormant
+state, redundant recomputation, fake phases, no-op optimizer work, or wider
+tolerances.
 
 Prediction, particle, cache, checkpoint-load, and scoring costs are reported
 in a separate inference-inclusive ledger and never change training-match
@@ -193,7 +190,11 @@ whole-schedule training ledger, formula-selection status, and obligations as a
 disclosure. When its formula selection is INCONCLUSIVE, the associated matrix
 record is explicitly unauthorized for a matched component conclusion and
 cannot promote or demote PRIMARY. No unmatched component result may be cited
-as a compute-matched attribution.
+as a compute-matched attribution. Overall matching authorization and H6 v3
+readiness are derived only from the canonical PRIMARY selection and PRIMARY
+matrix record. Every component selector, status, and obligation nevertheless
+remains fully bound into the matching-set digest and must fail closed if
+mutated.
 
 The `OBJECTIVE` endpoints are not a second training-compute match. Both are
 derived only from the exact eligible PRIMARY selection, share its selected A5

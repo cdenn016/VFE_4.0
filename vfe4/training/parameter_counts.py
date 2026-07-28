@@ -21,8 +21,7 @@ AMENDED_RECOGNITION_WIDTH_CANDIDATES = (32, 64, 96)
 PROPOSED_PREFIX_PRIOR_CONTEXT_WIDTH = 6
 
 _PARENT_SPECIFIC_PREFIX_CONFIG_ID = (
-    "h6-a5-structured-parent-specific-prefix-exact-complete-"
-    "latent-smoothing-v2"
+    "h6-a5-structured-parent-specific-prefix-exact-complete-latent-smoothing-v2"
 )
 
 
@@ -50,9 +49,7 @@ def recognition_parameter_count(
 
     vocabulary_size = _positive_int(vocabulary_size, "vocabulary_size")
     latent_width = _positive_int(latent_width, "latent_width")
-    recognition_width = _positive_int(
-        recognition_width, "recognition_width"
-    )
+    recognition_width = _positive_int(recognition_width, "recognition_width")
     if type(channel_count) is not int or channel_count not in (1, 2):
         raise ValueError("channel_count must be exactly one or two")
     if family not in ("structured", "factorized"):
@@ -69,6 +66,69 @@ def recognition_parameter_count(
         + gaussian_dimension * recognition_width
         + gaussian_dimension
         + packed_precision
+    )
+
+
+def recognition_source_parameter_count_v3(
+    *,
+    bank_count: Literal[0, 1, 2],
+    recognition_width: int,
+    latent_width: int,
+) -> int:
+    """Count the v3 residual vector, lag scalar, and shift per live bank."""
+
+    if type(bank_count) is not int or bank_count not in (0, 1, 2):
+        raise ValueError("bank_count must be exactly zero, one, or two")
+    recognition_width = _positive_int(
+        recognition_width,
+        "recognition_width",
+    )
+    latent_width = _positive_int(latent_width, "latent_width")
+    return bank_count * (recognition_width + 1 + latent_width)
+
+
+def arm_source_bank_count_v3(arm: ArmName) -> Literal[0, 1, 2]:
+    """Return the design-frozen trainable categorical bank inventory."""
+
+    if arm in ("A0", "A1", "A3"):
+        return 0
+    if arm == "A4":
+        return 1
+    if arm in ("A2", "A5"):
+        return 2
+    raise ValueError("arm must be A0 through A5")
+
+
+def arm_parameter_count_v3(
+    arm: ArmName,
+    *,
+    vocabulary_size: int,
+    horizon: int,
+    emission_width: int,
+    latent_width: int | None = None,
+    recognition_width: int | None = None,
+    recognition_family: RecognitionFamily = "structured",
+) -> int:
+    """Return the legacy count plus only the executable v3 source banks."""
+
+    base = arm_parameter_count(
+        arm,
+        vocabulary_size=vocabulary_size,
+        horizon=horizon,
+        emission_width=emission_width,
+        latent_width=latent_width,
+        recognition_width=recognition_width,
+        recognition_family=recognition_family,
+    )
+    bank_count = arm_source_bank_count_v3(arm)
+    if bank_count == 0 or (latent_width is None and recognition_width is None):
+        return base
+    if latent_width is None or recognition_width is None:
+        raise ValueError("v3 source-bank arms require latent and recognition widths")
+    return base + recognition_source_parameter_count_v3(
+        bank_count=bank_count,
+        recognition_width=recognition_width,
+        latent_width=latent_width,
     )
 
 
@@ -90,9 +150,7 @@ def fixed_source_prior_parameter_count(
     if type(gauge_anchored) is not bool:
         raise ValueError("gauge_anchored must be a bool")
     row_scalars = (
-        horizon * (horizon - 1) // 2
-        if gauge_anchored
-        else horizon * (horizon + 1) // 2
+        horizon * (horizon - 1) // 2 if gauge_anchored else horizon * (horizon + 1) // 2
     )
     return bank_count * row_scalars
 
@@ -115,9 +173,7 @@ def parent_specific_pooled_prefix_source_prior_parameter_count(
         raise ValueError("gauge_anchored must be a bool")
 
     parent_entries = (
-        horizon * (horizon - 1)
-        if gauge_anchored
-        else horizon * (horizon + 1)
+        horizon * (horizon - 1) if gauge_anchored else horizon * (horizon + 1)
     )
     return (
         vocabulary_size * context_width
@@ -136,9 +192,7 @@ def h6_a0_parameter_count(
     """Count the amended one-block, two-equal-head H6 A0 Transformer."""
 
     vocabulary_size = _positive_int(vocabulary_size, "vocabulary_size")
-    position_capacity = _positive_int(
-        position_capacity, "position_capacity"
-    )
+    position_capacity = _positive_int(position_capacity, "position_capacity")
     hidden_width = _positive_int(hidden_width, "hidden_width")
     if hidden_width % 2:
         raise ValueError("H6 A0 hidden width must split into two equal heads")
@@ -160,11 +214,7 @@ def mean_pooled_no_latent_parameter_count(
 
     vocabulary_size = _positive_int(vocabulary_size, "vocabulary_size")
     emission_width = _positive_int(emission_width, "emission_width")
-    return (
-        2 * vocabulary_size * emission_width
-        + emission_width
-        + vocabulary_size
-    )
+    return 2 * vocabulary_size * emission_width + emission_width + vocabulary_size
 
 
 def arm_parameter_count(
@@ -185,20 +235,12 @@ def arm_parameter_count(
     horizon = _positive_int(horizon, "horizon")
     emission_width = _positive_int(emission_width, "emission_width")
     latent_width = _optional_positive_int(latent_width, "latent_width")
-    recognition_width = _optional_positive_int(
-        recognition_width, "recognition_width"
-    )
+    recognition_width = _optional_positive_int(recognition_width, "recognition_width")
 
-    no_latent_a5 = (
-        arm == "A5"
-        and latent_width is None
-        and recognition_width is None
-    )
+    no_latent_a5 = arm == "A5" and latent_width is None and recognition_width is None
     if arm == "A0":
         if latent_width is not None or recognition_width is not None:
-            raise ValueError(
-                "no-latent arms have no latent or recognition width"
-            )
+            raise ValueError("no-latent arms have no latent or recognition width")
         return h6_a0_parameter_count(
             vocabulary_size=vocabulary_size,
             position_capacity=horizon,
@@ -223,26 +265,20 @@ def arm_parameter_count(
         model_count = (
             (t * t + 2 * t) * d * d
             + 8 * d
-            + fixed_source_prior_parameter_count(
-                horizon=t, bank_count=2
-            )
+            + fixed_source_prior_parameter_count(horizon=t, bank_count=2)
             + 2 * e * d
             + v * e
             + v
         )
         channels = 2
     elif arm == "A3":
-        model_count = (
-            2 * t * d * d + 8 * d + 2 * e * d + v * e + v
-        )
+        model_count = 2 * t * d * d + 8 * d + 2 * e * d + v * e + v
         channels = 2
     elif arm == "A4":
         model_count = (
             t * d * d
             + 4 * d
-            + fixed_source_prior_parameter_count(
-                horizon=t, bank_count=1
-            )
+            + fixed_source_prior_parameter_count(horizon=t, bank_count=1)
             + e * d
             + v * e
             + v
@@ -252,9 +288,7 @@ def arm_parameter_count(
         model_count = (
             3 * t * d * d
             + 8 * d
-            + fixed_source_prior_parameter_count(
-                horizon=t, bank_count=2
-            )
+            + fixed_source_prior_parameter_count(horizon=t, bank_count=2)
             + 2 * e * d
             + v * e
             + v
@@ -307,13 +341,9 @@ class ParameterCountAssessment:
         _positive_int(self.emission_width, "emission_width")
         _optional_positive_int(self.latent_width, "latent_width")
         _optional_positive_int(self.recognition_width, "recognition_width")
-        _optional_positive_int(
-            self.prior_context_width, "prior_context_width"
-        )
+        _optional_positive_int(self.prior_context_width, "prior_context_width")
         _optional_positive_int(self.parameter_count, "parameter_count")
-        _optional_positive_int(
-            self.planned_parameter_count, "planned_parameter_count"
-        )
+        _optional_positive_int(self.planned_parameter_count, "planned_parameter_count")
         if self.status == "AVAILABLE":
             if (
                 self.parameter_count is None
@@ -333,9 +363,8 @@ class ParameterCountAssessment:
 
     @property
     def parameter_within_tolerance(self) -> bool:
-        return (
-            self.parameter_count is not None
-            and parameter_count_within_tolerance(self.parameter_count)
+        return self.parameter_count is not None and parameter_count_within_tolerance(
+            self.parameter_count
         )
 
 
@@ -395,13 +424,10 @@ def _parent_specific_prefix_a5_parameter_count() -> int:
     )
 
 
-def outcome_blind_feasibility_assessments(
-) -> tuple[ParameterCountAssessment, ...]:
+def outcome_blind_feasibility_assessments() -> tuple[ParameterCountAssessment, ...]:
     """Return the twelve static witnesses without enumerating a grid."""
 
-    base_a5_id = (
-        "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1"
-    )
+    base_a5_id = "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1"
     return (
         _available_assessment(
             config_id="h6-a0-transformer-v2",
@@ -446,10 +472,7 @@ def outcome_blind_feasibility_assessments(
             recognition_width=64,
         ),
         _available_assessment(
-            config_id=(
-                "h6-a5-factorized-fixed-exact-complete-"
-                "latent-smoothing-v1"
-            ),
+            config_id=("h6-a5-factorized-fixed-exact-complete-latent-smoothing-v1"),
             arm="A5",
             emission_width=64,
             latent_width=16,
@@ -470,8 +493,7 @@ def outcome_blind_feasibility_assessments(
         ),
         _available_assessment(
             config_id=(
-                "h6-a5-structured-fixed-projection-complete-"
-                "latent-smoothing-v1"
+                "h6-a5-structured-fixed-projection-complete-latent-smoothing-v1"
             ),
             arm="A5",
             emission_width=64,
@@ -495,8 +517,7 @@ def outcome_blind_feasibility_assessments(
         ),
         _available_assessment(
             config_id=(
-                "h6-a5-structured-fixed-exact-complete-"
-                "nolatent-norecognition-v1"
+                "h6-a5-structured-fixed-exact-complete-nolatent-norecognition-v1"
             ),
             arm="A5",
             emission_width=123,
@@ -504,10 +525,7 @@ def outcome_blind_feasibility_assessments(
             recognition_width=None,
         ),
         _available_assessment(
-            config_id=(
-                "h6-a5-structured-fixed-exact-complete-"
-                "latent-filtering-v1"
-            ),
+            config_id=("h6-a5-structured-fixed-exact-complete-latent-filtering-v1"),
             arm="A5",
             emission_width=64,
             latent_width=16,
@@ -523,7 +541,9 @@ __all__ = [
     "AMENDED_RECOGNITION_WIDTH_CANDIDATES",
     "PROPOSED_PREFIX_PRIOR_CONTEXT_WIDTH",
     "ParameterCountAssessment",
+    "arm_parameter_count_v3",
     "arm_parameter_count",
+    "arm_source_bank_count_v3",
     "fixed_source_prior_parameter_count",
     "h6_a0_parameter_count",
     "mean_pooled_no_latent_parameter_count",
@@ -531,4 +551,5 @@ __all__ = [
     "parameter_count_within_tolerance",
     "parent_specific_pooled_prefix_source_prior_parameter_count",
     "recognition_parameter_count",
+    "recognition_source_parameter_count_v3",
 ]

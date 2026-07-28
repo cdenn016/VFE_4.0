@@ -603,15 +603,33 @@ Config v3 binds:
 
 ## Matching v3
 
-`h6-amended-matching-policy-v3` retains the v2 candidate grids, one-percent
+`h6-amended-matching-policy-v3` retains the v2 component grids and the v2
+PRIMARY `D`, `C`, and `R` axes, but defines the v3-only PRIMARY emission axis
+`E=(72,84,85,86,87,88,89)`. The single added ascending value produces a
+378-row Cartesian grid without changing the legacy v2 constants. The policy
+digest binds the complete PRIMARY axes and joint count, the one-percent
 parameter tolerance, five-percent whole-training arithmetic-FLOP tolerance,
 two passes, batch size eight, sequence/stride 32, and first-lexicographic
-hard-eligible selection. For an arm with recognition width `R` and trainable
-source-bank count `B`, the parameter formula is exactly:
+hard-eligible selection.
+
+The first eligible row is `(d,c,e,r)=(2,8,72,117)`: `P_A0=61,982`,
+`P_A5=61,454`, and the parameter gap is `0.851860%`. On the 258-token
+synthetic fixture, `F_A0=178,715,214`, `F_A5=187,045,140`, and the FLOP gap is
+`4.661006%`; the independently checked production/asymptotic gap is
+approximately `4.73217%`. `(2,8,72,118)` is the second eligible row and cannot
+replace the first under the frozen selector.
+
+For an arm with recognition width `R` and trainable source-bank count `B`, the
+parameter formula is exactly:
 
 ```text
 P_v3(arm) = P_v2(arm) + B * (R + 1 + d).
 ```
+
+`ArmConfig.recognition_family` uses the canonical values `structured` and
+`factorized`. The fixed factorized A5 reference at `(E,d,R)=(64,16,64)`
+therefore has exactly `63,540` v3 parameters; it must not fall through the
+structured-family count.
 
 The v3 FLOP ledger extends the existing named analytical terms with every
 categorical-context residual dot product, lag scalar, support log-softmax,
@@ -627,6 +645,13 @@ capacity-comparison estimand rather than measured wall time. The formulas and
 term inventory are hashed; no measured loss, gradient, timing, validation, or
 test value may enter selection. All matching artifacts and readiness
 identities are regenerated under v3.
+
+The per-window, per-active-phase terminal rank-one shift term remains exactly
+`2 * B * T**B * d` arithmetic FLOPs. Only canonical PRIMARY eligibility gates
+overall matching authorization and readiness. Frozen component selectors may
+remain `INCONCLUSIVE` disclosures: they cannot authorize a matched component
+claim or promote or demote PRIMARY, but their configs, ledgers, statuses, and
+obligations remain digest-bound and mutation-invalidating.
 
 ## Checkpoint v3 hydration codec
 

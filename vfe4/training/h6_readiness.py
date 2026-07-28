@@ -11,9 +11,16 @@ from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Literal
 
 from vfe4.artifacts.atomic import canonical_json_bytes, publish_run_directory
-from vfe4.config.schema import H6PredictionV2ResolvedConfig
+from vfe4.config.schema import (
+    H6PredictionV2ResolvedConfig,
+    H6PredictionV3ResolvedConfig,
+)
 from vfe4.numerics.critical_values import CRITICAL_VALUES_PROTOCOL_SHA256
 from vfe4.training.matching import ARM_MATRIX_ROWS, arm_matrix_sha256
+from vfe4.training.h6_matching_v3 import (
+    H6MatchingSetV3,
+    H6_MATCHING_POLICY_V3,
+)
 from vfe4.types.h6 import (
     ArmId,
     DataIdentity,
@@ -28,6 +35,18 @@ from vfe4.types.h6 import (
     SmcAccuracyArtifactRef,
     canonical_json_bytes as h6_canonical_json_bytes,
     issue_prediction_readiness_v2,
+)
+from vfe4.types.h6_prediction_v3 import (
+    H6_CHECKPOINT_CODEC_SHA256,
+    H6_COUNTER_MAPPING_SHA256,
+    H6_DETERMINISTIC_POLICY_SHA256,
+    H6_OBJECTIVE_MANIFEST_SCHEMA_SHA256,
+    H6_PHASE_OWNERSHIP_SHA256,
+    H6_SCORING_INVENTORY_SHA256,
+    H6PredictionRuntimeIdentity,
+    H6PredictionV3ReadinessToken,
+    H6RecognitionEstimatorSpec,
+    H6TrainingScheduleV3,
 )
 from vfe4.types.results import (
     GateStatus,
@@ -100,9 +119,7 @@ def _path_from_value(value: object, *, repo_root: Path, name: str) -> Path:
 class CurrentPredictionPrerequisiteRefs:
     """Exact artifact roots consumed by H6 Prediction readiness; H4 is absent."""
 
-    correctness_artifact_roots: tuple[
-        tuple[Literal["H1", "H2", "H3", "H5"], Path], ...
-    ]
+    correctness_artifact_roots: tuple[tuple[Literal["H1", "H2", "H3", "H5"], Path], ...]
     h1_prefix_prior_artifact_root: Path
     smc_accuracy_artifact_root: Path
     h6_prefix_artifact_root: Path
@@ -114,7 +131,10 @@ class CurrentPredictionPrerequisiteRefs:
             type(self.correctness_artifact_roots) is not tuple
             or tuple(gate for gate, _ in self.correctness_artifact_roots)
             != _CORRECTNESS_GATES
-            or any(not isinstance(root, Path) for _, root in self.correctness_artifact_roots)
+            or any(
+                not isinstance(root, Path)
+                for _, root in self.correctness_artifact_roots
+            )
         ):
             raise ValueError(
                 "correctness_artifact_roots must contain exactly H1, H2, H3, H5 "
@@ -147,7 +167,9 @@ class CurrentPredictionPrerequisiteRefs:
         if not isinstance(references, Mapping) or any(
             type(key) is not str for key in references
         ):
-            raise ValueError("Prediction prerequisite references must be a string mapping")
+            raise ValueError(
+                "Prediction prerequisite references must be a string mapping"
+            )
         base = Path.cwd() if repo_root is None else repo_root
         if not isinstance(base, Path):
             raise ValueError("repo_root must be an exact pathlib.Path")
@@ -161,7 +183,9 @@ class CurrentPredictionPrerequisiteRefs:
         )
         if any(value is not None for value in explicit):
             if not all(value is not None for value in explicit):
-                raise ValueError("all five named prerequisite roots must be supplied together")
+                raise ValueError(
+                    "all five named prerequisite roots must be supplied together"
+                )
             correctness: object = references
             named_values = {
                 "h1_prefix_prior_artifact_root": explicit[0],
@@ -203,9 +227,7 @@ class CurrentPredictionPrerequisiteRefs:
         return cls(
             correctness_artifact_roots=ordered,  # type: ignore[arg-type]
             **{
-                name: _path_from_value(
-                    value, repo_root=base, name=name
-                )
+                name: _path_from_value(value, repo_root=base, name=name)
                 for name, value in named_values.items()
             },
         )
@@ -254,7 +276,9 @@ def _manifest_inventory(manifest_bytes: bytes) -> dict[str, str]:
     try:
         text = manifest_bytes.decode("ascii", errors="strict")
     except UnicodeError as exc:
-        raise ProducerCompatibilityError("producer manifest is not strict ASCII") from exc
+        raise ProducerCompatibilityError(
+            "producer manifest is not strict ASCII"
+        ) from exc
     if not text or not text.endswith("\n") or "\r" in text:
         raise ProducerCompatibilityError("producer manifest is not canonical LF text")
     inventory: dict[str, str] = {}
@@ -295,9 +319,13 @@ def _load_manifested_files(
     try:
         resolved = root.resolve(strict=True)
     except OSError as exc:
-        raise ProducerCompatibilityError(f"producer root is unavailable: {root}") from exc
+        raise ProducerCompatibilityError(
+            f"producer root is unavailable: {root}"
+        ) from exc
     if not resolved.is_dir() or resolved.is_symlink():
-        raise ProducerCompatibilityError(f"producer root is not a real directory: {root}")
+        raise ProducerCompatibilityError(
+            f"producer root is not a real directory: {root}"
+        )
     manifest = _read_regular_file(resolved / "manifest.sha256", maximum_bytes=65_536)
     observed_manifest = hashlib.sha256(manifest).hexdigest()
     if (
@@ -355,7 +383,9 @@ def _load_prediction_correctness_artifact(
         provenance.get("dirty_digest"), "producer dirty_digest"
     )
     if git_head != expected_git_head or dirty_digest != expected_dirty_digest:
-        raise ValueError(f"{gate} correctness artifact is stale for the current candidate")
+        raise ValueError(
+            f"{gate} correctness artifact is stale for the current candidate"
+        )
     validation = _json_object(payloads[validation_name], name=validation_name)
     direct_fields = {
         "gate",
@@ -414,9 +444,7 @@ def _load_h1_prefix_prior_artifact(
             manifest_bytes=manifest,
             git_head=expected_git_head,
             dirty_digest=expected_dirty_digest,
-            generative_factor_schema_bytes=payloads[
-                "schemas/generative_factor.json"
-            ],
+            generative_factor_schema_bytes=payloads["schemas/generative_factor.json"],
             config_bytes=payloads["config.json"],
             validation_payload_bytes=payloads["validation/h1_prefix_prior.json"],
         )
@@ -529,43 +557,32 @@ def _load_h1_prefix_prior_artifact(
             "production_complete_objectives",
             "independent_complete_objectives",
         }
-        or any(
-            type(computation[name]) is not dict
-            for name in computation
-        )
+        or any(type(computation[name]) is not dict for name in computation)
         or set(computation["production_priors"])
         != {"active", "swapped", "target_suffix_a", "target_suffix_b"}
         or set(computation["independent_priors"]) != {"active", "swapped"}
-        or set(computation["production_complete_objectives"])
-        != {"active", "swapped"}
-        or set(computation["independent_complete_objectives"])
-        != {"active", "swapped"}
+        or set(computation["production_complete_objectives"]) != {"active", "swapped"}
+        or set(computation["independent_complete_objectives"]) != {"active", "swapped"}
     ):
         raise ProducerCompatibilityError(
             "H1-prefix-prior scorer-v2 computation inventory is incomplete"
         )
     if (
         payloads["config.json"] != scorer_config.canonical_json.encode("utf-8")
-        or validation.get("schema_version")
-        != "h1-prefix-prior-validation-v3"
-        or validation.get("fixture_id")
-        != "h1-prefix-prior-scorer-v2"
+        or validation.get("schema_version") != "h1-prefix-prior-validation-v3"
+        or validation.get("fixture_id") != "h1-prefix-prior-scorer-v2"
         or validation.get("scorer_schema")
         != "parent-specific-pooled-prefix-bilinear-v1"
-        or validation.get("latent_projection_policy")
-        != "nonzero_bank_projections"
-        or validation.get("parent_history_policy")
-        != "active_swapped_distinct_nonzero"
+        or validation.get("latent_projection_policy") != "nonzero_bank_projections"
+        or validation.get("parent_history_policy") != "active_swapped_distinct_nonzero"
         or scorer_config.source.git_head != expected_git_head
         or scorer_config.source.dirty_digest != expected_dirty_digest
         or scorer_config.source.source_sha256 != expected_source_sha256
         or validation.get("source_sha256") != expected_source_sha256
-        or validation.get("source_sha256")
-        != scorer_config.source.source_sha256
+        or validation.get("source_sha256") != scorer_config.source.source_sha256
         or validation.get("config_sha256") != scorer_config.config_sha256
         or validation.get("fixture_sha256") != scorer_config.fixture_sha256
-        or validation.get("base_fixture_sha256")
-        != scorer_config.base_fixture_sha256
+        or validation.get("base_fixture_sha256") != scorer_config.base_fixture_sha256
         or typed_result.status is not GateStatus.PASS
         or typed_result.fixture_sha256 != scorer_config.fixture_sha256
         or scorer_config.generative_factor_schema_sha256
@@ -649,7 +666,9 @@ def _prefix_key(raw: object) -> PrefixCaseKey:
             raw["dirty_digest"],
         )
     except (TypeError, ValueError) as exc:
-        raise ProducerCompatibilityError(f"Prefix certificate key is invalid: {exc}") from exc
+        raise ProducerCompatibilityError(
+            f"Prefix certificate key is invalid: {exc}"
+        ) from exc
 
 
 def _load_prefix_certificates(
@@ -689,22 +708,25 @@ def _load_prefix_certificates(
     result: dict[PrefixCaseKey, PrefixCertificate] = {}
     for raw_entry in certificate_set["certificates"]:
         if type(raw_entry) is not dict:
-            raise ProducerCompatibilityError("Prefix certificate entry is not an object")
+            raise ProducerCompatibilityError(
+                "Prefix certificate entry is not an object"
+            )
         key = _prefix_key(raw_entry.get("key"))
         try:
             status = EvidenceStatus(raw_entry.get("status"))
             obligations_raw = raw_entry.get("obligations")
             validation_payload = raw_entry.get("validation_payload")
-            if type(obligations_raw) is not list or type(validation_payload) is not dict:
+            if (
+                type(obligations_raw) is not list
+                or type(validation_payload) is not dict
+            ):
                 raise ValueError("obligations/payload types are not canonical")
             certificate = PrefixCertificate(
                 key=key,
                 validation_payload_canonical_json=h6_canonical_json_bytes(
                     validation_payload
                 ),
-                validation_payload_sha256=raw_entry.get(
-                    "validation_payload_sha256"
-                ),
+                validation_payload_sha256=raw_entry.get("validation_payload_sha256"),
                 status=status,
                 obligations=tuple(obligations_raw),
                 certificate_sha256=raw_entry.get("certificate_sha256"),
@@ -719,7 +741,9 @@ def _load_prefix_certificates(
             or key.dirty_digest != expected_dirty_digest
             or key in result
         ):
-            raise ValueError("every H6-Prefix certificate must be unique, current, and PASS")
+            raise ValueError(
+                "every H6-Prefix certificate must be unique, current, and PASS"
+            )
         result[key] = certificate
     if (
         H6PrefixGateResult.from_certificates(result).prefix_certificate_set_sha256
@@ -770,19 +794,16 @@ def _load_h5_update_binding(
     encoded_preimages = provenance.get("h5_update_binding_preimages")
     if (
         type(encoded_preimages) is not dict
-        or set(encoded_preimages)
-        != {"schema_version", "encoding", "preimages"}
-        or encoded_preimages.get("schema_version")
-        != "h5-update-binding-preimages-v1"
+        or set(encoded_preimages) != {"schema_version", "encoding", "preimages"}
+        or encoded_preimages.get("schema_version") != "h5-update-binding-preimages-v1"
         or encoded_preimages.get("encoding") != "hex"
     ):
         raise ProducerCompatibilityError(
             "H5 update-binding preimage envelope is not the exact v1 hex schema"
         )
     encoded_values = encoded_preimages.get("preimages")
-    if (
-        type(encoded_values) is not dict
-        or set(encoded_values) != set(_H5_INTRINSIC_PREIMAGE_FIELDS)
+    if type(encoded_values) is not dict or set(encoded_values) != set(
+        _H5_INTRINSIC_PREIMAGE_FIELDS
     ):
         raise ProducerCompatibilityError(
             "H5 update-binding preimages do not equal the eight intrinsic fields"
@@ -805,20 +826,17 @@ def _load_h5_update_binding(
         "reference_sha256": state_digests["reference_sha256"],
         "recognition_state_sha256": state_digests["recognition_sha256"],
         "model_state_sha256": state_digests["model_sha256"],
-        "validation_payload_sha256": state_digests[
-            "validation_payload_sha256"
-        ],
+        "validation_payload_sha256": state_digests["validation_payload_sha256"],
     }
     for name in _H5_INTRINSIC_PREIMAGE_FIELDS:
-        if hashlib.sha256(intrinsic_preimages[name]).hexdigest() != summary_digests[
-            name
-        ]:
+        if (
+            hashlib.sha256(intrinsic_preimages[name]).hexdigest()
+            != summary_digests[name]
+        ):
             raise ValueError(
                 f"H5 update-binding preimage does not match digest summary: {name}"
             )
-    validation = _json_object(
-        payloads["validation/h5.json"], name="validation/h5.json"
-    )
+    validation = _json_object(payloads["validation/h5.json"], name="validation/h5.json")
     producer_validation = validation.get("producer_validation")
     if type(producer_validation) is not dict:
         raise ProducerCompatibilityError(
@@ -883,9 +901,7 @@ def _validate_matching_artifact(
 ) -> "H6MatchingSetRecord":
     _require_sha256(expected_set_sha256, "matching_set_sha256")
     _require_git_head(expected_git_head, "matching artifact git_head")
-    _require_sha256(
-        expected_dirty_digest, "matching artifact dirty_digest"
-    )
+    _require_sha256(expected_dirty_digest, "matching artifact dirty_digest")
     from vfe4.artifacts.h6_matching import read_h6_matching_set
 
     try:
@@ -905,9 +921,7 @@ def _validate_matching_artifact(
         record.git_head != expected_git_head
         or record.dirty_digest != expected_dirty_digest
     ):
-        raise ValueError(
-            "matching artifact source differs from the current candidate"
-        )
+        raise ValueError("matching artifact source differs from the current candidate")
     if record.status != "ELIGIBLE" or record.obligations:
         raise ProducerCompatibilityError(
             "H6 matching artifact remains INCONCLUSIVE and cannot authorize "
@@ -937,8 +951,7 @@ def _validate_matching_artifact(
         )
     objective_record = objective_records[0]
     inventories = {
-        item.config.config_id: item.config
-        for item in record.ownership_inventories
+        item.config.config_id: item.config for item in record.ownership_inventories
     }
     primary_left = inventories.get(primary_record.row.left_config_id)
     primary_right = inventories.get(primary_record.row.right_config_id)
@@ -970,10 +983,8 @@ def _validate_matching_artifact(
         or not primary_record.report.eligible
         or primary_record.report.obligations
         or primary_left != record.primary_matching_config.a0_config
-        or primary_record.report.reference_config_sha256
-        != primary_left.config_sha256
-        or primary_record.report.endpoint_config_sha256
-        != primary_right.config_sha256
+        or primary_record.report.reference_config_sha256 != primary_left.config_sha256
+        or primary_record.report.endpoint_config_sha256 != primary_right.config_sha256
         or primary_record.report.reference_parameter_count
         != selected_primary.a0_parameter_count
         or primary_record.report.endpoint_parameter_count
@@ -1000,13 +1011,10 @@ def _validate_matching_artifact(
         or objective_left != primary_right
         or objective_left.prior_variant != objective_right.prior_variant
         or objective_left.prior_variant != "parent_specific_pooled_prefix"
-        or objective_left.capacity_allocation
-        != objective_right.capacity_allocation
-        or objective_left.capacity_allocation
-        != primary_right.capacity_allocation
+        or objective_left.capacity_allocation != objective_right.capacity_allocation
+        or objective_left.capacity_allocation != primary_right.capacity_allocation
         or objective_left.objective_kind != "complete_elbo"
-        or objective_right.objective_kind
-        != "emission_only_ablation_non_elbo"
+        or objective_right.objective_kind != "emission_only_ablation_non_elbo"
         or semantic_differences != ("objective_kind",)
         or objective_record.report.reference_config_sha256
         != objective_left.config_sha256
@@ -1051,17 +1059,13 @@ def _revalidate_h6_prediction_readiness_inputs(
             repo_root=_REPO_ROOT,
         )
     except (TypeError, json.JSONDecodeError, ValueError) as exc:
-        raise ValueError(
-            "amended H6 Prediction config is not canonical v2"
-        ) from exc
+        raise ValueError("amended H6 Prediction config is not canonical v2") from exc
     if (
         canonical_config != config
         or hashlib.sha256(config.canonical_json.encode("utf-8")).hexdigest()
         != config.config_sha256
     ):
-        raise ValueError(
-            "amended H6 Prediction typed fields differ from canonical v2"
-        )
+        raise ValueError("amended H6 Prediction typed fields differ from canonical v2")
     if type(prerequisite_refs) is not CurrentPredictionPrerequisiteRefs:
         raise ValueError(
             "prerequisite_refs must be exact CurrentPredictionPrerequisiteRefs"
@@ -1083,10 +1087,7 @@ def _revalidate_h6_prediction_readiness_inputs(
     config.endpoint_smc_protocol.__post_init__()
     from vfe4.evaluation.smc_uncertainty import SMC_BIAS_SEMANTICS
 
-    if (
-        config.smc_bias_semantics_sha256
-        != SMC_BIAS_SEMANTICS.semantics_sha256
-    ):
+    if config.smc_bias_semantics_sha256 != SMC_BIAS_SEMANTICS.semantics_sha256:
         raise ValueError(
             "SMC bias semantics hash differs from the frozen production semantics"
         )
@@ -1095,7 +1096,9 @@ def _revalidate_h6_prediction_readiness_inputs(
     if config.access_policy_sha256 != ACCESS_POLICY_SHA256:
         raise ValueError("blinded-data access policy differs from the frozen policy")
     if config.critical_values_sha256 != CRITICAL_VALUES_PROTOCOL_SHA256:
-        raise ValueError("critical-values protocol hash differs from the frozen literals")
+        raise ValueError(
+            "critical-values protocol hash differs from the frozen literals"
+        )
     if config.attribution_matrix_sha256 != arm_matrix_sha256(ARM_MATRIX_ROWS):
         raise ValueError("attribution-matrix hash differs from the literal eight rows")
 
@@ -1188,9 +1191,7 @@ def _readiness_payload(token: H6PredictionReadinessToken) -> dict[str, object]:
         "dirty_digest": token.dirty_digest,
         "experiment_config_sha256": token.experiment_config_sha256,
         "correctness_manifests": dict(token.correctness_manifests),
-        "h1_prefix_prior_manifest_sha256": (
-            token.h1_prefix_prior_manifest_sha256
-        ),
+        "h1_prefix_prior_manifest_sha256": (token.h1_prefix_prior_manifest_sha256),
         "h5_update_binding_sha256": token.h5_update_binding_sha256,
         "h6_training_schedule_sha256": token.h6_training_schedule_sha256,
         "smc_validation_manifest_sha256": token.smc_validation_manifest_sha256,
@@ -1210,12 +1211,8 @@ def _readiness_payload(token: H6PredictionReadinessToken) -> dict[str, object]:
                 "h1_prefix_prior_generative_factor_schema_sha256": (
                     token.h1_prefix_prior_generative_factor_schema_sha256
                 ),
-                "smc_bias_semantics_sha256": (
-                    token.smc_bias_semantics_sha256
-                ),
-                "objective_gate_spec_sha256": (
-                    token.objective_gate_spec_sha256
-                ),
+                "smc_bias_semantics_sha256": (token.smc_bias_semantics_sha256),
+                "objective_gate_spec_sha256": (token.objective_gate_spec_sha256),
             }
         )
     return payload
@@ -1237,7 +1234,9 @@ def _load_published_h6_prediction_readiness(
     )
     expected_name = f"h6-prediction-readiness-{fresh.readiness_sha256[:16]}"
     if artifact_root.name != expected_name:
-        raise ValueError("readiness artifact directory name does not match the fresh token")
+        raise ValueError(
+            "readiness artifact directory name does not match the fresh token"
+        )
     _, inventory, payloads = _load_manifested_files(
         artifact_root,
         required_paths=(
@@ -1270,10 +1269,7 @@ def _load_published_h6_prediction_readiness(
     if payloads["config.json"] != expected_config:
         raise ValueError("published readiness config differs from the current config")
     expected_readiness = canonical_json_bytes(_readiness_payload(fresh))
-    if (
-        payloads["validation/h6_prediction_readiness.json"]
-        != expected_readiness
-    ):
+    if payloads["validation/h6_prediction_readiness.json"] != expected_readiness:
         raise ValueError(
             "published readiness fields or hashes differ from fresh revalidation"
         )
@@ -1344,41 +1340,170 @@ def adjudicate_h6_prediction_opening(
     metrics_bytes = canonical_json_bytes(
         {
             "schema": "h6-prediction-metrics-v2",
-            "objective_gate_spec_sha256": (
-                decision.objective_gate_spec_sha256
-            ),
-            "smc_bias_semantics_sha256": (
-                SMC_BIAS_SEMANTICS.semantics_sha256
-            ),
+            "objective_gate_spec_sha256": (decision.objective_gate_spec_sha256),
+            "smc_bias_semantics_sha256": (SMC_BIAS_SEMANTICS.semantics_sha256),
             "opening_policy": H6_OBJECTIVE_GATE_SPEC.opening_policy,
             "evaluation_order": H6_OBJECTIVE_GATE_SPEC.evaluation_order,
             "opening_count": decision.opening_count,
             "test_opening_sha256": decision.test_opening_sha256,
-            "raw_endpoint_inventory_sha256": (
-                decision.raw_endpoint_inventory_sha256
-            ),
-            "objective_estimator_complete": (
-                decision.objective.estimator_complete
-            ),
-            "objective_interval_eligible": (
-                decision.objective.interval_eligible
-            ),
+            "raw_endpoint_inventory_sha256": (decision.raw_endpoint_inventory_sha256),
+            "objective_estimator_complete": (decision.objective.estimator_complete),
+            "objective_interval_eligible": (decision.objective.interval_eligible),
             "objective_interval": {
                 "lower": objective_lower,
                 "upper": objective_upper,
             },
             "objective_status": decision.objective.status.value,
-            "primary_estimator_complete": (
-                decision.primary_estimator_complete
-            ),
-            "primary_interval_eligible": (
-                decision.primary_interval_eligible
-            ),
+            "primary_estimator_complete": (decision.primary_estimator_complete),
+            "primary_interval_eligible": (decision.primary_interval_eligible),
             "primary_interval": primary_payload,
             "primary_disposition": decision.primary_disposition,
         }
     )
     return decision, metrics_bytes
+
+
+def validate_h6_prediction_readiness_v3(
+    *,
+    config: H6PredictionV3ResolvedConfig,
+    matching_set: H6MatchingSetV3,
+    git_head: str,
+    dirty_digest: str,
+) -> H6PredictionV3ReadinessToken:
+    """Issue the executable token only from exact already-validated v3 inputs.
+
+    Artifact loading remains owned by the historical prerequisite loaders.
+    This final typed seam refuses legacy configs/matching sets and binds every
+    prerequisite identity carried by the resolved v3 configuration.
+    """
+
+    if type(config) is not H6PredictionV3ResolvedConfig:
+        raise ValueError("readiness v3 requires an exact H6PredictionV3ResolvedConfig")
+    if type(matching_set) is not H6MatchingSetV3:
+        raise ValueError(
+            "readiness v3 requires an exact H6MatchingSetV3; v2 is forbidden"
+        )
+    from vfe4.config import resolve_h6_prediction_v3_config
+
+    try:
+        raw_config = json.loads(config.canonical_json)
+        canonical_config = resolve_h6_prediction_v3_config(
+            raw_config,
+            repo_root=_REPO_ROOT,
+        )
+    except (TypeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("readiness v3 config is not exact canonical v3") from exc
+    if (
+        canonical_config != config
+        or hashlib.sha256(config.canonical_json.encode("utf-8")).hexdigest()
+        != config.config_sha256
+    ):
+        raise ValueError("readiness v3 config is not exact canonical v3")
+    if type(config.recognition_estimator) is not H6RecognitionEstimatorSpec:
+        raise ValueError("readiness v3 requires the exact recognition estimator")
+    if type(config.runtime) is not H6PredictionRuntimeIdentity:
+        raise ValueError("readiness v3 requires the exact runtime identity")
+    if type(config.training_schedule) is not H6TrainingScheduleV3:
+        raise ValueError("readiness v3 requires the exact training schedule")
+    config.recognition_estimator.__post_init__()
+    config.runtime.__post_init__()
+    config.training_schedule.__post_init__()
+    config.endpoint_smc_protocol.__post_init__()
+    config.objective_gate.__post_init__()
+    matching_set.__post_init__()
+    # Component selectors are fully validated and digest-bound by the matching
+    # set above, but only PRIMARY is an authorization gate for readiness.
+    if (
+        matching_set.status != "ELIGIBLE"
+        or matching_set.primary_selection.status != "ELIGIBLE"
+        or matching_set.primary_selection.selected_candidate is None
+        or not matching_set.matrix_reports[0].report.eligible
+    ):
+        raise ValueError(
+            "readiness v3 requires an exact ELIGIBLE first-lexicographic "
+            "PRIMARY selection; INCONCLUSIVE hard gates fail closed"
+        )
+    if (
+        config.schema_version != "h6-prediction-config-v3"
+        or config.operation != "H6-Prediction"
+        or config.source.git_head != git_head
+        or config.source.dirty_digest != dirty_digest
+    ):
+        raise ValueError("readiness source does not match the resolved config")
+    if (
+        config.training_schedule.recognition_estimator_sha256
+        != config.recognition_estimator.estimator_sha256
+    ):
+        raise ValueError(
+            "readiness recognition estimator identity differs from schedule"
+        )
+    if (
+        config.training_schedule.runtime_identity_sha256
+        != config.runtime.runtime_identity_sha256
+    ):
+        raise ValueError("readiness runtime identity differs from schedule")
+    if (
+        config.counter_mapping_sha256 != H6_COUNTER_MAPPING_SHA256
+        or config.training_schedule.counter_mapping_sha256
+        != config.counter_mapping_sha256
+    ):
+        raise ValueError("readiness counter mapping identity is stale")
+    if (
+        config.phase_ownership_sha256 != H6_PHASE_OWNERSHIP_SHA256
+        or config.training_schedule.phase_ownership_sha256
+        != config.phase_ownership_sha256
+    ):
+        raise ValueError("readiness phase ownership identity is stale")
+    if (
+        config.checkpoint_codec_sha256 != H6_CHECKPOINT_CODEC_SHA256
+        or config.training_schedule.checkpoint_codec_sha256
+        != config.checkpoint_codec_sha256
+    ):
+        raise ValueError("readiness checkpoint codec identity is stale")
+    if config.runtime.deterministic_policy_sha256 != H6_DETERMINISTIC_POLICY_SHA256:
+        raise ValueError("readiness deterministic policy identity is stale")
+    if (
+        config.scoring_inventory_sha256 != H6_SCORING_INVENTORY_SHA256
+        or config.expected_test_row_count != 4104
+    ):
+        raise ValueError("readiness scoring inventory identity is stale")
+    if (
+        matching_set.git_head != git_head
+        or matching_set.dirty_digest != dirty_digest
+        or matching_set.matching_policy_sha256 != H6_MATCHING_POLICY_V3.policy_sha256
+        or config.matching_policy_sha256 != matching_set.matching_policy_sha256
+        or config.matching_set_schema != "h6-amended-matching-set-v3"
+        or config.matching_set_sha256 != matching_set.matching_set_sha256
+    ):
+        raise ValueError("v3 matching identities do not authorize readiness")
+    return H6PredictionV3ReadinessToken.create(
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+        experiment_config_sha256=config.config_sha256,
+        correctness_manifests=config.correctness_manifests,
+        h1_prefix_prior_manifest_sha256=(config.h1_prefix_prior_manifest_sha256),
+        h1_prefix_prior_generative_factor_schema_sha256=(
+            config.h1_prefix_prior_generative_factor_schema_sha256
+        ),
+        smc_bias_semantics_sha256=config.smc_bias_semantics_sha256,
+        smc_validation_manifest_sha256=(config.smc_validation_manifest_sha256),
+        prefix_certificate_set_sha256=(config.prefix_certificate_set_sha256),
+        h5_update_binding_sha256=config.h5_update_binding_sha256,
+        critical_values_sha256=config.critical_values_sha256,
+        endpoint_smc_protocol_sha256=(config.endpoint_smc_protocol.protocol_sha256),
+        attribution_matrix_sha256=config.attribution_matrix_sha256,
+        objective_gate_spec_sha256=config.objective_gate.spec_sha256,
+        matching_policy_sha256=config.matching_policy_sha256,
+        matching_set_sha256=config.matching_set_sha256,
+        training_schedule_sha256=config.training_schedule.schedule_sha256,
+        recognition_estimator_sha256=(config.recognition_estimator.estimator_sha256),
+        runtime_identity_sha256=config.runtime.runtime_identity_sha256,
+        counter_mapping_sha256=config.counter_mapping_sha256,
+        phase_ownership_sha256=config.phase_ownership_sha256,
+        objective_manifest_schema_sha256=(H6_OBJECTIVE_MANIFEST_SCHEMA_SHA256),
+        data_identity_sha256=config.data_identity_sha256,
+        access_policy_sha256=config.access_policy_sha256,
+    )
 
 
 __all__ = [
@@ -1387,4 +1512,5 @@ __all__ = [
     "PREDICTION_READINESS_SOURCE_BLOCKERS",
     "ProducerCompatibilityError",
     "validate_h6_prediction_readiness",
+    "validate_h6_prediction_readiness_v3",
 ]

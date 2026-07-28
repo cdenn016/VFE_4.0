@@ -212,6 +212,8 @@ round-trip its canonical JSON and reject unknown/missing fields.
 - Modify `vfe4/training/parameter_counts.py`
 - Create `vfe4/training/h6_matching_v3.py`
 - Modify `vfe4/training/h6_readiness.py`
+- Modify `vfe4/types/h6_prediction_v3.py`
+- Modify `vfe4/types/__init__.py`
 - Create `tests/unit/test_h6_matching_v3.py`
 - Create `tests/unit/test_h6_readiness_v3.py`
 
@@ -223,8 +225,21 @@ round-trip its canonical JSON and reject unknown/missing fields.
 - Add named arithmetic terms for categorical logits, rank-one shifts,
   terminal component realization, exact local sums, projection, backward,
   clipping, and AdamW.
-- Preserve the v2 candidate grids, tolerances, passes, batch policy, and
-  outcome-blind first-lexicographic selection.
+- Preserve the v2 component grids and legacy constants. Define only the
+  v3 PRIMARY emission axis as `(72,84,85,86,87,88,89)`, yielding 378
+  `(d,c,e,r)` rows, and bind the axes and count into the v3 policy digest.
+- Preserve one-percent parameter and five-percent whole-training
+  arithmetic-FLOP tolerances, passes, batch policy, and outcome-blind
+  first-lexicographic selection.
+- Select `(2,8,72,117)` first with `P=61,454` and the 258-token fixture FLOP
+  gap `4.661006%`; retain `(2,8,72,118)` as the second eligible row.
+- Interpret the canonical `ArmConfig.recognition_family="factorized"` exactly;
+  the fixed factorized A5 reference has `63,540` v3 parameters.
+- Preserve terminal rank-one shift arithmetic as `2 * B * T**B * d`.
+- Gate overall matching authorization and readiness only on PRIMARY. Keep
+  component selectors fully digest-bound with their statuses and obligations;
+  an `INCONCLUSIVE` component cannot authorize a matched component claim or
+  promote or demote PRIMARY.
 - Keep data I/O, validation, checkpoint serialization, test scoring, device
   transfer, prediction particles, and cache work explicitly excluded.
 - Bind the regenerated v3 matching set, estimator, runtime, checkpoint, data,
@@ -233,10 +248,13 @@ round-trip its canonical JSON and reject unknown/missing fields.
 **Focused tests**
 
 - `test_matching_v3_counts_terminal_source_parameters_by_arm`
+- `test_endpoint_parameter_count_v3_uses_canonical_factorized_family`
 - `test_matching_v3_has_complete_named_estimator_flop_terms`
 - `test_matching_v3_exclusion_inventory_is_exact`
+- `test_matching_v3_policy_binds_primary_grid_amendment`
 - `test_readiness_v3_rejects_v2_matching_set`
-- `test_readiness_v3_binds_runtime_estimator_and_checkpoint_identities`
+- `test_readiness_v3_authorizes_primary_with_bound_component_disclosures`
+- `test_readiness_v3_refuses_matching_authority_mutations`
 
 **Command**
 

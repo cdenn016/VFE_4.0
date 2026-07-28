@@ -74,13 +74,13 @@ class MaterializedPredictionData:
             or type(self.validation) is not CausalWindows
             or self.validation.split != "validation"
         ):
-            raise ValueError("materialized data must contain train and validation windows")
+            raise ValueError(
+                "materialized data must contain train and validation windows"
+            )
         self.train.__post_init__()
         self.validation.__post_init__()
 
-    def schedule_for_pass(
-        self, zero_based_pass_index: int
-    ) -> FrozenBatchSchedule:
+    def schedule_for_pass(self, zero_based_pass_index: int) -> FrozenBatchSchedule:
         self.__post_init__()
         return frozen_batch_schedule(
             window_count=len(self.train),
@@ -207,12 +207,16 @@ def _build_access_api():
         try:
             path_stat = os.lstat(path)
         except OSError as exc:
-            raise OpeningCapabilityError(f"managed directory is unavailable: {exc}") from exc
+            raise OpeningCapabilityError(
+                f"managed directory is unavailable: {exc}"
+            ) from exc
         if not stat.S_ISDIR(path_stat.st_mode) or _is_redirect(path, path_stat):
             raise OpeningCapabilityError("managed directory cannot be a redirect")
         if require_canonical_spelling:
             resolved = path.resolve(strict=True)
-            if os.path.normcase(os.fspath(resolved)) != os.path.normcase(os.fspath(path)):
+            if os.path.normcase(os.fspath(resolved)) != os.path.normcase(
+                os.fspath(path)
+            ):
                 raise OpeningCapabilityError("managed directory path is redirected")
         identity = (path_stat.st_dev, path_stat.st_ino)
         if expected_identity is not None and identity != expected_identity:
@@ -225,7 +229,9 @@ def _build_access_api():
         except OSError as exc:
             raise OpeningCapabilityError(f"sealed split is unavailable: {exc}") from exc
         if not stat.S_ISREG(path_stat.st_mode) or _is_redirect(path, path_stat):
-            raise OpeningCapabilityError("sealed split must be a non-redirected regular file")
+            raise OpeningCapabilityError(
+                "sealed split must be a non-redirected regular file"
+            )
         return path_stat.st_dev, path_stat.st_ino
 
     def _register(
@@ -233,6 +239,7 @@ def _build_access_api():
         sealed_directory: Path,
         *,
         marker_mode: str,
+        refuse_existing_reservation: bool = False,
     ) -> None:
         if type(store) is not BlindedCorpusStore:
             raise OpeningCapabilityError("registration requires an exact blinded store")
@@ -244,6 +251,7 @@ def _build_access_api():
             not isinstance(sealed_directory, Path)
             or not sealed_directory.is_absolute()
             or marker_mode not in ("production", "synthetic")
+            or type(refuse_existing_reservation) is not bool
         ):
             raise OpeningCapabilityError("registration path or mode is invalid")
         directory = sealed_directory.resolve(strict=True)
@@ -266,7 +274,9 @@ def _build_access_api():
             store.sealed_test_handle.sealed_content_sha256,
         )
         if handle_hashes != expected_raw_hashes:
-            raise OpeningCapabilityError("sealed handles do not match the data identity")
+            raise OpeningCapabilityError(
+                "sealed handles do not match the data identity"
+            )
 
         synthetic_anchor: Path | None = None
         synthetic_anchor_identity: tuple[int, int] | None = None
@@ -283,6 +293,8 @@ def _build_access_api():
             synthetic_anchor,
             synthetic_anchor_identity,
         )
+        if refuse_existing_reservation:
+            _refuse_existing_reservation(store, state)
         key = id(store)
 
         def _forget(reference: weakref.ReferenceType[BlindedCorpusStore]) -> None:
@@ -298,15 +310,24 @@ def _build_access_api():
                 raise OpeningCapabilityError("blinded store is already registered")
             registry[key] = (reference, state)
 
-    def _register_production(
-        store: BlindedCorpusStore, sealed_directory: Path
-    ) -> None:
+    def _register_production(store: BlindedCorpusStore, sealed_directory: Path) -> None:
         _register(store, sealed_directory, marker_mode="production")
 
-    def _register_synthetic(
-        store: BlindedCorpusStore, sealed_directory: Path
-    ) -> None:
+    def _register_synthetic(store: BlindedCorpusStore, sealed_directory: Path) -> None:
         _register(store, sealed_directory, marker_mode="synthetic")
+
+    def _register_reopened(
+        store: BlindedCorpusStore,
+        sealed_directory: Path,
+    ) -> None:
+        """Reopened stores always inherit the production reservation authority."""
+
+        _register(
+            store,
+            sealed_directory,
+            marker_mode="production",
+            refuse_existing_reservation=True,
+        )
 
     def _state_for(store: BlindedCorpusStore) -> StoreAccessState:
         if type(store) is not BlindedCorpusStore:
@@ -336,13 +357,30 @@ def _build_access_api():
         try:
             readiness.__post_init__()
         except ValueError as exc:
-            raise OpeningCapabilityError("Prediction readiness failed validation") from exc
+            raise OpeningCapabilityError(
+                "Prediction readiness failed validation"
+            ) from exc
         data_identity = store.data_identity
+        retained_readiness_identity = object.__getattribute__(
+            readiness,
+            "_data_identity",
+        )
+        exact_identity_matches = (
+            type(data_identity) is DataIdentity
+            and retained_readiness_identity == data_identity
+        )
+        restricted_identity_matches = (
+            type(data_identity) is not DataIdentity
+            and retained_readiness_identity.data_identity_sha256
+            == data_identity.data_identity_sha256
+            and retained_readiness_identity.access_policy_sha256
+            == data_identity.access_policy_sha256
+        )
         if (
             readiness.status != "PASS"
             or readiness.data_identity_sha256 != store.data_identity_sha256
             or readiness.access_policy_sha256 != data_identity.access_policy_sha256
-            or object.__getattribute__(readiness, "_data_identity") != data_identity
+            or not (exact_identity_matches or restricted_identity_matches)
         ):
             raise OpeningCapabilityError(
                 "Prediction readiness does not match the store data identity"
@@ -360,7 +398,9 @@ def _build_access_api():
         try:
             descriptor = os.open(path, flags)
         except OSError as exc:
-            raise OpeningCapabilityError(f"sealed split cannot be opened: {exc}") from exc
+            raise OpeningCapabilityError(
+                f"sealed split cannot be opened: {exc}"
+            ) from exc
         try:
             opened_stat = os.fstat(descriptor)
             if (
@@ -412,7 +452,14 @@ def _build_access_api():
         )
         tokenizer = ByteTokenizerV1()
         tokens = tokenizer.encode(raw)
-        if tokenizer.storage_identity(tokens) != token_identity:
+        observed_token_identity = tokenizer.storage_identity(tokens)
+        if (
+            observed_token_identity.storage_schema != token_identity.storage_schema
+            or observed_token_identity.token_count != token_identity.token_count
+            or observed_token_identity.byte_length != token_identity.byte_length
+            or observed_token_identity.encoded_token_sha256
+            != token_identity.encoded_token_sha256
+        ):
             raise OpeningCapabilityError("sealed split token identity changed")
         return build_causal_windows(tokens, split=split)  # type: ignore[arg-type]
 
@@ -455,9 +502,7 @@ def _build_access_api():
                 expected_identity=production_anchor_identity,
             )
             policy_root = _create_child_directory(production_anchor, ".vfe4")
-            root = _create_child_directory(
-                policy_root, "h6-test-opening-reservations"
-            )
+            root = _create_child_directory(policy_root, "h6-test-opening-reservations")
             if root != production_marker_root:
                 raise OpeningCapabilityError("production opening root changed")
         elif state.marker_mode == "synthetic":
@@ -477,14 +522,60 @@ def _build_access_api():
         store: BlindedCorpusStore, state: StoreAccessState
     ) -> tuple[Path, tuple[int, int]]:
         root, root_identity = _marker_root(state)
+        return root / _reservation_filename(store), root_identity
+
+    def _reservation_filename(store: BlindedCorpusStore) -> str:
         access_policy_sha256 = store.data_identity.access_policy_sha256
         marker_sha256 = hashlib.sha256(
             marker_domain
             + bytes.fromhex(store.data_identity_sha256)
             + bytes.fromhex(access_policy_sha256)
         ).hexdigest()
-        filename = marker_sha256 + ".reservation.bin"
-        return root / filename, root_identity
+        return marker_sha256 + ".reservation.bin"
+
+    def _refuse_existing_reservation(
+        store: BlindedCorpusStore,
+        state: StoreAccessState,
+    ) -> None:
+        roots: list[Path] = []
+        if state.marker_mode == "production":
+            _require_directory(
+                production_anchor,
+                expected_identity=production_anchor_identity,
+            )
+            policy_root = production_anchor / ".vfe4"
+            if os.path.lexists(policy_root):
+                _require_directory(policy_root)
+                root = production_marker_root
+                if os.path.lexists(root):
+                    _require_directory(root)
+                    roots.append(root)
+
+            legacy_synthetic_anchor = state.sealed_directory.parent.parent
+            _require_directory(legacy_synthetic_anchor)
+            legacy_synthetic_root = (
+                legacy_synthetic_anchor / ".vfe4-h6-synthetic-opening-reservations"
+            )
+            if os.path.lexists(legacy_synthetic_root):
+                _require_directory(legacy_synthetic_root)
+                roots.append(legacy_synthetic_root)
+        elif state.marker_mode == "synthetic":
+            anchor = state.synthetic_anchor
+            anchor_identity = state.synthetic_anchor_identity
+            if anchor is None or anchor_identity is None:
+                raise OpeningCapabilityError("synthetic opening anchor is missing")
+            _require_directory(anchor, expected_identity=anchor_identity)
+            root = anchor / ".vfe4-h6-synthetic-opening-reservations"
+            if not os.path.lexists(root):
+                return
+            _require_directory(root)
+            roots.append(root)
+        else:
+            raise OpeningCapabilityError("unknown opening reservation mode")
+        if any(os.path.lexists(root / _reservation_filename(store)) for root in roots):
+            raise OpeningCapabilityError(
+                "opening reservation already exists or was consumed"
+            )
 
     def _proof_bytes(
         reservation_path: Path,
@@ -570,7 +661,9 @@ def _build_access_api():
         try:
             experiment_identity.__post_init__()
         except ValueError as exc:
-            raise OpeningCapabilityError("ExperimentIdentity failed validation") from exc
+            raise OpeningCapabilityError(
+                "ExperimentIdentity failed validation"
+            ) from exc
         if (
             experiment_identity.sealed_data_sha256 != store.data_identity_sha256
             or experiment_identity.access_policy_sha256
@@ -595,9 +688,7 @@ def _build_access_api():
                     experiment_identity.experiment_identity_sha256
                 ),
                 data_identity_sha256=store.data_identity_sha256,
-                sealed_test_sha256=(
-                    store.sealed_test_handle.sealed_content_sha256
-                ),
+                sealed_test_sha256=(store.sealed_test_handle.sealed_content_sha256),
                 access_policy_sha256=store.data_identity.access_policy_sha256,
             )
             file_identity = _exclusive_reserve(
@@ -669,8 +760,7 @@ def _build_access_api():
             if (
                 reconstructed != proof.canonical_bytes
                 or observed != proof.canonical_bytes
-                or hashlib.sha256(observed).hexdigest()
-                != proof.proof_identity_sha256
+                or hashlib.sha256(observed).hexdigest() != proof.proof_identity_sha256
             ):
                 raise OpeningCapabilityError("durable opening proof changed")
             proof.consumed = True
@@ -700,14 +790,13 @@ def _build_access_api():
         opening: ValidatedTestOpening,
     ) -> str:
         if type(opening) is not ValidatedOpening:
-            raise OpeningCapabilityError(
-                "validated test-opening receipt is forged"
-            )
+            raise OpeningCapabilityError("validated test-opening receipt is forged")
         return opening.proof_identity_sha256
 
     return (
         _register_production,
         _register_synthetic,
+        _register_reopened,
         _validation_fixture,
         _materialize_train,
         _issue,
@@ -721,6 +810,7 @@ def _build_access_api():
 (
     _register_production_blinded_store,
     _register_synthetic_blinded_store,
+    _register_reopened_blinded_store_v3,
     materialize_validation_safety_fixture,
     materialize_prediction_train,
     reserve_and_issue_durable_test_opening_capability,
