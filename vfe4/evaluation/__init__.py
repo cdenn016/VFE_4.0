@@ -1,6 +1,12 @@
-"""Public H6 prior-scoring and uncertainty interfaces."""
+"""Public H6 and WikiText-103 prior-evaluation interfaces."""
 
-from .prior_nll import score_prior_nll_replicate
+from .prior_nll import (
+    WT103EstimatorStreamBinding,
+    WT103EvaluationBatches,
+    bind_wt103_prior_predictor,
+    score_prior_nll,
+    score_prior_nll_replicate,
+)
 from .smc_uncertainty import (
     ENDPOINT_BIAS_LIMIT,
     ENDPOINT_DEGREES_OF_FREEDOM,
@@ -26,6 +32,22 @@ from .smc_uncertainty import (
     inflate_paired_interval,
     paired_t_interval,
 )
+from .statistics import (
+    WT103ArmApplicability,
+    WT103CornerInterval,
+    WT103EstimatorAggregation,
+    WT103PredictionStatistics,
+    WT103RawScoreRecord,
+    WT103ResultRow,
+    WT103SeedEstimate,
+    aggregate_a5_smc,
+    paired_prediction_decision,
+)
+from .test_opening import (
+    DurableTestOpeningCapability,
+    TestOpeningPlan,
+    reserve_test_opening,
+)
 
 __all__ = [
     "ENDPOINT_BIAS_LIMIT",
@@ -45,11 +67,27 @@ __all__ = [
     "PAIRED_SEED_COUNT",
     "PREDICTION_DELTA",
     "PairedInterval",
+    "DurableTestOpeningCapability",
+    "TestOpeningPlan",
+    "WT103ArmApplicability",
+    "WT103CornerInterval",
+    "WT103EstimatorAggregation",
+    "WT103EstimatorStreamBinding",
+    "WT103EvaluationBatches",
+    "WT103PredictionStatistics",
+    "WT103RawScoreRecord",
+    "WT103ResultRow",
+    "WT103SeedEstimate",
+    "aggregate_a5_smc",
     "aggregate_endpoint_smc",
+    "bind_wt103_prior_predictor",
     "decide_objective_gate",
     "decide_ordered_prediction",
     "decide_primary_prediction",
     "inflate_paired_interval",
     "paired_t_interval",
+    "paired_prediction_decision",
+    "reserve_test_opening",
+    "score_prior_nll",
     "score_prior_nll_replicate",
 ]
