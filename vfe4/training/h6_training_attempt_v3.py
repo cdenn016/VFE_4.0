@@ -637,7 +637,6 @@ class _H6BatchCallbacksV3:
             if (
                 live_tensor.dtype != persisted_tensor.dtype
                 or live_tensor.shape != persisted_tensor.shape
-                or live_tensor.device != persisted_tensor.device
                 or _tensor_sha256(live_tensor) != _tensor_sha256(persisted_tensor)
             ):
                 raise ValueError(

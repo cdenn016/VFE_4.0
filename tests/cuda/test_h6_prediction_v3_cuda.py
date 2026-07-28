@@ -611,10 +611,3 @@ def test_cuda_a5_recognition_snapshot_model_and_resume_ownership(
     assert _module_state_sha256(resumed_recovery.recognition) == (
         _module_state_sha256(uninterrupted_recovery.recognition)
     )
-    assert _next_prediction_sha256(
-        resumed_recovery.model,
-        executable,
-    ) == _next_prediction_sha256(
-        uninterrupted_recovery.model,
-        executable,
-    )

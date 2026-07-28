@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import struct
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 
@@ -100,6 +101,12 @@ class _AlternateSemanticState(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return inputs @ self.weight + self.bias
+
+
+class _ContextManagerSemanticState(_OriginalSemanticState):
+    @contextmanager
+    def semantic_transaction(self) -> Iterator[None]:
+        yield None
 
 
 def _runtime(
@@ -782,6 +789,73 @@ def test_checkpoint_factory_authority_has_no_public_issuer_surface() -> None:
         checkpoint_v3_module,
         "H6CheckpointFactoryAuthorityV3",
     )
+
+
+def test_factory_authority_hashes_stdlib_contextmanager_wrapped_behavior() -> None:
+    runtime = _runtime()
+    attempt = _attempt(
+        runtime,
+        objective_kind="cross_entropy",
+        recognition_factory_sha256=None,
+    )
+    authority = checkpoint_v3_module._issue_h6_checkpoint_factory_authority_v3(
+        attempt_spec=attempt,
+        expected_named_modules=(("model", _ContextManagerSemanticState()),),
+        module_factories=(
+            ("model", lambda _attempt: _ContextManagerSemanticState()),
+        ),
+    )
+
+    assert len(authority.module_tree_semantic_sha256) == 64
+
+
+def test_factory_authority_still_rejects_arbitrary_mutable_method_closure() -> None:
+    mutable_state = {"value": 1}
+
+    class MutableClosureState(_OriginalSemanticState):
+        def closed_behavior(self) -> int:
+            return mutable_state["value"]
+
+    runtime = _runtime()
+    attempt = _attempt(
+        runtime,
+        objective_kind="cross_entropy",
+        recognition_factory_sha256=None,
+    )
+    with pytest.raises(ValueError, match="mutable runtime state"):
+        checkpoint_v3_module._issue_h6_checkpoint_factory_authority_v3(
+            attempt_spec=attempt,
+            expected_named_modules=(("model", MutableClosureState()),),
+            module_factories=(
+                ("model", lambda _attempt: MutableClosureState()),
+            ),
+        )
+
+
+def test_contextmanager_generator_mutation_changes_factory_semantic_digest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _ContextManagerSemanticState()
+    before = checkpoint_v3_module._module_tree_semantic_sha256(
+        (("model", module),),
+        require_cpu=True,
+    )
+    wrapped = _ContextManagerSemanticState.semantic_transaction.__wrapped__
+
+    def altered_transaction(
+        self: _ContextManagerSemanticState,
+    ) -> Iterator[None]:
+        del self
+        yield None
+        yield None
+
+    monkeypatch.setattr(wrapped, "__code__", altered_transaction.__code__)
+    after = checkpoint_v3_module._module_tree_semantic_sha256(
+        (("model", module),),
+        require_cpu=True,
+    )
+
+    assert after != before
 
 
 def test_replaced_checkpoint_factory_authority_is_rejected_before_load(

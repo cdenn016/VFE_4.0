@@ -9,6 +9,7 @@ CPU little-endian bytes before a checkpoint is accepted.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import math
 import os
@@ -16,6 +17,7 @@ import stat
 import sys
 import threading
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from enum import Enum
 from pathlib import Path
@@ -120,6 +122,16 @@ _MODULE_INTERNAL_ATTRIBUTE_NAMES = frozenset(
         "_load_state_dict_post_hooks",
     }
 )
+
+
+def _contextmanager_wrapper_probe() -> object:
+    yield None
+
+
+_TRUSTED_CONTEXTMANAGER_WRAPPER_CODE = contextmanager(
+    _contextmanager_wrapper_probe
+).__code__
+del _contextmanager_wrapper_probe
 
 
 def _require_sha256(value: object, name: str) -> str:
@@ -1926,41 +1938,84 @@ def _code_semantic_payload(code: CodeType) -> dict[str, object]:
     }
 
 
-def _function_semantic_payload(function: FunctionType) -> dict[str, object]:
-    closure: tuple[tuple[str, dict[str, str]], ...] = ()
-    if function.__closure__:
-        closure_items: list[tuple[str, dict[str, str]]] = []
-        for name, cell in zip(
-            function.__code__.co_freevars,
-            function.__closure__,
-            strict=True,
-        ):
-            value = cell.cell_contents
-            if name != "__class__" or not isinstance(value, type):
-                raise ValueError(
-                    "module behavior cannot close over mutable runtime state"
-                )
-            closure_items.append(
-                (
-                    name,
-                    {"class": _type_identity(value)},
-                )
-            )
-        closure = tuple(closure_items)
-    return {
-        "module": function.__module__,
-        "qualname": function.__qualname__,
-        "code": _code_semantic_payload(function.__code__),
-        "closure": closure,
-        "defaults": _semantic_value_payload(
-            function.__defaults__,
-            active=set(),
-        ),
-        "kwdefaults": _semantic_value_payload(
-            function.__kwdefaults__,
-            active=set(),
-        ),
-    }
+def _trusted_contextmanager_generator(
+    function: FunctionType,
+) -> FunctionType | None:
+    closure = function.__closure__
+    if (
+        function.__code__ is not _TRUSTED_CONTEXTMANAGER_WRAPPER_CODE
+        or function.__code__.co_freevars != ("func",)
+        or closure is None
+        or len(closure) != 1
+    ):
+        return None
+    wrapped = getattr(function, "__wrapped__", None)
+    if (
+        type(wrapped) is not FunctionType
+        or closure[0].cell_contents is not wrapped
+        or not bool(wrapped.__code__.co_flags & inspect.CO_GENERATOR)
+        or function.__module__ != wrapped.__module__
+        or function.__qualname__ != wrapped.__qualname__
+        or function.__name__ != wrapped.__name__
+    ):
+        return None
+    return wrapped
+
+
+def _function_semantic_payload(
+    function: FunctionType,
+    *,
+    active: set[int] | None = None,
+) -> dict[str, object]:
+    owned_active = active if active is not None else set()
+    identity = id(function)
+    if identity in owned_active:
+        raise ValueError("module behavior function closure contains a cycle")
+    owned_active.add(identity)
+    try:
+        wrapped_generator = _trusted_contextmanager_generator(function)
+        closure: tuple[tuple[str, dict[str, object]], ...] = ()
+        if function.__closure__:
+            closure_items: list[tuple[str, dict[str, object]]] = []
+            for name, cell in zip(
+                function.__code__.co_freevars,
+                function.__closure__,
+                strict=True,
+            ):
+                value = cell.cell_contents
+                if name == "__class__" and isinstance(value, type):
+                    payload: dict[str, object] = {
+                        "class": _type_identity(value),
+                    }
+                elif name == "func" and value is wrapped_generator:
+                    payload = {
+                        "contextmanager_generator": _function_semantic_payload(
+                            wrapped_generator,
+                            active=owned_active,
+                        )
+                    }
+                else:
+                    raise ValueError(
+                        "module behavior cannot close over mutable runtime state"
+                    )
+                closure_items.append((name, payload))
+            closure = tuple(closure_items)
+        return {
+            "module": function.__module__,
+            "qualname": function.__qualname__,
+            "code": _code_semantic_payload(function.__code__),
+            "closure": closure,
+            "defaults": _semantic_value_payload(
+                function.__defaults__,
+                active=set(),
+            ),
+            "kwdefaults": _semantic_value_payload(
+                function.__kwdefaults__,
+                active=set(),
+            ),
+        }
+    finally:
+        owned_active.remove(identity)
 
 
 def _semantic_value_payload(
@@ -2280,6 +2335,9 @@ def _referenced_application_sources(
         if source is not None:
             sources[(source["module"], source["path"])] = source
         if type(value) is FunctionType:
+            wrapped_generator = _trusted_contextmanager_generator(value)
+            if wrapped_generator is not None:
+                pending.append(wrapped_generator)
             for name in value.__code__.co_names:
                 referenced = value.__globals__.get(name)
                 if (
