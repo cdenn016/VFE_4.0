@@ -38,7 +38,10 @@ from vfe4.objective.h2_information import (
     evaluate_information_elbo,
 )
 from vfe4.objective.h1_local import evaluate_local_elbo
-from vfe4.objective.h8_sparse import evaluate_h8_sparse_objective, h8_emission_expectation
+from vfe4.objective.h8_sparse import (
+    evaluate_h8_sparse_objective,
+    h8_emission_expectation,
+)
 from vfe4.objective.h1_monolithic import MonolithicElboResult, evaluate_monolithic_elbo
 from vfe4.objective.h3_gaussian import (
     H3ObjectiveEvaluation,
@@ -71,10 +74,25 @@ from vfe4.objective.h5_complete import (
     StaleFactorCacheError,
     evaluate_h5_complete_elbo,
 )
+from vfe4.objective.h6_prediction_v3 import (
+    ExactSourceMixtureEvaluationV3,
+    H6ActiveParameterBlockV3,
+    H6EvaluatedRecognitionLawV3,
+    H6MixtureModeV3,
+    H6ObjectivePartitionV3,
+    H6ObjectiveTermV3,
+    H6PredictionObjectiveEstimateV3,
+    H6SourceRowEvaluationV3,
+    H6TerminalComponentEvaluationV3,
+    MomentProjectionEvaluationV3,
+    evaluate_h6_prediction_elbo_v3,
+    project_terminal_mixture_v3,
+)
 
 __all__ = [
     "EmissionOnlyAblationTerms",
     "CompleteLanguageELBOFactorTrace",
+    "ExactSourceMixtureEvaluationV3",
     "ExactSourceMixtureLaw",
     "ExpectationEvaluationMethod",
     "FactorPartition",
@@ -90,6 +108,14 @@ __all__ = [
     "H2ComponentTerms",
     "H2InformationEvaluation",
     "H3ObjectiveEvaluation",
+    "H6ActiveParameterBlockV3",
+    "H6EvaluatedRecognitionLawV3",
+    "H6MixtureModeV3",
+    "H6ObjectivePartitionV3",
+    "H6ObjectiveTermV3",
+    "H6PredictionObjectiveEstimateV3",
+    "H6SourceRowEvaluationV3",
+    "H6TerminalComponentEvaluationV3",
     "H7_COMPLETE_LOCAL_TERM_IDS",
     "H7_INDEPENDENT_H1_NORMALIZATION_IDENTITY_SHA256",
     "H7_INDEPENDENT_H1_PRODUCER_IDENTITY_SHA256",
@@ -106,6 +132,7 @@ __all__ = [
     "LiveEmissionExpectationContext",
     "MixtureMode",
     "MomentProjectedLaw",
+    "MomentProjectionEvaluationV3",
     "PriorVariant",
     "MonolithicElboResult",
     "RoundingInputs",
@@ -118,11 +145,13 @@ __all__ = [
     "evaluate_h3_elbo",
     "evaluate_h3_elbo_difference",
     "evaluate_h5_complete_elbo",
+    "evaluate_h6_prediction_elbo_v3",
     "evaluate_h7_complete_covariance",
     "evaluate_h7_law_pair_covariance",
     "evaluate_local_elbo",
     "evaluate_h8_sparse_objective",
     "h8_emission_expectation",
+    "project_terminal_mixture_v3",
     "evaluate_monolithic_elbo",
     "expected_affected_factors",
     "h7_joint_gaussian_kl",
