@@ -72,6 +72,14 @@ from vfe4.types.h8 import (
     H8_PROFILER_SOURCE_SHA256,
     H8_PROFILER_TORCH_VERSION,
 )
+from vfe4.types.figures import FigureSpec
+from vfe4.types.training import (
+    A0ArchitectureProfile,
+    CandidateTokenizerContract,
+    EndpointInventory,
+    ScientificPreconditionProfile,
+    WT103ExperimentProfile,
+)
 
 from vfe4.types.updates import H5_RULE_CONTRACTS, H5UpdateRule, UpdateLabel
 from vfe4.validation.h5_update_spec import EXPECTED_H5_UPDATE_SPEC_RAW_SHA256
@@ -1736,3 +1744,45 @@ class ResolvedConfig:
     h7: H7ValidationConfig | None = None
     h8: H8ValidationConfig | None = None
     h8_current_refs: CurrentH8PrerequisiteRefs | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingConfig:
+    """Resolved, side-effect-free WikiText-103 launcher configuration."""
+
+    schema_version: Literal["wt103-training-config-v1"]
+    operation: Literal[
+        "idle",
+        "synthetic_smoke",
+        "source_lock",
+        "readiness",
+        "train",
+        "resume",
+    ]
+    synthetic_authority: Literal["nonproduction_synthetic_smoke"]
+    candidate_tokenizer: CandidateTokenizerContract
+    profile: WT103ExperimentProfile
+    a0_architecture: A0ArchitectureProfile
+    endpoint_inventory: EndpointInventory
+    scientific_preconditions: ScientificPreconditionProfile
+    canonical_json: str
+    config_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class FigureConfig:
+    """Resolved pure-renderer configuration."""
+
+    schema_version: Literal["wt103-figure-config-v1"]
+    operation: Literal["idle", "render"]
+    run_group_manifest_path: str
+    figure_root: str
+    endpoint_inventory_sha256: str
+    backend: Literal["Agg"]
+    matplotlib_version: Literal["3.10.6"]
+    font_family: Literal["DejaVu Sans"]
+    svg_hashsalt: Literal["vfe4-wt103-figure-v1"]
+    metadata_policy: Literal["fixed_no_current_timestamp"]
+    specs: tuple[FigureSpec, ...]
+    canonical_json: str
+    config_sha256: str

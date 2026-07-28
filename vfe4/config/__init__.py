@@ -5,6 +5,7 @@ from .resolve import (
     bind_h8_current_refs,
     project_h7_compatibility_config,
     resolve_config,
+    resolve_figure_config,
     resolve_h4_validation_config,
     resolve_h1_prefix_prior_config,
     resolve_h1_prefix_prior_v2_config,
@@ -16,6 +17,7 @@ from .resolve import (
     resolve_h6_prefix_config,
     resolve_h7_validation_config,
     resolve_h8_validation_config,
+    resolve_training_config,
     validate_h6_prefix_v3_resolved_payload,
 )
 from .schema import (
@@ -45,13 +47,19 @@ from .schema import (
     H6SourceIdentity,
     H7ValidationConfig,
     H8ValidationConfig,
+    FigureConfig,
     InferenceConfig,
     ModelConfig,
     OptimizationConfig,
     RecognitionConfig,
     ResolvedConfig,
     RunConfig,
+    TrainingConfig,
     ValidationConfig,
+)
+from .training import (
+    default_figure_config_mapping,
+    default_training_config_mapping,
 )
 
 __all__ = [
@@ -82,16 +90,19 @@ __all__ = [
     "H6SourceIdentity",
     "H7ValidationConfig",
     "H8ValidationConfig",
+    "FigureConfig",
     "InferenceConfig",
     "ModelConfig",
     "OptimizationConfig",
     "RecognitionConfig",
     "ResolvedConfig",
     "RunConfig",
+    "TrainingConfig",
     "ValidationConfig",
     "bind_h8_current_refs",
     "project_h7_compatibility_config",
     "resolve_config",
+    "resolve_figure_config",
     "resolve_h4_validation_config",
     "resolve_h1_prefix_prior_config",
     "resolve_h1_prefix_prior_v2_config",
@@ -103,5 +114,8 @@ __all__ = [
     "resolve_h6_prefix_config",
     "resolve_h7_validation_config",
     "resolve_h8_validation_config",
+    "resolve_training_config",
+    "default_figure_config_mapping",
+    "default_training_config_mapping",
     "validate_h6_prefix_v3_resolved_payload",
 ]

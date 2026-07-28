@@ -106,6 +106,8 @@ from .schema import (
     RecognitionConfig,
     ResolvedConfig,
     RunConfig,
+    FigureConfig,
+    TrainingConfig,
     ValidationConfig,
 )
 from .control_paths import is_repository_control_path, is_same_or_descendant
@@ -2933,7 +2935,7 @@ def _resolve_h6_primary_matching_config(
 
 
 def resolve_config(
-    raw: Mapping[str, object], *, repo_root: Path
+    raw: Mapping[str, object], *, repo_root: Path | None
 ) -> (
     ResolvedConfig
     | H1PrefixPriorResolvedConfig
@@ -2945,11 +2947,16 @@ def resolve_config(
     | H6PredictionV3ResolvedConfig
     | H6ArmMatchingResolvedConfig
     | H6PrimaryMatchingResolvedConfig
+    | TrainingConfig
 ):
     """Resolve one ordered gate prefix or separately discriminated H6 operation."""
 
     root = _require_mapping(raw, "config")
     discriminator = (root.get("schema_version"), root.get("operation"))
+    if root.get("schema_version") == "wt103-training-config-v1":
+        from .training import resolve_training_config as _resolve_training
+
+        return _resolve_training(root)
     if discriminator == (
         "h1-prefix-prior-config-v1",
         "H1-Prefix-Prior",
@@ -2988,7 +2995,29 @@ def resolve_config(
             "H1 Prefix Prior, H6 Prefix, H6 Prediction, H6 Arm Matching, "
             "or H6 Primary Matching configuration"
         )
+    if repo_root is None:
+        raise ValueError("repo_root is required for ordered H1-H8 configs")
     return _resolve_h1_h5_config(root, repo_root=repo_root)
+
+
+def resolve_training_config(
+    raw: Mapping[str, object],
+) -> TrainingConfig:
+    """Resolve the closed WikiText-103 training configuration."""
+
+    from .training import resolve_training_config as _resolve_training
+
+    return _resolve_training(raw)
+
+
+def resolve_figure_config(
+    raw: Mapping[str, object],
+) -> FigureConfig:
+    """Resolve the closed pure-renderer configuration."""
+
+    from .training import resolve_figure_config as _resolve_figure
+
+    return _resolve_figure(raw)
 
 
 def resolve_h1_prefix_prior_config(
