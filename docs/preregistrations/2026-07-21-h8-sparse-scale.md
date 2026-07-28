@@ -1,11 +1,14 @@
 # H8 Sparse-Scale Systems Preregistration
 
-Protocol revision: `h8-sparse-scale-v4` (amended 2026-07-27)
+Protocol revision: `h8-sparse-scale-v5` (installed-runtime amendment
+2026-07-27)
 
-This v4 contract supersedes the underspecified staged v3 contract before any
-v4 scientific or milestone execution may be accepted as promotion evidence.
+`h8-sparse-scale-v4`, `h8-validation-config-v2`, and the 2.9.1 private-profiler
+pin are superseded pre-outcome history: no v4 scientific or milestone execution
+was accepted before this amendment. The active v5 contract therefore replaces
+them before any H8 evidence can be accepted as promotion evidence.
 
-Status at freeze: protocol only. No v4 scientific/milestone execution has
+Status at freeze: protocol only. No v5 scientific/milestone execution has
 been accepted as promotion evidence. Prior bounded development, unit, and
 fake-child tests are non-authorizing and are not milestone evidence. This
 document contains no measured promotion endpoint and does not prestate PASS.
@@ -18,7 +21,7 @@ The implemented selected route binds the exact current-HEAD
 `CurrentH8PrerequisiteRefs`, executes the frozen correctness preflight, derives
 child-start authorization from the current prerequisite and correctness
 identities, runs the frozen parent request plan, owns and independently
-revalidates the complete v4 runtime sections, and publishes through the
+revalidates the complete v5 runtime sections, and publishes through the
 gate-agnostic artifact family. Only minted parent authority over the exact
 issued attempt prefix can clear the runtime PASS locks; a direct evaluation,
 caller-supplied inventory, incomplete PASS prefix, or replayed authority cannot.
@@ -373,8 +376,9 @@ substitution, backward substitution, mean solve, logdet, all
 diagonal/adjacent selected-inverse blocks, width-one sample, quadratic, sparse
 trace, condition estimate, entropy, log normalizer, and complete objective.
 
-The canonical parent/child protocol digest preimage freezes these exact
-schema literals:
+The canonical parent/child protocol digest domain is
+`vfe4.h8.parent-child-protocol.v3`. Its preimage freezes these exact schema
+literals:
 
 ```text
 factor_schema="h8-block-tridiagonal-cholesky-v1"
@@ -395,9 +399,9 @@ recompute the same digest from that complete preimage; omission or substitution
 of any literal or inventory is `INCONCLUSIVE`.
 
 The exact resolved H8 validation configuration is
-`schema_version="h8-validation-config-v2"`, superseding
-`h8-validation-config-v1` before any v4 scientific or milestone execution may
-be accepted as promotion evidence. V2 contains these six new frozen fields:
+`schema_version="h8-validation-config-v3"`. It cross-binds the exact installed
+Torch full version, the two raw profiler-source hashes, and the descriptor hash
+to the v3 wire authority, as well as these six frozen fields:
 
 ```text
 factor_schema="h8-block-tridiagonal-cholesky-v1"
@@ -408,10 +412,11 @@ profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"
 child_schema="h8-child-v2"
 ```
 
-All six participate in the canonical resolved-config JSON, so the canonical
-H8 config SHA changes from the v1 configuration identity accordingly.
+All fields participate in the canonical resolved-config JSON, so the canonical
+H8 config SHA differs from each superseded v1/v2 identity accordingly.
 
-The v4 production/profiler result body under the `h8-child-v2` envelope has
+The v5 production/profiler result body under the unchanged `h8-child-v2`
+envelope has
 this exact key order:
 
 ```text
@@ -504,15 +509,27 @@ status, and cannot close, rescue, or override a claim. Documented lossy
 profiler export rows, profiler aggregate/net deltas, and the Hager--Higham
 estimate are likewise supplementary and cannot close or override a claim.
 
-Profiler pins:
+Installed-runtime profiler contract (v5):
 
-- `torch==2.9.1`
-- `torch/profiler/_memory_profiler.py` SHA-256
-  `b80b4d5b58e91d581b18082c462ec7f088ec6b46ea50a1a62e2714d517a6a1b1`
-- `torch/profiler/profiler.py` SHA-256
-  `2c35f649219fb912728819b7dc0be5a5f1bd54c1efcd9502b62d976aeb278d22`
-- profiler API contract SHA-256
-  `161a78f04c26fba19bb01ba6417f2cf8c00730ebeb8d007a4af0f4da433ba043`
+- exact `torch.__version__`: `2.10.0.dev20251210+cu128`
+- `torch/profiler/_memory_profiler.py` SHA-256:
+  `22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47`
+- `torch/profiler/profiler.py` SHA-256:
+  `543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956`
+- canonical private-API descriptor SHA-256:
+  `2ee166166bab997499cc66da85146a031f458fbe0190a75b1a1a3ddea80efc38`
+
+The exact descriptor is the following 757 ASCII bytes, without leading or
+trailing whitespace and without a terminal newline:
+
+```text
+torch==2.10.0.dev20251210+cu128|runtime=installed-exact|memory_profile_source_sha256=22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47|profiler_source_sha256=543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956|flags=record_shapes:true,profile_memory:true,with_stack:true|timeline=profile._memory_profile().timeline:(timestamp_ns,action,key_and_version,numbytes)|actions=PREEXISTING,CREATE,INCREMENT_VERSION,DESTROY|event_tree=profile.profiler.kineto_results.experimental_event_tree()|allocation=_EventType.Allocation+_ExtraFields_Allocation|torchop=_EventType.TorchOp+_ExtraFields_TorchOp|join=TensorKey(id,storage.ptr,allocation_id,device)+version|raw_export=(timestamp_ns,action,numbytes,category)|join_unavailable=INCONCLUSIVE
+```
+
+The full version and two Python-source hashes identify only this declared
+Python-side contract; they do not identify compiled Kineto. The real schema
+preflight and scientific profiler child separately provide behavioral evidence
+for the installed compiled backend.
 
 The profiler call uses `record_shapes=True`, `profile_memory=True`, and
 `with_stack=True`. It retains the live profiler object and joins
@@ -661,7 +678,7 @@ variants verbatim. The external pointer is not part of the artifact manifest.
 ## Validation payload schema
 
 The in-artifact file is `validation/h8.json`,
-`schema_version="h8-sparse-scale-v4"`, `gate="H8"`. Its exact top-level key
+`schema_version="h8-sparse-scale-v5"`, `gate="H8"`. Its exact top-level key
 order is:
 
 ```text
@@ -680,8 +697,9 @@ Required nested inventories:
   the raw-byte digest of
   `Manuscripts/VFE4_gauge_causal_elbo_whitepaper.tex`
 - `config`: canonical H8 config hash and exact resolved
-  `h8-validation-config-v2`; its canonical JSON binds all six frozen protocol
-  schema fields above, so it cannot retain the v1 canonical config SHA
+  `h8-validation-config-v3`; its canonical JSON binds the six frozen protocol
+  fields plus all four profiler identity fields, so it cannot retain a
+  superseded v1/v2 canonical config SHA
 - `prerequisites`: the complete H7 compatibility mapping, five lossless
   tagged H8 reference variants, exact compatibility-check inventory, named
   prerequisite obligations, and `all_current_and_pass`
@@ -694,7 +712,8 @@ Required nested inventories:
   `condition_estimator_schema="HagerHigham1NormEstimate-v1"`,
   `allocation_schema="h8-allocation-observability-v1"`, and
   `profiler_raw_event_schema="h8-torch-profiler-raw-event-v1"`, plus
-  `child_schema="h8-child-v2"`. The canonical parent/child protocol digest
+  `child_schema="h8-child-v2"`, under digest domain
+  `vfe4.h8.parent-child-protocol.v3`. The canonical parent/child protocol digest
   preimage includes the five evidence-schema literals, the child-envelope
   literal, the complete required-operation and negative-control inventories,
   and every frozen numerical and boundary constant.
@@ -910,7 +929,7 @@ independent revalidation, and the single click-run integration. Its runtime
 PASS locks clear only when the minted authority attests the exact complete
 30-attempt PASS inventory and every derived invariant above; incomplete
 prefixes and nonauthoritative direct construction retain those locks. This
-PASS-capable implementation is not a claim that H8 has passed. No real v4
+PASS-capable implementation is not a claim that H8 has passed. No real v5
 scientific or milestone execution, measured residual, resource endpoint, or
 JUnit total is recorded in this preregistration.
 

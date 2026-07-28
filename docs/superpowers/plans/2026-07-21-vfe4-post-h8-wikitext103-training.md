@@ -1,5 +1,13 @@
 # VFE 4.0 Post-H8 WikiText-103 Training, Recording, and Figure Generation Implementation Plan
 
+## 2026-07-27 H8 installed-runtime amendment
+
+All post-H8 source-lock, readiness, and training prerequisites now require an
+exact same-revision `h8-sparse-scale-v5` PASS under
+`h8-validation-config-v3` and `vfe4.h8.parent-child-protocol.v3`. The
+superseded 2.9.1/v4 pin produced no accepted H8 scientific or milestone
+outcome; any retained v4 wording below is historical planning text only.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** After one exact, validated H8 PASS exists, build the click-to-run WikiText-103 data, training, evaluation, checkpoint, recording, artifact, and deterministic figure pipeline for the zero-dimensional VFE 4.0 language model, then execute the separately authorized preregistered multi-seed experiment without transferring H6 byte-tokenizer evidence or H8 synthetic allocation evidence.
@@ -19,7 +27,7 @@
 - **This plan is post-H8.** No implementation task, data acquisition,
   source-lock operation, smoke run, or experiment in this plan may begin until
   an existing `validation/h8.json` with
-  `schema_version="h8-sparse-scale-v4"` has `status="pass"`; its six-payload
+  `schema_version="h8-sparse-scale-v5"` has `status="pass"`; its six-payload
   artifact and `manifest.sha256` validate; its external
   `h8-current-candidate-result-v2` pointer validates against the exact
   `h8-current-candidate-refs-v3` registry; the exact `(git_head, dirty_digest,
@@ -47,9 +55,9 @@
   at the final training candidate. Legacy v1 and any invented v3 reference are
   ineligible.
 - H8 is checked twice and neither check substitutes for the other. Immediately
-  before source lock, H8 v4 must PASS at the exact clean Tasks 1--12 revision
+  before source lock, H8 v5 must PASS at the exact clean Tasks 1--12 revision
   that will perform acquisition. After the finalized production source record
-  is committed, H8 v4 and its same-candidate predecessors must be reproduced at
+  is committed, H8 v5 and its same-candidate predecessors must be reproduced at
   that new exact clean revision before readiness. A pre-source-lock H8 artifact
   cannot authorize the post-record revision.
 - Post-H8 readiness requires a distinct same-revision `TrainingSparsityCertificate`. H8 cannot satisfy it, and a device-capacity smoke below 85% cannot satisfy it. Structural shape/allocation safety and available-capacity safety are independent conjuncts.

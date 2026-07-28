@@ -35,7 +35,10 @@ editable operation because operation resolution imports numerical project
 types; programmatic H8 use additionally requires a fresh numerical runtime and
 an environment that was already valid when `verify_vfe4` was imported.
 
-The implemented `h8-sparse-scale-v4` selected route runs the frozen 12-cell
+The active installed-runtime `h8-sparse-scale-v5` selected route uses
+`h8-validation-config-v3` and `vfe4.h8.parent-child-protocol.v3`; the 2.9.1/v4
+pin was superseded before any accepted H8 scientific or milestone run. It
+runs the frozen 12-cell
 correctness grid, mints parent authority only after a valid prerequisite
 start, and retains the exact issued prefix of the 30-slot request plan:
 15 cold production children in seed-major/repetition order, three separate
@@ -73,7 +76,13 @@ external to that manifest. The exact ordered nonclaims are
 `no_post_h8_training_memory_transfer`.
 
 This is an implemented, PASS-capable protocol surface, not a measured result.
-No v4 scientific or milestone execution, JUnit total, residual, resource
+It freezes installed `torch.__version__` `2.10.0.dev20251210+cu128`, profiler
+source hashes `22de3b0790907b90053af829ebf1bff0b6add2745ac0381ec7de78812edacb47`
+and `543430b2e9b24df777f86415865fee250b35e3444a80920bcca0e8889b917956`, and
+descriptor SHA-256 `2ee166166bab997499cc66da85146a031f458fbe0190a75b1a1a3ddea80efc38`.
+Those Python-side identities do not identify compiled Kineto; the schema
+preflight and scientific profiler child provide behavioral evidence. No v5
+scientific or milestone execution, JUnit total, residual, resource
 endpoint, or H8 PASS is reported here.
 
 `verification/h8_preflight.py` remains a separate metadata-only, zero-compute

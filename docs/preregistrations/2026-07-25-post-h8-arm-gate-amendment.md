@@ -2,7 +2,10 @@
 
 Date frozen: 2026-07-25
 
-Status: source protocol only. This amendment authorizes no data acquisition,
+Status: source protocol only. The 2026-07-27 installed-runtime H8 amendment
+requires `h8-sparse-scale-v5`, `h8-validation-config-v3`, and
+`vfe4.h8.parent-child-protocol.v3`; the 2.9.1/v4 pin is superseded pre-outcome
+history. This amendment authorizes no data acquisition,
 source lock, training, test opening, or figure rendering. Those operations
 remain blocked until an exact-revision H8 PASS and the post-H8 readiness
 contract both exist.
@@ -186,7 +189,7 @@ test opening, or figure render may begin until an exact H8 PASS exists for the
 same implementation revision and this endpoint inventory is frozen in source.
 The first source-lock revision and the later revision containing the committed
 finalized production source record each require their own exact same-revision
-H8 v4 PASS. Post-H8 readiness accepts only amended H6-Prediction v2
+H8 v5 PASS. Post-H8 readiness accepts only amended H6-Prediction v2
 (`h6-prediction-amended-v2`, `h6-prediction-config-v2`,
 `h6-prediction-readiness-v2`, `h6-prediction-metrics-v2`, and
 `h6-prediction-result-v2`), never legacy v1 or an invented v3 identity.
