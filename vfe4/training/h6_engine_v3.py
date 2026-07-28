@@ -399,6 +399,268 @@ class H6LiveRecognitionStateV3(Mapping[str, Tensor]):
         )
 
 
+def _example_qualified_names(
+    states: tuple[H6LiveRecognitionStateV3, ...]
+    | tuple["H6DetachedRecognitionSnapshotV3", ...],
+) -> tuple[str, ...]:
+    return tuple(
+        f"example.{example_ordinal}.{name}"
+        for example_ordinal, state in enumerate(states)
+        for name in state.names
+    )
+
+
+def _validate_active_receiver_inventory(
+    *,
+    receiver_count: int,
+    state_count: int,
+    active_target_counts: tuple[int, ...],
+    active_receiver_masks: tuple[tuple[bool, ...], ...],
+) -> None:
+    if (
+        type(active_target_counts) is not tuple
+        or len(active_target_counts) != state_count
+        or type(active_receiver_masks) is not tuple
+        or len(active_receiver_masks) != state_count
+    ):
+        raise ValueError(
+            "batch recognition active-target inventory must align with examples"
+        )
+    for target_count, mask in zip(
+        active_target_counts,
+        active_receiver_masks,
+        strict=True,
+    ):
+        if (
+            type(target_count) is not int
+            or not 1 <= target_count < receiver_count
+            or type(mask) is not tuple
+            or len(mask) != receiver_count
+            or any(type(active) is not bool for active in mask)
+            or mask
+            != (True,) * (target_count + 1)
+            + (False,) * (receiver_count - target_count - 1)
+        ):
+            raise ValueError(
+                "each batch example requires its exact active receiver prefix"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class H6BatchLiveRecognitionStateV3(Mapping[str, Tensor]):
+    """A complete example-qualified live recognition law for one update."""
+
+    authority_sha256: str
+    endpoint_config_sha256: str
+    receiver_count: int
+    active_target_counts: tuple[int, ...]
+    active_receiver_masks: tuple[tuple[bool, ...], ...]
+    states: tuple[H6LiveRecognitionStateV3, ...]
+    names: tuple[str, ...]
+    batch_live_state_sha256: str
+
+    @property
+    def example_ordinals(self) -> tuple[int, ...]:
+        return tuple(range(len(self.states)))
+
+    def __iter__(self):
+        return iter(self.names)
+
+    def __len__(self) -> int:
+        return len(self.names)
+
+    def __getitem__(self, name: str) -> Tensor:
+        _require_nonempty(name, "batch recognition tensor name")
+        parts = name.split(".", 2)
+        if len(parts) != 3 or parts[0] != "example":
+            raise KeyError(name)
+        try:
+            example_ordinal = int(parts[1])
+        except ValueError as exc:
+            raise KeyError(name) from exc
+        if (
+            not 0 <= example_ordinal < len(self.states)
+            or name not in self.names
+        ):
+            raise KeyError(name)
+        return self.states[example_ordinal][parts[2]]
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "authority_sha256": self.authority_sha256,
+            "endpoint_config_sha256": self.endpoint_config_sha256,
+            "receiver_count": self.receiver_count,
+            "example_ordinals": self.example_ordinals,
+            "active_target_counts": self.active_target_counts,
+            "active_receiver_masks": self.active_receiver_masks,
+            "example_live_state_sha256s": tuple(
+                state.live_state_sha256 for state in self.states
+            ),
+            "tensors": tuple(
+                {"name": name, **_tensor_manifest(self[name])}
+                for name in self.names
+            ),
+        }
+
+    def __post_init__(self) -> None:
+        for name in ("authority_sha256", "endpoint_config_sha256"):
+            _require_sha256(getattr(self, name), name)
+        if (
+            type(self.receiver_count) is not int
+            or self.receiver_count < 2
+            or type(self.states) is not tuple
+            or not self.states
+            or len(self.states) > 8
+            or any(
+                type(state) is not H6LiveRecognitionStateV3
+                for state in self.states
+            )
+        ):
+            raise ValueError(
+                "batch recognition requires one to eight exact live states"
+            )
+        for state in self.states:
+            state.__post_init__()
+        first = self.states[0]
+        topology = (
+            first.endpoint_config_sha256,
+            first.state_categorical_enabled,
+            first.model_categorical_enabled,
+            first.source_model_sha256,
+        )
+        if (
+            self.endpoint_config_sha256 != first.endpoint_config_sha256
+            or any(
+                (
+                    state.endpoint_config_sha256,
+                    state.state_categorical_enabled,
+                    state.model_categorical_enabled,
+                    state.source_model_sha256,
+                )
+                != topology
+                for state in self.states[1:]
+            )
+        ):
+            raise ValueError(
+                "batch recognition examples do not share one endpoint topology"
+            )
+        _validate_active_receiver_inventory(
+            receiver_count=self.receiver_count,
+            state_count=len(self.states),
+            active_target_counts=self.active_target_counts,
+            active_receiver_masks=self.active_receiver_masks,
+        )
+        if any(
+            state.receiver_count != active_target_count + 1
+            for state, active_target_count in zip(
+                self.states,
+                self.active_target_counts,
+                strict=True,
+            )
+        ):
+            raise ValueError(
+                "each ragged recognition state must end at its active target"
+            )
+        for bank in ("state", "model"):
+            enabled = getattr(first, f"{bank}_categorical_enabled")
+            if not enabled:
+                continue
+            supports_by_state = tuple(
+                getattr(state, f"{bank}_categorical_supports")
+                for state in self.states
+            )
+            for receiver_t in range(1, self.receiver_count):
+                visible = tuple(
+                    supports[receiver_t - 1]
+                    for supports in supports_by_state
+                    if receiver_t <= len(supports)
+                )
+                if visible and any(
+                    support != visible[0] for support in visible[1:]
+                ):
+                    raise ValueError(
+                        "ragged categorical supports are not one prefix law"
+                    )
+        expected_names = _example_qualified_names(self.states)
+        if self.names != expected_names or len(set(self.names)) != len(
+            self.names
+        ):
+            raise ValueError(
+                "batch recognition tensor inventory is incomplete or duplicated"
+            )
+        if self.batch_live_state_sha256 != _owned_hash(
+            "vfe4.h6.batch-live-recognition-state.v3",
+            self.canonical_payload(),
+        ):
+            raise ValueError("batch live recognition-state identity is stale")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        authority: "H6EngineAuthorityV3",
+        states: tuple[H6LiveRecognitionStateV3, ...],
+        active_target_counts: tuple[int, ...],
+        active_receiver_masks: tuple[tuple[bool, ...], ...],
+    ) -> "H6BatchLiveRecognitionStateV3":
+        if type(authority) is not H6EngineAuthorityV3:
+            raise ValueError(
+                "batch recognition requires an exact engine authority"
+            )
+        authority.__post_init__()
+        if (
+            type(states) is not tuple
+            or type(active_target_counts) is not tuple
+            or len(states) != len(active_target_counts)
+        ):
+            raise ValueError(
+                "batch recognition state/count inventories must align"
+            )
+        if (
+            any(
+                type(state) is not H6LiveRecognitionStateV3
+                for state in states
+            )
+            or any(
+                state.endpoint_config_sha256
+                != authority.endpoint_config_sha256
+                or state.receiver_count
+                != active_target_count + 1
+                or state.state_categorical_enabled
+                != authority.state_categorical_enabled
+                or state.model_categorical_enabled
+                != authority.model_categorical_enabled
+                for state, active_target_count in zip(
+                    states,
+                    active_target_counts,
+                    strict=True,
+                )
+            )
+        ):
+            raise ValueError(
+                "batch recognition state is outside engine authority"
+            )
+        values = {
+            "authority_sha256": authority.authority_sha256,
+            "endpoint_config_sha256": authority.endpoint_config_sha256,
+            "receiver_count": authority.receiver_count,
+            "active_target_counts": tuple(active_target_counts),
+            "active_receiver_masks": tuple(active_receiver_masks),
+            "states": tuple(states),
+            "names": _example_qualified_names(tuple(states)),
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        return cls(
+            **values,
+            batch_live_state_sha256=_owned_hash(
+                "vfe4.h6.batch-live-recognition-state.v3",
+                provisional.canonical_payload(),
+            ),
+        )
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class H6DetachedRecognitionSnapshotV3:
     """Complete detached recognition law bound to the exact model phase."""
@@ -530,6 +792,7 @@ class H6DetachedRecognitionSnapshotV3:
         *,
         authority: H6EngineAuthorityV3,
         post_recognition_cursor: H6AttemptCursorV3,
+        allow_receiver_prefix: bool = False,
     ) -> H6DetachedRecognitionSnapshotV3:
         if type(state) is not H6LiveRecognitionStateV3:
             raise ValueError(
@@ -541,7 +804,11 @@ class H6DetachedRecognitionSnapshotV3:
         authority.__post_init__()
         if (
             state.endpoint_config_sha256 != authority.endpoint_config_sha256
-            or state.receiver_count != authority.receiver_count
+            or (
+                state.receiver_count != authority.receiver_count
+                if not allow_receiver_prefix
+                else not 2 <= state.receiver_count <= authority.receiver_count
+            )
             or state.state_categorical_enabled != authority.state_categorical_enabled
             or state.model_categorical_enabled != authority.model_categorical_enabled
         ):
@@ -608,6 +875,229 @@ class H6DetachedRecognitionSnapshotV3:
             raise KeyError(name) from exc
         self.__post_init__()
         return self._tensors[index].clone(memory_format=torch.contiguous_format)
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class H6DetachedBatchRecognitionSnapshotV3(Mapping[str, Tensor]):
+    """Every example law detached at one exact post-recognition boundary."""
+
+    authority_sha256: str
+    attempt_spec_sha256: str
+    endpoint_config_sha256: str
+    post_recognition_cursor_sha256: str
+    pass_index: int
+    batch_index: int
+    recognition_update_count: int
+    receiver_count: int
+    active_target_counts: tuple[int, ...]
+    active_receiver_masks: tuple[tuple[bool, ...], ...]
+    live_batch_state_sha256: str
+    states: tuple[H6DetachedRecognitionSnapshotV3, ...]
+    names: tuple[str, ...]
+    snapshot_sha256: str
+
+    @property
+    def example_ordinals(self) -> tuple[int, ...]:
+        return tuple(range(len(self.states)))
+
+    def __iter__(self):
+        return iter(self.names)
+
+    def __len__(self) -> int:
+        return len(self.names)
+
+    def __getitem__(self, name: str) -> Tensor:
+        _require_nonempty(name, "batch snapshot tensor name")
+        parts = name.split(".", 2)
+        if len(parts) != 3 or parts[0] != "example":
+            raise KeyError(name)
+        try:
+            example_ordinal = int(parts[1])
+        except ValueError as exc:
+            raise KeyError(name) from exc
+        if (
+            not 0 <= example_ordinal < len(self.states)
+            or name not in self.names
+        ):
+            raise KeyError(name)
+        return self.states[example_ordinal].tensor(parts[2])
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "authority_sha256": self.authority_sha256,
+            "attempt_spec_sha256": self.attempt_spec_sha256,
+            "endpoint_config_sha256": self.endpoint_config_sha256,
+            "post_recognition_cursor_sha256": (
+                self.post_recognition_cursor_sha256
+            ),
+            "pass_index": self.pass_index,
+            "batch_index": self.batch_index,
+            "recognition_update_count": self.recognition_update_count,
+            "receiver_count": self.receiver_count,
+            "example_ordinals": self.example_ordinals,
+            "active_target_counts": self.active_target_counts,
+            "active_receiver_masks": self.active_receiver_masks,
+            "live_batch_state_sha256": self.live_batch_state_sha256,
+            "example_snapshot_sha256s": tuple(
+                state.snapshot_sha256 for state in self.states
+            ),
+            "tensors": tuple(
+                {"name": name, **_tensor_manifest(self[name])}
+                for name in self.names
+            ),
+        }
+
+    def __post_init__(self) -> None:
+        for name in (
+            "authority_sha256",
+            "attempt_spec_sha256",
+            "endpoint_config_sha256",
+            "post_recognition_cursor_sha256",
+            "live_batch_state_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        if (
+            type(self.pass_index) is not int
+            or self.pass_index < 0
+            or type(self.batch_index) is not int
+            or self.batch_index < 0
+            or type(self.recognition_update_count) is not int
+            or self.recognition_update_count <= 0
+            or type(self.receiver_count) is not int
+            or self.receiver_count < 2
+            or type(self.states) is not tuple
+            or not self.states
+            or len(self.states) > 8
+            or any(
+                type(state) is not H6DetachedRecognitionSnapshotV3
+                for state in self.states
+            )
+        ):
+            raise ValueError("detached batch recognition metadata is invalid")
+        for state, active_target_count in zip(
+            self.states,
+            self.active_target_counts,
+            strict=True,
+        ):
+            state.__post_init__()
+            if (
+                state.attempt_spec_sha256 != self.attempt_spec_sha256
+                or state.endpoint_config_sha256
+                != self.endpoint_config_sha256
+                or state.post_recognition_cursor_sha256
+                != self.post_recognition_cursor_sha256
+                or state.pass_index != self.pass_index
+                or state.batch_index != self.batch_index
+                or state.recognition_update_count
+                != self.recognition_update_count
+                or state.receiver_count != active_target_count + 1
+            ):
+                raise ValueError(
+                    "detached example snapshot left the batch boundary"
+                )
+        _validate_active_receiver_inventory(
+            receiver_count=self.receiver_count,
+            state_count=len(self.states),
+            active_target_counts=self.active_target_counts,
+            active_receiver_masks=self.active_receiver_masks,
+        )
+        expected_names = _example_qualified_names(self.states)
+        if self.names != expected_names or len(set(self.names)) != len(
+            self.names
+        ):
+            raise ValueError(
+                "detached batch tensor inventory is incomplete or duplicated"
+            )
+        storage_ids: set[tuple[str, int | None, int]] = set()
+        for state in self.states:
+            for tensor in state._tensors:
+                if tensor.requires_grad or tensor.grad_fn is not None:
+                    raise ValueError(
+                        "detached batch snapshot retained a recognition graph"
+                    )
+                storage = tensor.untyped_storage()
+                identity = (
+                    tensor.device.type,
+                    tensor.device.index,
+                    int(getattr(storage, "_cdata", storage.data_ptr())),
+                )
+                if identity in storage_ids:
+                    raise ValueError(
+                        "detached batch snapshot tensors cannot alias storage"
+                    )
+                storage_ids.add(identity)
+        if self.snapshot_sha256 != _owned_hash(
+            "vfe4.h6.detached-batch-recognition-snapshot.v3",
+            self.canonical_payload(),
+        ):
+            raise ValueError(
+                "detached batch recognition snapshot identity is stale"
+            )
+
+    @classmethod
+    def capture(
+        cls,
+        state: H6BatchLiveRecognitionStateV3,
+        *,
+        authority: "H6EngineAuthorityV3",
+        post_recognition_cursor: H6AttemptCursorV3,
+    ) -> "H6DetachedBatchRecognitionSnapshotV3":
+        if type(state) is not H6BatchLiveRecognitionStateV3:
+            raise ValueError(
+                "batch snapshot capture requires an exact live batch law"
+            )
+        state.__post_init__()
+        if type(authority) is not H6EngineAuthorityV3:
+            raise ValueError(
+                "batch snapshot requires an exact engine authority"
+            )
+        authority.__post_init__()
+        if (
+            state.authority_sha256 != authority.authority_sha256
+            or type(post_recognition_cursor) is not H6AttemptCursorV3
+        ):
+            raise ValueError(
+                "batch snapshot state/authority identity drift"
+            )
+        post_recognition_cursor.__post_init__()
+        snapshots = tuple(
+            H6DetachedRecognitionSnapshotV3.capture(
+                example_state,
+                authority=authority,
+                post_recognition_cursor=post_recognition_cursor,
+                allow_receiver_prefix=True,
+            )
+            for example_state in state.states
+        )
+        values = {
+            "authority_sha256": authority.authority_sha256,
+            "attempt_spec_sha256": authority.attempt_spec_sha256,
+            "endpoint_config_sha256": authority.endpoint_config_sha256,
+            "post_recognition_cursor_sha256": (
+                post_recognition_cursor.cursor_sha256
+            ),
+            "pass_index": post_recognition_cursor.pass_index,
+            "batch_index": post_recognition_cursor.batch_index,
+            "recognition_update_count": (
+                post_recognition_cursor.recognition_update_count
+            ),
+            "receiver_count": authority.receiver_count,
+            "active_target_counts": state.active_target_counts,
+            "active_receiver_masks": state.active_receiver_masks,
+            "live_batch_state_sha256": state.batch_live_state_sha256,
+            "states": snapshots,
+            "names": _example_qualified_names(snapshots),
+        }
+        provisional = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(provisional, name, value)
+        return cls(
+            **values,
+            snapshot_sha256=_owned_hash(
+                "vfe4.h6.detached-batch-recognition-snapshot.v3",
+                provisional.canonical_payload(),
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1096,7 +1586,11 @@ class H6TrainingBatchResultV3:
     authority_sha256: str
     latent_enabled: bool
     cursor: H6AttemptCursorV3
-    snapshot: H6DetachedRecognitionSnapshotV3 | None
+    snapshot: (
+        H6DetachedRecognitionSnapshotV3
+        | H6DetachedBatchRecognitionSnapshotV3
+        | None
+    )
     phase_records: tuple[H6PhaseRecordV3, ...]
     metric_records: tuple[H6MetricRecordV3, ...]
     recognition_update_count: int
@@ -1133,7 +1627,10 @@ class H6TrainingBatchResultV3:
             raise ValueError("training result requires an exact v3 cursor")
         self.cursor.__post_init__()
         if self.snapshot is not None:
-            if type(self.snapshot) is not H6DetachedRecognitionSnapshotV3:
+            if type(self.snapshot) not in (
+                H6DetachedRecognitionSnapshotV3,
+                H6DetachedBatchRecognitionSnapshotV3,
+            ):
                 raise ValueError("training result snapshot has the wrong type")
             self.snapshot.__post_init__()
         if type(self.phase_records) is not tuple or any(
@@ -1207,7 +1704,11 @@ def _training_result(
     *,
     authority: H6EngineAuthorityV3,
     cursor: H6AttemptCursorV3,
-    snapshot: H6DetachedRecognitionSnapshotV3 | None,
+    snapshot: (
+        H6DetachedRecognitionSnapshotV3
+        | H6DetachedBatchRecognitionSnapshotV3
+        | None
+    ),
     phase_records: tuple[H6PhaseRecordV3, ...],
     metric_records: tuple[H6MetricRecordV3, ...],
     checkpoint_phases: tuple[TrainingPhase, ...],
@@ -1396,7 +1897,9 @@ def _objective_for_phase(
     phase: TrainingPhase,
     cursor: H6AttemptCursorV3,
     recognition_state: H6LiveRecognitionStateV3
+    | H6BatchLiveRecognitionStateV3
     | H6DetachedRecognitionSnapshotV3
+    | H6DetachedBatchRecognitionSnapshotV3
     | None,
     noise: Tensor,
     noise_sha256: str,
@@ -1477,13 +1980,29 @@ def _optimizer_step(
 
 
 def _capture_recognition_snapshot(
-    recognition_forward: Callable[[], H6LiveRecognitionStateV3],
+    recognition_forward: Callable[
+        [],
+        H6LiveRecognitionStateV3 | H6BatchLiveRecognitionStateV3,
+    ],
     *,
     authority: H6EngineAuthorityV3,
     post_recognition_cursor: H6AttemptCursorV3,
-) -> H6DetachedRecognitionSnapshotV3:
+) -> (
+    H6DetachedRecognitionSnapshotV3
+    | H6DetachedBatchRecognitionSnapshotV3
+):
     with torch.no_grad():
         state = recognition_forward()
+    if type(state) is H6BatchLiveRecognitionStateV3:
+        return H6DetachedBatchRecognitionSnapshotV3.capture(
+            state,
+            authority=authority,
+            post_recognition_cursor=post_recognition_cursor,
+        )
+    if type(state) is not H6LiveRecognitionStateV3:
+        raise ValueError(
+            "snapshot capture requires a complete live recognition state"
+        )
     return H6DetachedRecognitionSnapshotV3.capture(
         state,
         authority=authority,
@@ -1534,7 +2053,9 @@ def _resume_histories(
     list[H6PhaseRecordV3],
     list[H6MetricRecordV3],
     list[TrainingPhase],
-    H6DetachedRecognitionSnapshotV3 | None,
+    H6DetachedRecognitionSnapshotV3
+    | H6DetachedBatchRecognitionSnapshotV3
+    | None,
 ]:
     pristine = (
         cursor.recognition_update_count == 0
@@ -1549,6 +2070,24 @@ def _resume_histories(
     if pristine:
         if resume_state is not None:
             raise ValueError("a pristine batch cannot import prior resume records")
+        return [], [], [], None
+    batch_boundary = (
+        (
+            authority.latent_enabled
+            and cursor.next_phase is TrainingPhase.RECOGNITION_ADAMW
+            and cursor.recognition_update_count
+            == cursor.model_update_count
+        )
+        or (
+            not authority.latent_enabled
+            and cursor.next_phase is TrainingPhase.MODEL_CE_ADAMW
+            and cursor.recognition_update_count == 0
+        )
+    )
+    if batch_boundary and resume_state is None:
+        # Completed batches are already committed in modules, optimizers, and
+        # the cursor. Their graph-bearing records must not accumulate across
+        # the corpus; only an interrupted in-batch phase imports resume state.
         return [], [], [], None
     if resume_state is None:
         raise ValueError(
@@ -1611,7 +2150,13 @@ def run_h6_training_batch_v3(
     recognition: nn.Module | None,
     model_optimizer: torch.optim.AdamW,
     recognition_optimizer: torch.optim.AdamW | None,
-    recognition_forward: Callable[[], H6LiveRecognitionStateV3] | None,
+    recognition_forward: (
+        Callable[
+            [],
+            H6LiveRecognitionStateV3 | H6BatchLiveRecognitionStateV3,
+        ]
+        | None
+    ),
     objective_forward: Callable[..., H6PhaseObjectiveV3],
     noise_factory: Callable[
         [TrainingPhase, H6AttemptCursorV3],
@@ -1619,6 +2164,7 @@ def run_h6_training_batch_v3(
     ],
     stop_after_phase: TrainingPhase | None = None,
     declared_checkpoint_phases: tuple[TrainingPhase, ...] = (),
+    checkpoint_at_batch_end: bool = True,
     resume_state: H6TrainingBatchResultV3 | None = None,
 ) -> H6TrainingBatchResultV3:
     """Execute each remaining phase exactly once from the supplied cursor."""
@@ -1634,6 +2180,8 @@ def run_h6_training_batch_v3(
         raise ValueError("training forward/noise factories must be callable")
     if stop_after_phase is not None and type(stop_after_phase) is not TrainingPhase:
         raise ValueError("stop_after_phase must be an exact TrainingPhase")
+    if type(checkpoint_at_batch_end) is not bool:
+        raise ValueError("checkpoint_at_batch_end must be an exact bool")
     if (
         type(declared_checkpoint_phases) is not tuple
         or any(type(phase) is not TrainingPhase for phase in declared_checkpoint_phases)
@@ -1720,7 +2268,10 @@ def run_h6_training_batch_v3(
                 consumed=consumed_noise,
             )
             recognition_state = recognition_forward()
-            if type(recognition_state) is not H6LiveRecognitionStateV3:
+            if type(recognition_state) not in (
+                H6LiveRecognitionStateV3,
+                H6BatchLiveRecognitionStateV3,
+            ):
                 raise ValueError(
                     "recognition_forward must return a complete live recognition state"
                 )
@@ -1883,7 +2434,9 @@ def run_h6_training_batch_v3(
             TrainingPhase.MODEL_ADAMW,
             TrainingPhase.MODEL_CE_ADAMW,
         )
-        if phase in declared_checkpoint_phases or terminal:
+        if phase in declared_checkpoint_phases or (
+            terminal and checkpoint_at_batch_end
+        ):
             checkpoint_phases.append(phase)
             if not boundary_already_accounted:
                 current = _advanced_cursor(
@@ -2121,6 +2674,8 @@ def canonical_engine_state_bytes_v3(
 
 
 __all__ = [
+    "H6BatchLiveRecognitionStateV3",
+    "H6DetachedBatchRecognitionSnapshotV3",
     "H6DetachedRecognitionSnapshotV3",
     "H6EngineAuthorityV3",
     "H6LiveRecognitionStateV3",

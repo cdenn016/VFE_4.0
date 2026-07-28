@@ -8,11 +8,12 @@ identities and emit only the independent six-file H6-Prefix artifact.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import platform
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
@@ -50,14 +51,24 @@ from vfe4.predictive import (
     PriorPrediction,
     vocabulary_identity_sha256,
 )
-from vfe4.training.arms import BuiltArm, LatentLanguageArmModel, build_arm
+from vfe4.training.arms import (
+    ArmTargetFreeProposalAdapter,
+    BuiltArm,
+    H6CausalTransformer,
+    LatentLanguageArmModel,
+    build_arm,
+)
 from vfe4.types.h6 import (
+    A0DirectExactPrefixCertificateV1,
+    A0DirectExactPrefixWitnessV1,
     ArmConfig,
     BoundedPrefixCertificate,
     BoundedPrefixCertificateSet,
     BoundedPrefixReportBinding,
     BoundedPrefixReportReference,
     EstimatorSpec,
+    H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS,
+    H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS,
     H6_PREFIX_REQUIRED_CHECKS,
     EvidenceStatus,
     H6LanguageStructure,
@@ -100,6 +111,13 @@ from vfe4.validation.h6_static_audit import (
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+_A0_DIRECT_PREDICTOR_SOURCE_PATHS = (
+    "vfe4/training/h6_transformer.py",
+    "vfe4/training/arms.py",
+)
+_A0_HELDOUT_SCORER_SOURCE_PATHS = (
+    "vfe4/training/h6_heldout_scoring_v3.py",
+)
 _FOCUSED_SMALL_CASE_INDICES = (0, 6561, 8748, 9477)
 _FULL_PREFIX_AUTHORIZATION_SHA256 = hashlib.sha256(
     b"AUTHORIZE_VFE4_H6_PREFIX_FULL_INVENTORIES_V1"
@@ -303,6 +321,76 @@ def _owned_hash(domain: str, payload: object) -> str:
     return hashlib.sha256(
         domain.encode("ascii") + b"\x00" + canonical_json_bytes(payload)
     ).hexdigest()
+
+
+def _source_path_identity(
+    *,
+    domain: str,
+    relative_paths: tuple[str, ...],
+) -> str:
+    rows = []
+    for relative in relative_paths:
+        path = _REPO_ROOT.joinpath(*relative.split("/"))
+        raw = path.read_bytes()
+        rows.append(
+            {
+                "path": relative,
+                "length": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    return _owned_hash(domain, tuple(rows))
+
+
+def _heldout_target_read_follows_direct_prediction() -> bool:
+    path = _REPO_ROOT / "vfe4" / "training" / "h6_heldout_scoring_v3.py"
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, SyntaxError):
+        return False
+    functions = tuple(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "score_h6_exact_a0_total_v3"
+    )
+    if len(functions) != 1:
+        return False
+    function = functions[0]
+    prediction_lines = tuple(
+        node.lineno
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "prefix_log_probs"
+    )
+    target_read_lines = tuple(
+        node.lineno
+        for node in ast.walk(function)
+        if isinstance(node, ast.Attribute)
+        and node.attr == "targets"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "windows"
+    )
+    return (
+        len(prediction_lines) == 1
+        and len(target_read_lines) == 1
+        and prediction_lines[0] < target_read_lines[0]
+    )
+
+
+def a0_direct_prefix_path_identities() -> tuple[str, str]:
+    """Return current domain-separated direct-predictor/scorer identities."""
+
+    direct = _source_path_identity(
+        domain="vfe4.h6.a0-direct-prefix-predictor-path.v1",
+        relative_paths=_A0_DIRECT_PREDICTOR_SOURCE_PATHS,
+    )
+    heldout = _source_path_identity(
+        domain="vfe4.h6.a0-heldout-scorer-path.v1",
+        relative_paths=_A0_HELDOUT_SCORER_SOURCE_PATHS,
+    )
+    return direct, heldout
 
 
 def _canonical_object(
@@ -1287,6 +1375,266 @@ def compose_bounded_prefix_certificate(
     )
 
 
+def compose_a0_direct_exact_prefix_certificate(
+    *,
+    endpoint_config: ArmConfig,
+    model_family_sha256: str,
+    data_safety_sha256: str,
+    direct_predictor_path_sha256: str,
+    heldout_scorer_path_sha256: str,
+    bounded_a0_certificate: BoundedPrefixCertificate,
+    direct_witness: A0DirectExactPrefixWitnessV1,
+    static_report: StaticAuditReport,
+) -> A0DirectExactPrefixCertificateV1:
+    """Compose the exact deterministic-A0 sibling from current v3 evidence."""
+
+    if (
+        type(endpoint_config) is not ArmConfig
+        or endpoint_config.arm.value != "A0"
+        or endpoint_config.config_id != "h6-a0-transformer-v2"
+    ):
+        raise ValueError(
+            "direct-A0 certificate requires the exact A0 endpoint config"
+        )
+    endpoint_config.__post_init__()
+    for value, name in (
+        (model_family_sha256, "model_family_sha256"),
+        (data_safety_sha256, "data_safety_sha256"),
+        (
+            direct_predictor_path_sha256,
+            "direct_predictor_path_sha256",
+        ),
+        (heldout_scorer_path_sha256, "heldout_scorer_path_sha256"),
+    ):
+        _require_sha256(value, name)
+    if type(bounded_a0_certificate) is not BoundedPrefixCertificate:
+        raise ValueError(
+            "direct-A0 certificate requires an exact bounded A0 premise"
+        )
+    bounded_a0_certificate.__post_init__()
+    if type(direct_witness) is not A0DirectExactPrefixWitnessV1:
+        raise ValueError("direct-A0 certificate requires an exact witness")
+    direct_witness.__post_init__()
+    if type(static_report) is not StaticAuditReport:
+        raise ValueError(
+            "direct-A0 certificate requires the exact global static report"
+        )
+    static_report.__post_init__()
+
+    binding = bounded_a0_certificate.report_binding
+    validation_references = tuple(
+        reference
+        for reference in binding.report_references
+        if reference.case_family == "validation"
+    )
+    representative_small = tuple(
+        reference
+        for reference in binding.report_references
+        if (
+            reference.particle_count == 128
+            and reference.case_family == "small"
+            and reference.scope == "representative_exhaustive"
+        )
+    )
+    representative_validation = tuple(
+        reference
+        for reference in binding.report_references
+        if (
+            reference.particle_count == 128
+            and reference.case_family == "validation"
+            and reference.scope == "representative_exhaustive"
+        )
+    )
+    if len(representative_small) != 1 or len(representative_validation) != 1:
+        raise ValueError(
+            "direct-A0 premise lacks unique representative reports"
+        )
+    small_reference = representative_small[0]
+    validation_reference = representative_validation[0]
+    exact_endpoint = (
+        len(validation_references) == 4
+        and all(
+            reference.report_key.arm.value == "A0"
+            and reference.report_key.predictor_config_sha256
+            == endpoint_config.config_sha256
+            and reference.report_key.model_family_sha256
+            == model_family_sha256
+            and reference.report_key.data_safety_sha256
+            == data_safety_sha256
+            for reference in validation_references
+        )
+    )
+    bounded_pass = (
+        bounded_a0_certificate.status is EvidenceStatus.PASS
+        and bounded_a0_certificate.obligations == ()
+        and all(bounded_a0_certificate.checks.values())
+    )
+    current_source = (
+        binding.source_sha256
+        == source_candidate_sha256(
+            git_head_value=binding.git_head,
+            dirty_digest_value=binding.dirty_digest,
+        )
+    )
+    same_revision = all(
+        reference.report_key.git_head == binding.git_head
+        and reference.report_key.dirty_digest == binding.dirty_digest
+        for reference in binding.report_references
+    )
+    static_identity = (
+        binding.static_report_sha256 == static_report.report_sha256
+        and binding.static_source_manifest_sha256
+        == static_report.source_manifest_sha256
+        and binding.static_rules_sha256 == static_report.rules_sha256
+        and binding.static_case_key_manifest_sha256
+        == static_report.case_key_manifest_sha256
+    )
+    static_exact = (
+        static_identity
+        and static_report.status is EvidenceStatus.PASS
+        and not static_report.obligations
+    )
+    estimator = EstimatorSpec.create(
+        kind="deterministic_exact",
+        particle_count=None,
+        resampling="none",
+    )
+    (
+        expected_direct_predictor_path_sha256,
+        expected_heldout_scorer_path_sha256,
+    ) = a0_direct_prefix_path_identities()
+    checks: dict[str, bool] = {
+        "exact_a0_endpoint": exact_endpoint,
+        "deterministic_exact_estimator": (
+            estimator.kind == "deterministic_exact"
+            and estimator.particle_count is None
+            and estimator.resampling == "none"
+            and estimator.dtype == "float64"
+            and estimator.device == "cpu"
+        ),
+        "current_source_identity": current_source,
+        "direct_predictor_path_identity": (
+            direct_predictor_path_sha256
+            == expected_direct_predictor_path_sha256
+            and direct_predictor_path_sha256
+            == direct_witness.direct_predictor_path_sha256
+        ),
+        "heldout_scorer_path_identity": (
+            heldout_scorer_path_sha256
+            == expected_heldout_scorer_path_sha256
+        ),
+        "bounded_a0_pass": bounded_pass,
+        "same_revision": same_revision,
+        "static_report": static_exact,
+        **{
+            name: direct_witness.checks[name]
+            for name in H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS
+        },
+        "target_read_after_prediction": (
+            _heldout_target_read_follows_direct_prediction()
+        ),
+        "artifact_identity": (
+            direct_witness.small_complete_case_manifest_sha256
+            == small_reference.complete_case_manifest_sha256
+            and direct_witness.validation_complete_case_manifest_sha256
+            == validation_reference.complete_case_manifest_sha256
+            and direct_witness.small_model_state_sha256
+            == small_reference.model_state_sha256
+            and direct_witness.production_model_state_sha256
+            == validation_reference.model_state_sha256
+            and direct_witness.small_proposal_identity_sha256
+            == small_reference.proposal_identity_sha256
+            and direct_witness.production_proposal_identity_sha256
+            == validation_reference.proposal_identity_sha256
+        ),
+    }
+    if tuple(checks) != H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS:
+        raise RuntimeError("internal direct-A0 check mapping is incomplete")
+    contradictions = any(
+        not checks[name]
+        for name in checks
+        if name not in {"bounded_a0_pass", "static_report"}
+    )
+    witnessed_failure = (
+        contradictions
+        or bounded_a0_certificate.status is EvidenceStatus.FAIL
+        or static_report.status is EvidenceStatus.FAIL
+        or any(not value for value in direct_witness.checks.values())
+        or not static_identity
+    )
+    obligations = tuple(
+        sorted(
+            {
+                *(
+                    f"bounded A0: {value}"
+                    for value in bounded_a0_certificate.obligations
+                ),
+                *(f"static: {value}" for value in static_report.obligations),
+                *(
+                    f"static/{check.name}: {value}"
+                    for check in static_report.checks
+                    for value in check.obligations
+                ),
+            }
+        )
+    )
+    unresolved = (
+        bool(obligations)
+        or bounded_a0_certificate.status is EvidenceStatus.INCONCLUSIVE
+        or static_report.status is EvidenceStatus.INCONCLUSIVE
+    )
+    status = (
+        EvidenceStatus.FAIL
+        if witnessed_failure
+        else EvidenceStatus.INCONCLUSIVE
+        if unresolved
+        else EvidenceStatus.PASS
+    )
+    return A0DirectExactPrefixCertificateV1.create(
+        endpoint_config=endpoint_config,
+        estimator=estimator,
+        model_family_sha256=model_family_sha256,
+        data_safety_sha256=data_safety_sha256,
+        git_head=binding.git_head,
+        dirty_digest=binding.dirty_digest,
+        source_sha256=binding.source_sha256,
+        direct_predictor_path_sha256=direct_predictor_path_sha256,
+        heldout_scorer_path_sha256=heldout_scorer_path_sha256,
+        bounded_a0_certificate=bounded_a0_certificate,
+        direct_witness=direct_witness,
+        static_report_sha256=static_report.report_sha256,
+        static_report_status=static_report.status,
+        checks=checks,
+        status=status,
+        obligations=() if status is EvidenceStatus.FAIL else obligations,
+    )
+
+
+def _require_a0_direct_exact_prefix_pass(
+    certificate: A0DirectExactPrefixCertificateV1,
+    *,
+    boundary: str,
+) -> None:
+    """Fail closed unless the direct-A0 sibling is complete and passing."""
+
+    if type(certificate) is not A0DirectExactPrefixCertificateV1:
+        raise ValueError(
+            f"{boundary} requires the exact direct-A0 certificate"
+        )
+    certificate.__post_init__()
+    if (
+        certificate.status is not EvidenceStatus.PASS
+        or certificate.obligations != ()
+        or tuple(certificate.checks)
+        != H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS
+        or not all(certificate.checks.values())
+    ):
+        raise ValueError(
+            f"{boundary} requires a direct-A0 PASS with no obligations "
+            "and every required check true"
+        )
+
+
 @dataclass(frozen=True)
 class H6PrefixReportBundle:
     """Exact profile/reports/certificate unit consumed by pure publication."""
@@ -1492,8 +1840,9 @@ def h6_bounded_prefix_artifact_payloads(
     environment_payload: Mapping[str, object],
     runner_evidence: _H6PrefixRunnerEvidence,
     certificate_set: BoundedPrefixCertificateSet,
+    direct_a0_certificate: A0DirectExactPrefixCertificateV1,
 ) -> dict[str, object]:
-    """Construct the exact bounded-v3 five-payload artifact."""
+    """Construct the exact bounded-v3 six-payload artifact."""
 
     if type(certificate_set) is not BoundedPrefixCertificateSet:
         raise ValueError(
@@ -1514,6 +1863,28 @@ def h6_bounded_prefix_artifact_payloads(
     if certificate_set != expected_set:
         raise ValueError(
             "bounded certificate set differs from runner evidence"
+        )
+    if type(direct_a0_certificate) is not A0DirectExactPrefixCertificateV1:
+        raise ValueError(
+            "bounded payloads require the exact direct-A0 certificate"
+        )
+    _require_a0_direct_exact_prefix_pass(
+        direct_a0_certificate,
+        boundary="bounded H6-Prefix publication",
+    )
+    if (
+        direct_a0_certificate.bounded_a0_certificate
+        not in certificate_set.certificates
+        or direct_a0_certificate.git_head != certificate_set.git_head
+        or direct_a0_certificate.dirty_digest
+        != certificate_set.dirty_digest
+        or direct_a0_certificate.source_sha256
+        != certificate_set.source_sha256
+        or direct_a0_certificate.static_report_sha256
+        != runner_evidence.static_report.report_sha256
+    ):
+        raise ValueError(
+            "direct-A0 certificate differs from the bounded v3 evidence"
         )
     result = H6BoundedPrefixGateResult.from_certificate_set(
         certificate_set
@@ -1685,6 +2056,9 @@ def h6_bounded_prefix_artifact_payloads(
         "prefix_certificate_set_sha256": (
             result.prefix_certificate_set_sha256
         ),
+        "a0_direct_exact_certificate_sha256": (
+            direct_a0_certificate.certificate_sha256
+        ),
         "runner_totals": runner_totals,
         "semantic_families": tuple(family_entries),
         "static_report": _static_report_payload(
@@ -1713,6 +2087,9 @@ def h6_bounded_prefix_artifact_payloads(
         ),
     }
     return {
+        "certificates/a0_direct_exact.json": (
+            direct_a0_certificate.artifact_payload()
+        ),
         "certificates/prefix_set.json": certificates_payload,
         "config.json": resolved_config,
         "environment.json": environment,
@@ -1730,6 +2107,7 @@ def publish_h6_bounded_prefix_artifact(
     environment_payload: Mapping[str, object],
     runner_evidence: _H6PrefixRunnerEvidence,
     certificate_set: BoundedPrefixCertificateSet,
+    direct_a0_certificate: A0DirectExactPrefixCertificateV1,
 ) -> tuple[H6BoundedPrefixGateResult, Path]:
     """Atomically publish one complete bounded Prefix v3 artifact."""
 
@@ -1739,6 +2117,7 @@ def publish_h6_bounded_prefix_artifact(
         environment_payload=environment_payload,
         runner_evidence=runner_evidence,
         certificate_set=certificate_set,
+        direct_a0_certificate=direct_a0_certificate,
     )
     result = H6BoundedPrefixGateResult.from_certificate_set(
         certificate_set
@@ -3041,6 +3420,504 @@ def _require_live_structure_binding(
         )
 
 
+def _direct_row_bytes(value: torch.Tensor) -> bytes:
+    return bytes(
+        value.detach()
+        .to(device="cpu")
+        .contiguous()
+        .view(torch.uint8)
+        .reshape(-1)
+        .tolist()
+    )
+
+
+def _direct_row_sha256(value: torch.Tensor) -> str:
+    return hashlib.sha256(_direct_row_bytes(value)).hexdigest()
+
+
+def _direct_row_contract(
+    value: object,
+    *,
+    vocabulary_size: int,
+) -> tuple[bool, bool]:
+    shape_dtype_device = (
+        type(value) is torch.Tensor
+        and tuple(value.shape) == (vocabulary_size,)
+        and value.dtype is torch.float64
+        and value.device.type == "cpu"
+        and bool(torch.isfinite(value).all().item())
+    )
+    normalized = (
+        shape_dtype_device
+        and bool(
+            torch.isclose(
+                torch.logsumexp(value, dim=0),
+                torch.tensor(0.0, dtype=torch.float64),
+                atol=1.0e-10,
+                rtol=0.0,
+            ).item()
+        )
+    )
+    return shape_dtype_device, normalized
+
+
+def _a0_direct_side_intervention(
+    *,
+    case: DynamicPrefixCase,
+    prefix: CausalPrefix,
+    pair_side_harness: PairSideHarness,
+    direct_predict: Callable[[CausalPrefix], torch.Tensor],
+    adapter_predict: Callable[[CausalPrefix], torch.Tensor],
+) -> tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    str,
+    str,
+    bool,
+]:
+    """Call both production seams under hash-bound left/right side state."""
+
+    if type(case) is not DynamicPrefixCase:
+        raise ValueError("direct-A0 side intervention requires an exact case")
+    case.__post_init__()
+    if type(prefix) is not CausalPrefix:
+        raise ValueError(
+            "direct-A0 side intervention requires an exact causal prefix"
+        )
+    prefix.__post_init__()
+    if type(pair_side_harness) is not PairSideHarness:
+        raise ValueError(
+            "direct-A0 side intervention requires an exact pair harness"
+        )
+
+    def call_side(
+        side: Literal["left", "right"],
+        tail: tuple[int, ...],
+    ) -> tuple[torch.Tensor, torch.Tensor, str]:
+        binding = pair_side_harness.bind(
+            case_sha256=case.case_sha256,
+            side=side,
+            tail=tail,
+        )
+        direct = direct_predict(prefix)
+        pair_side_harness.assert_current(
+            case_sha256=case.case_sha256,
+            side=side,
+            tail=tail,
+            binding_sha256=binding,
+        )
+        adapter = adapter_predict(prefix)
+        pair_side_harness.assert_current(
+            case_sha256=case.case_sha256,
+            side=side,
+            tail=tail,
+            binding_sha256=binding,
+        )
+        if type(direct) is not torch.Tensor or type(adapter) is not torch.Tensor:
+            raise ValueError(
+                "direct-A0 side intervention calls must return exact tensors"
+            )
+        return direct, adapter, binding
+
+    left_direct, left_adapter, left_binding = call_side(
+        "left",
+        tuple(case.left_tail),
+    )
+    right_direct, right_adapter, right_binding = call_side(
+        "right",
+        tuple(case.right_tail),
+    )
+    invariant = (
+        case.left_tail != case.right_tail
+        and torch.equal(left_direct, right_direct)
+        and torch.equal(left_adapter, right_adapter)
+        and torch.equal(left_direct, left_adapter)
+        and torch.equal(right_direct, right_adapter)
+    )
+    return (
+        left_direct,
+        left_adapter,
+        right_direct,
+        right_adapter,
+        left_binding,
+        right_binding,
+        invariant,
+    )
+
+
+def _representative_a0_report_references(
+    certificate: BoundedPrefixCertificate,
+) -> tuple[BoundedPrefixReportReference, BoundedPrefixReportReference]:
+    if type(certificate) is not BoundedPrefixCertificate:
+        raise ValueError("direct-A0 witness requires an exact bounded premise")
+    certificate.__post_init__()
+    matches = tuple(
+        (
+            case_family,
+            tuple(
+                reference
+                for reference in certificate.report_binding.report_references
+                if (
+                    reference.particle_count == 128
+                    and reference.case_family == case_family
+                    and reference.scope == "representative_exhaustive"
+                )
+            ),
+        )
+        for case_family in ("small", "validation")
+    )
+    if any(len(references) != 1 for _, references in matches):
+        raise ValueError(
+            "direct-A0 witness lacks unique representative bounded reports"
+        )
+    small = matches[0][1][0]
+    validation = matches[1][1][0]
+    return small, validation
+
+
+def execute_a0_direct_exact_prefix_witness(
+    *,
+    small_arm: BuiltArm,
+    production_arm: BuiltArm,
+    validation_perturbations: FrozenValidationPerturbations,
+    bounded_a0_certificate: BoundedPrefixCertificate,
+) -> A0DirectExactPrefixWitnessV1:
+    """Run the executable pre-replication A0 row witness without target reads."""
+
+    if (
+        type(small_arm) is not BuiltArm
+        or type(production_arm) is not BuiltArm
+        or type(small_arm.model) is not H6CausalTransformer
+        or type(production_arm.model) is not H6CausalTransformer
+        or small_arm.config.arm.value != "A0"
+        or production_arm.config.arm.value != "A0"
+    ):
+        raise ValueError("direct-A0 witness requires exact built A0 arms")
+    if type(validation_perturbations) is not FrozenValidationPerturbations:
+        raise ValueError(
+            "direct-A0 witness requires exact frozen validation perturbations"
+        )
+    validation_perturbations.__post_init__()
+    if (
+        validation_perturbations.materialization != "authorized_full"
+        or validation_perturbations.materialized_count
+        != VALIDATION_EXPECTED_TOTAL
+    ):
+        raise ValueError(
+            "direct-A0 witness requires the complete validation inventory"
+        )
+    small_reference, validation_reference = (
+        _representative_a0_report_references(bounded_a0_certificate)
+    )
+    direct_predictor_path_sha256, _ = (
+        a0_direct_prefix_path_identities()
+    )
+    estimator = EstimatorSpec.create(
+        kind="deterministic_exact",
+        particle_count=None,
+        resampling="none",
+    )
+    small_proposal, _ = small_arm.rebuild_predictive_boundary(estimator)
+    production_proposal, _ = production_arm.rebuild_predictive_boundary(
+        estimator
+    )
+    if (
+        type(small_proposal) is not ArmTargetFreeProposalAdapter
+        or type(production_proposal) is not ArmTargetFreeProposalAdapter
+    ):
+        raise RuntimeError("direct-A0 witness proposal adapter is not exact")
+    small_cases = _small_cases("authorized_full")
+    validation_cases = validation_perturbations.dynamic_cases
+    case_groups = (
+        ("small", small_arm, small_proposal, small_cases),
+        (
+            "validation",
+            production_arm,
+            production_proposal,
+            validation_cases,
+        ),
+    )
+    observed_small_manifest = _owned_hash(
+        "vfe4.h6.dynamic-case-manifest.v2",
+        tuple(case.case_sha256 for case in small_cases),
+    )
+    observed_validation_manifest = _owned_hash(
+        "vfe4.h6.dynamic-case-manifest.v2",
+        tuple(case.case_sha256 for case in validation_cases),
+    )
+    checks = {
+        name: True
+        for name in H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS
+    }
+    checks["case_inventory"] = (
+        len(small_cases) == SMALL_EXPECTED_TOTAL
+        and len(validation_cases) == VALIDATION_EXPECTED_TOTAL
+        and len({case.case_sha256 for case in small_cases})
+        == SMALL_EXPECTED_TOTAL
+        and len({case.case_sha256 for case in validation_cases})
+        == VALIDATION_EXPECTED_TOTAL
+        and observed_small_manifest
+        == small_reference.complete_case_manifest_sha256
+        and observed_validation_manifest
+        == validation_reference.complete_case_manifest_sha256
+    )
+    first_failure: tuple[str, str, str] | None = (
+        None
+        if checks["case_inventory"]
+        else (
+            "case_inventory",
+            "aggregate",
+            _owned_hash(
+                "vfe4.h6.a0-direct-prefix-observed-inventory.v1",
+                {
+                    "small": observed_small_manifest,
+                    "validation": observed_validation_manifest,
+                },
+            ),
+        )
+    )
+
+    def observe(
+        check: str,
+        passed: bool,
+        family: str,
+        case_sha256: str,
+    ) -> None:
+        nonlocal first_failure
+        if not passed:
+            checks[check] = False
+            if first_failure is None:
+                first_failure = (check, family, case_sha256)
+
+    forward_rows: dict[tuple[str, str], dict[str, object]] = {}
+    pair_side_harness = PairSideHarness()
+    with torch.no_grad():
+        small_arm.model.eval()
+        production_arm.model.eval()
+        for family, built_arm, proposal, cases in case_groups:
+            vocabulary = built_arm.config.vocabulary
+            for case in cases:
+                prefix = CausalPrefix.create(
+                    receiver_t=case.receiver_t,
+                    vocabulary=vocabulary,
+                    token_ids=torch.tensor(
+                        case.shared_prefix,
+                        dtype=torch.int64,
+                        device="cpu",
+                    ),
+                )
+                (
+                    direct,
+                    cold,
+                    right_direct,
+                    right,
+                    left_binding,
+                    right_binding,
+                    side_invariant,
+                ) = _a0_direct_side_intervention(
+                    case=case,
+                    prefix=prefix,
+                    pair_side_harness=pair_side_harness,
+                    direct_predict=built_arm.model.prefix_log_probs,
+                    adapter_predict=proposal.autoregressive_emission_row,
+                )
+                warm_binding = pair_side_harness.bind(
+                    case_sha256=case.case_sha256,
+                    side="left",
+                    tail=tuple(case.left_tail),
+                )
+                warm = proposal.autoregressive_emission_row(prefix)
+                pair_side_harness.assert_current(
+                    case_sha256=case.case_sha256,
+                    side="left",
+                    tail=tuple(case.left_tail),
+                    binding_sha256=warm_binding,
+                )
+                row_values = (
+                    direct,
+                    cold,
+                    warm,
+                    right_direct,
+                    right,
+                )
+                row_hashes = tuple(_direct_row_sha256(row) for row in row_values)
+                contracts = tuple(
+                    _direct_row_contract(
+                        row,
+                        vocabulary_size=vocabulary.size,
+                    )
+                    for row in row_values
+                )
+                observe(
+                    "direct_row_identity",
+                    torch.equal(direct, cold),
+                    family,
+                    case.case_sha256,
+                )
+                observe(
+                    "cold_cache_identity",
+                    torch.equal(direct, cold),
+                    family,
+                    case.case_sha256,
+                )
+                observe(
+                    "warm_cache_identity",
+                    torch.equal(cold, warm),
+                    family,
+                    case.case_sha256,
+                )
+                observe(
+                    "suffix_invariance",
+                    side_invariant,
+                    family,
+                    case.case_sha256,
+                )
+                observe(
+                    "shape_dtype_device",
+                    all(contract[0] for contract in contracts),
+                    family,
+                    case.case_sha256,
+                )
+                observe(
+                    "normalization",
+                    all(contract[1] for contract in contracts),
+                    family,
+                    case.case_sha256,
+                )
+                observe(
+                    "signed_zero_bytes",
+                    len(set(row_hashes)) == 1,
+                    family,
+                    case.case_sha256,
+                )
+                forward_rows[(family, case.case_sha256)] = {
+                    "case": case,
+                    "direct_row_sha256": row_hashes[0],
+                    "cold_row_sha256": row_hashes[1],
+                    "warm_row_sha256": row_hashes[2],
+                    "right_direct_row_sha256": row_hashes[3],
+                    "right_adapter_row_sha256": row_hashes[4],
+                    "left_side_binding_sha256": left_binding,
+                    "right_side_binding_sha256": right_binding,
+                    "warm_side_binding_sha256": warm_binding,
+                    "left_suffix_sha256": _owned_hash(
+                        "vfe4.h6.a0-direct-prefix-suffix.v1",
+                        tuple(case.left_tail),
+                    ),
+                    "right_suffix_sha256": _owned_hash(
+                        "vfe4.h6.a0-direct-prefix-suffix.v1",
+                        tuple(case.right_tail),
+                    ),
+                }
+
+        rebuilt_small = ArmTargetFreeProposalAdapter(
+            model=small_arm.model,
+            model_family_sha256=small_arm.model_family_sha256,
+        )
+        rebuilt_production = ArmTargetFreeProposalAdapter(
+            model=production_arm.model,
+            model_family_sha256=production_arm.model_family_sha256,
+        )
+        reverse_hashes: dict[tuple[str, str], str] = {}
+        for family, built_arm, proposal, cases in reversed(case_groups):
+            rebuilt = (
+                rebuilt_small
+                if family == "small"
+                else rebuilt_production
+            )
+            observe(
+                "reverse_cache_rebuild_identity",
+                rebuilt.proposal_identity_sha256
+                == proposal.proposal_identity_sha256,
+                family,
+                cases[-1].case_sha256,
+            )
+            for case in reversed(cases):
+                prefix = CausalPrefix.create(
+                    receiver_t=case.receiver_t,
+                    vocabulary=built_arm.config.vocabulary,
+                    token_ids=torch.tensor(
+                        case.shared_prefix,
+                        dtype=torch.int64,
+                        device="cpu",
+                    ),
+                )
+                reverse = rebuilt.autoregressive_emission_row(prefix)
+                reverse_sha256 = _direct_row_sha256(reverse)
+                reverse_hashes[(family, case.case_sha256)] = reverse_sha256
+                observe(
+                    "reverse_cache_rebuild_identity",
+                    reverse_sha256
+                    == forward_rows[
+                        (family, case.case_sha256)
+                    ]["direct_row_sha256"],
+                    family,
+                    case.case_sha256,
+                )
+
+    case_witness_sha256s = []
+    for family, _arm, _proposal, cases in case_groups:
+        for case in cases:
+            row = forward_rows[(family, case.case_sha256)]
+            case_witness_sha256s.append(
+                _owned_hash(
+                    "vfe4.h6.a0-direct-exact-prefix-case-witness.v1",
+                    {
+                        "family": family,
+                        "ordinal": case.ordinal,
+                        "receiver_t": case.receiver_t,
+                        "case_sha256": case.case_sha256,
+                        **{
+                            name: value
+                            for name, value in row.items()
+                            if name != "case"
+                        },
+                        "reverse_row_sha256": reverse_hashes[
+                            (family, case.case_sha256)
+                        ],
+                    },
+                )
+            )
+    case_witness_manifest_sha256 = _owned_hash(
+        "vfe4.h6.a0-direct-exact-prefix-case-witness-manifest.v1",
+        tuple(case_witness_sha256s),
+    )
+    first_counterexample_sha256 = (
+        None
+        if first_failure is None
+        else _owned_hash(
+            "vfe4.h6.a0-direct-exact-prefix-counterexample.v1",
+            {
+                "check": first_failure[0],
+                "case_family": first_failure[1],
+                "case_sha256": first_failure[2],
+            },
+        )
+    )
+    return A0DirectExactPrefixWitnessV1.create(
+        small_complete_case_manifest_sha256=observed_small_manifest,
+        validation_complete_case_manifest_sha256=(
+            observed_validation_manifest
+        ),
+        small_model_state_sha256=small_proposal.model_state_sha256,
+        production_model_state_sha256=(
+            production_proposal.model_state_sha256
+        ),
+        small_proposal_identity_sha256=(
+            small_proposal.proposal_identity_sha256
+        ),
+        production_proposal_identity_sha256=(
+            production_proposal.proposal_identity_sha256
+        ),
+        direct_predictor_path_sha256=direct_predictor_path_sha256,
+        case_witness_manifest_sha256=case_witness_manifest_sha256,
+        checks=checks,
+        first_counterexample_sha256=first_counterexample_sha256,
+    )
+
+
 class _LiveH6PrefixRunnerExecutor:
     """Real adapter kept private until Task 3E can compose bounded artifacts."""
 
@@ -3257,15 +4134,66 @@ class _LiveH6PrefixV3RunnerExecutor(_LiveH6PrefixRunnerExecutor):
             raise ValueError("live v3 executor requires an exact v3 config")
         _validate_v3_resolved_runner_config(config)
         self._config = config
+        self._a0_arms: dict[str, BuiltArm] = {}
+        self._validation_perturbations: (
+            FrozenValidationPerturbations | None
+        ) = None
 
     def load_validation_perturbations(
         self,
         *,
         expected_vocabulary: VocabularyIdentity,
     ) -> object:
-        return _load_h6_prefix_v3_validation_inputs(
+        perturbations = _load_h6_prefix_v3_validation_inputs(
             self._config,
             expected_vocabulary=expected_vocabulary,
+        )
+        self._validation_perturbations = perturbations
+        return perturbations
+
+    def build_arm(
+        self,
+        *,
+        arm_config: ArmConfig,
+        structure: H6LanguageStructure,
+    ) -> BuiltArm:
+        built_arm = super().build_arm(
+            arm_config=arm_config,
+            structure=structure,
+        )
+        if arm_config.arm.value == "A0":
+            if arm_config.config_sha256 in self._a0_arms:
+                raise RuntimeError("direct-A0 arm was built more than once")
+            self._a0_arms[arm_config.config_sha256] = built_arm
+        return built_arm
+
+    def execute_a0_direct_exact_witness(
+        self,
+        *,
+        small_endpoint_config: ArmConfig,
+        production_endpoint_config: ArmConfig,
+        bounded_a0_certificate: BoundedPrefixCertificate,
+    ) -> A0DirectExactPrefixWitnessV1:
+        perturbations = self._validation_perturbations
+        if perturbations is None:
+            raise RuntimeError(
+                "direct-A0 witness cannot precede v3 input loading"
+            )
+        small_arm = self._a0_arms.get(
+            small_endpoint_config.config_sha256
+        )
+        production_arm = self._a0_arms.get(
+            production_endpoint_config.config_sha256
+        )
+        if small_arm is None or production_arm is None:
+            raise RuntimeError(
+                "direct-A0 witness requires both already-audited A0 arms"
+            )
+        return execute_a0_direct_exact_prefix_witness(
+            small_arm=small_arm,
+            production_arm=production_arm,
+            validation_perturbations=perturbations,
+            bounded_a0_certificate=bounded_a0_certificate,
         )
 
 
@@ -3281,13 +4209,69 @@ def run_h6_prefix(
         _require_sha256(junit_sha256, "junit_sha256")
     if type(config) is H6PrefixV3ResolvedConfig:
         plan = _build_h6_prefix_runner_plan(config)
+        executor = _LiveH6PrefixV3RunnerExecutor(config)
         runner_evidence = _execute_h6_prefix_v3_plan(
             plan,
-            _LiveH6PrefixV3RunnerExecutor(config),
+            executor,
         )
         certificate_set = _compose_bounded_prefix_certificate_set(
             config=config,
             runner_evidence=runner_evidence,
+        )
+        a0_authorities = tuple(
+            (family, certificate)
+            for family, certificate in zip(
+                plan.semantic_families,
+                certificate_set.certificates,
+                strict=True,
+            )
+            if (
+                family.profiles[0].production_arm_config.arm.value
+                == "A0"
+            )
+        )
+        if len(a0_authorities) != 1:
+            raise RuntimeError(
+                "H6-Prefix v3 requires one exact bounded A0 family"
+            )
+        a0_family, bounded_a0_certificate = a0_authorities[0]
+        representative = a0_family.profiles[0]
+        execute_direct = getattr(
+            executor,
+            "execute_a0_direct_exact_witness",
+            None,
+        )
+        if not callable(execute_direct):
+            raise RuntimeError(
+                "H6-Prefix v3 executor lacks the direct-A0 witness boundary"
+            )
+        direct_witness = execute_direct(
+            small_endpoint_config=representative.small_arm_config,
+            production_endpoint_config=(
+                representative.production_arm_config
+            ),
+            bounded_a0_certificate=bounded_a0_certificate,
+        )
+        direct_path_sha256, scorer_path_sha256 = (
+            a0_direct_prefix_path_identities()
+        )
+        direct_a0_certificate = (
+            compose_a0_direct_exact_prefix_certificate(
+                endpoint_config=representative.production_arm_config,
+                model_family_sha256=(
+                    representative.production_model_family_sha256
+                ),
+                data_safety_sha256=representative.data_safety_sha256,
+                direct_predictor_path_sha256=direct_path_sha256,
+                heldout_scorer_path_sha256=scorer_path_sha256,
+                bounded_a0_certificate=bounded_a0_certificate,
+                direct_witness=direct_witness,
+                static_report=runner_evidence.static_report,
+            )
+        )
+        _require_a0_direct_exact_prefix_pass(
+            direct_a0_certificate,
+            boundary="H6-Prefix v3 gate",
         )
         _validate_resolved_runner_config(config)
         return publish_h6_bounded_prefix_artifact(
@@ -3313,6 +4297,7 @@ def run_h6_prefix(
             },
             runner_evidence=runner_evidence,
             certificate_set=certificate_set,
+            direct_a0_certificate=direct_a0_certificate,
         )
     if getattr(config, "schema_version", "h6-prefix-config-v1") == (
         "h6-prefix-config-v2"
@@ -3471,8 +4456,11 @@ def run_h6_prefix(
 __all__ = [
     "H6BoundedPrefixFamilyBundle",
     "H6PrefixReportBundle",
+    "a0_direct_prefix_path_identities",
+    "compose_a0_direct_exact_prefix_certificate",
     "compose_bounded_prefix_certificate",
     "compose_prefix_certificate",
+    "execute_a0_direct_exact_prefix_witness",
     "h6_bounded_prefix_artifact_payloads",
     "h6_prefix_artifact_payloads",
     "publish_h6_bounded_prefix_artifact",

@@ -522,6 +522,59 @@ round-trip its canonical JSON and reject unknown/missing fields.
   -q --basetemp .verification/pytest-h6-v3-task11
 ```
 
+## Task 11A: Close direct-A0 authority and production-resume obligations
+
+This source task was added before any held-out evidence after independent
+review of the Task 8--11 bridge. It is normative for the current source
+candidate and does not authorize a corpus opening.
+
+**Required behavior**
+
+- Implement the July 27 direct-A0 amendment in
+  `docs/preregistrations/2026-07-21-h6-prefix-prediction.md`. Preserve the
+  bounded v2 certificate set byte contract, publish and reopen the exact
+  sibling direct-A0 certificate, bind both authorities in readiness, and
+  require the direct certificate before the A0 scorer can read a target.
+- Execute or exactly resume a persisted training attempt. Hydration must bind
+  the executable planned attempt, selected tuning cell, runtime,
+  deterministic policy, closed module factory, and canonical seed-realized
+  initial-state identity before loading state or mutating a module.
+- Define one stateless, source-bound CPU-float64 initialization mapping.
+  Rebuilding a seed must reproduce identical parameter bytes; distinct seeds
+  must change actual initialized bytes. `initialization_sha256` hashes those
+  actual bytes. Shared batch permutations remain independent of run seed.
+- Persist declared partial boundaries, ordered graph-free metric history, and
+  validation-boundary records. A process-loss resume skips every persisted
+  update and reproduces uninterrupted terminal checkpoint, metric, and
+  validation bytes.
+- Bind counter consumption to the exact ragged active horizon and consumed
+  normal bytes for every example. Maximum-shape generation alone is not a
+  consumption identity.
+- Evaluate `emission_only_ablation_non_elbo` through a dedicated emission-only
+  path. It must not execute initial, source-prior, transition, or entropy
+  operators, and every endpoint must match its exact ordered factor inventory.
+- Capture stopped generative state and compute its authentication hash at most
+  once per declared phase/batch boundary. Receiver loops may not clone a full
+  model, transfer complete state to CPU, or recompute a whole-state hash.
+
+**Focused falsification tests**
+
+- A direct exact A0 certificate is required; weighted, stale, other-family,
+  and legacy certificates refuse before a target read.
+- Same-seed initialization is byte-identical, distinct-seed A0 initialization
+  differs, and shared permutation identities remain equal.
+- Tiny A0 batch-boundary and A5 post-recognition process-loss resumes reproduce
+  uninterrupted terminal checkpoint, ordered metric, and validation bytes.
+- Same-layout alternate-forward factories and same-layout checkpoints from
+  another tuning cell refuse before state loading.
+- Ragged active counts `(4,2,3)` and `(4,3,2)` retain common overlapping draws
+  but have distinct consumption identities.
+- Patching every non-emission operator to raise does not affect the
+  emission-only path; its gradient matches an independent emission-only
+  oracle.
+- Instrumented `B=8,T=32` prior-feature evaluation performs `O(1)` complete
+  state captures and no complete-state CPU transfer inside receiver loops.
+
 ## Task 12: Bounded integration, independent review, and two CUDA tests
 
 **Files**

@@ -11,9 +11,15 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
+import stat
 import sys
+import threading
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass, replace
+from enum import Enum
+from pathlib import Path
+from types import CodeType, FunctionType, ModuleType
 from typing import Literal
 
 import torch
@@ -29,6 +35,10 @@ from vfe4.types.h6_prediction_v3 import (
     H6_DETERMINISTIC_POLICY_SHA256,
     H6_NO_COUNTER_CONSUMPTION_SHA256,
 )
+from .h6_engine_v3 import (
+    H6DetachedBatchRecognitionSnapshotV3,
+    H6DetachedRecognitionSnapshotV3,
+)
 
 
 _MAGIC = b"VFE4-H6-CHECKPOINT-V3\x00"
@@ -36,8 +46,14 @@ _TRAILER_BYTES = hashlib.sha256().digest_size
 _MAX_HEADER_BYTES = 64 * 1024 * 1024
 _LOWER_HEX = frozenset("0123456789abcdef")
 _MAX_RECORDS = 1_000_000
+_MAX_APPLICATION_SOURCE_BYTES = 16 * 1024 * 1024
+_MAX_REFERENCED_APPLICATION_OBJECTS = 4096
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MODULE_ROLES = frozenset({"module_parameter", "module_buffer"})
-_TENSOR_ROLES = _MODULE_ROLES | {"optimizer_state"}
+_TENSOR_ROLES = _MODULE_ROLES | {
+    "optimizer_state",
+    "recognition_snapshot",
+}
 _SUPPORTED_DTYPES: dict[str, torch.dtype] = {
     "bool": torch.bool,
     "uint8": torch.uint8,
@@ -68,6 +84,42 @@ _ADAMW_GROUP_KEYS = frozenset(
     }
 )
 _ADAMW_BASE_STATE = frozenset({"step", "exp_avg", "exp_avg_sq"})
+_FACTORY_AUTHORITY_REGISTRY_LOCK = threading.Lock()
+_FACTORY_AUTHORITY_REGISTRY: dict[object, tuple[int, object]] = {}
+_MODULE_HOOK_MAP_NAMES = (
+    "_backward_pre_hooks",
+    "_backward_hooks",
+    "_forward_hooks",
+    "_forward_hooks_always_called",
+    "_forward_hooks_with_kwargs",
+    "_forward_pre_hooks",
+    "_forward_pre_hooks_with_kwargs",
+    "_state_dict_hooks",
+    "_state_dict_pre_hooks",
+    "_load_state_dict_pre_hooks",
+    "_load_state_dict_post_hooks",
+)
+_MODULE_INTERNAL_ATTRIBUTE_NAMES = frozenset(
+    {
+        "training",
+        "_parameters",
+        "_buffers",
+        "_non_persistent_buffers_set",
+        "_modules",
+        "_backward_pre_hooks",
+        "_backward_hooks",
+        "_is_full_backward_hook",
+        "_forward_hooks",
+        "_forward_hooks_with_kwargs",
+        "_forward_hooks_always_called",
+        "_forward_pre_hooks",
+        "_forward_pre_hooks_with_kwargs",
+        "_state_dict_hooks",
+        "_state_dict_pre_hooks",
+        "_load_state_dict_pre_hooks",
+        "_load_state_dict_post_hooks",
+    }
+)
 
 
 def _require_sha256(value: object, name: str) -> str:
@@ -203,6 +255,18 @@ def _freeze_scalar(value: object, *, name: str) -> object:
     raise ValueError(f"{name} uses an unsupported scalar value")
 
 
+def _thaw_canonical_float(value: object, *, name: str) -> float:
+    if type(value) is not str:
+        raise ValueError(f"{name} must use one canonical hexadecimal float")
+    try:
+        result = float.fromhex(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must use one canonical hexadecimal float") from exc
+    if not math.isfinite(result) or result.hex() != value:
+        raise ValueError(f"{name} has a noncanonical float encoding")
+    return result
+
+
 @dataclass(frozen=True, slots=True)
 class H6TensorRecordV3:
     """One canonical tensor payload with explicit semantic ownership."""
@@ -211,6 +275,7 @@ class H6TensorRecordV3:
         "module_parameter",
         "module_buffer",
         "optimizer_state",
+        "recognition_snapshot",
     ]
     name: str
     state_name: str | None
@@ -259,6 +324,7 @@ class H6TensorRecordV3:
             "module_parameter",
             "module_buffer",
             "optimizer_state",
+            "recognition_snapshot",
         ],
         name: str,
         tensor: Tensor,
@@ -441,9 +507,7 @@ class H6AdamWRecordV3:
                 parameter_name.split(".", 1)[0] != self.name
                 for parameter_name in group.parameter_names
             ):
-                raise ValueError(
-                    "AdamW optimizer may bind only same-root parameters"
-                )
+                raise ValueError("AdamW optimizer may bind only same-root parameters")
             parameter_names.extend(group.parameter_names)
         _validate_unique_names(
             tuple(parameter_names),
@@ -490,6 +554,84 @@ def _typed_record_payload(
     return payload
 
 
+def _snapshot_tensor_records(
+    snapshot: H6DetachedBatchRecognitionSnapshotV3,
+) -> tuple[tuple[H6TensorRecordV3, ...], ...]:
+    if type(snapshot) is not H6DetachedBatchRecognitionSnapshotV3:
+        raise ValueError("checkpoint snapshot must be an exact detached batch law")
+    snapshot.__post_init__()
+    aliases: dict[tuple[str, int | None, int], str] = {}
+    return tuple(
+        tuple(
+            H6TensorRecordV3.capture(
+                role="recognition_snapshot",
+                name=f"snapshot.example.{example_ordinal}.{name}",
+                tensor=tensor,
+                aliases=aliases,
+            )
+            for name, tensor in zip(
+                state.names,
+                state._tensors,
+                strict=True,
+            )
+        )
+        for example_ordinal, state in enumerate(snapshot.states)
+    )
+
+
+def _snapshot_payload(
+    snapshot: H6DetachedBatchRecognitionSnapshotV3 | None,
+) -> dict[str, object] | None:
+    if snapshot is None:
+        return None
+    records_by_state = _snapshot_tensor_records(snapshot)
+    return {
+        "authority_sha256": snapshot.authority_sha256,
+        "attempt_spec_sha256": snapshot.attempt_spec_sha256,
+        "endpoint_config_sha256": snapshot.endpoint_config_sha256,
+        "post_recognition_cursor_sha256": (snapshot.post_recognition_cursor_sha256),
+        "pass_index": snapshot.pass_index,
+        "batch_index": snapshot.batch_index,
+        "recognition_update_count": snapshot.recognition_update_count,
+        "receiver_count": snapshot.receiver_count,
+        "active_target_counts": snapshot.active_target_counts,
+        "active_receiver_masks": snapshot.active_receiver_masks,
+        "live_batch_state_sha256": snapshot.live_batch_state_sha256,
+        "names": snapshot.names,
+        "snapshot_sha256": snapshot.snapshot_sha256,
+        "states": tuple(
+            {
+                "attempt_spec_sha256": state.attempt_spec_sha256,
+                "endpoint_config_sha256": state.endpoint_config_sha256,
+                "post_recognition_cursor_sha256": (
+                    state.post_recognition_cursor_sha256
+                ),
+                "pass_index": state.pass_index,
+                "batch_index": state.batch_index,
+                "recognition_update_count": (state.recognition_update_count),
+                "receiver_count": state.receiver_count,
+                "state_categorical_enabled": (state.state_categorical_enabled),
+                "model_categorical_enabled": (state.model_categorical_enabled),
+                "state_categorical_supports": (state.state_categorical_supports),
+                "model_categorical_supports": (state.model_categorical_supports),
+                "receiver_components": state.receiver_components,
+                "names": state.names,
+                "context_sha256": state.context_sha256,
+                "recognition_state_sha256": (state.recognition_state_sha256),
+                "source_model_sha256": state.source_model_sha256,
+                "law_sha256": state.law_sha256,
+                "live_state_sha256": state.live_state_sha256,
+                "snapshot_sha256": state.snapshot_sha256,
+                "tensors": tuple(
+                    record.manifest_payload()
+                    for record in records_by_state[example_ordinal]
+                ),
+            }
+            for example_ordinal, state in enumerate(snapshot.states)
+        ),
+    }
+
+
 def _checkpoint_payload(
     *,
     attempt_spec: H6AttemptSpecV3,
@@ -499,6 +641,7 @@ def _checkpoint_payload(
     deterministic_policy_sha256: str,
     module_tensors: tuple[H6TensorRecordV3, ...],
     optimizers: tuple[H6AdamWRecordV3, ...],
+    detached_batch_snapshot: (H6DetachedBatchRecognitionSnapshotV3 | None),
 ) -> dict[str, object]:
     return {
         "checkpoint_schema": "h6-checkpoint-v3",
@@ -510,6 +653,7 @@ def _checkpoint_payload(
         "deterministic_policy_sha256": deterministic_policy_sha256,
         "module_tensors": tuple(tensor.manifest_payload() for tensor in module_tensors),
         "optimizers": tuple(optimizer.canonical_payload() for optimizer in optimizers),
+        "detached_batch_snapshot": _snapshot_payload(detached_batch_snapshot),
     }
 
 
@@ -525,6 +669,7 @@ class H6CheckpointV3:
     deterministic_policy_sha256: str
     module_tensors: tuple[H6TensorRecordV3, ...]
     optimizers: tuple[H6AdamWRecordV3, ...]
+    detached_batch_snapshot: H6DetachedBatchRecognitionSnapshotV3 | None
     checkpoint_sha256: str
 
     def __post_init__(self) -> None:
@@ -578,6 +723,25 @@ class H6CheckpointV3:
             raise ValueError(
                 "checkpoint objective/cursor counter consumption disagrees"
             )
+        if self.detached_batch_snapshot is not None:
+            if (
+                type(self.detached_batch_snapshot)
+                is not H6DetachedBatchRecognitionSnapshotV3
+            ):
+                raise ValueError("checkpoint detached snapshot has the wrong type")
+            self.detached_batch_snapshot.__post_init__()
+            if (
+                self.cursor.next_phase is not TrainingPhase.MODEL_ADAMW
+                or self.detached_batch_snapshot.attempt_spec_sha256
+                != self.attempt_spec.attempt_spec_sha256
+                or self.detached_batch_snapshot.endpoint_config_sha256
+                != self.attempt_spec.endpoint_config_sha256
+                or self.detached_batch_snapshot.post_recognition_cursor_sha256
+                != self.cursor.cursor_sha256
+            ):
+                raise ValueError(
+                    "checkpoint detached batch law left its model boundary"
+                )
         expected_objective_phase = {
             TrainingPhase.MODEL_CE_ADAMW: TrainingPhase.MODEL_CE_ADAMW,
             TrainingPhase.RECOGNITION_ADAMW: TrainingPhase.MODEL_ADAMW,
@@ -639,14 +803,10 @@ class H6CheckpointV3:
         if attempt_has_recognition == is_cross_entropy:
             raise ValueError("checkpoint objective/recognition topology is invalid")
         expected_roots = (
-            ("model", "recognition")
-            if attempt_has_recognition
-            else ("model",)
+            ("model", "recognition") if attempt_has_recognition else ("model",)
         )
         if module_roots != expected_roots or optimizer_names != expected_roots:
-            raise ValueError(
-                "checkpoint module/optimizer root inventory is invalid"
-            )
+            raise ValueError("checkpoint module/optimizer root inventory is invalid")
         _validate_unique_names(
             tuple(module_names + optimizer_tensor_names),
             label="checkpoint tensor inventory",
@@ -661,6 +821,7 @@ class H6CheckpointV3:
                 deterministic_policy_sha256=(self.deterministic_policy_sha256),
                 module_tensors=self.module_tensors,
                 optimizers=self.optimizers,
+                detached_batch_snapshot=self.detached_batch_snapshot,
             ),
         )
         if self.checkpoint_sha256 != expected:
@@ -677,6 +838,7 @@ class H6CheckpointV3:
                 deterministic_policy_sha256=(self.deterministic_policy_sha256),
                 module_tensors=self.module_tensors,
                 optimizers=self.optimizers,
+                detached_batch_snapshot=self.detached_batch_snapshot,
             ),
             "checkpoint_sha256": self.checkpoint_sha256,
         }
@@ -688,7 +850,16 @@ class H6CheckpointV3:
             for state in optimizer.states
             for tensor in state.tensors
         )
-        return self.module_tensors + optimizer_tensors
+        snapshot_tensors = (
+            ()
+            if self.detached_batch_snapshot is None
+            else tuple(
+                record
+                for records in _snapshot_tensor_records(self.detached_batch_snapshot)
+                for record in records
+            )
+        )
+        return self.module_tensors + optimizer_tensors + snapshot_tensors
 
     def to_bytes(self) -> bytes:
         """Encode one stable manifest, raw tensor stream, and integrity trailer."""
@@ -864,6 +1035,157 @@ def _decode_tensor_record(
     return record, end
 
 
+def _decode_detached_batch_snapshot(
+    value: object,
+    *,
+    payload: bytes,
+    offset: int,
+) -> tuple[H6DetachedBatchRecognitionSnapshotV3 | None, int]:
+    if value is None:
+        return None, offset
+    item = _exact_object(
+        value,
+        keys=frozenset(
+            {
+                "authority_sha256",
+                "attempt_spec_sha256",
+                "endpoint_config_sha256",
+                "post_recognition_cursor_sha256",
+                "pass_index",
+                "batch_index",
+                "recognition_update_count",
+                "receiver_count",
+                "active_target_counts",
+                "active_receiver_masks",
+                "live_batch_state_sha256",
+                "names",
+                "snapshot_sha256",
+                "states",
+            }
+        ),
+        label="checkpoint detached batch snapshot",
+    )
+    raw_states = item["states"]
+    if type(raw_states) is not list or not raw_states:
+        raise ValueError("checkpoint detached snapshot states are malformed")
+    states: list[H6DetachedRecognitionSnapshotV3] = []
+    cursor = offset
+    state_keys = frozenset(
+        {
+            "attempt_spec_sha256",
+            "endpoint_config_sha256",
+            "post_recognition_cursor_sha256",
+            "pass_index",
+            "batch_index",
+            "recognition_update_count",
+            "receiver_count",
+            "state_categorical_enabled",
+            "model_categorical_enabled",
+            "state_categorical_supports",
+            "model_categorical_supports",
+            "receiver_components",
+            "names",
+            "context_sha256",
+            "recognition_state_sha256",
+            "source_model_sha256",
+            "law_sha256",
+            "live_state_sha256",
+            "snapshot_sha256",
+            "tensors",
+        }
+    )
+    for example_ordinal, raw_state in enumerate(raw_states):
+        state = _exact_object(
+            raw_state,
+            keys=state_keys,
+            label="checkpoint detached example snapshot",
+        )
+        names = _json_tuple(
+            state["names"],
+            label="checkpoint detached example names",
+        )
+        raw_tensors = state["tensors"]
+        if type(raw_tensors) is not list or len(raw_tensors) != len(names):
+            raise ValueError("checkpoint detached example tensors are malformed")
+        tensors: list[Tensor] = []
+        for local_name, raw_tensor in zip(
+            names,
+            raw_tensors,
+            strict=True,
+        ):
+            record, cursor = _decode_tensor_record(
+                raw_tensor,
+                payload=payload,
+                offset=cursor,
+            )
+            if (
+                record.role != "recognition_snapshot"
+                or record.state_name is not None
+                or record.name != f"snapshot.example.{example_ordinal}.{local_name}"
+            ):
+                raise ValueError("checkpoint detached tensor ownership is malformed")
+            tensors.append(record.decode_cpu())
+        states.append(
+            H6DetachedRecognitionSnapshotV3(
+                attempt_spec_sha256=state["attempt_spec_sha256"],  # type: ignore[arg-type]
+                endpoint_config_sha256=state["endpoint_config_sha256"],  # type: ignore[arg-type]
+                post_recognition_cursor_sha256=state["post_recognition_cursor_sha256"],  # type: ignore[arg-type]
+                pass_index=state["pass_index"],  # type: ignore[arg-type]
+                batch_index=state["batch_index"],  # type: ignore[arg-type]
+                recognition_update_count=state["recognition_update_count"],  # type: ignore[arg-type]
+                receiver_count=state["receiver_count"],  # type: ignore[arg-type]
+                state_categorical_enabled=state["state_categorical_enabled"],  # type: ignore[arg-type]
+                model_categorical_enabled=state["model_categorical_enabled"],  # type: ignore[arg-type]
+                state_categorical_supports=_json_tuple(
+                    state["state_categorical_supports"],
+                    label="checkpoint state categorical supports",
+                ),  # type: ignore[arg-type]
+                model_categorical_supports=_json_tuple(
+                    state["model_categorical_supports"],
+                    label="checkpoint model categorical supports",
+                ),  # type: ignore[arg-type]
+                receiver_components=_json_tuple(
+                    state["receiver_components"],
+                    label="checkpoint receiver components",
+                ),  # type: ignore[arg-type]
+                names=names,  # type: ignore[arg-type]
+                context_sha256=state["context_sha256"],  # type: ignore[arg-type]
+                recognition_state_sha256=state["recognition_state_sha256"],  # type: ignore[arg-type]
+                source_model_sha256=state["source_model_sha256"],  # type: ignore[arg-type]
+                law_sha256=state["law_sha256"],  # type: ignore[arg-type]
+                live_state_sha256=state["live_state_sha256"],  # type: ignore[arg-type]
+                snapshot_sha256=state["snapshot_sha256"],  # type: ignore[arg-type]
+                _tensors=tuple(tensors),
+            )
+        )
+    snapshot = H6DetachedBatchRecognitionSnapshotV3(
+        authority_sha256=item["authority_sha256"],  # type: ignore[arg-type]
+        attempt_spec_sha256=item["attempt_spec_sha256"],  # type: ignore[arg-type]
+        endpoint_config_sha256=item["endpoint_config_sha256"],  # type: ignore[arg-type]
+        post_recognition_cursor_sha256=item["post_recognition_cursor_sha256"],  # type: ignore[arg-type]
+        pass_index=item["pass_index"],  # type: ignore[arg-type]
+        batch_index=item["batch_index"],  # type: ignore[arg-type]
+        recognition_update_count=item["recognition_update_count"],  # type: ignore[arg-type]
+        receiver_count=item["receiver_count"],  # type: ignore[arg-type]
+        active_target_counts=_json_tuple(
+            item["active_target_counts"],
+            label="checkpoint active target counts",
+        ),  # type: ignore[arg-type]
+        active_receiver_masks=_json_tuple(
+            item["active_receiver_masks"],
+            label="checkpoint active receiver masks",
+        ),  # type: ignore[arg-type]
+        live_batch_state_sha256=item["live_batch_state_sha256"],  # type: ignore[arg-type]
+        states=tuple(states),
+        names=_json_tuple(
+            item["names"],
+            label="checkpoint detached batch names",
+        ),  # type: ignore[arg-type]
+        snapshot_sha256=item["snapshot_sha256"],  # type: ignore[arg-type]
+    )
+    return snapshot, cursor
+
+
 def _decode_optimizer_record(
     value: object,
     *,
@@ -897,14 +1219,36 @@ def _decode_optimizer_record(
             if type(raw_hyperparameter) is not list or len(raw_hyperparameter) != 2:
                 raise ValueError("checkpoint optimizer hyperparameter is malformed")
             name, raw_value = raw_hyperparameter
-            frozen = (
-                _json_tuple(
+            if name == "betas":
+                raw_betas = _json_tuple(
                     raw_value,
-                    label="checkpoint optimizer hyperparameter value",
+                    label="checkpoint optimizer betas",
                 )
-                if type(raw_value) is list
-                else raw_value
-            )
+                if len(raw_betas) != 2:
+                    raise ValueError("checkpoint optimizer betas are malformed")
+                frozen: object = tuple(
+                    _thaw_canonical_float(
+                        value,
+                        name="checkpoint optimizer beta",
+                    )
+                    for value in raw_betas
+                )
+            elif name in {
+                "eps",
+                "lr",
+                "weight_decay",
+                "initial_lr",
+            }:
+                frozen = (
+                    raw_value
+                    if type(raw_value) is int and not isinstance(raw_value, bool)
+                    else _thaw_canonical_float(
+                        raw_value,
+                        name=f"checkpoint optimizer {name}",
+                    )
+                )
+            else:
+                frozen = raw_value
             hyperparameters.append((name, frozen))
         groups.append(
             H6AdamWGroupV3(
@@ -944,7 +1288,15 @@ def _decode_optimizer_record(
             if type(raw_scalar) is not list or len(raw_scalar) != 2:
                 raise ValueError("checkpoint optimizer scalar state is malformed")
             scalar_name, scalar_value = raw_scalar
-            scalars.append((scalar_name, scalar_value))
+            thawed_scalar = (
+                scalar_value
+                if type(scalar_value) is int and not isinstance(scalar_value, bool)
+                else _thaw_canonical_float(
+                    scalar_value,
+                    name=f"checkpoint optimizer scalar {scalar_name}",
+                )
+            )
+            scalars.append((scalar_name, thawed_scalar))
         states.append(
             H6AdamWParameterStateV3(
                 parameter_name=state["parameter_name"],  # type: ignore[arg-type]
@@ -1001,6 +1353,7 @@ def decode_h6_checkpoint_v3(raw: bytes) -> H6CheckpointV3:
                 "deterministic_policy_sha256",
                 "module_tensors",
                 "optimizers",
+                "detached_batch_snapshot",
                 "checkpoint_sha256",
             }
         ),
@@ -1037,6 +1390,11 @@ def decode_h6_checkpoint_v3(raw: bytes) -> H6CheckpointV3:
             offset=offset,
         )
         optimizers.append(optimizer)
+    detached_batch_snapshot, offset = _decode_detached_batch_snapshot(
+        header["detached_batch_snapshot"],
+        payload=tensor_payload,
+        offset=offset,
+    )
     if offset != len(tensor_payload):
         raise ValueError("checkpoint tensor payload has trailing bytes")
 
@@ -1049,6 +1407,7 @@ def decode_h6_checkpoint_v3(raw: bytes) -> H6CheckpointV3:
         deterministic_policy_sha256=header["deterministic_policy_sha256"],  # type: ignore[arg-type]
         module_tensors=tuple(module_tensors),
         optimizers=tuple(optimizers),
+        detached_batch_snapshot=detached_batch_snapshot,
         checkpoint_sha256=header["checkpoint_sha256"],  # type: ignore[arg-type]
     )
     if (
@@ -1056,6 +1415,107 @@ def decode_h6_checkpoint_v3(raw: bytes) -> H6CheckpointV3:
         or checkpoint.to_bytes() != raw
     ):
         raise ValueError("checkpoint canonical encoding changed during decode")
+    return checkpoint
+
+
+def _is_redirect(path: Path, status: os.stat_result) -> bool:
+    if stat.S_ISLNK(status.st_mode):
+        return True
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if getattr(status, "st_file_attributes", 0) & reparse_flag:
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
+def read_h6_checkpoint_file_v3(
+    path: Path,
+    *,
+    maximum_bytes: int,
+    expected_checkpoint_sha256: str | None = None,
+) -> H6CheckpointV3:
+    """Read one bounded, nonredirected canonical v3 checkpoint file."""
+
+    if not isinstance(path, Path) or not path.is_absolute():
+        raise ValueError("checkpoint path must be an absolute pathlib Path")
+    if type(maximum_bytes) is not int or maximum_bytes <= 0:
+        raise ValueError("maximum_bytes must be a positive exact integer")
+    if expected_checkpoint_sha256 is not None:
+        _require_sha256(
+            expected_checkpoint_sha256,
+            "expected_checkpoint_sha256",
+        )
+    try:
+        parent_before = path.parent.lstat()
+        path_before = path.lstat()
+    except OSError as exc:
+        raise ValueError("checkpoint file is unavailable") from exc
+    if (
+        not stat.S_ISDIR(parent_before.st_mode)
+        or _is_redirect(path.parent, parent_before)
+        or not stat.S_ISREG(path_before.st_mode)
+        or _is_redirect(path, path_before)
+        or path_before.st_size > maximum_bytes
+    ):
+        raise ValueError("checkpoint file is not a bounded regular file")
+
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags | nofollow)
+    except OSError as exc:
+        raise ValueError("checkpoint file cannot be opened safely") from exc
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino)
+            != (path_before.st_dev, path_before.st_ino)
+            or opened.st_size > maximum_bytes
+        ):
+            raise ValueError("checkpoint file identity or bound changed")
+        chunks: list[bytes] = []
+        remaining = maximum_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) > maximum_bytes:
+            raise ValueError("checkpoint file exceeds the maximum bound")
+        opened_after = os.fstat(descriptor)
+        if (opened_after.st_dev, opened_after.st_ino, opened_after.st_size) != (
+            opened.st_dev,
+            opened.st_ino,
+            opened.st_size,
+        ) or opened_after.st_mtime_ns != opened.st_mtime_ns:
+            raise ValueError("checkpoint file changed while reading")
+    finally:
+        os.close(descriptor)
+    try:
+        parent_after = path.parent.lstat()
+        path_after = path.lstat()
+    except OSError as exc:
+        raise ValueError("checkpoint file changed after reading") from exc
+    if (
+        (parent_after.st_dev, parent_after.st_ino)
+        != (parent_before.st_dev, parent_before.st_ino)
+        or (path_after.st_dev, path_after.st_ino, path_after.st_size)
+        != (opened.st_dev, opened.st_ino, opened.st_size)
+        or path_after.st_mtime_ns != opened.st_mtime_ns
+        or _is_redirect(path.parent, parent_after)
+        or _is_redirect(path, path_after)
+    ):
+        raise ValueError("checkpoint path identity changed while reading")
+
+    checkpoint = decode_h6_checkpoint_v3(raw)
+    if (
+        expected_checkpoint_sha256 is not None
+        and checkpoint.checkpoint_sha256 != expected_checkpoint_sha256
+    ):
+        raise ValueError("checkpoint digest differs from expected authority")
     return checkpoint
 
 
@@ -1369,6 +1829,7 @@ def capture_h6_checkpoint_v3(
     runtime_identity: H6PredictionRuntimeIdentity,
     named_modules: object,
     named_optimizers: object,
+    detached_batch_snapshot: (H6DetachedBatchRecognitionSnapshotV3 | None) = None,
 ) -> H6CheckpointV3:
     """Capture canonical module and named AdamW state without object IDs."""
 
@@ -1399,6 +1860,7 @@ def capture_h6_checkpoint_v3(
         deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
         module_tensors=module_tensors,
         optimizers=optimizers,
+        detached_batch_snapshot=detached_batch_snapshot,
     )
     return H6CheckpointV3(
         checkpoint_schema="h6-checkpoint-v3",
@@ -1409,6 +1871,7 @@ def capture_h6_checkpoint_v3(
         deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
         module_tensors=module_tensors,
         optimizers=optimizers,
+        detached_batch_snapshot=detached_batch_snapshot,
         checkpoint_sha256=_owned_hash(
             "vfe4.h6.checkpoint.v3",
             payload,
@@ -1422,6 +1885,797 @@ def _module_signature(
     return tuple(
         (record.role, record.name, record.dtype, record.shape) for record in records
     )
+
+
+def _type_identity(value: type[object]) -> str:
+    module = getattr(value, "__module__", None)
+    qualname = getattr(value, "__qualname__", None)
+    if (
+        type(module) is not str
+        or not module
+        or type(qualname) is not str
+        or not qualname
+    ):
+        raise ValueError("module semantic type has no deterministic identity")
+    return f"{module}.{qualname}"
+
+
+def _code_constant_payload(value: object) -> object:
+    if type(value) is CodeType:
+        return {"code": _code_semantic_payload(value)}
+    return _semantic_value_payload(value, active=set())
+
+
+def _code_semantic_payload(code: CodeType) -> dict[str, object]:
+    return {
+        "name": code.co_name,
+        "qualname": code.co_qualname,
+        "argcount": code.co_argcount,
+        "posonlyargcount": code.co_posonlyargcount,
+        "kwonlyargcount": code.co_kwonlyargcount,
+        "nlocals": code.co_nlocals,
+        "stacksize": code.co_stacksize,
+        "flags": code.co_flags,
+        "bytecode": code.co_code.hex(),
+        "exception_table": code.co_exceptiontable.hex(),
+        "constants": tuple(_code_constant_payload(value) for value in code.co_consts),
+        "names": code.co_names,
+        "varnames": code.co_varnames,
+        "freevars": code.co_freevars,
+        "cellvars": code.co_cellvars,
+    }
+
+
+def _function_semantic_payload(function: FunctionType) -> dict[str, object]:
+    closure: tuple[tuple[str, dict[str, str]], ...] = ()
+    if function.__closure__:
+        closure_items: list[tuple[str, dict[str, str]]] = []
+        for name, cell in zip(
+            function.__code__.co_freevars,
+            function.__closure__,
+            strict=True,
+        ):
+            value = cell.cell_contents
+            if name != "__class__" or not isinstance(value, type):
+                raise ValueError(
+                    "module behavior cannot close over mutable runtime state"
+                )
+            closure_items.append(
+                (
+                    name,
+                    {"class": _type_identity(value)},
+                )
+            )
+        closure = tuple(closure_items)
+    return {
+        "module": function.__module__,
+        "qualname": function.__qualname__,
+        "code": _code_semantic_payload(function.__code__),
+        "closure": closure,
+        "defaults": _semantic_value_payload(
+            function.__defaults__,
+            active=set(),
+        ),
+        "kwdefaults": _semantic_value_payload(
+            function.__kwdefaults__,
+            active=set(),
+        ),
+    }
+
+
+def _semantic_value_payload(
+    value: object,
+    *,
+    active: set[int],
+) -> object:
+    if value is None or type(value) in (bool, int, str):
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("module semantic float attributes must be finite")
+        return {"float": value.hex()}
+    if type(value) is complex:
+        if not math.isfinite(value.real) or not math.isfinite(value.imag):
+            raise ValueError("module semantic complex attributes must be finite")
+        return {
+            "complex": (value.real.hex(), value.imag.hex()),
+        }
+    if type(value) is bytes:
+        return {"bytes": value.hex()}
+    if value is Ellipsis:
+        return {"sentinel": "ellipsis"}
+    if value is NotImplemented:
+        return {"sentinel": "not-implemented"}
+    if isinstance(value, Enum):
+        return {
+            "enum_type": _type_identity(type(value)),
+            "name": value.name,
+            "value": _semantic_value_payload(value.value, active=active),
+        }
+    if isinstance(value, torch.dtype):
+        return {"torch_dtype": str(value)}
+    if isinstance(value, torch.device):
+        return {
+            "torch_device": {
+                "type": value.type,
+                "index": value.index,
+            }
+        }
+    if isinstance(value, Path):
+        return {
+            "path_type": _type_identity(type(value)),
+            "value": str(value),
+        }
+    if isinstance(value, (Tensor, nn.Module)):
+        raise ValueError(
+            "module semantic attributes cannot hide unregistered tensors or modules"
+        )
+    identity = id(value)
+    if identity in active:
+        raise ValueError("module semantic attributes cannot contain cycles")
+    if isinstance(value, tuple):
+        active.add(identity)
+        try:
+            return {
+                "tuple_type": _type_identity(type(value)),
+                "items": tuple(
+                    _semantic_value_payload(item, active=active) for item in value
+                ),
+            }
+        finally:
+            active.remove(identity)
+    if type(value) is list:
+        active.add(identity)
+        try:
+            return {
+                "list": tuple(
+                    _semantic_value_payload(item, active=active) for item in value
+                )
+            }
+        finally:
+            active.remove(identity)
+    if isinstance(value, Mapping):
+        active.add(identity)
+        try:
+            items = tuple(
+                (
+                    _semantic_value_payload(key, active=active),
+                    _semantic_value_payload(owned, active=active),
+                )
+                for key, owned in value.items()
+            )
+            return {
+                "mapping_type": _type_identity(type(value)),
+                "items": tuple(
+                    sorted(
+                        items,
+                        key=lambda item: canonical_json_bytes(item[0]),
+                    )
+                ),
+            }
+        finally:
+            active.remove(identity)
+    if isinstance(value, (set, frozenset)):
+        active.add(identity)
+        try:
+            items = tuple(
+                _semantic_value_payload(item, active=active) for item in value
+            )
+            return {
+                "set_type": _type_identity(type(value)),
+                "items": tuple(sorted(items, key=canonical_json_bytes)),
+            }
+        finally:
+            active.remove(identity)
+    if is_dataclass(value) and not isinstance(value, type):
+        active.add(identity)
+        try:
+            return {
+                "dataclass_type": _type_identity(type(value)),
+                "fields": tuple(
+                    (
+                        item.name,
+                        _semantic_value_payload(
+                            object.__getattribute__(value, item.name),
+                            active=active,
+                        ),
+                    )
+                    for item in fields(value)
+                ),
+            }
+        finally:
+            active.remove(identity)
+    if type(value) is FunctionType:
+        return {
+            "function": _function_semantic_payload(value),
+        }
+    raise ValueError(
+        f"unsupported module semantic attribute type {_type_identity(type(value))}"
+    )
+
+
+def _forward_semantic_payload(module_type: type[nn.Module]) -> dict[str, object]:
+    owner: type[object] | None = None
+    descriptor: object = None
+    for candidate in module_type.__mro__:
+        namespace = vars(candidate)
+        if "forward" in namespace:
+            owner = candidate
+            descriptor = namespace["forward"]
+            break
+    if owner is None:
+        raise ValueError("module type has no resolved forward implementation")
+    descriptor_kind = "method"
+    if type(descriptor) is staticmethod:
+        descriptor_kind = "staticmethod"
+        descriptor = descriptor.__func__
+    elif type(descriptor) is classmethod:
+        descriptor_kind = "classmethod"
+        descriptor = descriptor.__func__
+    if type(descriptor) is FunctionType:
+        semantic: object = _function_semantic_payload(descriptor)
+    else:
+        module_name = getattr(descriptor, "__module__", None)
+        qualname = getattr(descriptor, "__qualname__", None)
+        if (
+            type(module_name) is not str
+            or not module_name
+            or type(qualname) is not str
+            or not qualname
+        ):
+            raise ValueError("module forward descriptor has no deterministic identity")
+        semantic = {
+            "descriptor_type": _type_identity(type(descriptor)),
+            "module": module_name,
+            "qualname": qualname,
+        }
+    return {
+        "owner": _type_identity(owner),
+        "kind": descriptor_kind,
+        "semantic": semantic,
+    }
+
+
+def _python_descriptor_functions(
+    descriptor: object,
+) -> tuple[tuple[str, FunctionType], ...]:
+    if type(descriptor) is FunctionType:
+        return (("method", descriptor),)
+    if isinstance(descriptor, staticmethod):
+        function = descriptor.__func__
+        return (
+            (("staticmethod", function),)
+            if type(function) is FunctionType
+            else ()
+        )
+    if isinstance(descriptor, classmethod):
+        function = descriptor.__func__
+        return (
+            (("classmethod", function),)
+            if type(function) is FunctionType
+            else ()
+        )
+    if isinstance(descriptor, property):
+        accessors = (
+            ("property_get", descriptor.fget),
+            ("property_set", descriptor.fset),
+            ("property_delete", descriptor.fdel),
+        )
+        return tuple(
+            (kind, function)
+            for kind, function in accessors
+            if type(function) is FunctionType
+        )
+    return ()
+
+
+def _bounded_application_source_sha256(path: Path) -> str:
+    try:
+        before = path.lstat()
+    except OSError as exc:
+        raise ValueError("application source file is unavailable") from exc
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or _is_redirect(path, before)
+        or before.st_size > _MAX_APPLICATION_SOURCE_BYTES
+    ):
+        raise ValueError("application source is not a bounded regular file")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags | nofollow)
+    except OSError as exc:
+        raise ValueError("application source cannot be opened safely") from exc
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino)
+            or opened.st_size > _MAX_APPLICATION_SOURCE_BYTES
+        ):
+            raise ValueError("application source identity or bound changed")
+        digest = hashlib.sha256()
+        remaining = _MAX_APPLICATION_SOURCE_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            digest.update(chunk)
+            remaining -= len(chunk)
+        if remaining == 0:
+            raise ValueError("application source exceeds its byte bound")
+        after = os.fstat(descriptor)
+        if (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+        ) != (
+            opened.st_dev,
+            opened.st_ino,
+            opened.st_size,
+            opened.st_mtime_ns,
+        ):
+            raise ValueError("application source changed while hashing")
+        return digest.hexdigest()
+    finally:
+        os.close(descriptor)
+
+
+def _application_source_payload(
+    value: FunctionType | type[object] | ModuleType,
+    *,
+    cache: dict[str, dict[str, str]],
+) -> dict[str, str] | None:
+    if isinstance(value, ModuleType):
+        module_name = value.__name__
+        module = value
+    else:
+        module_name = getattr(value, "__module__", None)
+        if type(module_name) is not str or not module_name:
+            return None
+        module = sys.modules.get(module_name)
+    raw_path = getattr(module, "__file__", None)
+    if type(raw_path) is not str or not raw_path:
+        return None
+    try:
+        source_path = Path(raw_path).resolve(strict=True)
+        relative = source_path.relative_to(_PROJECT_ROOT)
+    except (OSError, ValueError):
+        if not module_name.startswith("vfe4."):
+            return None
+        raise ValueError("VFE4 application source escaped its project root")
+    is_test_source = bool(relative.parts and relative.parts[0] == "tests")
+    if not module_name.startswith("vfe4.") and not is_test_source:
+        return None
+    cache_key = str(source_path)
+    payload = cache.get(cache_key)
+    if payload is None:
+        payload = {
+            "module": module_name,
+            "path": relative.as_posix(),
+            "sha256": _bounded_application_source_sha256(source_path),
+        }
+        cache[cache_key] = payload
+    return payload
+
+
+def _referenced_application_sources(
+    function: FunctionType,
+    *,
+    cache: dict[str, dict[str, str]],
+) -> tuple[dict[str, str], ...]:
+    pending: list[FunctionType | type[object] | ModuleType] = [function]
+    seen: set[int] = set()
+    sources: dict[tuple[str, str], dict[str, str]] = {}
+    while pending:
+        value = pending.pop()
+        identity = id(value)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if len(seen) > _MAX_REFERENCED_APPLICATION_OBJECTS:
+            raise ValueError("application behavior dependency graph is unbounded")
+        source = _application_source_payload(value, cache=cache)
+        if source is not None:
+            sources[(source["module"], source["path"])] = source
+        if type(value) is FunctionType:
+            for name in value.__code__.co_names:
+                referenced = value.__globals__.get(name)
+                if (
+                    type(referenced) is FunctionType
+                    or isinstance(referenced, (type, ModuleType))
+                ):
+                    if _application_source_payload(referenced, cache=cache) is not None:
+                        pending.append(referenced)
+        elif isinstance(value, type):
+            for candidate in value.__mro__:
+                if candidate is nn.Module or candidate is object:
+                    break
+                for descriptor in vars(candidate).values():
+                    pending.extend(
+                        function
+                        for _kind, function in _python_descriptor_functions(
+                            descriptor
+                        )
+                    )
+    return tuple(sources[key] for key in sorted(sources))
+
+
+def _application_mro_behavior_payload(
+    module_type: type[nn.Module],
+    *,
+    source_cache: dict[str, dict[str, str]],
+) -> tuple[dict[str, object], ...]:
+    owners: list[dict[str, object]] = []
+    for candidate in module_type.__mro__:
+        if candidate is nn.Module or candidate is object:
+            break
+        descriptors: list[dict[str, object]] = []
+        for name, descriptor in sorted(vars(candidate).items()):
+            functions = _python_descriptor_functions(descriptor)
+            if not functions:
+                continue
+            descriptors.append(
+                {
+                    "name": name,
+                    "accessors": tuple(
+                        {
+                            "kind": kind,
+                            "function": _function_semantic_payload(function),
+                            "referenced_application_sources": (
+                                _referenced_application_sources(
+                                    function,
+                                    cache=source_cache,
+                                )
+                            ),
+                        }
+                        for kind, function in functions
+                    ),
+                }
+            )
+        source = _application_source_payload(candidate, cache=source_cache)
+        owners.append(
+            {
+                "type": _type_identity(candidate),
+                "torch_runtime": (
+                    str(torch.__version__)
+                    if candidate.__module__.startswith("torch.")
+                    else None
+                ),
+                "source": source,
+                "descriptors": tuple(descriptors),
+            }
+        )
+    return tuple(owners)
+
+
+def _behavior_method_names(module_type: type[nn.Module]) -> frozenset[str]:
+    names: set[str] = set()
+    for candidate in module_type.__mro__:
+        for name, descriptor in vars(candidate).items():
+            if _python_descriptor_functions(descriptor):
+                names.add(name)
+    return frozenset(names)
+
+
+def _local_tensor_contract(
+    value: Tensor | None,
+    *,
+    parameter: bool,
+    require_cpu: bool,
+) -> object:
+    if value is None:
+        return None
+    if parameter:
+        if type(value) is not nn.Parameter:
+            raise ValueError(
+                "module semantic parameter inventory requires exact Parameters"
+            )
+    elif type(value) is not Tensor:
+        raise ValueError("module semantic buffer inventory requires exact Tensors")
+    if require_cpu and value.device.type != "cpu":
+        raise ValueError("checkpoint factory authority requires CPU modules")
+    return {
+        "dtype": str(value.dtype),
+        "shape": tuple(value.shape),
+        "layout": str(value.layout),
+        "requires_grad": bool(value.requires_grad),
+    }
+
+
+def _module_tree_semantic_payload(
+    named_modules: tuple[tuple[str, nn.Module], ...],
+    *,
+    require_cpu: bool,
+) -> tuple[dict[str, object], ...]:
+    entries: list[dict[str, object]] = []
+    seen: dict[int, str] = {}
+    source_cache: dict[str, dict[str, str]] = {}
+
+    def visit(path: str, module: nn.Module) -> None:
+        identity = id(module)
+        previous = seen.get(identity)
+        if previous is not None:
+            raise ValueError(
+                "module semantic tree contains shared module alias "
+                f"{previous!r}/{path!r}"
+            )
+        seen[identity] = path
+        instance = object.__getattribute__(module, "__dict__")
+        behavior_names = _behavior_method_names(type(module))
+        for name, value in instance.items():
+            if name in behavior_names and callable(value):
+                raise ValueError(
+                    f"module {path!r} has an unauthorized instance-level "
+                    f"callable override for {name!r}"
+                )
+        for hook_name in _MODULE_HOOK_MAP_NAMES:
+            hooks = instance.get(hook_name)
+            if hooks is not None and len(hooks):
+                raise ValueError(f"module {path!r} has unauthorized runtime hooks")
+        parameters = object.__getattribute__(module, "_parameters")
+        buffers = object.__getattribute__(module, "_buffers")
+        children = object.__getattribute__(module, "_modules")
+        nonpersistent = object.__getattribute__(
+            module,
+            "_non_persistent_buffers_set",
+        )
+        if (
+            type(parameters) is not dict
+            or type(buffers) is not dict
+            or type(children) is not dict
+            or type(nonpersistent) is not set
+        ):
+            raise ValueError("module semantic registries are not canonical")
+        parameter_contract = tuple(
+            (
+                name,
+                _local_tensor_contract(
+                    value,
+                    parameter=True,
+                    require_cpu=require_cpu,
+                ),
+            )
+            for name, value in parameters.items()
+        )
+        buffer_contract = tuple(
+            (
+                name,
+                _local_tensor_contract(
+                    value,
+                    parameter=False,
+                    require_cpu=require_cpu,
+                ),
+                name not in nonpersistent,
+            )
+            for name, value in buffers.items()
+        )
+        child_contract: list[tuple[str, str | None]] = []
+        for name, child in children.items():
+            _require_root_name(name, f"module {path!r} child name")
+            if child is not None and not isinstance(child, nn.Module):
+                raise ValueError("module semantic child is not a torch module")
+            child_contract.append(
+                (
+                    name,
+                    None if child is None else _type_identity(type(child)),
+                )
+            )
+        attributes = tuple(
+            (
+                name,
+                _semantic_value_payload(value, active=set()),
+            )
+            for name, value in sorted(instance.items())
+            if name not in _MODULE_INTERNAL_ATTRIBUTE_NAMES
+        )
+        module_type = type(module)
+        entries.append(
+            {
+                "path": path,
+                "type": _type_identity(module_type),
+                "mro": tuple(
+                    _type_identity(candidate) for candidate in module_type.__mro__
+                ),
+                "forward": _forward_semantic_payload(module_type),
+                "application_mro_behavior": _application_mro_behavior_payload(
+                    module_type,
+                    source_cache=source_cache,
+                ),
+                "training": bool(instance.get("training", False)),
+                "parameters": parameter_contract,
+                "buffers": buffer_contract,
+                "children": tuple(child_contract),
+                "attributes": attributes,
+            }
+        )
+        for name, child in children.items():
+            if child is not None:
+                visit(f"{path}.{name}", child)
+
+    for root_name, module in named_modules:
+        visit(root_name, module)
+    return tuple(entries)
+
+
+def _module_tree_semantic_sha256(
+    named_modules: tuple[tuple[str, nn.Module], ...],
+    *,
+    require_cpu: bool,
+) -> str:
+    return _owned_hash(
+        "vfe4.h6.checkpoint-factory-module-tree.v3",
+        _module_tree_semantic_payload(
+            named_modules,
+            require_cpu=require_cpu,
+        ),
+    )
+
+
+def _expected_factory_sha256s(
+    attempt_spec: H6AttemptSpecV3,
+) -> tuple[tuple[str, str], ...]:
+    bindings = [("model", attempt_spec.model_factory_sha256)]
+    if attempt_spec.recognition_factory_sha256 is not None:
+        bindings.append(
+            (
+                "recognition",
+                attempt_spec.recognition_factory_sha256,
+            )
+        )
+    return tuple(sorted(bindings))
+
+
+@dataclass(frozen=True, slots=True)
+class _H6CheckpointFactoryAuthorityV3:
+    """One binder-issued construction capability with pinned module semantics."""
+
+    authority_schema: Literal["h6-checkpoint-factory-authority-v3"]
+    attempt_spec_sha256: str
+    factory_sha256s: tuple[tuple[str, str], ...]
+    module_tree_semantic_sha256: str
+    authority_sha256: str
+    _module_factories: tuple[tuple[str, object], ...] = field(
+        repr=False,
+        compare=False,
+    )
+    _issuance_nonce: object = field(repr=False, compare=False)
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "authority_schema": self.authority_schema,
+            "attempt_spec_sha256": self.attempt_spec_sha256,
+            "factory_sha256s": self.factory_sha256s,
+            "module_tree_semantic_sha256": (self.module_tree_semantic_sha256),
+        }
+
+    def __post_init__(self) -> None:
+        if self.authority_schema != "h6-checkpoint-factory-authority-v3":
+            raise ValueError("unsupported checkpoint factory authority schema")
+        _require_sha256(
+            self.attempt_spec_sha256,
+            "factory authority attempt_spec_sha256",
+        )
+        _require_sha256(
+            self.module_tree_semantic_sha256,
+            "module_tree_semantic_sha256",
+        )
+        if type(self.factory_sha256s) is not tuple:
+            raise ValueError("factory authority bindings must be a tuple")
+        names: list[str] = []
+        for item in self.factory_sha256s:
+            if type(item) is not tuple or len(item) != 2:
+                raise ValueError("factory authority bindings must be name/digest pairs")
+            name, digest = item
+            names.append(_require_root_name(name, "factory authority root"))
+            _require_sha256(digest, f"{name} factory authority SHA-256")
+        if tuple(names) != tuple(sorted(names)):
+            raise ValueError("factory authority bindings must be name-sorted")
+        _validate_unique_names(
+            tuple(names),
+            label="factory authority root inventory",
+        )
+        factory_items = _named_items(
+            self._module_factories,
+            label="factory authority constructors",
+        )
+        if tuple(name for name, _ in factory_items) != tuple(names):
+            raise ValueError("factory authority constructor inventory is stale")
+        if any(not callable(factory) for _, factory in factory_items):
+            raise ValueError("factory authority constructors must be callable")
+        _require_sha256(self.authority_sha256, "factory authority SHA-256")
+        if self.authority_sha256 != _owned_hash(
+            "vfe4.h6.checkpoint-factory-authority.v3",
+            self.canonical_payload(),
+        ):
+            raise ValueError("checkpoint factory authority identity is stale")
+
+
+def _issue_h6_checkpoint_factory_authority_v3(
+    *,
+    attempt_spec: H6AttemptSpecV3,
+    expected_named_modules: object,
+    module_factories: object,
+) -> _H6CheckpointFactoryAuthorityV3:
+    """Bind constructors to an attempt and an independently expected module tree."""
+
+    if type(attempt_spec) is not H6AttemptSpecV3:
+        raise ValueError("factory authority requires an exact attempt spec")
+    attempt_spec.__post_init__()
+    expected_items = _named_items(
+        expected_named_modules,
+        label="expected_named_modules",
+    )
+    factory_items = _named_items(
+        module_factories,
+        label="module_factories",
+    )
+    factory_sha256s = _expected_factory_sha256s(attempt_spec)
+    expected_names = tuple(name for name, _ in factory_sha256s)
+    if (
+        tuple(sorted(name for name, _ in expected_items)) != expected_names
+        or tuple(sorted(name for name, _ in factory_items)) != expected_names
+    ):
+        raise ValueError(
+            "checkpoint factory authority root inventory differs from attempt"
+        )
+    if any(not isinstance(module, nn.Module) for _, module in expected_items):
+        raise ValueError("expected module semantics require torch modules")
+    if any(not callable(factory) for _, factory in factory_items):
+        raise ValueError("checkpoint module factories must be callable")
+    sorted_expected = tuple(
+        (name, module)
+        for name, module in sorted(expected_items)
+        if isinstance(module, nn.Module)
+    )
+    module_tree_semantic_sha256 = _module_tree_semantic_sha256(
+        sorted_expected,
+        require_cpu=True,
+    )
+    _module_records(sorted_expected, aliases={})
+    sorted_factories = tuple(sorted(factory_items))
+    payload = {
+        "authority_schema": "h6-checkpoint-factory-authority-v3",
+        "attempt_spec_sha256": attempt_spec.attempt_spec_sha256,
+        "factory_sha256s": factory_sha256s,
+        "module_tree_semantic_sha256": module_tree_semantic_sha256,
+    }
+    issuance_nonce = object()
+    authority = _H6CheckpointFactoryAuthorityV3(
+        authority_schema="h6-checkpoint-factory-authority-v3",
+        attempt_spec_sha256=attempt_spec.attempt_spec_sha256,
+        factory_sha256s=factory_sha256s,
+        module_tree_semantic_sha256=module_tree_semantic_sha256,
+        authority_sha256=_owned_hash(
+            "vfe4.h6.checkpoint-factory-authority.v3",
+            payload,
+        ),
+        _module_factories=sorted_factories,
+        _issuance_nonce=issuance_nonce,
+    )
+    with _FACTORY_AUTHORITY_REGISTRY_LOCK:
+        _FACTORY_AUTHORITY_REGISTRY[issuance_nonce] = (
+            id(authority),
+            authority,
+        )
+    return authority
+
+
+def _consume_h6_checkpoint_factory_authority_v3(
+    authority: _H6CheckpointFactoryAuthorityV3,
+) -> None:
+    with _FACTORY_AUTHORITY_REGISTRY_LOCK:
+        issued = _FACTORY_AUTHORITY_REGISTRY.get(authority._issuance_nonce)
+        if (
+            issued is None
+            or issued[0] != id(authority)
+            or issued[1] is not authority
+        ):
+            raise ValueError(
+                "checkpoint factory authority is not an unused sealed issuance"
+            )
+        del _FACTORY_AUTHORITY_REGISTRY[authority._issuance_nonce]
 
 
 def _optimizer_groups_signature(
@@ -1562,6 +2816,30 @@ def _move_active_state(
                     raise RuntimeError("optimizer state device move exposed fallback")
 
 
+def _move_detached_batch_snapshot(
+    snapshot: H6DetachedBatchRecognitionSnapshotV3 | None,
+    *,
+    device: torch.device,
+) -> H6DetachedBatchRecognitionSnapshotV3 | None:
+    if snapshot is None:
+        return None
+    moved_states = tuple(
+        replace(
+            state,
+            _tensors=tuple(
+                tensor.to(device=device).contiguous() for tensor in state._tensors
+            ),
+        )
+        for state in snapshot.states
+    )
+    moved = replace(snapshot, states=moved_states)
+    if any(
+        tensor.device != device for state in moved.states for tensor in state._tensors
+    ):
+        raise RuntimeError("detached recognition snapshot device move exposed fallback")
+    return moved
+
+
 @dataclass(frozen=True, slots=True)
 class H6HydratedCheckpointV3:
     """Fresh modules/optimizers positioned at the checkpoint's next phase."""
@@ -1571,6 +2849,7 @@ class H6HydratedCheckpointV3:
     cursor: H6AttemptCursorV3
     checkpoint_sha256: str
     authorized_device: str
+    detached_batch_snapshot: H6DetachedBatchRecognitionSnapshotV3 | None
 
     def __post_init__(self) -> None:
         _require_sha256(self.checkpoint_sha256, "checkpoint_sha256")
@@ -1580,6 +2859,18 @@ class H6HydratedCheckpointV3:
         _named_items(self.named_modules, label="hydrated named_modules")
         _named_items(self.named_optimizers, label="hydrated named_optimizers")
         _require_name(self.authorized_device, "authorized_device")
+        if self.detached_batch_snapshot is not None:
+            if (
+                type(self.detached_batch_snapshot)
+                is not H6DetachedBatchRecognitionSnapshotV3
+            ):
+                raise ValueError("hydrated detached snapshot has the wrong type")
+            self.detached_batch_snapshot.__post_init__()
+            if (
+                self.detached_batch_snapshot.post_recognition_cursor_sha256
+                != self.cursor.cursor_sha256
+            ):
+                raise ValueError("hydrated detached snapshot left its exact cursor")
 
 
 def hydrate_h6_checkpoint_v3(
@@ -1588,7 +2879,7 @@ def hydrate_h6_checkpoint_v3(
     expected_attempt_spec: H6AttemptSpecV3,
     expected_runtime_identity: H6PredictionRuntimeIdentity,
     live_deterministic_policy_sha256: str,
-    module_factories: object,
+    factory_authority: _H6CheckpointFactoryAuthorityV3,
     authorized_device: str,
     allow_synthetic_cpu: bool = False,
 ) -> H6HydratedCheckpointV3:
@@ -1624,20 +2915,40 @@ def hydrate_h6_checkpoint_v3(
         raise RuntimeError("checkpoint authorized device drift")
     device = torch.device(authorized_device)
 
-    # 1. Construct fresh CPU float64 modules from the bound attempt.
-    factory_items = _named_items(module_factories, label="module_factories")
+    # 1. Validate the independently issued semantic authority, then construct
+    # each fresh CPU module exactly once.  Constructor outputs remain
+    # untrusted until their exact semantic/type tree matches the authority.
+    if type(factory_authority) is not _H6CheckpointFactoryAuthorityV3:
+        raise ValueError(
+            "factory_authority must be an exact binder-issued v3 authority"
+        )
+    factory_authority.__post_init__()
+    if (
+        factory_authority.attempt_spec_sha256
+        != expected_attempt_spec.attempt_spec_sha256
+        or factory_authority.factory_sha256s
+        != _expected_factory_sha256s(expected_attempt_spec)
+    ):
+        raise RuntimeError("checkpoint factory authority drift")
+    factory_items = factory_authority._module_factories
     expected_roots = _module_roots(checkpoint.module_tensors)
-    if tuple(sorted(name for name, _ in factory_items)) != expected_roots:
-        raise ValueError("module factory inventory does not match checkpoint")
+    if tuple(name for name, _ in factory_items) != expected_roots:
+        raise ValueError("factory authority inventory does not match checkpoint")
+    _consume_h6_checkpoint_factory_authority_v3(factory_authority)
     constructed: list[tuple[str, nn.Module]] = []
-    for name, factory in sorted(factory_items, key=lambda item: item[0]):
-        if not callable(factory):
-            raise ValueError("module factory must be callable")
+    for name, factory in factory_items:
         module = factory(expected_attempt_spec)
         if not isinstance(module, nn.Module):
-            raise ValueError("module factory must return a torch module")
+            raise ValueError("authorized module factory must return a torch module")
         constructed.append((name, module))
     modules = tuple(constructed)
+    if (
+        _module_tree_semantic_sha256(modules, require_cpu=True)
+        != factory_authority.module_tree_semantic_sha256
+    ):
+        raise ValueError(
+            "constructed module semantic/type signature differs from authority"
+        )
     aliases: dict[tuple[str, int | None, int], str] = {}
     fresh_records, parameters, _ = _module_records(
         modules,
@@ -1645,13 +2956,6 @@ def hydrate_h6_checkpoint_v3(
     )
     if _module_signature(fresh_records) != _module_signature(checkpoint.module_tensors):
         raise ValueError("fresh CPU module inventory does not match checkpoint")
-    if any(
-        tensor.device.type != "cpu"
-        for _, module in modules
-        for tensor in module.state_dict().values()
-    ):
-        raise ValueError("fresh modules must be constructed on CPU")
-
     # 2-3. Inventory is exact; construct AdamW groups from stable names.
     optimizers = tuple(
         (
@@ -1702,6 +3006,10 @@ def hydrate_h6_checkpoint_v3(
         optimizers=optimizers,
         device=device,
     )
+    detached_batch_snapshot = _move_detached_batch_snapshot(
+        checkpoint.detached_batch_snapshot,
+        device=device,
+    )
 
     # 7. The caller resumes from this exact next phase without replay.
     return H6HydratedCheckpointV3(
@@ -1710,6 +3018,7 @@ def hydrate_h6_checkpoint_v3(
         cursor=checkpoint.cursor,
         checkpoint_sha256=checkpoint.checkpoint_sha256,
         authorized_device=str(device),
+        detached_batch_snapshot=detached_batch_snapshot,
     )
 
 
@@ -1723,4 +3032,5 @@ __all__ = [
     "capture_h6_checkpoint_v3",
     "decode_h6_checkpoint_v3",
     "hydrate_h6_checkpoint_v3",
+    "read_h6_checkpoint_file_v3",
 ]

@@ -946,6 +946,7 @@ class H6PredictionV3ResolvedConfig:
     smc_bias_semantics_sha256: str
     smc_validation_manifest_sha256: str
     prefix_certificate_set_sha256: str
+    a0_direct_exact_prefix_certificate_sha256: str
     h5_update_binding_sha256: str
     training_schedule: H6TrainingScheduleV3
     critical_values_sha256: str

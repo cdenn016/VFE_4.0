@@ -5,6 +5,7 @@ import hashlib
 import json
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 from types import MappingProxyType
 from typing import get_type_hints
 
@@ -52,6 +53,10 @@ from vfe4.types import (
 )
 from vfe4.types.h8 import (
     H8DecodedPassEvidence,
+    H8H6PredictionV3Reference,
+    H8LegacyH6PrefixReference,
+    H8LegacyH6PrefixV4Reference,
+    H8LegacyH6PredictionReference,
     H8LocalSPDDiagnostics,
     H8ProductionProblemEvidence,
     H8TransitionNorms,
@@ -301,14 +306,14 @@ def _current_h8_refs() -> tuple[
     head = "1" * 40
     h7_compatibility_refs = {
         key: H7PredecessorReference.create(
-            artifact_path=f"{key}-artifact",
+            artifact_path=(Path.cwd() / f"{key}-artifact").as_posix(),
             git_head=head,
             dirty_digest=digest,
             junit_sha256=digest,
-            junit_path=f"{key}-junit.xml",
+            junit_path=(Path.cwd() / f"{key}-junit.xml").as_posix(),
             manifest_sha256=digest,
             payload_hashes={f"{key}.json": digest},
-            ledger_path=f"{key}-ledger",
+            ledger_path=(Path.cwd() / f"{key}-ledger").as_posix(),
             ledger_sha256=digest,
         )
         for key in ("h1_h5", "h1_prefix_prior", "h6_prefix")
@@ -366,7 +371,7 @@ def _current_h8_refs() -> tuple[
             kind="h1_prefix_prior",
             **common("h1_prefix_prior"),  # type: ignore[arg-type]
         ),
-        h6_prefix=H8H6PrefixReference(
+        h6_prefix=H8LegacyH6PrefixV4Reference(
             kind="h6_prefix",
             config_schema="h6-prefix-config-v3",
             validation_schema="h6-prefix-validation-set-v2",
@@ -435,6 +440,199 @@ def _current_h8_refs() -> tuple[
     return refs, h7_compatibility_refs
 
 
+def _h6_prediction_v3_reference(
+    source: H8H6PredictionReference,
+) -> H8H6PredictionV3Reference:
+    digest = "a" * 64
+    common = {
+        name: getattr(source, name)
+        for name in (
+            "kind",
+            "artifact_path",
+            "manifest_sha256",
+            "result_path",
+            "result_sha256",
+            "content_hashes",
+            "payload_hashes",
+            "ledger_path",
+            "ledger_sha256",
+            "producer_head",
+            "producer_dirty_digest",
+            "candidate_junit_sha256",
+            "status",
+        )
+    }
+    common["payload_hashes"] = {
+        "metrics.json": digest,
+        "raw_inventory.json": digest,
+        "result.json": digest,
+    }
+    common["content_hashes"] = {"result.json": digest}
+    return H8H6PredictionV3Reference(
+        config_schema="h6-prediction-config-v3",
+        readiness_schema="h6-prediction-readiness-v3",
+        raw_inventory_schema="h6-raw-endpoint-inventory-v4",
+        metrics_schema="h6-prediction-metrics-v3",
+        result_schema="h6-prediction-result-v3",
+        authorities_path="prediction-authorities",
+        authorities_manifest_sha256=digest,
+        authorities_sha256=digest,
+        config_sha256=digest,
+        readiness_sha256=digest,
+        plan_sha256=digest,
+        matching_set_sha256=digest,
+        validation_bundle_path="prediction-validation",
+        validation_bundle_manifest_sha256=digest,
+        validation_bundle_sha256=digest,
+        checkpoint_selection_sha256=digest,
+        reservation_path="prediction-reservation.json",
+        reservation_sha256=digest,
+        reservation_file_sha256=digest,
+        terminal_path="prediction-terminal",
+        terminal_sha256=digest,
+        terminal_manifest_sha256=digest,
+        finalized_path="prediction-finalized",
+        finalized_manifest_sha256=digest,
+        pointer_path="prediction-pointer",
+        pointer_sha256=digest,
+        pointer_manifest_sha256=digest,
+        experiment_identity_sha256=digest,
+        opening_proof_sha256=digest,
+        raw_inventory_sha256=digest,
+        metrics_sha256=digest,
+        result_record_sha256=digest,
+        ledger_validator_sha256=digest,
+        artifact_revision=(
+            f"git:{common['producer_head']}:sha256:"
+            f"{common['producer_dirty_digest']}"
+        ),
+        candidate_junit_path=(
+            Path.cwd() / ".verification" / "prediction-junit.xml"
+        ).as_posix(),
+        **common,  # type: ignore[arg-type]
+    )
+
+
+def test_h8_prediction_v3_reference_binds_ledger_validator_and_revision_identity() -> None:
+    assert {
+        "artifact_revision",
+        "ledger_validator_sha256",
+        "candidate_junit_path",
+        "validation_bundle_manifest_sha256",
+        "reservation_file_sha256",
+        "terminal_manifest_sha256",
+        "finalized_manifest_sha256",
+        "pointer_manifest_sha256",
+    }.issubset(H8H6PredictionV3Reference.__dataclass_fields__)
+
+
+def test_h8_registry_v1_through_v4_remain_legacy_read_only() -> None:
+    from verification.h8_gate import (
+        canonical_h8_json_bytes,
+        h8_current_refs_registry_payload,
+    )
+    from verification.run_gates import parse_h8_reference_registry_bytes
+
+    registry_v3, _compatibility = _current_h8_refs()
+    assert registry_v3.registry_schema_version == "h8-current-candidate-refs-v3"
+    assert registry_v3.prerequisite_obligations
+
+    prefix = registry_v3.h6_prefix
+    assert type(prefix) is H8LegacyH6PrefixV4Reference
+    legacy_prefix = H8LegacyH6PrefixReference(
+        kind="h6_prefix",
+        artifact_path=prefix.artifact_path,
+        manifest_sha256=prefix.manifest_sha256,
+        result_path=prefix.result_path,
+        result_sha256=prefix.result_sha256,
+        content_hashes=prefix.content_hashes,
+        payload_hashes=prefix.payload_hashes,
+        certificate_set_sha256=prefix.prefix_certificate_set_sha256,
+        certificate_hashes={"certificate.json": "a" * 64},
+        ledger_path=prefix.ledger_path,
+        ledger_sha256=prefix.ledger_sha256,
+        producer_head=prefix.producer_head,
+        producer_dirty_digest=prefix.producer_dirty_digest,
+        candidate_junit_sha256=prefix.candidate_junit_sha256,
+        status="pass",
+    )
+    registry_v2 = dataclasses.replace(registry_v3, h6_prefix=legacy_prefix)
+    assert registry_v2.registry_schema_version == "h8-current-candidate-refs-v2"
+    assert registry_v2.prerequisite_obligations
+
+    prediction = registry_v3.h6_prediction
+    assert type(prediction) is H8H6PredictionReference
+    legacy_prediction = H8LegacyH6PredictionReference(
+        kind="h6_prediction",
+        artifact_path=prediction.artifact_path,
+        manifest_sha256=prediction.manifest_sha256,
+        result_path=prediction.result_path,
+        result_sha256=prediction.result_sha256,
+        content_hashes=prediction.content_hashes,
+        payload_hashes=prediction.payload_hashes,
+        experiment_sha256=prediction.experiment_sha256,
+        ledger_path=prediction.ledger_path,
+        ledger_sha256=prediction.ledger_sha256,
+        producer_head=prediction.producer_head,
+        producer_dirty_digest=prediction.producer_dirty_digest,
+        candidate_junit_sha256=None,
+        status="pass",
+    )
+    registry_v1 = dataclasses.replace(
+        registry_v2,
+        h6_prediction=legacy_prediction,
+    )
+    assert registry_v1.registry_schema_version == "h8-current-candidate-refs-v1"
+    assert registry_v1.prerequisite_obligations
+
+    registry_v4 = dataclasses.replace(
+        registry_v3,
+        h6_prediction=_h6_prediction_v3_reference(prediction),
+    )
+    assert registry_v4.registry_schema_version == "h8-current-candidate-refs-v4"
+    assert registry_v4.prerequisite_obligations == (
+        "h8_prerequisite_registry_v1_v2_v3_v4_requires_direct_a0_prefix",
+    )
+
+    current_prefix = H8H6PrefixReference(
+        kind=prefix.kind,
+        artifact_path=prefix.artifact_path,
+        manifest_sha256=prefix.manifest_sha256,
+        result_path=prefix.result_path,
+        result_sha256=prefix.result_sha256,
+        content_hashes=prefix.content_hashes,
+        payload_hashes=prefix.payload_hashes,
+        config_schema=prefix.config_schema,
+        validation_schema=prefix.validation_schema,
+        certificate_set_schema=prefix.certificate_set_schema,
+        config_sha256=prefix.config_sha256,
+        workload_plan_sha256=prefix.workload_plan_sha256,
+        validation_payload_sha256=prefix.validation_payload_sha256,
+        prefix_certificate_set_sha256=prefix.prefix_certificate_set_sha256,
+        a0_direct_exact_prefix_certificate_sha256="1" * 64,
+        semantic_families=prefix.semantic_families,
+        ledger_path=prefix.ledger_path,
+        ledger_sha256=prefix.ledger_sha256,
+        producer_head=prefix.producer_head,
+        producer_dirty_digest=prefix.producer_dirty_digest,
+        candidate_junit_sha256=prefix.candidate_junit_sha256,
+        status=prefix.status,
+    )
+    registry_v5 = dataclasses.replace(registry_v4, h6_prefix=current_prefix)
+    assert registry_v5.registry_schema_version == "h8-current-candidate-refs-v5"
+    assert registry_v5.prerequisite_obligations == ()
+
+    for historical in (registry_v1, registry_v2, registry_v3, registry_v4):
+        raw = canonical_h8_json_bytes(h8_current_refs_registry_payload(historical))
+        reopened = parse_h8_reference_registry_bytes(raw)
+        assert reopened.registry_schema_version == historical.registry_schema_version
+        assert reopened.prerequisite_obligations
+    raw_v5 = canonical_h8_json_bytes(h8_current_refs_registry_payload(registry_v5))
+    reopened_v5 = parse_h8_reference_registry_bytes(raw_v5)
+    assert reopened_v5.registry_schema_version == "h8-current-candidate-refs-v5"
+    assert reopened_v5.prerequisite_obligations == ()
+
+
 def test_current_h8_h7_references_are_exact_lossless_and_immutable() -> None:
     refs, source = _current_h8_refs()
     original = tuple(source.items())
@@ -487,19 +685,28 @@ def test_current_h8_rejects_direct_reference_drift_from_h7_transitive_bytes() ->
         dataclasses.replace(refs, h1_prefix_prior=changed_payload)
 
 
-def test_current_h8_preserves_amended_prediction_from_its_frozen_candidate() -> None:
+def test_historical_h8_preserves_prediction_v3_from_its_frozen_candidate() -> None:
     refs, _source = _current_h8_refs()
+    prediction = refs.h6_prediction
+    assert type(prediction) is H8H6PredictionReference
+    changed_head = "2" * 40
+    changed_dirty_digest = "b" * 64
     changed_prediction = dataclasses.replace(
-        refs.h6_prediction,
-        producer_head="2" * 40,
-        producer_dirty_digest="b" * 64,
+        _h6_prediction_v3_reference(prediction),
+        producer_head=changed_head,
+        producer_dirty_digest=changed_dirty_digest,
+        artifact_revision=(
+            f"git:{changed_head}:sha256:{changed_dirty_digest}"
+        ),
         candidate_junit_sha256="c" * 64,
     )
 
     preserved = dataclasses.replace(refs, h6_prediction=changed_prediction)
 
     assert preserved.h6_prediction == changed_prediction
-    assert preserved.prerequisite_obligations == ()
+    assert preserved.prerequisite_obligations == (
+        "h8_prerequisite_registry_v1_v2_v3_v4_requires_direct_a0_prefix",
+    )
     with pytest.raises(ValueError, match="candidate_junit_sha256"):
         dataclasses.replace(
             changed_prediction,

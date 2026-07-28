@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import math
@@ -14,15 +15,23 @@ from typing import Callable, Literal
 
 from vfe4.config import validate_h6_prefix_v3_resolved_payload
 from vfe4.types.h6 import (
+    H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS,
+    H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS,
     H6_PREFIX_REQUIRED_CHECKS,
+    A0DirectExactPrefixCertificateV1,
+    A0DirectExactPrefixWitnessV1,
+    ArmConfig,
     ArmId,
     BoundedPrefixCertificate,
     BoundedPrefixCertificateSet,
     BoundedPrefixReportBinding,
     BoundedPrefixReportReference,
+    CapacityAllocation,
+    EstimatorSpec,
     EvidenceStatus,
     H6PrefixWorkloadPlan,
     PrefixCaseKey,
+    VocabularyIdentity,
 )
 
 from .atomic import (
@@ -51,6 +60,14 @@ _EXPECTED_PAYLOADS = {
         "validation/h6_prefix.json",
     ),
 }
+_EXPECTED_H6_PREFIX_V3_PAYLOADS = (
+    "certificates/a0_direct_exact.json",
+    "certificates/prefix_set.json",
+    "config.json",
+    "environment.json",
+    "provenance.json",
+    "validation/h6_prefix.json",
+)
 _ProjectedGateRunner = Callable[
     [Literal["H1-Prefix-Prior", "H6-Prefix"], object, str | None],
     tuple[object, Path],
@@ -704,6 +721,81 @@ _BOUNDED_CERTIFICATE_SET_FIELDS = frozenset(
         "certificates",
     }
 )
+_A0_DIRECT_ARM_CONFIG_FIELDS = frozenset(
+    {
+        "arm",
+        "config_id",
+        "vocabulary",
+        "horizon",
+        "latent_enabled",
+        "state_channel_enabled",
+        "model_channel_enabled",
+        "source_mode",
+        "map_mode",
+        "recognition_family",
+        "recognition_conditioning",
+        "prior_variant",
+        "mixture_mode",
+        "objective_kind",
+        "capacity_allocation",
+        "capacity_allocation_sha256",
+        "config_sha256",
+    }
+)
+_A0_DIRECT_WITNESS_FIELDS = frozenset(
+    {
+        "schema_version",
+        "small_case_count",
+        "validation_case_count",
+        "small_complete_case_manifest_sha256",
+        "validation_complete_case_manifest_sha256",
+        "direct_case_manifest_sha256",
+        "small_model_state_sha256",
+        "production_model_state_sha256",
+        "small_proposal_identity_sha256",
+        "production_proposal_identity_sha256",
+        "direct_predictor_path_sha256",
+        "case_witness_manifest_sha256",
+        "checks",
+        "first_counterexample_sha256",
+        "witness_sha256",
+    }
+)
+_A0_DIRECT_VALIDATION_FIELDS = frozenset(
+    {
+        "schema_version",
+        "arm",
+        "endpoint_config",
+        "estimator",
+        "predictor_config_sha256",
+        "model_family_sha256",
+        "vocabulary_sha256",
+        "data_safety_sha256",
+        "git_head",
+        "dirty_digest",
+        "source_sha256",
+        "direct_predictor_path_sha256",
+        "heldout_scorer_path_sha256",
+        "bounded_a0_certificate_sha256",
+        "bounded_a0_report_binding_sha256",
+        "direct_case_manifest_sha256",
+        "static_report_sha256",
+        "static_report_status",
+        "direct_path_witness_sha256",
+        "checks",
+        "status",
+        "obligations",
+    }
+)
+_A0_DIRECT_CERTIFICATE_FIELDS = frozenset(
+    {
+        *_A0_DIRECT_VALIDATION_FIELDS,
+        "direct_witness",
+        "validation_payload",
+        "validation_payload_sha256",
+        "certificate_sha256",
+    }
+)
 _BOUNDED_V3_CONFIG_FIELDS = frozenset(
     {
         "schema_version",
@@ -1151,6 +1243,338 @@ def _bounded_certificate_set_from_payload(
     return certificate_set
 
 
+def _a0_direct_arm_config_from_payload(value: object) -> ArmConfig:
+    payload = _bounded_exact_object(
+        value,
+        _A0_DIRECT_ARM_CONFIG_FIELDS,
+        "direct-A0 endpoint config",
+    )
+    vocabulary_payload = _bounded_exact_object(
+        payload["vocabulary"],
+        frozenset(
+            {"vocabulary_id", "size", "tokenizer_spec_sha256"}
+        ),
+        "direct-A0 endpoint vocabulary",
+    )
+    allocation_payload = _bounded_exact_object(
+        payload["capacity_allocation"],
+        frozenset(
+            {
+                "emission_width",
+                "latent_width",
+                "recognition_width",
+                "prior_context_width",
+            }
+        ),
+        "direct-A0 endpoint allocation",
+    )
+    try:
+        vocabulary = VocabularyIdentity(
+            vocabulary_id=vocabulary_payload["vocabulary_id"],
+            size=vocabulary_payload["size"],
+            tokenizer_spec_sha256=vocabulary_payload[
+                "tokenizer_spec_sha256"
+            ],
+        )
+        allocation = CapacityAllocation.create(
+            emission_width=allocation_payload["emission_width"],
+            latent_width=allocation_payload["latent_width"],
+            recognition_width=allocation_payload["recognition_width"],
+            prior_context_width=allocation_payload[
+                "prior_context_width"
+            ],
+        )
+        config = ArmConfig.create(
+            arm=ArmId(payload["arm"]),
+            config_id=payload["config_id"],
+            vocabulary=vocabulary,
+            horizon=payload["horizon"],
+            latent_enabled=payload["latent_enabled"],
+            state_channel_enabled=payload["state_channel_enabled"],
+            model_channel_enabled=payload["model_channel_enabled"],
+            source_mode=payload["source_mode"],
+            map_mode=payload["map_mode"],
+            recognition_family=payload["recognition_family"],
+            recognition_conditioning=payload[
+                "recognition_conditioning"
+            ],
+            prior_variant=payload["prior_variant"],
+            mixture_mode=payload["mixture_mode"],
+            objective_kind=payload["objective_kind"],
+            capacity_allocation=allocation,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "direct-A0 endpoint config is invalid"
+        ) from exc
+    expected = {
+        **config.canonical_payload(),
+        "config_sha256": config.config_sha256,
+    }
+    _bounded_require_canonical_match(
+        payload,
+        expected,
+        "direct-A0 endpoint config",
+    )
+    return config
+
+
+def _a0_direct_estimator_from_payload(value: object) -> EstimatorSpec:
+    payload = _bounded_exact_object(
+        value,
+        _BOUNDED_ESTIMATOR_FIELDS,
+        "direct-A0 estimator",
+    )
+    try:
+        estimator = EstimatorSpec.create(
+            kind=payload["kind"],
+            particle_count=payload["particle_count"],
+            resampling=payload["resampling"],
+            dtype=payload["dtype"],
+            device=payload["device"],
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "direct-A0 estimator is invalid"
+        ) from exc
+    expected = {
+        "schema_version": estimator.schema_version,
+        "kind": estimator.kind,
+        "particle_count": estimator.particle_count,
+        "resampling": estimator.resampling,
+        "dtype": estimator.dtype,
+        "device": estimator.device,
+        "estimator_sha256": estimator.estimator_sha256,
+    }
+    _bounded_require_canonical_match(
+        payload,
+        expected,
+        "direct-A0 estimator",
+    )
+    return estimator
+
+
+def _a0_direct_witness_from_payload(
+    value: object,
+) -> A0DirectExactPrefixWitnessV1:
+    payload = _bounded_exact_object(
+        value,
+        _A0_DIRECT_WITNESS_FIELDS,
+        "direct-A0 path witness",
+    )
+    checks = payload["checks"]
+    if (
+        type(checks) is not dict
+        or frozenset(checks)
+        != frozenset(H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS)
+    ):
+        raise ArtifactPublicationError(
+            "direct-A0 witness checks are incomplete"
+        )
+    try:
+        witness = A0DirectExactPrefixWitnessV1.create(
+            small_complete_case_manifest_sha256=payload[
+                "small_complete_case_manifest_sha256"
+            ],
+            validation_complete_case_manifest_sha256=payload[
+                "validation_complete_case_manifest_sha256"
+            ],
+            small_model_state_sha256=payload[
+                "small_model_state_sha256"
+            ],
+            production_model_state_sha256=payload[
+                "production_model_state_sha256"
+            ],
+            small_proposal_identity_sha256=payload[
+                "small_proposal_identity_sha256"
+            ],
+            production_proposal_identity_sha256=payload[
+                "production_proposal_identity_sha256"
+            ],
+            direct_predictor_path_sha256=payload[
+                "direct_predictor_path_sha256"
+            ],
+            case_witness_manifest_sha256=payload[
+                "case_witness_manifest_sha256"
+            ],
+            checks={
+                name: checks[name]
+                for name in H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS
+            },
+            first_counterexample_sha256=payload[
+                "first_counterexample_sha256"
+            ],
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "direct-A0 path witness is invalid"
+        ) from exc
+    _bounded_require_canonical_match(
+        payload,
+        witness.canonical_payload(),
+        "direct-A0 path witness",
+    )
+    return witness
+
+
+def _a0_direct_certificate_from_payload(
+    value: object,
+    *,
+    certificate_set: BoundedPrefixCertificateSet,
+) -> A0DirectExactPrefixCertificateV1:
+    payload = _bounded_exact_object(
+        value,
+        _A0_DIRECT_CERTIFICATE_FIELDS,
+        "direct-A0 Prefix certificate",
+    )
+    validation_payload = _bounded_exact_object(
+        payload["validation_payload"],
+        _A0_DIRECT_VALIDATION_FIELDS,
+        "direct-A0 validation payload",
+    )
+    checks = payload["checks"]
+    obligations = payload["obligations"]
+    if (
+        type(checks) is not dict
+        or frozenset(checks)
+        != frozenset(H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS)
+        or type(obligations) is not list
+    ):
+        raise ArtifactPublicationError(
+            "direct-A0 certificate checks or obligations are incomplete"
+        )
+    bounded_matches = tuple(
+        certificate
+        for certificate in certificate_set.certificates
+        if certificate.certificate_sha256
+        == payload["bounded_a0_certificate_sha256"]
+    )
+    if len(bounded_matches) != 1:
+        raise ArtifactPublicationError(
+            "direct-A0 certificate lacks one typed bounded premise"
+        )
+    endpoint_config = _a0_direct_arm_config_from_payload(
+        payload["endpoint_config"]
+    )
+    estimator = _a0_direct_estimator_from_payload(payload["estimator"])
+    witness = _a0_direct_witness_from_payload(payload["direct_witness"])
+    try:
+        certificate = A0DirectExactPrefixCertificateV1.create(
+            endpoint_config=endpoint_config,
+            estimator=estimator,
+            model_family_sha256=payload["model_family_sha256"],
+            data_safety_sha256=payload["data_safety_sha256"],
+            git_head=payload["git_head"],
+            dirty_digest=payload["dirty_digest"],
+            source_sha256=payload["source_sha256"],
+            direct_predictor_path_sha256=payload[
+                "direct_predictor_path_sha256"
+            ],
+            heldout_scorer_path_sha256=payload[
+                "heldout_scorer_path_sha256"
+            ],
+            bounded_a0_certificate=bounded_matches[0],
+            direct_witness=witness,
+            static_report_sha256=payload["static_report_sha256"],
+            static_report_status=EvidenceStatus(
+                payload["static_report_status"]
+            ),
+            checks={
+                name: checks[name]
+                for name in H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS
+            },
+            status=EvidenceStatus(payload["status"]),
+            obligations=tuple(obligations),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "direct-A0 Prefix certificate is invalid"
+        ) from exc
+    _bounded_require_canonical_match(
+        validation_payload,
+        json.loads(certificate.validation_payload_canonical_json),
+        "direct-A0 validation payload",
+    )
+    _bounded_require_canonical_match(
+        payload,
+        certificate.artifact_payload(),
+        "direct-A0 Prefix certificate",
+    )
+    return certificate
+
+
+def _a0_direct_source_path_identity(
+    *,
+    domain: str,
+    relative_paths: tuple[str, ...],
+) -> str:
+    rows = []
+    for relative in relative_paths:
+        raw = _REPO_ROOT.joinpath(*relative.split("/")).read_bytes()
+        rows.append(
+            {
+                "path": relative,
+                "length": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    return _bounded_owned_hash(domain, tuple(rows))
+
+
+def _current_a0_direct_path_identities() -> tuple[str, str]:
+    return (
+        _a0_direct_source_path_identity(
+            domain="vfe4.h6.a0-direct-prefix-predictor-path.v1",
+            relative_paths=(
+                "vfe4/training/h6_transformer.py",
+                "vfe4/training/arms.py",
+            ),
+        ),
+        _a0_direct_source_path_identity(
+            domain="vfe4.h6.a0-heldout-scorer-path.v1",
+            relative_paths=(
+                "vfe4/training/h6_heldout_scoring_v3.py",
+            ),
+        ),
+    )
+
+
+def _current_a0_target_read_follows_prediction() -> bool:
+    path = _REPO_ROOT / "vfe4" / "training" / "h6_heldout_scoring_v3.py"
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, SyntaxError):
+        return False
+    functions = tuple(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "score_h6_exact_a0_total_v3"
+    )
+    if len(functions) != 1:
+        return False
+    prediction_lines = tuple(
+        node.lineno
+        for node in ast.walk(functions[0])
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "prefix_log_probs"
+    )
+    target_lines = tuple(
+        node.lineno
+        for node in ast.walk(functions[0])
+        if isinstance(node, ast.Attribute)
+        and node.attr == "targets"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "windows"
+    )
+    return (
+        len(prediction_lines) == 1
+        and len(target_lines) == 1
+        and prediction_lines[0] < target_lines[0]
+    )
+
+
 def _bounded_expected_job_contract(
     *,
     scope: object,
@@ -1298,11 +1722,12 @@ def _validate_bounded_prefix_reference_payloads(
     config_sha256: str,
     source: object,
     validation: Mapping[str, object],
+    direct_certificate_payload: Mapping[str, object],
     certificate_set_payload: Mapping[str, object],
     provenance: Mapping[str, object],
     environment: Mapping[str, object],
     junit_sha256: str | None,
-) -> None:
+) -> A0DirectExactPrefixCertificateV1:
     from vfe4.config.schema import (
         H6_PREFIX_V2_AUTHORIZATION_SHA256,
         H6_PREFIX_V3_AUTHORIZATION_SHA256,
@@ -1333,6 +1758,7 @@ def _validate_bounded_prefix_reference_payloads(
     certificate_set.__post_init__()
     workload = H6PrefixWorkloadPlan()
     expected_validation_fields = {
+        "a0_direct_exact_certificate_sha256",
         "schema_version",
         "gate",
         "status",
@@ -1422,6 +1848,7 @@ def _validate_bounded_prefix_reference_payloads(
         _contains_bounded_external_reference(payload)
         for payload in (
             validation,
+            direct_certificate_payload,
             certificate_set_payload,
             provenance,
             environment,
@@ -1512,6 +1939,36 @@ def _validate_bounded_prefix_reference_payloads(
             raise ArtifactPublicationError(
                 "bounded H6 Prefix certificate payload differs from result"
             )
+    direct_certificate = _a0_direct_certificate_from_payload(
+        dict(direct_certificate_payload),
+        certificate_set=certificate_set,
+    )
+    current_direct_path, current_scorer_path = (
+        _current_a0_direct_path_identities()
+    )
+    if (
+        direct_certificate.status is not EvidenceStatus.PASS
+        or direct_certificate.obligations != ()
+        or tuple(direct_certificate.checks)
+        != H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS
+        or not all(direct_certificate.checks.values())
+        or direct_certificate.git_head != certificate_set.git_head
+        or direct_certificate.dirty_digest != certificate_set.dirty_digest
+        or direct_certificate.source_sha256 != certificate_set.source_sha256
+        or direct_certificate.direct_predictor_path_sha256
+        != current_direct_path
+        or direct_certificate.heldout_scorer_path_sha256
+        != current_scorer_path
+        or direct_certificate.checks["target_read_after_prediction"]
+        is not True
+        or not _current_a0_target_read_follows_prediction()
+        or validation.get("a0_direct_exact_certificate_sha256")
+        != direct_certificate.certificate_sha256
+    ):
+        raise ArtifactPublicationError(
+            "direct-A0 authority must PASS every required check without "
+            "obligations and match current source and validation"
+        )
     families = validation.get("semantic_families")
     if (
         type(families) is not list
@@ -1756,6 +2213,43 @@ def _validate_bounded_prefix_reference_payloads(
             raise ArtifactPublicationError(
                 "bounded H6 Prefix static report differs from a family binding"
             )
+    if (
+        direct_certificate.static_report_sha256
+        != static_report["report_sha256"]
+        or direct_certificate.static_report_status
+        is not EvidenceStatus(static_report["status"])
+    ):
+        raise ArtifactPublicationError(
+            "direct-A0 authority differs from the global static report"
+        )
+    expected_direct_obligations = tuple(
+        sorted(
+            {
+                *(
+                    f"bounded A0: {value}"
+                    for value in (
+                        direct_certificate.bounded_a0_certificate.obligations
+                    )
+                ),
+                *(
+                    f"static: {value}"
+                    for value in static_report["obligations"]
+                ),
+                *(
+                    f"static/{check['name']}: {value}"
+                    for check in static_report["checks"]
+                    for value in check["obligations"]
+                ),
+            }
+        )
+    )
+    if (
+        direct_certificate.status is EvidenceStatus.INCONCLUSIVE
+        and direct_certificate.obligations != expected_direct_obligations
+    ):
+        raise ArtifactPublicationError(
+            "direct-A0 obligations differ from the unresolved premises"
+        )
 
     family_count = len(certificate_set.certificates)
     runner_totals = _bounded_exact_object(
@@ -1816,16 +2310,20 @@ def _validate_bounded_prefix_reference_payloads(
         raise ArtifactPublicationError(
             "bounded H6 Prefix provenance/environment differ"
         )
+    return direct_certificate
 
 
-def reopen_bounded_prefix_certificate_set(
+def reopen_h6_prefix_authorities(
     root: Path,
     expected_manifest_sha256: str,
     expected_git_head: str,
     expected_dirty_digest: str,
     expected_junit_sha256: str,
-) -> BoundedPrefixCertificateSet:
-    """Reopen and fully revalidate one exact bounded H6 Prefix artifact."""
+) -> tuple[
+    BoundedPrefixCertificateSet,
+    A0DirectExactPrefixCertificateV1,
+]:
+    """Reopen both exact typed authorities from one current H6 Prefix artifact."""
 
     from vfe4.types.results import H6BoundedPrefixGateResult
 
@@ -1887,10 +2385,10 @@ def reopen_bounded_prefix_certificate_set(
             "bounded H6 Prefix manifest differs from its expected digest"
         )
     entries = _manifest_entries(manifest_bytes)
-    expected_names = _EXPECTED_PAYLOADS["H6-Prefix"]
+    expected_names = _EXPECTED_H6_PREFIX_V3_PAYLOADS
     if tuple(name for name, _digest in entries) != expected_names:
         raise ArtifactPublicationError(
-            "bounded H6 Prefix payload inventory differs from its exact five files"
+            "bounded H6 Prefix payload inventory differs from its exact six files"
         )
 
     observed_files: set[str] = set()
@@ -1936,6 +2434,9 @@ def reopen_bounded_prefix_certificate_set(
         "bounded H6 Prefix config",
     )
     validation = payloads["validation/h6_prefix.json"]
+    direct_certificate_payload = payloads[
+        "certificates/a0_direct_exact.json"
+    ]
     certificate_set_payload = payloads["certificates/prefix_set.json"]
     provenance = payloads["provenance.json"]
     environment = payloads["environment.json"]
@@ -1943,6 +2444,7 @@ def reopen_bounded_prefix_certificate_set(
         type(payload) is dict
         for payload in (
             validation,
+            direct_certificate_payload,
             certificate_set_payload,
             provenance,
             environment,
@@ -1975,13 +2477,14 @@ def reopen_bounded_prefix_certificate_set(
             "bounded H6 Prefix result cannot be reconstructed"
         ) from exc
     try:
-        _validate_bounded_prefix_reference_payloads(
+        direct_certificate = _validate_bounded_prefix_reference_payloads(
             resolved_config=None,
             result=result,
             config_payload=config_payload,
             config_sha256=config_sha256,
             source=certificate_set,
             validation=validation,
+            direct_certificate_payload=direct_certificate_payload,
             certificate_set_payload=certificate_set_payload,
             provenance=provenance,
             environment=environment,
@@ -1993,6 +2496,25 @@ def reopen_bounded_prefix_certificate_set(
         raise ArtifactPublicationError(
             "bounded H6 Prefix artifact payload is invalid"
         ) from exc
+    return certificate_set, direct_certificate
+
+
+def reopen_bounded_prefix_certificate_set(
+    root: Path,
+    expected_manifest_sha256: str,
+    expected_git_head: str,
+    expected_dirty_digest: str,
+    expected_junit_sha256: str,
+) -> BoundedPrefixCertificateSet:
+    """Compatibility projection after validating both current authorities."""
+
+    certificate_set, _direct = reopen_h6_prefix_authorities(
+        root,
+        expected_manifest_sha256,
+        expected_git_head,
+        expected_dirty_digest,
+        expected_junit_sha256,
+    )
     return certificate_set
 
 
@@ -2025,7 +2547,15 @@ def _reference_from_published_directory(
         raise ArtifactPublicationError("published artifact manifest is unreadable") from exc
     entries = _manifest_entries(manifest_bytes)
     names = tuple(name for name, _ in entries)
-    expected_names = _EXPECTED_PAYLOADS[operation]
+    expected_names = (
+        _EXPECTED_H6_PREFIX_V3_PAYLOADS
+        if (
+            operation == "H6-Prefix"
+            and getattr(resolved_config, "schema_version", None)
+            == "h6-prefix-config-v3"
+        )
+        else _EXPECTED_PAYLOADS[operation]
+    )
     if names != expected_names:
         raise ArtifactPublicationError(
             f"{operation} artifact payload inventory differs from the frozen contract"
@@ -2150,10 +2680,14 @@ def _reference_from_published_directory(
             or type(result) is H6BoundedPrefixGateResult
         )
         if bounded:
+            direct_certificate = _read_json_payload(
+                root / "certificates" / "a0_direct_exact.json"
+            )
             environment = _read_json_payload(root / "environment.json")
             if (
                 not isinstance(provenance, Mapping)
                 or not isinstance(certificate_set, Mapping)
+                or not isinstance(direct_certificate, Mapping)
                 or not isinstance(environment, Mapping)
             ):
                 raise ArtifactPublicationError(
@@ -2166,6 +2700,7 @@ def _reference_from_published_directory(
                 config_sha256=config_sha256,
                 source=source,
                 validation=validation,
+                direct_certificate_payload=direct_certificate,
                 certificate_set_payload=certificate_set,
                 provenance=provenance,
                 environment=environment,
@@ -3320,5 +3855,7 @@ __all__ = [
     "project_h6_prefix_config",
     "publish_h6_prediction_result",
     "read_h6_prediction_result",
+    "reopen_bounded_prefix_certificate_set",
+    "reopen_h6_prefix_authorities",
     "run_projected_current_candidate",
 ]

@@ -509,6 +509,7 @@ def test_h7_reopens_only_exact_h6_v3_bounded_prefix_set(
 
 
 _H6_V3_ARTIFACT_PAYLOADS = (
+    "certificates/a0_direct_exact.json",
     "certificates/prefix_set.json",
     "config.json",
     "environment.json",

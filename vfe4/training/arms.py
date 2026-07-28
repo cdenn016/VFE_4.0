@@ -337,7 +337,10 @@ class MeanPooledPrefixFloor(nn.Module):
         checked = _exact_prefix(
             prefix, vocabulary=self.vocabulary, maximum_receiver=None
         )
-        tokens = checked.token_ids
+        tokens = checked.token_ids.to(
+            device=self.token_embedding.weight.device,
+            dtype=torch.int64,
+        )
         context = (
             self.token_embedding(tokens).mean(dim=0)
             if tokens.numel()
@@ -972,6 +975,36 @@ class ArmTargetFreeProposalAdapter:
                 "arm proposal model state changed; rebuild the predictive boundary"
             )
 
+    def autoregressive_emission_row(
+        self,
+        prefix: CausalPrefix,
+    ) -> Tensor:
+        """Return A0's one exact prefix row before particle replication."""
+
+        self.assert_current_state()
+        if type(self.model) is not H6CausalTransformer:
+            raise ValueError(
+                "direct autoregressive emission requires the exact "
+                "A0 causal Transformer"
+            )
+        checked = _exact_prefix(
+            prefix,
+            vocabulary=self.vocabulary,
+            maximum_receiver=self.model.horizon,
+        )
+        row = self.model.prefix_log_probs(checked)
+        if (
+            type(row) is not Tensor
+            or row.dtype is not torch.float64
+            or row.shape != (self.vocabulary.size,)
+            or row.device != next(self.model.parameters()).device
+            or not bool(torch.isfinite(row.detach()).all())
+        ):
+            raise ValueError(
+                "A0 direct autoregressive emission row is invalid"
+            )
+        return row
+
     @contextmanager
     def live_forward_graph(self) -> Iterator[None]:
         """Share exact frame subexpressions until this evaluation returns."""
@@ -1173,7 +1206,12 @@ class ArmTargetFreeProposalAdapter:
 
         if _is_autoregressive_model(self.model):
             marker = population.component("autoregressive_history_marker")
-            emissions = self.model.prefix_log_probs(checked).repeat(
+            row = (
+                self.autoregressive_emission_row(checked)
+                if type(self.model) is H6CausalTransformer
+                else self.model.prefix_log_probs(checked)
+            )
+            emissions = row.repeat(
                 population.particle_count, 1
             )
             next_population = ProposalPopulation.create(
@@ -1970,6 +2008,15 @@ def _construct(config: ArmConfig) -> BuiltArm:
             channel_count=2 if config.model_channel_enabled else 1,
             family=config.recognition_family,
             conditioning_mode=config.recognition_conditioning,
+            trainable_source_banks=(
+                (
+                    ("state", "model")
+                    if config.model_channel_enabled
+                    else ("state",)
+                )
+                if config.source_mode == "categorical"
+                else ()
+            ),
         )
 
     proposal, predictor = _predictive_boundary(
@@ -1977,6 +2024,25 @@ def _construct(config: ArmConfig) -> BuiltArm:
     )
     roles, bindings, flop_terms = _parameter_records(
         config=config, model=model, recognition_store=recognition_store
+    )
+    factor_inventory = (
+        ("emission",)
+        if config.objective_kind
+        == "emission_only_ablation_non_elbo"
+        else model.elbo_factor_inventory
+    )
+    factor_inventory_sha256 = (
+        _owned_hash(
+            "vfe4.h6.active-objective-inventory.v3",
+            {
+                "endpoint_config_sha256": config.config_sha256,
+                "objective_kind": config.objective_kind,
+                "partitions": factor_inventory,
+            },
+        )
+        if config.objective_kind
+        == "emission_only_ablation_non_elbo"
+        else model.elbo_inventory_sha256
     )
     return BuiltArm(
         config,
@@ -1988,8 +2054,8 @@ def _construct(config: ArmConfig) -> BuiltArm:
         bindings,
         flop_terms,
         family_sha256,
-        model.elbo_factor_inventory,
-        model.elbo_inventory_sha256,
+        factor_inventory,
+        factor_inventory_sha256,
         False,
         _training_flop_obligations(model, recognition_store),
     )

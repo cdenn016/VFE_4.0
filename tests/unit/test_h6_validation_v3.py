@@ -4,6 +4,8 @@ import hashlib
 import inspect
 import io
 import json
+import copy
+import pickle
 import zipfile
 from functools import cache
 from pathlib import Path
@@ -37,15 +39,18 @@ from vfe4.config import (
     H6ObservedArchive,
 )
 from vfe4.data.access import (
+    H6TrainingDataV3,
     OpeningCapabilityError,
+    issue_h6_train_capability_v3,
     issue_h6_validation_capability_v3,
+    open_train_for_training_v3,
 )
 from vfe4.data.byte_tokenizer import ByteTokenizerV1
 from vfe4.data.h6_sealed_store_v3 import (
     AUTHENTICATED_BLINDED_STORE_MANIFEST_V3_FILENAME,
     reopen_authenticated_blinded_store_v3,
 )
-from vfe4.data.windows import build_causal_windows
+from vfe4.data.windows import CausalPrefix, build_causal_windows
 from vfe4.data.wikitext2 import (
     WIKITEXT2_RAW_URL,
     H6DataAcquisitionRequest,
@@ -230,6 +235,9 @@ def _plan_for_data(
         smc_bias_semantics_sha256=_digest("smc-bias"),
         smc_validation_manifest_sha256=_digest("smc-validation"),
         prefix_certificate_set_sha256=_digest("prefix-certificates"),
+        a0_direct_exact_prefix_certificate_sha256=_digest(
+            "a0-direct-exact-prefix-certificate"
+        ),
         h5_update_binding_sha256=_digest("h5-update"),
         critical_values_sha256=_digest("critical-values"),
         endpoint_smc_protocol_sha256=_digest("endpoint-smc"),
@@ -810,16 +818,17 @@ def test_validation_uses_fresh_cpu_model_from_checkpoint_v3(
     attempt = plan.tuning_attempts[0]
     assert attempt.tuning_cell is not None
     live_model = build_arm_model(plan.endpoint_configs[0])
-    windows = build_causal_windows((1, 2, 0), split="validation")
     vocabulary = ByteTokenizerV1().vocabulary_identity
     expected_total = 0.0
-    for target_index, target in enumerate((2, 0)):
-        prefix = windows.causal_prefix(
-            window_index=0,
-            receiver_t=target_index + 1,
+    scored_history: list[int] = []
+    for target in (2, 0):
+        prefix = CausalPrefix.create(
+            receiver_t=len(scored_history) + 1,
             vocabulary=vocabulary,
+            token_ids=torch.tensor(scored_history, dtype=torch.int64),
         )
         expected_total -= float(live_model.prefix_log_probs(prefix)[target].item())
+        scored_history.append(target)
     checkpoint = _terminal_checkpoint(
         attempt,
         runtime=runtime,
@@ -1024,6 +1033,74 @@ def test_validation_capability_requires_store_readiness_and_plan_authority(
             readiness,
             plan,
         )
+
+
+def test_train_capability_v3_exposes_only_authenticated_train_windows(
+    tmp_path: Path,
+) -> None:
+    assert tuple(inspect.signature(issue_h6_train_capability_v3).parameters) == (
+        "store",
+        "readiness",
+        "plan",
+    )
+    assert tuple(inspect.signature(open_train_for_training_v3).parameters) == (
+        "capability",
+        "plan",
+    )
+    archive_bytes = _archive_bytes()
+    artifact_root = tmp_path / "store"
+    synthetic_store = _acquire_wikitext2_blinded(
+        _acquisition_request(archive_bytes, artifact_root),
+        lambda _: io.BytesIO(archive_bytes),
+    )
+    synthetic_identity = synthetic_store.data_identity
+    synthetic_plan, _, synthetic_readiness = _plan_for_data(
+        data_identity_sha256=synthetic_store.data_identity_sha256,
+        access_policy_sha256=synthetic_identity.access_policy_sha256,
+        train_token_count=synthetic_identity.train_tokens.token_count,
+        train_token_sha256=(
+            synthetic_identity.train_tokens.encoded_token_sha256
+        ),
+    )
+    with pytest.raises(OpeningCapabilityError, match="reopened|provenance"):
+        issue_h6_train_capability_v3(
+            synthetic_store,
+            synthetic_readiness,
+            synthetic_plan,
+        )
+
+    store = reopen_authenticated_blinded_store_v3(
+        artifact_root / AUTHENTICATED_BLINDED_STORE_MANIFEST_V3_FILENAME,
+        artifact_root,
+    )
+    identity = store.data_identity
+    plan, _, readiness = _plan_for_data(
+        data_identity_sha256=store.data_identity_sha256,
+        access_policy_sha256=identity.access_policy_sha256,
+        train_token_count=identity.train_tokens.token_count,
+        train_token_sha256=identity.train_tokens.encoded_token_sha256,
+    )
+    capability = issue_h6_train_capability_v3(store, readiness, plan)
+    assert repr(capability) == "<opaque H6 v3 train capability>"
+    for copier in (copy.copy, copy.deepcopy, pickle.dumps):
+        with pytest.raises(TypeError):
+            copier(capability)
+
+    opened = open_train_for_training_v3(capability, plan=plan)
+    assert type(opened) is H6TrainingDataV3
+    assert opened.windows.split == "train"
+    assert opened.data_identity_sha256 == store.data_identity_sha256
+    assert opened.readiness_sha256 == readiness.readiness_sha256
+    assert opened.plan_sha256 == plan.plan_sha256
+    assert opened.matching_set_sha256 == plan.matching_set_sha256
+    assert opened.runtime_identity_sha256 == (
+        plan.training_schedule.runtime_identity_sha256
+    )
+    assert not hasattr(opened, "validation")
+    assert not hasattr(opened, "test")
+
+    with pytest.raises(OpeningCapabilityError, match="forged|expired|consumed"):
+        open_train_for_training_v3(capability, plan=plan)
 
 
 def test_checkpoint_candidates_require_actual_planned_checkpoint() -> None:

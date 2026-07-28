@@ -17,7 +17,7 @@ from typing import Literal, cast
 
 H8_PREFLIGHT_CONFIG_SCHEMA = "h8-preflight-config-v1"
 H8_PREFLIGHT_RESULT_SCHEMA = "h8-preflight-result-v1"
-H8_REGISTRY_SCHEMA = "h8-current-candidate-refs-v3"
+H8_REGISTRY_SCHEMA = "h8-current-candidate-refs-v5"
 H8_FROZEN_SECTION_SHA256 = (
     "c11969f7e27bc4835f1768ee6757c48d46626718ec387d50a27808f8d35373bb"
 )
@@ -32,12 +32,12 @@ H8_REFERENCE_KEYS = (
     "h6_prediction",
 )
 H8_COMPATIBILITY_KEYS = ("h1_h5", "h1_prefix_prior", "h6_prefix")
-H8_PREDICTION_V2_SCHEMAS = {
-    "prediction_schema": "h6-prediction-amended-v2",
-    "config_schema": "h6-prediction-config-v2",
-    "readiness_schema": "h6-prediction-readiness-v2",
-    "metrics_schema": "h6-prediction-metrics-v2",
-    "result_schema": "h6-prediction-result-v2",
+H8_PREDICTION_V3_SCHEMAS = {
+    "config_schema": "h6-prediction-config-v3",
+    "readiness_schema": "h6-prediction-readiness-v3",
+    "raw_inventory_schema": "h6-raw-endpoint-inventory-v4",
+    "metrics_schema": "h6-prediction-metrics-v3",
+    "result_schema": "h6-prediction-result-v3",
 }
 H8_SELECTED_RUNTIME_CALL_NAMES = (
     "validate_h8_prerequisite_artifacts",
@@ -95,6 +95,7 @@ H8_REFERENCE_FIELDS = {
             "workload_plan_sha256",
             "validation_payload_sha256",
             "prefix_certificate_set_sha256",
+            "a0_direct_exact_prefix_certificate_sha256",
             "semantic_families",
         }
     ),
@@ -107,29 +108,39 @@ H8_REFERENCE_FIELDS = {
         }
     ),
     "h6_prediction": H8_REFERENCE_COMMON_FIELDS
-    | frozenset(H8_PREDICTION_V2_SCHEMAS)
+    | frozenset(H8_PREDICTION_V3_SCHEMAS)
     | frozenset(
         {
-            "experiment_sha256",
+            "authorities_path",
+            "authorities_manifest_sha256",
+            "authorities_sha256",
             "config_sha256",
-            "readiness_artifact_path",
-            "readiness_manifest_sha256",
             "readiness_sha256",
-            "correctness_artifact_paths",
-            "h1_prefix_prior_artifact_path",
-            "smc_accuracy_artifact_path",
-            "smc_accuracy_manifest_sha256",
-            "h6_prefix_artifact_path",
-            "h6_prefix_manifest_sha256",
-            "blinded_data_artifact_path",
-            "blinded_data_manifest_sha256",
-            "matching_artifact_path",
-            "matching_manifest_sha256",
+            "plan_sha256",
             "matching_set_sha256",
-            "h1_prefix_prior_generative_factor_schema_sha256",
-            "smc_bias_semantics_sha256",
-            "objective_gate_spec_sha256",
+            "validation_bundle_path",
+            "validation_bundle_manifest_sha256",
+            "validation_bundle_sha256",
+            "checkpoint_selection_sha256",
+            "reservation_path",
+            "reservation_sha256",
+            "reservation_file_sha256",
+            "terminal_path",
+            "terminal_sha256",
+            "terminal_manifest_sha256",
+            "finalized_path",
+            "finalized_manifest_sha256",
+            "pointer_path",
+            "pointer_sha256",
+            "pointer_manifest_sha256",
+            "experiment_identity_sha256",
+            "opening_proof_sha256",
+            "raw_inventory_sha256",
             "metrics_sha256",
+            "result_record_sha256",
+            "ledger_validator_sha256",
+            "artifact_revision",
+            "candidate_junit_path",
         }
     ),
 }
@@ -921,27 +932,28 @@ def _direct_reference_structure_error(
         return "result_pointer_path must be a nonempty path"
     if key == "h6_prediction":
         for path_name in (
-            "readiness_artifact_path",
-            "h1_prefix_prior_artifact_path",
-            "smc_accuracy_artifact_path",
-            "h6_prefix_artifact_path",
-            "blinded_data_artifact_path",
-            "matching_artifact_path",
+            "authorities_path",
+            "validation_bundle_path",
+            "reservation_path",
+            "terminal_path",
+            "finalized_path",
+            "pointer_path",
+            "candidate_junit_path",
         ):
             if type(reference[path_name]) is not str or not reference[path_name]:
                 return f"{path_name} must be a nonempty path"
-        correctness_paths = reference["correctness_artifact_paths"]
-        if (
-            not isinstance(correctness_paths, Mapping)
-            or tuple(correctness_paths) != ("H1", "H2", "H3", "H5")
-            or any(
-                type(value) is not str or not value
-                for value in correctness_paths.values()
-            )
+        expected_revision = (
+            f"git:{reference['producer_head']}:sha256:"
+            f"{reference['producer_dirty_digest']}"
+        )
+        if reference["artifact_revision"] != expected_revision:
+            return "Prediction-v3 artifact revision does not bind its producer"
+        if tuple(cast(Mapping[str, object], reference["payload_hashes"])) != (
+            "metrics.json",
+            "raw_inventory.json",
+            "result.json",
         ):
-            return "correctness_artifact_paths must retain exact H1/H2/H3/H5"
-        if reference["experiment_sha256"] != reference["config_sha256"]:
-            return "H6-Prediction experiment/config identities differ"
+            return "Prediction-v3 payload hashes must retain metrics/raw/result order"
     return None
 
 
@@ -1004,8 +1016,11 @@ def _inspect_direct_reference(
     candidate: Mapping[str, str],
     junit_sha256: str,
     registry_is_current: bool,
+    registry_schema: object,
 ) -> H8PreflightPrerequisite:
-    expected_schema = "h6-prediction-amended-v2" if key == "h6_prediction" else None
+    expected_schema = (
+        "h6-prediction-result-v3" if key == "h6_prediction" else None
+    )
     if not isinstance(raw, Mapping) or any(type(item) is not str for item in raw):
         return _record(
             display_name,
@@ -1021,15 +1036,22 @@ def _inspect_direct_reference(
             expected_schema=expected_schema,
             detail="reference kind/status is not the required passing variant",
         )
+    if key == "h6_prediction" and registry_schema != H8_REGISTRY_SCHEMA:
+        return _record(
+            display_name,
+            "blocked",
+            expected_schema=expected_schema,
+            detail="historical H6-Prediction reference is nonauthorizing",
+        )
     if key == "h6_prediction" and any(
         reference.get(name) != expected
-        for name, expected in H8_PREDICTION_V2_SCHEMAS.items()
+        for name, expected in H8_PREDICTION_V3_SCHEMAS.items()
     ):
         return _record(
             display_name,
             "blocked",
             expected_schema=expected_schema,
-            detail="H6-Prediction does not declare every amended v2 schema",
+            detail="H6-Prediction does not declare every executable v3 schema",
         )
     structure_error = _direct_reference_structure_error(key, reference)
     if structure_error is not None:
@@ -1102,7 +1124,7 @@ def _inspect_registry(
 ) -> tuple[H8PreflightPrerequisite, ...]:
     absent = (
         _record(
-            "h8_registry_v3",
+            "h8_registry_v5",
             "missing",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1131,10 +1153,10 @@ def _inspect_registry(
             detail="independent H6-Prefix evidence is not discoverable",
         ),
         _record(
-            "h6_prediction_v2",
+            "h6_prediction_v3",
             "missing",
-            expected_schema="h6-prediction-amended-v2",
-            detail="amended H6-Prediction evidence is not discoverable",
+            expected_schema="h6-prediction-result-v3",
+            detail="executable H6-Prediction v3 evidence is not discoverable",
         ),
         _record(
             "h7_compatibility_registry",
@@ -1151,7 +1173,7 @@ def _inspect_registry(
     if registry_path.is_symlink():
         return (
             _record(
-                "h8_registry_v3",
+                "h8_registry_v5",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1167,7 +1189,7 @@ def _inspect_registry(
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return (
             _record(
-                "h8_registry_v3",
+                "h8_registry_v5",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1188,7 +1210,7 @@ def _inspect_registry(
     ):
         return (
             _record(
-                "h8_registry_v3",
+                "h8_registry_v5",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1208,7 +1230,7 @@ def _inspect_registry(
     ):
         return (
             _record(
-                "h8_registry_v3",
+                "h8_registry_v5",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1229,7 +1251,7 @@ def _inspect_registry(
     except ValueError as exc:
         return (
             _record(
-                "h8_registry_v3",
+                "h8_registry_v5",
                 "malformed",
                 path=registry_path,
                 expected_schema=H8_REGISTRY_SCHEMA,
@@ -1243,7 +1265,7 @@ def _inspect_registry(
     )
     if schema != H8_REGISTRY_SCHEMA:
         registry_record = _record(
-            "h8_registry_v3",
+            "h8_registry_v5",
             "blocked",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1251,7 +1273,7 @@ def _inspect_registry(
         )
     elif not registry_is_current:
         registry_record = _record(
-            "h8_registry_v3",
+            "h8_registry_v5",
             "stale",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1259,7 +1281,7 @@ def _inspect_registry(
         )
     elif set(raw_references) != set(H8_REFERENCE_KEYS):
         registry_record = _record(
-            "h8_registry_v3",
+            "h8_registry_v5",
             "malformed",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1267,7 +1289,7 @@ def _inspect_registry(
         )
     else:
         registry_record = _record(
-            "h8_registry_v3",
+            "h8_registry_v5",
             "present_unvalidated",
             path=registry_path,
             expected_schema=H8_REGISTRY_SCHEMA,
@@ -1364,7 +1386,7 @@ def _inspect_registry(
         "h1_prefix_prior": "h1_prefix_prior_v2",
         "h6_prefix": "h6_prefix",
         "h7": "h7",
-        "h6_prediction": "h6_prediction_v2",
+        "h6_prediction": "h6_prediction_v3",
     }
     direct = {
         key: _inspect_direct_reference(
@@ -1375,6 +1397,7 @@ def _inspect_registry(
             candidate=candidate,
             junit_sha256=junit_sha256,
             registry_is_current=registry_is_current,
+            registry_schema=schema,
         )
         for key in H8_REFERENCE_KEYS
     }

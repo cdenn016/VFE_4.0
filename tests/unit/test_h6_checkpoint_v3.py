@@ -3,16 +3,26 @@ from __future__ import annotations
 import hashlib
 import struct
 from collections.abc import Callable
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 import torch
 from torch import nn
 
+from vfe4.training import checkpoint_v3 as checkpoint_v3_module
 from vfe4.training.checkpoint_v3 import (
     H6CheckpointV3,
     capture_h6_checkpoint_v3,
     decode_h6_checkpoint_v3,
     hydrate_h6_checkpoint_v3,
+    read_h6_checkpoint_file_v3,
+)
+from vfe4.training.h6_engine_v3 import (
+    H6BatchLiveRecognitionStateV3,
+    H6DetachedBatchRecognitionSnapshotV3,
+    H6EngineAuthorityV3,
+    H6LiveRecognitionStateV3,
 )
 from vfe4.types.h6 import TrainingPhase
 from vfe4.types.h6_prediction_v3 import (
@@ -49,6 +59,47 @@ class _TinyState(nn.Module):
             "token_count",
             torch.tensor([[3, 5], [7, 11]], dtype=torch.int64),
         )
+
+
+class _OriginalSemanticState(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.tensor(
+                [[1.0, -2.0], [0.5, 3.0]],
+                dtype=torch.float64,
+            )
+        )
+        self.bias = nn.Parameter(torch.tensor([0.25, -0.75], dtype=torch.float64))
+        self.register_buffer(
+            "token_count",
+            torch.tensor([[3, 5], [7, 11]], dtype=torch.int64),
+        )
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return self.project(inputs) + self.bias
+
+    def project(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs @ self.weight.T
+
+
+class _AlternateSemanticState(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.tensor(
+                [[1.0, -2.0], [0.5, 3.0]],
+                dtype=torch.float64,
+            )
+        )
+        self.bias = nn.Parameter(torch.tensor([0.25, -0.75], dtype=torch.float64))
+        self.register_buffer(
+            "token_count",
+            torch.tensor([[3, 5], [7, 11]], dtype=torch.int64),
+        )
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs @ self.weight + self.bias
 
 
 def _runtime(
@@ -259,6 +310,24 @@ def _factory(
     return construct
 
 
+def _fixture_factory_authority(
+    checkpoint: H6CheckpointV3,
+    *,
+    module_factories: object,
+    expected_named_modules: object | None = None,
+) -> object:
+    if expected_named_modules is None:
+        expected_named_modules = (
+            ("model", _TinyState()),
+            ("recognition", _TinyState()),
+        )
+    return checkpoint_v3_module._issue_h6_checkpoint_factory_authority_v3(
+        attempt_spec=checkpoint.attempt_spec,
+        expected_named_modules=expected_named_modules,
+        module_factories=module_factories,
+    )
+
+
 def test_checkpoint_v3_canonicalizes_named_module_and_optimizer_state() -> None:
     runtime, attempt, cursor, objective, modules, optimizers = _fixture()
     first = capture_h6_checkpoint_v3(
@@ -284,6 +353,25 @@ def test_checkpoint_v3_canonicalizes_named_module_and_optimizer_state() -> None:
     decoded = decode_h6_checkpoint_v3(encoded)
     assert decoded.to_bytes() == encoded
     assert decoded.checkpoint_sha256 == first.checkpoint_sha256
+    for decoded_optimizer, captured_optimizer in zip(
+        decoded.optimizers,
+        first.optimizers,
+        strict=True,
+    ):
+        assert decoded_optimizer.groups == captured_optimizer.groups
+        for group in decoded_optimizer.groups:
+            hyperparameters = dict(group.hyperparameters)
+            assert type(hyperparameters["lr"]) is float
+            assert type(hyperparameters["weight_decay"]) is float
+            assert type(hyperparameters["eps"]) is float
+            assert type(hyperparameters["betas"]) is tuple and all(
+                type(value) is float for value in hyperparameters["betas"]
+            )
+        for state in decoded_optimizer.states:
+            assert all(
+                type(value) in (int, float) and not isinstance(value, bool)
+                for _name, value in state.scalars
+            )
     corrupted = bytearray(encoded)
     corrupted[-1] ^= 1
     with pytest.raises(ValueError, match="integrity"):
@@ -331,6 +419,142 @@ def test_checkpoint_v3_canonicalizes_named_module_and_optimizer_state() -> None:
     assert {
         tensor.state_name for state in model_record.states for tensor in state.tensors
     } == {"step", "exp_avg", "exp_avg_sq"}
+
+
+def test_checkpoint_file_reader_is_bounded_and_digest_bound(
+    tmp_path: Path,
+) -> None:
+    checkpoint, _, _ = _capture_fixture()
+    encoded = checkpoint.to_bytes()
+    path = tmp_path / "checkpoint.h6v3"
+    path.write_bytes(encoded)
+
+    reopened = read_h6_checkpoint_file_v3(
+        path,
+        maximum_bytes=len(encoded),
+        expected_checkpoint_sha256=checkpoint.checkpoint_sha256,
+    )
+    assert reopened.to_bytes() == encoded
+    assert reopened.checkpoint_sha256 == checkpoint.checkpoint_sha256
+
+    with pytest.raises(ValueError, match="bounded|maximum"):
+        read_h6_checkpoint_file_v3(
+            path,
+            maximum_bytes=len(encoded) - 1,
+            expected_checkpoint_sha256=checkpoint.checkpoint_sha256,
+        )
+    with pytest.raises(ValueError, match="expected|digest"):
+        read_h6_checkpoint_file_v3(
+            path,
+            maximum_bytes=len(encoded),
+            expected_checkpoint_sha256=_sha("0"),
+        )
+
+    corrupted = bytearray(encoded)
+    corrupted[-1] ^= 1
+    corrupt_path = tmp_path / "corrupt.h6v3"
+    corrupt_path.write_bytes(corrupted)
+    with pytest.raises(ValueError, match="integrity|digest"):
+        read_h6_checkpoint_file_v3(
+            corrupt_path,
+            maximum_bytes=len(corrupted),
+            expected_checkpoint_sha256=checkpoint.checkpoint_sha256,
+        )
+
+
+def test_checkpoint_v3_roundtrips_exact_mid_model_batch_snapshot() -> None:
+    runtime, attempt, cursor, objective, modules, optimizers = _fixture()
+    authority = H6EngineAuthorityV3.create(
+        attempt_spec_sha256=attempt.attempt_spec_sha256,
+        endpoint_config_sha256=attempt.endpoint_config_sha256,
+        readiness_sha256=_sha("1"),
+        readiness_matching_set_sha256=_sha("2"),
+        matching_set_sha256=_sha("2"),
+        matching_policy_sha256=_sha("3"),
+        readiness_training_schedule_sha256=_sha("4"),
+        training_schedule_sha256=_sha("4"),
+        readiness_runtime_identity_sha256=runtime.runtime_identity_sha256,
+        runtime_identity_sha256=runtime.runtime_identity_sha256,
+        planned_attempt_sha256=_sha("5"),
+        endpoint_config_id=attempt.endpoint_id,
+        matching_ledger_sha256=_sha("6"),
+        matching_report_sha256s=(_sha("7"),),
+        receiver_count=2,
+        state_categorical_enabled=False,
+        model_categorical_enabled=False,
+        tuning_cell_sha256=_sha("8"),
+        optimizer_policy_sha256=(
+            "67b498399b293d4f267cb7ffbe5f0e329ac0025adaaa5f86869588ad720f5ce8"
+        ),
+        optimizer_learning_rate=1.0e-3,
+        optimizer_weight_decay=0.0,
+        objective_kind="complete_elbo",
+        latent_enabled=True,
+    )
+    state = H6LiveRecognitionStateV3.create(
+        endpoint_config_sha256=attempt.endpoint_config_sha256,
+        receiver_count=2,
+        state_categorical_enabled=False,
+        model_categorical_enabled=False,
+        state_categorical_supports=(None,),
+        model_categorical_supports=(None,),
+        receiver_components=((0, ("ordinary",)), (1, ("terminal",))),
+        tensors={
+            "receiver.0.component.ordinary.mean": torch.ones(
+                2, dtype=torch.float64, requires_grad=True
+            ),
+            "receiver.0.shared_precision_cholesky": torch.eye(
+                2, dtype=torch.float64, requires_grad=True
+            ),
+            "receiver.1.component.terminal.mean": torch.full(
+                (2,), 2.0, dtype=torch.float64, requires_grad=True
+            ),
+            "receiver.1.shared_precision_cholesky": torch.eye(
+                2, dtype=torch.float64, requires_grad=True
+            ),
+            "state.absent.support": torch.tensor((-1,), dtype=torch.int64),
+            "state.absent.categorical_row": torch.ones(1, dtype=torch.float64),
+            "model.absent.support": torch.tensor((-1,), dtype=torch.int64),
+            "model.absent.categorical_row": torch.ones(1, dtype=torch.float64),
+        },
+        context_sha256=_sha("9"),
+        recognition_state_sha256=_sha("a"),
+        source_model_sha256=_sha("b"),
+        law_sha256=_sha("c"),
+    )
+    live_batch = H6BatchLiveRecognitionStateV3.create(
+        authority=authority,
+        states=(state,),
+        active_target_counts=(1,),
+        active_receiver_masks=((True, True),),
+    )
+    snapshot = H6DetachedBatchRecognitionSnapshotV3.capture(
+        live_batch,
+        authority=authority,
+        post_recognition_cursor=cursor,
+    )
+
+    checkpoint = capture_h6_checkpoint_v3(
+        attempt_spec=attempt,
+        cursor=cursor,
+        objective_manifest=objective,
+        runtime_identity=runtime,
+        named_modules=modules,
+        named_optimizers=optimizers,
+        detached_batch_snapshot=snapshot,
+    )
+    reopened = decode_h6_checkpoint_v3(checkpoint.to_bytes())
+
+    assert type(reopened.detached_batch_snapshot) is (
+        H6DetachedBatchRecognitionSnapshotV3
+    )
+    assert reopened.detached_batch_snapshot.snapshot_sha256 == snapshot.snapshot_sha256
+    assert reopened.detached_batch_snapshot.names == snapshot.names
+    for name in snapshot.names:
+        torch.testing.assert_close(
+            reopened.detached_batch_snapshot[name],
+            snapshot[name],
+        )
 
 
 def test_checkpoint_v3_rejects_duplicate_or_aliased_tensor_names() -> None:
@@ -446,18 +670,243 @@ def test_checkpoint_v3_rejects_duplicate_or_aliased_tensor_names() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "unauthorized_kind",
+    ("alternate-class", "instance-forward-override"),
+)
+def test_hydration_rejects_unauthorized_forward_semantics_before_state_load(
+    monkeypatch: pytest.MonkeyPatch,
+    unauthorized_kind: str,
+) -> None:
+    runtime = _runtime()
+    attempt = _attempt(
+        runtime,
+        objective_kind="cross_entropy",
+        recognition_factory_sha256=None,
+    )
+    original = _OriginalSemanticState()
+    original_optimizer = _adamw(
+        [
+            {
+                "params": [original.weight, original.bias],
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    _step(original_optimizer)
+    checkpoint = capture_h6_checkpoint_v3(
+        attempt_spec=attempt,
+        cursor=_model_ce_cursor(attempt),
+        objective_manifest=_objective(
+            attempt,
+            counter_consumption_sha256=H6_NO_COUNTER_CONSUMPTION_SHA256,
+            phase=TrainingPhase.MODEL_CE_ADAMW,
+        ),
+        runtime_identity=runtime,
+        named_modules=(("model", original),),
+        named_optimizers=(("model", original_optimizer),),
+    )
+
+    unauthorized: nn.Module
+    if unauthorized_kind == "alternate-class":
+        unauthorized = _AlternateSemanticState()
+    else:
+        unauthorized = _OriginalSemanticState()
+        unauthorized.forward = lambda inputs: inputs - 1.0  # type: ignore[method-assign]
+    expected = _OriginalSemanticState()
+    assert tuple(expected.state_dict()) == tuple(unauthorized.state_dict())
+    assert tuple(
+        (name, parameter.dtype, tuple(parameter.shape))
+        for name, parameter in expected.named_parameters()
+    ) == tuple(
+        (name, parameter.dtype, tuple(parameter.shape))
+        for name, parameter in unauthorized.named_parameters()
+    )
+    before = {
+        name: tensor.detach().clone()
+        for name, tensor in unauthorized.state_dict().items()
+    }
+    factory_calls: list[H6AttemptSpecV3] = []
+
+    def unauthorized_factory(
+        bound_attempt: H6AttemptSpecV3,
+    ) -> nn.Module:
+        factory_calls.append(bound_attempt)
+        return unauthorized
+
+    authority = checkpoint_v3_module._issue_h6_checkpoint_factory_authority_v3(
+        attempt_spec=attempt,
+        expected_named_modules=(("model", expected),),
+        module_factories=(("model", unauthorized_factory),),
+    )
+    load_calls: list[bool] = []
+
+    def forbidden_load_module_state(**_kwargs: object) -> None:
+        load_calls.append(True)
+        raise AssertionError("unauthorized module reached checkpoint state load")
+
+    monkeypatch.setattr(
+        checkpoint_v3_module,
+        "_load_module_state",
+        forbidden_load_module_state,
+    )
+    with pytest.raises(ValueError, match="semantic/type signature|forward override"):
+        hydrate_h6_checkpoint_v3(
+            checkpoint,
+            expected_attempt_spec=attempt,
+            expected_runtime_identity=runtime,
+            live_deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
+            factory_authority=authority,
+            authorized_device="cpu",
+            allow_synthetic_cpu=True,
+        )
+
+    assert factory_calls == [attempt]
+    assert load_calls == []
+    for name, value in unauthorized.state_dict().items():
+        assert torch.equal(value, before[name])
+
+
+def test_checkpoint_factory_authority_has_no_public_issuer_surface() -> None:
+    assert (
+        "bind_h6_checkpoint_factory_authority_v3"
+        not in checkpoint_v3_module.__all__
+    )
+    assert "H6CheckpointFactoryAuthorityV3" not in checkpoint_v3_module.__all__
+    assert not hasattr(
+        checkpoint_v3_module,
+        "bind_h6_checkpoint_factory_authority_v3",
+    )
+    assert not hasattr(
+        checkpoint_v3_module,
+        "H6CheckpointFactoryAuthorityV3",
+    )
+
+
+def test_replaced_checkpoint_factory_authority_is_rejected_before_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint, _, _ = _capture_fixture()
+    authority = _fixture_factory_authority(
+        checkpoint,
+        module_factories=(
+            ("model", _factory(0.0)),
+            ("recognition", _factory(0.0)),
+        ),
+    )
+    copied_authority = replace(authority)
+    load_calls: list[bool] = []
+
+    def forbidden_load_module_state(**_kwargs: object) -> None:
+        load_calls.append(True)
+        raise AssertionError("copied authority reached checkpoint state load")
+
+    monkeypatch.setattr(
+        checkpoint_v3_module,
+        "_load_module_state",
+        forbidden_load_module_state,
+    )
+    with pytest.raises(ValueError, match="sealed|issued|consumed"):
+        hydrate_h6_checkpoint_v3(
+            checkpoint,
+            expected_attempt_spec=checkpoint.attempt_spec,
+            expected_runtime_identity=checkpoint.runtime_identity,
+            live_deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
+            factory_authority=copied_authority,  # type: ignore[arg-type]
+            authorized_device="cpu",
+            allow_synthetic_cpu=True,
+        )
+
+    assert load_calls == []
+
+
+def test_nonforward_behavior_mutation_after_issuance_is_rejected_before_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = _runtime()
+    attempt = _attempt(
+        runtime,
+        objective_kind="cross_entropy",
+        recognition_factory_sha256=None,
+    )
+    original = _OriginalSemanticState()
+    optimizer = _adamw(
+        [
+            {
+                "params": [original.weight, original.bias],
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    _step(optimizer)
+    checkpoint = capture_h6_checkpoint_v3(
+        attempt_spec=attempt,
+        cursor=_model_ce_cursor(attempt),
+        objective_manifest=_objective(
+            attempt,
+            counter_consumption_sha256=H6_NO_COUNTER_CONSUMPTION_SHA256,
+            phase=TrainingPhase.MODEL_CE_ADAMW,
+        ),
+        runtime_identity=runtime,
+        named_modules=(("model", original),),
+        named_optimizers=(("model", optimizer),),
+    )
+    authority = checkpoint_v3_module._issue_h6_checkpoint_factory_authority_v3(
+        attempt_spec=attempt,
+        expected_named_modules=(("model", _OriginalSemanticState()),),
+        module_factories=(("model", lambda _attempt: _OriginalSemanticState()),),
+    )
+
+    def altered_project(
+        self: _OriginalSemanticState,
+        inputs: torch.Tensor,
+    ) -> torch.Tensor:
+        return inputs @ self.weight
+
+    monkeypatch.setattr(_OriginalSemanticState, "project", altered_project)
+    load_calls: list[bool] = []
+
+    def forbidden_load_module_state(**_kwargs: object) -> None:
+        load_calls.append(True)
+        raise AssertionError("mutated behavior reached checkpoint state load")
+
+    monkeypatch.setattr(
+        checkpoint_v3_module,
+        "_load_module_state",
+        forbidden_load_module_state,
+    )
+    with pytest.raises(ValueError, match="semantic|behavior"):
+        hydrate_h6_checkpoint_v3(
+            checkpoint,
+            expected_attempt_spec=attempt,
+            expected_runtime_identity=runtime,
+            live_deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
+            factory_authority=authority,  # type: ignore[arg-type]
+            authorized_device="cpu",
+            allow_synthetic_cpu=True,
+        )
+
+    assert load_calls == []
+
+
 def test_fresh_cpu_hydration_restores_named_optimizer_groups() -> None:
     checkpoint, source_modules, source_optimizers = _capture_fixture()
     calls: list[H6AttemptSpecV3] = []
+    factory_authority = _fixture_factory_authority(
+        checkpoint,
+        module_factories=(
+            ("recognition", _factory(-20.0, calls)),
+            ("model", _factory(20.0, calls)),
+        ),
+    )
     hydrated = hydrate_h6_checkpoint_v3(
         checkpoint,
         expected_attempt_spec=checkpoint.attempt_spec,
         expected_runtime_identity=checkpoint.runtime_identity,
         live_deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
-        module_factories=(
-            ("recognition", _factory(-20.0, calls)),
-            ("model", _factory(20.0, calls)),
-        ),
+        factory_authority=factory_authority,
         authorized_device="cpu",
         allow_synthetic_cpu=True,
     )
@@ -525,15 +974,23 @@ def test_fresh_cpu_hydration_restores_named_optimizer_groups() -> None:
             )
 
     with pytest.raises(ValueError, match="module inventory"):
+        factory_authority = _fixture_factory_authority(
+            checkpoint,
+            expected_named_modules=(
+                ("model", MissingBias()),
+                ("recognition", _TinyState()),
+            ),
+            module_factories=(
+                ("model", lambda _: MissingBias()),
+                ("recognition", _factory(0.0)),
+            ),
+        )
         hydrate_h6_checkpoint_v3(
             checkpoint,
             expected_attempt_spec=checkpoint.attempt_spec,
             expected_runtime_identity=checkpoint.runtime_identity,
             live_deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
-            module_factories=(
-                ("model", lambda _: MissingBias()),
-                ("recognition", _factory(0.0)),
-            ),
+            factory_authority=factory_authority,
             authorized_device="cpu",
             allow_synthetic_cpu=True,
         )
@@ -567,15 +1024,19 @@ def test_cursor_restores_next_phase_batch_and_counter_coordinates() -> None:
         )
 
     checkpoint, _, _ = _capture_fixture()
+    factory_authority = _fixture_factory_authority(
+        checkpoint,
+        module_factories=(
+            ("model", _factory(0.0)),
+            ("recognition", _factory(0.0)),
+        ),
+    )
     hydrated = hydrate_h6_checkpoint_v3(
         checkpoint,
         expected_attempt_spec=checkpoint.attempt_spec,
         expected_runtime_identity=checkpoint.runtime_identity,
         live_deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
-        module_factories=(
-            ("model", _factory(0.0)),
-            ("recognition", _factory(0.0)),
-        ),
+        factory_authority=factory_authority,
         authorized_device="cpu",
         allow_synthetic_cpu=True,
     )
@@ -816,6 +1277,10 @@ def test_resume_rejects_runtime_or_determinism_drift() -> None:
         ("model", _factory(0.0, factory_calls)),
         ("recognition", _factory(0.0, factory_calls)),
     )
+    factory_authority = _fixture_factory_authority(
+        checkpoint,
+        module_factories=factories,
+    )
 
     with pytest.raises(RuntimeError, match="runtime identity drift"):
         hydrate_h6_checkpoint_v3(
@@ -825,7 +1290,7 @@ def test_resume_rejects_runtime_or_determinism_drift() -> None:
                 torch_full_version="2.10.1+cu128",
             ),
             live_deterministic_policy_sha256=H6_DETERMINISTIC_POLICY_SHA256,
-            module_factories=factories,
+            factory_authority=factory_authority,
             authorized_device="cpu",
             allow_synthetic_cpu=True,
         )
@@ -835,7 +1300,7 @@ def test_resume_rejects_runtime_or_determinism_drift() -> None:
             expected_attempt_spec=checkpoint.attempt_spec,
             expected_runtime_identity=checkpoint.runtime_identity,
             live_deterministic_policy_sha256=_sha("d"),
-            module_factories=factories,
+            factory_authority=factory_authority,
             authorized_device="cpu",
             allow_synthetic_cpu=True,
         )

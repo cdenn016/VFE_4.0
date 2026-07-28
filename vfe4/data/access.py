@@ -21,6 +21,7 @@ from vfe4.types.h6 import (
     H6PredictionReadinessToken,
     ValidatedTestOpening,
     ValidationSafetyFixture,
+    VocabularyIdentity,
 )
 
 from .byte_tokenizer import ByteTokenizerV1
@@ -170,6 +171,41 @@ class MaterializedPredictionData:
         )
 
 
+@dataclass(frozen=True)
+class H6TrainingDataV3:
+    """One authenticated v3 train-only materialization."""
+
+    data_identity_sha256: str
+    readiness_sha256: str
+    plan_sha256: str
+    matching_set_sha256: str
+    runtime_identity_sha256: str
+    windows: CausalWindows
+    vocabulary: VocabularyIdentity
+
+    def __post_init__(self) -> None:
+        for name in (
+            "data_identity_sha256",
+            "readiness_sha256",
+            "plan_sha256",
+            "matching_set_sha256",
+            "runtime_identity_sha256",
+        ):
+            value = getattr(self, name)
+            if (
+                type(value) is not str
+                or len(value) != 64
+                or any(character not in "0123456789abcdef" for character in value)
+            ):
+                raise ValueError(f"{name} must be lowercase SHA-256 hex")
+        if type(self.windows) is not CausalWindows or self.windows.split != "train":
+            raise ValueError("v3 training data must contain only train windows")
+        self.windows.__post_init__()
+        if type(self.vocabulary) is not VocabularyIdentity:
+            raise ValueError("v3 training data requires an exact vocabulary identity")
+        self.vocabulary.__post_init__()
+
+
 def _build_access_api():
     """Build the API while retaining every path and authority only in closures."""
 
@@ -179,9 +215,13 @@ def _build_access_api():
     issuer_authority = object()
     validated_authority = object()
     validation_v3_authority = object()
+    train_v3_authority = object()
     registry_lock = threading.RLock()
     registry: dict[int, tuple[weakref.ReferenceType[BlindedCorpusStore], object]] = {}
     validation_v3_registry: weakref.WeakKeyDictionary[object, object] = (
+        weakref.WeakKeyDictionary()
+    )
+    train_v3_registry: weakref.WeakKeyDictionary[object, object] = (
         weakref.WeakKeyDictionary()
     )
 
@@ -299,6 +339,30 @@ def _build_access_api():
         def __repr__(self) -> str:
             return "<opaque H6 v3 validation capability>"
 
+    class TrainCapabilityV3:
+        __slots__ = ("__weakref__",)
+
+        def __init__(self, authority: object) -> None:
+            if authority is not train_v3_authority:
+                raise TypeError("v3 train capabilities are access-issued only")
+
+        def __copy__(self):
+            raise TypeError("v3 train capabilities cannot be copied")
+
+        def __deepcopy__(self, memo):
+            del memo
+            raise TypeError("v3 train capabilities cannot be copied")
+
+        def __reduce__(self):
+            raise TypeError("v3 train capabilities cannot be serialized")
+
+        def __reduce_ex__(self, protocol):
+            del protocol
+            raise TypeError("v3 train capabilities cannot be serialized")
+
+        def __repr__(self) -> str:
+            return "<opaque H6 v3 train capability>"
+
     @dataclass(frozen=True)
     class AuthorizedValidationV3:
         windows: CausalWindows
@@ -309,6 +373,10 @@ def _build_access_api():
         matching_set_sha256: str
         data_identity_sha256: str
         runtime_identity_sha256: str
+
+    @dataclass(frozen=True)
+    class AuthorizedTrainV3:
+        data: H6TrainingDataV3
 
     def _is_redirect(path: Path, path_stat: os.stat_result) -> bool:
         if stat.S_ISLNK(path_stat.st_mode):
@@ -675,6 +743,76 @@ def _build_access_api():
             )
         return capability
 
+    def _issue_train_v3(
+        store: BlindedCorpusStore,
+        readiness: object,
+        plan: object,
+    ) -> object:
+        from vfe4.training.h6_experiment_v3 import H6ExperimentPlanV3
+        from vfe4.types.h6_prediction_v3 import H6PredictionV3ReadinessToken
+
+        state = _state_for(store)
+        if (
+            state.marker_mode != "production"
+            or type(store.data_identity) is not AuthenticatedReopenedDataIdentity
+        ):
+            raise OpeningCapabilityError(
+                "v3 training requires authenticated reopened-store provenance"
+            )
+        if type(readiness) is not H6PredictionV3ReadinessToken:
+            raise OpeningCapabilityError("exact H6 Prediction v3 readiness is required")
+        if type(plan) is not H6ExperimentPlanV3:
+            raise OpeningCapabilityError("exact H6 experiment plan v3 is required")
+        try:
+            readiness.__post_init__()
+            plan.__post_init__()
+        except ValueError as exc:
+            raise OpeningCapabilityError(
+                "v3 training authority failed validation"
+            ) from exc
+        data_identity = store.data_identity
+        if (
+            readiness.status != "PASS"
+            or readiness.data_identity_sha256 != store.data_identity_sha256
+            or readiness.access_policy_sha256 != data_identity.access_policy_sha256
+            or plan.readiness_sha256 != readiness.readiness_sha256
+            or plan.experiment_config_sha256 != readiness.experiment_config_sha256
+            or plan.matching_set_sha256 != readiness.matching_set_sha256
+            or plan.matching_policy_sha256 != readiness.matching_policy_sha256
+            or plan.git_head != readiness.git_head
+            or plan.dirty_digest != readiness.dirty_digest
+            or plan.training_schedule.schedule_sha256
+            != readiness.training_schedule_sha256
+            or plan.training_schedule.runtime_identity_sha256
+            != readiness.runtime_identity_sha256
+            or any(
+                attempt.attempt_spec.data_identity_sha256
+                != store.data_identity_sha256
+                for attempt in plan.attempts
+            )
+        ):
+            raise OpeningCapabilityError(
+                "v3 train store/readiness/plan authority drift"
+            )
+        vocabulary = ByteTokenizerV1().vocabulary_identity
+        if any(config.vocabulary != vocabulary for config in plan.endpoint_configs):
+            raise OpeningCapabilityError(
+                "v3 plan vocabulary does not match the authenticated store"
+            )
+        data = H6TrainingDataV3(
+            data_identity_sha256=store.data_identity_sha256,
+            readiness_sha256=readiness.readiness_sha256,
+            plan_sha256=plan.plan_sha256,
+            matching_set_sha256=readiness.matching_set_sha256,
+            runtime_identity_sha256=readiness.runtime_identity_sha256,
+            windows=_read_split(store, state, "train"),
+            vocabulary=vocabulary,
+        )
+        capability = TrainCapabilityV3(train_v3_authority)
+        with registry_lock:
+            train_v3_registry[capability] = AuthorizedTrainV3(data=data)
+        return capability
+
     def _consume_validation_v3(
         capability: object,
         *,
@@ -708,6 +846,42 @@ def _build_access_api():
         ):
             raise OpeningCapabilityError("v3 validation capability authority drift")
         return authorized
+
+    def _consume_train_v3(
+        capability: object,
+        *,
+        plan: object,
+    ) -> H6TrainingDataV3:
+        from vfe4.training.h6_experiment_v3 import H6ExperimentPlanV3
+
+        if type(capability) is not TrainCapabilityV3:
+            raise OpeningCapabilityError(
+                "exact access-issued v3 train capability is required"
+            )
+        if type(plan) is not H6ExperimentPlanV3:
+            raise OpeningCapabilityError("exact H6 experiment plan v3 is required")
+        try:
+            plan.__post_init__()
+        except ValueError as exc:
+            raise OpeningCapabilityError("v3 training plan is stale") from exc
+        with registry_lock:
+            authorized = train_v3_registry.get(capability)
+            if type(authorized) is not AuthorizedTrainV3:
+                raise OpeningCapabilityError(
+                    "v3 train capability is forged, expired, or consumed"
+                )
+            data = authorized.data
+            data.__post_init__()
+            if (
+                data.plan_sha256 != plan.plan_sha256
+                or data.readiness_sha256 != plan.readiness_sha256
+                or data.matching_set_sha256 != plan.matching_set_sha256
+                or data.runtime_identity_sha256
+                != plan.training_schedule.runtime_identity_sha256
+            ):
+                raise OpeningCapabilityError("v3 train capability authority drift")
+            del train_v3_registry[capability]
+        return data
 
     def _create_child_directory(parent: Path, name: str) -> Path:
         child = parent / name
@@ -1199,6 +1373,8 @@ def _build_access_api():
         _register_reopened,
         _validation_fixture,
         _materialize_train,
+        _issue_train_v3,
+        _consume_train_v3,
         _issue_validation_v3,
         _consume_validation_v3,
         _issue,
@@ -1218,6 +1394,8 @@ def _build_access_api():
     _register_reopened_blinded_store_v3,
     materialize_validation_safety_fixture,
     materialize_prediction_train,
+    issue_h6_train_capability_v3,
+    open_train_for_training_v3,
     issue_h6_validation_capability_v3,
     _consume_h6_validation_capability_v3,
     reserve_and_issue_durable_test_opening_capability,
@@ -1235,10 +1413,13 @@ del _build_access_api
 __all__ = [
     "H6_TEST_RESERVATION_DURABILITY",
     "H6_V3_RESERVATION_AUTHORITY_CHECKS",
+    "H6TrainingDataV3",
     "MaterializedPredictionData",
     "OpeningCapabilityError",
+    "issue_h6_train_capability_v3",
     "materialize_prediction_train",
     "materialize_validation_safety_fixture",
+    "open_train_for_training_v3",
     "issue_h6_validation_capability_v3",
     "open_test_for_scoring",
     "open_test_for_scoring_with_receipt",

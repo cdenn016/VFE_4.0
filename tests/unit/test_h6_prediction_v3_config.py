@@ -154,6 +154,9 @@ def _prediction_v2_config() -> dict[str, object]:
 def _prediction_v3_config() -> dict[str, object]:
     raw = _prediction_v2_config()
     raw["schema_version"] = "h6-prediction-config-v3"
+    prerequisites = raw["prerequisites"]
+    assert isinstance(prerequisites, dict)
+    prerequisites["a0_direct_exact_prefix_certificate_sha256"] = _sha("6")
 
     estimator = H6RecognitionEstimatorSpec.create()
     estimator_payload = estimator.canonical_payload()
@@ -248,6 +251,10 @@ def test_v3_config_requires_recognition_estimator_runtime_and_checkpoint_identit
     )
     assert resolved.checkpoint_codec_sha256 == H6_CHECKPOINT_CODEC_SHA256
     assert (
+        resolved.a0_direct_exact_prefix_certificate_sha256
+        == _sha("6")
+    )
+    assert (
         resolved.training_schedule.checkpoint_codec_sha256
         == H6_CHECKPOINT_CODEC_SHA256
     )
@@ -306,6 +313,35 @@ def test_v3_config_requires_recognition_estimator_runtime_and_checkpoint_identit
             schedule_missing_checkpoint,
             repo_root=tmp_path,
         )
+
+    missing_direct_certificate = copy.deepcopy(raw)
+    missing_direct_prerequisites = missing_direct_certificate["prerequisites"]
+    assert isinstance(missing_direct_prerequisites, dict)
+    missing_direct_prerequisites.pop(
+        "a0_direct_exact_prefix_certificate_sha256"
+    )
+    with pytest.raises(
+        ValueError,
+        match="a0_direct_exact_prefix_certificate_sha256|keys",
+    ):
+        resolve_h6_prediction_v3_config(
+            missing_direct_certificate,
+            repo_root=tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    "schema_version",
+    ("h6-prediction-config-v1", "h6-prediction-config-v2"),
+)
+def test_direct_a0_prerequisite_cannot_be_relabelled_as_v1_or_v2(
+    tmp_path: Path,
+    schema_version: str,
+) -> None:
+    relabelled = _prediction_v3_config()
+    relabelled["schema_version"] = schema_version
+    with pytest.raises(ValueError):
+        resolve_h6_prediction_config(relabelled, repo_root=tmp_path)
 
 
 def test_v3_config_binds_expected_test_row_count_4104(

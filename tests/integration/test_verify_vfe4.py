@@ -66,7 +66,7 @@ def _h8_current_refs(
         CurrentH8PrerequisiteRefs,
         H8H1H5Reference,
         H8H1PrefixPriorReference,
-        H8H6PredictionReference,
+        H8H6PredictionV3Reference,
         H8H6PrefixReference,
         H8H6PrefixSemanticFamilyReference,
         H8H7Reference,
@@ -123,8 +123,12 @@ def _h8_current_refs(
         **h7_common,
         "artifact_path": "C:/immutable/prediction-artifact",
         "result_path": "C:/immutable/prediction-result",
-        "content_hashes": {"prediction-content.json": digest},
-        "payload_hashes": {"prediction.json": digest},
+        "content_hashes": {"result.json": digest},
+        "payload_hashes": {
+            "metrics.json": digest,
+            "raw_inventory.json": digest,
+            "result.json": digest,
+        },
         "ledger_path": "C:/immutable/prediction-ledger",
         "producer_head": prediction_head or head,
         "producer_dirty_digest": prediction_dirty or dirty,
@@ -151,6 +155,7 @@ def _h8_current_refs(
             workload_plan_sha256=digest,
             validation_payload_sha256=digest,
             prefix_certificate_set_sha256=digest,
+            a0_direct_exact_prefix_certificate_sha256="1" * 64,
             semantic_families=(
                 H8H6PrefixSemanticFamilyReference(
                     semantic_family_index=0,
@@ -174,38 +179,46 @@ def _h8_current_refs(
             fixture_set_sha256=digest,
             **h7_common,  # type: ignore[arg-type]
         ),
-        h6_prediction=H8H6PredictionReference(
+        h6_prediction=H8H6PredictionV3Reference(
             kind="h6_prediction",
-            prediction_schema="h6-prediction-amended-v2",
-            config_schema="h6-prediction-config-v2",
-            readiness_schema="h6-prediction-readiness-v2",
-            metrics_schema="h6-prediction-metrics-v2",
-            result_schema="h6-prediction-result-v2",
-            experiment_sha256=digest,
+            config_schema="h6-prediction-config-v3",
+            readiness_schema="h6-prediction-readiness-v3",
+            raw_inventory_schema="h6-raw-endpoint-inventory-v4",
+            metrics_schema="h6-prediction-metrics-v3",
+            result_schema="h6-prediction-result-v3",
+            authorities_path="C:/immutable/prediction-authorities",
+            authorities_manifest_sha256=digest,
+            authorities_sha256=digest,
             config_sha256=digest,
-            readiness_artifact_path="C:/immutable/prediction-readiness",
-            readiness_manifest_sha256=digest,
             readiness_sha256=digest,
-            correctness_artifact_paths={
-                gate: f"C:/immutable/prediction-{gate.lower()}-correctness"
-                for gate in ("H1", "H2", "H3", "H5")
-            },
-            h1_prefix_prior_artifact_path=(
-                "C:/immutable/prediction-h1-prefix-prior"
-            ),
-            smc_accuracy_artifact_path="C:/immutable/prediction-smc-accuracy",
-            smc_accuracy_manifest_sha256=digest,
-            h6_prefix_artifact_path="C:/immutable/prediction-h6-prefix",
-            h6_prefix_manifest_sha256=digest,
-            blinded_data_artifact_path="C:/immutable/prediction-blinded-data",
-            blinded_data_manifest_sha256=digest,
-            matching_artifact_path="C:/immutable/prediction-matching",
-            matching_manifest_sha256=digest,
+            plan_sha256=digest,
             matching_set_sha256=digest,
-            h1_prefix_prior_generative_factor_schema_sha256=digest,
-            smc_bias_semantics_sha256=digest,
-            objective_gate_spec_sha256=digest,
+            validation_bundle_path="C:/immutable/prediction-validation",
+            validation_bundle_manifest_sha256=digest,
+            validation_bundle_sha256=digest,
+            checkpoint_selection_sha256=digest,
+            reservation_path="C:/immutable/prediction-reservation.json",
+            reservation_sha256=digest,
+            reservation_file_sha256=digest,
+            terminal_path="C:/immutable/prediction-terminal",
+            terminal_sha256=digest,
+            terminal_manifest_sha256=digest,
+            finalized_path="C:/immutable/prediction-finalized",
+            finalized_manifest_sha256=digest,
+            pointer_path="C:/immutable/prediction-pointer",
+            pointer_sha256=digest,
+            pointer_manifest_sha256=digest,
+            experiment_identity_sha256=digest,
+            opening_proof_sha256=digest,
+            raw_inventory_sha256=digest,
             metrics_sha256=digest,
+            result_record_sha256=digest,
+            ledger_validator_sha256=digest,
+            artifact_revision=(
+                f"git:{prediction_head or head}:sha256:"
+                f"{prediction_dirty or dirty}"
+            ),
+            candidate_junit_path="C:/immutable/prediction-junit.xml",
             **prediction_common,  # type: ignore[arg-type]
         ),
         registry_sha256=digest,
@@ -222,7 +235,7 @@ def _h8_current_refs(
     )
 
 
-def test_h8_registry_v3_preserves_separate_h6_prediction_candidate() -> None:
+def test_h8_registry_v5_preserves_separate_h6_prediction_candidate() -> None:
     import verification.h8_gate as h8_gate
     import verification.run_gates as gates
 
@@ -238,7 +251,7 @@ def test_h8_registry_v3_preserves_separate_h6_prediction_candidate() -> None:
         prediction_junit=prediction_junit,
     )
 
-    assert refs.registry_schema_version == "h8-current-candidate-refs-v3"
+    assert refs.registry_schema_version == "h8-current-candidate-refs-v5"
     assert refs.prerequisite_obligations == ()
     assert refs.h6_prediction.producer_head == prediction_head
     assert refs.h6_prediction.producer_dirty_digest == prediction_dirty
@@ -292,6 +305,89 @@ def _legacy_h8_prefix_payload(
     }
 
 
+def _h8_prediction_v2_payload(
+    executable: dict[str, object],
+) -> dict[str, object]:
+    common_fields = {
+        "kind",
+        "artifact_path",
+        "manifest_sha256",
+        "result_path",
+        "result_sha256",
+        "content_hashes",
+        "payload_hashes",
+        "ledger_path",
+        "ledger_sha256",
+        "producer_head",
+        "producer_dirty_digest",
+        "candidate_junit_sha256",
+        "status",
+    }
+    digest = executable["config_sha256"]
+    authorities_path = executable["authorities_path"]
+    return {
+        **{
+            key: value
+            for key, value in executable.items()
+            if key in common_fields
+        },
+        "prediction_schema": "h6-prediction-amended-v2",
+        "config_schema": "h6-prediction-config-v2",
+        "readiness_schema": "h6-prediction-readiness-v2",
+        "metrics_schema": "h6-prediction-metrics-v2",
+        "result_schema": "h6-prediction-result-v2",
+        "experiment_sha256": digest,
+        "config_sha256": digest,
+        "readiness_artifact_path": authorities_path,
+        "readiness_manifest_sha256": executable[
+            "authorities_manifest_sha256"
+        ],
+        "readiness_sha256": executable["readiness_sha256"],
+        "correctness_artifact_paths": {
+            gate: authorities_path for gate in ("H1", "H2", "H3", "H5")
+        },
+        "h1_prefix_prior_artifact_path": authorities_path,
+        "smc_accuracy_artifact_path": authorities_path,
+        "smc_accuracy_manifest_sha256": digest,
+        "h6_prefix_artifact_path": authorities_path,
+        "h6_prefix_manifest_sha256": digest,
+        "blinded_data_artifact_path": authorities_path,
+        "blinded_data_manifest_sha256": digest,
+        "matching_artifact_path": authorities_path,
+        "matching_manifest_sha256": digest,
+        "matching_set_sha256": executable["matching_set_sha256"],
+        "h1_prefix_prior_generative_factor_schema_sha256": digest,
+        "smc_bias_semantics_sha256": digest,
+        "objective_gate_spec_sha256": digest,
+        "metrics_sha256": executable["metrics_sha256"],
+    }
+
+
+def _h8_prediction_v1_payload(
+    executable: dict[str, object],
+) -> dict[str, object]:
+    v2 = _h8_prediction_v2_payload(executable)
+    common_fields = {
+        "kind",
+        "artifact_path",
+        "manifest_sha256",
+        "result_path",
+        "result_sha256",
+        "content_hashes",
+        "payload_hashes",
+        "ledger_path",
+        "ledger_sha256",
+        "producer_head",
+        "producer_dirty_digest",
+        "candidate_junit_sha256",
+        "status",
+    }
+    return {
+        **{key: value for key, value in v2.items() if key in common_fields},
+        "experiment_sha256": v2["experiment_sha256"],
+    }
+
+
 def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
     import verification.h8_gate as h8_gate
     import verification.run_gates as gates
@@ -302,27 +398,9 @@ def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
     h6_prefix = payload["references"]["h6_prefix"]
     payload["references"]["h6_prefix"] = _legacy_h8_prefix_payload(h6_prefix)
     h6_prediction = payload["references"]["h6_prediction"]
-    legacy_fields = {
-        "kind",
-        "artifact_path",
-        "manifest_sha256",
-        "result_path",
-        "result_sha256",
-        "content_hashes",
-        "payload_hashes",
-        "experiment_sha256",
-        "ledger_path",
-        "ledger_sha256",
-        "producer_head",
-        "producer_dirty_digest",
-        "candidate_junit_sha256",
-        "status",
-    }
-    payload["references"]["h6_prediction"] = {
-        key: value
-        for key, value in h6_prediction.items()
-        if key in legacy_fields
-    }
+    payload["references"]["h6_prediction"] = _h8_prediction_v1_payload(
+        h6_prediction
+    )
     legacy_bytes = h8_gate.canonical_h8_json_bytes(payload)
 
     parsed = gates.parse_h8_reference_registry_bytes(legacy_bytes)
@@ -331,6 +409,8 @@ def test_h8_registry_v1_is_readable_but_never_authorizing() -> None:
     assert type(parsed.h6_prediction).__name__ == "H8LegacyH6PredictionReference"
     assert parsed.registry_schema_version == "h8-current-candidate-refs-v1"
     assert parsed.prerequisite_obligations == (
+        "h8_prerequisite_registry_v1_v2_v3_requires_h6_prediction_v3",
+        "h8_prerequisite_registry_v1_v2_v3_v4_requires_direct_a0_prefix",
         "h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3",
         "h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2",
     )
@@ -363,6 +443,9 @@ def test_h8_registry_v2_is_readable_but_never_authorizing() -> None:
     payload["schema_version"] = "h8-current-candidate-refs-v2"
     h6_prefix = payload["references"]["h6_prefix"]
     payload["references"]["h6_prefix"] = _legacy_h8_prefix_payload(h6_prefix)
+    payload["references"]["h6_prediction"] = _h8_prediction_v2_payload(
+        payload["references"]["h6_prediction"]
+    )
     legacy_bytes = h8_gate.canonical_h8_json_bytes(payload)
 
     parsed = gates.parse_h8_reference_registry_bytes(legacy_bytes)
@@ -371,6 +454,8 @@ def test_h8_registry_v2_is_readable_but_never_authorizing() -> None:
     assert type(parsed.h6_prediction).__name__ == "H8H6PredictionReference"
     assert parsed.registry_schema_version == "h8-current-candidate-refs-v2"
     assert parsed.prerequisite_obligations == (
+        "h8_prerequisite_registry_v1_v2_v3_requires_h6_prediction_v3",
+        "h8_prerequisite_registry_v1_v2_v3_v4_requires_direct_a0_prefix",
         "h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3",
     )
     assert (

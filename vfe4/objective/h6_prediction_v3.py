@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Literal
 
 import torch
 from torch import Tensor
+from torch.nn import functional as F
 
 from vfe4.data.windows import CausalPrefix
 from vfe4.recognition.h6_prediction_v3 import (
@@ -24,6 +25,7 @@ from vfe4.recognition.h6_prediction_v3 import (
     CategoricalSourceBank,
     CategoricalSourceRow,
     GaussianReceiverComponent,
+    H6ActiveHorizonV3,
     LanguageRecognitionTrajectory,
     SourceBankName,
 )
@@ -186,7 +188,14 @@ class H6SourceRowEvaluationV3:
         if history.shape[0] != self.receiver_t:
             raise ValueError("sampled source history must cover vertices 0..t-1")
         if (
-            len({posterior.device, prior.device, transition.device, history.device})
+            len(
+                {
+                    posterior.device,
+                    prior.device,
+                    transition.device,
+                    history.device,
+                }
+            )
             != 1
         ):
             raise ValueError("source-row tensors must share one device")
@@ -357,6 +366,7 @@ class H6PredictionObjectiveEstimateV3:
 
     mixture_mode: H6MixtureModeV3
     active_parameter_block: H6ActiveParameterBlockV3
+    active_horizon: H6ActiveHorizonV3
     source_law: H6EvaluatedRecognitionLawV3
     evaluated_source_rows: tuple[H6SourceRowEvaluationV3, ...]
     ordered_terms: tuple[H6ObjectiveTermV3, ...]
@@ -372,6 +382,9 @@ class H6PredictionObjectiveEstimateV3:
             raise ValueError("unsupported H6 v3 mixture mode")
         if self.active_parameter_block not in ("recognition", "model"):
             raise ValueError("unsupported H6 v3 active parameter block")
+        if type(self.active_horizon) is not H6ActiveHorizonV3:
+            raise ValueError("active_horizon must be an exact H6ActiveHorizonV3")
+        self.active_horizon.__post_init__()
         if (
             type(self.ordered_terms) is not tuple
             or not self.ordered_terms
@@ -395,6 +408,53 @@ class H6PredictionObjectiveEstimateV3:
             )
         if not bool(torch.equal(self.loss, -self.elbo)):
             raise ValueError("H6 v3 optimizers must minimize loss = -ELBO")
+        _require_sha256(
+            self.estimate_identity_sha256,
+            "estimate_identity_sha256",
+        )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class H6PredictionEmissionOnlyEstimateV3:
+    """One dedicated live emission expectation with no ELBO operators."""
+
+    active_parameter_block: H6ActiveParameterBlockV3
+    active_horizon: H6ActiveHorizonV3
+    ordered_terms: tuple[H6ObjectiveTermV3, ...]
+    emission_total: Tensor
+    loss: Tensor
+    estimate_identity_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.active_parameter_block not in ("recognition", "model"):
+            raise ValueError("unsupported active parameter block")
+        if type(self.active_horizon) is not H6ActiveHorizonV3:
+            raise ValueError(
+                "active_horizon must be an exact H6ActiveHorizonV3"
+            )
+        self.active_horizon.__post_init__()
+        if (
+            type(self.ordered_terms) is not tuple
+            or len(self.ordered_terms)
+            != self.active_horizon.active_horizon
+            or tuple(term.receiver_t for term in self.ordered_terms)
+            != tuple(range(1, self.active_horizon.active_horizon + 1))
+            or any(
+                type(term) is not H6ObjectiveTermV3
+                or term.partition != "emission"
+                for term in self.ordered_terms
+            )
+        ):
+            raise ValueError(
+                "emission-only estimate requires one ordered emission per "
+                "active target"
+            )
+        _require_scalar(self.emission_total, "emission_total")
+        _require_scalar(self.loss, "emission-only loss")
+        if not bool(torch.equal(self.loss, -self.emission_total)):
+            raise ValueError(
+                "emission-only optimizer must minimize negative emission"
+            )
         _require_sha256(
             self.estimate_identity_sha256,
             "estimate_identity_sha256",
@@ -862,6 +922,248 @@ def _sum_terms(terms: tuple[H6ObjectiveTermV3, ...]) -> Tensor:
     return total
 
 
+def evaluate_h6_no_latent_cross_entropy_v3(
+    *,
+    logits: Tensor,
+    targets: Tensor,
+    active_horizons: tuple[H6ActiveHorizonV3, ...],
+) -> Tensor:
+    """Reduce only concatenated active rows using counted example offsets."""
+
+    if (
+        type(active_horizons) is not tuple
+        or not active_horizons
+        or any(type(binding) is not H6ActiveHorizonV3 for binding in active_horizons)
+    ):
+        raise ValueError("active_horizons must contain exact H6ActiveHorizonV3 records")
+    for binding in active_horizons:
+        binding.__post_init__()
+    maximum_horizons = {
+        binding.maximum_horizon for binding in active_horizons
+    }
+    counted_offsets = [0]
+    for binding in active_horizons:
+        counted_offsets.append(
+            counted_offsets[-1] + binding.active_horizon
+        )
+    counted_targets = counted_offsets[-1]
+    if (
+        type(logits) is not Tensor
+        or logits.dtype is not torch.float64
+        or logits.ndim != 2
+        or logits.shape[0] != counted_targets
+        or logits.shape[1] <= 0
+        or not bool(torch.isfinite(logits.detach()).all())
+        or len(maximum_horizons) != 1
+    ):
+        raise ValueError(
+            "logits must contain exactly the finite float64 active rows "
+            "shape (counted_targets, vocabulary)"
+        )
+    vocabulary_size = logits.shape[1]
+    if (
+        type(targets) is not Tensor
+        or targets.device.type != "cpu"
+        or targets.dtype is not torch.int64
+        or targets.shape != (counted_targets,)
+        or not targets.is_contiguous()
+    ):
+        raise ValueError(
+            "targets must be contiguous CPU int64 shape (counted_targets,)"
+        )
+    for example_ordinal, binding in enumerate(active_horizons):
+        start = counted_offsets[example_ordinal]
+        stop = counted_offsets[example_ordinal + 1]
+        row = targets[start:stop]
+        if (
+            stop - start != binding.active_horizon
+            or bool(torch.any(row < 0).item())
+            or bool(torch.any(row >= vocabulary_size).item())
+        ):
+            raise ValueError(
+                "each counted target segment must contain exactly "
+                "active_horizon vocabulary IDs"
+            )
+    summed_nll = F.cross_entropy(
+        logits,
+        targets.to(device=logits.device),
+        reduction="sum",
+    )
+    result = summed_nll / counted_targets
+    if result.shape != () or not bool(torch.isfinite(result.detach())):
+        raise ValueError("no-latent cross entropy must be one finite scalar")
+    return result
+
+
+def evaluate_h6_prediction_emission_only_v3(
+    *,
+    model: "LatentLanguageArmModel",
+    trajectory: LanguageRecognitionTrajectory,
+    observed_tokens: Tensor,
+    base_noise: Tensor,
+    active_parameter_block: H6ActiveParameterBlockV3,
+    active_horizon: H6ActiveHorizonV3,
+    preauthenticated_source_model_state_sha256: str | None = None,
+) -> H6PredictionEmissionOnlyEstimateV3:
+    """Evaluate only live emissions; no initial/source/transition/entropy law."""
+
+    from vfe4.predictive.identities import canonical_model_state_sha256
+    from vfe4.training.arms import LatentLanguageArmModel
+
+    if type(model) is not LatentLanguageArmModel:
+        raise ValueError("model must be an exact LatentLanguageArmModel")
+    if type(trajectory) is not LanguageRecognitionTrajectory:
+        raise ValueError(
+            "trajectory must be an exact LanguageRecognitionTrajectory"
+        )
+    trajectory.__post_init__()
+    if type(active_horizon) is not H6ActiveHorizonV3:
+        raise ValueError(
+            "active_horizon must be an exact H6ActiveHorizonV3"
+        )
+    active_horizon.__post_init__()
+    horizon = active_horizon.active_horizon
+    dimension = model.latent_width * (
+        2 if model.model_channel_enabled else 1
+    )
+    if (
+        active_horizon.maximum_horizon != model.horizon
+        or trajectory.conditioning.horizon != horizon
+        or trajectory.active_horizon_binding != active_horizon
+    ):
+        raise ValueError(
+            "active horizon does not match the model and trajectory"
+        )
+    tokens = observed_tokens
+    if (
+        type(tokens) is not Tensor
+        or tokens.device.type != "cpu"
+        or tokens.dtype is not torch.int64
+        or tokens.shape != (horizon,)
+        or not tokens.is_contiguous()
+        or bool(torch.any(tokens < 0))
+        or bool(torch.any(tokens >= model.vocabulary.size))
+        or not torch.equal(
+            trajectory.conditioning.observed_tokens.value(),
+            tokens,
+        )
+    ):
+        raise ValueError(
+            "observed_tokens must be the exact active CPU int64 targets"
+        )
+    noise = _require_float64(
+        base_noise,
+        name="base_noise",
+        shape=(horizon + 1, dimension),
+    )
+    if (
+        noise.device != trajectory.base_means.device
+        or noise.requires_grad
+        or next(model.parameters()).device
+        != trajectory.base_means.device
+    ):
+        raise ValueError(
+            "emission-only model, trajectory, and graph-free noise must "
+            "share one device"
+        )
+    if preauthenticated_source_model_state_sha256 is None:
+        source_model_state_sha256 = canonical_model_state_sha256(model)
+        rehash_source_state = True
+    else:
+        source_model_state_sha256 = _require_sha256(
+            preauthenticated_source_model_state_sha256,
+            "preauthenticated_source_model_state_sha256",
+        )
+        rehash_source_state = False
+    if trajectory.source_model_state_sha256 != source_model_state_sha256:
+        raise ValueError(
+            "recognition trajectory source-model state does not match "
+            "the live generative model"
+        )
+    _validate_active_block(
+        model=model,
+        trajectory=trajectory,
+        active_parameter_block=active_parameter_block,
+    )
+
+    precision = trajectory.shared_precision_cholesky
+    terms: list[H6ObjectiveTermV3] = []
+    for receiver_t in range(1, horizon):
+        components = trajectory.receiver_components[receiver_t]
+        if len(components) != 1:
+            raise ValueError(
+                "nonterminal emission receiver must have one component"
+            )
+        sample = _sample_precision_gaussian(
+            components[0].mean,
+            precision,
+            noise[receiver_t],
+        )
+        terms.append(
+            _term(
+                "emission",
+                receiver_t,
+                _emission_log_prob(
+                    model=model,
+                    current_value=sample,
+                    observed_token_id=int(tokens[receiver_t - 1].item()),
+                ),
+            )
+        )
+
+    terminal_emission = precision.new_zeros(())
+    for component in trajectory.terminal_components:
+        sample = _sample_precision_gaussian(
+            component.mean,
+            precision,
+            noise[horizon],
+        )
+        terminal_emission = (
+            terminal_emission
+            + component.log_probability.exp()
+            * _emission_log_prob(
+                model=model,
+                current_value=sample,
+                observed_token_id=int(tokens[horizon - 1].item()),
+            )
+        )
+    terms.append(_term("emission", horizon, terminal_emission))
+    ordered_terms = tuple(terms)
+    total = ordered_terms[0].value
+    for term in ordered_terms[1:]:
+        total = total + term.value
+    estimate_identity_sha256 = _identity(
+        "vfe4.h6.prediction-emission-only-estimate.v3",
+        {
+            "active_parameter_block": active_parameter_block,
+            "active_horizon_evaluation_identity": (
+                active_horizon.evaluation_identity_sha256
+            ),
+            "trajectory_identity": trajectory.trajectory_identity_sha256,
+            "ordered_terms": tuple(
+                term.term_identity_sha256 for term in ordered_terms
+            ),
+            "emission_total": _tensor_fingerprint(total),
+        },
+    )
+    if (
+        rehash_source_state
+        and canonical_model_state_sha256(model)
+        != source_model_state_sha256
+    ):
+        raise ValueError(
+            "live generative model changed during emission evaluation"
+        )
+    return H6PredictionEmissionOnlyEstimateV3(
+        active_parameter_block=active_parameter_block,
+        active_horizon=active_horizon,
+        ordered_terms=ordered_terms,
+        emission_total=total,
+        loss=-total,
+        estimate_identity_sha256=estimate_identity_sha256,
+    )
+
+
 def evaluate_h6_prediction_elbo_v3(
     *,
     model: "LatentLanguageArmModel",
@@ -870,6 +1172,8 @@ def evaluate_h6_prediction_elbo_v3(
     base_noise: Tensor,
     mixture_mode: H6MixtureModeV3,
     active_parameter_block: H6ActiveParameterBlockV3,
+    active_horizon: H6ActiveHorizonV3 | None = None,
+    preauthenticated_source_model_state_sha256: str | None = None,
 ) -> H6PredictionObjectiveEstimateV3:
     """Evaluate one exact-source, one-sample positive language ELBO."""
 
@@ -884,7 +1188,26 @@ def evaluate_h6_prediction_elbo_v3(
     trajectory.__post_init__()
     if mixture_mode not in ("exact", "moment_projection"):
         raise ValueError("mixture_mode must be exact or moment_projection")
-    horizon = model.horizon
+    if active_horizon is None:
+        if trajectory.conditioning.horizon != model.horizon:
+            raise ValueError(
+                "partial trajectories require an exact active_horizon binding"
+            )
+        evaluation_horizon = H6ActiveHorizonV3.create(
+            maximum_horizon=model.horizon,
+            active_horizon=model.horizon,
+        )
+    else:
+        if type(active_horizon) is not H6ActiveHorizonV3:
+            raise ValueError("active_horizon must be an exact H6ActiveHorizonV3")
+        active_horizon.__post_init__()
+        if (
+            active_horizon.maximum_horizon != model.horizon
+            or trajectory.conditioning.horizon != active_horizon.active_horizon
+        ):
+            raise ValueError("active horizon does not match the model and trajectory")
+        evaluation_horizon = active_horizon
+    horizon = evaluation_horizon.active_horizon
     dimension = model.latent_width * (2 if model.model_channel_enabled else 1)
     tokens = observed_tokens
     if (
@@ -920,7 +1243,15 @@ def evaluate_h6_prediction_elbo_v3(
         )
     if next(model.parameters()).device != trajectory.base_means.device:
         raise ValueError("model and recognition trajectory devices must match")
-    source_model_state_sha256 = canonical_model_state_sha256(model)
+    if preauthenticated_source_model_state_sha256 is None:
+        source_model_state_sha256 = canonical_model_state_sha256(model)
+        rehash_source_state = True
+    else:
+        source_model_state_sha256 = _require_sha256(
+            preauthenticated_source_model_state_sha256,
+            "preauthenticated_source_model_state_sha256",
+        )
+        rehash_source_state = False
     if trajectory.source_model_state_sha256 != source_model_state_sha256:
         raise ValueError(
             "recognition trajectory source-model state does not match "
@@ -1677,27 +2008,37 @@ def evaluate_h6_prediction_elbo_v3(
     # one and only one live scalar graph.
     exposed_total = canonical_total
     loss = -exposed_total
+    estimate_payload = {
+        "mixture_mode": mixture_mode,
+        "active_parameter_block": active_parameter_block,
+        "trajectory_identity": trajectory.trajectory_identity_sha256,
+        "source_law_identity": (
+            source_law.law_identity_sha256
+            if type(source_law) is ExactSourceMixtureEvaluationV3
+            else source_law.projection_identity_sha256
+        ),
+        "ordered_terms": [term.term_identity_sha256 for term in ordered_terms],
+        "terminal_joint": _tensor_fingerprint(terminal_joint),
+        "elbo": _tensor_fingerprint(exposed_total),
+    }
+    if evaluation_horizon.active_horizon != model.horizon:
+        estimate_payload["active_horizon_evaluation_identity"] = (
+            evaluation_horizon.evaluation_identity_sha256
+        )
     estimate_identity = _identity(
         "vfe4.h6.prediction-objective-estimate.v3",
-        {
-            "mixture_mode": mixture_mode,
-            "active_parameter_block": active_parameter_block,
-            "trajectory_identity": trajectory.trajectory_identity_sha256,
-            "source_law_identity": (
-                source_law.law_identity_sha256
-                if type(source_law) is ExactSourceMixtureEvaluationV3
-                else source_law.projection_identity_sha256
-            ),
-            "ordered_terms": [term.term_identity_sha256 for term in ordered_terms],
-            "terminal_joint": _tensor_fingerprint(terminal_joint),
-            "elbo": _tensor_fingerprint(exposed_total),
-        },
+        estimate_payload,
     )
-    if canonical_model_state_sha256(model) != source_model_state_sha256:
+    if (
+        rehash_source_state
+        and canonical_model_state_sha256(model)
+        != source_model_state_sha256
+    ):
         raise ValueError("live generative model changed during objective evaluation")
     return H6PredictionObjectiveEstimateV3(
         mixture_mode=mixture_mode,
         active_parameter_block=active_parameter_block,
+        active_horizon=evaluation_horizon,
         source_law=source_law,
         evaluated_source_rows=tuple(source_records),
         ordered_terms=ordered_terms,
@@ -1717,10 +2058,13 @@ __all__ = [
     "H6MixtureModeV3",
     "H6ObjectivePartitionV3",
     "H6ObjectiveTermV3",
+    "H6PredictionEmissionOnlyEstimateV3",
     "H6PredictionObjectiveEstimateV3",
     "H6SourceRowEvaluationV3",
     "H6TerminalComponentEvaluationV3",
     "MomentProjectionEvaluationV3",
+    "evaluate_h6_no_latent_cross_entropy_v3",
+    "evaluate_h6_prediction_emission_only_v3",
     "evaluate_h6_prediction_elbo_v3",
     "project_terminal_mixture_v3",
 ]

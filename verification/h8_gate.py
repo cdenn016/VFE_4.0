@@ -16,6 +16,9 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 
 from verification.h8_budget import _require_h8_budget_issued_attempt
+from verification.h8_h6_prediction_v3 import (
+    validate_h8_h6_prediction_v3_reference,
+)
 from verification.h8_parent_authority import (
     H8ParentAttemptAuthority,
     h8_correctness_statuses_sha256,
@@ -27,7 +30,7 @@ from vfe4.config.schema import H8ValidationConfig
 from vfe4.artifacts.atomic import canonical_json_bytes
 from vfe4.artifacts.h6 import (
     CandidateArtifactReference,
-    reopen_bounded_prefix_certificate_set,
+    reopen_h6_prefix_authorities,
 )
 from vfe4.artifacts.provenance import (
     H8_PROVENANCE_KEYS,
@@ -56,13 +59,20 @@ from vfe4.types.h8 import (
     H8CorrectnessCell,
     H8GateEvaluation,
     H8H6PredictionReference,
+    H8H6PredictionV3Reference,
     H8H6PrefixReference,
     H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
     H8LegacyH6PrefixReference,
+    H8LegacyH6PrefixV4Reference,
     H8LegacyH6PredictionReference,
 )
-from vfe4.types.h6 import BoundedPrefixCertificateSet
+from vfe4.types.h6 import (
+    H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS,
+    A0DirectExactPrefixCertificateV1,
+    BoundedPrefixCertificateSet,
+    EvidenceStatus,
+)
 from vfe4.types.results import (
     GateStatus,
     H8GateResult,
@@ -124,6 +134,7 @@ H8_POINTER_PREDECESSOR_KEYS = (
 )
 
 H8_H6_PREFIX_PAYLOAD_KEYS = (
+    "certificates/a0_direct_exact.json",
     "certificates/prefix_set.json",
     "config.json",
     "environment.json",
@@ -1098,9 +1109,9 @@ def _revalidate_h6_prefix_certificates(
     reference.__post_init__()
     if tuple(payloads) != H8_H6_PREFIX_PAYLOAD_KEYS:
         raise ValueError(
-            "bounded H6-Prefix artifact must retain its exact five payloads"
+            "bounded H6-Prefix artifact must retain its exact six payloads"
         )
-    certificate_set = reopen_bounded_prefix_certificate_set(
+    certificate_set, direct_certificate = reopen_h6_prefix_authorities(
         root=Path(getattr(reference, "artifact_path")),
         expected_manifest_sha256=getattr(reference, "manifest_sha256"),
         expected_git_head=getattr(reference, "producer_head"),
@@ -1113,6 +1124,14 @@ def _revalidate_h6_prefix_certificates(
     if type(certificate_set) is not BoundedPrefixCertificateSet:
         raise ValueError(
             "bounded H6-Prefix reopen must return its exact certificate set"
+        )
+    if (
+        type(direct_certificate)
+        is not A0DirectExactPrefixCertificateV1
+    ):
+        raise ValueError(
+            "bounded H6-Prefix reopen must return its exact direct-A0 "
+            "certificate"
         )
     observed_families = tuple(
         H8H6PrefixSemanticFamilyReference(
@@ -1135,6 +1154,18 @@ def _revalidate_h6_prefix_certificates(
         != reference.validation_payload_sha256
         or certificate_set.prefix_certificate_set_sha256
         != reference.prefix_certificate_set_sha256
+        or direct_certificate.certificate_sha256
+        != reference.a0_direct_exact_prefix_certificate_sha256
+        or direct_certificate.status is not EvidenceStatus.PASS
+        or direct_certificate.obligations != ()
+        or tuple(direct_certificate.checks)
+        != H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS
+        or not all(direct_certificate.checks.values())
+        or direct_certificate.bounded_a0_certificate_sha256
+        not in tuple(
+            certificate.certificate_sha256
+            for certificate in certificate_set.certificates
+        )
         or observed_families != reference.semantic_families
     ):
         raise ValueError(
@@ -1507,7 +1538,10 @@ def validate_h8_prerequisite_artifacts(
             if name == "h6_prefix":
                 if type(reference) is H8H6PrefixReference:
                     _revalidate_h6_prefix_certificates(reference, payloads)
-                elif type(reference) is not H8LegacyH6PrefixReference:
+                elif type(reference) not in (
+                    H8LegacyH6PrefixV4Reference,
+                    H8LegacyH6PrefixReference,
+                ):
                     raise ValueError("H6-Prefix reference variant is not exact")
             if name == "h7":
                 _read_immutable_file(
@@ -1521,7 +1555,25 @@ def validate_h8_prerequisite_artifacts(
             obligations.append(
                 f"h8_prerequisite_{name}_immutable_artifact_revalidation_required"
             )
-    if type(refs.h6_prediction) is H8H6PredictionReference:
+    if type(refs.h6_prediction) is H8H6PredictionV3Reference:
+        try:
+            if type(refs.h6_prefix) is not H8H6PrefixReference:
+                raise ValueError(
+                    "H6-Prediction v3 requires the current six-file Prefix "
+                    "reference"
+                )
+            validate_h8_h6_prediction_v3_reference(
+                refs.h6_prediction,
+                expected_a0_direct_exact_prefix_certificate_sha256=(
+                    refs.h6_prefix.a0_direct_exact_prefix_certificate_sha256
+                ),
+            )
+            revalidated.append("h6_prediction")
+        except (OSError, RuntimeError, TypeError, ValueError):
+            obligations.append(
+                "h8_prerequisite_h6_prediction_v3_artifact_revalidation_required"
+            )
+    elif type(refs.h6_prediction) is H8H6PredictionReference:
         try:
             _reopen_h6_prediction_v2(
                 refs.h6_prediction,

@@ -98,10 +98,12 @@ from vfe4.types.h8 import (
     H8H1H5Reference,
     H8H1PrefixPriorReference,
     H8H6PredictionReference,
+    H8H6PredictionV3Reference,
     H8H6PrefixReference,
     H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
     H8LegacyH6PrefixReference,
+    H8LegacyH6PrefixV4Reference,
     H8LegacyH6PredictionReference,
 )
 from vfe4.validation import (
@@ -352,6 +354,8 @@ def parse_h8_reference_registry_bytes(
             "h8-current-candidate-refs-v1",
             "h8-current-candidate-refs-v2",
             "h8-current-candidate-refs-v3",
+            "h8-current-candidate-refs-v4",
+            "h8-current-candidate-refs-v5",
         )
         or canonical_h8_json_bytes(payload) != registry_bytes
     ):
@@ -388,6 +392,48 @@ def parse_h8_reference_registry_bytes(
     h6_prediction_type: type[object]
     h6_prediction_fields: set[str]
     if registry_schema in (
+        "h8-current-candidate-refs-v4",
+        "h8-current-candidate-refs-v5",
+    ):
+        h6_prediction_type = H8H6PredictionV3Reference
+        h6_prediction_fields = common_fields | {
+            "config_schema",
+            "readiness_schema",
+            "raw_inventory_schema",
+            "metrics_schema",
+            "result_schema",
+            "authorities_path",
+            "authorities_manifest_sha256",
+            "authorities_sha256",
+            "config_sha256",
+            "readiness_sha256",
+            "plan_sha256",
+            "matching_set_sha256",
+            "validation_bundle_path",
+            "validation_bundle_manifest_sha256",
+            "validation_bundle_sha256",
+            "checkpoint_selection_sha256",
+            "reservation_path",
+            "reservation_sha256",
+            "reservation_file_sha256",
+            "terminal_path",
+            "terminal_sha256",
+            "terminal_manifest_sha256",
+            "finalized_path",
+            "finalized_manifest_sha256",
+            "pointer_path",
+            "pointer_sha256",
+            "pointer_manifest_sha256",
+            "experiment_identity_sha256",
+            "opening_proof_sha256",
+            "raw_inventory_sha256",
+            "metrics_sha256",
+            "result_record_sha256",
+            "ledger_validator_sha256",
+            "artifact_revision",
+            "candidate_junit_path",
+        }
+    elif registry_schema in (
         "h8-current-candidate-refs-v2",
         "h8-current-candidate-refs-v3",
     ):
@@ -422,8 +468,24 @@ def parse_h8_reference_registry_bytes(
     else:
         h6_prediction_type = H8LegacyH6PredictionReference
         h6_prediction_fields = common_fields | {"experiment_sha256"}
-    if registry_schema == "h8-current-candidate-refs-v3":
+    if registry_schema == "h8-current-candidate-refs-v5":
         h6_prefix_type: type[object] = H8H6PrefixReference
+        h6_prefix_fields = common_fields | {
+            "config_schema",
+            "validation_schema",
+            "certificate_set_schema",
+            "config_sha256",
+            "workload_plan_sha256",
+            "validation_payload_sha256",
+            "prefix_certificate_set_sha256",
+            "a0_direct_exact_prefix_certificate_sha256",
+            "semantic_families",
+        }
+    elif registry_schema in (
+        "h8-current-candidate-refs-v3",
+        "h8-current-candidate-refs-v4",
+    ):
+        h6_prefix_type = H8LegacyH6PrefixV4Reference
         h6_prefix_fields = common_fields | {
             "config_schema",
             "validation_schema",
@@ -488,7 +550,12 @@ def parse_h8_reference_registry_bytes(
         typed_raw = dict(raw)
         if (
             name == "h6_prefix"
-            and registry_schema == "h8-current-candidate-refs-v3"
+            and registry_schema
+            in (
+                "h8-current-candidate-refs-v3",
+                "h8-current-candidate-refs-v4",
+                "h8-current-candidate-refs-v5",
+            )
         ):
             raw_families = raw["semantic_families"]
             family_fields = {
@@ -1178,6 +1245,7 @@ def _h8_dependency_closure_sha256(
     source_sha256: str,
     config_sha256: str,
     registry_sha256: str,
+    a0_direct_exact_prefix_certificate_sha256: str,
     preregistration_sha256: str,
 ) -> str:
     return hashlib.sha256(
@@ -1187,6 +1255,9 @@ def _h8_dependency_closure_sha256(
                 "source_sha256": source_sha256,
                 "config_sha256": config_sha256,
                 "registry_sha256": registry_sha256,
+                "a0_direct_exact_prefix_certificate_sha256": (
+                    a0_direct_exact_prefix_certificate_sha256
+                ),
                 "preregistration_sha256": preregistration_sha256,
             }
         )
@@ -1250,6 +1321,10 @@ def run_h8_verification(
         canonical.validation.gates != H8_VERIFIER_PREFIX
         or canonical.h8 is None
         or type(refs) is not CurrentH8PrerequisiteRefs
+        or refs.registry_schema_version != "h8-current-candidate-refs-v5"
+        or type(refs.h6_prefix) is not H8H6PrefixReference
+        or type(refs.h6_prediction) is not H8H6PredictionV3Reference
+        or refs.prerequisite_obligations
     ):
         raise ValueError("run_h8_verification requires the exact bound H8 operation")
 
@@ -1291,6 +1366,9 @@ def run_h8_verification(
         source_sha256=source_sha256_value,
         config_sha256=canonical.config_sha256,
         registry_sha256=refs.registry_sha256,
+        a0_direct_exact_prefix_certificate_sha256=(
+            refs.h6_prefix.a0_direct_exact_prefix_certificate_sha256
+        ),
         preregistration_sha256=preregistration_sha256,
     )
     startup_environment = require_h8_startup_environment(os.environ)

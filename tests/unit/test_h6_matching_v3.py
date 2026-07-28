@@ -13,6 +13,7 @@ from vfe4.training.h6_matching_v3 import (
     H6MatchingSetV3,
     H6TrainingWorkloadV3,
     analytical_training_flop_ledger_v3,
+    build_h6_matching_set_v3,
     endpoint_parameter_count_v3,
     primary_matching_diagnostics_v3,
 )
@@ -109,6 +110,21 @@ def _matching_set() -> H6MatchingSetV3:
         workload=workload,
         endpoint_templates=_endpoint_templates(),
     )
+
+
+def test_public_matching_builder_regenerates_the_exact_frozen_set() -> None:
+    expected = _matching_set()
+
+    rebuilt = build_h6_matching_set_v3(
+        git_head=_GIT_HEAD,
+        dirty_digest=_DIRTY_DIGEST,
+        train_token_count=expected.workload.train_token_count,
+        train_token_sha256=expected.workload.train_token_sha256,
+        vocabulary=expected.endpoint_configs[0].vocabulary,
+        horizon=expected.endpoint_configs[0].horizon,
+    )
+
+    assert rebuilt == expected
 
 
 def test_matching_v3_counts_terminal_source_parameters_by_arm() -> None:

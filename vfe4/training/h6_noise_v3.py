@@ -22,6 +22,12 @@ from vfe4.types.h6_prediction_v3 import H6_COUNTER_MAPPING_SHA256
 
 _LOWER_HEX = frozenset("0123456789abcdef")
 _TRAINING_NORMAL_DOMAIN = b"vfe4.h6.training-rmc-normal.v1\x00"
+_TRAINING_BATCH_CONSUMPTION_DOMAIN = (
+    b"vfe4.h6.training-batch-counter-consumption.v3\x00"
+)
+_TRAINING_BATCH_KEY_INVENTORY_DOMAIN = (
+    b"vfe4.h6.training-batch-counter-key-inventory.v3\x00"
+)
 
 
 def _require_sha256(value: object, name: str) -> str:
@@ -79,6 +85,145 @@ class H6TrainingCounterKeyV3:
         return hashlib.sha256(
             _TRAINING_NORMAL_DOMAIN + canonical_json_bytes(self.canonical_payload())
         ).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class H6TrainingBatchNoiseV3:
+    """Fixed-shape noise plus every ordered per-example counter identity."""
+
+    tensor: Tensor
+    keys: tuple[H6TrainingCounterKeyV3, ...]
+    active_receiver_counts: tuple[int, ...]
+    example_consumption_sha256s: tuple[str, ...]
+    receiver_count: int
+    latent_dimension: int
+    consumption_sha256: str
+
+    @property
+    def key_sha256s(self) -> tuple[str, ...]:
+        return tuple(key.key_sha256 for key in self.keys)
+
+    @property
+    def key_inventory_sha256(self) -> str:
+        return hashlib.sha256(
+            _TRAINING_BATCH_KEY_INVENTORY_DOMAIN
+            + canonical_json_bytes(self.key_sha256s)
+        ).hexdigest()
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "key_sha256s": self.key_sha256s,
+            "key_inventory_sha256": self.key_inventory_sha256,
+            "active_receiver_counts": self.active_receiver_counts,
+            "example_consumption_sha256s": (
+                self.example_consumption_sha256s
+            ),
+            "receiver_count": self.receiver_count,
+            "latent_dimension": self.latent_dimension,
+        }
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.keys) is not tuple
+            or not self.keys
+            or any(
+                type(key) is not H6TrainingCounterKeyV3
+                for key in self.keys
+            )
+        ):
+            raise ValueError(
+                "batch noise requires an ordered nonempty exact key inventory"
+            )
+        for key in self.keys:
+            key.__post_init__()
+        first = self.keys[0]
+        shared_coordinates = (
+            first.attempt_spec_sha256,
+            first.pass_index,
+            first.batch_index,
+            first.phase,
+            first.sample_ordinal,
+            first.draw_block,
+        )
+        if any(
+            (
+                key.attempt_spec_sha256,
+                key.pass_index,
+                key.batch_index,
+                key.phase,
+                key.sample_ordinal,
+                key.draw_block,
+            )
+            != shared_coordinates
+            for key in self.keys[1:]
+        ) or tuple(key.example_ordinal for key in self.keys) != tuple(
+            range(len(self.keys))
+        ):
+            raise ValueError(
+                "batch noise keys must share one phase and cover exact ordinals"
+            )
+        if (
+            type(self.receiver_count) is not int
+            or self.receiver_count <= 0
+            or type(self.latent_dimension) is not int
+            or self.latent_dimension <= 0
+            or type(self.active_receiver_counts) is not tuple
+            or len(self.active_receiver_counts) != len(self.keys)
+            or any(
+                type(count) is not int
+                or not 1 <= count <= self.receiver_count
+                for count in self.active_receiver_counts
+            )
+        ):
+            raise ValueError(
+                "batch noise active receiver inventory is invalid"
+            )
+        if (
+            type(self.example_consumption_sha256s) is not tuple
+            or len(self.example_consumption_sha256s) != len(self.keys)
+        ):
+            raise ValueError(
+                "batch noise requires one consumption digest per example"
+            )
+        for digest in self.example_consumption_sha256s:
+            _require_sha256(digest, "example_consumption_sha256")
+        if (
+            not isinstance(self.tensor, Tensor)
+            or tuple(self.tensor.shape)
+            != (
+                len(self.keys),
+                self.receiver_count,
+                self.latent_dimension,
+            )
+            or self.tensor.dtype is not torch.float64
+            or self.tensor.requires_grad
+            or self.tensor.grad_fn is not None
+            or not self.tensor.is_contiguous()
+            or not bool(torch.isfinite(self.tensor).all())
+        ):
+            raise ValueError(
+                "batch counter tensor must be finite contiguous float64"
+            )
+        _require_sha256(self.consumption_sha256, "consumption_sha256")
+        expected = hashlib.sha256(
+            _TRAINING_BATCH_CONSUMPTION_DOMAIN
+            + bytes.fromhex(H6_COUNTER_MAPPING_SHA256)
+            + canonical_json_bytes(
+                {
+                    "key_sha256s": self.key_sha256s,
+                    "active_receiver_counts": (
+                        self.active_receiver_counts
+                    ),
+                    "example_consumption_sha256s": (
+                        self.example_consumption_sha256s
+                    ),
+                    "receiver_count": self.receiver_count,
+                    "latent_dimension": self.latent_dimension,
+                }
+            )
+        ).hexdigest()
+        if self.consumption_sha256 != expected:
+            raise ValueError("batch counter consumption identity is stale")
 
 
 def _counter_word(key: H6TrainingCounterKeyV3, draw_index: int) -> int:
@@ -180,8 +325,111 @@ def training_normal_tensor_v3(
     return result, consumption_sha256
 
 
+def training_batch_normal_tensor_v3(
+    *,
+    attempt_spec_sha256: str,
+    pass_index: int,
+    batch_index: int,
+    phase: TrainingPhase,
+    draw_block: int,
+    example_count: int,
+    receiver_count: int,
+    active_receiver_counts: tuple[int, ...],
+    latent_dimension: int,
+    device: torch.device | str,
+) -> H6TrainingBatchNoiseV3:
+    """Generate one exact counter stream per example in ordinal order."""
+
+    if type(example_count) is not int or not 1 <= example_count <= 8:
+        raise ValueError("example_count must be between one and eight")
+    if (
+        type(active_receiver_counts) is not tuple
+        or len(active_receiver_counts) != example_count
+        or type(receiver_count) is not int
+        or receiver_count <= 0
+        or any(
+            type(count) is not int or not 1 <= count <= receiver_count
+            for count in active_receiver_counts
+        )
+    ):
+        raise ValueError(
+            "active_receiver_counts must bind every exact active prefix"
+        )
+    keys = tuple(
+        H6TrainingCounterKeyV3(
+            attempt_spec_sha256=attempt_spec_sha256,
+            pass_index=pass_index,
+            batch_index=batch_index,
+            phase=phase,
+            example_ordinal=example_ordinal,
+            sample_ordinal=0,
+            draw_block=draw_block,
+        )
+        for example_ordinal in range(example_count)
+    )
+    active_rows_and_digests = tuple(
+        training_normal_tensor_v3(
+            key,
+            receiver_count=active_receiver_count,
+            latent_dimension=latent_dimension,
+            device="cpu",
+        )
+        for key, active_receiver_count in zip(
+            keys,
+            active_receiver_counts,
+            strict=True,
+        )
+    )
+    padded_rows: list[Tensor] = []
+    for row, active_receiver_count in zip(
+        (item[0] for item in active_rows_and_digests),
+        active_receiver_counts,
+        strict=True,
+    ):
+        padded = torch.zeros(
+            (receiver_count, latent_dimension),
+            dtype=torch.float64,
+            device="cpu",
+        )
+        padded[:active_receiver_count].copy_(row)
+        padded_rows.append(padded)
+    cpu = torch.stack(
+        tuple(padded_rows),
+        dim=0,
+    ).contiguous()
+    destination = torch.device(device)
+    tensor = cpu if destination.type == "cpu" else cpu.to(destination)
+    example_digests = tuple(
+        digest for _row, digest in active_rows_and_digests
+    )
+    consumption_sha256 = hashlib.sha256(
+        _TRAINING_BATCH_CONSUMPTION_DOMAIN
+        + bytes.fromhex(H6_COUNTER_MAPPING_SHA256)
+        + canonical_json_bytes(
+            {
+                "key_sha256s": tuple(key.key_sha256 for key in keys),
+                "active_receiver_counts": tuple(active_receiver_counts),
+                "example_consumption_sha256s": example_digests,
+                "receiver_count": receiver_count,
+                "latent_dimension": latent_dimension,
+            }
+        )
+    ).hexdigest()
+    return H6TrainingBatchNoiseV3(
+        tensor=tensor,
+        keys=keys,
+        active_receiver_counts=tuple(active_receiver_counts),
+        example_consumption_sha256s=example_digests,
+        receiver_count=receiver_count,
+        latent_dimension=latent_dimension,
+        consumption_sha256=consumption_sha256,
+    )
+
+
 __all__ = [
+    "H6TrainingBatchNoiseV3",
     "H6TrainingCounterKeyV3",
+    "training_batch_normal_tensor_v3",
     "training_normal_tensor_v3",
     "training_normal_values_v3",
     "training_open_uniform_v3",

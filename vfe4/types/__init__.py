@@ -88,8 +88,12 @@ from .h5_schema import (
 from .information import MatrixBlock, PrecisionDiagnostics, PrecisionFactor
 from .h6 import (
     H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256,
+    H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS,
+    H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS,
     H6_INFERENCE_PARTICLE_COUNTS,
     H6_PREFIX_REQUIRED_CHECKS,
+    A0DirectExactPrefixCertificateV1,
+    A0DirectExactPrefixWitnessV1,
     AdamWPolicyRecord,
     ArmId,
     ArmConfig,
@@ -374,6 +378,8 @@ from .updates import (
 )
 
 __all__ = [
+    "A0DirectExactPrefixCertificateV1",
+    "A0DirectExactPrefixWitnessV1",
     "AdamWPolicyRecord",
     "ArmId",
     "ArmConfig",
@@ -532,6 +538,8 @@ __all__ = [
     "H6_TRAINING_SCHEDULE_SCHEMA",
     "InferenceComputeRecord",
     "H1_PREFIX_PRIOR_V2_GENERATIVE_FACTOR_SCHEMA_SHA256",
+    "H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS",
+    "H6_A0_DIRECT_EXACT_PREFIX_WITNESS_CHECKS",
     "H6_PREFIX_REQUIRED_CHECKS",
     "H7GateResult",
     "H8GateResult",

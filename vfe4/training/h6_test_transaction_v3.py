@@ -559,12 +559,22 @@ def _is_redirect(path: Path, status: os.stat_result) -> bool:
     return bool(getattr(status, "st_file_attributes", 0) & reparse_flag)
 
 
-def _read_bound_file(path: Path) -> bytes:
+def _read_bound_file(
+    path: Path,
+    *,
+    maximum_bytes: int = 1024 * 1024,
+) -> bytes:
+    if type(maximum_bytes) is not int or maximum_bytes <= 0:
+        raise ArtifactPublicationError("journal byte bound is invalid")
     try:
         before = path.lstat()
     except OSError as exc:
         raise ArtifactPublicationError(f"journal file is unavailable: {path}") from exc
-    if not stat.S_ISREG(before.st_mode) or _is_redirect(path, before):
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or _is_redirect(path, before)
+        or before.st_size > maximum_bytes
+    ):
         raise ArtifactPublicationError("journal entry is not a bound regular file")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
     nofollow = getattr(os, "O_NOFOLLOW", 0)
@@ -575,14 +585,19 @@ def _read_bound_file(path: Path) -> bytes:
             opened.st_dev != before.st_dev
             or opened.st_ino != before.st_ino
             or not stat.S_ISREG(opened.st_mode)
+            or opened.st_size > maximum_bytes
         ):
             raise ArtifactPublicationError("journal file identity changed before open")
         chunks: list[bytes] = []
-        while True:
-            chunk = os.read(descriptor, 1024 * 1024)
+        remaining = maximum_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(1024 * 1024, remaining))
             if not chunk:
                 break
             chunks.append(chunk)
+            remaining -= len(chunk)
+        if sum(map(len, chunks)) > maximum_bytes:
+            raise ArtifactPublicationError("journal file exceeds its byte bound")
         after = os.fstat(descriptor)
         if (
             after.st_dev != opened.st_dev
@@ -609,6 +624,14 @@ def _read_published_payload(directory: Path, filename: str) -> dict[str, object]
         raise ArtifactPublicationError(
             "published journal path is not a bound directory"
         )
+    try:
+        names = {entry.name for entry in directory.iterdir()}
+    except OSError as exc:
+        raise ArtifactPublicationError(
+            "published journal inventory is unavailable"
+        ) from exc
+    if names != {filename, "manifest.sha256"}:
+        raise ArtifactPublicationError("published journal inventory is not exact")
     manifest = _read_bound_file(directory / "manifest.sha256")
     payload_bytes = _read_bound_file(directory / filename)
     expected_manifest = (
@@ -707,6 +730,36 @@ def _pointer_from_directory(directory: Path) -> H6PredictionPointerV3:
     if pointer.artifact_payload() != payload:
         raise ArtifactPublicationError("prediction pointer contains unknown fields")
     return pointer
+
+
+def read_h6_test_reservation_v3(path: Path) -> H6TestReservationV3:
+    """Authenticate one bounded authoritative RESERVED marker."""
+
+    if not isinstance(path, Path) or not path.is_absolute():
+        raise ArtifactPublicationError(
+            "reservation path must be an absolute pathlib Path"
+        )
+    return _reservation_from_marker(path)
+
+
+def read_h6_test_terminal_v3(directory: Path) -> H6TestTerminalV3:
+    """Authenticate one exact immutable terminal journal directory."""
+
+    if not isinstance(directory, Path) or not directory.is_absolute():
+        raise ArtifactPublicationError(
+            "terminal directory must be an absolute pathlib Path"
+        )
+    return _terminal_from_directory(directory)
+
+
+def read_h6_prediction_pointer_v3(directory: Path) -> H6PredictionPointerV3:
+    """Authenticate one exact immutable prediction pointer directory."""
+
+    if not isinstance(directory, Path) or not directory.is_absolute():
+        raise ArtifactPublicationError(
+            "pointer directory must be an absolute pathlib Path"
+        )
+    return _pointer_from_directory(directory)
 
 
 def _publish_or_validate_pointer(
@@ -1143,5 +1196,8 @@ __all__ = [
     "execute_h6_test_transaction_v3",
     "finalize_h6_test_transaction_v3",
     "preflight_h6_test_output_namespace_v3",
+    "read_h6_prediction_pointer_v3",
+    "read_h6_test_reservation_v3",
+    "read_h6_test_terminal_v3",
     "recover_h6_test_transaction_v3",
 ]

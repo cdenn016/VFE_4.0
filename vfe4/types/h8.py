@@ -9,6 +9,7 @@ import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields as dataclass_fields, is_dataclass
 from enum import Enum
+from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import Literal, Protocol, Sequence, runtime_checkable
 
@@ -2619,6 +2620,7 @@ class H8H6PrefixReference:
     workload_plan_sha256: str
     validation_payload_sha256: str
     prefix_certificate_set_sha256: str
+    a0_direct_exact_prefix_certificate_sha256: str
     semantic_families: tuple[H8H6PrefixSemanticFamilyReference, ...]
     ledger_path: str
     ledger_sha256: str
@@ -2640,6 +2642,7 @@ class H8H6PrefixReference:
             "workload_plan_sha256",
             "validation_payload_sha256",
             "prefix_certificate_set_sha256",
+            "a0_direct_exact_prefix_certificate_sha256",
             "candidate_junit_sha256",
         ):
             _sha256(getattr(self, name), name)
@@ -2667,6 +2670,79 @@ class H8H6PrefixReference:
         )
         if len(set(family_hashes)) != len(family_hashes):
             raise ValueError("H6-Prefix semantic-family hashes must be unique")
+
+
+@dataclass(frozen=True, slots=True)
+class H8LegacyH6PrefixV4Reference:
+    """Readable five-file bounded Prefix reference; never H8-authorizing."""
+
+    kind: Literal["h6_prefix"]
+    artifact_path: str
+    manifest_sha256: str
+    result_path: str
+    result_sha256: str
+    content_hashes: Mapping[str, str]
+    payload_hashes: Mapping[str, str]
+    config_schema: Literal["h6-prefix-config-v3"]
+    validation_schema: Literal["h6-prefix-validation-set-v2"]
+    certificate_set_schema: Literal["h6-prefix-certificate-set-v2"]
+    config_sha256: str
+    workload_plan_sha256: str
+    validation_payload_sha256: str
+    prefix_certificate_set_sha256: str
+    semantic_families: tuple[H8H6PrefixSemanticFamilyReference, ...]
+    ledger_path: str
+    ledger_sha256: str
+    producer_head: str
+    producer_dirty_digest: str
+    candidate_junit_sha256: str
+    status: Literal["pass"]
+
+    def __post_init__(self) -> None:
+        _validate_reference_common(self, expected_kind="h6_prefix")
+        if (
+            self.config_schema != "h6-prefix-config-v3"
+            or self.validation_schema != "h6-prefix-validation-set-v2"
+            or self.certificate_set_schema
+            != "h6-prefix-certificate-set-v2"
+        ):
+            raise ValueError(
+                "legacy bounded H6-Prefix schemas must remain exact"
+            )
+        for name in (
+            "config_sha256",
+            "workload_plan_sha256",
+            "validation_payload_sha256",
+            "prefix_certificate_set_sha256",
+            "candidate_junit_sha256",
+        ):
+            _sha256(getattr(self, name), name)
+        if (
+            type(self.semantic_families) is not tuple
+            or not self.semantic_families
+            or any(
+                type(row) is not H8H6PrefixSemanticFamilyReference
+                for row in self.semantic_families
+            )
+        ):
+            raise ValueError(
+                "legacy bounded H6-Prefix semantic families must be exact"
+            )
+        for row in self.semantic_families:
+            row.__post_init__()
+        if tuple(
+            row.semantic_family_index for row in self.semantic_families
+        ) != tuple(range(len(self.semantic_families))):
+            raise ValueError(
+                "legacy bounded H6-Prefix family indices must be ordered"
+            )
+        family_hashes = tuple(
+            row.semantic_family_sha256 for row in self.semantic_families
+        )
+        if len(set(family_hashes)) != len(family_hashes):
+            raise ValueError(
+                "legacy bounded H6-Prefix family hashes must be unique"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -2858,6 +2934,143 @@ class H8H6PredictionReference:
 
 
 @dataclass(frozen=True, slots=True)
+class H8H6PredictionV3Reference:
+    """Exact executable Prediction-v3 predecessor required by registry v5."""
+
+    kind: Literal["h6_prediction"]
+    config_schema: Literal["h6-prediction-config-v3"]
+    readiness_schema: Literal["h6-prediction-readiness-v3"]
+    raw_inventory_schema: Literal["h6-raw-endpoint-inventory-v4"]
+    metrics_schema: Literal["h6-prediction-metrics-v3"]
+    result_schema: Literal["h6-prediction-result-v3"]
+    artifact_path: str
+    manifest_sha256: str
+    result_path: str
+    result_sha256: str
+    content_hashes: Mapping[str, str]
+    payload_hashes: Mapping[str, str]
+    authorities_path: str
+    authorities_manifest_sha256: str
+    authorities_sha256: str
+    config_sha256: str
+    readiness_sha256: str
+    plan_sha256: str
+    matching_set_sha256: str
+    validation_bundle_path: str
+    validation_bundle_manifest_sha256: str
+    validation_bundle_sha256: str
+    checkpoint_selection_sha256: str
+    reservation_path: str
+    reservation_sha256: str
+    reservation_file_sha256: str
+    terminal_path: str
+    terminal_sha256: str
+    terminal_manifest_sha256: str
+    finalized_path: str
+    finalized_manifest_sha256: str
+    pointer_path: str
+    pointer_sha256: str
+    pointer_manifest_sha256: str
+    experiment_identity_sha256: str
+    opening_proof_sha256: str
+    raw_inventory_sha256: str
+    metrics_sha256: str
+    result_record_sha256: str
+    ledger_path: str
+    ledger_sha256: str
+    ledger_validator_sha256: str
+    artifact_revision: str
+    producer_head: str
+    producer_dirty_digest: str
+    candidate_junit_path: str
+    candidate_junit_sha256: str
+    status: Literal["pass"]
+
+    def __post_init__(self) -> None:
+        _validate_reference_common(self, expected_kind="h6_prediction")
+        if (
+            self.config_schema != "h6-prediction-config-v3"
+            or self.readiness_schema != "h6-prediction-readiness-v3"
+            or self.raw_inventory_schema != "h6-raw-endpoint-inventory-v4"
+            or self.metrics_schema != "h6-prediction-metrics-v3"
+            or self.result_schema != "h6-prediction-result-v3"
+        ):
+            raise ValueError(
+                "H6-Prediction v3 reference must retain the exact component schemas"
+            )
+        for name in (
+            "authorities_path",
+            "validation_bundle_path",
+            "reservation_path",
+            "terminal_path",
+            "finalized_path",
+            "pointer_path",
+            "candidate_junit_path",
+            "artifact_revision",
+        ):
+            _nonempty(getattr(self, name), name)
+        for name in (
+            "authorities_manifest_sha256",
+            "authorities_sha256",
+            "config_sha256",
+            "readiness_sha256",
+            "plan_sha256",
+            "matching_set_sha256",
+            "validation_bundle_manifest_sha256",
+            "validation_bundle_sha256",
+            "checkpoint_selection_sha256",
+            "reservation_sha256",
+            "reservation_file_sha256",
+            "terminal_sha256",
+            "terminal_manifest_sha256",
+            "finalized_manifest_sha256",
+            "pointer_sha256",
+            "pointer_manifest_sha256",
+            "experiment_identity_sha256",
+            "opening_proof_sha256",
+            "raw_inventory_sha256",
+            "metrics_sha256",
+            "result_record_sha256",
+            "ledger_validator_sha256",
+            "candidate_junit_sha256",
+        ):
+            _sha256(getattr(self, name), name)
+        if self.artifact_revision != (
+            f"git:{self.producer_head}:sha256:{self.producer_dirty_digest}"
+        ):
+            raise ValueError(
+                "H6-Prediction v3 artifact revision must bind its producer"
+            )
+        if tuple(self.payload_hashes) != (
+            "metrics.json",
+            "raw_inventory.json",
+            "result.json",
+        ):
+            raise ValueError(
+                "H6-Prediction v3 payload hashes must retain metrics/raw/result order"
+            )
+        if self.payload_hashes["result.json"] != self.result_sha256:
+            raise ValueError(
+                "H6-Prediction v3 result bytes must match the keyed payload hash"
+            )
+        for name in self.content_hashes:
+            relative = PurePosixPath(name)
+            if (
+                name != relative.as_posix()
+                or relative.is_absolute()
+                or "." in relative.parts
+                or ".." in relative.parts
+                or "\\" in name
+                or ":" in name
+                or name not in self.payload_hashes
+            ):
+                raise ValueError(
+                    "H6-Prediction v3 content hashes require exact safe "
+                    "manifest-relative names"
+                )
+
+
+@dataclass(frozen=True, slots=True)
 class CurrentH8PrerequisiteRefs:
     candidate_head: str
     candidate_dirty_digest: str
@@ -2865,9 +3078,17 @@ class CurrentH8PrerequisiteRefs:
     h7_compatibility_refs: Mapping[str, H7PredecessorReference]
     h1_h5: H8H1H5Reference
     h1_prefix_prior: H8H1PrefixPriorReference
-    h6_prefix: H8H6PrefixReference | H8LegacyH6PrefixReference
+    h6_prefix: (
+        H8H6PrefixReference
+        | H8LegacyH6PrefixV4Reference
+        | H8LegacyH6PrefixReference
+    )
     h7: H8H7Reference
-    h6_prediction: H8H6PredictionReference | H8LegacyH6PredictionReference
+    h6_prediction: (
+        H8H6PredictionV3Reference
+        | H8H6PredictionReference
+        | H8LegacyH6PredictionReference
+    )
     registry_sha256: str
 
     def __post_init__(self) -> None:
@@ -2902,24 +3123,31 @@ class CurrentH8PrerequisiteRefs:
             raise ValueError("current H8 references must retain exact variants")
         if type(self.h6_prefix) not in (
             H8H6PrefixReference,
+            H8LegacyH6PrefixV4Reference,
             H8LegacyH6PrefixReference,
         ):
             raise ValueError(
                 "H6-Prefix must retain an exact bounded or readable legacy variant"
             )
         if type(self.h6_prediction) not in (
+            H8H6PredictionV3Reference,
             H8H6PredictionReference,
             H8LegacyH6PredictionReference,
         ):
             raise ValueError(
                 "H6-Prediction must retain an exact amended or readable legacy variant"
             )
-        if (
-            type(self.h6_prefix) is H8H6PrefixReference
-            and type(self.h6_prediction) is H8LegacyH6PredictionReference
+        reference_pair = (type(self.h6_prefix), type(self.h6_prediction))
+        if reference_pair not in (
+            (H8LegacyH6PrefixReference, H8LegacyH6PredictionReference),
+            (H8LegacyH6PrefixReference, H8H6PredictionReference),
+            (H8LegacyH6PrefixV4Reference, H8H6PredictionReference),
+            (H8LegacyH6PrefixV4Reference, H8H6PredictionV3Reference),
+            (H8H6PrefixReference, H8H6PredictionV3Reference),
         ):
             raise ValueError(
-                "bounded H6-Prefix cannot be combined with the legacy H8 registry"
+                "H8 Prefix/Prediction reference variants do not form an "
+                "exact readable registry generation"
             )
         for reference in (
             self.h1_h5,
@@ -2965,7 +3193,8 @@ class CurrentH8PrerequisiteRefs:
                 transitive_mismatches.append(key)
         if (
             transitive_mismatches
-            and type(self.h6_prediction) is H8H6PredictionReference
+            and type(self.h6_prediction)
+            in (H8H6PredictionV3Reference, H8H6PredictionReference)
         ):
             raise ValueError(
                 "H8 direct references differ from H7 transitive references: "
@@ -2978,9 +3207,21 @@ class CurrentH8PrerequisiteRefs:
         "h8-current-candidate-refs-v1",
         "h8-current-candidate-refs-v2",
         "h8-current-candidate-refs-v3",
+        "h8-current-candidate-refs-v4",
+        "h8-current-candidate-refs-v5",
     ]:
         if (
             type(self.h6_prefix) is H8H6PrefixReference
+            and type(self.h6_prediction) is H8H6PredictionV3Reference
+        ):
+            return "h8-current-candidate-refs-v5"
+        if (
+            type(self.h6_prefix) is H8LegacyH6PrefixV4Reference
+            and type(self.h6_prediction) is H8H6PredictionV3Reference
+        ):
+            return "h8-current-candidate-refs-v4"
+        if (
+            type(self.h6_prefix) is H8LegacyH6PrefixV4Reference
             and type(self.h6_prediction) is H8H6PredictionReference
         ):
             return "h8-current-candidate-refs-v3"
@@ -2990,9 +3231,17 @@ class CurrentH8PrerequisiteRefs:
 
     @property
     def prerequisite_obligations(self) -> tuple[str, ...]:
-        if self.registry_schema_version == "h8-current-candidate-refs-v3":
+        if self.registry_schema_version == "h8-current-candidate-refs-v5":
             return ()
         obligations: list[str] = []
+        if type(self.h6_prediction) is not H8H6PredictionV3Reference:
+            obligations.append(
+                "h8_prerequisite_registry_v1_v2_v3_requires_h6_prediction_v3"
+            )
+        if type(self.h6_prefix) is not H8H6PrefixReference:
+            obligations.append(
+                "h8_prerequisite_registry_v1_v2_v3_v4_requires_direct_a0_prefix"
+            )
         if type(self.h6_prefix) is H8LegacyH6PrefixReference:
             obligations.append(
                 "h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3"
@@ -3258,10 +3507,12 @@ __all__ = [
     "H8H1H5Reference",
     "H8H1PrefixPriorReference",
     "H8H6PredictionReference",
+    "H8H6PredictionV3Reference",
     "H8H6PrefixReference",
     "H8H6PrefixSemanticFamilyReference",
     "H8H7Reference",
     "H8LegacyH6PrefixReference",
+    "H8LegacyH6PrefixV4Reference",
     "H8LegacyH6PredictionReference",
     "H8InvariantRecord",
     "H8LocalSPDDiagnostics",

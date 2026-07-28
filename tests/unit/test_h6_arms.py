@@ -394,6 +394,29 @@ def test_explicit_factories_construct_the_six_literal_families(
     )
 
 
+def test_a0_direct_emission_row_is_the_exact_pre_replication_row() -> None:
+    config = _config(ArmId.A0)
+    built = build_a0(config)
+    prefix = CausalPrefix.create(
+        receiver_t=2,
+        vocabulary=config.vocabulary,
+        token_ids=torch.tensor((7,), dtype=torch.int64),
+    )
+
+    direct = built.proposal.autoregressive_emission_row(prefix)
+    expected = built.model.prefix_log_probs(prefix)
+
+    assert direct.dtype is torch.float64
+    assert direct.shape == (config.vocabulary.size,)
+    assert direct.detach().contiguous().view(torch.uint8).tolist() == (
+        expected.detach().contiguous().view(torch.uint8).tolist()
+    )
+    with pytest.raises(ValueError, match="A0 causal Transformer"):
+        build_a5(_config(ArmId.A5)).proposal.autoregressive_emission_row(
+            prefix
+        )
+
+
 def test_recognition_store_owns_parameters_and_emits_normalized_task4_laws(
     arms: dict[ArmId, BuiltArm],
 ) -> None:

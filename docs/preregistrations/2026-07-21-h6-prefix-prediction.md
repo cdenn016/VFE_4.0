@@ -823,3 +823,81 @@ singular `PrefixCaseKey`. H6-Prediction readiness remains legacy-only. Those
 consumer migrations are separate tasks; this amendment does not select a
 single report key for a semantic family, migrate any consumer, claim H7/H8
 compatibility, or produce evidence.
+
+## July 27, 2026 direct-A0 and v3-consumer amendment (normative)
+
+This section supersedes only the July 26 statements that H6-Prediction
+readiness remains legacy-only and that the bounded v3 artifact has exactly
+five payloads. It does not alter any bounded v2 certificate, report, workload,
+or hash domain.
+
+H6-Prediction v3 consumes `BoundedPrefixCertificateSet` natively. It must not
+construct, widen, project, or otherwise convert a bounded certificate into a
+legacy `PrefixCertificate`. Weighted A5 evaluation selects one unique typed
+`(BoundedPrefixCertificate, BoundedPrefixReportReference)` pair for each
+required endpoint and particle count. The selected report key must exactly
+match the evaluation arm, predictor config, weighted-SMC estimator, model
+family, vocabulary, data-safety identity, current source, and the frozen
+particle count.
+
+The direct exact A0 evaluation path has a distinct estimator and therefore
+requires its own certificate. The exact sibling type is
+`A0DirectExactPrefixCertificateV1`, with schema
+`h6-a0-direct-exact-prefix-certificate-v1` and domain
+
+```text
+vfe4.h6.a0-direct-exact-prefix-certificate.v1
+```
+
+It binds all of the following:
+
+1. the exact A0 arm and endpoint config;
+2. `EstimatorSpec(kind="deterministic_exact", particle_count=None,
+   resampling="none", dtype="float64", device="cpu")`;
+3. predictor config, A0 model family, vocabulary, data-safety, Git revision,
+   dirty digest, and current source identities;
+4. domain-separated direct predictor and held-out scorer path identities;
+5. the exact same-revision PASS bounded A0 certificate and its typed report
+   binding;
+6. the direct-case manifest, static-report hash, direct-path witness hash,
+   complete required-check map, derived status, obligations, canonical
+   validation bytes, and certificate digest.
+
+The direct-path witness runs before evidence publication on the same frozen
+A0 Prefix cases. For every case it compares the exact
+`H6CausalTransformer.prefix_log_probs(prefix)` row with the A0 proposal
+adapter's emission row before any particle replication, weight aggregation,
+or `logsumexp`. It also repeats the direct path under the frozen cold-cache,
+warm-cache, reverse-order/cache-rebuild, suffix-perturbation, shape, dtype,
+device, normalization, and signed-zero-sensitive byte checks. The target is
+read only after the certified direct prediction returns. A real-arithmetic
+identity between identical particle emissions is explanatory mathematics,
+not a substitute for this executable direct-path witness and not a claim of
+raw-byte equality with post-aggregation SMC output.
+
+The H6-Prefix v3 artifact therefore has exactly these six canonical JSON
+payloads:
+
+```text
+certificates/a0_direct_exact.json
+certificates/prefix_set.json
+config.json
+environment.json
+provenance.json
+validation/h6_prefix.json
+```
+
+The LF `manifest.sha256` lists that exact inventory in sorted path order.
+`certificates/prefix_set.json` and the bounded set identity remain unchanged.
+The sibling direct certificate is independently parsed and validated; its
+hash is added to the H6-Prefix validation payload. Prediction readiness
+reopens and binds both exact typed authorities, together with the already
+required H1--H5, H1-Prefix-Prior, finite-SMC, H5 update, matching, data, and
+runtime authorities. Bare paths or caller-supplied hashes cannot mint either
+authority.
+
+This source amendment produces no evidence and does not authorize held-out
+opening. Every prior H6-Prefix PASS artifact is stale for this current-source
+contract. A new exact-revision producer run must publish both the unchanged
+bounded set and the new direct A0 certificate before H6-Prediction readiness
+or held-out scoring can proceed.

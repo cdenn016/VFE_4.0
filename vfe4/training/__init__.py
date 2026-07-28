@@ -85,15 +85,72 @@ from .parameter_counts import (
 _READINESS_EXPORTS = frozenset(
     {
         "CurrentPredictionPrerequisiteRefs",
+        "H6PredictionV3PrerequisiteEvidence",
         "ProducerCompatibilityError",
+        "read_h6_bounded_prefix_certificate_set_for_scoring_v3",
+        "reopen_h6_prediction_v3_prerequisite_evidence",
+        "validate_existing_h6_prediction_readiness_v3",
         "validate_h6_prediction_readiness",
+        "validate_h6_prediction_readiness_v3",
     }
 )
 _EXPERIMENT_EXPORTS = frozenset({"H6ExperimentRunResult", "run_h6_experiment"})
+_EXPERIMENT_V3_EXPORTS = frozenset(
+    {"prepare_h6_test_transaction_v3", "run_h6_experiment_v3"}
+)
+_CHECKPOINT_CATALOG_V3_EXPORTS = frozenset(
+    {
+        "H6CheckpointCatalogEntryV3",
+        "H6CheckpointCatalogItemV3",
+        "H6CheckpointCatalogV3",
+        "publish_h6_checkpoint_catalog_entry_v3",
+        "read_h6_checkpoint_catalog_v3",
+    }
+)
+_VALIDATION_CAMPAIGN_V3_EXPORTS = frozenset(
+    {
+        "H6ValidationCampaignResultV3",
+        "h6_tuning_selection_directory_v3",
+        "publish_h6_tuning_selection_v3",
+        "read_h6_tuning_selection_v3",
+        "run_h6_validation_campaign_v3",
+    }
+)
+_VALIDATION_V3_EXPORTS = frozenset(
+    {
+        "H6EvaluationArmV3",
+        "build_h6_evaluation_arm_v3",
+        "score_h6_validation_checkpoint_v3",
+    }
+)
+_TRAINING_ATTEMPT_V3_EXPORTS = frozenset(
+    {
+        "H6AttemptHistoryShardV3",
+        "H6AttemptMetricHistoryRecordV3",
+        "H6AttemptRecoveryBoundaryV3",
+        "H6GenerativePriorFeatureProviderV3",
+        "H6RecoveredTrainingAttemptV3",
+        "H6TrainingAttemptHistoryV3",
+        "H6TrainingAttemptProgressV3",
+        "H6TrainingAttemptResultV3",
+        "H6ValidationBoundaryHistoryRecordV3",
+        "H6_VALIDATION_BOUNDARY_CONTRACT_SHA256_V3",
+        "execute_h6_training_attempt_v3",
+        "h6_training_attempt_progress_path_v3",
+        "read_h6_training_attempt_history_v3",
+        "read_h6_training_attempt_progress_v3",
+        "recover_h6_training_attempt_v3",
+        "reopen_h6_terminal_training_attempt_v3",
+        "run_h6_training_attempt_v3",
+    }
+)
 _TEST_TRANSACTION_V3_EXPORTS = frozenset(
     {
         "execute_h6_test_transaction_v3",
         "finalize_h6_test_transaction_v3",
+        "read_h6_prediction_pointer_v3",
+        "read_h6_test_reservation_v3",
+        "read_h6_test_terminal_v3",
         "recover_h6_test_transaction_v3",
     }
 )
@@ -110,6 +167,26 @@ def __getattr__(name: str) -> object:
         from . import h6_experiment
 
         return getattr(h6_experiment, name)
+    if name in _EXPERIMENT_V3_EXPORTS:
+        from . import h6_experiment_v3
+
+        return getattr(h6_experiment_v3, name)
+    if name in _CHECKPOINT_CATALOG_V3_EXPORTS:
+        from . import h6_checkpoint_catalog_v3
+
+        return getattr(h6_checkpoint_catalog_v3, name)
+    if name in _VALIDATION_CAMPAIGN_V3_EXPORTS:
+        from . import h6_validation_campaign_v3
+
+        return getattr(h6_validation_campaign_v3, name)
+    if name in _VALIDATION_V3_EXPORTS:
+        from . import h6_validation_v3
+
+        return getattr(h6_validation_v3, name)
+    if name in _TRAINING_ATTEMPT_V3_EXPORTS:
+        from . import h6_training_attempt_v3
+
+        return getattr(h6_training_attempt_v3, name)
     if name in _TEST_TRANSACTION_V3_EXPORTS:
         from . import h6_test_transaction_v3
 
@@ -141,19 +218,35 @@ __all__ = [
     "H6A0ArchitectureProfile",
     "H6A0ValidationProfile",
     "H6AttemptCursor",
+    "H6AttemptHistoryShardV3",
+    "H6AttemptMetricHistoryRecordV3",
+    "H6AttemptRecoveryBoundaryV3",
     "H6AttemptSpec",
+    "H6CheckpointCatalogEntryV3",
+    "H6CheckpointCatalogItemV3",
+    "H6CheckpointCatalogV3",
     "H6CheckpointManifest",
     "H6CrossEntropyTerms",
     "H6CausalTransformer",
     "H6ExperimentRunResult",
+    "H6EvaluationArmV3",
     "H6FormulaSelection",
     "H6PrimaryJointCandidate",
     "H6PrimaryJointSelection",
+    "H6PredictionV3PrerequisiteEvidence",
     "H6ObjectiveManifest",
     "H6ReducedLanguageElboTerms",
+    "H6RecoveredTrainingAttemptV3",
     "H6TrainingAuthorization",
+    "H6TrainingAttemptHistoryV3",
+    "H6TrainingAttemptProgressV3",
+    "H6TrainingAttemptResultV3",
     "H6TrainingWorkload",
     "H6TypedTrainingObjective",
+    "H6ValidationBoundaryHistoryRecordV3",
+    "H6ValidationCampaignResultV3",
+    "H6GenerativePriorFeatureProviderV3",
+    "H6_VALIDATION_BOUNDARY_CONTRACT_SHA256_V3",
     "H6_TARGET_FREE_DATA_SAFETY_SHA256",
     "LatentLanguageArmModel",
     "MeanPooledPrefixFloor",
@@ -174,9 +267,13 @@ __all__ = [
     "build_a4",
     "build_a5",
     "build_arm",
+    "build_h6_evaluation_arm_v3",
     "fixed_source_prior_parameter_count",
     "h6_a0_parameter_count",
+    "h6_training_attempt_progress_path_v3",
+    "h6_tuning_selection_directory_v3",
     "endpoint_formula_profile",
+    "execute_h6_training_attempt_v3",
     "execute_h6_test_transaction_v3",
     "finalize_h6_test_transaction_v3",
     "literal_arm_semantic_payload",
@@ -186,8 +283,22 @@ __all__ = [
     "parent_specific_pooled_prefix_source_prior_parameter_count",
     "parameter_count_within_tolerance",
     "plan_h6_attempt",
+    "prepare_h6_test_transaction_v3",
+    "publish_h6_checkpoint_catalog_entry_v3",
+    "publish_h6_tuning_selection_v3",
     "recognition_parameter_count",
+    "read_h6_prediction_pointer_v3",
+    "read_h6_checkpoint_catalog_v3",
+    "read_h6_bounded_prefix_certificate_set_for_scoring_v3",
+    "read_h6_training_attempt_history_v3",
+    "read_h6_training_attempt_progress_v3",
+    "reopen_h6_prediction_v3_prerequisite_evidence",
+    "read_h6_test_reservation_v3",
+    "read_h6_test_terminal_v3",
+    "read_h6_tuning_selection_v3",
+    "recover_h6_training_attempt_v3",
     "recover_h6_test_transaction_v3",
+    "reopen_h6_terminal_training_attempt_v3",
     "save_h6_checkpoint",
     "select_outcome_blind_allocation",
     "select_parent_specific_primary_allocation",
@@ -195,5 +306,11 @@ __all__ = [
     "stable_parameter_key",
     "train_h6_attempt",
     "run_h6_experiment",
+    "run_h6_experiment_v3",
+    "run_h6_training_attempt_v3",
+    "run_h6_validation_campaign_v3",
+    "score_h6_validation_checkpoint_v3",
     "validate_h6_prediction_readiness",
+    "validate_existing_h6_prediction_readiness_v3",
+    "validate_h6_prediction_readiness_v3",
 ]

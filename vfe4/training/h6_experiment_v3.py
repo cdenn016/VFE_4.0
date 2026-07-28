@@ -11,10 +11,14 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from typing import Literal
 
+import torch
+
 from vfe4.data.windows import frozen_batch_schedule
+from vfe4.predictive.identities import canonical_model_state_sha256
 from vfe4.types.h6 import (
     ArmConfig,
     H6ArmPhaseSchedule,
@@ -36,6 +40,7 @@ from .h6_matching_v3 import (
     H6MatchingSetV3,
     H6TrainingWorkloadV3,
 )
+from .arms import BuiltArm, build_arm
 
 
 H6_TUNING_CELLS_V3: tuple[tuple[float, float], ...] = (
@@ -57,6 +62,12 @@ _LOWER_HEX = frozenset("0123456789abcdef")
 _TRAINING_NORMAL_DOMAIN = b"vfe4.h6.training-rmc-normal.v1\x00"
 _TRAINING_COUNTER_CONSUMPTION_DOMAIN = (
     b"vfe4.h6.training-counter-consumption.v1\x00"
+)
+_TRAINING_BATCH_CONSUMPTION_DOMAIN = (
+    b"vfe4.h6.training-batch-counter-consumption.v3\x00"
+)
+_TRAINING_BATCH_KEY_INVENTORY_DOMAIN = (
+    b"vfe4.h6.training-batch-counter-key-inventory.v3\x00"
 )
 
 
@@ -81,63 +92,107 @@ def _terminal_counter_identity(
     attempt_spec_sha256: str,
     pass_index: int,
     batch_index: int,
-    example_ordinal: int,
+    example_count: int,
     draw_block: int,
     receiver_count: int,
+    active_receiver_counts: tuple[int, ...],
     latent_dimension: int,
 ) -> tuple[str, str]:
-    """Purely reconstruct the last latent model-phase counter consumption."""
+    """Reconstruct the final ordered batch's counter identities without torch."""
 
-    key_payload = {
-        "attempt_spec_sha256": attempt_spec_sha256,
-        "pass_index": pass_index,
-        "batch_index": batch_index,
-        "phase": TrainingPhase.MODEL_ADAMW.value,
-        "example_ordinal": example_ordinal,
-        "sample_ordinal": 0,
-        "draw_block": draw_block,
-    }
-    key_bytes = canonical_json_bytes(key_payload)
-    key_sha256 = hashlib.sha256(
-        _TRAINING_NORMAL_DOMAIN + key_bytes
+    if type(example_count) is not int or not 1 <= example_count <= 8:
+        raise ValueError("terminal example_count must be between one and eight")
+    if (
+        type(active_receiver_counts) is not tuple
+        or len(active_receiver_counts) != example_count
+        or any(
+            type(count) is not int or not 1 <= count <= receiver_count
+            for count in active_receiver_counts
+        )
+    ):
+        raise ValueError(
+            "terminal active receiver inventory is invalid"
+        )
+    key_sha256s: list[str] = []
+    example_consumption_sha256s: list[str] = []
+    for example_ordinal, active_receiver_count in enumerate(
+        active_receiver_counts
+    ):
+        key_payload = {
+            "attempt_spec_sha256": attempt_spec_sha256,
+            "pass_index": pass_index,
+            "batch_index": batch_index,
+            "phase": TrainingPhase.MODEL_ADAMW.value,
+            "example_ordinal": example_ordinal,
+            "sample_ordinal": 0,
+            "draw_block": draw_block,
+        }
+        key_bytes = canonical_json_bytes(key_payload)
+        key_sha256 = hashlib.sha256(
+            _TRAINING_NORMAL_DOMAIN + key_bytes
+        ).hexdigest()
+        values: list[float] = []
+        count = active_receiver_count * latent_dimension
+        for pair_index in range((count + 1) // 2):
+            uniforms: list[float] = []
+            for draw_index in (2 * pair_index, 2 * pair_index + 1):
+                block_index, word_index = divmod(draw_index, 4)
+                digest = hashlib.sha256(
+                    _TRAINING_NORMAL_DOMAIN
+                    + key_bytes
+                    + block_index.to_bytes(8, "little")
+                ).digest()
+                offset = 8 * word_index
+                word = int.from_bytes(
+                    digest[offset : offset + 8],
+                    "little",
+                )
+                uniform = (float(word) + 0.5) / float(2**64)
+                if uniform <= 0.0:
+                    uniform = math.nextafter(0.0, 1.0)
+                elif uniform >= 1.0:
+                    uniform = math.nextafter(1.0, 0.0)
+                uniforms.append(uniform)
+            radius = math.sqrt(-2.0 * math.log(uniforms[0]))
+            angle = 2.0 * math.pi * uniforms[1]
+            values.append(radius * math.cos(angle))
+            if len(values) < count:
+                values.append(radius * math.sin(angle))
+        raw_bytes = b"".join(
+            struct.pack("<d", value) for value in values
+        )
+        example_consumption_sha256 = hashlib.sha256(
+            _TRAINING_COUNTER_CONSUMPTION_DOMAIN
+            + bytes.fromhex(H6_COUNTER_MAPPING_SHA256)
+            + bytes.fromhex(key_sha256)
+            + active_receiver_count.to_bytes(8, "little")
+            + latent_dimension.to_bytes(8, "little")
+            + raw_bytes
+        ).hexdigest()
+        key_sha256s.append(key_sha256)
+        example_consumption_sha256s.append(
+            example_consumption_sha256
+        )
+    key_inventory_sha256 = hashlib.sha256(
+        _TRAINING_BATCH_KEY_INVENTORY_DOMAIN
+        + canonical_json_bytes(tuple(key_sha256s))
     ).hexdigest()
-    values: list[float] = []
-    count = receiver_count * latent_dimension
-    for pair_index in range((count + 1) // 2):
-        uniforms: list[float] = []
-        for draw_index in (2 * pair_index, 2 * pair_index + 1):
-            block_index, word_index = divmod(draw_index, 4)
-            digest = hashlib.sha256(
-                _TRAINING_NORMAL_DOMAIN
-                + key_bytes
-                + block_index.to_bytes(8, "little")
-            ).digest()
-            offset = 8 * word_index
-            word = int.from_bytes(
-                digest[offset : offset + 8],
-                "little",
-            )
-            uniform = (float(word) + 0.5) / float(2**64)
-            if uniform <= 0.0:
-                uniform = math.nextafter(0.0, 1.0)
-            elif uniform >= 1.0:
-                uniform = math.nextafter(1.0, 0.0)
-            uniforms.append(uniform)
-        radius = math.sqrt(-2.0 * math.log(uniforms[0]))
-        angle = 2.0 * math.pi * uniforms[1]
-        values.append(radius * math.cos(angle))
-        if len(values) < count:
-            values.append(radius * math.sin(angle))
-    raw_bytes = b"".join(struct.pack("<d", value) for value in values)
     consumption_sha256 = hashlib.sha256(
-        _TRAINING_COUNTER_CONSUMPTION_DOMAIN
+        _TRAINING_BATCH_CONSUMPTION_DOMAIN
         + bytes.fromhex(H6_COUNTER_MAPPING_SHA256)
-        + bytes.fromhex(key_sha256)
-        + receiver_count.to_bytes(8, "little")
-        + latent_dimension.to_bytes(8, "little")
-        + raw_bytes
+        + canonical_json_bytes(
+            {
+                "key_sha256s": tuple(key_sha256s),
+                "active_receiver_counts": active_receiver_counts,
+                "example_consumption_sha256s": tuple(
+                    example_consumption_sha256s
+                ),
+                "receiver_count": receiver_count,
+                "latent_dimension": latent_dimension,
+            }
+        )
     ).hexdigest()
-    return key_sha256, consumption_sha256
+    return key_inventory_sha256, consumption_sha256
 
 
 @dataclass(frozen=True, slots=True)
@@ -500,6 +555,126 @@ def model_factory_sha256_v3(config: ArmConfig) -> str:
     return digest
 
 
+def _seed_scale_v3(
+    *,
+    endpoint_config_sha256: str,
+    training_seed: int,
+    module_name: str,
+    parameter_name: str,
+) -> float:
+    digest = hashlib.sha256(
+        b"vfe4.h6.seed-realized-parameter-scale.v3\x00"
+        + canonical_json_bytes(
+            {
+                "endpoint_config_sha256": endpoint_config_sha256,
+                "training_seed": training_seed,
+                "module_name": module_name,
+                "parameter_name": parameter_name,
+            }
+        )
+    ).digest()
+    unit = (int.from_bytes(digest[:8], "little") + 0.5) / float(2**64)
+    return 0.99 + 0.02 * unit
+
+
+def _seed_realize_module_v3(
+    module: torch.nn.Module,
+    *,
+    config: ArmConfig,
+    training_seed: int,
+    module_name: str,
+) -> None:
+    if next(module.parameters()).device.type != "cpu":
+        raise ValueError("canonical initialization must be realized on CPU")
+    with torch.no_grad():
+        for parameter_name, parameter in module.named_parameters():
+            if (
+                parameter.dtype is not torch.float64
+                or parameter.device.type != "cpu"
+                or not bool(torch.isfinite(parameter).all())
+            ):
+                raise ValueError(
+                    "canonical initialization requires finite CPU float64 "
+                    "parameters"
+                )
+            parameter.mul_(
+                _seed_scale_v3(
+                    endpoint_config_sha256=config.config_sha256,
+                    training_seed=training_seed,
+                    module_name=module_name,
+                    parameter_name=parameter_name,
+                )
+            )
+
+
+def seeded_initialization_sha256_v3(built: BuiltArm) -> str:
+    """Hash the actual canonical bytes of one already-realized arm."""
+
+    if type(built) is not BuiltArm:
+        raise ValueError("initialization identity requires an exact BuiltArm")
+    module_states: list[tuple[str, str]] = [
+        ("model", canonical_model_state_sha256(built.model))
+    ]
+    if built.recognition_store is not None:
+        module_states.append(
+            (
+                "recognition",
+                canonical_model_state_sha256(built.recognition_store),
+            )
+        )
+    return _hash(
+        "vfe4.h6.seed-realized-initialization.v3",
+        {
+            "endpoint_config_sha256": built.config.config_sha256,
+            "ordered_module_state_sha256s": tuple(module_states),
+        },
+    )
+
+
+def realize_seeded_initialization_v3(
+    config: ArmConfig,
+    training_seed: int,
+) -> BuiltArm:
+    """Build the source-structured arm and realize one stateless seed."""
+
+    if type(config) is not ArmConfig:
+        raise ValueError("seeded initialization requires an exact ArmConfig")
+    config.__post_init__()
+    if type(training_seed) is not int or training_seed < 0:
+        raise ValueError("training_seed must be a nonnegative exact integer")
+    built = build_arm(config.arm, config)
+    _seed_realize_module_v3(
+        built.model,
+        config=config,
+        training_seed=training_seed,
+        module_name="model",
+    )
+    if built.recognition_store is not None:
+        _seed_realize_module_v3(
+            built.recognition_store,
+            config=config,
+            training_seed=training_seed,
+            module_name="recognition",
+        )
+    proposal, predictor = built.rebuild_predictive_boundary()
+    return replace(
+        built,
+        proposal=proposal,
+        predictor=predictor,
+    )
+
+
+def canonical_seeded_initialization_sha256_v3(
+    config: ArmConfig,
+    training_seed: int,
+) -> str:
+    """Rebuild and hash the exact seed-realized CPU-float64 module bytes."""
+
+    return seeded_initialization_sha256_v3(
+        realize_seeded_initialization_v3(config, training_seed)
+    )
+
+
 def _attempt(
     *,
     stage: Literal["tuning", "confirmatory"],
@@ -516,16 +691,11 @@ def _attempt(
     schedule: H6TrainingScheduleV3,
     runtime: H6PredictionRuntimeIdentity,
     workload: H6TrainingWorkloadV3,
+    initialization_sha256: str,
 ) -> H6PlannedAttemptV3:
     workload.__post_init__()
     workload_sha256 = workload.workload_sha256
-    initialization_sha256 = _hash(
-        "vfe4.h6.canonical-initialization-plan.v3",
-        {
-            "endpoint_config_sha256": config.config_sha256,
-            "training_seed": seed,
-        },
-    )
+    _require_sha256(initialization_sha256, "initialization_sha256")
     window_schedule_sha256 = _hash(
         "vfe4.h6.window-schedule-plan.v3",
         {
@@ -538,7 +708,6 @@ def _attempt(
         "vfe4.h6.batch-schedule-plan.v3",
         {
             "window_schedule_sha256": window_schedule_sha256,
-            "training_seed": seed,
             "batch_size": 8,
             "drop_last": False,
         },
@@ -595,12 +764,37 @@ def _attempt(
     )
     terminal_example_ordinal = 0
     if config.latent_enabled:
-        latent_dimension = config.capacity_allocation.latent_width
-        if type(latent_dimension) is not int or latent_dimension <= 0:
+        latent_width = config.capacity_allocation.latent_width
+        if type(latent_width) is not int or latent_width <= 0:
             raise ValueError(
                 "latent terminal counter plan requires a positive latent width"
             )
+        latent_dimension = latent_width * (
+            2 if config.model_channel_enabled else 1
+        )
         terminal_draw_block = 2 * terminal_model_updates
+        final_schedule = frozen_batch_schedule(
+            window_count=workload.window_count,
+            zero_based_pass_index=consumed_pass_indices[-1],
+        )
+        final_window_indices = final_schedule.permutation[
+            final_consumed_batch_index * workload.batch_size : (
+                final_consumed_batch_index + 1
+            )
+            * workload.batch_size
+        ]
+        tail_active_receiver_count = (
+            workload.train_token_count
+            - 1
+            - workload.window_stride * (workload.window_count - 1)
+            + 1
+        )
+        active_receiver_counts = tuple(
+            tail_active_receiver_count
+            if window_index == workload.window_count - 1
+            else config.horizon + 1
+            for window_index in final_window_indices
+        )
         (
             terminal_counter_key_sha256,
             terminal_counter_consumption_sha256,
@@ -608,9 +802,14 @@ def _attempt(
             attempt_spec_sha256=spec.attempt_spec_sha256,
             pass_index=consumed_pass_indices[-1],
             batch_index=final_consumed_batch_index,
-            example_ordinal=terminal_example_ordinal,
+            example_count=min(
+                workload.batch_size,
+                workload.window_count
+                - final_consumed_batch_index * workload.batch_size,
+            ),
             draw_block=terminal_draw_block - 1,
             receiver_count=config.horizon + 1,
+            active_receiver_counts=active_receiver_counts,
             latent_dimension=latent_dimension,
         )
     else:
@@ -745,6 +944,19 @@ def plan_h6_experiment_v3(
     matching_report_sha256s = tuple(
         report.record_sha256 for report in matching_set.matrix_reports
     )
+    initialization_sha256s: dict[tuple[str, int], str] = {}
+
+    def initialization_sha256(config: ArmConfig, seed: int) -> str:
+        key = (config.config_sha256, seed)
+        digest = initialization_sha256s.get(key)
+        if digest is None:
+            digest = canonical_seeded_initialization_sha256_v3(
+                config,
+                seed,
+            )
+            initialization_sha256s[key] = digest
+        return digest
+
     tuning_attempts = tuple(
         _attempt(
             stage="tuning",
@@ -761,6 +973,10 @@ def plan_h6_experiment_v3(
             schedule=training_schedule,
             runtime=runtime_identity,
             workload=matching_set.workload,
+            initialization_sha256=initialization_sha256(
+                config_by_id[config_id],
+                seed,
+            ),
         )
         for config_id in H6_TUNED_ENDPOINT_CONFIG_IDS_V3
         for cell in cells
@@ -786,6 +1002,7 @@ def plan_h6_experiment_v3(
             schedule=training_schedule,
             runtime=runtime_identity,
             workload=matching_set.workload,
+            initialization_sha256=initialization_sha256(config, seed),
         )
         for config in matching_set.endpoint_configs
         for seed in H6_CONFIRMATORY_SEEDS_V3
@@ -821,6 +1038,228 @@ def plan_h6_experiment_v3(
     )
 
 
+def run_h6_experiment_v3(
+    *,
+    operation: str,
+    config: object,
+    runtime: object | None,
+    operation_config: Mapping[str, object],
+    authorization_sha256: str,
+) -> object:
+    """Lazily dispatch one path-only executable H6-Prediction v3 operation."""
+
+    from .h6_orchestration_v3 import run_h6_experiment_v3 as dispatch
+
+    return dispatch(
+        operation=operation,  # type: ignore[arg-type]
+        config=config,  # type: ignore[arg-type]
+        runtime=runtime,
+        operation_config=operation_config,
+        authorization_sha256=authorization_sha256,
+    )
+
+
+def prepare_h6_test_transaction_v3(
+    *,
+    config: object,
+    operation_config: Mapping[str, object],
+    authorization_sha256: str,
+) -> dict[str, object]:
+    """Reopen and bind every authority required by the one-shot test scorer."""
+
+    from vfe4.artifacts.h6_prediction_v3 import (
+        H6ValidationBundleV3,
+        bind_h6_checkpoint_selection_v3,
+        read_h6_validation_bundle_v3,
+    )
+    from vfe4.config import H6PredictionV3ResolvedConfig
+    from vfe4.training.h6_checkpoint_catalog_v3 import (
+        read_h6_checkpoint_catalog_v3,
+    )
+    from vfe4.training.h6_heldout_scoring_v3 import (
+        H6HeldoutCheckpointArmV3,
+        score_h6_heldout_inventory_v3,
+    )
+    from vfe4.training.h6_matching_v3 import (
+        H6_MATCHING_V3_ENDPOINT_CONFIG_IDS,
+    )
+    from vfe4.training.h6_orchestration_v3 import (
+        H6OperationPathsV3,
+        _reopen_authorities,
+        _reopen_store_for_config,
+    )
+    from vfe4.training.h6_readiness import (
+        read_h6_prefix_authorities_for_scoring_v3,
+    )
+    from vfe4.training.h6_validation_campaign_v3 import (
+        h6_tuning_selection_directory_v3,
+        read_h6_tuning_selection_v3,
+    )
+    from vfe4.training.h6_validation_v3 import (
+        build_h6_evaluation_arm_v3,
+    )
+    from vfe4.types.h6 import ExperimentIdentity
+
+    expected_authorization = hashlib.sha256(
+        b"AUTHORIZE_VFE4_H6_ONE_TIME_TEST_TRANSACTION_V1"
+    ).hexdigest()
+    if authorization_sha256 != expected_authorization:
+        raise PermissionError(
+            "test-transaction authorization digest is not exact"
+        )
+    if type(config) is not H6PredictionV3ResolvedConfig:
+        raise ValueError(
+            "test-transaction preparation requires exact v3 config"
+        )
+    paths = H6OperationPathsV3.from_mapping(operation_config)
+    authorities = _reopen_authorities(config=config, paths=paths)
+    (
+        prefix_certificate_set,
+        a0_direct_exact_prefix_certificate,
+    ) = read_h6_prefix_authorities_for_scoring_v3(
+        paths.h6_prefix_artifact_root,
+        expected_manifest_sha256=paths.h6_prefix_manifest_sha256,
+        expected_junit_sha256=paths.h6_prefix_junit_sha256,
+        readiness=authorities.readiness,
+    )
+    if (
+        prefix_certificate_set.source_sha256
+        != config.source.source_sha256
+        or a0_direct_exact_prefix_certificate.source_sha256
+        != config.source.source_sha256
+    ):
+        raise ValueError(
+            "Prefix authorities differ from the authenticated analysis source"
+        )
+    store = _reopen_store_for_config(config=config, paths=paths)
+    if (
+        authorities.config != config
+        or store.data_identity_sha256
+        != authorities.readiness.data_identity_sha256
+    ):
+        raise ValueError(
+            "test-transaction store/config authorities are not cross-bound"
+        )
+    tuning_selection = read_h6_tuning_selection_v3(
+        h6_tuning_selection_directory_v3(
+            paths.validation_bundle_directory
+        ),
+        expected_plan_sha256=authorities.plan.plan_sha256,
+        expected_experiment_config_sha256=(
+            authorities.config.config_sha256
+        ),
+    )
+    catalog = read_h6_checkpoint_catalog_v3(
+        paths.checkpoint_catalog_root,
+        authorities=authorities,
+        maximum_checkpoint_bytes=paths.maximum_checkpoint_bytes,
+        tuning_selection=tuning_selection,
+        required_inventory="complete",
+    )
+    checkpoint_selection = bind_h6_checkpoint_selection_v3(
+        tuple(
+            (
+                item.executable_attempt.planned_attempt,
+                item.checkpoint,
+            )
+            for item in catalog.confirmatory_items
+        ),
+        authorities.plan,
+        tuning_selection,
+    )
+    expected_bundle = H6ValidationBundleV3.create(
+        plan=authorities.plan,
+        tuning_selection=tuning_selection,
+        checkpoint_selection=checkpoint_selection,
+    )
+    validation_bundle = read_h6_validation_bundle_v3(
+        paths.validation_bundle_directory,
+        expected_plan_sha256=authorities.plan.plan_sha256,
+        expected_experiment_config_sha256=(
+            authorities.config.config_sha256
+        ),
+        expected_validation_bundle_sha256=(
+            expected_bundle.validation_bundle_sha256
+        ),
+    )
+    if validation_bundle != expected_bundle:
+        raise ValueError(
+            "reopened validation bundle differs from the complete catalog"
+        )
+
+    selected_endpoint_ids = (
+        H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[0],
+        H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[5],
+        H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[9],
+    )
+    candidates_by_key = {
+        (candidate.endpoint_config_id, candidate.training_seed): candidate
+        for candidate in validation_bundle.checkpoint_selection.checkpoints
+    }
+    items_by_key = {
+        (
+            item.executable_attempt.planned_attempt.endpoint_config_id,
+            item.executable_attempt.planned_attempt.training_seed,
+        ): item
+        for item in catalog.confirmatory_items
+    }
+    heldout_arms = tuple(
+        H6HeldoutCheckpointArmV3(
+            candidate=candidates_by_key[(endpoint_id, seed)],
+            evaluation=build_h6_evaluation_arm_v3(
+                items_by_key[(endpoint_id, seed)].checkpoint,
+                plan=authorities.plan,
+                planned_attempt=items_by_key[
+                    (endpoint_id, seed)
+                ].executable_attempt.planned_attempt,
+                evaluation_role="heldout",
+            ),
+        )
+        for endpoint_id in selected_endpoint_ids
+        for seed in H6_CONFIRMATORY_SEEDS_V3
+    )
+    def score_inventory(
+        windows: object,
+        opening_proof_sha256: str,
+    ) -> object:
+        return score_h6_heldout_inventory_v3(
+            windows=windows,  # type: ignore[arg-type]
+            opening_proof_sha256=opening_proof_sha256,
+            checkpoint_arms=heldout_arms,
+            prefix_certificate_set=prefix_certificate_set,
+            a0_direct_exact_prefix_certificate=(
+                a0_direct_exact_prefix_certificate
+            ),
+            readiness=authorities.readiness,
+        )
+
+    experiment_identity = ExperimentIdentity.create(
+        checkpoint_set_sha256=(
+            checkpoint_selection.checkpoint_selection_sha256
+        ),
+        current_candidate_sha256=config.source.source_sha256,
+        sealed_data_sha256=store.data_identity_sha256,
+        access_policy_sha256=authorities.readiness.access_policy_sha256,
+        analysis_sha256=config.source.source_sha256,
+        stream_protocol_sha256=(
+            authorities.readiness.endpoint_smc_protocol_sha256
+        ),
+    )
+    return {
+        "config": config,
+        "readiness": authorities.readiness,
+        "plan": authorities.plan,
+        "validation_bundle": validation_bundle,
+        "store": store,
+        "journal_root": config.artifact_root / "H6_TEST_TRANSACTIONS",
+        "score_inventory": score_inventory,
+        "experiment_identity": experiment_identity,
+        "journal_name": None,
+        "pointer_root": paths.transaction_pointer_root,
+        "pointer_name": paths.transaction_pointer_name,
+    }
+
+
 __all__ = [
     "H6_CONFIRMATORY_SEEDS_V3",
     "H6_TUNED_ENDPOINT_CONFIG_IDS_V3",
@@ -829,6 +1268,11 @@ __all__ = [
     "H6ExperimentPlanV3",
     "H6PlannedAttemptV3",
     "H6TuningCellV3",
+    "canonical_seeded_initialization_sha256_v3",
     "model_factory_sha256_v3",
     "plan_h6_experiment_v3",
+    "prepare_h6_test_transaction_v3",
+    "realize_seeded_initialization_v3",
+    "run_h6_experiment_v3",
+    "seeded_initialization_sha256_v3",
 ]

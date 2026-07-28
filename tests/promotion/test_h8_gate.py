@@ -18,7 +18,12 @@ from test_support.h8_runtime_fakes import (
 import verification.h8_gate as h8_gate
 from vfe4.artifacts import source_candidate_sha256
 from vfe4.artifacts.h6 import CandidateArtifactReference
-from vfe4.types.h6 import BoundedPrefixCertificateSet
+from vfe4.types.h6 import (
+    H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS,
+    A0DirectExactPrefixCertificateV1,
+    BoundedPrefixCertificateSet,
+    EvidenceStatus,
+)
 from vfe4.types.h7 import H7PredecessorReference
 from vfe4.types.h8 import (
     CurrentH8PrerequisiteRefs,
@@ -28,11 +33,11 @@ from vfe4.types.h8 import (
     H8GateEvaluation,
     H8H1H5Reference,
     H8H1PrefixPriorReference,
-    H8H6PredictionReference,
+    H8H6PredictionV3Reference,
     H8H6PrefixReference,
     H8H6PrefixSemanticFamilyReference,
     H8H7Reference,
-    H8LegacyH6PrefixReference,
+    H8LegacyH6PrefixV4Reference,
 )
 from vfe4.types.results import GateStatus, H8GateResult
 
@@ -90,8 +95,12 @@ def _current_refs(*, registry_sha256: str | None = None) -> CurrentH8Prerequisit
         **h7_common,
         "artifact_path": "prediction-artifact",
         "result_path": "prediction-result",
-        "content_hashes": {"prediction-content.json": digest},
-        "payload_hashes": {"prediction.json": digest},
+        "content_hashes": {"result.json": digest},
+        "payload_hashes": {
+            "metrics.json": digest,
+            "raw_inventory.json": digest,
+            "result.json": digest,
+        },
         "ledger_path": "prediction-ledger",
         "candidate_junit_sha256": digest,
     }
@@ -116,6 +125,7 @@ def _current_refs(*, registry_sha256: str | None = None) -> CurrentH8Prerequisit
             workload_plan_sha256="b" * 64,
             validation_payload_sha256="c" * 64,
             prefix_certificate_set_sha256="d" * 64,
+            a0_direct_exact_prefix_certificate_sha256="5" * 64,
             semantic_families=(
                 H8H6PrefixSemanticFamilyReference(
                     semantic_family_index=0,
@@ -139,36 +149,43 @@ def _current_refs(*, registry_sha256: str | None = None) -> CurrentH8Prerequisit
             fixture_set_sha256=digest,
             **h7_common,  # type: ignore[arg-type]
         ),
-        h6_prediction=H8H6PredictionReference(
+        h6_prediction=H8H6PredictionV3Reference(
             kind="h6_prediction",
-            prediction_schema="h6-prediction-amended-v2",
-            config_schema="h6-prediction-config-v2",
-            readiness_schema="h6-prediction-readiness-v2",
-            metrics_schema="h6-prediction-metrics-v2",
-            result_schema="h6-prediction-result-v2",
-            experiment_sha256=digest,
+            config_schema="h6-prediction-config-v3",
+            readiness_schema="h6-prediction-readiness-v3",
+            raw_inventory_schema="h6-raw-endpoint-inventory-v4",
+            metrics_schema="h6-prediction-metrics-v3",
+            result_schema="h6-prediction-result-v3",
+            authorities_path="prediction-authorities",
+            authorities_manifest_sha256=digest,
+            authorities_sha256=digest,
             config_sha256=digest,
-            readiness_artifact_path="prediction-readiness",
-            readiness_manifest_sha256=digest,
             readiness_sha256=digest,
-            correctness_artifact_paths={
-                gate: f"prediction-{gate.lower()}-correctness"
-                for gate in ("H1", "H2", "H3", "H5")
-            },
-            h1_prefix_prior_artifact_path="prediction-h1-prefix-prior",
-            smc_accuracy_artifact_path="prediction-smc-accuracy",
-            smc_accuracy_manifest_sha256=digest,
-            h6_prefix_artifact_path="prediction-h6-prefix",
-            h6_prefix_manifest_sha256=digest,
-            blinded_data_artifact_path="prediction-blinded-data",
-            blinded_data_manifest_sha256=digest,
-            matching_artifact_path="prediction-matching",
-            matching_manifest_sha256=digest,
+            plan_sha256=digest,
             matching_set_sha256=digest,
-            h1_prefix_prior_generative_factor_schema_sha256=digest,
-            smc_bias_semantics_sha256=digest,
-            objective_gate_spec_sha256=digest,
+            validation_bundle_path="prediction-validation",
+            validation_bundle_manifest_sha256=digest,
+            validation_bundle_sha256=digest,
+            checkpoint_selection_sha256=digest,
+            reservation_path="prediction-reservation.json",
+            reservation_sha256=digest,
+            reservation_file_sha256=digest,
+            terminal_path="prediction-terminal",
+            terminal_sha256=digest,
+            terminal_manifest_sha256=digest,
+            finalized_path="prediction-finalized",
+            finalized_manifest_sha256=digest,
+            pointer_path="prediction-pointer",
+            pointer_sha256=digest,
+            pointer_manifest_sha256=digest,
+            experiment_identity_sha256=digest,
+            opening_proof_sha256=digest,
+            raw_inventory_sha256=digest,
             metrics_sha256=digest,
+            result_record_sha256=digest,
+            ledger_validator_sha256=digest,
+            artifact_revision=f"git:{head}:sha256:{digest}",
+            candidate_junit_path="prediction-junit.xml",
             **prediction_common,  # type: ignore[arg-type]
         ),
         registry_sha256=registry_sha256 or digest,
@@ -930,20 +947,37 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
         return value
 
     reopened = bounded_set()
+    direct = object.__new__(A0DirectExactPrefixCertificateV1)
+    for name, value in {
+        "certificate_sha256": (
+            prefix_reference.a0_direct_exact_prefix_certificate_sha256
+        ),
+        "status": EvidenceStatus.PASS,
+        "obligations": (),
+        "checks": {
+            name: True
+            for name in H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS
+        },
+        "bounded_a0_certificate_sha256": (
+            original_certificates[0].certificate_sha256
+        ),
+    }.items():
+        object.__setattr__(direct, name, value)
     reopen_calls: list[dict[str, object]] = []
 
-    def reopen_bounded(**kwargs: object) -> object:
+    def reopen_prefix(**kwargs: object) -> tuple[object, object]:
         reopen_calls.append(kwargs)
-        return reopened
+        return reopened, direct
 
     monkeypatch.setattr(
         h8_gate,
-        "reopen_bounded_prefix_certificate_set",
-        reopen_bounded,
+        "reopen_h6_prefix_authorities",
+        reopen_prefix,
     )
     prefix_payloads = {
         name: b"{}"
         for name in (
+            "certificates/a0_direct_exact.json",
             "certificates/prefix_set.json",
             "config.json",
             "environment.json",
@@ -971,10 +1005,18 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
         }
     ]
 
-    legacy = H8LegacyH6PrefixReference(
+    legacy = H8LegacyH6PrefixV4Reference(
         kind="h6_prefix",
-        certificate_set_sha256="5" * 64,
-        certificate_hashes={"legacy-case-key": "6" * 64},
+        config_schema=prefix_reference.config_schema,
+        validation_schema=prefix_reference.validation_schema,
+        certificate_set_schema=prefix_reference.certificate_set_schema,
+        config_sha256=prefix_reference.config_sha256,
+        workload_plan_sha256=prefix_reference.workload_plan_sha256,
+        validation_payload_sha256=prefix_reference.validation_payload_sha256,
+        prefix_certificate_set_sha256=(
+            prefix_reference.prefix_certificate_set_sha256
+        ),
+        semantic_families=prefix_reference.semantic_families,
         artifact_path=prefix_reference.artifact_path,
         manifest_sha256=prefix_reference.manifest_sha256,
         result_path=prefix_reference.result_path,
@@ -993,11 +1035,21 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
     legacy_refs = replace(refs, h6_prefix=legacy)
     assert (
         legacy_refs.registry_schema_version
-        == "h8-current-candidate-refs-v2"
+        == "h8-current-candidate-refs-v4"
     )
     assert legacy_refs.prerequisite_obligations == (
-        "h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3",
+        "h8_prerequisite_registry_v1_v2_v3_v4_requires_direct_a0_prefix",
     )
+    import verify_vfe4
+    from vfe4.config import bind_h8_current_refs
+
+    with pytest.raises(ValueError, match="only the exact H8 v5 registry"):
+        bind_h8_current_refs(
+            copy.deepcopy(
+                verify_vfe4.CONFIG["operations"]["h8"]["config"]  # type: ignore[index]
+            ),
+            legacy_refs,
+        )
     with pytest.raises(ValueError, match="bounded H6-Prefix reference"):
         h8_gate._revalidate_h6_prefix_certificates(
             legacy,
@@ -1039,14 +1091,42 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
     for mutation in mutations:
         monkeypatch.setattr(
             h8_gate,
-            "reopen_bounded_prefix_certificate_set",
-            lambda **_kwargs: bounded_set(**mutation),
+            "reopen_h6_prefix_authorities",
+            lambda **_kwargs: (bounded_set(**mutation), direct),
         )
         with pytest.raises(ValueError, match="bounded H6-Prefix"):
             h8_gate._revalidate_h6_prefix_certificates(
                 prefix_reference,
                 prefix_payloads,
             )
+
+    stale_direct = object.__new__(A0DirectExactPrefixCertificateV1)
+    for name in (
+        "certificate_sha256",
+        "status",
+        "obligations",
+        "checks",
+        "bounded_a0_certificate_sha256",
+    ):
+        object.__setattr__(
+            stale_direct,
+            name,
+            (
+                "7" * 64
+                if name == "certificate_sha256"
+                else getattr(direct, name)
+            ),
+        )
+    monkeypatch.setattr(
+        h8_gate,
+        "reopen_h6_prefix_authorities",
+        lambda **_kwargs: (reopened, stale_direct),
+    )
+    with pytest.raises(ValueError, match="bounded H6-Prefix"):
+        h8_gate._revalidate_h6_prefix_certificates(
+            prefix_reference,
+            prefix_payloads,
+        )
 
     for field_name, legacy_schema in (
         ("config_schema", "h6-prefix-config-v2"),
@@ -1065,7 +1145,7 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
         "h8_prerequisite_h1_prefix_prior_immutable_artifact_revalidation_required",
         "h8_prerequisite_h6_prefix_immutable_artifact_revalidation_required",
         "h8_prerequisite_h7_immutable_artifact_revalidation_required",
-        "h8_prerequisite_h6_prediction_v2_artifact_revalidation_required",
+        "h8_prerequisite_h6_prediction_v3_artifact_revalidation_required",
     )
     evaluation = h8_gate.assemble_h8_source_only_evaluation(
         config_sha256="b" * 64,

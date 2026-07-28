@@ -3,11 +3,13 @@ from __future__ import annotations
 import hashlib
 import inspect
 import os
+import shutil
 from functools import lru_cache
 from pathlib import Path
 
 import pytest
 
+from vfe4.artifacts.atomic import ArtifactPublicationError
 from vfe4.types.h6_prediction_v3 import H6_SCORING_INVENTORY_SHA256
 from vfe4.training.h6_experiment_v3 import H6_CONFIRMATORY_SEEDS_V3
 from vfe4.training.h6_matching_v3 import H6_MATCHING_V3_ENDPOINT_CONFIG_IDS
@@ -219,6 +221,55 @@ def test_final_result_and_pointer_are_no_replace_published(
     assert finalized.terminal_directory.name == "TERMINAL"
     assert finalized.pointer_directory.name == "current"
     assert repeated == finalized
+
+
+def test_public_transaction_readers_authenticate_exact_published_state(
+    tmp_path: Path,
+) -> None:
+    import vfe4.training.h6_test_transaction_v3 as transaction
+
+    reservation = _reservation(transaction, tmp_path)
+    marker = tmp_path / "opening.reservation.json"
+    marker.write_bytes(reservation.canonical_bytes())
+    result, inventory, metrics = _result_records(
+        reservation.reservation_sha256,
+        reservation.opening_proof_sha256,
+    )
+    finalized = transaction.finalize_h6_test_transaction_v3(
+        reservation_path=marker,
+        result=result,
+        inventory=inventory,
+        metrics=metrics,
+    )
+
+    assert transaction.read_h6_test_reservation_v3(marker) == reservation
+    assert (
+        transaction.read_h6_test_terminal_v3(finalized.terminal_directory)
+        == finalized.terminal
+    )
+    pointer = transaction.read_h6_prediction_pointer_v3(
+        finalized.pointer_directory
+    )
+    assert pointer.reservation_sha256 == reservation.reservation_sha256
+    assert pointer.terminal_sha256 == finalized.terminal.terminal_sha256
+    assert pointer.result_sha256 == result.result_sha256
+
+    corrupt_marker = tmp_path / "corrupt.reservation.json"
+    corrupt_marker.write_bytes(reservation.canonical_bytes() + b"\n")
+    with pytest.raises(ArtifactPublicationError, match="authenticate|canonical"):
+        transaction.read_h6_test_reservation_v3(corrupt_marker)
+
+    corrupt_terminal = tmp_path / "corrupt-terminal"
+    shutil.copytree(finalized.terminal_directory, corrupt_terminal)
+    (corrupt_terminal / "terminal.json").write_bytes(b"{}")
+    with pytest.raises(ArtifactPublicationError, match="manifest|journal"):
+        transaction.read_h6_test_terminal_v3(corrupt_terminal)
+
+    corrupt_pointer = tmp_path / "corrupt-pointer"
+    shutil.copytree(finalized.pointer_directory, corrupt_pointer)
+    (corrupt_pointer / "pointer.json").write_bytes(b"{}")
+    with pytest.raises(ArtifactPublicationError, match="manifest|pointer"):
+        transaction.read_h6_prediction_pointer_v3(corrupt_pointer)
 
 
 def test_authoritative_marker_requires_complete_reservation_bytes_and_recovers_gap(
@@ -460,6 +511,9 @@ def test_task10_transaction_exports_are_safe_and_lazy() -> None:
     safe_names = {
         "execute_h6_test_transaction_v3",
         "finalize_h6_test_transaction_v3",
+        "read_h6_prediction_pointer_v3",
+        "read_h6_test_reservation_v3",
+        "read_h6_test_terminal_v3",
         "recover_h6_test_transaction_v3",
     }
     removed_names = {

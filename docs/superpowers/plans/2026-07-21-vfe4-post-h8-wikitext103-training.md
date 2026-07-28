@@ -1,5 +1,53 @@
 # VFE 4.0 Post-H8 WikiText-103 Training, Recording, and Figure Generation Implementation Plan
 
+## 2026-07-28 executable-build amendment
+
+This section is normative over conflicting historical wording below.
+
+- The completed H6-Prediction prerequisite is the native executable v3
+  authority defined by
+  `docs/superpowers/plans/2026-07-27-h6-executable-prediction-amendment.md`.
+  Its exact v3 config, readiness, metric, checkpoint, validation, held-out,
+  result, current-pointer, and claim-ledger identities must be reopened
+  without converting an amended-v2 artifact. Amended v2 remains historical
+  predecessor context only and cannot satisfy post-H8 readiness.
+- Every executable H8 reference in this plan means
+  `h8-sparse-scale-v5`, `h8-validation-config-v3`, and
+  `vfe4.h8.parent-child-protocol.v3`. Any remaining `H8 v4` phrase is
+  superseded historical text.
+- The existing H6-Prediction click surface is preserved in
+  `run_h6_prediction_v3.py`. Task 12 makes `train_vfe4.py` the WikiText-103
+  launcher, so the two scientific workflows never overload one `train`
+  operation or silently reinterpret one editable dictionary.
+- The WikiText-103 launcher has the exact operations
+  `idle|synthetic_smoke|source_lock|readiness|train|resume`.
+  `synthetic_smoke` is a structurally separate, readiness-ineligible,
+  nonproduction operation that accepts only injected/generated source and
+  tokenizer fixtures, writes only under its configured synthetic roots, and
+  labels every product `nonproduction_synthetic_smoke`. It may exercise the
+  complete source pipeline, all distinct arm paths, interruption/resume,
+  validation, recording, and figure-input publication, but it cannot create
+  a `PostH8ReadinessToken`, a production source/token identity, or a
+  held-out test result.
+- `requirements-wt103.lock` is generated from a reviewed tracked lock-input
+  manifest containing the declared direct distributions, exact versions,
+  hashes, environment markers, and the lock-writer schema/code identity.
+  The writer sorts canonical records and rejects missing hashes, duplicate
+  distributions, unresolved markers, or an installed-environment snapshot.
+  It never invokes `pip freeze`. Task 11 owns the one final deterministic
+  generation after Task 4 and figure dependencies are frozen.
+- Hermetic Tasks 1--12 source implementation, focused tests, and explicitly
+  nonproduction `synthetic_smoke` may begin after the native H6-Prediction v3
+  source candidate and its bounded CPU/CUDA implementation evidence close.
+  This source work cannot claim or mint H8, production readiness, a finalized
+  source record, or a scientific result. An exact same-revision H8 v5 PASS at
+  the clean completed Tasks 1--12 revision remains mandatory before Task 13
+  network acquisition, live tokenizer inspection, source lock, production
+  readiness, corpus optimization, validation/test scoring, or any production
+  artifact. Thus a separately authorized H6 held-out opening cannot deadlock
+  outcome-free source implementation, and no post-H8 scientific gate is
+  weakened.
+
 ## 2026-07-27 H8 installed-runtime amendment
 
 All post-H8 source-lock, readiness, and training prerequisites now require an
@@ -30,7 +78,7 @@ outcome; any retained v4 wording below is historical planning text only.
   `schema_version="h8-sparse-scale-v5"` has `status="pass"`; its six-payload
   artifact and `manifest.sha256` validate; its external
   `h8-current-candidate-result-v2` pointer validates against the exact
-  `h8-current-candidate-refs-v3` registry; the exact `(git_head, dirty_digest,
+  `h8-current-candidate-refs-v5` registry; the exact `(git_head, dirty_digest,
   junit_sha256, config_sha256, validation_sha256,
   current_refs_registry_sha256)` identities and five predecessor variants are
   recorded; and its revision-specific H8 claim ledger validates. Plan
@@ -43,17 +91,12 @@ outcome; any retained v4 wording below is historical planning text only.
 - H6-Prefix proved safety only for exact H6 model-family, vocabulary, predictor-config, estimator, and cache identities. Its byte tokenizer (`V=258`) does not certify GPT-2/tiktoken (`V=50,257`), WikiText-103 caches, the post-H8 model shape, or a new prefix cache. A new `WT103-Predictor-Safety` certificate is mandatory before empirical materialization.
 - H6-Prediction remains predecessor evidence for the selected
   scorer/update/statistical design, not a transferable WikiText-103 predictive
-  result. The only admissible empirical reference is amended v2:
-  `prediction_schema="h6-prediction-amended-v2"`,
-  `config_schema="h6-prediction-config-v2"`,
-  `readiness_schema="h6-prediction-readiness-v2"`,
-  `metrics_schema="h6-prediction-metrics-v2"`, and
-  `result_schema="h6-prediction-result-v2"`. Post-H8 readiness binds exact
+  result. The admissible executable reference is the native v3 authority
+  named in the 2026-07-28 amendment. Post-H8 readiness binds its exact
   same-candidate H1--H5, H1-prefix-prior, H6-Prefix, H7, and H8
-  artifact/ledger identities together with that separate amended-v2
-  H6-Prediction identity and reruns every configuration-sensitive safety check
-  at the final training candidate. Legacy v1 and any invented v3 reference are
-  ineligible.
+  artifact/ledger dependencies and reruns every configuration-sensitive
+  safety check at the final training candidate. Legacy v1, historical
+  amended v2, and any synthetic conversion are ineligible.
 - H8 is checked twice and neither check substitutes for the other. Immediately
   before source lock, H8 v5 must PASS at the exact clean Tasks 1--12 revision
   that will perform acquisition. After the finalized production source record
@@ -1206,7 +1249,7 @@ modules nor produces `PostH8ReadinessToken`.
 
 - [ ] **Step 1: Write failing factory/formula tests.** Assert `build_wt103_a0` exactly matches `A0ArchitectureProfile`: full causal two-head `flash_attention_only_no_fallback` policy mapped to the frozen `sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION])` API with alternatives disabled and no mask/weights/fallback, learned absolute positions, pre-norm plus final norm, exact residual topology, tanh-GELU, and every projection/bias/tie choice. Assert the resolved PyTorch version/API/backend hashes enter the architecture hash; substitute another backend or fallback and require rejection. A0 has no latent/recognition/snapshot phase and exactly one CE/model optimizer phase. Reconstruct `P_A0(h)=2Vh+128h+12h^2+15h+V` from actual named tensor shapes with every parameter counted once. Independently hand-enumerate a tiny full-causal operator ledger, including semantic attention pairs, decoder chunks, backward, CE, and AdamW, and require exact equality with `A0FormulaRecord`, whole-schedule `F_A0`, and both canonical schema hashes; decoder rechunking must preserve FLOPs. Assert all five arm specs are realized through exactly the four frozen constructors in their `factory_id` rows; the shared parent-specific constructor dispatches only the complete versus emission objective from the exact spec. No-latent has no recognition/snapshot/SMC work, and scorer dispatch follows `scorer_kind` rather than the A0/A5 label. Forbid filler/no-op/dormant capacity and enforce 1%/5% PRIMARY training matching from the deterministic finite search.
 - [ ] **Step 2: Write failing training-sparsity tests.** Bind the literal profile and exact ordered five-arm factory inventory, then trace every distinct enumerated train, applicable E-like proposal, snapshot, backward, optimizer, scorer, and checkpoint path. Require permitted vocabulary/logit chunks, A0 Q/K/V/result tensors, the exact nonmaterialized Flash operator, and block/banded population shapes. Reject backend fallback, explicit/materialized attention masks or weights, `[B,2,L,L]` or aggregate pair-axis storage, and every forbidden population/source/pair/logit shape; reconcile every unique storage as `numel*element_size` with allocator overhead separate and zero unclassified bytes. Require each math-SDPA/materialized-attention, dense-population, batch-dense, full-source, pair-slab, full-decoder, selector/RHS, and unclassified-checkpoint negative control to fire before allocation or serialization. Prove H8 and the 85% capacity preflight cannot populate or replace this certificate.
-- [ ] **Step 3: Write failing static scientific-precondition tests.** Use only injected synthetic tokenizer/cache records in this task and prove their exact types cannot issue a production token. Require typed, manifest-validated integrity records for H5, H6-Prefix, amended H6-Prediction v2, H7, and exact prerequisite H8 v4 PASS; exact profile/A0-architecture/formula/factory/objective/update/snapshot/estimator identities; and a PASS same-revision `TrainingSparsityCertificate`. Prove H6 byte certificates and H8 allocation endpoints cannot satisfy GPT-2 predictor safety or training sparsity. Exhaustively perturb current target/suffix/cache traversal on bounded `V=50257` synthetic cases and run static signature/import/taint/cache audits against implementations of the existing `PriorPredictor` protocol. Capacity, durability, finalized production data, dependency-lock comparison, throughput, power, and resource authorization belong only to Task 10 final readiness.
+- [ ] **Step 3: Write failing static scientific-precondition tests.** Use only injected synthetic tokenizer/cache records in this task and prove their exact types cannot issue a production token. Require typed, manifest-validated integrity records for H5, H6-Prefix, native executable H6-Prediction v3, H7, and exact prerequisite H8 v5 PASS; exact profile/A0-architecture/formula/factory/objective/update/snapshot/estimator identities; and a PASS same-revision `TrainingSparsityCertificate`. Prove H6 byte certificates and H8 allocation endpoints cannot satisfy GPT-2 predictor safety or training sparsity. Exhaustively perturb current target/suffix/cache traversal on bounded `V=50257` synthetic cases and run static signature/import/taint/cache audits against implementations of the existing `PriorPredictor` protocol. Capacity, durability, finalized production data, dependency-lock comparison, throughput, power, and resource authorization belong only to Task 10 final readiness.
 - [ ] **Step 4: Run focused RED.** First run the mandatory CUDA preflight from Global Constraints, then run `C:/anaconda/python.exe -m pytest tests/unit/test_training_factories.py tests/promotion/test_training_sparsity.py -q`. Expected: FAIL on missing factories/sparsity/static scientific preconditions.
 - [ ] **Step 5: Implement four explicit constructors, formulas, and matching.** Use the four named direct constructors, not signature inspection/registries. Dispatch the exact five arm specs only through their frozen `factory_id`; `build_wt103_a5_parent_specific` accepts the two parent-specific specs and no other objective. Implement the exact A0 architecture and analytical formula records; freeze the deterministic finite A0 width selection before outcomes and publish complete architecture/formula hashes, parameter-role, optimizer-ID, phase-FLOP, dimension, and margin tables. The selected width cannot change because Flash is unavailable; that condition fails readiness.
 - [ ] **Step 6: Implement the revision-bound sparsity certificate.** Run each exact path in clean child processes; combine dispatch, profiler, CUDA allocator/unique-storage, exact A0 SDPA-backend, and serializer inventories; classify the sole nonmaterialized full-causal Flash semantic domain, permitted vocabulary/logit dense work, and block/banded population work separately from forbidden pair-axis/population storage. Execute all assigned controls and publish formulas, logical/physical byte reconciliation, status, and certificate hash. Missing backend/materialization observability is INCONCLUSIVE and any fallback, forbidden, or unclassified event is FAIL.
@@ -1331,9 +1374,9 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 
 **Interfaces:** The launcher orchestrates resolver, exact refs, acquisition/readiness, the immutable arm inventory, training/evaluation/checkpoint/recording/artifacts, and no figure logic. `generate_vfe4_figures.py` is the separate pure figure launcher. Neither owns probability/data/metric logic.
 
-- [ ] **Step 1: Write failing launcher tests.** Install blockers for `tiktoken`, live distribution/RECORD discovery, and live tokenizer tables/golden vectors; inject only synthetic tokenizer adapters. Import the live editable dictionary with every external side effect mocked and require none. Assert the complete literal `WT103ExperimentProfile`/`A0ArchitectureProfile`, exact five-arm/gate inventory, explicit `idle|source_lock|readiness|train|resume` modes, durability roots, and resource ceilings resolve without hidden defaults. Replace only paths/data sizes/arm dimensions/steps through a typed test helper, and run generated smoke data through every distinct arm path, interruption from a `resume_only` checkpoint, validation, terminal `terminal_scoring` scientific/artifact identity, and stable metrics CSV. Separately import and exercise the pure figure launcher from finalized tiny artifacts. Unknown live key, unresolved source-lock fact in training mode, stale H8/sparsity/inventory ref, failed durability probe, or failed forecast fails before reservation.
+- [ ] **Step 1: Write failing launcher tests.** Install blockers for `tiktoken`, live distribution/RECORD discovery, and live tokenizer tables/golden vectors; inject only synthetic tokenizer adapters. Import the live editable dictionary with every external side effect mocked and require none. Assert the complete literal `WT103ExperimentProfile`/`A0ArchitectureProfile`, exact five-arm/gate inventory, explicit `idle|synthetic_smoke|source_lock|readiness|train|resume` modes, durability roots, and resource ceilings resolve without hidden defaults. Replace only paths/data sizes/arm dimensions/steps through a typed test helper, and run `synthetic_smoke` generated data through every distinct arm path, interruption from a `resume_only` checkpoint, validation, terminal `terminal_scoring` scientific/artifact identity, and stable metrics CSV. Require all smoke products to carry the readiness-ineligible `nonproduction_synthetic_smoke` authority and prove they cannot enter production readiness or held-out scoring. Separately import and exercise the pure figure launcher from finalized tiny artifacts. Unknown live key, unresolved source-lock fact in training mode, stale H8/sparsity/inventory ref, failed durability probe, or failed forecast fails before reservation.
 - [ ] **Step 2: Run focused RED.** Run `C:/anaconda/python.exe -m pytest tests/integration/test_train_vfe4.py -q`. Expected: FAIL on missing launcher.
-- [ ] **Step 3: Implement one-click orchestration.** Keep one editable dictionary, one main, one guard, clear constants for cache/run roots, `operation="idle"` by default, and exact `idle|source_lock|readiness|train|resume` operation values. Source-lock mode builds all derived manifests before exposing their hashes; readiness creates no corpus optimizer update; train/resume modes require the literal profile, frozen source/schedule/inventory identities, durability probes, training-sparsity certificate, capacity preflight, and resource authorization. Print resolved run identity, predecessor statuses, data/tokenizer/schedule/inventory identities, forecast/actual usage, arm/seed progress, terminal status, and artifact path. Add no argparse/env-required setting or hidden fallback. Keep figure roots and figure operations exclusively in the separate editable `generate_vfe4_figures.py` dictionary.
+- [ ] **Step 3: Implement one-click orchestration.** First preserve the completed H6-Prediction v3 launcher as `run_h6_prediction_v3.py`, with its focused import/click tests redirected to that module. Then make `train_vfe4.py` the WikiText-103 surface with one editable dictionary, one main, one guard, clear constants for cache/run roots, `operation="idle"` by default, and exact `idle|synthetic_smoke|source_lock|readiness|train|resume` operation values. Synthetic-smoke mode accepts only the typed nonproduction fixture authority and cannot issue readiness or open held-out data. Source-lock mode builds all derived manifests before exposing their hashes; readiness creates no corpus optimizer update; train/resume modes require the literal profile, frozen source/schedule/inventory identities, durability probes, training-sparsity certificate, capacity preflight, and resource authorization. Print resolved run identity, predecessor statuses, data/tokenizer/schedule/inventory identities, forecast/actual usage, arm/seed progress, terminal status, and artifact path. Add no argparse/env-required setting or hidden fallback. Keep figure roots and figure operations exclusively in the separate editable `generate_vfe4_figures.py` dictionary.
 - [ ] **Step 4: Document operator workflow and V3 boundary.** README gives click Run instructions for source lock, training, resume, and figure regeneration; exact disk/device preflights; one-opening warning; cache location; and explicit statements that V3 files are only design references and H8 is not training-memory evidence.
 - [ ] **Step 5: Run focused GREEN.** Run the Step 2 command. Expected: PASS on generated smoke data only.
 - [ ] **Step 6: Review and commit.** Reviewer checks click UX, import safety, no real data access, no CLI, and artifact paths. Commit `feat(training): add click-run VFE4 experiment`.
@@ -1352,7 +1395,7 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
 - [ ] **Step 1: Produce and validate the first same-revision H8 PASS before source lock.** Freeze the exact clean Tasks 1--12 HEAD/digest and require
   `validation/h8.json` v5 PASS and validate its six-payload artifact,
   `manifest.sha256`, external `h8-current-candidate-result-v2` pointer, exact
-  `h8-current-candidate-refs-v3` registry, candidate JUnit, complete
+  `h8-current-candidate-refs-v5` registry, candidate JUnit, complete
   `(git_head, dirty_digest, config_sha256, validation_sha256,
   current_refs_registry_sha256)` identity, five lossless predecessor variants,
   revision-specific ledger, and `no_post_h8_training_memory_transfer`
@@ -1378,19 +1421,19 @@ Consume unchanged from Task 2: `vfe4/artifacts/manifest.py`, `vfe4/artifacts/ato
   marker, and immutable prior ledgers. Bind H5 plus the exact H8
   current-candidate inputs: same-candidate H1--H5, active H1-prefix-prior,
   bounded H6-Prefix, and H7 references, together with the separate amended
-  H6-Prediction amended-v2 reference with its exact five v2 schemas. Record the
+  native H6-Prediction v3 reference with its exact executable schemas. Record the
   Task 13 pre-source-lock H8 only as historical sequencing evidence; it cannot
   satisfy this new revision.
 - [ ] **Step 2: Run one full suite exactly once.** Run the mandatory CUDA preflight from Global Constraints, then run `C:/anaconda/python.exe -m pytest -q --junitxml=C:\tmp\vfe4-post-h8-wikitext103-integration.xml`. Expected: exit 0. Parse tests/failures/errors/skips/duration only from XML. A source defect requires a new commit and one replacement XML; never combine revisions or run another broad suite for confidence.
 - [ ] **Step 3: Produce and validate the second same-revision H8 PASS after the source-record commit, without
   real training.** Reproduce the complete same-candidate
-  H1--H5/H1-prefix-prior/H6-Prefix/H7 lifecycle and H8 v4 artifact at the Task
+  H1--H5/H1-prefix-prior/H6-Prefix/H7 lifecycle and H8 v5 artifact at the Task
   14 revision and candidate JUnit. Through pure config projections, validate
   the H5 update schema, H6 target-blind scorer/estimator, and H7 covariance
   dependency. Validate every artifact, manifest, external pointer, registry,
   predecessor variant, and ledger. This H8 artifact must bind the exact clean
   post-source-record HEAD/digest and the Task 14 candidate JUnit. Reuse only
-  amended H6-Prediction v2 when its frozen
+  native H6-Prediction v3 when its frozen
   scientific dependency closure remains valid and unreachable from the
   append-only post-H8 source.
 - [ ] **Step 4: Run same-revision predictor, sparsity, capacity, durability, and resource readiness.** Produce the exact `WT103-Predictor-Safety` certificate, A0 architecture/parameter/FLOP reconstruction and finite training-match report, and proof that the frozen API context selected `SDPBackend.FLASH_ATTENTION` exactly with every alternative/fallback disabled and no attention materialization. Bind the observed PyTorch/API/backend identities into the A0 architecture hash, then produce typed source/token/window/permutation/cadence/checkpoint-role/endpoint-inventory integrity records, revision-bound `TrainingSparsityCertificate`, independent shape-identical 85%-capacity/checkpoint preflight for every distinct arm path, and durability probes. Only now, after Task 11 exists, measure every frozen preparation/tuning/confirmation/validation/checkpoint/test/table/figure component under its specified warmups and sample count, then produce the disk and throughput/power/GPU-hour/wall/energy forecasts under the hard ceilings and invoke the Task 10 final-readiness constructor. The sparsity trace executes synthetic forward/applicable E-proposal/snapshot/backward/optimizer/evaluation/checkpoint paths but no corpus optimizer step or held-out score.
@@ -1444,7 +1487,7 @@ Do not copy or consume V3 `BeliefState`, moving-peer/free-energy objective, targ
 
 ## Final Self-Review Checklist
 
-- [ ] **Spec coverage:** Two exact same-revision H8 v4 PASS gates (before source lock and after the finalized-source-record commit) and nontransfer; amended H6-Prediction v2; candidate-to-staged-observation-to-finalized-production URL/source/license/distribution/table lock with synthetic-only Tasks 1--12; archive/member SHA/size/CRC/compression/path safety; offline/V3-cache isolation; disjoint synthetic/production tokenizer/cache types and WT103 hash domains; tracked dependency lock; pinned GPT-2 tokenizer and H6 nontransfer; deterministic windows/masks/counts/shuffle/full eval/final pad/cursor; shared-only experiment profile, exact ordered five-arm/seven-gate inventory through four constructors, and exact A0 full-causal architecture/formulas/nonmaterialized Flash backend; per-arm H5 labels/objective/prior/recognition/scorer/result roles; H6/H7/H8 identities; explicit autograd/snapshot policy; revision-bound training sparsity plus independent capacity; one-way Task 6-to-Task 10 readiness composition; resume-only rolling versus terminal-scoring checkpoints; safe scientific-artifact resume/migration; every required metric with numerator/denominator/update controls/applicability; H6-refrozen seeds/tuning/stopping/statistics/opening; sole test-unsealing owner; finalized-input figures/sidecars/captions/alt text and the frozen required-figure registry with inventory-derived panels/series; generic integrity and tested POSIX/Windows durability; atomic runs/manifests/environment/failures/index; click launchers; CUDA interpreter/preflight; disk/GPU-hour/wall/energy safeguards; TDD/commits/one JUnit/authorization boundaries; evidence/nonclaims; V3 boundary.
+- [ ] **Spec coverage:** Two exact same-revision H8 v5 PASS gates (before source lock and after the finalized-source-record commit) and nontransfer; native executable H6-Prediction v3; candidate-to-staged-observation-to-finalized-production URL/source/license/distribution/table lock with synthetic-only Tasks 1--12; archive/member SHA/size/CRC/compression/path safety; offline/V3-cache isolation; disjoint synthetic/production tokenizer/cache types and WT103 hash domains; tracked dependency lock; pinned GPT-2 tokenizer and H6 nontransfer; deterministic windows/masks/counts/shuffle/full eval/final pad/cursor; shared-only experiment profile, exact ordered five-arm/seven-gate inventory through four constructors, and exact A0 full-causal architecture/formulas/nonmaterialized Flash backend; per-arm H5 labels/objective/prior/recognition/scorer/result roles; H6/H7/H8 identities; explicit autograd/snapshot policy; revision-bound training sparsity plus independent capacity; one-way Task 6-to-Task 10 readiness composition; resume-only rolling versus terminal-scoring checkpoints; safe scientific-artifact resume/migration; every required metric with numerator/denominator/update controls/applicability; H6-refrozen seeds/tuning/stopping/statistics/opening; sole test-unsealing owner; finalized-input figures/sidecars/captions/alt text and the frozen required-figure registry with inventory-derived panels/series; generic integrity and tested POSIX/Windows durability; atomic runs/manifests/environment/failures/index; separated H6 and WikiText-103 click launchers; CUDA interpreter/preflight; disk/GPU-hour/wall/energy safeguards; TDD/commits/one JUnit/authorization boundaries; evidence/nonclaims; V3 boundary.
 - [ ] **Type consistency:** Every interface name and field used by later tasks is owned in the file/interface map; `WT103ArmSpec`, `WT103GateSpec`, `EndpointInventory`, `WT103ExperimentProfile`, `A0ArchitectureProfile`, `A0FormulaRecord`, `TrainingConfig`, `StagedWikiText103AcquisitionObservation`, `FinalizedWikiText103SourceRecord`, `CandidateTokenizerContract`, `SyntheticFixtureTokenizerSpec`, `ProductionTokenizerSpec`, `SyntheticFixtureTokenCacheIdentity`, `ProductionTokenCacheIdentity`, `WindowManifest`, `PermutationManifest`, `DataCursor`, `TrainingSparsityCertificate`, `PostH8ReadinessToken`, the imported `PriorPredictor`, `CheckpointBundle`, `WT103CheckpointIdentity`, `LoadedCheckpoint`, `MetricRecord`, `WT103NllTotals`, `FigureSpec`, and manifests retain one meaning. No WT103 type shadows the existing H6 checkpoint/NLL types, and no count or derived endpoint key is accepted outside `EndpointInventory.create`.
 - [ ] **Data arithmetic:** For every split `counted_targets=n_tokens-1`; final padding contributes zero; no batch mean enters corpus NLL; train/validation/test schedules and capabilities are distinct.
 - [ ] **Evidence audit:** H6 byte and H8 synthetic evidence never close GPT-2/training claims; one exact candidate/JUnit, one revision-bound sparsity certificate, independent capacity and resource records, one irreversible test opening, raw/partial endpoint records, manifest integrity, and revision-specific ledgers are required. Partial endpoints force INCONCLUSIVE and are never aggregated.
@@ -1456,4 +1499,13 @@ Do not copy or consume V3 `BeliefState`, moving-peer/free-energy objective, targ
 
 ## Execution Handoff
 
-Plan implementation begins only after the exact H8 artifact and ledger described above are PASS and validated. Execute with `superpowers:subagent-driven-development` for task-by-task review or `superpowers:executing-plans` for controlled inline batches. Stop at the Task 13 source-lock, Task 15 GPU-training, and Task 16 irreversible-opening authorization boundaries; neither ordinary implementation permission nor H8 PASS authorizes a real download, corpus training run, or test opening.
+Hermetic Tasks 1--12 source implementation and nonproduction synthetic
+fixtures begin after the native H6-Prediction v3 source and bounded CPU/CUDA
+implementation evidence close. The exact H8 artifact and ledger described
+above must then PASS and validate at the clean completed Tasks 1--12 revision
+before Task 13. Execute with `superpowers:subagent-driven-development` for
+task-by-task review or `superpowers:executing-plans` for controlled inline
+batches. Stop at the Task 13 source-lock, Task 15 GPU-training, and Task 16
+irreversible-opening authorization boundaries; neither ordinary
+implementation permission nor H8 PASS authorizes a real download, corpus
+training run, or test opening.

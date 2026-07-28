@@ -17,6 +17,10 @@ from vfe4.artifacts.atomic import (
     canonical_json_bytes as artifact_json_bytes,
     publish_run_directory,
 )
+from vfe4.config import (
+    H6PredictionV3ResolvedConfig,
+    resolve_h6_prediction_v3_config,
+)
 from vfe4.training.checkpoint_v3 import (
     H6CheckpointV3,
     decode_h6_checkpoint_v3,
@@ -29,15 +33,28 @@ from vfe4.training.h6_experiment_v3 import (
     H6ExperimentPlanV3,
     H6PlannedAttemptV3,
     H6TuningCellV3,
+    plan_h6_experiment_v3,
 )
-from vfe4.training.h6_matching_v3 import H6_MATCHING_V3_ENDPOINT_CONFIG_IDS
+from vfe4.training.h6_matching_v3 import (
+    H6_MATCHING_V3_ENDPOINT_CONFIG_IDS,
+    H6MatchingSetV3,
+    build_h6_matching_set_v3,
+)
+from vfe4.training.h6_readiness import (
+    validate_existing_h6_prediction_readiness_v3,
+)
 from vfe4.predictive.proposal import CounterPurpose
-from vfe4.types.h6 import TrainingPhase, canonical_json_bytes
+from vfe4.types.h6 import (
+    TrainingPhase,
+    VocabularyIdentity,
+    canonical_json_bytes,
+)
 from vfe4.types.h6_prediction_v3 import (
     H6_PREDICTION_METRICS_SCHEMA,
     H6_PREDICTION_RESULT_SCHEMA,
     H6_RAW_ENDPOINT_INVENTORY_SCHEMA,
     H6_SCORING_INVENTORY_SHA256,
+    H6PredictionV3ReadinessToken,
 )
 
 
@@ -45,6 +62,9 @@ _LOWER_HEX = frozenset("0123456789abcdef")
 _A5_PRIMARY_ENDPOINT_CONFIG_ID = H6_TUNED_ENDPOINT_CONFIG_IDS_V3[-1]
 _BUNDLE_FILENAME = "validation_bundle.json"
 _MAXIMUM_BUNDLE_BYTES = 16 * 1024 * 1024
+_AUTHORITIES_FILENAME = "authorities.json"
+_MAXIMUM_AUTHORITIES_BYTES = 4 * 1024 * 1024
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _build_validation_record_origin_api():
@@ -109,6 +129,169 @@ def _require_plan(plan: object) -> H6ExperimentPlanV3:
         raise ValueError("an exact H6 experiment plan v3 is required")
     plan.__post_init__()
     return plan
+
+
+def _authority_payload(
+    *,
+    config: H6PredictionV3ResolvedConfig,
+    matching_set: H6MatchingSetV3,
+    readiness: H6PredictionV3ReadinessToken,
+    plan: H6ExperimentPlanV3,
+) -> dict[str, object]:
+    return {
+        "authority_schema": "h6-prediction-authorities-v3",
+        "experiment_config_sha256": config.config_sha256,
+        "matching_set_sha256": matching_set.matching_set_sha256,
+        "readiness_sha256": readiness.readiness_sha256,
+        "plan_sha256": plan.plan_sha256,
+    }
+
+
+def _validate_authority_objects(
+    *,
+    config: object,
+    matching_set: object,
+    readiness: object,
+    plan: object,
+) -> tuple[
+    H6PredictionV3ResolvedConfig,
+    H6MatchingSetV3,
+    H6PredictionV3ReadinessToken,
+    H6ExperimentPlanV3,
+]:
+    if type(config) is not H6PredictionV3ResolvedConfig:
+        raise ValueError("authorities require an exact resolved v3 config")
+    if type(matching_set) is not H6MatchingSetV3:
+        raise ValueError("authorities require an exact v3 matching set")
+    if type(readiness) is not H6PredictionV3ReadinessToken:
+        raise ValueError("authorities require an exact v3 readiness token")
+    if type(plan) is not H6ExperimentPlanV3:
+        raise ValueError("authorities require an exact v3 experiment plan")
+    matching_set.__post_init__()
+    readiness.__post_init__()
+    plan.__post_init__()
+    try:
+        resolved_again = resolve_h6_prediction_v3_config(
+            json.loads(config.canonical_json),
+            repo_root=_REPO_ROOT,
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("authority config cannot be re-resolved exactly") from exc
+    if resolved_again != config:
+        raise ValueError("authority config changed during exact resolution")
+    expected_readiness = validate_existing_h6_prediction_readiness_v3(
+        config=config,
+        matching_set=matching_set,
+        readiness=readiness,
+    )
+    if expected_readiness != readiness:
+        raise ValueError("authority readiness differs from exact regeneration")
+    expected_plan = plan_h6_experiment_v3(
+        readiness=readiness,
+        matching_set=matching_set,
+        training_schedule=config.training_schedule,
+        runtime_identity=config.runtime,
+    )
+    if expected_plan != plan:
+        raise ValueError("authority plan differs from exact regeneration")
+    return config, matching_set, readiness, plan
+
+
+@dataclass(frozen=True, slots=True)
+class H6PredictionV3Authorities:
+    """Exact reopened config, matching, readiness, and plan authority chain."""
+
+    authority_schema: Literal["h6-prediction-authorities-v3"]
+    config: H6PredictionV3ResolvedConfig
+    matching_set: H6MatchingSetV3
+    readiness: H6PredictionV3ReadinessToken
+    plan: H6ExperimentPlanV3
+    authority_sha256: str
+
+    def canonical_payload(self) -> dict[str, object]:
+        return _authority_payload(
+            config=self.config,
+            matching_set=self.matching_set,
+            readiness=self.readiness,
+            plan=self.plan,
+        )
+
+    def __post_init__(self) -> None:
+        if self.authority_schema != "h6-prediction-authorities-v3":
+            raise ValueError("authority bundle schema is not v3")
+        _validate_authority_objects(
+            config=self.config,
+            matching_set=self.matching_set,
+            readiness=self.readiness,
+            plan=self.plan,
+        )
+        _require_sha256(self.authority_sha256, "authority_sha256")
+        if self.authority_sha256 != _hash(
+            "vfe4.h6.prediction-authorities.v3",
+            self.canonical_payload(),
+        ):
+            raise ValueError("authority bundle digest is stale")
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        config: H6PredictionV3ResolvedConfig,
+        matching_set: H6MatchingSetV3,
+        readiness: H6PredictionV3ReadinessToken,
+        plan: H6ExperimentPlanV3,
+    ) -> "H6PredictionV3Authorities":
+        checked = _validate_authority_objects(
+            config=config,
+            matching_set=matching_set,
+            readiness=readiness,
+            plan=plan,
+        )
+        payload = _authority_payload(
+            config=checked[0],
+            matching_set=checked[1],
+            readiness=checked[2],
+            plan=checked[3],
+        )
+        return cls(
+            authority_schema="h6-prediction-authorities-v3",
+            config=checked[0],
+            matching_set=checked[1],
+            readiness=checked[2],
+            plan=checked[3],
+            authority_sha256=_hash(
+                "vfe4.h6.prediction-authorities.v3",
+                payload,
+            ),
+        )
+
+    def artifact_payload(self) -> dict[str, object]:
+        first = self.matching_set.endpoint_configs[0]
+        return {
+            "authority_schema": self.authority_schema,
+            "config": json.loads(self.config.canonical_json),
+            "matching_genesis": {
+                "genesis_schema": "h6-matching-genesis-v3",
+                "git_head": self.matching_set.git_head,
+                "dirty_digest": self.matching_set.dirty_digest,
+                "train_token_count": self.matching_set.workload.train_token_count,
+                "train_token_sha256": self.matching_set.workload.train_token_sha256,
+                "vocabulary": {
+                    "vocabulary_id": first.vocabulary.vocabulary_id,
+                    "size": first.vocabulary.size,
+                    "tokenizer_spec_sha256": (
+                        first.vocabulary.tokenizer_spec_sha256
+                    ),
+                },
+                "horizon": first.horizon,
+                "matching_set_sha256": self.matching_set.matching_set_sha256,
+            },
+            "readiness": self.readiness.canonical_payload()
+            | {"readiness_sha256": self.readiness.readiness_sha256},
+            "plan": self.plan.canonical_payload()
+            | {"plan_sha256": self.plan.plan_sha256},
+            "authority_sha256": self.authority_sha256,
+        }
 
 
 def _config_sha256_by_endpoint(plan: H6ExperimentPlanV3) -> dict[str, str]:
@@ -1256,6 +1439,35 @@ def publish_h6_validation_bundle_v3(
     )
 
 
+def publish_h6_prediction_v3_authorities(
+    *,
+    run_root: Path,
+    run_name: str,
+    config: H6PredictionV3ResolvedConfig,
+    matching_set: H6MatchingSetV3,
+    readiness: H6PredictionV3ReadinessToken,
+    plan: H6ExperimentPlanV3,
+) -> Path:
+    """Publish the exact v3 authority chain by one no-replace commit."""
+
+    try:
+        authorities = H6PredictionV3Authorities.create(
+            config=config,
+            matching_set=matching_set,
+            readiness=readiness,
+            plan=plan,
+        )
+    except ValueError as exc:
+        raise ArtifactPublicationError(
+            "H6-Prediction v3 authorities are not exact"
+        ) from exc
+    return publish_run_directory(
+        run_root,
+        run_name,
+        {_AUTHORITIES_FILENAME: authorities.artifact_payload()},
+    )
+
+
 def _mapping(
     value: object,
     name: str,
@@ -1352,6 +1564,247 @@ def _read_bounded_regular_file_once(
     if len(content) != opened.st_size:
         raise ArtifactPublicationError(f"{label} length changed while reading")
     return content
+
+
+def _decode_authorities_json(raw: bytes) -> Mapping[str, object]:
+    def reject_duplicates(
+        pairs: list[tuple[str, object]],
+    ) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("authority bundle contains duplicate JSON keys")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=reject_duplicates,
+        )
+    except (UnicodeError, ValueError, json.JSONDecodeError) as exc:
+        raise ArtifactPublicationError(
+            "authority bundle JSON is invalid"
+        ) from exc
+    if type(value) is not dict or artifact_json_bytes(value) != raw:
+        raise ArtifactPublicationError("authority bundle JSON is not canonical")
+    return value
+
+
+def _reopen_matching_set_v3(value: object) -> H6MatchingSetV3:
+    genesis = _mapping(
+        value,
+        "matching genesis",
+        frozenset(
+            {
+                "genesis_schema",
+                "git_head",
+                "dirty_digest",
+                "train_token_count",
+                "train_token_sha256",
+                "vocabulary",
+                "horizon",
+                "matching_set_sha256",
+            }
+        ),
+    )
+    if genesis["genesis_schema"] != "h6-matching-genesis-v3":
+        raise ArtifactPublicationError("matching genesis schema is stale")
+    vocabulary_payload = _mapping(
+        genesis["vocabulary"],
+        "matching vocabulary",
+        frozenset({"vocabulary_id", "size", "tokenizer_spec_sha256"}),
+    )
+    try:
+        vocabulary = VocabularyIdentity(
+            vocabulary_id=vocabulary_payload["vocabulary_id"],  # type: ignore[arg-type]
+            size=vocabulary_payload["size"],  # type: ignore[arg-type]
+            tokenizer_spec_sha256=vocabulary_payload[  # type: ignore[arg-type]
+                "tokenizer_spec_sha256"
+            ],
+        )
+        matching_set = build_h6_matching_set_v3(
+            git_head=genesis["git_head"],  # type: ignore[arg-type]
+            dirty_digest=genesis["dirty_digest"],  # type: ignore[arg-type]
+            train_token_count=genesis["train_token_count"],  # type: ignore[arg-type]
+            train_token_sha256=genesis["train_token_sha256"],  # type: ignore[arg-type]
+            vocabulary=vocabulary,
+            horizon=genesis["horizon"],  # type: ignore[arg-type]
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "matching set cannot be regenerated from its authority"
+        ) from exc
+    if matching_set.matching_set_sha256 != genesis["matching_set_sha256"]:
+        raise ArtifactPublicationError("matching-set authority drift")
+    return matching_set
+
+
+def _reopen_readiness_v3(value: object) -> H6PredictionV3ReadinessToken:
+    payload = _mapping(
+        value,
+        "readiness authority",
+        frozenset(H6PredictionV3ReadinessToken.__dataclass_fields__),
+    )
+    correctness = payload["correctness_manifests"]
+    if (
+        type(correctness) is not list
+        or any(type(item) is not list or len(item) != 2 for item in correctness)
+    ):
+        raise ArtifactPublicationError(
+            "readiness correctness manifest inventory is invalid"
+        )
+    values = dict(payload)
+    values["correctness_manifests"] = tuple(
+        (item[0], item[1]) for item in correctness
+    )
+    try:
+        readiness = H6PredictionV3ReadinessToken(**values)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "readiness authority cannot be reopened"
+        ) from exc
+    if artifact_json_bytes(payload) != artifact_json_bytes(
+        readiness.canonical_payload()
+        | {"readiness_sha256": readiness.readiness_sha256}
+    ):
+        raise ArtifactPublicationError("readiness authority changed")
+    return readiness
+
+
+def read_h6_prediction_v3_authorities(
+    run_directory: Path,
+    *,
+    expected_config_sha256: str | None = None,
+    expected_matching_set_sha256: str | None = None,
+    expected_readiness_sha256: str | None = None,
+    expected_plan_sha256: str | None = None,
+    expected_authority_sha256: str | None = None,
+) -> H6PredictionV3Authorities:
+    """Authenticate and exactly regenerate one immutable v3 authority chain."""
+
+    for name, digest in (
+        ("expected_config_sha256", expected_config_sha256),
+        ("expected_matching_set_sha256", expected_matching_set_sha256),
+        ("expected_readiness_sha256", expected_readiness_sha256),
+        ("expected_plan_sha256", expected_plan_sha256),
+        ("expected_authority_sha256", expected_authority_sha256),
+    ):
+        if digest is not None:
+            try:
+                _require_sha256(digest, name)
+            except ValueError as exc:
+                raise ArtifactPublicationError(str(exc)) from exc
+    if not isinstance(run_directory, Path) or not run_directory.is_absolute():
+        raise ArtifactPublicationError(
+            "authority run directory must be an absolute pathlib Path"
+        )
+    try:
+        root_status = run_directory.lstat()
+        names = {entry.name for entry in run_directory.iterdir()}
+    except OSError as exc:
+        raise ArtifactPublicationError(
+            "authority run directory is unavailable"
+        ) from exc
+    if (
+        not stat.S_ISDIR(root_status.st_mode)
+        or _is_redirect(run_directory, root_status)
+        or names != {_AUTHORITIES_FILENAME, "manifest.sha256"}
+    ):
+        raise ArtifactPublicationError("authority run inventory is not exact")
+    raw = _read_bounded_regular_file_once(
+        run_directory / _AUTHORITIES_FILENAME,
+        maximum_bytes=_MAXIMUM_AUTHORITIES_BYTES,
+        label="authority bundle",
+    )
+    manifest = _read_bounded_regular_file_once(
+        run_directory / "manifest.sha256",
+        maximum_bytes=256,
+        label="authority manifest",
+    )
+    expected_manifest = (
+        f"{hashlib.sha256(raw).hexdigest()}  {_AUTHORITIES_FILENAME}\n".encode(
+            "ascii"
+        )
+    )
+    if manifest != expected_manifest:
+        raise ArtifactPublicationError("authority bundle manifest changed")
+    payload = _mapping(
+        _decode_authorities_json(raw),
+        "authority bundle",
+        frozenset(
+            {
+                "authority_schema",
+                "config",
+                "matching_genesis",
+                "readiness",
+                "plan",
+                "authority_sha256",
+            }
+        ),
+    )
+    if payload["authority_schema"] != "h6-prediction-authorities-v3":
+        raise ArtifactPublicationError("authority bundle schema is stale")
+    config_payload = payload["config"]
+    if type(config_payload) is not dict:
+        raise ArtifactPublicationError("authority config is not one JSON object")
+    try:
+        config = resolve_h6_prediction_v3_config(
+            config_payload,
+            repo_root=_REPO_ROOT,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "authority config cannot be reopened"
+        ) from exc
+    matching_set = _reopen_matching_set_v3(payload["matching_genesis"])
+    readiness = _reopen_readiness_v3(payload["readiness"])
+    try:
+        plan = plan_h6_experiment_v3(
+            readiness=readiness,
+            matching_set=matching_set,
+            training_schedule=config.training_schedule,
+            runtime_identity=config.runtime,
+        )
+    except ValueError as exc:
+        raise ArtifactPublicationError(
+            "authority plan cannot be regenerated"
+        ) from exc
+    stored_plan = _mapping(
+        payload["plan"],
+        "plan authority",
+        frozenset(plan.canonical_payload()) | {"plan_sha256"},
+    )
+    if artifact_json_bytes(stored_plan) != artifact_json_bytes(
+        plan.canonical_payload() | {"plan_sha256": plan.plan_sha256}
+    ):
+        raise ArtifactPublicationError("plan authority drift")
+    try:
+        authorities = H6PredictionV3Authorities(
+            authority_schema="h6-prediction-authorities-v3",
+            config=config,
+            matching_set=matching_set,
+            readiness=readiness,
+            plan=plan,
+            authority_sha256=payload["authority_sha256"],  # type: ignore[arg-type]
+        )
+    except (TypeError, ValueError) as exc:
+        raise ArtifactPublicationError(
+            "authority bundle cannot be authenticated"
+        ) from exc
+    expected_identities = (
+        (expected_config_sha256, config.config_sha256),
+        (expected_matching_set_sha256, matching_set.matching_set_sha256),
+        (expected_readiness_sha256, readiness.readiness_sha256),
+        (expected_plan_sha256, plan.plan_sha256),
+        (expected_authority_sha256, authorities.authority_sha256),
+    )
+    if any(
+        expected is not None and expected != observed
+        for expected, observed in expected_identities
+    ):
+        raise ArtifactPublicationError("authority bundle digest differs from expected")
+    return authorities
 
 
 def _cell_from_payload(value: object) -> H6TuningCellV3:
@@ -2733,6 +3186,7 @@ __all__ = [
     "H6ExactA0CorpusTotalV3",
     "H6PredictionMetricsV3",
     "H6PredictionResultV3",
+    "H6PredictionV3Authorities",
     "H6RawEndpointInventoryV4",
     "H6TuningSelectionV3",
     "H6ValidationBundleV3",
@@ -2744,8 +3198,10 @@ __all__ = [
     "bind_h6_checkpoint_selection_v3",
     "h6_weighted_common_stream_sha256_v3",
     "publish_h6_prediction_result_v3",
+    "publish_h6_prediction_v3_authorities",
     "publish_h6_validation_bundle_v3",
     "read_h6_prediction_result_v3",
+    "read_h6_prediction_v3_authorities",
     "read_h6_validation_bundle_v3",
     "select_h6_tuning_v3",
 ]

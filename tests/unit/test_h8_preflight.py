@@ -99,7 +99,7 @@ def test_exact_test_node_manifest_rejects_duplicate_and_whole_file_entries(
 def _registry_payload(
     tmp_path: Path,
     *,
-    schema_version: str = "h8-current-candidate-refs-v3",
+    schema_version: str = "h8-current-candidate-refs-v5",
     stale: bool = False,
     separate_prediction_candidate: bool = False,
 ) -> dict[str, object]:
@@ -180,11 +180,65 @@ def _registry_payload(
         "objective_gate_spec_sha256": "4" * 64,
         "metrics_sha256": "4" * 64,
     }
+    if schema_version in (
+        "h8-current-candidate-refs-v4",
+        "h8-current-candidate-refs-v5",
+    ):
+        h6_prediction = {
+            **common("h6_prediction"),
+            "content_hashes": {"result.json": "4" * 64},
+            "payload_hashes": {
+                "metrics.json": "4" * 64,
+                "raw_inventory.json": "4" * 64,
+                "result.json": "4" * 64,
+            },
+            "config_schema": "h6-prediction-config-v3",
+            "readiness_schema": "h6-prediction-readiness-v3",
+            "raw_inventory_schema": "h6-raw-endpoint-inventory-v4",
+            "metrics_schema": "h6-prediction-metrics-v3",
+            "result_schema": "h6-prediction-result-v3",
+            "authorities_path": evidence_path,
+            "authorities_manifest_sha256": "4" * 64,
+            "authorities_sha256": "4" * 64,
+            "config_sha256": "4" * 64,
+            "readiness_sha256": "4" * 64,
+            "plan_sha256": "4" * 64,
+            "matching_set_sha256": "4" * 64,
+            "validation_bundle_path": evidence_path,
+            "validation_bundle_manifest_sha256": "4" * 64,
+            "validation_bundle_sha256": "4" * 64,
+            "checkpoint_selection_sha256": "4" * 64,
+            "reservation_path": evidence_path,
+            "reservation_sha256": "4" * 64,
+            "reservation_file_sha256": "4" * 64,
+            "terminal_path": evidence_path,
+            "terminal_sha256": "4" * 64,
+            "terminal_manifest_sha256": "4" * 64,
+            "finalized_path": evidence_path,
+            "finalized_manifest_sha256": "4" * 64,
+            "pointer_path": evidence_path,
+            "pointer_sha256": "4" * 64,
+            "pointer_manifest_sha256": "4" * 64,
+            "experiment_identity_sha256": "4" * 64,
+            "opening_proof_sha256": "4" * 64,
+            "raw_inventory_sha256": "4" * 64,
+            "metrics_sha256": "4" * 64,
+            "result_record_sha256": "4" * 64,
+            "ledger_validator_sha256": "4" * 64,
+            "artifact_revision": (
+                f"git:{common('h6_prediction')['producer_head']}:sha256:"
+                f"{common('h6_prediction')['producer_dirty_digest']}"
+            ),
+            "candidate_junit_path": evidence_path,
+        }
     if separate_prediction_candidate:
         h6_prediction.update(
             {
                 "producer_head": "7" * 40,
                 "producer_dirty_digest": "8" * 64,
+                "artifact_revision": (
+                    f"git:{'7' * 40}:sha256:{'8' * 64}"
+                ),
                 "candidate_junit_sha256": "9" * 64,
             }
         )
@@ -193,7 +247,11 @@ def _registry_payload(
             **common("h6_prediction"),
             "experiment_sha256": "4" * 64,
         }
-    if schema_version == "h8-current-candidate-refs-v3":
+    if schema_version in (
+        "h8-current-candidate-refs-v3",
+        "h8-current-candidate-refs-v4",
+        "h8-current-candidate-refs-v5",
+    ):
         h6_prefix = {
             **common("h6_prefix"),
             "config_schema": "h6-prefix-config-v3",
@@ -218,6 +276,8 @@ def _registry_payload(
                 },
             ],
         }
+        if schema_version == "h8-current-candidate-refs-v5":
+            h6_prefix["a0_direct_exact_prefix_certificate_sha256"] = "1" * 64
     else:
         h6_prefix = {
             **common("h6_prefix"),
@@ -288,7 +348,7 @@ def test_missing_registry_returns_blocked_exact_forecast_without_writes(
     assert after == before
     assert result.disposition == "blocked"
     assert result.scientific_status == "not_evaluated"
-    assert _state(result, "h8_registry_v3") == "missing"
+    assert _state(result, "h8_registry_v5") == "missing"
     assert _state(result, "h1_h5") == "missing"
     assert _state(result, "h8_runtime_orchestrator") == "missing"
 
@@ -339,7 +399,7 @@ def test_missing_registry_returns_blocked_exact_forecast_without_writes(
     assert json.loads(canonical_h8_preflight_bytes(result.as_dict()))
 
 
-def test_current_v3_registry_is_present_but_never_scientific_pass(
+def test_current_v5_registry_is_present_but_never_scientific_pass(
     tmp_path: Path,
 ) -> None:
     preregistration = (
@@ -354,7 +414,7 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
     from verification.run_gates import parse_h8_reference_registry_bytes
 
     parsed = parse_h8_reference_registry_bytes(registry_path.read_bytes())
-    assert parsed.registry_schema_version == "h8-current-candidate-refs-v3"
+    assert parsed.registry_schema_version == "h8-current-candidate-refs-v5"
     assert parsed.h6_prediction.producer_head != parsed.candidate_head
     assert parsed.h6_prediction.candidate_junit_sha256 != (
         parsed.candidate_junit_sha256
@@ -396,12 +456,12 @@ def test_current_v3_registry_is_present_but_never_scientific_pass(
         candidate=_candidate(),
     )
 
-    assert _state(result, "h8_registry_v3") == "present_unvalidated"
+    assert _state(result, "h8_registry_v5") == "present_unvalidated"
     assert _state(result, "candidate_junit") == "present_unvalidated"
     assert _state(result, "h1_h5") == "present_unvalidated"
     assert _state(result, "h1_prefix_prior_v2") == "present_unvalidated"
     assert _state(result, "h6_prefix") == "present_unvalidated"
-    assert _state(result, "h6_prediction_v2") == "present_unvalidated"
+    assert _state(result, "h6_prediction_v3") == "present_unvalidated"
     assert _state(result, "h7_compatibility_registry") == ("present_unvalidated")
     assert _state(result, "h7") == "present_unvalidated"
     assert _state(result, "h8_runtime_orchestrator") == "present_unvalidated"
@@ -1146,12 +1206,12 @@ def test_registry_v1_malformed_and_stale_are_nonauthorizing(
             candidate=_candidate(),
         )
 
-        assert _state(result, "h8_registry_v3") == expected_state
-        assert _state(result, "h6_prediction_v2") == prediction_state
+        assert _state(result, "h8_registry_v5") == expected_state
+        assert _state(result, "h6_prediction_v3") == prediction_state
         assert result.disposition == "blocked"
         assert result.scientific_status == "not_evaluated"
-        assert f"h8_registry_v3:{expected_state}" in result.obligations
-        assert f"h6_prediction_v2:{prediction_state}" in result.obligations
+        assert f"h8_registry_v5:{expected_state}" in result.obligations
+        assert f"h6_prediction_v3:{prediction_state}" in result.obligations
 
 
 def test_request_rejects_artifact_writes(tmp_path: Path) -> None:
@@ -1186,3 +1246,68 @@ def test_target_rejects_any_frozen_h8_protocol_drift(tmp_path: Path) -> None:
                 request=_request(),
                 candidate=_candidate(),
             )
+
+
+def test_h8_preflight_requires_registry_v5_and_direct_a0_prefix(
+    tmp_path: Path,
+) -> None:
+    preregistration = (
+        tmp_path / "docs" / "preregistrations" / "2026-07-21-h8-sparse-scale.md"
+    )
+    preregistration.parent.mkdir(parents=True)
+    preregistration.write_text("frozen preregistration\n", encoding="utf-8")
+
+    legacy = _registry_payload(
+        tmp_path,
+        schema_version="h8-current-candidate-refs-v4",
+    )
+    registry_path = _write_registry(tmp_path, legacy)
+    legacy_result = inspect_h8_preflight(
+        repository_root=tmp_path,
+        target_scientific_config=_target(),
+        request=_request(),
+        candidate=_candidate(),
+    )
+    assert _state(legacy_result, "h8_registry_v5") == "blocked"
+    assert _state(legacy_result, "h6_prediction_v3") == "blocked"
+
+    current = _registry_payload(tmp_path)
+    registry_path.write_bytes(canonical_h8_preflight_bytes(current))
+    from verification.run_gates import parse_h8_reference_registry_bytes
+
+    parsed = parse_h8_reference_registry_bytes(registry_path.read_bytes())
+    assert parsed.registry_schema_version == "h8-current-candidate-refs-v5"
+    assert (
+        parsed.h6_prefix.a0_direct_exact_prefix_certificate_sha256
+        == "1" * 64
+    )
+    assert parsed.h6_prediction.result_schema == "h6-prediction-result-v3"
+    current_result = inspect_h8_preflight(
+        repository_root=tmp_path,
+        target_scientific_config=_target(),
+        request=_request(),
+        candidate=_candidate(),
+    )
+    assert _state(current_result, "h8_registry_v5") == "present_unvalidated"
+    assert _state(current_result, "h6_prediction_v3") == "present_unvalidated"
+
+
+def test_h8_dependency_closure_binds_direct_a0_certificate_sha256() -> None:
+    from verification.run_gates import _h8_dependency_closure_sha256
+
+    common = {
+        "source_sha256": "1" * 64,
+        "config_sha256": "2" * 64,
+        "registry_sha256": "3" * 64,
+        "preregistration_sha256": "4" * 64,
+    }
+    first = _h8_dependency_closure_sha256(
+        **common,
+        a0_direct_exact_prefix_certificate_sha256="5" * 64,
+    )
+    second = _h8_dependency_closure_sha256(
+        **common,
+        a0_direct_exact_prefix_certificate_sha256="6" * 64,
+    )
+
+    assert first != second

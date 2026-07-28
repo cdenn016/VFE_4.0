@@ -2287,6 +2287,30 @@ def _resolve_h6_prediction_v3_config(
         "H6-Prediction",
         "h6_prediction_v3.operation",
     )
+    prerequisites_raw = _require_mapping(
+        root["prerequisites"],
+        "h6_prediction_v3.prerequisites",
+    )
+    _validate_keys(
+        prerequisites_raw,
+        frozenset(
+            {
+                "correctness_manifests",
+                "h1_prefix_prior_manifest_sha256",
+                "h1_prefix_prior_generative_factor_schema_sha256",
+                "smc_validation_manifest_sha256",
+                "prefix_certificate_set_sha256",
+                "a0_direct_exact_prefix_certificate_sha256",
+            }
+        ),
+        "h6_prediction_v3.prerequisites",
+    )
+    a0_direct_exact_prefix_certificate_sha256 = _require_h6_sha256(
+        prerequisites_raw[
+            "a0_direct_exact_prefix_certificate_sha256"
+        ],
+        "a0_direct_exact_prefix_certificate_sha256",
+    )
 
     recognition_raw = _require_mapping(
         root["recognition_contract"],
@@ -2391,6 +2415,16 @@ def _resolve_h6_prediction_v3_config(
     v2_projection["schema_version"] = "h6-prediction-config-v2"
     for name in v3_only_root_keys:
         v2_projection.pop(name)
+    v2_prerequisites = dict(
+        _require_mapping(
+            v2_projection["prerequisites"],
+            "h6_prediction_v3.prerequisites",
+        )
+    )
+    v2_prerequisites.pop(
+        "a0_direct_exact_prefix_certificate_sha256"
+    )
+    v2_projection["prerequisites"] = v2_prerequisites
     v2_schedule = dict(
         _require_mapping(
             v2_projection["training_schedule"],
@@ -2498,6 +2532,9 @@ def _resolve_h6_prediction_v3_config(
             ),
             "prefix_certificate_set_sha256": (
                 inherited.prefix_certificate_set_sha256
+            ),
+            "a0_direct_exact_prefix_certificate_sha256": (
+                a0_direct_exact_prefix_certificate_sha256
             ),
         },
         "h5_update_binding_sha256": inherited.h5_update_binding_sha256,
@@ -2608,6 +2645,7 @@ def _resolve_h6_prediction_v3_config(
         inherited.smc_bias_semantics_sha256,
         inherited.smc_validation_manifest_sha256,
         inherited.prefix_certificate_set_sha256,
+        a0_direct_exact_prefix_certificate_sha256,
         inherited.h5_update_binding_sha256,
         training_schedule,
         inherited.critical_values_sha256,
@@ -3142,6 +3180,13 @@ def bind_h8_current_refs(
     if type(refs) is not CurrentH8PrerequisiteRefs:
         raise ValueError("refs must be CurrentH8PrerequisiteRefs")
     refs.__post_init__()
+    if (
+        refs.registry_schema_version != "h8-current-candidate-refs-v5"
+        or refs.prerequisite_obligations
+    ):
+        raise ValueError(
+            "only the exact H8 v5 registry can bind an authorizing H8 config"
+        )
     project_h7_compatibility_config(
         raw_h8_config,
         refs.h7_compatibility_refs,  # type: ignore[arg-type]

@@ -42,7 +42,10 @@ from vfe4.objective.h8_sparse import (
     evaluate_h8_sparse_objective,
     h8_emission_expectation,
 )
-from vfe4.objective.h1_monolithic import MonolithicElboResult, evaluate_monolithic_elbo
+from vfe4.objective.h1_monolithic import (
+    MonolithicElboResult,
+    evaluate_monolithic_elbo,
+)
 from vfe4.objective.h3_gaussian import (
     H3ObjectiveEvaluation,
     evaluate_h3_elbo,
@@ -85,6 +88,7 @@ from vfe4.objective.h6_prediction_v3 import (
     H6SourceRowEvaluationV3,
     H6TerminalComponentEvaluationV3,
     MomentProjectionEvaluationV3,
+    evaluate_h6_no_latent_cross_entropy_v3,
     evaluate_h6_prediction_elbo_v3,
     project_terminal_mixture_v3,
 )
@@ -145,6 +149,7 @@ __all__ = [
     "evaluate_h3_elbo",
     "evaluate_h3_elbo_difference",
     "evaluate_h5_complete_elbo",
+    "evaluate_h6_no_latent_cross_entropy_v3",
     "evaluate_h6_prediction_elbo_v3",
     "evaluate_h7_complete_covariance",
     "evaluate_h7_law_pair_covariance",

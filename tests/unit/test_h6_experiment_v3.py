@@ -5,6 +5,7 @@ from functools import cache
 from typing import TypeVar
 
 import pytest
+import torch
 
 from vfe4.data.windows import frozen_batch_schedule
 from vfe4.training.h6_engine_v3 import H6EngineAuthorityV3
@@ -12,11 +13,13 @@ from vfe4.training.h6_experiment_v3 import (
     H6_CONFIRMATORY_SEEDS_V3,
     H6_TUNING_CELLS_V3,
     H6_TUNING_SEEDS_V3,
+    canonical_seeded_initialization_sha256_v3,
     plan_h6_experiment_v3,
+    realize_seeded_initialization_v3,
+    seeded_initialization_sha256_v3,
 )
 from vfe4.training.h6_noise_v3 import (
-    H6TrainingCounterKeyV3,
-    training_normal_tensor_v3,
+    training_batch_normal_tensor_v3,
 )
 from vfe4.training.h6_matching_v3 import (
     H6_MATCHING_POLICY_V3,
@@ -184,6 +187,7 @@ def _authorities() -> tuple[
         smc_bias_semantics_sha256=_sha("8"),
         smc_validation_manifest_sha256=_sha("9"),
         prefix_certificate_set_sha256=_sha("a"),
+        a0_direct_exact_prefix_certificate_sha256=_sha("4"),
         h5_update_binding_sha256=_sha("b"),
         critical_values_sha256=_sha("c"),
         endpoint_smc_protocol_sha256=_sha("d"),
@@ -280,6 +284,100 @@ def test_plan_v3_emits_exact_endpoint_attempt_and_schedule_inventory() -> None:
         plan.tuning_attempts = ()  # type: ignore[misc]
 
 
+def test_seed_realized_initialization_and_shared_batch_schedule_are_exact() -> None:
+    matching, schedule, readiness, runtime = _authorities()
+    plan = plan_h6_experiment_v3(
+        readiness=readiness,
+        matching_set=matching,
+        training_schedule=schedule,
+        runtime_identity=runtime,
+    )
+    endpoint_id = H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[0]
+    first, second = (
+        attempt
+        for attempt in plan.tuning_attempts
+        if attempt.endpoint_config_id == endpoint_id
+        and attempt.tuning_cell == plan.tuning_cells[0]
+    )
+    same_seed_other_cell = next(
+        attempt
+        for attempt in plan.tuning_attempts
+        if attempt.endpoint_config_id == endpoint_id
+        and attempt.training_seed == first.training_seed
+        and attempt.tuning_cell != first.tuning_cell
+    )
+    config = next(
+        candidate
+        for candidate in plan.endpoint_configs
+        if candidate.config_id == endpoint_id
+    )
+
+    assert first.training_seed != second.training_seed
+    assert (
+        first.attempt_spec.initialization_sha256
+        != second.attempt_spec.initialization_sha256
+    )
+    assert (
+        first.attempt_spec.initialization_sha256
+        == same_seed_other_cell.attempt_spec.initialization_sha256
+        == canonical_seeded_initialization_sha256_v3(
+            config,
+            first.training_seed,
+        )
+        == canonical_seeded_initialization_sha256_v3(
+            config,
+            first.training_seed,
+        )
+    )
+    assert (
+        first.attempt_spec.batch_schedule_sha256
+        == second.attempt_spec.batch_schedule_sha256
+        == same_seed_other_cell.attempt_spec.batch_schedule_sha256
+    )
+    same_a = realize_seeded_initialization_v3(
+        config,
+        first.training_seed,
+    )
+    same_b = realize_seeded_initialization_v3(
+        config,
+        first.training_seed,
+    )
+    distinct = realize_seeded_initialization_v3(
+        config,
+        second.training_seed,
+    )
+
+    def parameter_bytes(built: object) -> tuple[bytes, ...]:
+        modules = (
+            built.model,  # type: ignore[attr-defined]
+            built.recognition_store,  # type: ignore[attr-defined]
+        )
+        return tuple(
+                bytes(
+                    parameter.detach()
+                    .contiguous()
+                    .view(torch.uint8)
+                    .reshape(-1)
+                    .tolist()
+                )
+            for module in modules
+            if module is not None
+            for parameter in module.parameters()
+        )
+
+    assert parameter_bytes(same_a) == parameter_bytes(same_b)
+    assert parameter_bytes(same_a) != parameter_bytes(distinct)
+    assert (
+        seeded_initialization_sha256_v3(same_a)
+        == seeded_initialization_sha256_v3(same_b)
+        == first.attempt_spec.initialization_sha256
+    )
+    assert (
+        seeded_initialization_sha256_v3(distinct)
+        == second.attempt_spec.initialization_sha256
+    )
+
+
 def test_plan_v3_derives_exact_latent_terminal_counter_and_permutations() -> None:
     matching, schedule, readiness, runtime = _authorities()
     plan = plan_h6_experiment_v3(
@@ -323,31 +421,71 @@ def test_plan_v3_derives_exact_latent_terminal_counter_and_permutations() -> Non
             final_batch = batches_per_pass - 1
             final_draw = 4 * batches_per_pass
             expected_permutations = (permutation_p0, permutation_p1)
-        key = H6TrainingCounterKeyV3(
+        active_batch_size = min(
+            matching.workload.batch_size,
+            matching.workload.window_count
+            - final_batch * matching.workload.batch_size,
+        )
+        final_schedule = frozen_batch_schedule(
+            window_count=matching.workload.window_count,
+            zero_based_pass_index=final_pass,
+        )
+        final_window_indices = final_schedule.permutation[
+            final_batch * matching.workload.batch_size : (
+                final_batch + 1
+            )
+            * matching.workload.batch_size
+        ]
+        tail_real_target_count = (
+            matching.workload.train_token_count
+            - 1
+            - matching.workload.window_stride
+            * (matching.workload.window_count - 1)
+        )
+        active_receiver_counts = tuple(
+            tail_real_target_count + 1
+            if window_index == matching.workload.window_count - 1
+            else attempt.receiver_count
+            for window_index in final_window_indices
+        )
+        batch_noise = training_batch_normal_tensor_v3(
             attempt_spec_sha256=attempt.attempt_spec.attempt_spec_sha256,
             pass_index=final_pass,
             batch_index=final_batch,
             phase=TrainingPhase.MODEL_ADAMW,
-            example_ordinal=0,
-            sample_ordinal=0,
             draw_block=final_draw - 1,
-        )
-        latent_width = configs[
-            attempt.endpoint_config_id
-        ].capacity_allocation.latent_width
-        assert latent_width is not None
-        _, expected_consumption = training_normal_tensor_v3(
-            key,
+            example_count=active_batch_size,
             receiver_count=attempt.receiver_count,
-            latent_dimension=latent_width,
+            active_receiver_counts=active_receiver_counts,
+            latent_dimension=(
+                configs[
+                    attempt.endpoint_config_id
+                ].capacity_allocation.latent_width
+                * (
+                    2
+                    if configs[
+                        attempt.endpoint_config_id
+                    ].model_channel_enabled
+                    else 1
+                )
+            ),
             device="cpu",
         )
+        latent_width = (
+            configs[
+                attempt.endpoint_config_id
+            ].capacity_allocation.latent_width
+        )
+        assert latent_width is not None
 
         assert attempt.terminal_draw_block == final_draw
-        assert attempt.terminal_counter_key_sha256 == key.key_sha256
+        assert (
+            attempt.terminal_counter_key_sha256
+            == batch_noise.key_inventory_sha256
+        )
         assert (
             attempt.terminal_counter_consumption_sha256
-            == expected_consumption
+            == batch_noise.consumption_sha256
         )
         assert (
             attempt.consumed_permutation_sha256s

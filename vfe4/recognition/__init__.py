@@ -5,6 +5,9 @@ from .h6_prediction_v3 import (
     CategoricalSourceBank,
     CategoricalSourceRow,
     GaussianReceiverComponent,
+    H6ActiveCategoricalSupportsV3,
+    H6ActiveHorizonV3,
+    H6ActiveRecognitionTopologyV3,
     H6_RECOGNITION_POSITION_DESCRIPTOR_SCHEMA,
     LanguageRecognitionTrajectory,
     ReceiverRecognitionContext,
@@ -16,6 +19,7 @@ from .h6_prediction_v3 import (
     build_language_recognition_trajectory,
     build_receiver_contexts,
     frozen_sinusoidal_receiver_positions,
+    project_active_recognition_topology_v3,
 )
 from .language import (
     FactorizedLanguageRecognition,
@@ -39,7 +43,11 @@ from .pushforward import (
     pushforward_h7_recognition,
 )
 from .reference_h1 import H1RecognitionLaw
-from .reference_h8 import H8RecognitionModel, assemble_h8_recognition, build_h8_recognition
+from .reference_h8 import (
+    H8RecognitionModel,
+    assemble_h8_recognition,
+    build_h8_recognition,
+)
 from .reference_h2 import assemble_recognition_information
 from .reference_h3 import (
     FactorizedH3Parameters,
@@ -62,6 +70,9 @@ __all__ = [
     "freeze_h7_recognition",
     "frozen_sinusoidal_receiver_positions",
     "GaussianReceiverComponent",
+    "H6ActiveCategoricalSupportsV3",
+    "H6ActiveHorizonV3",
+    "H6ActiveRecognitionTopologyV3",
     "H6_RECOGNITION_POSITION_DESCRIPTOR_SCHEMA",
     "H7LanguageRecognitionTrace",
     "H7RecognitionAffineTrace",
@@ -87,6 +98,7 @@ __all__ = [
     "StructuredH3Parameters",
     "StructuredLanguageRecognition",
     "pushforward_h7_recognition",
+    "project_active_recognition_topology_v3",
     "make_h3_parameters",
     "assemble_h8_recognition",
     "build_h8_recognition",

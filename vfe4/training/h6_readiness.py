@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Literal
 
 from vfe4.artifacts.atomic import canonical_json_bytes, publish_run_directory
+from vfe4.artifacts.h6 import reopen_h6_prefix_authorities
 from vfe4.config.schema import (
     H6PredictionV2ResolvedConfig,
     H6PredictionV3ResolvedConfig,
@@ -18,11 +19,15 @@ from vfe4.config.schema import (
 from vfe4.numerics.critical_values import CRITICAL_VALUES_PROTOCOL_SHA256
 from vfe4.training.matching import ARM_MATRIX_ROWS, arm_matrix_sha256
 from vfe4.training.h6_matching_v3 import (
+    H6_MATCHING_V3_ENDPOINT_CONFIG_IDS,
     H6MatchingSetV3,
     H6_MATCHING_POLICY_V3,
 )
 from vfe4.types.h6 import (
+    H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS,
+    A0DirectExactPrefixCertificateV1,
     ArmId,
+    BoundedPrefixCertificateSet,
     DataIdentity,
     EvidenceStatus,
     H1PrefixPriorArtifactRef,
@@ -51,6 +56,7 @@ from vfe4.types.h6_prediction_v3 import (
 from vfe4.types.results import (
     GateStatus,
     H1PrefixPriorV2GateResult,
+    H6BoundedPrefixGateResult,
     H6PrefixGateResult,
     InvariantResult,
 )
@@ -753,6 +759,148 @@ def _load_prefix_certificates(
     return result
 
 
+def _reopen_h6_prefix_authorities_v3(
+    root: Path,
+    *,
+    expected_manifest_sha256: str,
+    expected_junit_sha256: str,
+    expected_git_head: str,
+    expected_dirty_digest: str,
+    expected_source_sha256: str,
+    expected_set_sha256: str,
+    expected_direct_certificate_sha256: str,
+) -> tuple[
+    BoundedPrefixCertificateSet,
+    A0DirectExactPrefixCertificateV1,
+]:
+    """Reopen both exact current PASS Prefix authorities."""
+
+    if not isinstance(root, Path) or not root.is_absolute():
+        raise ValueError("H6-Prefix artifact root must be an absolute Path")
+    canonical_root = root.resolve(strict=False)
+    if canonical_root.as_posix() != root.as_posix():
+        raise ValueError("H6-Prefix artifact root must be canonical")
+    certificate_set, direct_certificate = reopen_h6_prefix_authorities(
+        canonical_root,
+        expected_manifest_sha256=_require_sha256(
+            expected_manifest_sha256,
+            "h6_prefix_manifest_sha256",
+        ),
+        expected_git_head=_require_git_head(expected_git_head),
+        expected_dirty_digest=_require_sha256(
+            expected_dirty_digest,
+            "dirty_digest",
+        ),
+        expected_junit_sha256=_require_sha256(
+            expected_junit_sha256,
+            "h6_prefix_junit_sha256",
+        ),
+    )
+    if type(certificate_set) is not BoundedPrefixCertificateSet:
+        raise ValueError(
+            "H6-Prefix reopener did not return an exact bounded certificate set"
+        )
+    certificate_set.__post_init__()
+    if (
+        type(direct_certificate)
+        is not A0DirectExactPrefixCertificateV1
+    ):
+        raise ValueError(
+            "H6-Prefix reopener did not return an exact direct-A0 certificate"
+        )
+    direct_certificate.__post_init__()
+    gate = H6BoundedPrefixGateResult.from_certificate_set(certificate_set)
+    if (
+        gate.status is not GateStatus.PASS
+        or gate.obligations != ()
+        or certificate_set.git_head != expected_git_head
+        or certificate_set.dirty_digest != expected_dirty_digest
+        or certificate_set.source_sha256 != expected_source_sha256
+        or certificate_set.prefix_certificate_set_sha256
+        != expected_set_sha256
+    ):
+        raise ValueError(
+            "bounded H6-Prefix certificate set is not exact current PASS"
+        )
+    if (
+        direct_certificate.status is not EvidenceStatus.PASS
+        or direct_certificate.obligations != ()
+        or tuple(direct_certificate.checks)
+        != H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS
+        or not all(direct_certificate.checks.values())
+        or direct_certificate.git_head != expected_git_head
+        or direct_certificate.dirty_digest != expected_dirty_digest
+        or direct_certificate.source_sha256 != expected_source_sha256
+        or direct_certificate.certificate_sha256
+        != expected_direct_certificate_sha256
+        or direct_certificate.bounded_a0_certificate_sha256
+        not in tuple(
+            certificate.certificate_sha256
+            for certificate in certificate_set.certificates
+        )
+    ):
+        raise ValueError(
+            "direct-A0 Prefix certificate is not exact current PASS"
+        )
+    return certificate_set, direct_certificate
+
+
+def read_h6_prefix_authorities_for_scoring_v3(
+    root: Path,
+    *,
+    expected_manifest_sha256: str,
+    expected_junit_sha256: str,
+    readiness: H6PredictionV3ReadinessToken,
+) -> tuple[
+    BoundedPrefixCertificateSet,
+    A0DirectExactPrefixCertificateV1,
+]:
+    """Reopen both exact Prefix authorities authorized by v3 readiness."""
+
+    if type(readiness) is not H6PredictionV3ReadinessToken:
+        raise ValueError("H6-Prefix scoring requires exact v3 readiness")
+    readiness.__post_init__()
+    if readiness.status != "PASS":
+        raise ValueError("H6-Prefix scoring requires PASS v3 readiness")
+    expected_source_sha256 = hashlib.sha256(
+        b"VFE4-H6-SOURCE-CANDIDATE-V1\x00"
+        + bytes.fromhex(readiness.git_head)
+        + bytes.fromhex(readiness.dirty_digest)
+    ).hexdigest()
+    return _reopen_h6_prefix_authorities_v3(
+        root,
+        expected_manifest_sha256=expected_manifest_sha256,
+        expected_junit_sha256=expected_junit_sha256,
+        expected_git_head=readiness.git_head,
+        expected_dirty_digest=readiness.dirty_digest,
+        expected_source_sha256=expected_source_sha256,
+        expected_set_sha256=readiness.prefix_certificate_set_sha256,
+        expected_direct_certificate_sha256=(
+            readiness.a0_direct_exact_prefix_certificate_sha256
+        ),
+    )
+
+
+def read_h6_bounded_prefix_certificate_set_for_scoring_v3(
+    root: Path,
+    *,
+    expected_manifest_sha256: str,
+    expected_junit_sha256: str,
+    readiness: H6PredictionV3ReadinessToken,
+) -> BoundedPrefixCertificateSet:
+    """Compatibility projection after reopening both v3 Prefix authorities."""
+
+    certificate_set, _direct_certificate = (
+        read_h6_prefix_authorities_for_scoring_v3(
+            root,
+            expected_manifest_sha256=expected_manifest_sha256,
+            expected_junit_sha256=expected_junit_sha256,
+            readiness=readiness,
+        )
+    )
+    return certificate_set
+
+
 def _load_h5_update_binding(
     root: Path, *, expected_binding_sha256: str
 ) -> H5UpdateBinding:
@@ -871,6 +1019,258 @@ def _load_h5_update_binding(
             "H5 update-binding SHA-256 differs from the frozen Prediction config"
         )
     return binding
+
+
+@dataclass(frozen=True, slots=True)
+class H6PredictionV3PrerequisiteEvidence:
+    """Mechanically reopened producer bytes required before v3 token issuance."""
+
+    correctness_artifacts: tuple[PredictionCorrectnessArtifactRef, ...]
+    h1_prefix_prior_artifact: H1PrefixPriorArtifactRef
+    smc_accuracy_artifact: SmcAccuracyArtifactRef
+    h5_update_binding: H5UpdateBinding
+    bounded_prefix_certificate_set: BoundedPrefixCertificateSet
+    a0_direct_exact_prefix_certificate: A0DirectExactPrefixCertificateV1
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.correctness_artifacts) is not tuple
+            or tuple(item.gate for item in self.correctness_artifacts)
+            != _CORRECTNESS_GATES
+            or any(
+                type(item) is not PredictionCorrectnessArtifactRef
+                for item in self.correctness_artifacts
+            )
+        ):
+            raise ValueError(
+                "v3 prerequisite evidence requires exact H1, H2, H3, H5 "
+                "correctness artifacts in frozen order"
+            )
+        for artifact in self.correctness_artifacts:
+            artifact.__post_init__()
+            if artifact.status is not GateStatus.PASS:
+                raise ValueError(
+                    "v3 prerequisite correctness artifacts must all be PASS"
+                )
+        if type(self.h1_prefix_prior_artifact) is not H1PrefixPriorArtifactRef:
+            raise ValueError(
+                "v3 prerequisite evidence requires exact H1-Prefix-Prior bytes"
+            )
+        self.h1_prefix_prior_artifact.__post_init__()
+        if self.h1_prefix_prior_artifact.status is not GateStatus.PASS:
+            raise ValueError("H1-Prefix-Prior prerequisite must be PASS")
+        if type(self.smc_accuracy_artifact) is not SmcAccuracyArtifactRef:
+            raise ValueError(
+                "v3 prerequisite evidence requires exact finite-SMC bytes"
+            )
+        self.smc_accuracy_artifact.__post_init__()
+        if self.smc_accuracy_artifact.status is not GateStatus.PASS:
+            raise ValueError("finite-SMC prerequisite must be PASS")
+        if type(self.h5_update_binding) is not H5UpdateBinding:
+            raise ValueError(
+                "v3 prerequisite evidence requires an exact H5 update binding"
+            )
+        self.h5_update_binding.__post_init__()
+        if (
+            type(self.bounded_prefix_certificate_set)
+            is not BoundedPrefixCertificateSet
+        ):
+            raise ValueError(
+                "v3 prerequisite evidence requires an exact bounded Prefix set"
+            )
+        self.bounded_prefix_certificate_set.__post_init__()
+        prefix_gate = H6BoundedPrefixGateResult.from_certificate_set(
+            self.bounded_prefix_certificate_set
+        )
+        if (
+            prefix_gate.status is not GateStatus.PASS
+            or prefix_gate.obligations != ()
+        ):
+            raise ValueError("bounded Prefix prerequisite must be exact PASS")
+        if (
+            type(self.a0_direct_exact_prefix_certificate)
+            is not A0DirectExactPrefixCertificateV1
+        ):
+            raise ValueError(
+                "v3 prerequisite evidence requires an exact direct-A0 "
+                "Prefix certificate"
+            )
+        direct = self.a0_direct_exact_prefix_certificate
+        direct.__post_init__()
+        if (
+            direct.status is not EvidenceStatus.PASS
+            or direct.obligations != ()
+            or tuple(direct.checks)
+            != H6_A0_DIRECT_EXACT_PREFIX_REQUIRED_CHECKS
+            or not all(direct.checks.values())
+            or direct.bounded_a0_certificate_sha256
+            not in tuple(
+                certificate.certificate_sha256
+                for certificate in self.bounded_prefix_certificate_set.certificates
+            )
+        ):
+            raise ValueError(
+                "direct-A0 Prefix prerequisite must be exact PASS"
+            )
+
+
+def _validate_h6_prediction_v3_prerequisite_evidence(
+    *,
+    config: H6PredictionV3ResolvedConfig,
+    evidence: H6PredictionV3PrerequisiteEvidence,
+) -> None:
+    if type(evidence) is not H6PredictionV3PrerequisiteEvidence:
+        raise ValueError(
+            "readiness v3 requires exact mechanically reopened prerequisite evidence"
+        )
+    evidence.__post_init__()
+    expected_correctness = dict(config.correctness_manifests)
+    if (
+        tuple(expected_correctness) != _CORRECTNESS_GATES
+        or any(
+            artifact.manifest_sha256
+            != expected_correctness[artifact.gate]
+            or artifact.git_head != config.source.git_head
+            or artifact.dirty_digest != config.source.dirty_digest
+            for artifact in evidence.correctness_artifacts
+        )
+    ):
+        raise ValueError(
+            "reopened correctness artifacts differ from v3 config/source"
+        )
+    h1_prefix = evidence.h1_prefix_prior_artifact
+    if (
+        h1_prefix.manifest_sha256
+        != config.h1_prefix_prior_manifest_sha256
+        or h1_prefix.generative_factor_schema_sha256
+        != config.h1_prefix_prior_generative_factor_schema_sha256
+        or h1_prefix.git_head != config.source.git_head
+        or h1_prefix.dirty_digest != config.source.dirty_digest
+    ):
+        raise ValueError(
+            "reopened H1-Prefix-Prior artifact differs from v3 config/source"
+        )
+    smc = evidence.smc_accuracy_artifact
+    if (
+        smc.manifest_sha256 != config.smc_validation_manifest_sha256
+        or smc.git_head != config.source.git_head
+        or smc.dirty_digest != config.source.dirty_digest
+    ):
+        raise ValueError(
+            "reopened finite-SMC artifact differs from v3 config/source"
+        )
+    if (
+        evidence.h5_update_binding.binding_sha256
+        != config.h5_update_binding_sha256
+    ):
+        raise ValueError("reopened H5 update binding differs from v3 config")
+    prefix_set = evidence.bounded_prefix_certificate_set
+    if (
+        prefix_set.prefix_certificate_set_sha256
+        != config.prefix_certificate_set_sha256
+        or prefix_set.git_head != config.source.git_head
+        or prefix_set.dirty_digest != config.source.dirty_digest
+        or prefix_set.source_sha256 != config.source.source_sha256
+    ):
+        raise ValueError(
+            "reopened bounded Prefix set differs from v3 config/source"
+        )
+    direct = evidence.a0_direct_exact_prefix_certificate
+    if (
+        direct.certificate_sha256
+        != config.a0_direct_exact_prefix_certificate_sha256
+        or direct.git_head != config.source.git_head
+        or direct.dirty_digest != config.source.dirty_digest
+        or direct.source_sha256 != config.source.source_sha256
+    ):
+        raise ValueError(
+            "reopened direct-A0 Prefix certificate differs from v3 "
+            "config/source"
+        )
+
+
+def reopen_h6_prediction_v3_prerequisite_evidence(
+    *,
+    config: H6PredictionV3ResolvedConfig,
+    correctness_artifact_roots: tuple[
+        tuple[Literal["H1", "H2", "H3", "H5"], Path], ...
+    ],
+    h1_prefix_prior_artifact_root: Path,
+    smc_accuracy_artifact_root: Path,
+    h6_prefix_artifact_root: Path,
+    h6_prefix_manifest_sha256: str,
+    h6_prefix_junit_sha256: str,
+) -> H6PredictionV3PrerequisiteEvidence:
+    """Reopen all producer artifacts required before a v3 readiness mint."""
+
+    if type(config) is not H6PredictionV3ResolvedConfig:
+        raise ValueError("v3 prerequisite reopening requires exact config")
+    if (
+        type(correctness_artifact_roots) is not tuple
+        or tuple(gate for gate, _ in correctness_artifact_roots)
+        != _CORRECTNESS_GATES
+        or any(not isinstance(root, Path) for _, root in correctness_artifact_roots)
+    ):
+        raise ValueError(
+            "correctness roots must contain exact H1, H2, H3, H5 paths"
+        )
+    correctness_roots = dict(correctness_artifact_roots)
+    configured_manifests = dict(config.correctness_manifests)
+    correctness = tuple(
+        _load_prediction_correctness_artifact(
+            gate=gate,  # type: ignore[arg-type]
+            root=correctness_roots[gate],
+            expected_manifest_sha256=configured_manifests[gate],
+            expected_git_head=config.source.git_head,
+            expected_dirty_digest=config.source.dirty_digest,
+        )
+        for gate in _CORRECTNESS_GATES
+    )
+    h1_prefix = _load_h1_prefix_prior_artifact(
+        root=h1_prefix_prior_artifact_root,
+        expected_manifest_sha256=config.h1_prefix_prior_manifest_sha256,
+        expected_generative_factor_schema_sha256=(
+            config.h1_prefix_prior_generative_factor_schema_sha256
+        ),
+        expected_git_head=config.source.git_head,
+        expected_dirty_digest=config.source.dirty_digest,
+        expected_source_sha256=config.source.source_sha256,
+    )
+    smc = _load_smc_accuracy_artifact(
+        root=smc_accuracy_artifact_root,
+        expected_manifest_sha256=config.smc_validation_manifest_sha256,
+        expected_git_head=config.source.git_head,
+        expected_dirty_digest=config.source.dirty_digest,
+    )
+    h5_binding = _load_h5_update_binding(
+        correctness_roots["H5"],
+        expected_binding_sha256=config.h5_update_binding_sha256,
+    )
+    prefix_set, direct_certificate = _reopen_h6_prefix_authorities_v3(
+        h6_prefix_artifact_root,
+        expected_manifest_sha256=h6_prefix_manifest_sha256,
+        expected_junit_sha256=h6_prefix_junit_sha256,
+        expected_git_head=config.source.git_head,
+        expected_dirty_digest=config.source.dirty_digest,
+        expected_source_sha256=config.source.source_sha256,
+        expected_set_sha256=config.prefix_certificate_set_sha256,
+        expected_direct_certificate_sha256=(
+            config.a0_direct_exact_prefix_certificate_sha256
+        ),
+    )
+    evidence = H6PredictionV3PrerequisiteEvidence(
+        correctness_artifacts=correctness,
+        h1_prefix_prior_artifact=h1_prefix,
+        smc_accuracy_artifact=smc,
+        h5_update_binding=h5_binding,
+        bounded_prefix_certificate_set=prefix_set,
+        a0_direct_exact_prefix_certificate=direct_certificate,
+    )
+    _validate_h6_prediction_v3_prerequisite_evidence(
+        config=config,
+        evidence=evidence,
+    )
+    return evidence
 
 
 def _load_blinded_data_identity(
@@ -1363,7 +1763,7 @@ def adjudicate_h6_prediction_opening(
     return decision, metrics_bytes
 
 
-def validate_h6_prediction_readiness_v3(
+def _derive_h6_prediction_readiness_v3(
     *,
     config: H6PredictionV3ResolvedConfig,
     matching_set: H6MatchingSetV3,
@@ -1488,6 +1888,9 @@ def validate_h6_prediction_readiness_v3(
         smc_bias_semantics_sha256=config.smc_bias_semantics_sha256,
         smc_validation_manifest_sha256=(config.smc_validation_manifest_sha256),
         prefix_certificate_set_sha256=(config.prefix_certificate_set_sha256),
+        a0_direct_exact_prefix_certificate_sha256=(
+            config.a0_direct_exact_prefix_certificate_sha256
+        ),
         h5_update_binding_sha256=config.h5_update_binding_sha256,
         critical_values_sha256=config.critical_values_sha256,
         endpoint_smc_protocol_sha256=(config.endpoint_smc_protocol.protocol_sha256),
@@ -1506,11 +1909,75 @@ def validate_h6_prediction_readiness_v3(
     )
 
 
+def validate_h6_prediction_readiness_v3(
+    *,
+    config: H6PredictionV3ResolvedConfig,
+    matching_set: H6MatchingSetV3,
+    git_head: str,
+    dirty_digest: str,
+    prerequisite_evidence: H6PredictionV3PrerequisiteEvidence,
+) -> H6PredictionV3ReadinessToken:
+    """Issue v3 readiness only after every producer artifact was reopened."""
+
+    if type(config) is not H6PredictionV3ResolvedConfig:
+        raise ValueError("readiness v3 requires an exact H6PredictionV3ResolvedConfig")
+    _validate_h6_prediction_v3_prerequisite_evidence(
+        config=config,
+        evidence=prerequisite_evidence,
+    )
+    direct_certificate = (
+        prerequisite_evidence.a0_direct_exact_prefix_certificate
+    )
+    if (
+        direct_certificate.endpoint_config
+        != matching_set.endpoint_configs[0]
+        or direct_certificate.endpoint_config.config_id
+        != H6_MATCHING_V3_ENDPOINT_CONFIG_IDS[0]
+    ):
+        raise ValueError(
+            "direct-A0 Prefix certificate differs from the exact matched "
+            "A0 endpoint"
+        )
+    return _derive_h6_prediction_readiness_v3(
+        config=config,
+        matching_set=matching_set,
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+    )
+
+
+def validate_existing_h6_prediction_readiness_v3(
+    *,
+    config: H6PredictionV3ResolvedConfig,
+    matching_set: H6MatchingSetV3,
+    readiness: H6PredictionV3ReadinessToken,
+) -> H6PredictionV3ReadinessToken:
+    """Validate a retained token intrinsically without claiming producer reopen."""
+
+    if type(readiness) is not H6PredictionV3ReadinessToken:
+        raise ValueError("existing readiness must be an exact v3 token")
+    readiness.__post_init__()
+    expected = _derive_h6_prediction_readiness_v3(
+        config=config,
+        matching_set=matching_set,
+        git_head=config.source.git_head,
+        dirty_digest=config.source.dirty_digest,
+    )
+    if readiness != expected:
+        raise ValueError("existing v3 readiness differs from intrinsic authority")
+    return readiness
+
+
 __all__ = [
     "adjudicate_h6_prediction_opening",
     "CurrentPredictionPrerequisiteRefs",
+    "H6PredictionV3PrerequisiteEvidence",
     "PREDICTION_READINESS_SOURCE_BLOCKERS",
     "ProducerCompatibilityError",
+    "read_h6_bounded_prefix_certificate_set_for_scoring_v3",
+    "read_h6_prefix_authorities_for_scoring_v3",
+    "reopen_h6_prediction_v3_prerequisite_evidence",
+    "validate_existing_h6_prediction_readiness_v3",
     "validate_h6_prediction_readiness",
     "validate_h6_prediction_readiness_v3",
 ]

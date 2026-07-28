@@ -1,5 +1,23 @@
 # H8 Sparse-Scale Systems Preregistration
 
+## Non-scientific prerequisite-registry amendment (2026-07-28)
+
+The sole authorizing prerequisite registry is now
+`h8-current-candidate-refs-v5`. Its H6-Prefix entry binds the exact direct-A0
+certificate alongside the bounded certificate set, and its H6-Prediction entry is the exact
+Prediction-v3 reference: config v3, readiness v3, raw endpoint inventory v4,
+metrics v3, and result v3. The adapter must natively reopen the authenticated
+config/matching/readiness/plan authority bundle, validation bundle and
+checkpoint selection, reservation and FINALIZED journal aliases, the complete
+4,104-row raw inventory, metrics, result, result pointer, and ledger. Registry
+v1, v2, v3, and v4 remain readable historical records but cannot authorize H8.
+
+This amendment changes prerequisite identity and admissibility only. It does
+not alter `H8ValidationConfig`, the frozen H8 scientific configuration hash,
+the numerical protocol, budgets, interpretation, or outcome rules. The active
+contract below uses registry v5 throughout; v1--v4 appear only as
+explicitly nonauthorizing parser history.
+
 Protocol revision: `h8-sparse-scale-v5` (installed-runtime amendment
 2026-07-27)
 
@@ -587,7 +605,7 @@ Current H7 compatibility registry keys are exactly, in order,
 and candidate JUnit path/hash.
 
 The sole authorizing H8 registry schema is
-`h8-current-candidate-refs-v3`. It contains:
+`h8-current-candidate-refs-v5`. It contains:
 
 - `H8H1H5Reference(kind,artifact_path,manifest_sha256,result_path,
   result_sha256,content_hashes,payload_hashes,ledger_path,ledger_sha256,
@@ -600,42 +618,58 @@ The sole authorizing H8 registry schema is
   `certificate_set_schema="h6-prefix-certificate-set-v2"`;
   `config_sha256`, `workload_plan_sha256`,
   `validation_payload_sha256`, and
-  `prefix_certificate_set_sha256`; and the exact ordered nonempty
+  `prefix_certificate_set_sha256`;
+  `a0_direct_exact_prefix_certificate_sha256`; and the exact ordered nonempty
   `semantic_families` rows
   `(semantic_family_index,semantic_family_sha256,
   validation_payload_sha256,certificate_sha256)`
 - `H8H7Reference` with the common fields plus `result_pointer_path`,
   `result_pointer_sha256`, and `fixture_set_sha256`
-- `H8H6PredictionReference` with the common fields plus the literal
-  `prediction_schema="h6-prediction-amended-v2"`, the exact config,
-  readiness, metrics, and result schema discriminators, `experiment_sha256`,
-  `config_sha256`, `readiness_artifact_path`, `readiness_manifest_sha256`,
-  `readiness_sha256`, exact ordered `correctness_artifact_paths` for
-  H1/H2/H3/H5, `h1_prefix_prior_artifact_path`,
-  `smc_accuracy_artifact_path`, `smc_accuracy_manifest_sha256`,
-  `h6_prefix_artifact_path`, `h6_prefix_manifest_sha256`,
-  `blinded_data_artifact_path`, `blinded_data_manifest_sha256`,
-  `matching_artifact_path`, `matching_manifest_sha256`,
-  `matching_set_sha256`,
-  `h1_prefix_prior_generative_factor_schema_sha256`,
-  `smc_bias_semantics_sha256`, `objective_gate_spec_sha256`,
-  `metrics_sha256`, and its non-null producer JUnit hash
+- `H8H6PredictionV3Reference` with the common fields plus literal config v3,
+  readiness v3, raw-inventory v4, metrics v3, and result v3 discriminators;
+  authenticated authority-bundle path/manifest/record identities; config,
+  readiness, plan, and matching-set identities; validation-bundle
+  manifest/record and checkpoint-selection identities; the RESERVED marker
+  semantic/file identities; the
+  reservation-derived `RESULT/result.json`, `TERMINAL`, `FINALIZED`, and
+  pointer paths plus each directory-manifest identity; experiment,
+  opening-proof, raw-inventory,
+  metrics, and result-record identities; and
+  `ledger_validator_sha256`, `artifact_revision`, `candidate_junit_path`, and
+  the non-null candidate JUnit hash
 
 All status tags are literal `pass`. Keyed content and payload maps are
-preserved losslessly. A content-hash key is an exact manifest-relative payload
-path. H6-Prefix semantic families preserve runner-plan order with contiguous
+preserved losslessly. A content-hash key is an exact safe manifest-relative
+payload name from the keyed manifest inventory; absolute names, separators
+that change platform meaning, `.`/`..`, and drive-qualified names are rejected.
+H6-Prefix semantic families preserve runner-plan order with contiguous
 indices and unique family hashes; each row binds that family's validation and
 certificate digest in addition to the validation and certificate-set
 aggregates. A legacy keyed `PrefixCaseKey` certificate map is not admissible
-in the authorizing v3 shape. No copy of predecessor validation, certificate,
+in the authorizing v5 shape. No copy of predecessor validation, certificate,
 or ledger bytes is admissible.
 The direct H1--H5, H1-prefix-prior, and H6-Prefix variants must match their
 H7 transitive references field-for-field, including ordered keyed payload
-hashes. The amended H6-Prediction retains its own frozen producer head, dirty
-digest, and non-null JUnit hash; that producer identity need not match the H8
-candidate. Its exact resolved config, readiness, scientific dependency set,
-raw endpoints, metrics, result, immutable artifact identities, and ledger must
-revalidate against that frozen producer before H8 can authorize. At H8
+hashes. Executable H6-Prediction v3 retains its own frozen producer head,
+dirty digest, artifact revision, JUnit path/hash, and installed
+verification-validator source hash; that producer identity need not match the
+H8 candidate. Its exact resolved config, readiness, plan, matching set,
+checkpoint selection, authenticated reservation namespace, raw endpoints,
+metrics, result, immutable artifact identities, and closure ledger must
+revalidate against that frozen producer before H8 can authorize. The ledger
+is parsed and passed to the exact installed validator independently pinned by
+tracked SHA-256
+`a8a799496762910c463ecc179a4d63dc40107fcbe81553add189de7ed1ce4c95`;
+the registry cannot select another validator. The ledger
+it must be schema 1.0 closure mode with a nonempty all-`EVIDENCE_VERIFIED`
+claim inventory, no open obligations or invalidated evidence, the live
+artifact revision, and exactly one experiment claim with ID
+`h6-prediction-v3-exact-artifact-closure`. That claim binds candidate JUnit,
+result, result manifest, authorities manifest, validation manifest,
+reservation marker, TERMINAL manifest, FINALIZED manifest, and pointer
+manifest through canonical compact-JSON evidence locations
+`{"path":"<absolute-forward-slash-path>","sha256":"<lowercase-64-hex>"}`.
+H8 bounded-reads and rehashes every listed preimage. At H8
 preflight, every exact artifact, result, ledger, H7 result pointer, shared H7
 JUnit preimage, H6-Prediction readiness and complete
 scientific-prerequisite artifact set, raw endpoint table, metrics file, and
@@ -649,20 +683,28 @@ reconstructs the typed endpoint ownership inventory. The native H6 reader then
 rederives raw aggregates, ordered OBJECTIVE/PRIMARY metrics, result identity,
 and result-root name. Reopened bytes validate the registry record; they never
 reconstruct it and are never copied into H8.
-For H6-Prefix specifically, the native bounded reopener requires the exact
-five-file manifest inventory, config v3 outer authorization, workload-plan v2
-authorization, validation-set v2, and certificate-set v2; it reconstructs the
-typed ordered certificate set and H8 compares every aggregate and family row
-to the already parsed registry reference.
+For H6-Prefix specifically, the paired native reopener requires the exact
+six-file manifest inventory, including `certificates/a0_direct_exact.json`,
+config v3 outer authorization, workload-plan v2 authorization, validation-set
+v2, and certificate-set v2. It reconstructs the typed ordered certificate set
+and the exact current-source direct-A0 PASS certificate, whose obligations are
+empty, whose complete check inventory passes, and whose bounded-A0 premise
+belongs to that same set. H8 compares both certificate identities, every
+aggregate, and every family row to the already parsed registry reference.
+Prediction-v3 config and readiness must bind that same direct-certificate
+SHA-256 before any downstream result is read.
 
-Registry v1 and v2 remain readable solely for historical diagnosis. Both
-retain the legacy keyed H6-Prefix certificate shape and therefore add
-`h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3`. Registry v1's
-`H8LegacyH6PredictionReference` lacks the amended bindings and therefore adds
-the named prerequisite obligation
-`h8_prerequisite_registry_v1_requires_amended_h6_prediction_v2`.
-Registry v2 retains the amended H6-Prediction v2 compatibility island
-unchanged; it is nonauthorizing only because its H6-Prefix shape is legacy.
+Registry v1, v2, v3, and v4 remain readable solely for historical diagnosis.
+Registries v1--v3 add
+`h8_prerequisite_registry_v1_v2_v3_requires_h6_prediction_v3`; all four add
+`h8_prerequisite_registry_v1_v2_v3_v4_requires_direct_a0_prefix`.
+Registries v1 and v2 also retain the legacy keyed H6-Prefix certificate shape
+and add `h8_prerequisite_legacy_registry_requires_bounded_h6_prefix_v3`.
+Registry v1 retains `H8LegacyH6PredictionReference`; registries v2 and v3
+retain the historical amended H6-Prediction v2 compatibility record. Registry
+v4 retains Prediction v3 but only the historical five-file bounded Prefix
+reference. None can stand in for the paired direct-A0 authority or authorize
+H8.
 Unavailable or changed immutable bytes add a reference-specific prerequisite
 obligation. Either condition makes H8 `INCONCLUSIVE`; neither can authorize
 `PASS`.

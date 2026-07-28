@@ -14,11 +14,13 @@ from typing import Literal
 
 from vfe4.types.h6 import (
     ArmConfig,
+    ArmId,
     ArmMatrixRow,
     CapacityAllocation,
     FlopTerm,
     MatchingReport,
     TrainingPhase,
+    VocabularyIdentity,
     canonical_json_bytes,
 )
 
@@ -1468,6 +1470,77 @@ class H6MatchingSetV3:
         )
 
 
+def build_h6_matching_set_v3(
+    *,
+    git_head: str,
+    dirty_digest: str,
+    train_token_count: int,
+    train_token_sha256: str,
+    vocabulary: VocabularyIdentity,
+    horizon: int,
+) -> H6MatchingSetV3:
+    """Regenerate the complete frozen v3 matching set from data identities."""
+
+    if type(vocabulary) is not VocabularyIdentity:
+        raise ValueError("matching builder requires an exact vocabulary identity")
+    vocabulary.__post_init__()
+    if type(horizon) is not int or horizon != H6_MATCHING_POLICY_V3.sequence_length:
+        raise ValueError("matching builder horizon must equal the frozen sequence length")
+    workload = H6TrainingWorkloadV3.from_train_tokens(
+        train_token_count=train_token_count,
+        train_token_sha256=train_token_sha256,
+    )
+    templates: list[ArmConfig] = []
+    for config_id in H6_MATCHING_V3_ENDPOINT_CONFIG_IDS:
+        profile = endpoint_formula_profile(config_id)
+        if config_id == _PRIMARY_A0_CONFIG_ID:
+            allocation = CapacityAllocation.create(
+                emission_width=52,
+                latent_width=None,
+                recognition_width=None,
+            )
+        elif not profile.latent_enabled:
+            allocation = CapacityAllocation.create(
+                emission_width=64,
+                latent_width=None,
+                recognition_width=None,
+            )
+        elif profile.prior_variant == "parent_specific_pooled_prefix":
+            allocation = CapacityAllocation.create(
+                emission_width=89,
+                latent_width=2,
+                recognition_width=113,
+                prior_context_width=6,
+            )
+        else:
+            allocation = A5_REFERENCE_ALLOCATION
+        templates.append(
+            ArmConfig.create(
+                arm=ArmId(profile.arm),
+                config_id=config_id,
+                vocabulary=vocabulary,
+                horizon=horizon,
+                latent_enabled=profile.latent_enabled,
+                state_channel_enabled=profile.channel_count >= 1,
+                model_channel_enabled=profile.channel_count == 2,
+                source_mode=profile.source_mode,
+                map_mode=profile.map_mode,
+                recognition_family=profile.recognition_family,
+                recognition_conditioning=profile.recognition_conditioning,
+                prior_variant=profile.prior_variant,
+                mixture_mode=profile.mixture_mode,
+                objective_kind=profile.objective_kind,
+                capacity_allocation=allocation,
+            )
+        )
+    return H6MatchingSetV3.create(
+        git_head=git_head,
+        dirty_digest=dirty_digest,
+        workload=workload,
+        endpoint_templates=tuple(templates),
+    )
+
+
 def _config_with_allocation_v3(
     template: ArmConfig,
     allocation: CapacityAllocation,
@@ -1757,6 +1830,7 @@ __all__ = [
     "PRIMARY_EMISSION_WIDTH_CANDIDATES_V3",
     "PRIMARY_JOINT_CANDIDATE_COUNT_V3",
     "analytical_training_flop_ledger_v3",
+    "build_h6_matching_set_v3",
     "endpoint_parameter_count_v3",
     "primary_matching_diagnostics_v3",
 ]

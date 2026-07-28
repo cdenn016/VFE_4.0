@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import shutil
 from functools import cache
 from pathlib import Path
 
 import pytest
 
+from vfe4.artifacts.atomic import ArtifactPublicationError
+from vfe4.artifacts.h6_prediction_v3 import (
+    publish_h6_prediction_v3_authorities,
+    read_h6_prediction_v3_authorities,
+)
 from vfe4.artifacts.h6_matching import H6MatchingSetRecord
 from vfe4.config import (
     H6PredictionV3ResolvedConfig,
@@ -22,8 +28,9 @@ from vfe4.training.h6_matching_v3 import (
     H6MatchingSetV3,
     H6TrainingWorkloadV3,
 )
+from vfe4.training.h6_experiment_v3 import plan_h6_experiment_v3
 from vfe4.training.h6_readiness import (
-    validate_h6_prediction_readiness_v3,
+    _derive_h6_prediction_readiness_v3 as validate_h6_prediction_readiness_v3,
 )
 from vfe4.training.matching import (
     A5_REFERENCE_ALLOCATION,
@@ -164,21 +171,29 @@ def _schedule(
     *,
     estimator: H6RecognitionEstimatorSpec,
     runtime: H6PredictionRuntimeIdentity,
+    matching_set: H6MatchingSetV3,
 ) -> H6TrainingScheduleV3:
-    endpoint_phase = H6ArmPhaseSchedule.create(
-        endpoint_config_sha256=_endpoint_templates()[7].config_sha256,
-        latent_enabled=True,
-        phases=(
-            TrainingPhase.RECOGNITION_ADAMW,
-            TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT,
-            TrainingPhase.MODEL_ADAMW,
-        ),
+    endpoint_phases = tuple(
+        H6ArmPhaseSchedule.create(
+            endpoint_config_sha256=config.config_sha256,
+            latent_enabled=config.latent_enabled,
+            phases=(
+                (
+                    TrainingPhase.RECOGNITION_ADAMW,
+                    TrainingPhase.IMMUTABLE_DETACHED_SNAPSHOT,
+                    TrainingPhase.MODEL_ADAMW,
+                )
+                if config.latent_enabled
+                else (TrainingPhase.MODEL_CE_ADAMW,)
+            ),
+        )
+        for config in matching_set.endpoint_configs
     )
     return H6TrainingScheduleV3.create(
         outer=H6OuterSchedule.create(
             optimizer_policy_sha256=(H6_ADAMW_POLICY.optimizer_policy_sha256),
         ),
-        endpoint_phases=(endpoint_phase,),
+        endpoint_phases=endpoint_phases,
         estimator=estimator,
         runtime=runtime,
     )
@@ -191,7 +206,11 @@ def _config(
 ) -> H6PredictionV3ResolvedConfig:
     estimator = H6RecognitionEstimatorSpec.create()
     runtime = _runtime()
-    schedule = _schedule(estimator=estimator, runtime=runtime)
+    schedule = _schedule(
+        estimator=estimator,
+        runtime=runtime,
+        matching_set=matching_set,
+    )
     protocol = EndpointSmcProtocol.create(
         particle_counts=(128, 256, 512, 1024),
         replicate_count=64,
@@ -208,7 +227,6 @@ def _config(
     runtime_payload = runtime.canonical_payload()
     runtime_payload["cuda_compute_capability"] = list(runtime.cuda_compute_capability)
     runtime_payload["runtime_identity_sha256"] = runtime.runtime_identity_sha256
-    phase = schedule.endpoint_phases[0]
     raw = {
         "schema_version": "h6-prediction-config-v3",
         "operation": "H6-Prediction",
@@ -249,6 +267,7 @@ def _config(
             ),
             "smc_validation_manifest_sha256": "b" * 64,
             "prefix_certificate_set_sha256": "c" * 64,
+            "a0_direct_exact_prefix_certificate_sha256": "1" * 64,
         },
         "h5_update_binding_sha256": "d" * 64,
         "training_schedule": {
@@ -265,15 +284,14 @@ def _config(
             },
             "endpoint_phases": [
                 {
-                    "endpoint_config_sha256": (phase.endpoint_config_sha256),
+                    "endpoint_config_sha256": phase.endpoint_config_sha256,
                     "latent_enabled": phase.latent_enabled,
                     "phases": [item.value for item in phase.phases],
-                    "recognition_updates_per_batch": (
-                        phase.recognition_updates_per_batch
-                    ),
-                    "model_updates_per_batch": (phase.model_updates_per_batch),
+                    "recognition_updates_per_batch": phase.recognition_updates_per_batch,
+                    "model_updates_per_batch": phase.model_updates_per_batch,
                     "no_op_phases": phase.no_op_phases,
                 }
+                for phase in schedule.endpoint_phases
             ],
             "recognition_estimator_sha256": estimator.estimator_sha256,
             "runtime_identity_sha256": runtime.runtime_identity_sha256,
@@ -331,6 +349,60 @@ def _config(
     return resolve_h6_prediction_v3_config(raw, repo_root=_REPO_ROOT)
 
 
+def test_prediction_v3_authorities_round_trip_and_reject_drift(
+    tmp_path: Path,
+) -> None:
+    matching_set = _matching_set()
+    config = _config(
+        matching_set=matching_set,
+        artifact_root=tmp_path,
+    )
+    readiness = validate_h6_prediction_readiness_v3(
+        config=config,
+        matching_set=matching_set,
+        git_head=_GIT_HEAD,
+        dirty_digest=_DIRTY_DIGEST,
+    )
+    plan = plan_h6_experiment_v3(
+        readiness=readiness,
+        matching_set=matching_set,
+        training_schedule=config.training_schedule,
+        runtime_identity=config.runtime,
+    )
+
+    published = publish_h6_prediction_v3_authorities(
+        run_root=tmp_path,
+        run_name="authorities",
+        config=config,
+        matching_set=matching_set,
+        readiness=readiness,
+        plan=plan,
+    )
+    reopened = read_h6_prediction_v3_authorities(published)
+    assert reopened.config == config
+    assert reopened.matching_set == matching_set
+    assert reopened.readiness == readiness
+    assert reopened.plan == plan
+    assert (
+        read_h6_prediction_v3_authorities(
+            published,
+            expected_authority_sha256=reopened.authority_sha256,
+        )
+        == reopened
+    )
+    with pytest.raises(ArtifactPublicationError, match="authority|digest"):
+        read_h6_prediction_v3_authorities(
+            published,
+            expected_authority_sha256="0" * 64,
+        )
+
+    corrupt = tmp_path / "corrupt-authorities"
+    shutil.copytree(published, corrupt)
+    (corrupt / "authorities.json").write_bytes(b"{}")
+    with pytest.raises(ArtifactPublicationError, match="manifest|authority"):
+        read_h6_prediction_v3_authorities(corrupt)
+
+
 def test_readiness_v3_rejects_v2_matching_set(tmp_path: Path) -> None:
     matching_set = _matching_set()
     config = _config(
@@ -350,6 +422,28 @@ def test_readiness_v3_rejects_v2_matching_set(tmp_path: Path) -> None:
             matching_set=relabeled_v2,  # type: ignore[arg-type]
             git_head=_GIT_HEAD,
             dirty_digest=_DIRTY_DIGEST,
+        )
+
+
+def test_readiness_v3_public_issuer_requires_reopened_prerequisite_evidence(
+    tmp_path: Path,
+) -> None:
+    from vfe4.training.h6_readiness import (
+        validate_h6_prediction_readiness_v3 as issue_readiness,
+    )
+
+    matching_set = _matching_set()
+    config = _config(
+        matching_set=matching_set,
+        artifact_root=tmp_path,
+    )
+    with pytest.raises(ValueError, match="mechanically reopened"):
+        issue_readiness(
+            config=config,
+            matching_set=matching_set,
+            git_head=_GIT_HEAD,
+            dirty_digest=_DIRTY_DIGEST,
+            prerequisite_evidence=object(),  # type: ignore[arg-type]
         )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Literal
 
 import torch
@@ -12,6 +13,7 @@ from vfe4.predictive.identities import canonical_model_state_sha256
 from vfe4.types.h6 import VocabularyIdentity
 
 from .h6_prediction_v3 import (
+    H6ActiveHorizonV3,
     LanguageRecognitionTrajectory,
     RecognitionPriorFeatureProvider,
     SourceBankName,
@@ -28,9 +30,102 @@ from .language import (
 
 RecognitionStoreFamily = Literal["structured", "factorized"]
 RecognitionStoreConditioning = Literal["filtering", "smoothing"]
-LanguageRecognitionLaw = (
-    StructuredLanguageRecognition | FactorizedLanguageRecognition
-)
+LanguageRecognitionLaw = StructuredLanguageRecognition | FactorizedLanguageRecognition
+
+
+@dataclass(frozen=True, slots=True)
+class RecognitionStoreStateBindingV3:
+    """One hash plus clone-free mutation guards for a trajectory batch."""
+
+    recognition_store_state_sha256: str
+    _module_id: int
+    _inventory: tuple[
+        tuple[
+            str,
+            Tensor,
+            int,
+            int,
+            int,
+            tuple[int, ...],
+            torch.dtype,
+            torch.device,
+        ],
+        ...,
+    ]
+
+    @classmethod
+    def capture(
+        cls,
+        store: "LanguageRecognitionParameterStore",
+    ) -> "RecognitionStoreStateBindingV3":
+        if type(store) is not LanguageRecognitionParameterStore:
+            raise ValueError("state binding requires an exact recognition store")
+        inventory = tuple(
+            (
+                name,
+                tensor,
+                id(tensor),
+                tensor.data_ptr(),
+                tensor._version,
+                tuple(tensor.shape),
+                tensor.dtype,
+                tensor.device,
+            )
+            for name, tensor in (
+                *store.named_parameters(),
+                *store.named_buffers(),
+            )
+        )
+        return cls(
+            recognition_store_state_sha256=(canonical_model_state_sha256(store)),
+            _module_id=id(store),
+            _inventory=inventory,
+        )
+
+    def assert_intact(
+        self,
+        store: "LanguageRecognitionParameterStore",
+    ) -> None:
+        if (
+            type(store) is not LanguageRecognitionParameterStore
+            or id(store) != self._module_id
+        ):
+            raise ValueError("recognition state binding belongs to another store")
+        current = tuple(
+            (name, tensor)
+            for name, tensor in (
+                *store.named_parameters(),
+                *store.named_buffers(),
+            )
+        )
+        if len(current) != len(self._inventory):
+            raise ValueError("recognition state inventory mutated")
+        for (name, tensor), recorded in zip(
+            current,
+            self._inventory,
+            strict=True,
+        ):
+            (
+                expected_name,
+                expected_tensor,
+                expected_id,
+                expected_pointer,
+                expected_version,
+                expected_shape,
+                expected_dtype,
+                expected_device,
+            ) = recorded
+            if (
+                name != expected_name
+                or tensor is not expected_tensor
+                or id(tensor) != expected_id
+                or tensor.data_ptr() != expected_pointer
+                or tensor._version != expected_version
+                or tuple(tensor.shape) != expected_shape
+                or tensor.dtype != expected_dtype
+                or tensor.device != expected_device
+            ):
+                raise ValueError("recognition store mutated during trajectory batch")
 
 
 def _deterministic_matrix(rows: int, columns: int, *, scale: float) -> Tensor:
@@ -79,31 +174,19 @@ class LanguageRecognitionParameterStore(nn.Module):
         if family not in ("structured", "factorized"):
             raise ValueError("family must be structured or factorized")
         if conditioning_mode not in ("filtering", "smoothing"):
-            raise ValueError(
-                "conditioning_mode must be filtering or smoothing"
-            )
+            raise ValueError("conditioning_mode must be filtering or smoothing")
         if (
             type(trainable_source_banks) is not tuple
-            or any(
-                bank not in ("state", "model")
-                for bank in trainable_source_banks
-            )
-            or len(set(trainable_source_banks))
-            != len(trainable_source_banks)
+            or any(bank not in ("state", "model") for bank in trainable_source_banks)
+            or len(set(trainable_source_banks)) != len(trainable_source_banks)
             or trainable_source_banks
             != tuple(
-                bank
-                for bank in ("state", "model")
-                if bank in trainable_source_banks
+                bank for bank in ("state", "model") if bank in trainable_source_banks
             )
         ):
-            raise ValueError(
-                "trainable_source_banks must be a canonical unique tuple"
-            )
+            raise ValueError("trainable_source_banks must be a canonical unique tuple")
         if "model" in trainable_source_banks and channel_count != 2:
-            raise ValueError(
-                "a live model source bank requires two Gaussian channels"
-            )
+            raise ValueError("a live model source bank requires two Gaussian channels")
 
         self.vocabulary = vocabulary
         self.horizon = horizon
@@ -121,9 +204,7 @@ class LanguageRecognitionParameterStore(nn.Module):
         )
         with torch.no_grad():
             self.token_embedding.weight.copy_(
-                _deterministic_matrix(
-                    vocabulary.size, recognition_width, scale=0.125
-                )
+                _deterministic_matrix(vocabulary.size, recognition_width, scale=0.125)
             )
         self.mean_weight = nn.Parameter(
             _deterministic_matrix(
@@ -147,29 +228,21 @@ class LanguageRecognitionParameterStore(nn.Module):
         self.source_residual_vectors = nn.ParameterDict()
         self.source_lag_scalars = nn.ParameterDict()
         self.source_shift_vectors = nn.ParameterDict()
-        for bank_index, bank in enumerate(
-            self.trainable_source_banks, start=1
-        ):
+        for bank_index, bank in enumerate(self.trainable_source_banks, start=1):
             bank_scale = 0.03125 * bank_index
             self.source_residual_vectors[bank] = nn.Parameter(
-                _deterministic_nonzero_vector(
-                    recognition_width, scale=bank_scale
-                )
+                _deterministic_nonzero_vector(recognition_width, scale=bank_scale)
             )
             self.source_lag_scalars[bank] = nn.Parameter(
                 torch.tensor((bank_scale,), dtype=torch.float64)
             )
             self.source_shift_vectors[bank] = nn.Parameter(
-                _deterministic_nonzero_vector(
-                    latent_width, scale=0.5 * bank_scale
-                )
+                _deterministic_nonzero_vector(latent_width, scale=0.5 * bank_scale)
             )
 
     def _context(self, conditioning: RecognitionConditioning) -> Tensor:
         if type(conditioning) is not RecognitionConditioning:
-            raise ValueError(
-                "conditioning must be an exact RecognitionConditioning"
-            )
+            raise ValueError("conditioning must be an exact RecognitionConditioning")
         conditioning.__post_init__()
         if conditioning.horizon != self.horizon:
             raise ValueError("recognition conditioning horizon does not match")
@@ -199,9 +272,7 @@ class LanguageRecognitionParameterStore(nn.Module):
 
     @staticmethod
     def _fill_block(packed: Tensor, *, dimension: int) -> Tensor:
-        row, column = torch.tril_indices(
-            dimension, dimension, device=packed.device
-        )
+        row, column = torch.tril_indices(dimension, dimension, device=packed.device)
         result = torch.zeros(
             (dimension, dimension),
             dtype=packed.dtype,
@@ -258,16 +329,70 @@ class LanguageRecognitionParameterStore(nn.Module):
         conditioning: RecognitionConditioning,
         *,
         prior_feature_provider: RecognitionPriorFeatureProvider,
+        active_horizon: H6ActiveHorizonV3 | None = None,
+        state_binding: RecognitionStoreStateBindingV3 | None = None,
     ) -> LanguageRecognitionTrajectory:
-        """Emit the distinct receiver-indexed H6 v3 recognition trajectory."""
+        """Emit the complete receiver-indexed H6 v3 recognition trajectory."""
+
+        return self._recognition_trajectory(
+            conditioning,
+            prior_feature_provider=prior_feature_provider,
+            active_horizon=active_horizon,
+            state_binding=state_binding,
+            include_source_priors=True,
+        )
+
+    def source_prior_free_recognition_trajectory(
+        self,
+        conditioning: RecognitionConditioning,
+        *,
+        prior_feature_provider: RecognitionPriorFeatureProvider,
+        active_horizon: H6ActiveHorizonV3 | None = None,
+        state_binding: RecognitionStoreStateBindingV3 | None = None,
+    ) -> LanguageRecognitionTrajectory:
+        """Emit one Gaussian component per receiver without source-prior rows."""
+
+        return self._recognition_trajectory(
+            conditioning,
+            prior_feature_provider=prior_feature_provider,
+            active_horizon=active_horizon,
+            state_binding=state_binding,
+            include_source_priors=False,
+        )
+
+    def _recognition_trajectory(
+        self,
+        conditioning: RecognitionConditioning,
+        *,
+        prior_feature_provider: RecognitionPriorFeatureProvider,
+        active_horizon: H6ActiveHorizonV3 | None,
+        state_binding: RecognitionStoreStateBindingV3 | None,
+        include_source_priors: bool,
+    ) -> LanguageRecognitionTrajectory:
+        """Build one bound trajectory while selecting its source-bank inventory."""
 
         if type(conditioning) is not RecognitionConditioning:
-            raise ValueError(
-                "conditioning must be an exact RecognitionConditioning"
-            )
+            raise ValueError("conditioning must be an exact RecognitionConditioning")
         conditioning.__post_init__()
-        if conditioning.horizon != self.horizon:
-            raise ValueError("recognition conditioning horizon does not match")
+        if active_horizon is None:
+            if conditioning.horizon != self.horizon:
+                raise ValueError("recognition conditioning horizon does not match")
+            horizon_binding = H6ActiveHorizonV3.create(
+                maximum_horizon=self.horizon,
+                active_horizon=self.horizon,
+            )
+        else:
+            if type(active_horizon) is not H6ActiveHorizonV3:
+                raise ValueError("active_horizon must be an exact H6ActiveHorizonV3")
+            active_horizon.__post_init__()
+            if (
+                active_horizon.maximum_horizon != self.horizon
+                or conditioning.horizon != active_horizon.active_horizon
+            ):
+                raise ValueError(
+                    "recognition conditioning does not match the active horizon"
+                )
+            horizon_binding = active_horizon
         if conditioning.mode != self.conditioning_mode:
             raise ValueError(
                 "recognition conditioning mode does not match the store profile"
@@ -293,7 +418,15 @@ class LanguageRecognitionParameterStore(nn.Module):
             )
             for bank in self.trainable_source_banks
         }
-        store_state_sha256 = canonical_model_state_sha256(self)
+        owned_binding = (
+            RecognitionStoreStateBindingV3.capture(self)
+            if state_binding is None
+            else state_binding
+        )
+        if type(owned_binding) is not RecognitionStoreStateBindingV3:
+            raise ValueError("state_binding must be an exact recognition-store binding")
+        owned_binding.assert_intact(self)
+        store_state_sha256 = owned_binding.recognition_store_state_sha256
         trajectory = build_language_recognition_trajectory(
             conditioning=conditioning,
             vocabulary=self.vocabulary,
@@ -307,17 +440,17 @@ class LanguageRecognitionParameterStore(nn.Module):
             source_parameters=source_parameters,
             prior_feature_provider=prior_feature_provider,
             recognition_store_state_sha256=store_state_sha256,
+            active_horizon_binding=horizon_binding,
+            source_prior_free=not include_source_priors,
         )
-        if canonical_model_state_sha256(self) != store_state_sha256:
-            raise ValueError(
-                "recognition store mutated while emitting its trajectory"
-            )
+        owned_binding.assert_intact(self)
         return trajectory
 
 
 __all__ = [
     "LanguageRecognitionLaw",
     "LanguageRecognitionParameterStore",
+    "RecognitionStoreStateBindingV3",
     "RecognitionStoreConditioning",
     "RecognitionStoreFamily",
 ]

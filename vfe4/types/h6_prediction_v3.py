@@ -424,6 +424,7 @@ class H6PredictionV3ReadinessToken:
     smc_bias_semantics_sha256: str
     smc_validation_manifest_sha256: str
     prefix_certificate_set_sha256: str
+    a0_direct_exact_prefix_certificate_sha256: str
     h5_update_binding_sha256: str
     critical_values_sha256: str
     endpoint_smc_protocol_sha256: str
@@ -470,6 +471,7 @@ class H6PredictionV3ReadinessToken:
             "smc_bias_semantics_sha256",
             "smc_validation_manifest_sha256",
             "prefix_certificate_set_sha256",
+            "a0_direct_exact_prefix_certificate_sha256",
             "h5_update_binding_sha256",
             "critical_values_sha256",
             "endpoint_smc_protocol_sha256",
@@ -518,6 +520,7 @@ class H6PredictionV3ReadinessToken:
         smc_bias_semantics_sha256: str,
         smc_validation_manifest_sha256: str,
         prefix_certificate_set_sha256: str,
+        a0_direct_exact_prefix_certificate_sha256: str,
         h5_update_binding_sha256: str,
         critical_values_sha256: str,
         endpoint_smc_protocol_sha256: str,
@@ -548,6 +551,9 @@ class H6PredictionV3ReadinessToken:
             "smc_bias_semantics_sha256": smc_bias_semantics_sha256,
             "smc_validation_manifest_sha256": (smc_validation_manifest_sha256),
             "prefix_certificate_set_sha256": (prefix_certificate_set_sha256),
+            "a0_direct_exact_prefix_certificate_sha256": (
+                a0_direct_exact_prefix_certificate_sha256
+            ),
             "h5_update_binding_sha256": h5_update_binding_sha256,
             "critical_values_sha256": critical_values_sha256,
             "endpoint_smc_protocol_sha256": endpoint_smc_protocol_sha256,
