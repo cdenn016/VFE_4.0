@@ -2905,9 +2905,9 @@ def _structured_stack(node: object) -> tuple[str, ...]:
 def inspect_installed_h8_profiler_schema(torch: Any) -> H8ProfilerSchemaInspection:
     """Inspect the pinned private profiler schema without running H8."""
 
+    profiler_api = _verify_profiler_pins(torch)
     from vfe4.types.h8 import H8TensorKey
 
-    profiler_api = _verify_profiler_pins(torch)
     with torch.no_grad():
         with torch.profiler.profile(
             activities=[
@@ -2965,6 +2965,24 @@ def inspect_installed_h8_profiler_schema(torch: Any) -> H8ProfilerSchemaInspecti
             f"actions: {','.join(missing_actions)}"
         )
 
+    try:
+        compiled_profiler = torch._C._profiler
+        compiled_event_type = compiled_profiler._EventType
+        required_compiled_events = {
+            "Allocation": (
+                compiled_event_type.Allocation,
+                compiled_profiler._ExtraFields_Allocation,
+            ),
+            "TorchOp": (
+                compiled_event_type.TorchOp,
+                compiled_profiler._ExtraFields_TorchOp,
+            ),
+        }
+    except AttributeError as error:
+        raise _ProfilerUnavailable(
+            "pinned torch._C._profiler event bindings are unavailable"
+        ) from error
+
     nodes = tuple(_walk_event_nodes(roots))
     observed_event_types: set[str] = set()
     for node in nodes:
@@ -2975,12 +2993,16 @@ def inspect_installed_h8_profiler_schema(torch: Any) -> H8ProfilerSchemaInspecti
         event_name = getattr(event_type, "name", None)
         if event_name not in _PROFILER_INSPECTION_REQUIRED_EVENT_TYPES:
             continue
-        if type(event_type).__name__ != "_EventType":
-            raise _ProfilerUnavailable("pinned profiler private event enum drifted")
-        expected_fields_type = f"_ExtraFields_{event_name}"
-        if type(fields).__name__ != expected_fields_type:
+        expected_event_type, expected_fields_type = required_compiled_events[
+            event_name
+        ]
+        if event_type is not expected_event_type:
             raise _ProfilerUnavailable(
-                f"pinned profiler {event_name} private fields drifted"
+                "pinned profiler private event enum identity drifted"
+            )
+        if type(fields) is not expected_fields_type:
+            raise _ProfilerUnavailable(
+                f"pinned profiler {event_name} private fields identity drifted"
             )
         if event_name == "Allocation":
             key = _structured_tensor_key(fields, H8TensorKey)

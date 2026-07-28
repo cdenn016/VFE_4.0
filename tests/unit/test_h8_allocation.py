@@ -1577,6 +1577,7 @@ def test_h8_profiler_schema_inspector_is_bounded_with_fakes(
 ) -> None:
     """Inspect only the pinned tiny workload and reject private-schema drift."""
 
+    import builtins
     from enum import Enum
 
     import verification.h8_child as h8_child
@@ -1634,6 +1635,8 @@ def test_h8_profiler_schema_inspector_is_bounded_with_fakes(
         malformed_row: bool = False,
         complete_key: bool = True,
         include_torch_op: bool = True,
+        same_named_event_impostor: bool = False,
+        same_named_fields_impostor: str | None = None,
     ) -> tuple[SimpleNamespace, list[object]]:
         calls: list[object] = []
         storage = SimpleNamespace(
@@ -1665,20 +1668,35 @@ def test_h8_profiler_schema_inspector_is_bounded_with_fakes(
         if malformed_row:
             timeline = (timeline[0][:-1], timeline[1])  # type: ignore[index]
 
-        allocation_fields = _ExtraFields_Allocation()
+        event_type = (
+            Enum("_EventType", ("Allocation", "TorchOp"))
+            if same_named_event_impostor
+            else _EventType
+        )
+        allocation_fields_type = (
+            type("_ExtraFields_Allocation", (), {})
+            if same_named_fields_impostor == "Allocation"
+            else _ExtraFields_Allocation
+        )
+        allocation_fields = allocation_fields_type()
         allocation_fields.id = private_key.id
         allocation_fields.storage = storage
         allocation_fields.device = private_key.device
         allocation_fields.alloc_size = 16
         allocation_node = SimpleNamespace(
-            typed=(_EventType.Allocation, allocation_fields),
+            typed=(event_type.Allocation, allocation_fields),
             children=(),
         )
-        torch_op_fields = _ExtraFields_TorchOp()
+        torch_op_fields_type = (
+            type("_ExtraFields_TorchOp", (), {})
+            if same_named_fields_impostor == "TorchOp"
+            else _ExtraFields_TorchOp
+        )
+        torch_op_fields = torch_op_fields_type()
         torch_op_fields.name = "aten::add_"
         torch_op_fields.inputs = (private_key,)
         torch_op_node = SimpleNamespace(
-            typed=(_EventType.TorchOp, torch_op_fields),
+            typed=(event_type.TorchOp, torch_op_fields),
             children=(),
         )
         roots = (
@@ -1722,6 +1740,13 @@ def test_h8_profiler_schema_inspector_is_bounded_with_fakes(
             float64="fake-float64",
             no_grad=no_grad,
             empty=empty,
+            _C=SimpleNamespace(
+                _profiler=SimpleNamespace(
+                    _EventType=_EventType,
+                    _ExtraFields_Allocation=_ExtraFields_Allocation,
+                    _ExtraFields_TorchOp=_ExtraFields_TorchOp,
+                )
+            ),
             profiler=SimpleNamespace(
                 ProfilerActivity=SimpleNamespace(CPU="fake-cpu-activity"),
                 profile=profile,
@@ -1808,6 +1833,30 @@ def test_h8_profiler_schema_inspector_is_bounded_with_fakes(
         "experimental_event_tree",
     ]
 
+    imported_h8_types = 0
+    original_import = builtins.__import__
+
+    def reject_h8_type_import(
+        name: str,
+        globals: object = None,
+        locals: object = None,
+        fromlist: object = (),
+        level: int = 0,
+    ) -> object:
+        nonlocal imported_h8_types
+        if name == "vfe4.types.h8":
+            imported_h8_types += 1
+            raise AssertionError("H8TensorKey imported before profiler pin validation")
+        return original_import(name, globals, locals, fromlist, level)
+
+    unpinned_torch, _calls = make_fake_torch()
+    unpinned_torch.__version__ = "9.9.9+forged"
+    with monkeypatch.context() as pin_context:
+        pin_context.setattr(builtins, "__import__", reject_h8_type_import)
+        with pytest.raises(h8_child._ProfilerUnavailable, match="exactly"):
+            h8_child.inspect_installed_h8_profiler_schema(unpinned_torch)
+    assert imported_h8_types == 0
+
     incomplete_action = Enum(
         "_Action",
         ("PREEXISTING", "CREATE", "INCREMENT_VERSION"),
@@ -1817,6 +1866,15 @@ def test_h8_profiler_schema_inspector_is_bounded_with_fakes(
         ({"action_type": incomplete_action}, "complete four-action enum"),
         ({"complete_key": False}, "TensorKey"),
         ({"include_torch_op": False}, "Allocation/TorchOp"),
+        ({"same_named_event_impostor": True}, "event enum identity"),
+        (
+            {"same_named_fields_impostor": "Allocation"},
+            "Allocation private fields identity",
+        ),
+        (
+            {"same_named_fields_impostor": "TorchOp"},
+            "TorchOp private fields identity",
+        ),
     )
     for overrides, message in rejection_cases:
         drifted_torch, _calls = make_fake_torch(**overrides)
