@@ -205,7 +205,7 @@ _SEMANTICS = {
         "absent",
         "absent",
         "absent",
-        "complete_elbo",
+        "cross_entropy",
     ),
     "h6-a5-structured-fixed-exact-complete-latent-filtering-v1": (
         ArmId.A5,

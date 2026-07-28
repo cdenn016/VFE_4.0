@@ -21,6 +21,7 @@ from vfe4.types.h6_prediction_v3 import (
     H6ObjectiveManifestV3,
     H6PredictionRuntimeIdentity,
     H6_DETERMINISTIC_POLICY_SHA256,
+    H6_NO_COUNTER_CONSUMPTION_SHA256,
 )
 
 pytestmark = pytest.mark.filterwarnings(
@@ -63,7 +64,12 @@ def _runtime(
     )
 
 
-def _attempt(runtime: H6PredictionRuntimeIdentity) -> H6AttemptSpecV3:
+def _attempt(
+    runtime: H6PredictionRuntimeIdentity,
+    *,
+    objective_kind: str = "complete_elbo",
+    recognition_factory_sha256: str | None = _sha("6"),
+) -> H6AttemptSpecV3:
     return H6AttemptSpecV3.create(
         git_head="a" * 40,
         dirty_digest=_sha("1"),
@@ -72,9 +78,9 @@ def _attempt(runtime: H6PredictionRuntimeIdentity) -> H6AttemptSpecV3:
         endpoint_id="complete-a5",
         arm_id="A5",
         endpoint_config_sha256=_sha("4"),
-        objective_kind="complete_elbo",
+        objective_kind=objective_kind,
         model_factory_sha256=_sha("5"),
-        recognition_factory_sha256=_sha("6"),
+        recognition_factory_sha256=recognition_factory_sha256,
         initialization_sha256=_sha("7"),
         optimizer_policy_sha256=_sha("8"),
         training_seed=23,
@@ -102,6 +108,27 @@ def _cursor(attempt: H6AttemptSpecV3) -> H6AttemptCursorV3:
         model_update_count=17,
         validation_boundary_count=2,
         checkpoint_boundary_count=3,
+    )
+
+
+def _model_ce_cursor(
+    attempt: H6AttemptSpecV3,
+    *,
+    draw_block: int = 0,
+    counter_consumption_sha256: str = H6_NO_COUNTER_CONSUMPTION_SHA256,
+) -> H6AttemptCursorV3:
+    return H6AttemptCursorV3.create(
+        attempt_spec_sha256=attempt.attempt_spec_sha256,
+        pass_index=0,
+        batch_index=1,
+        next_phase=TrainingPhase.MODEL_CE_ADAMW,
+        example_ordinal=8,
+        draw_block=draw_block,
+        counter_consumption_sha256=counter_consumption_sha256,
+        permutation_sha256=_sha("0"),
+        recognition_update_count=0,
+        model_update_count=1,
+        checkpoint_boundary_count=1,
     )
 
 
@@ -571,6 +598,215 @@ def test_cursor_restores_next_phase_batch_and_counter_coordinates() -> None:
         cursor.validation_boundary_count,
         cursor.checkpoint_boundary_count,
     ) == (18, 17, 2, 3)
+
+
+def test_no_latent_cross_entropy_uses_model_ce_checkpoint_phase() -> None:
+    runtime = _runtime()
+    attempt = _attempt(
+        runtime,
+        objective_kind="cross_entropy",
+        recognition_factory_sha256=None,
+    )
+    cursor = _model_ce_cursor(attempt)
+    model = _TinyState()
+    optimizer = _adamw(
+        [
+            {
+                "params": [model.weight, model.bias],
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    _step(optimizer)
+
+    checkpoint = capture_h6_checkpoint_v3(
+        attempt_spec=attempt,
+        cursor=cursor,
+        objective_manifest=_objective(
+            attempt,
+            counter_consumption_sha256=H6_NO_COUNTER_CONSUMPTION_SHA256,
+            phase=TrainingPhase.MODEL_CE_ADAMW,
+        ),
+        runtime_identity=runtime,
+        named_modules=(("model", model),),
+        named_optimizers=(("model", optimizer),),
+    )
+    decoded = decode_h6_checkpoint_v3(checkpoint.to_bytes())
+
+    assert decoded.to_bytes() == checkpoint.to_bytes()
+    assert decoded.cursor.next_phase is TrainingPhase.MODEL_CE_ADAMW
+    assert decoded.attempt_spec.objective_kind == "cross_entropy"
+    assert decoded.objective_manifest.is_elbo is False
+
+
+def test_model_ce_checkpoint_rejects_complete_elbo() -> None:
+    runtime = _runtime()
+    attempt = _attempt(runtime, recognition_factory_sha256=None)
+    cursor = _model_ce_cursor(attempt)
+    model = _TinyState()
+    optimizer = _adamw(
+        [
+            {
+                "params": [model.weight, model.bias],
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    _step(optimizer)
+
+    with pytest.raises(ValueError, match="objective/cursor phase transition"):
+        capture_h6_checkpoint_v3(
+            attempt_spec=attempt,
+            cursor=cursor,
+            objective_manifest=_objective(
+                attempt,
+                counter_consumption_sha256=H6_NO_COUNTER_CONSUMPTION_SHA256,
+                phase=TrainingPhase.MODEL_CE_ADAMW,
+            ),
+            runtime_identity=runtime,
+            named_modules=(("model", model),),
+            named_optimizers=(("model", optimizer),),
+        )
+
+
+def test_model_ce_checkpoint_rejects_renamed_posterior_root() -> None:
+    runtime = _runtime()
+    attempt = _attempt(
+        runtime,
+        objective_kind="cross_entropy",
+        recognition_factory_sha256=None,
+    )
+    cursor = _model_ce_cursor(attempt)
+    model = _TinyState()
+    posterior = _TinyState(offset=4.0)
+    model_optimizer = _adamw(
+        [
+            {
+                "params": [model.weight, model.bias],
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    posterior_optimizer = _adamw(
+        [
+            {
+                "params": [posterior.weight, posterior.bias],
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    _step(model_optimizer)
+    _step(posterior_optimizer)
+
+    with pytest.raises(ValueError, match="root inventory"):
+        capture_h6_checkpoint_v3(
+            attempt_spec=attempt,
+            cursor=cursor,
+            objective_manifest=_objective(
+                attempt,
+                counter_consumption_sha256=H6_NO_COUNTER_CONSUMPTION_SHA256,
+                phase=TrainingPhase.MODEL_CE_ADAMW,
+            ),
+            runtime_identity=runtime,
+            named_modules=(("model", model), ("posterior", posterior)),
+            named_optimizers=(
+                ("model", model_optimizer),
+                ("posterior", posterior_optimizer),
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    ("draw_block", "counter_consumption_sha256"),
+    (
+        (1, H6_NO_COUNTER_CONSUMPTION_SHA256),
+        (0, _sha("f")),
+    ),
+)
+def test_model_ce_checkpoint_rejects_counter_consumption(
+    draw_block: int,
+    counter_consumption_sha256: str,
+) -> None:
+    runtime = _runtime()
+    attempt = _attempt(
+        runtime,
+        objective_kind="cross_entropy",
+        recognition_factory_sha256=None,
+    )
+    cursor = _model_ce_cursor(
+        attempt,
+        draw_block=draw_block,
+        counter_consumption_sha256=counter_consumption_sha256,
+    )
+    model = _TinyState()
+    optimizer = _adamw(
+        [
+            {
+                "params": [model.weight, model.bias],
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    _step(optimizer)
+
+    with pytest.raises(ValueError, match="zero counter consumption"):
+        capture_h6_checkpoint_v3(
+            attempt_spec=attempt,
+            cursor=cursor,
+            objective_manifest=_objective(
+                attempt,
+                counter_consumption_sha256=counter_consumption_sha256,
+                phase=TrainingPhase.MODEL_CE_ADAMW,
+            ),
+            runtime_identity=runtime,
+            named_modules=(("model", model),),
+            named_optimizers=(("model", optimizer),),
+        )
+
+
+def test_checkpoint_rejects_optimizer_bound_to_different_module_root() -> None:
+    runtime, attempt, cursor, objective, modules, _ = _fixture()
+    module_by_name = dict(modules)
+    model = module_by_name["model"]
+    recognition = module_by_name["recognition"]
+    swapped_model_optimizer = _adamw(
+        [
+            {
+                "params": list(recognition.parameters()),
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    swapped_recognition_optimizer = _adamw(
+        [
+            {
+                "params": list(model.parameters()),
+                "lr": 0.01,
+                "weight_decay": 0.0,
+            }
+        ]
+    )
+    _step(swapped_model_optimizer)
+    _step(swapped_recognition_optimizer)
+
+    with pytest.raises(ValueError, match="same-root"):
+        capture_h6_checkpoint_v3(
+            attempt_spec=attempt,
+            cursor=cursor,
+            objective_manifest=objective,
+            runtime_identity=runtime,
+            named_modules=modules,
+            named_optimizers=(
+                ("model", swapped_model_optimizer),
+                ("recognition", swapped_recognition_optimizer),
+            ),
+        )
 
 
 def test_resume_rejects_runtime_or_determinism_drift() -> None:

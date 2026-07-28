@@ -27,6 +27,7 @@ from vfe4.types.h6_prediction_v3 import (
     H6PredictionRuntimeIdentity,
     H6_CHECKPOINT_CODEC_SHA256,
     H6_DETERMINISTIC_POLICY_SHA256,
+    H6_NO_COUNTER_CONSUMPTION_SHA256,
 )
 
 
@@ -436,6 +437,13 @@ class H6AdamWRecordV3:
             if type(group) is not H6AdamWGroupV3:
                 raise ValueError("AdamW group record has the wrong type")
             group.__post_init__()
+            if any(
+                parameter_name.split(".", 1)[0] != self.name
+                for parameter_name in group.parameter_names
+            ):
+                raise ValueError(
+                    "AdamW optimizer may bind only same-root parameters"
+                )
             parameter_names.extend(group.parameter_names)
         _validate_unique_names(
             tuple(parameter_names),
@@ -552,6 +560,17 @@ class H6CheckpointV3:
             != self.attempt_spec.recognition_estimator_sha256
         ):
             raise ValueError("checkpoint records do not bind one exact attempt")
+        is_cross_entropy = self.attempt_spec.objective_kind == "cross_entropy"
+        if is_cross_entropy and (
+            self.cursor.draw_block != 0
+            or self.cursor.counter_consumption_sha256
+            != H6_NO_COUNTER_CONSUMPTION_SHA256
+            or self.objective_manifest.counter_consumption_sha256
+            != H6_NO_COUNTER_CONSUMPTION_SHA256
+        ):
+            raise ValueError(
+                "cross-entropy checkpoint requires zero counter consumption"
+            )
         if (
             self.objective_manifest.counter_consumption_sha256
             != self.cursor.counter_consumption_sha256
@@ -567,7 +586,6 @@ class H6CheckpointV3:
             ),
             TrainingPhase.MODEL_ADAMW: TrainingPhase.RECOGNITION_ADAMW,
         }[self.cursor.next_phase]
-        is_cross_entropy = self.attempt_spec.objective_kind == "cross_entropy"
         if (
             self.objective_manifest.phase is not expected_objective_phase
             or is_cross_entropy
@@ -611,6 +629,23 @@ class H6CheckpointV3:
             optimizer.__post_init__()
             optimizer_tensor_names.extend(
                 tensor.name for state in optimizer.states for tensor in state.tensors
+            )
+        module_roots = tuple(
+            sorted({module_name.split(".", 1)[0] for module_name in module_names})
+        )
+        attempt_has_recognition = (
+            self.attempt_spec.recognition_factory_sha256 is not None
+        )
+        if attempt_has_recognition == is_cross_entropy:
+            raise ValueError("checkpoint objective/recognition topology is invalid")
+        expected_roots = (
+            ("model", "recognition")
+            if attempt_has_recognition
+            else ("model",)
+        )
+        if module_roots != expected_roots or optimizer_names != expected_roots:
+            raise ValueError(
+                "checkpoint module/optimizer root inventory is invalid"
             )
         _validate_unique_names(
             tuple(module_names + optimizer_tensor_names),

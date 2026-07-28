@@ -39,6 +39,7 @@ from vfe4.training.matching import (
     capacity_candidate_count,
     dense_matmul_flops,
     dense_matvec_flops,
+    endpoint_formula_profile,
     immutable_snapshot_flop_term,
     l2_clip_scale_flops,
     log_softmax_flops,
@@ -165,7 +166,7 @@ def _no_latent_config() -> ArmConfig:
         recognition_conditioning="absent",
         prior_variant="absent",
         mixture_mode="absent",
-        objective_kind="complete_elbo",
+        objective_kind="cross_entropy",
         capacity_allocation=_allocation(latent=False),
     )
 
@@ -203,7 +204,10 @@ def test_candidate_search_is_lazy_bounded_and_lexicographic() -> None:
     a3 = _config(ArmId.A3, emission_width=48)
     no_latent = _no_latent_config()
     matching_config = _matching_config()
+    no_latent_profile = endpoint_formula_profile(no_latent.config_id)
 
+    assert no_latent_profile.objective_kind == no_latent.objective_kind
+    assert no_latent.objective_kind == "cross_entropy"
     assert (
         A5_REFERENCE_ALLOCATION.emission_width,
         A5_REFERENCE_ALLOCATION.latent_width,

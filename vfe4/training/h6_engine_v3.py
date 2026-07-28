@@ -13,7 +13,10 @@ import torch
 from torch import Tensor, nn
 
 from vfe4.types.h6 import TrainingPhase, canonical_json_bytes
-from vfe4.types.h6_prediction_v3 import H6AttemptCursorV3
+from vfe4.types.h6_prediction_v3 import (
+    H6AttemptCursorV3,
+    H6_NO_COUNTER_CONSUMPTION_SHA256,
+)
 
 from .matching import H6_ADAMW_POLICY
 
@@ -1506,11 +1509,20 @@ def _validate_start_cursor(
             != expected_delta
         ):
             raise ValueError("cursor update counts would replay or skip a latent phase")
-    elif (
-        cursor.next_phase is not TrainingPhase.MODEL_CE_ADAMW
-        or cursor.recognition_update_count != 0
-    ):
-        raise ValueError("no-latent endpoint requires the single CE/NLL phase")
+    else:
+        if (
+            cursor.next_phase is not TrainingPhase.MODEL_CE_ADAMW
+            or cursor.recognition_update_count != 0
+        ):
+            raise ValueError("no-latent endpoint requires the single CE/NLL phase")
+        if (
+            cursor.draw_block != 0
+            or cursor.counter_consumption_sha256
+            != H6_NO_COUNTER_CONSUMPTION_SHA256
+        ):
+            raise ValueError(
+                "no-latent CE requires zero counter consumption"
+            )
 
 
 def _resume_histories(
@@ -1828,12 +1840,12 @@ def run_h6_training_batch_v3(
                 active_optimizer=model_optimizer,
                 inactive_optimizer=None,
             )
-            noise, noise_sha256 = _noise_for_phase(
-                noise_factory,
-                phase=phase,
-                cursor=current,
-                consumed=consumed_noise,
-            )
+            noise = torch.empty(
+                (0,),
+                dtype=torch.float64,
+                device="cpu",
+            ).detach()
+            noise_sha256 = H6_NO_COUNTER_CONSUMPTION_SHA256
             objective = _objective_for_phase(
                 objective_forward,
                 authority=authority,
@@ -1855,8 +1867,6 @@ def run_h6_training_batch_v3(
             current = _advanced_cursor(
                 current,
                 next_phase=TrainingPhase.MODEL_CE_ADAMW,
-                counter_consumption_sha256=noise_sha256,
-                draw_block_delta=1,
                 model_update_delta=1,
                 batch_delta=1,
             )
@@ -2116,6 +2126,7 @@ __all__ = [
     "H6LiveRecognitionStateV3",
     "H6LiveObjectiveTermV3",
     "H6MetricRecordV3",
+    "H6_NO_COUNTER_CONSUMPTION_SHA256",
     "H6PhaseObjectiveV3",
     "H6PhaseRecordV3",
     "H6TrainingBatchResultV3",

@@ -9,21 +9,32 @@ outcomes are not part of its interface.
 from __future__ import annotations
 
 import hashlib
+import math
+import struct
 from dataclasses import dataclass
 from typing import Literal
 
-from vfe4.types.h6 import ArmConfig, H6ArmPhaseSchedule, canonical_json_bytes
+from vfe4.data.windows import frozen_batch_schedule
+from vfe4.types.h6 import (
+    ArmConfig,
+    H6ArmPhaseSchedule,
+    TrainingPhase,
+    canonical_json_bytes,
+)
 from vfe4.types.h6_prediction_v3 import (
     H6AttemptSpecV3,
     H6PredictionRuntimeIdentity,
     H6PredictionV3ReadinessToken,
     H6TrainingScheduleV3,
+    H6_COUNTER_MAPPING_SHA256,
+    H6_NO_COUNTER_CONSUMPTION_SHA256,
 )
 
 from .h6_matching_v3 import (
     H6_MATCHING_POLICY_V3,
     H6_MATCHING_V3_ENDPOINT_CONFIG_IDS,
     H6MatchingSetV3,
+    H6TrainingWorkloadV3,
 )
 
 
@@ -43,6 +54,10 @@ H6_TUNED_ENDPOINT_CONFIG_IDS_V3 = (
 )
 
 _LOWER_HEX = frozenset("0123456789abcdef")
+_TRAINING_NORMAL_DOMAIN = b"vfe4.h6.training-rmc-normal.v1\x00"
+_TRAINING_COUNTER_CONSUMPTION_DOMAIN = (
+    b"vfe4.h6.training-counter-consumption.v1\x00"
+)
 
 
 def _hash(domain: str, payload: object) -> str:
@@ -59,6 +74,70 @@ def _require_sha256(value: object, name: str) -> str:
     ):
         raise ValueError(f"{name} must be a lowercase SHA-256 digest")
     return value
+
+
+def _terminal_counter_identity(
+    *,
+    attempt_spec_sha256: str,
+    pass_index: int,
+    batch_index: int,
+    example_ordinal: int,
+    draw_block: int,
+    receiver_count: int,
+    latent_dimension: int,
+) -> tuple[str, str]:
+    """Purely reconstruct the last latent model-phase counter consumption."""
+
+    key_payload = {
+        "attempt_spec_sha256": attempt_spec_sha256,
+        "pass_index": pass_index,
+        "batch_index": batch_index,
+        "phase": TrainingPhase.MODEL_ADAMW.value,
+        "example_ordinal": example_ordinal,
+        "sample_ordinal": 0,
+        "draw_block": draw_block,
+    }
+    key_bytes = canonical_json_bytes(key_payload)
+    key_sha256 = hashlib.sha256(
+        _TRAINING_NORMAL_DOMAIN + key_bytes
+    ).hexdigest()
+    values: list[float] = []
+    count = receiver_count * latent_dimension
+    for pair_index in range((count + 1) // 2):
+        uniforms: list[float] = []
+        for draw_index in (2 * pair_index, 2 * pair_index + 1):
+            block_index, word_index = divmod(draw_index, 4)
+            digest = hashlib.sha256(
+                _TRAINING_NORMAL_DOMAIN
+                + key_bytes
+                + block_index.to_bytes(8, "little")
+            ).digest()
+            offset = 8 * word_index
+            word = int.from_bytes(
+                digest[offset : offset + 8],
+                "little",
+            )
+            uniform = (float(word) + 0.5) / float(2**64)
+            if uniform <= 0.0:
+                uniform = math.nextafter(0.0, 1.0)
+            elif uniform >= 1.0:
+                uniform = math.nextafter(1.0, 0.0)
+            uniforms.append(uniform)
+        radius = math.sqrt(-2.0 * math.log(uniforms[0]))
+        angle = 2.0 * math.pi * uniforms[1]
+        values.append(radius * math.cos(angle))
+        if len(values) < count:
+            values.append(radius * math.sin(angle))
+    raw_bytes = b"".join(struct.pack("<d", value) for value in values)
+    consumption_sha256 = hashlib.sha256(
+        _TRAINING_COUNTER_CONSUMPTION_DOMAIN
+        + bytes.fromhex(H6_COUNTER_MAPPING_SHA256)
+        + bytes.fromhex(key_sha256)
+        + receiver_count.to_bytes(8, "little")
+        + latent_dimension.to_bytes(8, "little")
+        + raw_bytes
+    ).hexdigest()
+    return key_sha256, consumption_sha256
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +192,18 @@ class H6PlannedAttemptV3:
     tuning_cell: H6TuningCellV3 | None
     tuning_cell_source: str
     training_seed: int
+    terminal_pass_index: int
+    terminal_batch_index: int
+    terminal_example_ordinal: int
+    terminal_draw_block: int
+    terminal_counter_key_sha256: str | None
+    terminal_counter_consumption_sha256: str
+    consumed_permutation_sha256s: tuple[str, ...]
+    terminal_permutation_sha256: str
+    terminal_recognition_update_count: int
+    terminal_model_update_count: int
+    terminal_validation_boundary_count: int
+    terminal_checkpoint_boundary_count: int
     attempt_spec: H6AttemptSpecV3
     planned_attempt_sha256: str
 
@@ -133,6 +224,32 @@ class H6PlannedAttemptV3:
             ),
             "tuning_cell_source": self.tuning_cell_source,
             "training_seed": self.training_seed,
+            "terminal_pass_index": self.terminal_pass_index,
+            "terminal_batch_index": self.terminal_batch_index,
+            "terminal_example_ordinal": self.terminal_example_ordinal,
+            "terminal_draw_block": self.terminal_draw_block,
+            "terminal_counter_key_sha256": (
+                self.terminal_counter_key_sha256
+            ),
+            "terminal_counter_consumption_sha256": (
+                self.terminal_counter_consumption_sha256
+            ),
+            "consumed_permutation_sha256s": (
+                self.consumed_permutation_sha256s
+            ),
+            "terminal_permutation_sha256": (
+                self.terminal_permutation_sha256
+            ),
+            "terminal_recognition_update_count": (
+                self.terminal_recognition_update_count
+            ),
+            "terminal_model_update_count": self.terminal_model_update_count,
+            "terminal_validation_boundary_count": (
+                self.terminal_validation_boundary_count
+            ),
+            "terminal_checkpoint_boundary_count": (
+                self.terminal_checkpoint_boundary_count
+            ),
             "attempt_spec_sha256": self.attempt_spec.attempt_spec_sha256,
         }
 
@@ -155,6 +272,63 @@ class H6PlannedAttemptV3:
             or type(self.model_categorical_enabled) is not bool
         ):
             raise ValueError("planned attempt categorical topology is malformed")
+        for name in (
+            "terminal_pass_index",
+            "terminal_batch_index",
+            "terminal_example_ordinal",
+            "terminal_draw_block",
+            "terminal_recognition_update_count",
+            "terminal_model_update_count",
+            "terminal_validation_boundary_count",
+            "terminal_checkpoint_boundary_count",
+        ):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{name} must be a nonnegative integer")
+        _require_sha256(
+            self.terminal_counter_consumption_sha256,
+            "terminal_counter_consumption_sha256",
+        )
+        _require_sha256(
+            self.terminal_permutation_sha256,
+            "terminal_permutation_sha256",
+        )
+        if self.terminal_counter_key_sha256 is not None:
+            _require_sha256(
+                self.terminal_counter_key_sha256,
+                "terminal_counter_key_sha256",
+            )
+        expected_permutation_count = 1 if self.stage == "tuning" else 2
+        if (
+            type(self.consumed_permutation_sha256s) is not tuple
+            or len(self.consumed_permutation_sha256s)
+            != expected_permutation_count
+            or len(set(self.consumed_permutation_sha256s))
+            != expected_permutation_count
+            or self.terminal_permutation_sha256
+            != self.consumed_permutation_sha256s[-1]
+        ):
+            raise ValueError(
+                "planned terminal permutation inventory is inconsistent"
+            )
+        for digest in self.consumed_permutation_sha256s:
+            _require_sha256(digest, "consumed permutation SHA-256")
+        if (
+            self.terminal_example_ordinal != 0
+            or self.terminal_model_update_count <= 0
+            or self.terminal_validation_boundary_count <= 0
+            or self.terminal_checkpoint_boundary_count != 1
+            or (
+                self.attempt_spec.recognition_factory_sha256 is None
+                and self.terminal_recognition_update_count != 0
+            )
+            or (
+                self.attempt_spec.recognition_factory_sha256 is not None
+                and self.terminal_recognition_update_count
+                != self.terminal_model_update_count
+            )
+        ):
+            raise ValueError("planned terminal cursor contract is inconsistent")
         if (
             type(self.matching_report_sha256s) is not tuple
             or not self.matching_report_sha256s
@@ -169,6 +343,28 @@ class H6PlannedAttemptV3:
         if type(self.attempt_spec) is not H6AttemptSpecV3:
             raise ValueError("planned attempt requires an exact v3 attempt spec")
         self.attempt_spec.__post_init__()
+        latent = self.attempt_spec.recognition_factory_sha256 is not None
+        if (
+            latent
+            and (
+                self.terminal_draw_block
+                != 2 * self.terminal_model_update_count
+                or self.terminal_counter_key_sha256 is None
+                or self.terminal_counter_consumption_sha256
+                == H6_NO_COUNTER_CONSUMPTION_SHA256
+            )
+        ) or (
+            not latent
+            and (
+                self.terminal_draw_block != 0
+                or self.terminal_counter_key_sha256 is not None
+                or self.terminal_counter_consumption_sha256
+                != H6_NO_COUNTER_CONSUMPTION_SHA256
+            )
+        ):
+            raise ValueError(
+                "planned terminal counter-consumption contract is inconsistent"
+            )
         if (
             self.attempt_spec.endpoint_id != self.endpoint_config_id
             or self.attempt_spec.endpoint_config_sha256 != self.endpoint_config_sha256
@@ -293,6 +489,17 @@ def _factory_sha256(config: ArmConfig, *, recognition: bool) -> str | None:
     )
 
 
+def model_factory_sha256_v3(config: ArmConfig) -> str:
+    """Return the canonical model-only factory identity for one endpoint."""
+
+    if type(config) is not ArmConfig:
+        raise ValueError("model factory identity requires an exact ArmConfig")
+    config.__post_init__()
+    digest = _factory_sha256(config, recognition=False)
+    assert digest is not None
+    return digest
+
+
 def _attempt(
     *,
     stage: Literal["tuning", "confirmatory"],
@@ -308,8 +515,10 @@ def _attempt(
     readiness: H6PredictionV3ReadinessToken,
     schedule: H6TrainingScheduleV3,
     runtime: H6PredictionRuntimeIdentity,
-    workload_sha256: str,
+    workload: H6TrainingWorkloadV3,
 ) -> H6PlannedAttemptV3:
+    workload.__post_init__()
+    workload_sha256 = workload.workload_sha256
     initialization_sha256 = _hash(
         "vfe4.h6.canonical-initialization-plan.v3",
         {
@@ -343,7 +552,7 @@ def _attempt(
         arm_id=config.arm.value,
         endpoint_config_sha256=config.config_sha256,
         objective_kind=config.objective_kind,
-        model_factory_sha256=_factory_sha256(config, recognition=False),
+        model_factory_sha256=model_factory_sha256_v3(config),
         recognition_factory_sha256=_factory_sha256(config, recognition=True),
         initialization_sha256=initialization_sha256,
         optimizer_policy_sha256=schedule.outer.optimizer_policy_sha256,
@@ -356,6 +565,60 @@ def _attempt(
         recognition_estimator_sha256=readiness.recognition_estimator_sha256,
         runtime_identity_sha256=runtime.runtime_identity_sha256,
     )
+    if stage == "tuning":
+        terminal_batches = (workload.batches_per_pass + 3) // 4
+        terminal_pass_index = 0
+        terminal_batch_index = terminal_batches
+        consumed_pass_indices = (0,)
+        final_consumed_batch_index = terminal_batches - 1
+        terminal_model_updates = terminal_batches
+        terminal_validation_boundaries = sum(
+            boundary <= terminal_batches
+            for boundary in workload.validation_boundaries_per_pass
+        )
+    else:
+        terminal_pass_index = workload.full_passes
+        terminal_batch_index = 0
+        consumed_pass_indices = tuple(range(workload.full_passes))
+        final_consumed_batch_index = workload.batches_per_pass - 1
+        terminal_model_updates = workload.model_update_opportunities
+        terminal_validation_boundaries = (
+            workload.full_passes
+            * len(workload.validation_boundaries_per_pass)
+        )
+    consumed_permutation_sha256s = tuple(
+        frozen_batch_schedule(
+            window_count=workload.window_count,
+            zero_based_pass_index=pass_index,
+        ).schedule_sha256
+        for pass_index in consumed_pass_indices
+    )
+    terminal_example_ordinal = 0
+    if config.latent_enabled:
+        latent_dimension = config.capacity_allocation.latent_width
+        if type(latent_dimension) is not int or latent_dimension <= 0:
+            raise ValueError(
+                "latent terminal counter plan requires a positive latent width"
+            )
+        terminal_draw_block = 2 * terminal_model_updates
+        (
+            terminal_counter_key_sha256,
+            terminal_counter_consumption_sha256,
+        ) = _terminal_counter_identity(
+            attempt_spec_sha256=spec.attempt_spec_sha256,
+            pass_index=consumed_pass_indices[-1],
+            batch_index=final_consumed_batch_index,
+            example_ordinal=terminal_example_ordinal,
+            draw_block=terminal_draw_block - 1,
+            receiver_count=config.horizon + 1,
+            latent_dimension=latent_dimension,
+        )
+    else:
+        terminal_draw_block = 0
+        terminal_counter_key_sha256 = None
+        terminal_counter_consumption_sha256 = (
+            H6_NO_COUNTER_CONSUMPTION_SHA256
+        )
     values = {
         "stage": stage,
         "endpoint_config_id": config.config_id,
@@ -374,6 +637,28 @@ def _attempt(
         "tuning_cell": cell,
         "tuning_cell_source": tuning_cell_source,
         "training_seed": seed,
+        "terminal_pass_index": terminal_pass_index,
+        "terminal_batch_index": terminal_batch_index,
+        "terminal_example_ordinal": terminal_example_ordinal,
+        "terminal_draw_block": terminal_draw_block,
+        "terminal_counter_key_sha256": terminal_counter_key_sha256,
+        "terminal_counter_consumption_sha256": (
+            terminal_counter_consumption_sha256
+        ),
+        "consumed_permutation_sha256s": (
+            consumed_permutation_sha256s
+        ),
+        "terminal_permutation_sha256": (
+            consumed_permutation_sha256s[-1]
+        ),
+        "terminal_recognition_update_count": (
+            terminal_model_updates if config.latent_enabled else 0
+        ),
+        "terminal_model_update_count": terminal_model_updates,
+        "terminal_validation_boundary_count": (
+            terminal_validation_boundaries
+        ),
+        "terminal_checkpoint_boundary_count": 1,
         "attempt_spec": spec,
     }
     provisional = object.__new__(H6PlannedAttemptV3)
@@ -475,7 +760,7 @@ def plan_h6_experiment_v3(
             readiness=readiness,
             schedule=training_schedule,
             runtime=runtime_identity,
-            workload_sha256=matching_set.workload_sha256,
+            workload=matching_set.workload,
         )
         for config_id in H6_TUNED_ENDPOINT_CONFIG_IDS_V3
         for cell in cells
@@ -500,7 +785,7 @@ def plan_h6_experiment_v3(
             readiness=readiness,
             schedule=training_schedule,
             runtime=runtime_identity,
-            workload_sha256=matching_set.workload_sha256,
+            workload=matching_set.workload,
         )
         for config in matching_set.endpoint_configs
         for seed in H6_CONFIRMATORY_SEEDS_V3
@@ -544,5 +829,6 @@ __all__ = [
     "H6ExperimentPlanV3",
     "H6PlannedAttemptV3",
     "H6TuningCellV3",
+    "model_factory_sha256_v3",
     "plan_h6_experiment_v3",
 ]

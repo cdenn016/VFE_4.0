@@ -17,7 +17,10 @@ from vfe4.training.h6_engine_v3 import (
 )
 from vfe4.training.matching import H6_ADAMW_POLICY
 from vfe4.types.h6 import TrainingPhase
-from vfe4.types.h6_prediction_v3 import H6AttemptCursorV3
+from vfe4.types.h6_prediction_v3 import (
+    H6AttemptCursorV3,
+    H6_NO_COUNTER_CONSUMPTION_SHA256,
+)
 
 
 def _sha(character: str) -> str:
@@ -77,7 +80,11 @@ def _cursor(authority: H6EngineAuthorityV3) -> H6AttemptCursorV3:
         ),
         example_ordinal=0,
         draw_block=0,
-        counter_consumption_sha256=_sha("7"),
+        counter_consumption_sha256=(
+            _sha("7")
+            if authority.latent_enabled
+            else H6_NO_COUNTER_CONSUMPTION_SHA256
+        ),
         permutation_sha256=_sha("8"),
     )
 
@@ -339,7 +346,22 @@ def test_a0_no_latent_has_one_ce_nll_model_phase() -> None:
 
     def objective(**values: object) -> H6PhaseObjectiveV3:
         phase = values["phase"]
+        noise = values["noise"]
+        noise_sha256 = values["noise_sha256"]
+        cursor = values["cursor"]
         assert isinstance(phase, TrainingPhase)
+        assert isinstance(noise, torch.Tensor)
+        assert noise.shape == (0,)
+        assert noise.dtype is torch.float64
+        assert noise.device.type == "cpu"
+        assert not noise.requires_grad
+        assert noise_sha256 == H6_NO_COUNTER_CONSUMPTION_SHA256
+        assert isinstance(cursor, H6AttemptCursorV3)
+        assert cursor.draw_block == 0
+        assert (
+            cursor.counter_consumption_sha256
+            == H6_NO_COUNTER_CONSUMPTION_SHA256
+        )
         calls.append(phase)
         term = H6LiveObjectiveTermV3.create(
             partition="emission",
@@ -357,16 +379,85 @@ def test_a0_no_latent_has_one_ce_nll_model_phase() -> None:
         recognition_optimizer=None,
         recognition_forward=None,
         objective_forward=objective,
-        noise_factory=lambda phase, cursor: (
-            torch.ones(1, dtype=torch.float64),
-            _sha("9"),
+        noise_factory=lambda phase, cursor: pytest.fail(
+            "no-latent CE must not call noise_factory"
         ),
     )
 
     assert calls == [TrainingPhase.MODEL_CE_ADAMW]
+    assert tuple(record.is_elbo for record in result.phase_records) == (False,)
+    assert result.phase_records[0].noise_sha256 == (
+        H6_NO_COUNTER_CONSUMPTION_SHA256
+    )
+    assert result.cursor.draw_block == 0
+    assert (
+        result.cursor.counter_consumption_sha256
+        == H6_NO_COUNTER_CONSUMPTION_SHA256
+    )
     assert result.model_update_count == 1
     assert result.recognition_update_count == 0
     assert result.snapshot is None
+
+
+@pytest.mark.parametrize(
+    ("draw_block", "counter_consumption_sha256"),
+    (
+        (1, H6_NO_COUNTER_CONSUMPTION_SHA256),
+        (0, _sha("7")),
+    ),
+)
+def test_no_latent_ce_rejects_counter_consumption(
+    draw_block: int,
+    counter_consumption_sha256: str,
+) -> None:
+    authority = _authority(
+        objective_kind="cross_entropy",
+        latent_enabled=False,
+        state_categorical_enabled=False,
+    )
+    cursor = H6AttemptCursorV3.create(
+        attempt_spec_sha256=authority.attempt_spec_sha256,
+        pass_index=0,
+        batch_index=0,
+        next_phase=TrainingPhase.MODEL_CE_ADAMW,
+        example_ordinal=0,
+        draw_block=draw_block,
+        counter_consumption_sha256=counter_consumption_sha256,
+        permutation_sha256=_sha("8"),
+    )
+    model = _ScalarModule(0.25)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=0.1, weight_decay=0.0, foreach=False, fused=False
+    )
+
+    with pytest.raises(ValueError, match="zero counter consumption"):
+        run_h6_training_batch_v3(
+            authority=authority,
+            cursor=cursor,
+            model=model,
+            recognition=None,
+            model_optimizer=optimizer,
+            recognition_optimizer=None,
+            recognition_forward=None,
+            objective_forward=lambda **values: pytest.fail(
+                "invalid no-latent cursor reached objective"
+            ),
+            noise_factory=lambda phase, current: pytest.fail(
+                "invalid no-latent cursor reached noise factory"
+            ),
+        )
+
+
+def test_complete_elbo_without_recognition_is_rejected() -> None:
+    with pytest.raises(
+        ValueError,
+        match="objective kind and latent endpoint disagree",
+    ):
+        _authority(
+            objective_kind="complete_elbo",
+            latent_enabled=False,
+            state_categorical_enabled=False,
+        )
 
 
 def test_tiny_cpu_resume_matches_uninterrupted_terminal_bytes() -> None:

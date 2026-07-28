@@ -24,7 +24,7 @@ from vfe4.types.h6 import (
 
 from .byte_tokenizer import ByteTokenizerV1
 from .windows import CausalWindows, build_causal_windows, frozen_batch_schedule
-from .wikitext2 import BlindedCorpusStore
+from .wikitext2 import AuthenticatedReopenedDataIdentity, BlindedCorpusStore
 
 
 class OpeningCapabilityError(RuntimeError):
@@ -96,8 +96,12 @@ def _build_access_api():
     marker_domain = b"VFE4-H6-TEST-OPENING-MARKER-V1\x00"
     issuer_authority = object()
     validated_authority = object()
+    validation_v3_authority = object()
     registry_lock = threading.RLock()
     registry: dict[int, tuple[weakref.ReferenceType[BlindedCorpusStore], object]] = {}
+    validation_v3_registry: weakref.WeakKeyDictionary[object, object] = (
+        weakref.WeakKeyDictionary()
+    )
 
     source_file = Path(__file__).resolve(strict=True)
     production_anchor = source_file.parents[2]
@@ -186,6 +190,41 @@ def _build_access_api():
 
         def __repr__(self) -> str:
             return "<opaque H6 validated test opening>"
+
+    class ValidationCapabilityV3:
+        __slots__ = ("__weakref__",)
+
+        def __init__(self, authority: object) -> None:
+            if authority is not validation_v3_authority:
+                raise TypeError("v3 validation capabilities are access-issued only")
+
+        def __copy__(self):
+            raise TypeError("v3 validation capabilities cannot be copied")
+
+        def __deepcopy__(self, memo):
+            del memo
+            raise TypeError("v3 validation capabilities cannot be copied")
+
+        def __reduce__(self):
+            raise TypeError("v3 validation capabilities cannot be serialized")
+
+        def __reduce_ex__(self, protocol):
+            del protocol
+            raise TypeError("v3 validation capabilities cannot be serialized")
+
+        def __repr__(self) -> str:
+            return "<opaque H6 v3 validation capability>"
+
+    @dataclass(frozen=True)
+    class AuthorizedValidationV3:
+        windows: CausalWindows
+        vocabulary: object
+        readiness_sha256: str
+        experiment_config_sha256: str
+        plan_sha256: str
+        matching_set_sha256: str
+        data_identity_sha256: str
+        runtime_identity_sha256: str
 
     def _is_redirect(path: Path, path_stat: os.stat_result) -> bool:
         if stat.S_ISLNK(path_stat.st_mode):
@@ -481,6 +520,119 @@ def _build_access_api():
             train,
             validation,
         )
+
+    def _issue_validation_v3(
+        store: BlindedCorpusStore,
+        readiness: object,
+        plan: object,
+    ) -> object:
+        from vfe4.training.h6_experiment_v3 import H6ExperimentPlanV3
+        from vfe4.types.h6_prediction_v3 import H6PredictionV3ReadinessToken
+
+        state = _state_for(store)
+        if (
+            state.marker_mode != "production"
+            or type(store.data_identity) is not AuthenticatedReopenedDataIdentity
+        ):
+            raise OpeningCapabilityError(
+                "v3 validation requires authenticated reopened-store provenance"
+            )
+        if type(readiness) is not H6PredictionV3ReadinessToken:
+            raise OpeningCapabilityError(
+                "exact H6 Prediction v3 readiness is required"
+            )
+        if type(plan) is not H6ExperimentPlanV3:
+            raise OpeningCapabilityError("exact H6 experiment plan v3 is required")
+        try:
+            readiness.__post_init__()
+            plan.__post_init__()
+        except ValueError as exc:
+            raise OpeningCapabilityError(
+                "v3 validation authority failed validation"
+            ) from exc
+        data_identity = store.data_identity
+        if (
+            readiness.status != "PASS"
+            or readiness.data_identity_sha256 != store.data_identity_sha256
+            or readiness.access_policy_sha256
+            != data_identity.access_policy_sha256
+            or plan.readiness_sha256 != readiness.readiness_sha256
+            or plan.experiment_config_sha256
+            != readiness.experiment_config_sha256
+            or plan.matching_set_sha256 != readiness.matching_set_sha256
+            or plan.matching_policy_sha256
+            != readiness.matching_policy_sha256
+            or plan.git_head != readiness.git_head
+            or plan.dirty_digest != readiness.dirty_digest
+            or plan.training_schedule.schedule_sha256
+            != readiness.training_schedule_sha256
+            or plan.training_schedule.runtime_identity_sha256
+            != readiness.runtime_identity_sha256
+            or any(
+                attempt.attempt_spec.data_identity_sha256
+                != store.data_identity_sha256
+                for attempt in plan.attempts
+            )
+        ):
+            raise OpeningCapabilityError(
+                "v3 validation store/readiness/plan authority drift"
+            )
+        windows = _read_split(store, state, "validation")
+        vocabulary = ByteTokenizerV1().vocabulary_identity
+        if any(
+            config.vocabulary != vocabulary for config in plan.endpoint_configs
+        ):
+            raise OpeningCapabilityError(
+                "v3 plan vocabulary does not match the authenticated store"
+            )
+        capability = ValidationCapabilityV3(validation_v3_authority)
+        with registry_lock:
+            validation_v3_registry[capability] = AuthorizedValidationV3(
+                windows=windows,
+                vocabulary=vocabulary,
+                readiness_sha256=readiness.readiness_sha256,
+                experiment_config_sha256=readiness.experiment_config_sha256,
+                plan_sha256=plan.plan_sha256,
+                matching_set_sha256=readiness.matching_set_sha256,
+                data_identity_sha256=store.data_identity_sha256,
+                runtime_identity_sha256=readiness.runtime_identity_sha256,
+            )
+        return capability
+
+    def _consume_validation_v3(
+        capability: object,
+        *,
+        plan: object,
+    ) -> object:
+        from vfe4.training.h6_experiment_v3 import H6ExperimentPlanV3
+
+        if type(capability) is not ValidationCapabilityV3:
+            raise OpeningCapabilityError(
+                "exact access-issued v3 validation capability is required"
+            )
+        if type(plan) is not H6ExperimentPlanV3:
+            raise OpeningCapabilityError("exact H6 experiment plan v3 is required")
+        try:
+            plan.__post_init__()
+        except ValueError as exc:
+            raise OpeningCapabilityError("v3 validation plan is stale") from exc
+        with registry_lock:
+            authorized = validation_v3_registry.get(capability)
+        if type(authorized) is not AuthorizedValidationV3:
+            raise OpeningCapabilityError(
+                "v3 validation capability is forged or expired"
+            )
+        if (
+            authorized.plan_sha256 != plan.plan_sha256
+            or authorized.experiment_config_sha256
+            != plan.experiment_config_sha256
+            or authorized.readiness_sha256 != plan.readiness_sha256
+            or authorized.matching_set_sha256 != plan.matching_set_sha256
+            or authorized.runtime_identity_sha256
+            != plan.training_schedule.runtime_identity_sha256
+        ):
+            raise OpeningCapabilityError("v3 validation capability authority drift")
+        return authorized
 
     def _create_child_directory(parent: Path, name: str) -> Path:
         child = parent / name
@@ -799,6 +951,8 @@ def _build_access_api():
         _register_reopened,
         _validation_fixture,
         _materialize_train,
+        _issue_validation_v3,
+        _consume_validation_v3,
         _issue,
         _validate,
         _open_test,
@@ -813,6 +967,8 @@ def _build_access_api():
     _register_reopened_blinded_store_v3,
     materialize_validation_safety_fixture,
     materialize_prediction_train,
+    issue_h6_validation_capability_v3,
+    _consume_h6_validation_capability_v3,
     reserve_and_issue_durable_test_opening_capability,
     validate_durable_test_opening_capability,
     open_test_for_scoring,
@@ -827,6 +983,7 @@ __all__ = [
     "OpeningCapabilityError",
     "materialize_prediction_train",
     "materialize_validation_safety_fixture",
+    "issue_h6_validation_capability_v3",
     "open_test_for_scoring",
     "open_test_for_scoring_with_receipt",
     "reserve_and_issue_durable_test_opening_capability",

@@ -509,7 +509,7 @@ def test_predictors_are_target_free_and_state_identities_are_rebuilt(
             recognition_conditioning="absent",
             prior_variant="absent",
             mixture_mode="absent",
-            objective_kind="complete_elbo",
+            objective_kind="cross_entropy",
             capacity_allocation=CapacityAllocation.create(
                 emission_width=48,
                 latent_width=None,
@@ -517,6 +517,7 @@ def test_predictors_are_target_free_and_state_identities_are_rebuilt(
             ),
         )
     )
+    assert no_latent.config.objective_kind == "cross_entropy"
     assert no_latent.recognition_store is None
     assert {row.phase for row in no_latent.parameter_roles} == {
         TrainingPhase.MODEL_CE_ADAMW.value

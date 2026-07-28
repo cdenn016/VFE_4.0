@@ -6,12 +6,17 @@ from typing import TypeVar
 
 import pytest
 
+from vfe4.data.windows import frozen_batch_schedule
 from vfe4.training.h6_engine_v3 import H6EngineAuthorityV3
 from vfe4.training.h6_experiment_v3 import (
     H6_CONFIRMATORY_SEEDS_V3,
     H6_TUNING_CELLS_V3,
     H6_TUNING_SEEDS_V3,
     plan_h6_experiment_v3,
+)
+from vfe4.training.h6_noise_v3 import (
+    H6TrainingCounterKeyV3,
+    training_normal_tensor_v3,
 )
 from vfe4.training.h6_matching_v3 import (
     H6_MATCHING_POLICY_V3,
@@ -35,6 +40,7 @@ from vfe4.types.h6 import (
 )
 from vfe4.types.h6_prediction_v3 import (
     H6_COUNTER_MAPPING_SHA256,
+    H6_NO_COUNTER_CONSUMPTION_SHA256,
     H6_OBJECTIVE_MANIFEST_SCHEMA_SHA256,
     H6_PHASE_OWNERSHIP_SHA256,
     H6PredictionRuntimeIdentity,
@@ -272,6 +278,117 @@ def test_plan_v3_emits_exact_endpoint_attempt_and_schedule_inventory() -> None:
     assert all(attempt.matching_report_sha256s for attempt in plan.attempts)
     with pytest.raises(dataclasses.FrozenInstanceError):
         plan.tuning_attempts = ()  # type: ignore[misc]
+
+
+def test_plan_v3_derives_exact_latent_terminal_counter_and_permutations() -> None:
+    matching, schedule, readiness, runtime = _authorities()
+    plan = plan_h6_experiment_v3(
+        readiness=readiness,
+        matching_set=matching,
+        training_schedule=schedule,
+        runtime_identity=runtime,
+    )
+    batches_per_pass = matching.workload.batches_per_pass
+    quarter_batches = (batches_per_pass + 3) // 4
+    permutation_p0 = frozen_batch_schedule(
+        window_count=matching.workload.window_count,
+        zero_based_pass_index=0,
+    ).schedule_sha256
+    permutation_p1 = frozen_batch_schedule(
+        window_count=matching.workload.window_count,
+        zero_based_pass_index=1,
+    ).schedule_sha256
+    configs = {config.config_id: config for config in plan.endpoint_configs}
+    latent_attempts = (
+        next(
+            attempt
+            for attempt in plan.tuning_attempts
+            if attempt.attempt_spec.recognition_factory_sha256 is not None
+        ),
+        next(
+            attempt
+            for attempt in plan.confirmatory_attempts
+            if attempt.attempt_spec.recognition_factory_sha256 is not None
+        ),
+    )
+
+    for attempt in latent_attempts:
+        if attempt.stage == "tuning":
+            final_pass = 0
+            final_batch = quarter_batches - 1
+            final_draw = 2 * quarter_batches
+            expected_permutations = (permutation_p0,)
+        else:
+            final_pass = 1
+            final_batch = batches_per_pass - 1
+            final_draw = 4 * batches_per_pass
+            expected_permutations = (permutation_p0, permutation_p1)
+        key = H6TrainingCounterKeyV3(
+            attempt_spec_sha256=attempt.attempt_spec.attempt_spec_sha256,
+            pass_index=final_pass,
+            batch_index=final_batch,
+            phase=TrainingPhase.MODEL_ADAMW,
+            example_ordinal=0,
+            sample_ordinal=0,
+            draw_block=final_draw - 1,
+        )
+        latent_width = configs[
+            attempt.endpoint_config_id
+        ].capacity_allocation.latent_width
+        assert latent_width is not None
+        _, expected_consumption = training_normal_tensor_v3(
+            key,
+            receiver_count=attempt.receiver_count,
+            latent_dimension=latent_width,
+            device="cpu",
+        )
+
+        assert attempt.terminal_draw_block == final_draw
+        assert attempt.terminal_counter_key_sha256 == key.key_sha256
+        assert (
+            attempt.terminal_counter_consumption_sha256
+            == expected_consumption
+        )
+        assert (
+            attempt.consumed_permutation_sha256s
+            == expected_permutations
+        )
+        assert (
+            attempt.terminal_permutation_sha256
+            == expected_permutations[-1]
+        )
+    no_latent_attempts = (
+        next(
+            attempt
+            for attempt in plan.tuning_attempts
+            if attempt.attempt_spec.recognition_factory_sha256 is None
+        ),
+        next(
+            attempt
+            for attempt in plan.confirmatory_attempts
+            if attempt.attempt_spec.recognition_factory_sha256 is None
+        ),
+    )
+    for attempt in no_latent_attempts:
+        expected_permutations = (
+            (permutation_p0,)
+            if attempt.stage == "tuning"
+            else (permutation_p0, permutation_p1)
+        )
+        assert attempt.terminal_draw_block == 0
+        assert attempt.terminal_counter_key_sha256 is None
+        assert (
+            attempt.terminal_counter_consumption_sha256
+            == H6_NO_COUNTER_CONSUMPTION_SHA256
+        )
+        assert (
+            attempt.consumed_permutation_sha256s
+            == expected_permutations
+        )
+        assert (
+            attempt.terminal_permutation_sha256
+            == expected_permutations[-1]
+        )
 
 
 def test_plan_v3_has_no_corpus_or_outcome_input_and_refuses_identity_drift() -> None:

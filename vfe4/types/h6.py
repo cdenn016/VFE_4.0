@@ -408,7 +408,7 @@ _H6_ARM_PROFILE_BY_CONFIG_ID = {
     ),
     "h6-a5-structured-fixed-exact-complete-nolatent-norecognition-v1": (
         ArmId.A5, False, False, False, "absent", "absent", "absent",
-        "absent", "absent", "absent", "complete_elbo",
+        "absent", "absent", "absent", "cross_entropy",
     ),
     "h6-a5-structured-fixed-exact-complete-latent-filtering-v1": (
         ArmId.A5, True, True, True, "categorical",

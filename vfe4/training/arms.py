@@ -229,7 +229,7 @@ _A5_PROFILES: dict[str, tuple[object, ...]] = {
         "nolatent-norecognition-v1"
     ): (
         False, False, False, "absent", "absent", "absent", "absent",
-        "absent", "absent", "complete_elbo",
+        "absent", "absent", "cross_entropy",
     ),
 }
 
@@ -1884,7 +1884,13 @@ def _require_builder_arm(config: ArmConfig, arm: ArmId) -> None:
     literal_arm_semantic_payload(config)
 
 
-def _construct(config: ArmConfig) -> BuiltArm:
+def build_arm_model(config: ArmConfig) -> ArmModel:
+    """Construct only the canonical endpoint model, never recognition state."""
+
+    if type(config) is not ArmConfig:
+        raise ValueError("config must be an exact ArmConfig")
+    config.__post_init__()
+    literal_arm_semantic_payload(config)
     allocation = config.capacity_allocation
     family_sha256 = _model_family_sha256(config)
     if config.arm is ArmId.A0:
@@ -1916,35 +1922,41 @@ def _construct(config: ArmConfig) -> BuiltArm:
                 "H6 A0 production config must use V=258, horizon 32, "
                 "and hidden width 52"
             )
-        model: ArmModel = H6CausalTransformer(
+        return H6CausalTransformer(
             vocabulary=config.vocabulary,
             profile=profile,
         )
-        recognition_store = None
-    elif not config.latent_enabled:
-        model = MeanPooledPrefixFloor(
+    if not config.latent_enabled:
+        return MeanPooledPrefixFloor(
             vocabulary=config.vocabulary,
             emission_width=allocation.emission_width,
         )
+    if allocation.latent_width is None:
+        raise ValueError("latent arm requires latent_width")
+    return LatentLanguageArmModel(
+        arm=config.arm,
+        vocabulary=config.vocabulary,
+        horizon=config.horizon,
+        emission_width=allocation.emission_width,
+        latent_width=allocation.latent_width,
+        state_channel_enabled=config.state_channel_enabled,
+        model_channel_enabled=config.model_channel_enabled,
+        source_mode=config.source_mode,
+        map_mode=config.map_mode,
+        prior_variant=config.prior_variant,
+        prior_context_width=allocation.prior_context_width,
+        predictor_config_sha256=config.config_sha256,
+        model_family_sha256=family_sha256,
+    )
+
+
+def _construct(config: ArmConfig) -> BuiltArm:
+    allocation = config.capacity_allocation
+    family_sha256 = _model_family_sha256(config)
+    model = build_arm_model(config)
+    if config.arm is ArmId.A0 or not config.latent_enabled:
         recognition_store = None
     else:
-        if allocation.latent_width is None:
-            raise ValueError("latent arm requires latent_width")
-        model = LatentLanguageArmModel(
-            arm=config.arm,
-            vocabulary=config.vocabulary,
-            horizon=config.horizon,
-            emission_width=allocation.emission_width,
-            latent_width=allocation.latent_width,
-            state_channel_enabled=config.state_channel_enabled,
-            model_channel_enabled=config.model_channel_enabled,
-            source_mode=config.source_mode,
-            map_mode=config.map_mode,
-            prior_variant=config.prior_variant,
-            prior_context_width=allocation.prior_context_width,
-            predictor_config_sha256=config.config_sha256,
-            model_family_sha256=family_sha256,
-        )
         if (
             allocation.recognition_width is None
             or config.recognition_family == "absent"
@@ -2056,6 +2068,7 @@ __all__ = [
     "build_a4",
     "build_a5",
     "build_arm",
+    "build_arm_model",
     "literal_arm_semantic_payload",
     "shared_a2_a5_semantic_payload",
 ]

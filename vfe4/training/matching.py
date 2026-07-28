@@ -548,7 +548,7 @@ _ENDPOINT_PROFILE_FIELDS: dict[str, tuple[object, ...]] = {
         "nolatent-norecognition-v1"
     ): (
         "A5", False, 0, "absent", "absent", "absent", "absent",
-        "absent", "absent", "complete_elbo",
+        "absent", "absent", "cross_entropy",
     ),
     "h6-a5-structured-fixed-exact-complete-latent-filtering-v1": (
         "A5", True, 2, "categorical", "shared_vertex_coboundary",

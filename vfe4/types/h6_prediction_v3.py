@@ -93,6 +93,13 @@ H6_COUNTER_MAPPING_SHA256 = _owned_hash(
         "sample_ordinal": 0,
     },
 )
+H6_NO_COUNTER_CONSUMPTION_SHA256 = _owned_hash(
+    "vfe4.h6.no-counter-consumption.v1",
+    {
+        "continuous_noise": "absent",
+        "draw_blocks_consumed": 0,
+    },
+)
 H6_PHASE_OWNERSHIP_SHA256 = _owned_hash(
     "vfe4.h6.phase-ownership.v3",
     {
@@ -955,6 +962,7 @@ __all__ = [
     "H6_COUNTER_MAPPING_SHA256",
     "H6_DETERMINISTIC_POLICY_DESCRIPTOR",
     "H6_DETERMINISTIC_POLICY_SHA256",
+    "H6_NO_COUNTER_CONSUMPTION_SHA256",
     "H6ObjectiveManifestV3",
     "H6_OBJECTIVE_MANIFEST_SCHEMA",
     "H6_OBJECTIVE_MANIFEST_SCHEMA_SHA256",
