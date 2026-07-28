@@ -2884,14 +2884,6 @@ def _run_profiler(torch: Any, np: Any, seed: int) -> dict[str, object]:
     )
     from vfe4.numerics.block_layout import BlockChainLayout
 
-    if (
-        str(torch.__version__).split("+", maxsplit=1)[0]
-        != _PROFILER_TORCH_VERSION
-    ):
-        raise _ProfilerUnavailable(
-            "profiler mode requires exactly "
-            f"torch=={_PROFILER_TORCH_VERSION}"
-        )
     profiler_api = _verify_profiler_pins(torch)
     policy = H8AllocationPolicy(
         BlockChainLayout(
@@ -2976,6 +2968,11 @@ def _run_profiler(torch: Any, np: Any, seed: int) -> dict[str, object]:
 
 
 def _verify_profiler_pins(torch: Any) -> dict[str, object]:
+    if str(torch.__version__) != _PROFILER_TORCH_VERSION:
+        raise _ProfilerUnavailable(
+            "profiler mode requires exactly "
+            f"torch=={_PROFILER_TORCH_VERSION}"
+        )
     torch_root = Path(torch.__file__).resolve().parent
     paths = {
         "memory_profile": torch_root / "profiler" / "_memory_profiler.py",

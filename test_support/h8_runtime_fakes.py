@@ -116,7 +116,7 @@ def make_test_parent_identities() -> dict[str, object]:
             (
                 "blas",
                 {
-                    "torch_version": "2.9.1",
+                    "torch_version": H8_PROFILER_TORCH_VERSION,
                     "numpy_version": "test",
                     "torch_config": "test",
                     "numpy_config": "test",

@@ -1499,6 +1499,78 @@ def _verified_h8_production_attempt_inputs(
     return request, invocation, process_record, decision, payload
 
 
+def test_h8_profiler_pins_reject_full_torch_version_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reject any profiler runtime that is not the exact pinned install."""
+
+    import verification.h8_child as h8_child
+    from verification import h8_wire
+
+    memory_source = b"fixture memory profiler source\n"
+    profiler_source = b"fixture profiler source\n"
+    expected_memory_hash = hashlib.sha256(memory_source).hexdigest()
+    expected_profiler_hash = hashlib.sha256(profiler_source).hexdigest()
+    assert h8_child._PROFILER_TORCH_VERSION == h8_wire.H8_PROFILER_TORCH_VERSION
+    assert (
+        h8_child._PROFILER_MEMORY_SOURCE_SHA256
+        == h8_wire.H8_PROFILER_MEMORY_SOURCE_SHA256
+    )
+    assert h8_child._PROFILER_SOURCE_SHA256 == h8_wire.H8_PROFILER_SOURCE_SHA256
+    assert (
+        h8_child._PROFILER_API_CONTRACT_SHA256
+        == h8_wire.H8_PROFILER_API_CONTRACT_SHA256
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_PROFILER_MEMORY_SOURCE_SHA256",
+        expected_memory_hash,
+    )
+    monkeypatch.setattr(
+        h8_child,
+        "_PROFILER_SOURCE_SHA256",
+        expected_profiler_hash,
+    )
+
+    torch_root = tmp_path / "torch"
+    profiler_root = torch_root / "profiler"
+    profiler_root.mkdir(parents=True)
+    torch_init = torch_root / "__init__.py"
+    memory_path = profiler_root / "_memory_profiler.py"
+    profiler_path = profiler_root / "profiler.py"
+    torch_init.write_bytes(b"fixture torch package\n")
+    memory_path.write_bytes(memory_source)
+    profiler_path.write_bytes(profiler_source)
+    fake_torch = SimpleNamespace(
+        __file__=str(torch_init),
+        __version__=h8_wire.H8_PROFILER_TORCH_VERSION,
+    )
+
+    assert h8_child._verify_profiler_pins(fake_torch) == {
+        "torch_version": h8_wire.H8_PROFILER_TORCH_VERSION,
+        "memory_profile_source_sha256": expected_memory_hash,
+        "profiler_source_sha256": expected_profiler_hash,
+        "api_contract_sha256": h8_wire.H8_PROFILER_API_CONTRACT_SHA256,
+    }
+
+    for version in (
+        h8_wire.H8_PROFILER_TORCH_VERSION.split("+", maxsplit=1)[0],
+        "9.9.9+forged",
+    ):
+        fake_torch.__version__ = version
+        with pytest.raises(h8_child._ProfilerUnavailable, match="exactly"):
+            h8_child._verify_profiler_pins(fake_torch)
+    fake_torch.__version__ = h8_wire.H8_PROFILER_TORCH_VERSION
+
+    for path in (memory_path, profiler_path):
+        original = path.read_bytes()
+        path.write_bytes(original + b"drift\n")
+        with pytest.raises(h8_child._ProfilerUnavailable, match="hash mismatch"):
+            h8_child._verify_profiler_pins(fake_torch)
+        path.write_bytes(original)
+
+
 def test_h8_child_v2_retains_lossless_private_evidence_without_public_schema_drift(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
