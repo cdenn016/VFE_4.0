@@ -1,7 +1,7 @@
 # H8 Installed-Runtime Amendment Design
 
-**Date:** 2026-07-27  
-**Status:** Approved for implementation  
+**Date:** 2026-07-27
+**Status:** Approved for implementation
 **Scope:** H8 profiler reproducibility contract only; no VFE objective, model,
 numerical method, scientific threshold, or workload change.
 
