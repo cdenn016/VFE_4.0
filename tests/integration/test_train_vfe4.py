@@ -125,8 +125,10 @@ def test_launcher_names_exact_resume_plan_and_rejects_old_index_key(
             "resume_experiment_index_path was renamed to "
             "resume_experiment_plan_path"
         ),
-    ):
+    ) as migration:
         launcher._resolve_launcher(legacy)
+    assert "launcher_schema" in str(migration.value)
+    assert "wt103-click-launcher-v2" in str(migration.value)
 
     wrong_basename = copy.deepcopy(config)
     wrong_basename["paths"]["resume_experiment_plan_path"] = str(

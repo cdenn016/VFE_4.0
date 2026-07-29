@@ -72,7 +72,9 @@ discovery, or fallback checkpoint selection, and the terminal
 `experiment-index.json` remains absent until the complete pretest
 attempt inventory is finalized. Launcher schema v2 migration: rename
 `resume_experiment_index_path` to `resume_experiment_plan_path` and point it
-to the experiment's exact `experiment-plan.json`; the legacy key is rejected.
+to the experiment's exact `experiment-plan.json`; copied launcher-v1 configs
+must also set `launcher_schema` to `wt103-click-launcher-v2`, and the legacy
+key is rejected.
 Both operations remain sealed while any capacity-matching or readiness
 obligation is open.
 

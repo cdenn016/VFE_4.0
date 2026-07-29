@@ -214,6 +214,70 @@ def _production_experiment_plan_fixture(training):
     )
 
 
+class _ResumeSourceLockFixture:
+    source_lock_sha256 = "c" * 64
+    finalized_source = SimpleNamespace(record_sha256="d" * 64)
+
+    def __post_init__(self) -> None:
+        return None
+
+
+class _ResumeReadinessBundleFixture:
+    def __init__(self, *, volume_identity: str) -> None:
+        self.durability = SimpleNamespace(volume_identity=volume_identity)
+        self.resource_forecast = SimpleNamespace(
+            power_provider_identity_sha256="e" * 64
+        )
+        self.environment = SimpleNamespace(environment_sha256="f" * 64)
+
+
+class _ResumeReadinessFixture:
+    result_sha256 = "1" * 64
+    readiness_token = SimpleNamespace(
+        finalized_source_record_sha256="d" * 64,
+        token_sha256="2" * 64,
+    )
+
+    def __init__(self, *, status: object, readiness_bundle: object) -> None:
+        self.status = status
+        self.readiness_bundle = readiness_bundle
+
+    def __post_init__(self) -> None:
+        return None
+
+
+def _install_resume_authority_fixtures(
+    monkeypatch: pytest.MonkeyPatch,
+    production_attempt: object,
+    *,
+    volume_identity: str,
+):
+    bundle = _ResumeReadinessBundleFixture(
+        volume_identity=volume_identity,
+    )
+    source_lock = _ResumeSourceLockFixture()
+    readiness = _ResumeReadinessFixture(
+        status=production_attempt.GateStatus.PASS,
+        readiness_bundle=bundle,
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "ProductionSourceLock",
+        _ResumeSourceLockFixture,
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "ProductionReadinessResult",
+        _ResumeReadinessFixture,
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "Task14ReadinessBundle",
+        _ResumeReadinessBundleFixture,
+    )
+    return source_lock, readiness
+
+
 def test_production_reservations_bind_exact_ordered_tuning_key(
     tmp_path: Path,
 ) -> None:
@@ -317,83 +381,39 @@ def test_resume_reopens_declared_plan_ledger_and_sidecar_before_terminal_index(
         experiment_plan_sha256=plan_value.experiment_plan_sha256,
         resource_profile=training.profile.resources,
     )
-    for attempt in (*tuning, *confirmation):
-        ledger = ledger.append(
-            ResourceUsageEvent.create(
-                attempt_id=attempt.attempt_id,
-                segment_ordinal=0,
-                device_seconds=0.001,
-                wall_seconds=0.002,
-                sampled_energy_kwh=0.0,
-                usage_evidence_sha256=hashlib.sha256(
-                    attempt.attempt_id.encode("ascii")
-                ).hexdigest(),
-            )
-        )
     production_attempt._publish_resource_usage_ledger(
         path=experiment_root / "resource-usage-ledger.json",
         ledger=ledger,
         backend=backend,
     )
 
-    sidecar_root = experiment_root / "authenticated-resume-state"
-    sidecar_root.mkdir()
+    original, originally_resumed = (
+        production_attempt._reserve_production_attempt(
+            experiment_root=experiment_root,
+            attempt=tuning[0],
+            plan=plan,
+            readiness=None,
+            backend=backend,
+            mode="train",
+        )
+    )
+    assert originally_resumed is False
     (
         _contract,
-        sidecar_identity,
+        _sidecar_identity,
         _cursor,
-        sidecar_checkpoint,
+        _sidecar_checkpoint,
         sidecar_path,
     ) = _resume_sidecar_fixture(
-        sidecar_root,
+        original.inprogress_path,
         slot=0,
         payload=b"declared-plan-resume-sidecar",
     )
-
-    class _SourceLock:
-        source_lock_sha256 = "c" * 64
-        finalized_source = SimpleNamespace(record_sha256="d" * 64)
-
-        def __post_init__(self) -> None:
-            return None
-
-    class _ReadinessBundle:
-        def __init__(self) -> None:
-            self.durability = SimpleNamespace(
-                volume_identity=plan.durable_file.volume_identity
-            )
-            self.resource_forecast = SimpleNamespace(
-                power_provider_identity_sha256="e" * 64
-            )
-
-    class _Readiness:
-        status = production_attempt.GateStatus.PASS
-        result_sha256 = "1" * 64
-        readiness_token = SimpleNamespace(
-            finalized_source_record_sha256="d" * 64,
-            token_sha256="2" * 64,
-        )
-        readiness_bundle = _ReadinessBundle()
-
-        def __post_init__(self) -> None:
-            return None
-
-    source_lock = _SourceLock()
-    readiness = _Readiness()
-    monkeypatch.setattr(
+    production_attempt.release_run_execution_lease(original)
+    source_lock, readiness = _install_resume_authority_fixtures(
+        monkeypatch,
         production_attempt,
-        "ProductionSourceLock",
-        _SourceLock,
-    )
-    monkeypatch.setattr(
-        production_attempt,
-        "ProductionReadinessResult",
-        _Readiness,
-    )
-    monkeypatch.setattr(
-        production_attempt,
-        "Task14ReadinessBundle",
-        _ReadinessBundle,
+        volume_identity=plan.durable_file.volume_identity,
     )
     monkeypatch.setattr(
         production_attempt,
@@ -440,37 +460,73 @@ def test_resume_reopens_declared_plan_ledger_and_sidecar_before_terminal_index(
         "_reopen_experiment_plan_identity",
         reopen_declared_plan,
     )
-    sidecar_reopened = False
+    reopened_sidecars: list[Path] = []
+    checkpoint_sidecar = production_attempt._checkpoint_sidecar
 
-    def reopen_completed_prefix(
-        *,
-        experiment_root: Path,
-        attempts: tuple[object, ...],
-        training: object,
-        plan: object,
-    ):
-        del experiment_root, training, plan
-        nonlocal sidecar_reopened
-        assert not terminal_index.exists()
-        if not sidecar_reopened:
-            assert production_attempt._reopen_committed_resume_checkpoint(
-                sidecar_path,
-                expected_identity=sidecar_identity,
-            ) == sidecar_checkpoint
-            sidecar_reopened = True
-        return tuple(
-            (
-                attempt,
-                outcome_by_attempt[attempt.attempt_sha256],
-                SimpleNamespace(run_id=attempt.attempt_id),
+    def reopen_checkpoint_sidecar(path: Path):
+        reopened_sidecars.append(path)
+        return checkpoint_sidecar(path)
+
+    monkeypatch.setattr(
+        production_attempt,
+        "_checkpoint_sidecar",
+        reopen_checkpoint_sidecar,
+    )
+    reserve_attempt = production_attempt._reserve_production_attempt
+    real_resume_reservations = 0
+
+    def reserve_or_stub(**kwargs):
+        nonlocal real_resume_reservations
+        attempt = kwargs["attempt"]
+        if attempt.attempt_sha256 == tuning[0].attempt_sha256:
+            real_resume_reservations += 1
+            return reserve_attempt(**kwargs)
+        return SimpleNamespace(attempt_id=attempt.attempt_id), False
+
+    monkeypatch.setattr(
+        production_attempt,
+        "_reserve_production_attempt",
+        reserve_or_stub,
+    )
+
+    def execute_without_training(**kwargs):
+        attempt = kwargs["attempt"]
+        reserved = kwargs["reserved"]
+        resume_active = kwargs["resume_active"]
+        current_ledger = kwargs["ledger"]
+        if attempt.attempt_sha256 == tuning[0].attempt_sha256:
+            assert resume_active is True
+            assert reserved.inprogress_path == original.inprogress_path
+            production_attempt.release_run_execution_lease(reserved)
+        else:
+            assert resume_active is False
+        updated_ledger = current_ledger.append(
+            ResourceUsageEvent.create(
+                attempt_id=attempt.attempt_id,
+                segment_ordinal=0,
+                device_seconds=0.001,
+                wall_seconds=0.002,
+                sampled_energy_kwh=0.0,
+                usage_evidence_sha256=hashlib.sha256(
+                    attempt.attempt_id.encode("ascii")
+                ).hexdigest(),
             )
-            for attempt in attempts
+        )
+        production_attempt._publish_resource_usage_ledger(
+            path=kwargs["ledger_path"],
+            ledger=updated_ledger,
+            backend=kwargs["backend"],
+        )
+        return (
+            outcome_by_attempt[attempt.attempt_sha256],
+            SimpleNamespace(run_id=attempt.attempt_id),
+            updated_ledger,
         )
 
     monkeypatch.setattr(
         production_attempt,
-        "_reopen_completed_attempt_prefix",
-        reopen_completed_prefix,
+        "_execute_reserved_attempt",
+        execute_without_training,
     )
 
     def publish_terminal_index(
@@ -513,8 +569,67 @@ def test_resume_reopens_declared_plan_ledger_and_sidecar_before_terminal_index(
     assert result.status == "COMPLETE"
     assert result.experiment_index_path == str(terminal_index)
     assert reopened_plan_paths == [declared_plan]
-    assert sidecar_reopened is True
+    assert real_resume_reservations == 1
+    assert reopened_sidecars == [sidecar_path]
     assert terminal_index.is_file()
+
+
+def test_resume_rejects_reparse_experiment_ancestor_before_durable_probe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vfe4.training import production_attempt
+
+    raw_training = default_training_config_mapping()
+    raw_training["operation"] = "resume"
+    training = resolve_training_config(raw_training)
+    run_root = tmp_path / "runs"
+    experiment_root = run_root / "declared-experiment"
+    experiment_root.mkdir(parents=True)
+    declared_plan = experiment_root / "experiment-plan.json"
+    declared_plan.write_bytes(b"unopened plan sentinel")
+    source_lock, readiness = _install_resume_authority_fixtures(
+        monkeypatch,
+        production_attempt,
+        volume_identity="test-volume",
+    )
+    original_lstat = Path.lstat
+
+    def lstat_with_reparse_ancestor(path: Path):
+        metadata = original_lstat(path)
+        if path == experiment_root:
+            return SimpleNamespace(
+                st_mode=metadata.st_mode,
+                st_file_attributes=0x400,
+                st_size=metadata.st_size,
+            )
+        return metadata
+
+    monkeypatch.setattr(Path, "lstat", lstat_with_reparse_ancestor)
+    monkeypatch.setattr(
+        production_attempt,
+        "_backend",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("durability probe reached")
+        ),
+    )
+    paths = SimpleNamespace(
+        cache_root=tmp_path / "cache",
+        run_root=run_root,
+        resume_experiment_plan_path=declared_plan,
+    )
+
+    with pytest.raises(
+        production_attempt.ProductionOperationError,
+        match="symlink, junction, or reparse point",
+    ):
+        production_attempt.run_production_attempts(
+            training=training,
+            paths=paths,
+            source_lock=source_lock,
+            readiness=readiness,
+            mode="resume",
+        )
 
 
 def test_production_reopen_recovers_durable_terminal_before_resume_logic(

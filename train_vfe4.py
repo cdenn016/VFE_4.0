@@ -29,6 +29,12 @@ OPERATIONS = (
 )
 SOURCE_LOCK_AUTHORIZATION = "AUTHORIZE_VFE4_WT103_SOURCE_LOCK_V1"
 PRODUCTION_AUTHORIZATION = "AUTHORIZE_VFE4_WT103_PRODUCTION_TRAINING_V1"
+_RESUME_PLAN_MIGRATION_MESSAGE = (
+    "resume_experiment_index_path was renamed to "
+    "resume_experiment_plan_path; copied launcher-v1 configs must also set "
+    "launcher_schema to wt103-click-launcher-v2 and point the path to the "
+    "exact experiment-plan.json"
+)
 _REPO_ROOT = Path(__file__).resolve().parent
 
 
@@ -832,11 +838,7 @@ def _same_or_ancestor(left: Path, right: Path) -> bool:
 def _resolve_paths(value: object) -> _LauncherPaths:
     raw = _mapping(value, "CONFIG.paths")
     if "resume_experiment_index_path" in raw:
-        raise TrainingLaunchError(
-            "resume_experiment_index_path was renamed to "
-            "resume_experiment_plan_path; point it to the exact "
-            "experiment-plan.json"
-        )
+        raise TrainingLaunchError(_RESUME_PLAN_MIGRATION_MESSAGE)
     expected = {
         "cache_root",
         "run_root",
@@ -921,11 +923,7 @@ def _resolve_launcher(
         raise TrainingLaunchError("CONFIG has unknown or missing root keys")
     path_mapping = _mapping(raw["paths"], "CONFIG.paths")
     if "resume_experiment_index_path" in path_mapping:
-        raise TrainingLaunchError(
-            "resume_experiment_index_path was renamed to "
-            "resume_experiment_plan_path; point it to the exact "
-            "experiment-plan.json"
-        )
+        raise TrainingLaunchError(_RESUME_PLAN_MIGRATION_MESSAGE)
     if raw["launcher_schema"] != "wt103-click-launcher-v2":
         raise TrainingLaunchError("CONFIG launcher_schema is unsupported")
     try:

@@ -1261,6 +1261,92 @@ def _assert_resource_headroom(ledger: ResourceUsageLedger) -> None:
         )
 
 
+def _require_nonreparse_path_chain(
+    path: Path,
+    *,
+    name: str,
+    final_kind: Literal["directory", "file"],
+) -> None:
+    if (
+        not isinstance(path, Path)
+        or not path.is_absolute()
+        or ".." in path.parts
+        or Path(os.path.abspath(path)) != path
+    ):
+        raise ProductionOperationError(
+            f"{name} must be an absolute normalized path"
+        )
+    current = Path(path.anchor)
+    components = [current]
+    for part in path.parts[1:]:
+        current = current / part
+        components.append(current)
+    for index, component in enumerate(components):
+        try:
+            metadata = component.lstat()
+            is_junction = getattr(component, "is_junction", None)
+            junction = bool(
+                is_junction is not None and is_junction()
+            )
+        except OSError as exc:
+            raise ProductionOperationError(
+                f"{name} component metadata is unavailable: {component}"
+            ) from exc
+        reparse = bool(
+            getattr(metadata, "st_file_attributes", 0) & 0x400
+        )
+        if stat.S_ISLNK(metadata.st_mode) or reparse or junction:
+            raise ProductionOperationError(
+                f"{name} cannot traverse a symlink, junction, or "
+                f"reparse point: {component}"
+            )
+        final = index == len(components) - 1
+        expected_directory = not final or final_kind == "directory"
+        if expected_directory and not stat.S_ISDIR(metadata.st_mode):
+            raise ProductionOperationError(
+                f"{name} component is not a regular directory: {component}"
+            )
+        if (
+            final
+            and final_kind == "file"
+            and not stat.S_ISREG(metadata.st_mode)
+        ):
+            raise ProductionOperationError(
+                f"{name} is not a regular file: {component}"
+            )
+
+
+def _validate_resume_state_boundary(
+    *,
+    run_root: Path,
+    experiment_root: Path,
+    declared_plan: Path,
+) -> None:
+    if (
+        declared_plan.name != _PLAN_NAME
+        or declared_plan.parent != experiment_root
+        or experiment_root.parent != run_root
+    ):
+        raise ProductionOperationError(
+            "resume authority is outside the exact experiment root"
+        )
+    _require_nonreparse_path_chain(
+        run_root,
+        name="resume run_root",
+        final_kind="directory",
+    )
+    _require_nonreparse_path_chain(
+        experiment_root,
+        name="resume experiment_root",
+        final_kind="directory",
+    )
+    _require_nonreparse_path_chain(
+        declared_plan,
+        name="resume experiment-plan authority",
+        final_kind="file",
+    )
+
+
 def _regular_bytes(path: Path, *, maximum_bytes: int) -> bytes:
     try:
         metadata = path.lstat()
@@ -4892,8 +4978,22 @@ def run_production_attempts(
         raise ProductionOperationError(
             "production attempt paths are malformed"
         )
-    run_root.mkdir(parents=True, exist_ok=True)
+    if mode == "resume":
+        experiment_root = declared_plan.parent
+        _validate_resume_state_boundary(
+            run_root=run_root,
+            experiment_root=experiment_root,
+            declared_plan=declared_plan,
+        )
+    else:
+        run_root.mkdir(parents=True, exist_ok=True)
     backend = _backend()
+    if mode == "resume":
+        _validate_resume_state_boundary(
+            run_root=run_root,
+            experiment_root=experiment_root,
+            declared_plan=declared_plan,
+        )
     if backend.probe(run_root).status != "pass":
         raise ProductionOperationError(
             "production run-root durability probe failed"
@@ -4927,7 +5027,6 @@ def run_production_attempts(
             raise ProductionOperationError(
                 "resume path must name the exact experiment-plan.json"
             )
-        experiment_root = declared_plan.parent
         if (
             experiment_root.name != expected_plan.experiment_id
             or experiment_root.absolute().parent
@@ -4936,6 +5035,11 @@ def run_production_attempts(
             raise ProductionOperationError(
                 "resume plan is outside the exact experiment root"
             )
+        _validate_resume_state_boundary(
+            run_root=run_root,
+            experiment_root=experiment_root,
+            declared_plan=declared_plan,
+        )
         plan = _reopen_experiment_plan_identity(
             plan_path=declared_plan,
             expected_plan=expected_plan,
@@ -4986,6 +5090,12 @@ def run_production_attempts(
         raise ProductionOperationError(
             "tuning attempt inventory differs from the immutable plan"
         )
+    if mode == "resume":
+        _validate_resume_state_boundary(
+            run_root=run_root,
+            experiment_root=experiment_root,
+            declared_plan=declared_plan,
+        )
     completed_tuning = list(
         _reopen_completed_attempt_prefix(
             experiment_root=experiment_root,
@@ -5000,6 +5110,12 @@ def run_production_attempts(
         allow_extension=(len(completed_tuning) == len(tuning)),
     )
     for attempt in tuning[len(completed_tuning) :]:
+        if mode == "resume":
+            _validate_resume_state_boundary(
+                run_root=run_root,
+                experiment_root=experiment_root,
+                declared_plan=declared_plan,
+            )
         reserved, resume_active = _reserve_production_attempt(
             experiment_root=experiment_root,
             attempt=attempt,
@@ -5051,6 +5167,12 @@ def run_production_attempts(
         raise ProductionOperationError(
             "confirmation inventory differs from the immutable plan"
         )
+    if mode == "resume":
+        _validate_resume_state_boundary(
+            run_root=run_root,
+            experiment_root=experiment_root,
+            declared_plan=declared_plan,
+        )
     completed_confirmation = list(
         _reopen_completed_attempt_prefix(
             experiment_root=experiment_root,
@@ -5062,6 +5184,12 @@ def run_production_attempts(
     completed_all = [*completed_tuning, *completed_confirmation]
     _require_resource_event_prefix(ledger, tuple(completed_all))
     for attempt in confirmation[len(completed_confirmation) :]:
+        if mode == "resume":
+            _validate_resume_state_boundary(
+                run_root=run_root,
+                experiment_root=experiment_root,
+                declared_plan=declared_plan,
+            )
         reserved, resume_active = _reserve_production_attempt(
             experiment_root=experiment_root,
             attempt=attempt,
@@ -5097,6 +5225,12 @@ def run_production_attempts(
     if len(run_manifests) != len(tuning) + len(confirmation):
         raise ProductionOperationError(
             "successful manifest inventory is incomplete"
+        )
+    if mode == "resume":
+        _validate_resume_state_boundary(
+            run_root=run_root,
+            experiment_root=experiment_root,
+            declared_plan=declared_plan,
         )
     experiment_index = publish_experiment_index(
         experiment_root,
