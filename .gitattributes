@@ -7,6 +7,7 @@ vfe4/validation/fixtures/h7_scalar_density_probes_v1.json -text
 vfe4/validation/fixtures/h1_prefix_prior_v1.json -text
 vfe4/validation/fixtures/h3_coupled_v1.json -text
 vfe4/validation/fixtures/h3_zero_control_v1.json -text
+vfe4/validation/fixtures/h6_validation_perturbations_v1.json -text
 verification/fixtures/h6_linear_gaussian_t32_d16_v1.json -text
 verification/fixtures/h6_smc_finite_*.json -text
 verification/fixtures/h6_critical_values_v1.json -text
