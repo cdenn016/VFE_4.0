@@ -79,6 +79,79 @@ def test_renderer_requires_complete_durability_backend(tmp_path: Path) -> None:
         )
 
 
+def test_figure_root_rejects_symlink_junction_or_reparse_before_probe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import generate_vfe4_figures as launcher
+
+    experiment_root = tmp_path / "redirected-experiment"
+    experiment_root.mkdir()
+    figure_root = experiment_root / "figures"
+    original_is_junction = getattr(Path, "is_junction", None)
+
+    def is_junction(path: Path) -> bool:
+        return path == experiment_root or bool(
+            original_is_junction is not None
+            and original_is_junction(path)
+        )
+
+    monkeypatch.setattr(Path, "is_junction", is_junction, raising=False)
+    mkdir_calls: list[Path] = []
+    original_mkdir = Path.mkdir
+
+    def record_mkdir(path: Path, *args: object, **kwargs: object) -> None:
+        if path == figure_root:
+            mkdir_calls.append(path)
+        original_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", record_mkdir)
+    with pytest.raises(FigureInputError, match="symlink|junction|reparse"):
+        render_figure_set(
+            inputs=finalized_figure_inputs(),
+            figure_root=figure_root,
+            durability_backend=FilesystemFigureBackend(),
+        )
+
+    events: list[str] = []
+
+    class ProbeBackend:
+        def probe(self, path: Path) -> None:
+            events.append(f"probe:{path}")
+
+    config = copy.deepcopy(launcher.CONFIG)
+    config["operation"] = "render"
+    config["run_group_manifest_path"] = str(
+        experiment_root / "experiment-index.json"
+    )
+    config["figure_root"] = str(figure_root)
+    monkeypatch.setattr(
+        launcher,
+        "_explicit_existing_index",
+        lambda _value: experiment_root / "experiment-index.json",
+    )
+    monkeypatch.setattr(
+        launcher,
+        "load_figure_inputs",
+        lambda **_kwargs: events.append("load"),
+    )
+    monkeypatch.setattr(
+        launcher,
+        "_platform_backend",
+        lambda: ProbeBackend(),
+    )
+    monkeypatch.setattr(
+        launcher,
+        "render_figure_set",
+        lambda **_kwargs: events.append("render"),
+    )
+    with pytest.raises(FigureInputError, match="symlink|junction|reparse"):
+        launcher.main(config)
+
+    assert mkdir_calls == []
+    assert events == []
+
+
 def test_format_preflight_runs_before_experiment_index_access(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

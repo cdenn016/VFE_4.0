@@ -20,6 +20,7 @@ from vfe4.figures import (
     load_figure_inputs,
     preflight_figure_output_formats,
     render_figure_set,
+    validate_figure_output_root,
 )
 from vfe4.types.figures import WT103_FIGURE_PROVENANCE
 
@@ -97,6 +98,7 @@ def main(
         resolved.figure_root,
         experiment_root=index_path.parent,
     )
+    validate_figure_output_root(figure_root)
     inputs = load_figure_inputs(
         run_group_manifest_path=index_path,
         inventory=WT103_FIGURE_PROVENANCE.endpoint_inventory,

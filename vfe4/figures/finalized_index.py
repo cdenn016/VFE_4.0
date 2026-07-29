@@ -1229,7 +1229,6 @@ def validate_finalized_run_manifest(
                 "checkpoint artifact differs from its checkpoint identity"
             )
         checkpoint_paths.add(alias)
-        _verify_artifact_record(run_path, record)
     artifact_paths = tuple(
         item.relative_path for item in artifact_records
     )
@@ -1318,7 +1317,7 @@ def validate_finalized_experiment_index(
     *,
     endpoint_inventory: EndpointInventory,
 ) -> ValidatedFinalExperimentIndex:
-    """Validate a finalized index and every immutable referenced byte."""
+    """Validate index identities and figure-authoritative artifact bytes."""
 
     if not isinstance(index_path, Path):
         raise ReadOnlyFigureIndexError(

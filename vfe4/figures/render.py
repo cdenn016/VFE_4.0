@@ -7,6 +7,8 @@ import dataclasses
 import hashlib
 import io
 import math
+import os
+import stat
 import statistics
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,6 +69,51 @@ class RenderedFigureSet:
     manifest_path: Path
     index_path: Path
     manifest: FigureSetManifest
+
+
+def _is_redirect_or_reparse(path: Path, status: os.stat_result) -> bool:
+    if stat.S_ISLNK(status.st_mode):
+        return True
+    reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if bool(getattr(status, "st_file_attributes", 0) & reparse):
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
+def validate_figure_output_root(figure_root: Path) -> Path:
+    """Reject redirected existing output-root components before publication."""
+
+    if not isinstance(figure_root, Path):
+        raise FigureInputError("figure_root must be pathlib.Path")
+    current = figure_root
+    while True:
+        try:
+            status = current.lstat()
+        except FileNotFoundError:
+            parent = current.parent
+            if parent == current:
+                raise FigureInputError(
+                    "figure output root has no inspectable anchor"
+                )
+            current = parent
+            continue
+        except OSError as exc:
+            raise FigureInputError(
+                f"figure output root metadata is unavailable: {current}"
+            ) from exc
+        if (
+            not stat.S_ISDIR(status.st_mode)
+            or _is_redirect_or_reparse(current, status)
+        ):
+            raise FigureInputError(
+                "figure output root contains a symlink, junction, or "
+                f"reparse component: {current}"
+            )
+        parent = current.parent
+        if parent == current:
+            return figure_root
+        current = parent
 
 
 def preflight_figure_output_formats(
@@ -576,8 +623,7 @@ def render_figure_set(
 
     if type(inputs) is not LoadedFigureInputs:
         raise FigureInputError("inputs must be exact LoadedFigureInputs")
-    if not isinstance(figure_root, Path):
-        raise FigureInputError("figure_root must be pathlib.Path")
+    validate_figure_output_root(figure_root)
     if "v3_transformer" in str(figure_root).casefold():
         raise FigureInputError("figure output cannot target a V3 path")
     if not callable(getattr(durability_backend, "create_exclusive", None)):
@@ -665,4 +711,5 @@ __all__ = [
     "RenderedFigureSet",
     "preflight_figure_output_formats",
     "render_figure_set",
+    "validate_figure_output_root",
 ]

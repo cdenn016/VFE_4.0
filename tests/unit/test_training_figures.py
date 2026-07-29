@@ -644,3 +644,60 @@ def test_loader_requires_exact_40_confirmation_index_and_csv_bytes(
             inventory=training.endpoint_inventory,
             specs=inputs.specs,
         )
+
+
+def test_figure_loader_never_opens_checkpoint_or_data_payloads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import vfe4.figures.finalized_index as finalized_index
+
+    training = resolve_training_config(default_training_config_mapping())
+    index_path = build_finalized_figure_experiment(
+        tmp_path / "experiment"
+    )
+    checkpoint_paths = tuple(
+        index_path.parent.glob("runs/**/terminal-scoring.pt")
+    )
+    assert len(checkpoint_paths) == 40
+    for path in checkpoint_paths:
+        path.unlink()
+
+    observed_hash_paths: list[Path] = []
+    real_hash_regular_file = finalized_index._hash_regular_file
+
+    def record_hash(path: Path, expected_size: int) -> str:
+        observed_hash_paths.append(path)
+        return real_hash_regular_file(path, expected_size)
+
+    monkeypatch.setattr(
+        finalized_index,
+        "_hash_regular_file",
+        record_hash,
+    )
+    specs = resolve_figure_config(
+        default_figure_config_mapping(training.endpoint_inventory)
+    ).specs
+    inputs = load_figure_inputs(
+        run_group_manifest_path=index_path,
+        inventory=training.endpoint_inventory,
+        specs=specs,
+    )
+
+    assert len(inputs.metric_sources) == 40
+    assert observed_hash_paths
+    assert not any(
+        path.name == "terminal-scoring.pt"
+        or "checkpoint" in path.as_posix().casefold()
+        or "data" in path.as_posix().casefold()
+        for path in observed_hash_paths
+    )
+
+    first_csv = index_path.parent / inputs.metric_sources[0].metrics_csv_path
+    first_csv.write_bytes(first_csv.read_bytes() + b"tampered\n")
+    with pytest.raises(FigureInputError, match="final experiment index"):
+        load_figure_inputs(
+            run_group_manifest_path=index_path,
+            inventory=training.endpoint_inventory,
+            specs=specs,
+        )

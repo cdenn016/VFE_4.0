@@ -24,6 +24,7 @@ from .render import (
     RenderedFigureSet,
     preflight_figure_output_formats,
     render_figure_set,
+    validate_figure_output_root,
 )
 from .spec import (
     FigureExperimentIndexIdentity,
@@ -77,5 +78,6 @@ __all__ = [
     "plot_update_acceptance",
     "preflight_figure_output_formats",
     "render_figure_set",
+    "validate_figure_output_root",
     "validate_figure_registry",
 ]
