@@ -1981,7 +1981,16 @@ def _validate_probe_action(
     x = pair.x.value()
     x_prime = pair.x_prime.value()
     expected_prime = component_action @ x
-    if not torch.equal(x_prime, expected_prime):
+    action_residual = float(torch.max(torch.abs(x_prime - expected_prime)).item())
+    action_scale = max(
+        1.0,
+        float(torch.max(torch.abs(x_prime)).item()),
+        float(torch.max(torch.abs(expected_prime)).item()),
+    )
+    if (
+        not math.isfinite(action_residual)
+        or action_residual > 2.0e-14 * action_scale
+    ):
         raise ValueError(
             "density x_prime is not the declared action on the same anchor"
         )
