@@ -1421,7 +1421,7 @@ def test_h8_h7_revalidation_rejects_scalar_and_precision_mutations(
 @pytest.mark.parametrize(
     ("status", "obligations", "inventory_sha256"),
     (
-        ("INCONCLUSIVE", ("calibration pending",), "4" * 64),
+        ("INCONCLUSIVE", (), "4" * 64),
         ("EVIDENCE_VERIFIED", ("unexpected obligation",), "4" * 64),
         ("EVIDENCE_VERIFIED", (), None),
     ),
