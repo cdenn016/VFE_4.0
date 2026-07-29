@@ -138,6 +138,21 @@ _H7_OBJECTIVE_LOCAL_TERM_IDS = (
     "state_transition_kl[2]",
     "joint_recognition_entropy",
 )
+H7_GROUPED_EMISSION_TERM_IDS = (
+    "expected_log_emission[1]",
+    "expected_log_emission[2]",
+)
+H7_GROUPED_POSITIVE_KL_TERM_IDS = (
+    "K0_joint_z0_m0",
+    "model_source_kl[1]",
+    "state_source_kl[1]",
+    "model_transition_kl[1]",
+    "state_transition_kl[1]",
+    "model_source_kl[2]",
+    "state_source_kl[2]",
+    "model_transition_kl[2]",
+    "state_transition_kl[2]",
+)
 
 H7_SCALAR_TRIAL_IDS: tuple[H7TrialId, H7TrialId] = (
     "scalar-base-transformed",
@@ -4064,6 +4079,227 @@ class H7IndependentH1EvidenceRecord(_H7IntegrityRecord):
             "producer_identity_sha256",
         ):
             _require_sha256(getattr(self, name), name)
+        super().__post_init__()
+
+
+@dataclass(frozen=True)
+class H7GroupedElboTermRecord(_H7IntegrityRecord):
+    """One complete-law-derived term in the separate grouped H7 ELBO."""
+
+    _integrity_field: ClassVar[str] = "term_sha256"
+    _hash_domain: ClassVar[str] = "vfe4.h7.grouped-elbo-term.v1"
+
+    term_id: str
+    semantics: Literal["expected_log_emission", "positive_kl_q_to_p"]
+    elbo_sign: Literal[-1, 1]
+    original_value: float
+    transformed_value: float
+    original_complete_law_operand_sha256s: tuple[str, ...]
+    transformed_complete_law_operand_sha256s: tuple[str, ...]
+    covariance_residual: float
+    term_sha256: str
+
+    def __post_init__(self) -> None:
+        expected_semantics: Literal[
+            "expected_log_emission", "positive_kl_q_to_p"
+        ]
+        expected_sign: Literal[-1, 1]
+        if self.term_id in H7_GROUPED_EMISSION_TERM_IDS:
+            expected_semantics = "expected_log_emission"
+            expected_sign = 1
+        elif self.term_id in H7_GROUPED_POSITIVE_KL_TERM_IDS:
+            expected_semantics = "positive_kl_q_to_p"
+            expected_sign = -1
+        else:
+            raise ValueError("grouped ELBO term_id is outside the exact inventory")
+        if (
+            self.semantics != expected_semantics
+            or type(self.elbo_sign) is not int
+            or self.elbo_sign != expected_sign
+        ):
+            raise ValueError(
+                "grouped ELBO term semantics and sign must match its term_id"
+            )
+        if (
+            self.semantics == "positive_kl_q_to_p"
+            and (self.original_value < 0.0 or self.transformed_value < 0.0)
+        ):
+            raise ValueError("positive grouped KL values must be nonnegative")
+        for name in (
+            "original_complete_law_operand_sha256s",
+            "transformed_complete_law_operand_sha256s",
+        ):
+            values = getattr(self, name)
+            if (
+                type(values) is not tuple
+                or not values
+                or len(set(values)) != len(values)
+            ):
+                raise ValueError(
+                    "grouped ELBO complete-law operand inventories must be "
+                    "nonempty and unique"
+                )
+            for value in values:
+                _require_sha256(value, name)
+        if (
+            type(self.covariance_residual) is not float
+            or self.covariance_residual < 0.0
+            or self.covariance_residual
+            != abs(self.transformed_value - self.original_value)
+        ):
+            raise ValueError(
+                "grouped ELBO covariance residual must be recomputed"
+            )
+        super().__post_init__()
+
+
+@dataclass(frozen=True)
+class H7NonadditiveEntropyDiagnostic(_H7IntegrityRecord):
+    """Recognition entropy retained as a diagnostic, never a grouped term."""
+
+    _integrity_field: ClassVar[str] = "diagnostic_sha256"
+    _hash_domain: ClassVar[str] = (
+        "vfe4.h7.grouped-elbo-nonadditive-entropy.v1"
+    )
+
+    original_entropy: float
+    transformed_entropy: float
+    additive_in_grouped_elbo: Literal[False]
+    covariance_residual: float
+    diagnostic_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.additive_in_grouped_elbo is not False:
+            raise ValueError(
+                "recognition entropy is nonadditive in the grouped ELBO"
+            )
+        if (
+            type(self.covariance_residual) is not float
+            or self.covariance_residual < 0.0
+            or self.covariance_residual
+            != abs(self.transformed_entropy - self.original_entropy)
+        ):
+            raise ValueError(
+                "entropy covariance residual must be recomputed"
+            )
+        super().__post_init__()
+
+
+@dataclass(frozen=True)
+class H7GroupedElboRecord(_H7IntegrityRecord):
+    """Strict law-derived ``E[log p(x|z)] - KL(q||p)`` H7 view."""
+
+    _integrity_field: ClassVar[str] = "grouped_elbo_sha256"
+    _hash_domain: ClassVar[str] = "vfe4.h7.grouped-elbo.v1"
+
+    representation: Literal["expected_emission_minus_positive_kl_v1"]
+    law_pair_sha256: str
+    original_raw_factor_trace_sha256: str
+    transformed_raw_factor_trace_sha256: str
+    original_raw_factor_ids: tuple[str, ...]
+    transformed_raw_factor_ids: tuple[str, ...]
+    emission_terms: tuple[H7GroupedElboTermRecord, ...]
+    positive_kl_terms: tuple[H7GroupedElboTermRecord, ...]
+    entropy_diagnostic: H7NonadditiveEntropyDiagnostic
+    original_raw_total: float
+    transformed_raw_total: float
+    original_grouped_total: float
+    transformed_grouped_total: float
+    original_raw_grouped_equality_residual: float
+    transformed_raw_grouped_equality_residual: float
+    grouped_elbo_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.representation != "expected_emission_minus_positive_kl_v1":
+            raise ValueError("unsupported grouped ELBO representation")
+        for name in (
+            "law_pair_sha256",
+            "original_raw_factor_trace_sha256",
+            "transformed_raw_factor_trace_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        for name in (
+            "original_raw_factor_ids",
+            "transformed_raw_factor_ids",
+        ):
+            values = getattr(self, name)
+            if (
+                type(values) is not tuple
+                or len(values) != 13
+                or len(set(values)) != 13
+            ):
+                raise ValueError(
+                    "grouped ELBO raw factor inventory must contain 13 "
+                    "unique identities"
+                )
+            for value in values:
+                _require_sha256(value, name)
+        if (
+            type(self.emission_terms) is not tuple
+            or any(
+                type(term) is not H7GroupedElboTermRecord
+                for term in self.emission_terms
+            )
+            or tuple(term.term_id for term in self.emission_terms)
+            != H7_GROUPED_EMISSION_TERM_IDS
+            or type(self.positive_kl_terms) is not tuple
+            or any(
+                type(term) is not H7GroupedElboTermRecord
+                for term in self.positive_kl_terms
+            )
+            or tuple(term.term_id for term in self.positive_kl_terms)
+            != H7_GROUPED_POSITIVE_KL_TERM_IDS
+        ):
+            raise ValueError("grouped ELBO term inventory is not exact")
+        if type(self.entropy_diagnostic) is not H7NonadditiveEntropyDiagnostic:
+            raise ValueError(
+                "grouped ELBO requires an exact nonadditive entropy diagnostic"
+            )
+        self.entropy_diagnostic.__post_init__()
+        grouped_terms = (*self.emission_terms, *self.positive_kl_terms)
+        for term in grouped_terms:
+            term.__post_init__()
+        raw_factor_ids = set(
+            (*self.original_raw_factor_ids, *self.transformed_raw_factor_ids)
+        )
+        if any(
+            raw_factor_ids.intersection(
+                term.original_complete_law_operand_sha256s
+            )
+            or raw_factor_ids.intersection(
+                term.transformed_complete_law_operand_sha256s
+            )
+            for term in grouped_terms
+        ):
+            raise ValueError(
+                "raw factor IDs cannot serve as grouped complete-law provenance"
+            )
+        expected_original = math.fsum(
+            term.elbo_sign * term.original_value
+            for term in grouped_terms
+        )
+        expected_transformed = math.fsum(
+            term.elbo_sign * term.transformed_value
+            for term in grouped_terms
+        )
+        if (
+            self.original_grouped_total != expected_original
+            or self.transformed_grouped_total != expected_transformed
+        ):
+            raise ValueError(
+                "grouped ELBO total does not match the recomputed signed terms"
+            )
+        if (
+            type(self.original_raw_grouped_equality_residual) is not float
+            or type(self.transformed_raw_grouped_equality_residual) is not float
+            or self.original_raw_grouped_equality_residual
+            != abs(self.original_raw_total - expected_original)
+            or self.transformed_raw_grouped_equality_residual
+            != abs(self.transformed_raw_total - expected_transformed)
+        ):
+            raise ValueError(
+                "raw/grouped equality residuals must be recomputed"
+            )
         super().__post_init__()
 
 

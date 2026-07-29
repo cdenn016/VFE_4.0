@@ -18,10 +18,23 @@ import vfe4.artifacts as artifacts
 import vfe4.generative.pushforward as generative_pushforward
 import vfe4.objective.h7_covariance as covariance
 import vfe4.recognition.pushforward as recognition_pushforward
+import vfe4.types.h7 as h7_types
 import verification.mp_oracles.h7_covariance as mp_oracle
 from vfe4.geometry.group_action import borrow_h7_action
 from vfe4.objective.language_elbo import require_h7_complete_factor_trace
-from vfe4.types.h6 import FrozenTensorSnapshot, H6FactorTerm, H6LanguageElboTerms
+from vfe4.types.h6 import (
+    ArmConfig,
+    ArmId,
+    CapacityAllocation,
+    FrozenTensorSnapshot,
+    H6EndpointLanguageElboTerms,
+    H6FactorTerm,
+    H6LanguageElboTerms,
+    H6SourcePriorTrace,
+    VocabularyIdentity,
+    canonical_json_bytes,
+    h6_source_law_marker_identity,
+)
 from vfe4.types.h7 import (
     H7AllowanceContribution,
     H7AssembledGlobalPrecisionSnapshot,
@@ -134,11 +147,87 @@ def _sha(label: str) -> str:
     return hashlib.sha256(label.encode("ascii")).hexdigest()
 
 
-def _complete_trace(
+def _h6_owned_sha256(domain: str, value: object) -> str:
+    return hashlib.sha256(
+        domain.encode("ascii") + b"\x00" + canonical_json_bytes(value)
+    ).hexdigest()
+
+
+def _complete_endpoint(
     prefix: str,
     *,
     entropy_shift: float = 0.0,
-):
+) -> H6EndpointLanguageElboTerms:
+    config = ArmConfig.create(
+        arm=ArmId.A5,
+        config_id=(
+            "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1"
+        ),
+        vocabulary=VocabularyIdentity(
+            vocabulary_id="h7-complete-objective-test-v1",
+            size=258,
+            tokenizer_spec_sha256=_sha("h7 tokenizer"),
+        ),
+        horizon=2,
+        latent_enabled=True,
+        state_channel_enabled=True,
+        model_channel_enabled=True,
+        source_mode="categorical",
+        map_mode="shared_vertex_coboundary",
+        recognition_family="structured",
+        recognition_conditioning="smoothing",
+        prior_variant="fixed",
+        mixture_mode="exact",
+        objective_kind="complete_elbo",
+        capacity_allocation=CapacityAllocation.create(
+            emission_width=4,
+            latent_width=2,
+            recognition_width=4,
+            prior_context_width=None,
+        ),
+    )
+    source_prior_values = {
+        "endpoint_config": config,
+        "model_family_sha256": _sha("h7 model family"),
+        "prior_variant": "fixed",
+        "prior_type": "FixedSourcePrior",
+        "prior_model_state_sha256": _sha("h7 prior state"),
+        "ordered_source_factor_identities": tuple(
+            (
+                partition,
+                receiver_t,
+                _sha(f"{prefix}:{partition}:{receiver_t}:source-prior"),
+            )
+            for receiver_t in (1, 2)
+            for partition in ("model_source", "state_source")
+        ),
+    }
+    source_prior_trace = object.__new__(H6SourcePriorTrace)
+    for name, value in source_prior_values.items():
+        object.__setattr__(source_prior_trace, name, value)
+    object.__setattr__(
+        source_prior_trace,
+        "trace_sha256",
+        _h6_owned_sha256(
+            "vfe4.h6.source-prior-trace.v1",
+            {
+                "endpoint_config_sha256": config.config_sha256,
+                "model_family_sha256": source_prior_values[
+                    "model_family_sha256"
+                ],
+                "prior_variant": "fixed",
+                "prior_type": "FixedSourcePrior",
+                "prior_model_state_sha256": source_prior_values[
+                    "prior_model_state_sha256"
+                ],
+                "ordered_source_factor_identities": source_prior_values[
+                    "ordered_source_factor_identities"
+                ],
+            },
+        ),
+    )
+    source_prior_trace.__post_init__()
+
     values = list(_SIGNED_VALUES)
     values[5] -= entropy_shift
     values[6] += entropy_shift
@@ -162,13 +251,338 @@ def _complete_trace(
     total = terms[0].value.value()
     for term in terms[1:]:
         total = total + term.value.value()
+    elbo_terms = H6LanguageElboTerms.create(
+        horizon=2,
+        ordered_factor_terms=terms,
+        total_language_elbo=total,
+    )
+    return H6EndpointLanguageElboTerms.create(
+        endpoint_config=config,
+        prior_variant="fixed",
+        mixture_mode="exact",
+        source_prior_trace=source_prior_trace,
+        projection_error=None,
+        source_law_marker_identity_sha256=h6_source_law_marker_identity(
+            endpoint_config=config,
+            projection_error=None,
+        ),
+        terms=elbo_terms,
+    )
+
+
+def _complete_trace(
+    prefix: str,
+    *,
+    entropy_shift: float = 0.0,
+):
     return require_h7_complete_factor_trace(
-        H6LanguageElboTerms.create(
-            horizon=2,
-            ordered_factor_terms=terms,
-            total_language_elbo=total,
+        _complete_endpoint(prefix, entropy_shift=entropy_shift)
+    )
+
+
+def _grouped_term(
+    term_id: str,
+    *,
+    semantics: str,
+    elbo_sign: int,
+    original_value: float,
+    transformed_value: float,
+) -> object:
+    return h7_types.H7GroupedElboTermRecord.create(
+        term_id=term_id,
+        semantics=semantics,
+        elbo_sign=elbo_sign,
+        original_value=original_value,
+        transformed_value=transformed_value,
+        original_complete_law_operand_sha256s=(
+            _sha(f"original law operand:{term_id}"),
+        ),
+        transformed_complete_law_operand_sha256s=(
+            _sha(f"transformed law operand:{term_id}"),
+        ),
+        covariance_residual=abs(transformed_value - original_value),
+    )
+
+
+def _grouped_schema_inputs() -> tuple[
+    tuple[object, ...],
+    tuple[object, ...],
+]:
+    emissions = (
+        _grouped_term(
+            "expected_log_emission[1]",
+            semantics="expected_log_emission",
+            elbo_sign=1,
+            original_value=-2.0,
+            transformed_value=-2.0,
+        ),
+        _grouped_term(
+            "expected_log_emission[2]",
+            semantics="expected_log_emission",
+            elbo_sign=1,
+            original_value=-3.0,
+            transformed_value=-3.0,
+        ),
+    )
+    positive_kls = tuple(
+        _grouped_term(
+            term_id,
+            semantics="positive_kl_q_to_p",
+            elbo_sign=-1,
+            original_value=value,
+            transformed_value=value,
+        )
+        for term_id, value in zip(
+            (
+                "K0_joint_z0_m0",
+                "model_source_kl[1]",
+                "state_source_kl[1]",
+                "model_transition_kl[1]",
+                "state_transition_kl[1]",
+                "model_source_kl[2]",
+                "state_source_kl[2]",
+                "model_transition_kl[2]",
+                "state_transition_kl[2]",
+            ),
+            (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9),
+            strict=True,
         )
     )
+    return emissions, positive_kls
+
+
+def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
+    endpoint = _complete_endpoint("raw-provenance")
+    with pytest.raises(ValueError, match="endpoint"):
+        require_h7_complete_factor_trace(endpoint.terms)
+
+    trace = require_h7_complete_factor_trace(endpoint)
+
+    assert (
+        trace.representation
+        == "raw_expected_log_factors_plus_recognition_entropy_v1"
+    )
+    assert trace.producer_kind == "h6_endpoint_complete_elbo_v1"
+    assert trace.endpoint_language_elbo_sha256 == endpoint.canonical_sha256
+    assert (
+        trace.source_law_identity_sha256
+        == endpoint.source_law_identity_sha256
+    )
+    assert (
+        trace.source_prior_trace_sha256
+        == endpoint.source_prior_trace_sha256
+    )
+    assert trace.producer_contract_sha256 == h7_owned_sha256(
+        "vfe4.h7.complete-language-elbo-producer-contract.v1",
+        {
+            "producer_kind": "h6_endpoint_complete_elbo_v1",
+            "producer_type": (
+                "vfe4.types.h6.H6EndpointLanguageElboTerms"
+            ),
+            "entrypoint": (
+                "vfe4.objective.language_elbo."
+                "require_h7_complete_factor_trace"
+            ),
+            "representation": (
+                "raw_expected_log_factors_plus_recognition_entropy_v1"
+            ),
+        },
+    )
+    assert tuple(
+        (term.partition, term.receiver_t) for term in endpoint.entropy_terms
+    ) == (("entropy", 1), ("entropy", 2))
+    trace_semantic = {
+        "representation": trace.representation,
+        "producer_kind": trace.producer_kind,
+        "endpoint_language_elbo_sha256": trace.endpoint_language_elbo_sha256,
+        "source_law_identity_sha256": trace.source_law_identity_sha256,
+        "source_prior_trace_sha256": trace.source_prior_trace_sha256,
+        "producer_contract_sha256": trace.producer_contract_sha256,
+        "ordered_slots": _FACTOR_SLOTS,
+        "ordered_factor_ids": trace.ordered_factor_ids,
+        "ordered_factor_values": trace.ordered_factor_values,
+        "total_value": trace.total_value,
+    }
+    assert trace.trace_sha256 == _h6_owned_sha256(
+        "vfe4.h7.complete-language-elbo-factor-trace.v2",
+        trace_semantic,
+    )
+    assert trace.trace_sha256 != _h6_owned_sha256(
+        "vfe4.h7.complete-language-elbo-factor-trace.v1",
+        trace_semantic,
+    )
+
+
+def test_h7_complete_trace_rejects_mutated_provenance_and_preserves_h6_hashes(
+) -> None:
+    endpoint = _complete_endpoint("h6-v1-regression")
+    assert (
+        endpoint.terms.canonical_sha256
+        == "9053af28362a1407f27b6e76e1517651b210f1d29d19927980d08296b6f90992"
+    )
+    assert (
+        endpoint.canonical_sha256
+        == "9d2596a2b2398b0c38cab60509476f6674e253e10b252e5aecee241f84637b49"
+    )
+    trace = require_h7_complete_factor_trace(endpoint)
+
+    for field, value in (
+        ("representation", "expected_emission_minus_positive_kl_v1"),
+        ("producer_kind", "h6_language_elbo_terms_v1"),
+        ("endpoint_language_elbo_sha256", _sha("foreign endpoint")),
+        ("source_law_identity_sha256", _sha("foreign source law")),
+        ("source_prior_trace_sha256", _sha("foreign source prior")),
+        ("producer_contract_sha256", _sha("foreign producer contract")),
+    ):
+        with pytest.raises(ValueError, match="raw|provenance|producer|source"):
+            dataclasses.replace(trace, **{field: value})
+
+
+def test_h7_grouped_elbo_subtracts_positive_kls_and_keeps_entropy_nonadditive(
+) -> None:
+    emissions, positive_kls = _grouped_schema_inputs()
+    entropy = h7_types.H7NonadditiveEntropyDiagnostic.create(
+        original_entropy=1.25,
+        transformed_entropy=1.5,
+        additive_in_grouped_elbo=False,
+        covariance_residual=0.25,
+    )
+    original_raw_ids = tuple(_sha(f"original raw:{index}") for index in range(13))
+    transformed_raw_ids = tuple(
+        _sha(f"transformed raw:{index}") for index in range(13)
+    )
+    grouped = h7_types.H7GroupedElboRecord.create(
+        representation="expected_emission_minus_positive_kl_v1",
+        law_pair_sha256=_sha("law pair"),
+        original_raw_factor_trace_sha256=_sha("original raw trace"),
+        transformed_raw_factor_trace_sha256=_sha("transformed raw trace"),
+        original_raw_factor_ids=original_raw_ids,
+        transformed_raw_factor_ids=transformed_raw_ids,
+        emission_terms=emissions,
+        positive_kl_terms=positive_kls,
+        entropy_diagnostic=entropy,
+        original_raw_total=-9.5,
+        transformed_raw_total=-9.5,
+        original_grouped_total=-9.5,
+        transformed_grouped_total=-9.5,
+        original_raw_grouped_equality_residual=0.0,
+        transformed_raw_grouped_equality_residual=0.0,
+    )
+
+    assert grouped.original_grouped_total == -9.5
+    assert grouped.transformed_grouped_total == -9.5
+    assert grouped.entropy_diagnostic.additive_in_grouped_elbo is False
+    assert math.fsum(
+        term.elbo_sign * term.original_value
+        for term in (*grouped.emission_terms, *grouped.positive_kl_terms)
+    ) == grouped.original_grouped_total
+
+
+def test_h7_grouped_elbo_rejects_raw_factor_provenance_sign_inventory_and_total(
+) -> None:
+    emissions, positive_kls = _grouped_schema_inputs()
+    entropy = h7_types.H7NonadditiveEntropyDiagnostic.create(
+        original_entropy=1.25,
+        transformed_entropy=1.25,
+        additive_in_grouped_elbo=False,
+        covariance_residual=0.0,
+    )
+    raw_ids = tuple(_sha(f"raw:{index}") for index in range(13))
+    base = {
+        "representation": "expected_emission_minus_positive_kl_v1",
+        "law_pair_sha256": _sha("law pair"),
+        "original_raw_factor_trace_sha256": _sha("original raw trace"),
+        "transformed_raw_factor_trace_sha256": _sha("transformed raw trace"),
+        "original_raw_factor_ids": raw_ids,
+        "transformed_raw_factor_ids": raw_ids,
+        "emission_terms": emissions,
+        "positive_kl_terms": positive_kls,
+        "entropy_diagnostic": entropy,
+        "original_raw_total": -9.5,
+        "transformed_raw_total": -9.5,
+        "original_grouped_total": -9.5,
+        "transformed_grouped_total": -9.5,
+        "original_raw_grouped_equality_residual": 0.0,
+        "transformed_raw_grouped_equality_residual": 0.0,
+    }
+
+    with pytest.raises(ValueError, match="sign|semantics"):
+        h7_types.H7GroupedElboTermRecord.create(
+            term_id="expected_log_emission[1]",
+            semantics="expected_log_emission",
+            elbo_sign=-1,
+            original_value=-2.0,
+            transformed_value=-2.0,
+            original_complete_law_operand_sha256s=(_sha("original law"),),
+            transformed_complete_law_operand_sha256s=(
+                _sha("transformed law"),
+            ),
+            covariance_residual=0.0,
+        )
+
+    with pytest.raises(ValueError, match="nonadditive"):
+        h7_types.H7NonadditiveEntropyDiagnostic.create(
+            original_entropy=1.25,
+            transformed_entropy=1.25,
+            additive_in_grouped_elbo=True,
+            covariance_residual=0.0,
+        )
+
+    with pytest.raises(ValueError, match="inventory"):
+        h7_types.H7GroupedElboRecord.create(
+            **{**base, "positive_kl_terms": positive_kls[:-1]}
+        )
+
+    with pytest.raises(ValueError, match="recomputed|total"):
+        h7_types.H7GroupedElboRecord.create(
+            **{**base, "original_grouped_total": -9.4}
+        )
+
+    raw_bound = h7_types.H7GroupedElboTermRecord.create(
+        term_id="K0_joint_z0_m0",
+        semantics="positive_kl_q_to_p",
+        elbo_sign=-1,
+        original_value=0.1,
+        transformed_value=0.1,
+        original_complete_law_operand_sha256s=(raw_ids[0],),
+        transformed_complete_law_operand_sha256s=(
+            _sha("transformed law operand:K0_joint_z0_m0"),
+        ),
+        covariance_residual=0.0,
+    )
+    with pytest.raises(ValueError, match="raw factor"):
+        h7_types.H7GroupedElboRecord.create(
+            **{
+                **base,
+                "positive_kl_terms": (raw_bound, *positive_kls[1:]),
+            }
+        )
+
+    cross_side_raw_bound = h7_types.H7GroupedElboTermRecord.create(
+        term_id="K0_joint_z0_m0",
+        semantics="positive_kl_q_to_p",
+        elbo_sign=-1,
+        original_value=0.1,
+        transformed_value=0.1,
+        original_complete_law_operand_sha256s=(raw_ids[1],),
+        transformed_complete_law_operand_sha256s=(
+            _sha("transformed law operand:K0_joint_z0_m0"),
+        ),
+        covariance_residual=0.0,
+    )
+    with pytest.raises(ValueError, match="raw factor"):
+        h7_types.H7GroupedElboRecord.create(
+            **{
+                **base,
+                "original_raw_factor_ids": tuple(
+                    _sha(f"other original raw:{index}") for index in range(13)
+                ),
+                "positive_kl_terms": (
+                    cross_side_raw_bound,
+                    *positive_kls[1:],
+                ),
+            }
+        )
 
 
 def _budget(
