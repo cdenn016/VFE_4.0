@@ -13,6 +13,7 @@ from vfe4.predictive import canonical_model_state_sha256
 from vfe4.training.h7_assembly import (
     H7FixedSourceAssemblySpec,
     build_h7_fixed_a5_arm,
+    require_h7_fixed_source_assembly,
 )
 from vfe4.types.h6 import (
     ArmConfig,
@@ -196,3 +197,99 @@ def test_h7_factory_rejects_non_two_horizon_before_construction() -> None:
 
     with pytest.raises(ValueError, match="horizon must be exactly 2"):
         build_h7_fixed_a5_arm(_a5_config(horizon=3), source_spec)
+
+
+def test_h7_specific_receipt_rejects_ordinary_and_raw_helper_arms() -> None:
+    config = _a5_config()
+    spec = H7FixedSourceAssemblySpec.from_h7_v1(_structure((1,)))
+
+    ordinary = arms.build_a5(config)
+    with pytest.raises(ValueError, match="H7-specific"):
+        require_h7_fixed_source_assembly(ordinary)
+
+    raw_helper_arm = arms._construct_with_fixed_source_prior(
+        config,
+        structure=spec.structure,
+        source_specification_sha256=spec.source_specification_sha256,
+        state_logits=tuple(
+            torch.tensor(row, dtype=torch.float64)
+            for row in spec.state_logits
+        ),
+        model_logits=tuple(
+            torch.tensor(row, dtype=torch.float64)
+            for row in spec.model_logits
+        ),
+    )
+    assert arms._require_factory_issued_built_arm(raw_helper_arm) is raw_helper_arm
+    with pytest.raises(ValueError, match="H7-specific"):
+        require_h7_fixed_source_assembly(raw_helper_arm)
+
+
+def test_h7_specific_receipt_binds_live_source_and_arm_relationships() -> None:
+    spec = H7FixedSourceAssemblySpec.from_h7_v1(_structure((1,)))
+    built = build_h7_fixed_a5_arm(_a5_config(), spec)
+
+    receipt = require_h7_fixed_source_assembly(built)
+
+    assert receipt.fixture_id == "h7-v1"
+    assert (
+        receipt.source_specification_sha256
+        == spec.source_specification_sha256
+    )
+    assert receipt.structure_sha256 == spec.structure_sha256
+    assert receipt.model_state_sha256 == built.proposal.model_state_sha256
+    assert receipt.proposal_identity_sha256 == (
+        built.proposal.proposal_identity_sha256
+    )
+    assert tuple(item[0:2] for item in receipt.source_rows) == (
+        ("model_source", 1),
+        ("state_source", 1),
+        ("model_source", 2),
+        ("state_source", 2),
+    )
+    assert tuple(item[2] for item in receipt.source_rows) == (
+        (0,),
+        (0,),
+        (1,),
+        (1,),
+    )
+    assert tuple(item[3] for item in receipt.source_rows) == (
+        (1.0,),
+        (1.0,),
+        (1.0,),
+        (1.0,),
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("nested_dag", "parameter_roles", "proposal_model", "source_prior"),
+)
+def test_h7_specific_receipt_rejects_nested_or_relational_mutation(
+    mutation: str,
+) -> None:
+    spec = H7FixedSourceAssemblySpec.from_h7_v1(_structure((1,)))
+    built = build_h7_fixed_a5_arm(_a5_config(), spec)
+    require_h7_fixed_source_assembly(built)
+
+    if mutation == "nested_dag":
+        object.__setattr__(
+            built.model.source_prior.structure.dag.rows[1],
+            "parents",
+            (0, 1),
+        )
+    elif mutation == "parameter_roles":
+        object.__setattr__(
+            built,
+            "parameter_roles",
+            tuple(reversed(built.parameter_roles)),
+        )
+    elif mutation == "proposal_model":
+        built.proposal.model = arms.build_arm_model(_a5_config())
+    else:
+        built.model.source_prior = arms.build_arm_model(
+            _a5_config()
+        ).source_prior
+
+    with pytest.raises(ValueError, match="changed|relationship|source|integrity"):
+        require_h7_fixed_source_assembly(built)
