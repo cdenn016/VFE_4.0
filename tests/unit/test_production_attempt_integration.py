@@ -345,12 +345,25 @@ def test_attempt_progress_follows_reservation_and_durable_finalization(
         manifest_sha256="b" * 64,
     )
     outcome = SimpleNamespace(terminal_checkpoint_identity_sha256="c" * 64)
+    selected = {
+        arm.arm_id: (1.0e-4, 0.0)
+        for arm in training.endpoint_inventory.arms
+    }
+    confirmation = production_attempt._attempt_inventory(training, selected)
+    confirmation_attempt = confirmation[0]
+    confirmation_inprogress = tmp_path / "confirmation-resume"
+    confirmation_inprogress.mkdir()
+    confirmation_reserved = SimpleNamespace(
+        reservation_sha256="d" * 64,
+        inprogress_path=confirmation_inprogress,
+        resume_count=2,
+    )
     seen: list[tuple[str, object]] = []
 
     class _Recorder:
         def report(self, event: str, payload: object, /) -> None:
             if event == "attempt_started":
-                assert reserved.inprogress_path.is_dir()
+                assert Path(payload["in_progress_path"]).is_dir()
             if event == "attempt_finished":
                 assert manifest_path.is_file()
             seen.append((event, payload))
@@ -360,6 +373,7 @@ def test_attempt_progress_follows_reservation_and_durable_finalization(
             production_attempt._emit_attempt_started(
                 attempt=attempt,
                 reserved=reserved,
+                phase_position=1,
                 phase_total=plan_value.tuning_attempt_count,
                 resume_active=resumed,
             )
@@ -372,27 +386,89 @@ def test_attempt_progress_follows_reservation_and_durable_finalization(
                 usage=usage,
                 ledger=ledger,
             )
+            production_attempt._emit_attempt_started(
+                attempt=confirmation_attempt,
+                reserved=confirmation_reserved,
+                phase_position=1,
+                phase_total=len(confirmation),
+                resume_active=True,
+            )
     finally:
         production_attempt.release_run_execution_lease(reserved)
 
     assert [event for event, _payload in seen] == [
         "attempt_started",
         "attempt_finished",
+        "attempt_started",
     ]
     started = seen[0][1]
     finished = seen[1][1]
+    resumed_confirmation = seen[2][1]
     assert started["role"] == "tuning"
     assert started["arm_id"] == attempt.arm_id
     assert started["seed_id"] == attempt.seed_id
     assert started["resume_count"] == 0
+    assert started["global_ordinal"] == 0
+    assert started["phase_position"] == 1
+    assert started["phase_total"] == plan_value.tuning_attempt_count
+    assert "ordinal" not in started
     assert finished["observed"] == {
         "gpu_seconds": 3.0,
         "wall_seconds": 4.0,
         "energy_kwh": 0.01,
     }
+    assert finished["global_ordinal"] == 0
+    assert "ordinal" not in finished
     assert finished["accounted"]["ledger_sha256"] == ledger.ledger_sha256
     assert finished["observed_disk_bytes"] is None
     assert finished["observed_disk_bytes_status"] == "unavailable"
+    assert resumed_confirmation["role"] == "confirmation"
+    assert resumed_confirmation["global_ordinal"] == (
+        plan_value.tuning_attempt_count
+    )
+    assert resumed_confirmation["phase_position"] == 1
+    assert resumed_confirmation["phase_total"] == len(confirmation)
+    assert resumed_confirmation["resume_count"] == 2
+    assert resumed_confirmation["resume_active"] is True
+
+
+def test_attempt_started_reporter_failure_releases_execution_lease(
+    tmp_path: Path,
+) -> None:
+    from vfe4.artifacts.run_directory import publish_experiment_plan
+    from vfe4.training import production_attempt
+    from vfe4.training.progress import use_progress_reporter
+
+    training = resolve_training_config(default_training_config_mapping())
+    plan_value = _production_experiment_plan_fixture(training)
+    backend = production_attempt._backend()
+    plan = publish_experiment_plan(tmp_path, plan_value, backend=backend)
+    attempt = production_attempt._attempt_inventory(training, None)[0]
+    reserved, resumed = production_attempt._reserve_production_attempt(
+        experiment_root=tmp_path,
+        attempt=attempt,
+        plan=plan,
+        readiness=None,
+        backend=backend,
+        mode="train",
+    )
+
+    class _FailingReporter:
+        def report(self, event: str, payload: object, /) -> None:
+            del event, payload
+            raise RuntimeError("progress sink unavailable")
+
+    with use_progress_reporter(_FailingReporter()):
+        with pytest.raises(RuntimeError, match="progress sink unavailable"):
+            production_attempt._emit_attempt_started_or_release(
+                attempt=attempt,
+                reserved=reserved,
+                phase_position=1,
+                phase_total=plan_value.tuning_attempt_count,
+                resume_active=resumed,
+            )
+
+    assert reserved.execution_lease.active is False
 
 
 def test_resume_reopens_declared_plan_ledger_and_sidecar_before_terminal_index(

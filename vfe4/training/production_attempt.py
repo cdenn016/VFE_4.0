@@ -462,15 +462,25 @@ def _emit_attempt_started(
     *,
     attempt: ProductionAttemptSpec,
     reserved: ReservedRun,
+    phase_position: int,
     phase_total: int,
     resume_active: bool,
 ) -> None:
     """Report only after the run reservation is durably reopened."""
 
+    if (
+        type(phase_position) is not int
+        or type(phase_total) is not int
+        or not 1 <= phase_position <= phase_total
+    ):
+        raise ProductionOperationError(
+            "attempt progress phase position is invalid"
+        )
     emit_progress(
         "attempt_started",
         role=attempt.role,
-        ordinal=attempt.ordinal,
+        global_ordinal=attempt.ordinal,
+        phase_position=phase_position,
         phase_total=phase_total,
         arm_id=attempt.arm_id,
         seed_id=attempt.seed_id,
@@ -481,6 +491,29 @@ def _emit_attempt_started(
         resume_count=reserved.resume_count,
         resume_active=resume_active,
     )
+
+
+def _emit_attempt_started_or_release(
+    *,
+    attempt: ProductionAttemptSpec,
+    reserved: ReservedRun,
+    phase_position: int,
+    phase_total: int,
+    resume_active: bool,
+) -> None:
+    """Release the reserved execution lease if progress publication fails."""
+
+    try:
+        _emit_attempt_started(
+            attempt=attempt,
+            reserved=reserved,
+            phase_position=phase_position,
+            phase_total=phase_total,
+            resume_active=resume_active,
+        )
+    except BaseException:
+        release_run_execution_lease(reserved)
+        raise
 
 
 def _emit_attempt_finished(
@@ -496,7 +529,7 @@ def _emit_attempt_finished(
     emit_progress(
         "attempt_finished",
         role=attempt.role,
-        ordinal=attempt.ordinal,
+        global_ordinal=attempt.ordinal,
         arm_id=attempt.arm_id,
         seed_id=attempt.seed_id,
         attempt_id=attempt.attempt_id,
@@ -5331,7 +5364,10 @@ def run_production_attempts(
         tuple(completed_tuning),
         allow_extension=(len(completed_tuning) == len(tuning)),
     )
-    for attempt in tuning[len(completed_tuning) :]:
+    for phase_position, attempt in enumerate(
+        tuning[len(completed_tuning) :],
+        start=len(completed_tuning) + 1,
+    ):
         if mode == "resume":
             _validate_resume_state_boundary(
                 run_root=run_root,
@@ -5346,16 +5382,13 @@ def run_production_attempts(
             backend=backend,
             mode=mode,
         )
-        try:
-            _emit_attempt_started(
-                attempt=attempt,
-                reserved=reserved,
-                phase_total=len(tuning),
-                resume_active=resume_active,
-            )
-        except BaseException:
-            release_run_execution_lease(reserved)
-            raise
+        _emit_attempt_started_or_release(
+            attempt=attempt,
+            reserved=reserved,
+            phase_position=phase_position,
+            phase_total=len(tuning),
+            resume_active=resume_active,
+        )
         outcome, manifest, ledger = _execute_reserved_attempt(
             attempt=attempt,
             training=training,
@@ -5415,7 +5448,10 @@ def run_production_attempts(
     )
     completed_all = [*completed_tuning, *completed_confirmation]
     _require_resource_event_prefix(ledger, tuple(completed_all))
-    for attempt in confirmation[len(completed_confirmation) :]:
+    for phase_position, attempt in enumerate(
+        confirmation[len(completed_confirmation) :],
+        start=len(completed_confirmation) + 1,
+    ):
         if mode == "resume":
             _validate_resume_state_boundary(
                 run_root=run_root,
@@ -5430,16 +5466,13 @@ def run_production_attempts(
             backend=backend,
             mode=mode,
         )
-        try:
-            _emit_attempt_started(
-                attempt=attempt,
-                reserved=reserved,
-                phase_total=len(confirmation),
-                resume_active=resume_active,
-            )
-        except BaseException:
-            release_run_execution_lease(reserved)
-            raise
+        _emit_attempt_started_or_release(
+            attempt=attempt,
+            reserved=reserved,
+            phase_position=phase_position,
+            phase_total=len(confirmation),
+            resume_active=resume_active,
+        )
         outcome, manifest, ledger = _execute_reserved_attempt(
             attempt=attempt,
             training=training,

@@ -1371,6 +1371,8 @@ def test_h8_h7_revalidation_rejects_scalar_and_precision_mutations(
     fixture_key: str,
     semantic_key: str | None,
 ) -> None:
+    from vfe4.types.h7 import h7_owned_sha256
+
     reference, payloads, fixture_paths, _semantic_hashes = (
         _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
     )
@@ -1383,6 +1385,34 @@ def test_h8_h7_revalidation_rejects_scalar_and_precision_mutations(
         value = json.loads(path.read_bytes())
         value[semantic_key] = "9" * 64
         path.write_bytes(h8_gate.canonical_h8_json_bytes(value) + b"\n")
+        validation = json.loads(payloads["validation/h7.json"])
+        fixture_hashes = validation["result"]["fixture_hashes"]
+        fixture_hashes[fixture_key] = hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest()
+        fixture_set_sha256 = h7_owned_sha256(
+            "vfe4.h7.fixture-set.v1",
+            fixture_hashes,
+        )
+        validation["fixture_set_sha256"] = fixture_set_sha256
+        payloads = {
+            "validation/h7.json": h8_gate.canonical_h8_json_bytes(
+                validation
+            )
+        }
+        reference = replace(
+            reference,
+            fixture_set_sha256=fixture_set_sha256,
+        )
+        semantic_fixture_key = (
+            "scalar_probe_set_sha256"
+            if semantic_key == "probe_set_sha256"
+            else "precision_operand_set_sha256"
+        )
+        assert fixture_hashes[fixture_key] == hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest()
+        assert fixture_hashes[semantic_fixture_key] != value[semantic_key]
 
     with pytest.raises(ValueError, match="fixture hashes"):
         h8_gate._revalidate_h7_fixture_set(reference, payloads)
@@ -1409,20 +1439,41 @@ def test_h8_h7_revalidation_rejects_nonclosing_oracle_results(
     reference, payloads, _fixture_paths, _semantic_hashes = (
         _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
     )
-    monkeypatch.setattr(
-        h7_covariance,
-        "evaluate_h7_from_raw_bytes",
-        lambda *_args, **_kwargs: H7MPOracleResult(
+
+    def nonclosing_oracle(
+        h1_fixture_bytes: bytes,
+        h7_fixture_bytes: bytes,
+        h7_density_probe_bytes: bytes,
+        h1_scalar_probe_bytes: bytes | None = None,
+        precision_operand_bytes: bytes | None = None,
+    ) -> H7MPOracleResult:
+        assert h1_scalar_probe_bytes is not None
+        assert precision_operand_bytes is not None
+        return H7MPOracleResult(
             status=status,  # type: ignore[arg-type]
             open_obligations=obligations,
             decimal_precision=100,
             gauss_hermite_orders=(41, 51),
-            raw_fixture_sha256=("a" * 64,) * 5,
+            raw_fixture_sha256=tuple(
+                hashlib.sha256(payload).hexdigest()
+                for payload in (
+                    h1_fixture_bytes,
+                    h7_fixture_bytes,
+                    h7_density_probe_bytes,
+                    h1_scalar_probe_bytes,
+                    precision_operand_bytes,
+                )
+            ),
             h1_source_paths=(),
             h7_source_path=SimpleNamespace(),
             trials=(),
             inventory_sha256=inventory_sha256,
-        ),
+        )
+
+    monkeypatch.setattr(
+        h7_covariance,
+        "evaluate_h7_from_raw_bytes",
+        nonclosing_oracle,
     )
 
     with pytest.raises(ValueError, match="oracle"):
