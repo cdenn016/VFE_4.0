@@ -36,6 +36,7 @@ from .pushforward import (
     borrow_h7_generative,
     freeze_h7_generative,
     pushforward_h7_generative,
+    pushforward_h7_generative_snapshot,
 )
 from .source_priors import (
     FixedSourcePrior,
@@ -69,6 +70,7 @@ __all__ = [
     "ParentSpecificPooledPrefixSourcePrior",
     "PooledHistoryConditionedSourcePrior",
     "pushforward_h7_generative",
+    "pushforward_h7_generative_snapshot",
     "canonical_h4_gaussian",
     "h4_anchor_from_h3",
     "make_h4_problem",

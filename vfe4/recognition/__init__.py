@@ -41,6 +41,7 @@ from .pushforward import (
     borrow_h7_recognition,
     freeze_h7_recognition,
     pushforward_h7_recognition,
+    pushforward_h7_recognition_snapshot,
 )
 from .reference_h1 import H1RecognitionLaw
 from .reference_h8 import (
@@ -98,6 +99,7 @@ __all__ = [
     "StructuredH3Parameters",
     "StructuredLanguageRecognition",
     "pushforward_h7_recognition",
+    "pushforward_h7_recognition_snapshot",
     "project_active_recognition_topology_v3",
     "make_h3_parameters",
     "assemble_h8_recognition",

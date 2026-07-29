@@ -10,6 +10,27 @@ import sys
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 TYPES_ROOT = REPOSITORY_ROOT / "vfe4" / "types"
+_H7_SNAPSHOT_ADAPTER_OWNERS = {
+    "_pushforward_h7_generative_snapshot": (
+        REPOSITORY_ROOT / "vfe4" / "generative" / "pushforward.py"
+    ),
+    "_pushforward_h7_recognition_snapshot": (
+        REPOSITORY_ROOT / "vfe4" / "recognition" / "pushforward.py"
+    ),
+}
+
+
+def _h7_consumer_python_paths() -> tuple[Path, ...]:
+    roots = (
+        REPOSITORY_ROOT / "vfe4",
+        REPOSITORY_ROOT / "verification",
+        REPOSITORY_ROOT / "tests",
+        REPOSITORY_ROOT / "test_support",
+    )
+    paths = sorted(REPOSITORY_ROOT.glob("*.py"))
+    for root in roots:
+        paths.extend(sorted(root.rglob("*.py")))
+    return tuple(paths)
 
 
 def _is_numerics_module(module_name: str) -> bool:
@@ -99,3 +120,67 @@ def test_numerics_package_exports_validator_wrappers() -> None:
     assert numerics.require_spd is gaussian.require_spd
     assert categorical.require_probability_vector.__module__ == "vfe4.numerics.categorical"
     assert gaussian.require_spd.__module__ == "vfe4.numerics.gaussian"
+
+
+def test_h7_snapshot_pushforward_wrappers_are_public_package_exports() -> None:
+    import vfe4.generative as public_generative
+    import vfe4.generative.pushforward as generative_pushforward
+    import vfe4.recognition as public_recognition
+    import vfe4.recognition.pushforward as recognition_pushforward
+
+    assert (
+        public_generative.pushforward_h7_generative_snapshot
+        is generative_pushforward.pushforward_h7_generative_snapshot
+    )
+    assert (
+        public_recognition.pushforward_h7_recognition_snapshot
+        is recognition_pushforward.pushforward_h7_recognition_snapshot
+    )
+    assert "pushforward_h7_generative_snapshot" in public_generative.__all__
+    assert "pushforward_h7_generative_snapshot" in generative_pushforward.__all__
+    assert "pushforward_h7_recognition_snapshot" in public_recognition.__all__
+    assert "pushforward_h7_recognition_snapshot" in recognition_pushforward.__all__
+
+
+def test_h7_private_snapshot_adapter_scan_covers_test_support() -> None:
+    assert (
+        REPOSITORY_ROOT / "test_support" / "wt103_figure_fakes.py"
+        in _h7_consumer_python_paths()
+    )
+
+
+def test_h7_consumers_do_not_reach_into_private_snapshot_adapters() -> None:
+    violations: list[str] = []
+    for path in _h7_consumer_python_paths():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            private_names: tuple[str, ...] = ()
+            if isinstance(node, ast.ImportFrom):
+                private_names = tuple(
+                    alias.name
+                    for alias in node.names
+                    if alias.name in _H7_SNAPSHOT_ADAPTER_OWNERS
+                )
+            elif isinstance(node, ast.Attribute):
+                if node.attr in _H7_SNAPSHOT_ADAPTER_OWNERS:
+                    private_names = (node.attr,)
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "getattr"
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value in _H7_SNAPSHOT_ADAPTER_OWNERS
+            ):
+                private_names = (node.args[1].value,)
+
+            for private_name in private_names:
+                if path != _H7_SNAPSHOT_ADAPTER_OWNERS[private_name]:
+                    location = path.relative_to(REPOSITORY_ROOT).as_posix()
+                    violations.append(
+                        f"{location}:{node.lineno}: accesses {private_name}"
+                    )
+
+    assert not violations, "found external H7 fixture-snapshot adapter access:\n" + (
+        "\n".join(violations)
+    )

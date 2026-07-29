@@ -347,6 +347,15 @@ def _pushforward_h7_recognition_snapshot(
     return pushforward_h7_recognition(_borrow_h7_recognition_snapshot(source), action)
 
 
+def pushforward_h7_recognition_snapshot(
+    source: H7RecognitionSnapshot,
+    action: H7BorrowedActionView,
+) -> H7RecognitionTensorLaw:
+    """Push forward a frozen H7 recognition fixture snapshot."""
+
+    return _pushforward_h7_recognition_snapshot(source, action)
+
+
 def _freeze_affine(
     component: H7TensorLawComponent,
 ) -> H7AffineComponentSnapshot:
@@ -464,4 +473,5 @@ __all__ = [
     "borrow_h7_recognition",
     "freeze_h7_recognition",
     "pushforward_h7_recognition",
+    "pushforward_h7_recognition_snapshot",
 ]

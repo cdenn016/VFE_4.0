@@ -757,6 +757,21 @@ def _pushforward_h7_generative_snapshot(
     )
 
 
+def pushforward_h7_generative_snapshot(
+    source: H7GenerativeSnapshot,
+    action: H7BorrowedActionView,
+    *,
+    decoder_policy: H7DecoderPolicy = "transform",
+) -> H7GenerativeTensorLaw:
+    """Push forward a frozen H7 generative fixture snapshot."""
+
+    return _pushforward_h7_generative_snapshot(
+        source,
+        action,
+        decoder_policy=decoder_policy,
+    )
+
+
 def _freeze_tensor(view: H7BorrowedTensorView) -> H7OwnedTensorSnapshot:
     if type(view) is not H7BorrowedTensorView:
         raise ValueError("freeze requires exact borrowed tensor views")
@@ -1041,4 +1056,5 @@ __all__ = [
     "borrow_h7_generative",
     "freeze_h7_generative",
     "pushforward_h7_generative",
+    "pushforward_h7_generative_snapshot",
 ]

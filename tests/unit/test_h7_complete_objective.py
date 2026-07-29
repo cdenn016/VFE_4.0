@@ -327,14 +327,14 @@ def _scalar_law_pair():
         dimension=1,
     )
     transformed_generative = generative_pushforward.freeze_h7_generative(
-        generative_pushforward._pushforward_h7_generative_snapshot(
+        generative_pushforward.pushforward_h7_generative_snapshot(
             original.generative,
             borrowed_action,
         ),
         action=borrowed_action,
     )
     transformed_recognition = recognition_pushforward.freeze_h7_recognition(
-        recognition_pushforward._pushforward_h7_recognition_snapshot(
+        recognition_pushforward.pushforward_h7_recognition_snapshot(
             original.recognition,
             borrowed_action,
         )
@@ -372,14 +372,14 @@ def _matrix_law_pair(recognition_index: int):
     transformed = H7CompleteLawSnapshot.create(
         fixture_id="h7-v1",
         generative=generative_pushforward.freeze_h7_generative(
-            generative_pushforward._pushforward_h7_generative_snapshot(
+            generative_pushforward.pushforward_h7_generative_snapshot(
                 original.generative,
                 borrowed_action,
             ),
             action=borrowed_action,
         ),
         recognition=recognition_pushforward.freeze_h7_recognition(
-            recognition_pushforward._pushforward_h7_recognition_snapshot(
+            recognition_pushforward.pushforward_h7_recognition_snapshot(
                 original.recognition,
                 borrowed_action,
             )
@@ -905,14 +905,14 @@ def test_matrix_inventory_and_factorized_promotion_fail_closed(
     transformed = H7CompleteLawSnapshot.create(
         fixture_id="h7-v1",
         generative=generative_pushforward.freeze_h7_generative(
-            generative_pushforward._pushforward_h7_generative_snapshot(
+            generative_pushforward.pushforward_h7_generative_snapshot(
                 law.generative,
                 borrowed_action,
             ),
             action=borrowed_action,
         ),
         recognition=recognition_pushforward.freeze_h7_recognition(
-            recognition_pushforward._pushforward_h7_recognition_snapshot(
+            recognition_pushforward.pushforward_h7_recognition_snapshot(
                 law.recognition,
                 borrowed_action,
             )
