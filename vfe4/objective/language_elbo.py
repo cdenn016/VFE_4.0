@@ -31,6 +31,17 @@ from vfe4.types.h6 import (
     h6_source_law_identity,
     h6_source_law_marker_identity,
 )
+from vfe4.types.h7 import (
+    H7_RAW_FACTOR_SLOTS,
+    H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT,
+    H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
+    H7_RAW_FACTOR_TRACE_HASH_DOMAIN,
+    H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT_SHA256,
+    H7_RAW_FACTOR_TRACE_PRODUCER_KIND,
+    H7_RAW_FACTOR_TRACE_REPRESENTATION,
+    H7RawFactorTraceEvidence,
+    h7_owned_sha256,
+)
 
 
 FactorPartition = Literal[
@@ -80,27 +91,6 @@ _LIVE_EMISSION_FACTOR_DOMAIN = b"vfe4.h6.live-emission-factor.v1\x00"
 _EMISSION_ONLY_RECORD_DOMAIN = (
     H6_EMISSION_ONLY_ABLATION_HASH_DOMAIN.encode("ascii") + b"\x00"
 )
-_H7_COMPLETE_TRACE_DOMAIN = (
-    b"vfe4.h7.complete-language-elbo-factor-trace.v2\x00"
-)
-_H7_COMPLETE_TRACE_REPRESENTATION = (
-    "raw_expected_log_factors_plus_recognition_entropy_v1"
-)
-_H7_COMPLETE_TRACE_PRODUCER_KIND = "h6_endpoint_complete_elbo_v1"
-_H7_COMPLETE_TRACE_PRODUCER_CONTRACT = {
-    "producer_kind": _H7_COMPLETE_TRACE_PRODUCER_KIND,
-    "producer_type": "vfe4.types.h6.H6EndpointLanguageElboTerms",
-    "entrypoint": (
-        "vfe4.objective.language_elbo.require_h7_complete_factor_trace"
-    ),
-    "representation": _H7_COMPLETE_TRACE_REPRESENTATION,
-}
-_H7_COMPLETE_TRACE_PRODUCER_CONTRACT_SHA256 = hashlib.sha256(
-    b"vfe4.h7.complete-language-elbo-producer-contract.v1\x00"
-    + canonical_json_bytes(_H7_COMPLETE_TRACE_PRODUCER_CONTRACT)
-).hexdigest()
-
-
 @final
 @dataclass(frozen=True, slots=True, init=False)
 class ExactSourceMixtureLaw:
@@ -1130,6 +1120,10 @@ class CompleteLanguageELBOFactorTrace:
         "raw_expected_log_factors_plus_recognition_entropy_v1"
     ]
     producer_kind: Literal["h6_endpoint_complete_elbo_v1"]
+    h6_producer_route: tuple[str, str]
+    h7_adapter_entrypoint: Literal[
+        "vfe4.objective.language_elbo.require_h7_complete_factor_trace"
+    ]
     endpoint_language_elbo_sha256: str
     source_law_identity_sha256: str
     source_prior_trace_sha256: str
@@ -1162,8 +1156,12 @@ class CompleteLanguageELBOFactorTrace:
         values = tuple(float(term.value.value().item()) for term in terms)
         total_value = float(source_trace.total_language_elbo.value().item())
         semantic = {
-            "representation": _H7_COMPLETE_TRACE_REPRESENTATION,
-            "producer_kind": _H7_COMPLETE_TRACE_PRODUCER_KIND,
+            "representation": H7_RAW_FACTOR_TRACE_REPRESENTATION,
+            "producer_kind": H7_RAW_FACTOR_TRACE_PRODUCER_KIND,
+            "h6_producer_route": H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
+            "h7_adapter_entrypoint": (
+                H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT
+            ),
             "endpoint_language_elbo_sha256": source_trace.canonical_sha256,
             "source_law_identity_sha256": (
                 source_trace.source_law_identity_sha256
@@ -1172,7 +1170,7 @@ class CompleteLanguageELBOFactorTrace:
                 source_trace.source_prior_trace_sha256
             ),
             "producer_contract_sha256": (
-                _H7_COMPLETE_TRACE_PRODUCER_CONTRACT_SHA256
+                H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT_SHA256
             ),
             "ordered_slots": tuple(
                 (term.partition, term.receiver_t) for term in terms
@@ -1183,8 +1181,12 @@ class CompleteLanguageELBOFactorTrace:
         }
         return cls(
             source_trace=source_trace,
-            representation=_H7_COMPLETE_TRACE_REPRESENTATION,
-            producer_kind=_H7_COMPLETE_TRACE_PRODUCER_KIND,
+            representation=H7_RAW_FACTOR_TRACE_REPRESENTATION,
+            producer_kind=H7_RAW_FACTOR_TRACE_PRODUCER_KIND,
+            h6_producer_route=H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
+            h7_adapter_entrypoint=(
+                H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT
+            ),
             endpoint_language_elbo_sha256=source_trace.canonical_sha256,
             source_law_identity_sha256=(
                 source_trace.source_law_identity_sha256
@@ -1193,14 +1195,15 @@ class CompleteLanguageELBOFactorTrace:
                 source_trace.source_prior_trace_sha256
             ),
             producer_contract_sha256=(
-                _H7_COMPLETE_TRACE_PRODUCER_CONTRACT_SHA256
+                H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT_SHA256
             ),
             ordered_factor_ids=factor_ids,
             ordered_factor_values=values,
             total_value=total_value,
-            trace_sha256=hashlib.sha256(
-                _H7_COMPLETE_TRACE_DOMAIN + canonical_json_bytes(semantic)
-            ).hexdigest(),
+            trace_sha256=h7_owned_sha256(
+                H7_RAW_FACTOR_TRACE_HASH_DOMAIN,
+                semantic,
+            ),
         )
 
     def __post_init__(self) -> None:
@@ -1215,7 +1218,7 @@ class CompleteLanguageELBOFactorTrace:
         )
         if (
             self.source_trace.endpoint_config.horizon != 2
-            or observed_slots != _canonical_slots(2)
+            or observed_slots != H7_RAW_FACTOR_SLOTS
             or len(terms) != 13
             or any(type(term) is not H6FactorTerm for term in terms)
             or any(term.value.value().numel() != 1 for term in terms)
@@ -1225,8 +1228,12 @@ class CompleteLanguageELBOFactorTrace:
                 "H7 requires the complete ordered T=2 post-H6 factor trace"
             )
         if (
-            self.representation != _H7_COMPLETE_TRACE_REPRESENTATION
-            or self.producer_kind != _H7_COMPLETE_TRACE_PRODUCER_KIND
+            self.representation != H7_RAW_FACTOR_TRACE_REPRESENTATION
+            or self.producer_kind != H7_RAW_FACTOR_TRACE_PRODUCER_KIND
+            or self.h6_producer_route
+            != H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE
+            or self.h7_adapter_entrypoint
+            != H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT
             or self.endpoint_language_elbo_sha256
             != self.source_trace.canonical_sha256
             or self.source_law_identity_sha256
@@ -1234,7 +1241,7 @@ class CompleteLanguageELBOFactorTrace:
             or self.source_prior_trace_sha256
             != self.source_trace.source_prior_trace_sha256
             or self.producer_contract_sha256
-            != _H7_COMPLETE_TRACE_PRODUCER_CONTRACT_SHA256
+            != H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT_SHA256
         ):
             raise ValueError(
                 "H7 raw representation or endpoint provenance changed"
@@ -1257,6 +1264,8 @@ class CompleteLanguageELBOFactorTrace:
         semantic = {
             "representation": self.representation,
             "producer_kind": self.producer_kind,
+            "h6_producer_route": self.h6_producer_route,
+            "h7_adapter_entrypoint": self.h7_adapter_entrypoint,
             "endpoint_language_elbo_sha256": (
                 self.endpoint_language_elbo_sha256
             ),
@@ -1272,9 +1281,10 @@ class CompleteLanguageELBOFactorTrace:
             "ordered_factor_values": expected_values,
             "total_value": expected_total,
         }
-        expected_hash = hashlib.sha256(
-            _H7_COMPLETE_TRACE_DOMAIN + canonical_json_bytes(semantic)
-        ).hexdigest()
+        expected_hash = h7_owned_sha256(
+            H7_RAW_FACTOR_TRACE_HASH_DOMAIN,
+            semantic,
+        )
         if self.trace_sha256 != expected_hash:
             raise ValueError("trace_sha256 does not match the complete H6 trace")
 
@@ -1291,6 +1301,39 @@ def require_h7_complete_factor_trace(
     return CompleteLanguageELBOFactorTrace.create(source_trace=trace)
 
 
+def adapt_h7_raw_factor_trace_evidence(
+    trace: CompleteLanguageELBOFactorTrace,
+) -> H7RawFactorTraceEvidence:
+    """Seal one exact H7 trace into a types-only authenticated evidence record."""
+
+    if type(trace) is not CompleteLanguageELBOFactorTrace:
+        raise ValueError(
+            "raw trace evidence requires an exact complete H7 trace"
+        )
+    trace.__post_init__()
+    return H7RawFactorTraceEvidence._from_objective_adapter(
+        trace_hash_domain=H7_RAW_FACTOR_TRACE_HASH_DOMAIN,
+        representation=trace.representation,
+        producer_kind=trace.producer_kind,
+        h6_producer_route=trace.h6_producer_route,
+        h7_adapter_entrypoint=trace.h7_adapter_entrypoint,
+        endpoint_language_elbo_sha256=(
+            trace.endpoint_language_elbo_sha256
+        ),
+        source_law_identity_sha256=trace.source_law_identity_sha256,
+        source_prior_trace_sha256=trace.source_prior_trace_sha256,
+        producer_contract_sha256=trace.producer_contract_sha256,
+        ordered_slots=tuple(
+            (term.partition, term.receiver_t)
+            for term in trace.source_trace.ordered_factor_terms
+        ),
+        ordered_factor_ids=trace.ordered_factor_ids,
+        ordered_factor_values=trace.ordered_factor_values,
+        total_value=trace.total_value,
+        trace_sha256=trace.trace_sha256,
+    )
+
+
 __all__ = [
     "CompleteLanguageELBOFactorTrace",
     "ExpectationEvaluationMethod",
@@ -1302,6 +1345,7 @@ __all__ = [
     "PriorVariant",
     "RecognitionConditioningMode",
     "RecognitionFamily",
+    "adapt_h7_raw_factor_trace_evidence",
     "evaluate_emission_only_ablation",
     "require_h7_complete_factor_trace",
     "require_source_law_for_endpoint",

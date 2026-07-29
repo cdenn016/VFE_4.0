@@ -153,6 +153,35 @@ H7_GROUPED_POSITIVE_KL_TERM_IDS = (
     "model_transition_kl[2]",
     "state_transition_kl[2]",
 )
+H7_RAW_FACTOR_TRACE_HASH_DOMAIN = (
+    "vfe4.h7.complete-language-elbo-factor-trace.v2"
+)
+H7_RAW_FACTOR_TRACE_REPRESENTATION = (
+    "raw_expected_log_factors_plus_recognition_entropy_v1"
+)
+H7_RAW_FACTOR_TRACE_PRODUCER_KIND = "h6_endpoint_complete_elbo_v1"
+H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE = (
+    "vfe4.training.arms.BuiltArm.evaluate_complete_language_elbo",
+    "vfe4.objective.language_elbo._evaluate_language_elbo",
+)
+H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT = (
+    "vfe4.objective.language_elbo.require_h7_complete_factor_trace"
+)
+H7_RAW_FACTOR_SLOTS = (
+    ("initial", 0),
+    ("model_source", 1),
+    ("model_transition", 1),
+    ("state_source", 1),
+    ("state_transition", 1),
+    ("emission", 1),
+    ("entropy", 1),
+    ("model_source", 2),
+    ("model_transition", 2),
+    ("state_source", 2),
+    ("state_transition", 2),
+    ("emission", 2),
+    ("entropy", 2),
+)
 
 H7_SCALAR_TRIAL_IDS: tuple[H7TrialId, H7TrialId] = (
     "scalar-base-transformed",
@@ -780,6 +809,21 @@ class H7BorrowedActionView:
             item.assert_intact()
             if item.identity.shape != (self.dimension, self.dimension):
                 raise ValueError("borrowed H7 action element shape mismatch")
+
+
+H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT = MappingProxyType(
+    {
+        "producer_kind": H7_RAW_FACTOR_TRACE_PRODUCER_KIND,
+        "producer_type": "vfe4.types.h6.H6EndpointLanguageElboTerms",
+        "h6_producer_route": H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
+        "h7_adapter_entrypoint": H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT,
+        "representation": H7_RAW_FACTOR_TRACE_REPRESENTATION,
+    }
+)
+H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT_SHA256 = h7_owned_sha256(
+    "vfe4.h7.complete-language-elbo-producer-contract.v1",
+    H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT,
+)
 
 
 def _owned_action_elements(
@@ -4082,6 +4126,167 @@ class H7IndependentH1EvidenceRecord(_H7IntegrityRecord):
         super().__post_init__()
 
 
+@dataclass(frozen=True, init=False)
+class H7RawFactorTraceEvidence(_H7IntegrityRecord):
+    """Authenticated, self-verifying H7 view of one complete raw trace."""
+
+    _integrity_field: ClassVar[str] = "evidence_sha256"
+    _hash_domain: ClassVar[str] = "vfe4.h7.raw-factor-trace-evidence.v1"
+
+    trace_hash_domain: Literal[
+        "vfe4.h7.complete-language-elbo-factor-trace.v2"
+    ]
+    representation: Literal[
+        "raw_expected_log_factors_plus_recognition_entropy_v1"
+    ]
+    producer_kind: Literal["h6_endpoint_complete_elbo_v1"]
+    h6_producer_route: tuple[str, str]
+    h7_adapter_entrypoint: Literal[
+        "vfe4.objective.language_elbo.require_h7_complete_factor_trace"
+    ]
+    endpoint_language_elbo_sha256: str
+    source_law_identity_sha256: str
+    source_prior_trace_sha256: str
+    producer_contract_sha256: str
+    ordered_slots: tuple[tuple[str, int], ...]
+    ordered_factor_ids: tuple[str, ...]
+    ordered_factor_values: tuple[float, ...]
+    total_value: float
+    trace_sha256: str
+    evidence_sha256: str
+
+    def __init__(self) -> None:
+        raise TypeError(
+            "H7RawFactorTraceEvidence is objective-adapter-only"
+        )
+
+    @classmethod
+    def create(cls, **values: object) -> "H7RawFactorTraceEvidence":
+        del values
+        raise TypeError(
+            "H7RawFactorTraceEvidence is objective-adapter-only"
+        )
+
+    @classmethod
+    def _from_objective_adapter(
+        cls,
+        *,
+        trace_hash_domain: str,
+        representation: str,
+        producer_kind: str,
+        h6_producer_route: tuple[str, ...],
+        h7_adapter_entrypoint: str,
+        endpoint_language_elbo_sha256: str,
+        source_law_identity_sha256: str,
+        source_prior_trace_sha256: str,
+        producer_contract_sha256: str,
+        ordered_slots: tuple[tuple[str, int], ...],
+        ordered_factor_ids: tuple[str, ...],
+        ordered_factor_values: tuple[float, ...],
+        total_value: float,
+        trace_sha256: str,
+    ) -> "H7RawFactorTraceEvidence":
+        values: dict[str, object] = {
+            "trace_hash_domain": trace_hash_domain,
+            "representation": representation,
+            "producer_kind": producer_kind,
+            "h6_producer_route": tuple(h6_producer_route),
+            "h7_adapter_entrypoint": h7_adapter_entrypoint,
+            "endpoint_language_elbo_sha256": endpoint_language_elbo_sha256,
+            "source_law_identity_sha256": source_law_identity_sha256,
+            "source_prior_trace_sha256": source_prior_trace_sha256,
+            "producer_contract_sha256": producer_contract_sha256,
+            "ordered_slots": tuple(ordered_slots),
+            "ordered_factor_ids": tuple(ordered_factor_ids),
+            "ordered_factor_values": tuple(ordered_factor_values),
+            "total_value": total_value,
+            "trace_sha256": trace_sha256,
+        }
+        instance = object.__new__(cls)
+        for name, value in values.items():
+            object.__setattr__(instance, name, value)
+        object.__setattr__(
+            instance,
+            "evidence_sha256",
+            h7_owned_sha256(cls._hash_domain, values),
+        )
+        instance.__post_init__()
+        return instance
+
+    def trace_payload(self) -> dict[str, object]:
+        return {
+            "representation": self.representation,
+            "producer_kind": self.producer_kind,
+            "h6_producer_route": self.h6_producer_route,
+            "h7_adapter_entrypoint": self.h7_adapter_entrypoint,
+            "endpoint_language_elbo_sha256": (
+                self.endpoint_language_elbo_sha256
+            ),
+            "source_law_identity_sha256": (
+                self.source_law_identity_sha256
+            ),
+            "source_prior_trace_sha256": (
+                self.source_prior_trace_sha256
+            ),
+            "producer_contract_sha256": self.producer_contract_sha256,
+            "ordered_slots": self.ordered_slots,
+            "ordered_factor_ids": self.ordered_factor_ids,
+            "ordered_factor_values": self.ordered_factor_values,
+            "total_value": self.total_value,
+        }
+
+    def __post_init__(self) -> None:
+        if (
+            self.trace_hash_domain != H7_RAW_FACTOR_TRACE_HASH_DOMAIN
+            or self.representation != H7_RAW_FACTOR_TRACE_REPRESENTATION
+            or self.producer_kind != H7_RAW_FACTOR_TRACE_PRODUCER_KIND
+            or self.h6_producer_route
+            != H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE
+            or self.h7_adapter_entrypoint
+            != H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT
+            or self.producer_contract_sha256
+            != H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT_SHA256
+        ):
+            raise ValueError(
+                "raw trace producer, adapter, or hash-domain provenance changed"
+            )
+        for name in (
+            "endpoint_language_elbo_sha256",
+            "source_law_identity_sha256",
+            "source_prior_trace_sha256",
+            "producer_contract_sha256",
+        ):
+            _require_sha256(getattr(self, name), name)
+        if (
+            self.ordered_slots != H7_RAW_FACTOR_SLOTS
+            or type(self.ordered_factor_ids) is not tuple
+            or len(self.ordered_factor_ids) != 13
+            or len(set(self.ordered_factor_ids)) != 13
+            or type(self.ordered_factor_values) is not tuple
+            or len(self.ordered_factor_values) != 13
+            or any(
+                type(value) is not float or not math.isfinite(value)
+                for value in self.ordered_factor_values
+            )
+            or type(self.total_value) is not float
+            or not math.isfinite(self.total_value)
+        ):
+            raise ValueError(
+                "raw trace evidence requires the exact finite T=2 inventory"
+            )
+        for factor_id in self.ordered_factor_ids:
+            _require_sha256(factor_id, "ordered_factor_id")
+        _require_sha256(self.trace_sha256, "trace_sha256")
+        if self.trace_sha256 != h7_owned_sha256(
+            self.trace_hash_domain,
+            self.trace_payload(),
+        ):
+            raise ValueError(
+                "trace_sha256 does not authenticate the retained raw payload"
+            )
+        super().__post_init__()
+
+
 @dataclass(frozen=True)
 class H7GroupedElboTermRecord(_H7IntegrityRecord):
     """One complete-law-derived term in the separate grouped H7 ELBO."""
@@ -4194,46 +4399,56 @@ class H7GroupedElboRecord(_H7IntegrityRecord):
 
     representation: Literal["expected_emission_minus_positive_kl_v1"]
     law_pair_sha256: str
-    original_raw_factor_trace_sha256: str
-    transformed_raw_factor_trace_sha256: str
-    original_raw_factor_ids: tuple[str, ...]
-    transformed_raw_factor_ids: tuple[str, ...]
+    original_raw_trace_evidence: H7RawFactorTraceEvidence
+    transformed_raw_trace_evidence: H7RawFactorTraceEvidence
     emission_terms: tuple[H7GroupedElboTermRecord, ...]
     positive_kl_terms: tuple[H7GroupedElboTermRecord, ...]
     entropy_diagnostic: H7NonadditiveEntropyDiagnostic
-    original_raw_total: float
-    transformed_raw_total: float
     original_grouped_total: float
     transformed_grouped_total: float
     original_raw_grouped_equality_residual: float
     transformed_raw_grouped_equality_residual: float
     grouped_elbo_sha256: str
 
+    @property
+    def original_raw_factor_trace_sha256(self) -> str:
+        return self.original_raw_trace_evidence.trace_sha256
+
+    @property
+    def transformed_raw_factor_trace_sha256(self) -> str:
+        return self.transformed_raw_trace_evidence.trace_sha256
+
+    @property
+    def original_raw_factor_ids(self) -> tuple[str, ...]:
+        return self.original_raw_trace_evidence.ordered_factor_ids
+
+    @property
+    def transformed_raw_factor_ids(self) -> tuple[str, ...]:
+        return self.transformed_raw_trace_evidence.ordered_factor_ids
+
+    @property
+    def original_raw_total(self) -> float:
+        return self.original_raw_trace_evidence.total_value
+
+    @property
+    def transformed_raw_total(self) -> float:
+        return self.transformed_raw_trace_evidence.total_value
+
     def __post_init__(self) -> None:
         if self.representation != "expected_emission_minus_positive_kl_v1":
             raise ValueError("unsupported grouped ELBO representation")
-        for name in (
-            "law_pair_sha256",
-            "original_raw_factor_trace_sha256",
-            "transformed_raw_factor_trace_sha256",
+        _require_sha256(self.law_pair_sha256, "law_pair_sha256")
+        if (
+            type(self.original_raw_trace_evidence)
+            is not H7RawFactorTraceEvidence
+            or type(self.transformed_raw_trace_evidence)
+            is not H7RawFactorTraceEvidence
         ):
-            _require_sha256(getattr(self, name), name)
-        for name in (
-            "original_raw_factor_ids",
-            "transformed_raw_factor_ids",
-        ):
-            values = getattr(self, name)
-            if (
-                type(values) is not tuple
-                or len(values) != 13
-                or len(set(values)) != 13
-            ):
-                raise ValueError(
-                    "grouped ELBO raw factor inventory must contain 13 "
-                    "unique identities"
-                )
-            for value in values:
-                _require_sha256(value, name)
+            raise ValueError(
+                "grouped ELBO requires exact authenticated raw-trace evidence"
+            )
+        self.original_raw_trace_evidence.__post_init__()
+        self.transformed_raw_trace_evidence.__post_init__()
         if (
             type(self.emission_terms) is not tuple
             or any(
@@ -4293,9 +4508,15 @@ class H7GroupedElboRecord(_H7IntegrityRecord):
             type(self.original_raw_grouped_equality_residual) is not float
             or type(self.transformed_raw_grouped_equality_residual) is not float
             or self.original_raw_grouped_equality_residual
-            != abs(self.original_raw_total - expected_original)
+            != abs(
+                self.original_raw_trace_evidence.total_value
+                - expected_original
+            )
             or self.transformed_raw_grouped_equality_residual
-            != abs(self.transformed_raw_total - expected_transformed)
+            != abs(
+                self.transformed_raw_trace_evidence.total_value
+                - expected_transformed
+            )
         ):
             raise ValueError(
                 "raw/grouped equality residuals must be recomputed"
