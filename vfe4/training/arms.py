@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import weakref
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Iterator, Literal
@@ -1707,6 +1708,42 @@ class BuiltArm:
         return result
 
 
+_FACTORY_BUILT_ARM_REGISTRY: dict[
+    int,
+    weakref.ReferenceType[BuiltArm],
+] = {}
+
+
+def _register_factory_built_arm(arm: BuiltArm) -> BuiltArm:
+    """Register one exact ``_construct`` result by live object identity."""
+
+    if type(arm) is not BuiltArm:
+        raise ValueError("only an exact BuiltArm can be factory-registered")
+    identity = id(arm)
+
+    def remove(reference: weakref.ReferenceType[BuiltArm]) -> None:
+        if _FACTORY_BUILT_ARM_REGISTRY.get(identity) is reference:
+            _FACTORY_BUILT_ARM_REGISTRY.pop(identity, None)
+
+    reference = weakref.ref(arm, remove)
+    current = _FACTORY_BUILT_ARM_REGISTRY.get(identity)
+    if current is not None and current() is not None:
+        raise RuntimeError("BuiltArm factory identity was already registered")
+    _FACTORY_BUILT_ARM_REGISTRY[identity] = reference
+    return arm
+
+
+def _require_factory_issued_built_arm(value: object) -> BuiltArm:
+    """Return only the exact live ``BuiltArm`` identity issued by ``_construct``."""
+
+    if type(value) is not BuiltArm:
+        raise ValueError("H7 capture requires an exact factory-issued BuiltArm")
+    reference = _FACTORY_BUILT_ARM_REGISTRY.get(id(value))
+    if reference is None or reference() is not value:
+        raise ValueError("H7 capture requires a live factory-issued BuiltArm")
+    return value
+
+
 def _semantic_role(config: ArmConfig, qualified_name: str) -> str:
     if config.arm is ArmId.A0:
         return "a0_causal_transformer_parameter"
@@ -2044,7 +2081,7 @@ def _construct(config: ArmConfig) -> BuiltArm:
         == "emission_only_ablation_non_elbo"
         else model.elbo_inventory_sha256
     )
-    return BuiltArm(
+    arm = BuiltArm(
         config,
         model,
         recognition_store,
@@ -2059,6 +2096,7 @@ def _construct(config: ArmConfig) -> BuiltArm:
         False,
         _training_flop_obligations(model, recognition_store),
     )
+    return _register_factory_built_arm(arm)
 
 
 def build_a0(config: ArmConfig) -> BuiltArm:

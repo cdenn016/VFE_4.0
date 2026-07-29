@@ -8,6 +8,7 @@ import inspect
 import json
 import math
 from pathlib import Path
+import pickle
 import struct
 import textwrap
 
@@ -28,6 +29,7 @@ from vfe4.generative.source_priors import (
 )
 from vfe4.geometry.group_action import borrow_h7_action
 from vfe4.objective.language_elbo import require_h7_complete_factor_trace
+from vfe4.predictive.identities import canonical_model_state_sha256
 from vfe4.training.arms import LatentLanguageArmModel, build_a5
 from vfe4.types.h6 import (
     ArmConfig,
@@ -287,23 +289,31 @@ class _RealBuiltArmCompleteExpectation:
         *,
         config: ArmConfig,
         source_factors: dict[tuple[str, int], NormalizedSourceFactor],
+        identity_label: str,
+        entropy_shift: float = 0.0,
     ) -> None:
         self.horizon = 2
         self.evaluation_method = "exact_enumeration"
         self.source_law = language_elbo.ExactSourceMixtureLaw.create(
             endpoint_config=config
         )
-        self.expectation_identity_sha256 = _sha("real BuiltArm expectation")
+        self.identity_label = identity_label
+        self.expectation_identity_sha256 = _sha(
+            f"real BuiltArm expectation:{identity_label}"
+        )
         self.structure_sha256 = _sha("real BuiltArm structure")
         self.recognition_family = "structured_full_spd"
         self.recognition_conditioning = "smoothing"
         self.ordered_slots = _FACTOR_SLOTS
         self.source_factors = source_factors
+        values = list(_SIGNED_VALUES)
+        values[5] -= entropy_shift
+        values[6] += entropy_shift
         self.values = {
             slot: torch.tensor(value, dtype=torch.float64)
             for slot, value in zip(
                 _FACTOR_SLOTS,
-                _SIGNED_VALUES,
+                values,
                 strict=True,
             )
         }
@@ -324,7 +334,9 @@ class _RealBuiltArmCompleteExpectation:
             return self.source_factors[
                 (partition, receiver_t)
             ].factor_identity_sha256
-        return _sha(f"real BuiltArm:{partition}:{receiver_t}")
+        return _sha(
+            f"real BuiltArm:{self.identity_label}:{partition}:{receiver_t}"
+        )
 
     def normalized_source_factor(
         self,
@@ -345,7 +357,11 @@ class _RealBuiltArmCompleteExpectation:
         return self.total
 
 
-def _real_built_arm_endpoint() -> tuple[H6EndpointLanguageElboTerms, object]:
+def _real_built_arm_inputs(
+    identity_label: str,
+    *,
+    entropy_shift: float = 0.0,
+):
     config = _complete_endpoint_config()
     arm = build_a5(config)
     assert type(arm.model) is LatentLanguageArmModel
@@ -368,8 +384,26 @@ def _real_built_arm_endpoint() -> tuple[H6EndpointLanguageElboTerms, object]:
     expectation = _RealBuiltArmCompleteExpectation(
         config=config,
         source_factors=source_factors,
+        identity_label=identity_label,
+        entropy_shift=entropy_shift,
     )
-    return arm.evaluate_complete_language_elbo(expectation), arm
+    return arm, expectation
+
+
+def _real_built_arm_capture(
+    identity_label: str,
+    *,
+    entropy_shift: float = 0.0,
+):
+    arm, expectation = _real_built_arm_inputs(
+        identity_label,
+        entropy_shift=entropy_shift,
+    )
+    receipt = language_elbo.capture_h7_complete_language_elbo(
+        arm,
+        expectation,
+    )
+    return receipt, arm, expectation
 
 
 def _complete_trace(
@@ -377,8 +411,12 @@ def _complete_trace(
     *,
     entropy_shift: float = 0.0,
 ):
+    receipt, _, _ = _real_built_arm_capture(
+        prefix,
+        entropy_shift=entropy_shift,
+    )
     return require_h7_complete_factor_trace(
-        _complete_endpoint(prefix, entropy_shift=entropy_shift)
+        receipt
     )
 
 
@@ -464,12 +502,50 @@ def _grouped_schema_inputs() -> tuple[
 
 
 def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
-    endpoint = _complete_endpoint("raw-provenance")
+    fabricated_endpoint = _complete_endpoint("raw-provenance")
     with pytest.raises(ValueError, match="endpoint"):
-        require_h7_complete_factor_trace(endpoint.terms)
+        require_h7_complete_factor_trace(fabricated_endpoint.terms)
+    with pytest.raises(ValueError, match="authenticated|receipt|BuiltArm"):
+        require_h7_complete_factor_trace(fabricated_endpoint)
 
-    trace = require_h7_complete_factor_trace(endpoint)
+    receipt, arm, expectation = _real_built_arm_capture("raw-provenance")
+    endpoint = receipt.endpoint
+    trace = require_h7_complete_factor_trace(receipt)
 
+    assert trace.authenticated_evaluation is receipt
+    assert receipt.attestation_scope == "built-arm-complete-elbo-assembly-v1"
+    assert (
+        receipt.issuer_route
+        == "vfe4.objective.language_elbo.capture_h7_complete_language_elbo"
+    )
+    assert receipt.producer_route == (
+        "vfe4.training.arms.BuiltArm.evaluate_complete_language_elbo",
+        "vfe4.objective.language_elbo._evaluate_language_elbo",
+    )
+    assert receipt.endpoint_config_sha256 == arm.config.config_sha256
+    assert receipt.model_family_sha256 == arm.model_family_sha256
+    assert receipt.canonical_model_state_sha256 == (
+        canonical_model_state_sha256(arm.model)
+    )
+    assert receipt.elbo_inventory_sha256 == arm.elbo_inventory_sha256
+    assert (
+        receipt.expectation_identity_sha256
+        == expectation.expectation_identity_sha256
+    )
+    assert (
+        receipt.expectation_structure_sha256
+        == expectation.structure_sha256
+    )
+    assert receipt.expectation_source_law_marker_identity_sha256 == (
+        expectation.source_law.law_identity_sha256
+    )
+    assert receipt.endpoint_source_law_identity_sha256 == (
+        endpoint.source_law_identity_sha256
+    )
+    assert receipt.source_prior_trace_sha256 == (
+        endpoint.source_prior_trace_sha256
+    )
+    assert receipt.endpoint_language_elbo_sha256 == endpoint.canonical_sha256
     assert (
         trace.representation
         == "raw_expected_log_factors_plus_recognition_entropy_v1"
@@ -490,6 +566,14 @@ def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
             "producer_kind": "h6_endpoint_complete_elbo_v1",
             "producer_type": (
                 "vfe4.types.h6.H6EndpointLanguageElboTerms"
+            ),
+            "attestation_type": (
+                "vfe4.objective.language_elbo.H7AuthenticatedEvaluation"
+            ),
+            "attestation_scope": "built-arm-complete-elbo-assembly-v1",
+            "attestation_issuer": (
+                "vfe4.objective.language_elbo."
+                "capture_h7_complete_language_elbo"
             ),
             "h6_producer_route": (
                 "vfe4.training.arms.BuiltArm."
@@ -519,7 +603,25 @@ def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
     trace_semantic = {
         "representation": trace.representation,
         "producer_kind": trace.producer_kind,
+        "attestation_scope": trace.attestation_scope,
+        "producer_attestation_sha256": (
+            trace.producer_attestation_sha256
+        ),
+        "endpoint_config_sha256": trace.endpoint_config_sha256,
+        "model_family_sha256": trace.model_family_sha256,
+        "canonical_model_state_sha256": (
+            trace.canonical_model_state_sha256
+        ),
+        "elbo_inventory_sha256": trace.elbo_inventory_sha256,
+        "expectation_identity_sha256": trace.expectation_identity_sha256,
+        "expectation_structure_sha256": (
+            trace.expectation_structure_sha256
+        ),
+        "expectation_source_law_marker_identity_sha256": (
+            trace.expectation_source_law_marker_identity_sha256
+        ),
         "h6_producer_route": trace.h6_producer_route,
+        "issuer_route": trace.issuer_route,
         "h7_adapter_entrypoint": trace.h7_adapter_entrypoint,
         "endpoint_language_elbo_sha256": trace.endpoint_language_elbo_sha256,
         "source_law_identity_sha256": trace.source_law_identity_sha256,
@@ -531,11 +633,11 @@ def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
         "total_value": trace.total_value,
     }
     assert trace.trace_sha256 == _h6_owned_sha256(
-        "vfe4.h7.complete-language-elbo-factor-trace.v2",
+        "vfe4.h7.complete-language-elbo-factor-trace.v3",
         trace_semantic,
     )
     assert trace.trace_sha256 != _h6_owned_sha256(
-        "vfe4.h7.complete-language-elbo-factor-trace.v1",
+        "vfe4.h7.complete-language-elbo-factor-trace.v2",
         trace_semantic,
     )
 
@@ -551,15 +653,36 @@ def test_h7_complete_trace_rejects_mutated_provenance_and_preserves_h6_hashes(
         endpoint.canonical_sha256
         == "9d2596a2b2398b0c38cab60509476f6674e253e10b252e5aecee241f84637b49"
     )
-    trace = require_h7_complete_factor_trace(endpoint)
+    with pytest.raises(ValueError, match="authenticated|receipt|BuiltArm"):
+        require_h7_complete_factor_trace(endpoint)
+
+    trace = _complete_trace("h7-v3-mutation")
+    unrelated_trace = _complete_trace("h7-v3-unrelated-receipt")
 
     for field, value in (
+        (
+            "authenticated_evaluation",
+            unrelated_trace.authenticated_evaluation,
+        ),
         ("representation", "expected_emission_minus_positive_kl_v1"),
         ("producer_kind", "h6_language_elbo_terms_v1"),
+        ("attestation_scope", "law-value-derivation-v1"),
+        ("producer_attestation_sha256", _sha("foreign attestation")),
+        ("endpoint_config_sha256", _sha("foreign endpoint config")),
+        ("model_family_sha256", _sha("foreign model family")),
+        ("canonical_model_state_sha256", _sha("foreign model state")),
+        ("elbo_inventory_sha256", _sha("foreign inventory")),
+        ("expectation_identity_sha256", _sha("foreign expectation")),
+        ("expectation_structure_sha256", _sha("foreign structure")),
+        (
+            "expectation_source_law_marker_identity_sha256",
+            _sha("foreign expectation law"),
+        ),
         (
             "h6_producer_route",
             ("vfe4.objective.language_elbo._evaluate_language_elbo",),
         ),
+        ("issuer_route", "vfe4.objective.language_elbo._evaluate_language_elbo"),
         (
             "h7_adapter_entrypoint",
             "vfe4.training.arms.BuiltArm.evaluate_complete_language_elbo",
@@ -569,13 +692,24 @@ def test_h7_complete_trace_rejects_mutated_provenance_and_preserves_h6_hashes(
         ("source_prior_trace_sha256", _sha("foreign source prior")),
         ("producer_contract_sha256", _sha("foreign producer contract")),
     ):
-        with pytest.raises(ValueError, match="raw|provenance|producer|source"):
-            dataclasses.replace(trace, **{field: value})
+        forged = object.__new__(type(trace))
+        for item in dataclasses.fields(trace):
+            object.__setattr__(
+                forged,
+                item.name,
+                value if item.name == field else getattr(trace, item.name),
+            )
+        with pytest.raises(
+            ValueError,
+            match="raw|provenance|producer|source|attestation|binding",
+        ):
+            forged.__post_init__()
 
 
 def test_h7_accepts_the_real_built_arm_complete_elbo_producer_route() -> None:
-    endpoint, arm = _real_built_arm_endpoint()
-    trace = require_h7_complete_factor_trace(endpoint)
+    receipt, arm, _ = _real_built_arm_capture("real-route")
+    endpoint = receipt.endpoint
+    trace = require_h7_complete_factor_trace(receipt)
     evidence = language_elbo.adapt_h7_raw_factor_trace_evidence(trace)
 
     assert endpoint.source_prior_trace.model_family_sha256 == (
@@ -597,6 +731,48 @@ def test_h7_accepts_the_real_built_arm_complete_elbo_producer_route() -> None:
         evidence.h7_adapter_entrypoint
         == "vfe4.objective.language_elbo.require_h7_complete_factor_trace"
     )
+    assert evidence.attestation_scope == receipt.attestation_scope
+    assert evidence.producer_attestation_sha256 == receipt.attestation_sha256
+    assert evidence.endpoint_config_sha256 == receipt.endpoint_config_sha256
+    assert evidence.model_family_sha256 == receipt.model_family_sha256
+    assert evidence.canonical_model_state_sha256 == (
+        receipt.canonical_model_state_sha256
+    )
+    assert evidence.elbo_inventory_sha256 == receipt.elbo_inventory_sha256
+    assert evidence.expectation_identity_sha256 == (
+        receipt.expectation_identity_sha256
+    )
+    assert evidence.expectation_structure_sha256 == (
+        receipt.expectation_structure_sha256
+    )
+    assert evidence.expectation_source_law_marker_identity_sha256 == (
+        receipt.expectation_source_law_marker_identity_sha256
+    )
+    assert evidence.issuer_route == receipt.issuer_route
+
+
+def test_h7_rejects_nonfactory_arm_and_unregistered_receipt_forgeries() -> None:
+    receipt, arm, expectation = _real_built_arm_capture("forgery-controls")
+    structural_arm_clone = dataclasses.replace(arm)
+
+    with pytest.raises(ValueError, match="factory-issued"):
+        language_elbo.capture_h7_complete_language_elbo(
+            structural_arm_clone,
+            expectation,
+        )
+
+    forged = object.__new__(type(receipt))
+    for item in dataclasses.fields(receipt):
+        object.__setattr__(forged, item.name, getattr(receipt, item.name))
+    with pytest.raises(ValueError, match="registered|authenticated"):
+        require_h7_complete_factor_trace(forged)
+
+    with pytest.raises(TypeError, match="copy"):
+        copy.copy(receipt)
+    with pytest.raises(TypeError, match="deepcopy"):
+        copy.deepcopy(receipt)
+    with pytest.raises(TypeError, match="pickle"):
+        pickle.dumps(receipt)
 
 
 def test_h7_raw_trace_evidence_rejects_fabricated_and_unrelated_claims() -> None:
@@ -619,6 +795,12 @@ def test_h7_raw_trace_evidence_rejects_fabricated_and_unrelated_claims() -> None
     with pytest.raises(ValueError, match="trace_sha256|evidence_sha256"):
         forged(
             trace_sha256=unrelated.trace_sha256,
+        ).__post_init__()
+    with pytest.raises(ValueError, match="trace_sha256|evidence_sha256"):
+        forged(
+            producer_attestation_sha256=(
+                unrelated.producer_attestation_sha256
+            ),
         ).__post_init__()
     with pytest.raises(ValueError, match="trace_sha256|evidence_sha256"):
         forged(

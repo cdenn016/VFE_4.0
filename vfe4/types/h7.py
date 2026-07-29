@@ -153,8 +153,17 @@ H7_GROUPED_POSITIVE_KL_TERM_IDS = (
     "model_transition_kl[2]",
     "state_transition_kl[2]",
 )
+H7_AUTHENTICATED_EVALUATION_HASH_DOMAIN = (
+    "vfe4.h7.authenticated-complete-language-elbo-evaluation.v1"
+)
+H7_AUTHENTICATED_EVALUATION_SCOPE = (
+    "built-arm-complete-elbo-assembly-v1"
+)
+H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE = (
+    "vfe4.objective.language_elbo.capture_h7_complete_language_elbo"
+)
 H7_RAW_FACTOR_TRACE_HASH_DOMAIN = (
-    "vfe4.h7.complete-language-elbo-factor-trace.v2"
+    "vfe4.h7.complete-language-elbo-factor-trace.v3"
 )
 H7_RAW_FACTOR_TRACE_REPRESENTATION = (
     "raw_expected_log_factors_plus_recognition_entropy_v1"
@@ -815,6 +824,11 @@ H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT = MappingProxyType(
     {
         "producer_kind": H7_RAW_FACTOR_TRACE_PRODUCER_KIND,
         "producer_type": "vfe4.types.h6.H6EndpointLanguageElboTerms",
+        "attestation_type": (
+            "vfe4.objective.language_elbo.H7AuthenticatedEvaluation"
+        ),
+        "attestation_scope": H7_AUTHENTICATED_EVALUATION_SCOPE,
+        "attestation_issuer": H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE,
         "h6_producer_route": H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
         "h7_adapter_entrypoint": H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT,
         "representation": H7_RAW_FACTOR_TRACE_REPRESENTATION,
@@ -4134,16 +4148,28 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
     """Authenticated, self-verifying H7 view of one complete raw trace."""
 
     _integrity_field: ClassVar[str] = "evidence_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.raw-factor-trace-evidence.v1"
+    _hash_domain: ClassVar[str] = "vfe4.h7.raw-factor-trace-evidence.v2"
 
     trace_hash_domain: Literal[
-        "vfe4.h7.complete-language-elbo-factor-trace.v2"
+        "vfe4.h7.complete-language-elbo-factor-trace.v3"
     ]
     representation: Literal[
         "raw_expected_log_factors_plus_recognition_entropy_v1"
     ]
     producer_kind: Literal["h6_endpoint_complete_elbo_v1"]
+    attestation_scope: Literal["built-arm-complete-elbo-assembly-v1"]
+    producer_attestation_sha256: str
+    endpoint_config_sha256: str
+    model_family_sha256: str
+    canonical_model_state_sha256: str
+    elbo_inventory_sha256: str
+    expectation_identity_sha256: str
+    expectation_structure_sha256: str
+    expectation_source_law_marker_identity_sha256: str
     h6_producer_route: tuple[str, str]
+    issuer_route: Literal[
+        "vfe4.objective.language_elbo.capture_h7_complete_language_elbo"
+    ]
     h7_adapter_entrypoint: Literal[
         "vfe4.objective.language_elbo.require_h7_complete_factor_trace"
     ]
@@ -4177,7 +4203,17 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
         trace_hash_domain: str,
         representation: str,
         producer_kind: str,
+        attestation_scope: str,
+        producer_attestation_sha256: str,
+        endpoint_config_sha256: str,
+        model_family_sha256: str,
+        canonical_model_state_sha256: str,
+        elbo_inventory_sha256: str,
+        expectation_identity_sha256: str,
+        expectation_structure_sha256: str,
+        expectation_source_law_marker_identity_sha256: str,
         h6_producer_route: tuple[str, ...],
+        issuer_route: str,
         h7_adapter_entrypoint: str,
         endpoint_language_elbo_sha256: str,
         source_law_identity_sha256: str,
@@ -4193,7 +4229,19 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
             "trace_hash_domain": trace_hash_domain,
             "representation": representation,
             "producer_kind": producer_kind,
+            "attestation_scope": attestation_scope,
+            "producer_attestation_sha256": producer_attestation_sha256,
+            "endpoint_config_sha256": endpoint_config_sha256,
+            "model_family_sha256": model_family_sha256,
+            "canonical_model_state_sha256": canonical_model_state_sha256,
+            "elbo_inventory_sha256": elbo_inventory_sha256,
+            "expectation_identity_sha256": expectation_identity_sha256,
+            "expectation_structure_sha256": expectation_structure_sha256,
+            "expectation_source_law_marker_identity_sha256": (
+                expectation_source_law_marker_identity_sha256
+            ),
             "h6_producer_route": tuple(h6_producer_route),
+            "issuer_route": issuer_route,
             "h7_adapter_entrypoint": h7_adapter_entrypoint,
             "endpoint_language_elbo_sha256": endpoint_language_elbo_sha256,
             "source_law_identity_sha256": source_law_identity_sha256,
@@ -4220,7 +4268,27 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
         return {
             "representation": self.representation,
             "producer_kind": self.producer_kind,
+            "attestation_scope": self.attestation_scope,
+            "producer_attestation_sha256": (
+                self.producer_attestation_sha256
+            ),
+            "endpoint_config_sha256": self.endpoint_config_sha256,
+            "model_family_sha256": self.model_family_sha256,
+            "canonical_model_state_sha256": (
+                self.canonical_model_state_sha256
+            ),
+            "elbo_inventory_sha256": self.elbo_inventory_sha256,
+            "expectation_identity_sha256": (
+                self.expectation_identity_sha256
+            ),
+            "expectation_structure_sha256": (
+                self.expectation_structure_sha256
+            ),
+            "expectation_source_law_marker_identity_sha256": (
+                self.expectation_source_law_marker_identity_sha256
+            ),
             "h6_producer_route": self.h6_producer_route,
+            "issuer_route": self.issuer_route,
             "h7_adapter_entrypoint": self.h7_adapter_entrypoint,
             "endpoint_language_elbo_sha256": (
                 self.endpoint_language_elbo_sha256
@@ -4243,8 +4311,12 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
             self.trace_hash_domain != H7_RAW_FACTOR_TRACE_HASH_DOMAIN
             or self.representation != H7_RAW_FACTOR_TRACE_REPRESENTATION
             or self.producer_kind != H7_RAW_FACTOR_TRACE_PRODUCER_KIND
+            or self.attestation_scope
+            != H7_AUTHENTICATED_EVALUATION_SCOPE
             or self.h6_producer_route
             != H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE
+            or self.issuer_route
+            != H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE
             or self.h7_adapter_entrypoint
             != H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT
             or self.producer_contract_sha256
@@ -4254,6 +4326,14 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
                 "raw trace producer, adapter, or hash-domain provenance changed"
             )
         for name in (
+            "producer_attestation_sha256",
+            "endpoint_config_sha256",
+            "model_family_sha256",
+            "canonical_model_state_sha256",
+            "elbo_inventory_sha256",
+            "expectation_identity_sha256",
+            "expectation_structure_sha256",
+            "expectation_source_law_marker_identity_sha256",
             "endpoint_language_elbo_sha256",
             "source_law_identity_sha256",
             "source_prior_trace_sha256",
