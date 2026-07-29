@@ -358,6 +358,45 @@ def test_training_resolution_is_pure_frozen_and_canonical() -> None:
         resolved.profile.batch_size = 64  # type: ignore[misc]
 
 
+def test_launcher_operation_identity_is_separate_from_experiment_identity() -> None:
+    resolved = []
+    for operation in (
+        "readiness",
+        "train",
+        "resume",
+    ):
+        raw = default_training_config_mapping()
+        raw["operation"] = operation
+        resolved.append(resolve_training_config(raw))
+
+    assert len({item.config_sha256 for item in resolved}) == 3
+    assert len(
+        {item.experiment_config_sha256 for item in resolved}
+    ) == 1
+
+    experiment_document = json.loads(resolved[0].canonical_json)
+    experiment_document.pop("operation")
+    expected = hashlib.sha256(
+        json.dumps(
+            experiment_document,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    assert resolved[0].experiment_config_sha256 == expected
+    experiment_document["profile"]["sequence_length"] = 64
+    changed = hashlib.sha256(
+        json.dumps(
+            experiment_document,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    assert changed != resolved[0].experiment_config_sha256
+
+
 def test_public_resolver_dispatches_without_weakening_existing_discriminator() -> None:
     raw = default_training_config_mapping()
 

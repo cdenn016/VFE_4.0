@@ -10,6 +10,7 @@ import math
 import os
 import stat
 from pathlib import Path
+from types import MappingProxyType
 from typing import Literal, Protocol
 
 from vfe4.types.training import (
@@ -24,13 +25,17 @@ WT103_REQUIRED_METRIC_FAMILIES = (
     "train_cross_entropy",
     "complete_elbo",
     "expected_log_emission",
-    "initial_model_kl",
-    "initial_state_kl",
+    "initial_model_cross_entropy",
+    "initial_state_cross_entropy",
+    "model_source_cross_entropy",
     "model_source_kl",
-    "model_transition_kl",
+    "model_transition_cross_entropy",
+    "state_source_cross_entropy",
     "state_source_kl",
-    "state_transition_kl",
-    "joint_recognition_entropy",
+    "state_transition_cross_entropy",
+    "continuous_recognition_entropy",
+    "conditional_source_entropy_estimate",
+    "joint_recognition_entropy_estimate",
     "estimator_error_bound",
     "emission_only_non_elbo",
     "prior_nll_sum",
@@ -44,6 +49,7 @@ WT103_REQUIRED_METRIC_FAMILIES = (
     "effective_source_count",
     "accepted_proposals",
     "rejected_proposals",
+    "acceptance_rate",
     "objective_before",
     "objective_after",
     "snapshot_identity_present",
@@ -56,6 +62,7 @@ WT103_REQUIRED_METRIC_FAMILIES = (
     "spd_projections",
     "condition_estimate",
     "solve_residual",
+    "damping_events",
     "gradient_l2",
     "gradient_inf",
     "counted_targets",
@@ -78,8 +85,150 @@ WT103_REQUIRED_METRIC_FAMILIES = (
     "oom_count",
 )
 
+WT103_METRIC_UNIT_BY_NAME = MappingProxyType(
+    {
+        "train_cross_entropy": "nats_per_token",
+        "complete_elbo": "nats_per_token",
+        "expected_log_emission": "nats_per_token",
+        "initial_model_cross_entropy": "nats_per_token",
+        "initial_state_cross_entropy": "nats_per_token",
+        "model_source_cross_entropy": "nats_per_token",
+        "model_source_kl": "nats_per_token",
+        "model_transition_cross_entropy": "nats_per_token",
+        "state_source_cross_entropy": "nats_per_token",
+        "state_source_kl": "nats_per_token",
+        "state_transition_cross_entropy": "nats_per_token",
+        "continuous_recognition_entropy": "nats_per_token",
+        "conditional_source_entropy_estimate": "nats_per_token",
+        "joint_recognition_entropy_estimate": "nats_per_token",
+        "estimator_error_bound": "nats_per_token",
+        "emission_only_non_elbo": "nats_per_token",
+        "prior_nll_sum": "nats",
+        "prior_nll_per_token": "nats_per_token",
+        "perplexity": "perplexity",
+        "estimator_stream": "stream_index",
+        "particle_count": "particles",
+        "cache_audit_passed": "boolean",
+        "source_entropy": "nats_per_source_row",
+        "source_support_size": "sources",
+        "effective_source_count": "effective_sources",
+        "accepted_proposals": "proposals",
+        "rejected_proposals": "proposals",
+        "acceptance_rate": "fraction",
+        "objective_before": "nats_per_token",
+        "objective_after": "nats_per_token",
+        "snapshot_identity_present": "boolean",
+        "learning_rate": "scalar",
+        "scheduler_ordinal": "update_index",
+        "gradient_pre_clip_l2": "l2_norm",
+        "gradient_post_clip_l2": "l2_norm",
+        "minimum_cholesky_pivot": "scalar",
+        "failed_pivots": "count",
+        "spd_projections": "count",
+        "condition_estimate": "ratio",
+        "solve_residual": "scalar",
+        "damping_events": "count",
+        "gradient_l2": "l2_norm",
+        "gradient_inf": "linf_norm",
+        "counted_targets": "targets",
+        "tokens_per_second": "tokens_per_second",
+        "data_wait_seconds": "seconds",
+        "forward_seconds": "seconds",
+        "inference_seconds": "seconds",
+        "backward_seconds": "seconds",
+        "update_seconds": "seconds",
+        "evaluation_seconds": "seconds",
+        "checkpoint_seconds": "seconds",
+        "wall_seconds": "seconds",
+        "process_rss_bytes": "bytes",
+        "process_hwm_bytes": "bytes",
+        "cuda_allocated_bytes": "bytes",
+        "cuda_reserved_bytes": "bytes",
+        "cuda_peak_allocated_bytes": "bytes",
+        "cuda_peak_reserved_bytes": "bytes",
+        "allocation_retries": "count",
+        "oom_count": "count",
+    }
+)
+if tuple(WT103_METRIC_UNIT_BY_NAME) != WT103_REQUIRED_METRIC_FAMILIES:
+    raise RuntimeError("required metric and frozen-unit inventories differ")
+
+WT103_METRIC_SEMANTIC_BY_NAME = MappingProxyType(
+    {
+        "train_cross_entropy": "ratio",
+        "complete_elbo": "ratio",
+        "expected_log_emission": "ratio",
+        "initial_model_cross_entropy": "ratio",
+        "initial_state_cross_entropy": "ratio",
+        "model_source_cross_entropy": "ratio",
+        "model_source_kl": "ratio",
+        "model_transition_cross_entropy": "ratio",
+        "state_source_cross_entropy": "ratio",
+        "state_source_kl": "ratio",
+        "state_transition_cross_entropy": "ratio",
+        "continuous_recognition_entropy": "ratio",
+        "conditional_source_entropy_estimate": "ratio",
+        "joint_recognition_entropy_estimate": "ratio",
+        "estimator_error_bound": "not_applicable_only",
+        "emission_only_non_elbo": "ratio",
+        "prior_nll_sum": "scalar",
+        "prior_nll_per_token": "ratio",
+        "perplexity": "exp_ratio",
+        "estimator_stream": "scalar",
+        "particle_count": "scalar",
+        "cache_audit_passed": "scalar",
+        "source_entropy": "ratio",
+        "source_support_size": "ratio",
+        "effective_source_count": "exp_ratio",
+        "accepted_proposals": "scalar",
+        "rejected_proposals": "scalar",
+        "acceptance_rate": "ratio",
+        "objective_before": "ratio",
+        "objective_after": "ratio",
+        "snapshot_identity_present": "scalar",
+        "learning_rate": "scalar",
+        "scheduler_ordinal": "scalar",
+        "gradient_pre_clip_l2": "scalar",
+        "gradient_post_clip_l2": "scalar",
+        "minimum_cholesky_pivot": "scalar",
+        "failed_pivots": "scalar",
+        "spd_projections": "scalar",
+        "condition_estimate": "scalar",
+        "solve_residual": "scalar",
+        "damping_events": "scalar",
+        "gradient_l2": "scalar",
+        "gradient_inf": "scalar",
+        "counted_targets": "scalar",
+        "tokens_per_second": "tokens_per_second",
+        "data_wait_seconds": "scalar",
+        "forward_seconds": "scalar",
+        "inference_seconds": "scalar",
+        "backward_seconds": "scalar",
+        "update_seconds": "scalar",
+        "evaluation_seconds": "scalar",
+        "checkpoint_seconds": "scalar",
+        "wall_seconds": "scalar",
+        "process_rss_bytes": "scalar",
+        "process_hwm_bytes": "scalar",
+        "cuda_allocated_bytes": "scalar",
+        "cuda_reserved_bytes": "scalar",
+        "cuda_peak_allocated_bytes": "scalar",
+        "cuda_peak_reserved_bytes": "scalar",
+        "allocation_retries": "scalar",
+        "oom_count": "scalar",
+    }
+)
+if tuple(WT103_METRIC_SEMANTIC_BY_NAME) != WT103_REQUIRED_METRIC_FAMILIES:
+    raise RuntimeError("required metric and semantic inventories differ")
+
 
 _ZERO_SHA256 = "0" * 64
+WT103_UNAVAILABLE_ESTIMATOR_BOUND_REASON = (
+    "no_preregistered_finite_bound_for_single_sample_mc"
+)
+WT103_SOURCE_KL_DIAGNOSTIC_REASON = (
+    "derived_source_kl_diagnostic:objective_term=false"
+)
 _MAXIMUM_METRIC_LOG_BYTES = 512 * 1024 * 1024
 _METRIC_RECORD_KEYS = frozenset(
     {
@@ -148,6 +297,76 @@ def _valid_sha256(value: object) -> bool:
     )
 
 
+def metric_family_units(name: str) -> str:
+    """Return the frozen exact unit for one required metric family."""
+
+    try:
+        return WT103_METRIC_UNIT_BY_NAME[name]
+    except (KeyError, TypeError) as exc:
+        raise MetricLogError(f"unknown metric family {name!r}") from exc
+
+
+def _validate_metric_units(name: str, units: str) -> None:
+    expected = WT103_METRIC_UNIT_BY_NAME.get(name)
+    if expected is not None and units != expected:
+        raise MetricLogError(
+            f"metric family {name!r} requires frozen units {expected!r}"
+        )
+
+
+def _validate_metric_value(metric: MetricValue) -> None:
+    _validate_metric_units(metric.name, metric.units)
+    semantic = WT103_METRIC_SEMANTIC_BY_NAME.get(metric.name)
+    if (
+        semantic == "not_applicable_only"
+        and metric.applicability == "applicable"
+    ):
+        raise MetricLogError(
+            f"metric family {metric.name!r} is not-applicable-only"
+        )
+    if metric.applicability != "applicable" or semantic is None:
+        return
+    if (
+        metric.name in {"model_source_kl", "state_source_kl"}
+        and metric.reason != WT103_SOURCE_KL_DIAGNOSTIC_REASON
+    ):
+        raise MetricLogError(
+            f"metric family {metric.name!r} requires the canonical "
+            "diagnostic-only marker"
+        )
+    if semantic == "scalar":
+        if metric.numerator is not None or metric.denominator is not None:
+            raise MetricLogError(
+                f"scalar metric family {metric.name!r} forbids raw "
+                "numerator and denominator"
+            )
+        return
+    if metric.numerator is None or metric.denominator is None:
+        raise MetricLogError(
+            f"derived metric family {metric.name!r} requires a raw "
+            "numerator and denominator"
+        )
+    if semantic == "ratio":
+        expected = metric.numerator / metric.denominator
+    elif semantic == "exp_ratio":
+        try:
+            expected = math.exp(metric.numerator / metric.denominator)
+        except OverflowError as exc:
+            raise MetricLogError(
+                f"metric family {metric.name!r} exact derivation overflowed"
+            ) from exc
+    elif semantic == "tokens_per_second":
+        expected = metric.numerator / (
+            metric.denominator / 1_000_000_000.0
+        )
+    else:  # pragma: no cover - guarded by the closed module inventory
+        raise RuntimeError(f"unknown metric semantic {semantic!r}")
+    if not math.isfinite(expected) or metric.value != expected:
+        raise MetricLogError(
+            f"metric family {metric.name!r} disagrees with its exact derivation"
+        )
+
+
 def applicable_metric(
     *,
     name: str,
@@ -157,7 +376,7 @@ def applicable_metric(
     units: str,
     reason: str = "measured",
 ) -> MetricValue:
-    return MetricValue(
+    metric = MetricValue(
         name=name,
         applicability="applicable",
         reason=reason,
@@ -166,6 +385,8 @@ def applicable_metric(
         value=value,
         units=units,
     )
+    _validate_metric_value(metric)
+    return metric
 
 
 def not_applicable_metric(
@@ -174,7 +395,7 @@ def not_applicable_metric(
     reason: str,
     units: str,
 ) -> MetricValue:
-    return MetricValue(
+    metric = MetricValue(
         name=name,
         applicability="not_applicable",
         reason=reason,
@@ -183,6 +404,8 @@ def not_applicable_metric(
         value=None,
         units=units,
     )
+    _validate_metric_value(metric)
+    return metric
 
 
 def metric_family_applicability(
@@ -205,13 +428,17 @@ def metric_family_applicability(
     complete_names = {
         "complete_elbo",
         "expected_log_emission",
-        "initial_model_kl",
-        "initial_state_kl",
+        "initial_model_cross_entropy",
+        "initial_state_cross_entropy",
+        "model_source_cross_entropy",
         "model_source_kl",
-        "model_transition_kl",
+        "model_transition_cross_entropy",
+        "state_source_cross_entropy",
         "state_source_kl",
-        "state_transition_kl",
-        "joint_recognition_entropy",
+        "state_transition_cross_entropy",
+        "continuous_recognition_entropy",
+        "conditional_source_entropy_estimate",
+        "joint_recognition_entropy_estimate",
         "estimator_error_bound",
     }
     if name in complete_names:
@@ -251,6 +478,7 @@ def metric_family_applicability(
         "spd_projections",
         "condition_estimate",
         "solve_residual",
+        "damping_events",
         "inference_seconds",
     }
     if name in latent_names:
@@ -268,6 +496,14 @@ def validate_required_metric_families(
     *,
     arm_spec: WT103ArmSpec,
 ) -> None:
+    """Validate required families over a complete multi-phase metric log.
+
+    A record contains only metrics actually observed in that phase. Required
+    family coverage is the union across the finalized log; an applicable
+    family is omitted, rather than fabricated or mislabeled not-applicable, in
+    phases where it was not observed.
+    """
+
     if (
         type(records) is not tuple
         or not records
@@ -279,14 +515,42 @@ def validate_required_metric_families(
     values_by_name: dict[str, list[MetricValue]] = {
         name: [] for name in WT103_REQUIRED_METRIC_FAMILIES
     }
+    latent_source_names = (
+        "source_entropy",
+        "source_support_size",
+        "effective_source_count",
+    )
     for record in records:
         record.__post_init__()
         if record.arm_id != arm_spec.arm_id:
             raise MetricLogError(
                 "metric family validation cannot mix arm IDs"
             )
+        source_values = tuple(
+            value
+            for value in record.values
+            if value.name in latent_source_names
+        )
+        if arm_spec.latent_enabled and source_values:
+            source_applicabilities = {
+                value.applicability for value in source_values
+            }
+            if len(source_applicabilities) != 1:
+                raise MetricLogError(
+                    "one metric record mixes zero and positive source rows"
+                )
+            if any(
+                value.applicability == "not_applicable"
+                and value.reason != "source_row_count_is_zero"
+                for value in source_values
+            ):
+                raise MetricLogError(
+                    "latent source metrics require the canonical zero-row "
+                    "N/A reason"
+                )
         for value in record.values:
             if value.name in values_by_name:
+                _validate_metric_value(value)
                 values_by_name[value.name].append(value)
     missing = tuple(
         name for name, values in values_by_name.items() if not values
@@ -297,14 +561,66 @@ def validate_required_metric_families(
         )
     for name, values in values_by_name.items():
         applicable, reason = metric_family_applicability(arm_spec, name)
-        expected = "applicable" if applicable else "not_applicable"
-        if any(value.applicability != expected for value in values):
+        is_latent_source = (
+            arm_spec.latent_enabled and name in latent_source_names
+        )
+        is_complete_estimator_bound = (
+            arm_spec.training_objective == "complete_elbo"
+            and name == "estimator_error_bound"
+        )
+        if is_complete_estimator_bound:
+            if any(
+                value.applicability != "not_applicable"
+                or value.reason != WT103_UNAVAILABLE_ESTIMATOR_BOUND_REASON
+                for value in values
+            ):
+                raise MetricLogError(
+                    "estimator_error_bound must use the canonical "
+                    "unbounded-estimator N/A record"
+                )
+        elif is_latent_source:
+            if any(
+                value.applicability == "not_applicable"
+                and value.reason != "source_row_count_is_zero"
+                for value in values
+            ):
+                raise MetricLogError(
+                    "latent source metrics require the canonical zero-row "
+                    "N/A reason"
+                )
+        else:
+            expected = "applicable" if applicable else "not_applicable"
+            if any(value.applicability != expected for value in values):
+                raise MetricLogError(
+                    f"metric family {name!r} has wrong arm applicability"
+                )
+        if any(
+            value.units != WT103_METRIC_UNIT_BY_NAME[name]
+            for value in values
+        ):
             raise MetricLogError(
-                f"metric family {name!r} has wrong arm applicability"
+                f"metric family {name!r} has noncanonical units"
             )
         if not applicable and any(value.reason != reason for value in values):
             raise MetricLogError(
                 f"metric family {name!r} has a noncanonical N/A reason"
+            )
+    if arm_spec.latent_enabled:
+        positive_source_rows_exist = any(
+            value.applicability == "applicable"
+            for name in latent_source_names
+            for value in values_by_name[name]
+        )
+        if positive_source_rows_exist and any(
+            not any(
+                value.applicability == "applicable"
+                for value in values_by_name[name]
+            )
+            for name in latent_source_names
+        ):
+            raise MetricLogError(
+                "positive source rows require applicable observations for "
+                "every latent source metric"
             )
 
 
@@ -375,6 +691,8 @@ def create_metric_record(
     previous_record_sha256: str,
     values: tuple[MetricValue, ...],
 ) -> MetricRecord:
+    for value in values:
+        _validate_metric_value(value)
     payload = {
         "schema_version": "wt103-metric-record-v1",
         "ordinal": ordinal,
@@ -417,6 +735,7 @@ def _metric_value_from_document(value: object) -> MetricValue:
         metric = MetricValue(**value)  # type: ignore[arg-type]
     except (TypeError, ValueError) as exc:
         raise MetricLogError(f"metric value is invalid: {exc}") from exc
+    _validate_metric_value(metric)
     return metric
 
 
@@ -685,21 +1004,28 @@ def _decimal(value: float | None) -> str:
     return format(value, ".17g")
 
 
-def export_metrics_csv(
-    *,
-    log_path: Path,
-    output_path: Path,
-    durability_backend: MetricDurabilityBackend,
-) -> bytes:
-    records, incomplete = _decode_metric_log(log_path)
-    if incomplete:
+def metrics_csv_bytes(records: tuple[MetricRecord, ...]) -> bytes:
+    """Render the deterministic audit projection without filesystem writes."""
+
+    if (
+        type(records) is not tuple
+        or not records
+        or any(type(record) is not MetricRecord for record in records)
+    ):
         raise MetricLogError(
-            "cannot export a metric log with an incomplete final fragment"
+            "CSV projection requires a nonempty exact metric tuple"
         )
-    if not records:
-        raise MetricLogError("cannot export an empty metric log")
-    if not callable(getattr(durability_backend, "publish_bytes", None)):
-        raise MetricLogError("durability backend must expose publish_bytes")
+    expected_previous = _ZERO_SHA256
+    for ordinal, record in enumerate(records):
+        record.__post_init__()
+        if (
+            record.ordinal != ordinal
+            or record.previous_record_sha256 != expected_previous
+        ):
+            raise MetricLogError(
+                "CSV projection metric chain is inconsistent"
+            )
+        expected_previous = record.record_sha256
     text = io.StringIO(newline="")
     writer = csv.writer(text, lineterminator="\n")
     writer.writerow(_CSV_COLUMNS)
@@ -727,7 +1053,23 @@ def export_metrics_csv(
                     record.record_sha256,
                 )
             )
-    payload = text.getvalue().encode("utf-8")
+    return text.getvalue().encode("utf-8")
+
+
+def export_metrics_csv(
+    *,
+    log_path: Path,
+    output_path: Path,
+    durability_backend: MetricDurabilityBackend,
+) -> bytes:
+    records, incomplete = _decode_metric_log(log_path)
+    if incomplete:
+        raise MetricLogError(
+            "cannot export a metric log with an incomplete final fragment"
+        )
+    if not callable(getattr(durability_backend, "publish_bytes", None)):
+        raise MetricLogError("durability backend must expose publish_bytes")
+    payload = metrics_csv_bytes(records)
     try:
         durability_backend.publish_bytes(output_path, payload)
     except Exception as exc:
@@ -743,7 +1085,7 @@ def export_metrics_csv(
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class UpdateControlRecord:
-    schema_version: Literal["wt103-update-controls-v1"]
+    schema_version: Literal["wt103-update-controls-v2"]
     learning_rate: float
     scheduler_ordinal: int
     scheduler_state_sha256: str
@@ -754,6 +1096,8 @@ class UpdateControlRecord:
     gradient_norm_applicability: Literal["applicable", "not_applicable"]
     pre_clip_norm: float | None
     post_clip_norm: float | None
+    pre_clip_inf_norm: float | None
+    post_clip_inf_norm: float | None
     clipped: bool | None
     adamw_beta1: float
     adamw_beta2: float
@@ -768,7 +1112,7 @@ class UpdateControlRecord:
     control_sha256: str
 
     def __post_init__(self) -> None:
-        if self.schema_version != "wt103-update-controls-v1":
+        if self.schema_version != "wt103-update-controls-v2":
             raise MetricLogError("unsupported update-control schema")
         for name in (
             "learning_rate",
@@ -817,6 +1161,12 @@ class UpdateControlRecord:
                 or type(self.post_clip_norm) is not float
                 or not math.isfinite(self.post_clip_norm)
                 or self.post_clip_norm < 0.0
+                or type(self.pre_clip_inf_norm) is not float
+                or not math.isfinite(self.pre_clip_inf_norm)
+                or self.pre_clip_inf_norm < 0.0
+                or type(self.post_clip_inf_norm) is not float
+                or not math.isfinite(self.post_clip_inf_norm)
+                or self.post_clip_inf_norm < 0.0
                 or type(self.clipped) is not bool
             ):
                 raise MetricLogError(
@@ -834,6 +1184,8 @@ class UpdateControlRecord:
                 for value in (
                     self.pre_clip_norm,
                     self.post_clip_norm,
+                    self.pre_clip_inf_norm,
+                    self.post_clip_inf_norm,
                     self.clipped,
                 )
             ):
@@ -866,7 +1218,7 @@ class UpdateControlRecord:
     @classmethod
     def create(cls, **values: object) -> "UpdateControlRecord":
         payload = {
-            "schema_version": "wt103-update-controls-v1",
+            "schema_version": "wt103-update-controls-v2",
             **values,
         }
         return cls(
@@ -882,11 +1234,17 @@ __all__ = [
     "MetricDurabilityBackend",
     "MetricLogError",
     "UpdateControlRecord",
+    "WT103_METRIC_SEMANTIC_BY_NAME",
+    "WT103_METRIC_UNIT_BY_NAME",
     "WT103_REQUIRED_METRIC_FAMILIES",
+    "WT103_SOURCE_KL_DIAGNOSTIC_REASON",
+    "WT103_UNAVAILABLE_ESTIMATOR_BOUND_REASON",
     "append_metric",
     "applicable_metric",
     "create_metric_record",
     "export_metrics_csv",
+    "metrics_csv_bytes",
+    "metric_family_units",
     "not_applicable_metric",
     "metric_family_applicability",
     "recover_incomplete_metric_fragment",

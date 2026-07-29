@@ -13,7 +13,7 @@ import pytest
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_LAUNCHER_PATH = _REPO_ROOT / "train_vfe4.py"
+_LAUNCHER_PATH = _REPO_ROOT / "run_h6_prediction_v3.py"
 _OPERATIONS = (
     "prediction_readiness",
     "plan",

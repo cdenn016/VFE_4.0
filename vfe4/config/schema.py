@@ -1767,6 +1767,7 @@ class TrainingConfig:
     scientific_preconditions: ScientificPreconditionProfile
     canonical_json: str
     config_sha256: str
+    experiment_config_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -1778,6 +1779,7 @@ class FigureConfig:
     run_group_manifest_path: str
     figure_root: str
     endpoint_inventory_sha256: str
+    figure_provenance_sha256: str
     backend: Literal["Agg"]
     matplotlib_version: Literal["3.10.6"]
     font_family: Literal["DejaVu Sans"]

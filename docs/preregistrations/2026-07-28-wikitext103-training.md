@@ -97,6 +97,20 @@ reviewed tracked JSON record. Offline reopening validates that record and all
 bound bytes without a network call. A fresh observation can never silently
 replace it.
 
+The unresolved reviewed dependency-lock pair may undergo exactly one
+fail-closed Task 13 transition to the fully resolved installed-RECORD pair.
+The unresolved predecessor bytes, writer identity, and resolved replacement
+bytes must all validate. A partial retry accepts only either exact endpoint
+of that transition. The finalized source bundle and tracked source record are
+exclusive-create-or-exact-idempotent publications; once the tracked final
+record exists, source-lock mode reopens it before any network, tokenizer,
+cache, lock, or staging mutation. Different bytes require a new
+preregistration revision and path. From before that marker inspection through
+the final durable reopen, the transaction holds nonblocking OS leases over the
+canonical repository, cache root, and finalized-record path in deterministic
+order. Transactions sharing any mutation root therefore cannot overlap even
+when their other configured paths differ.
+
 Unfrozen until Task 13:
 
 - request/final URLs and redirect chains;
@@ -146,6 +160,13 @@ Token payloads are contiguous little-endian int32. Production identities bind
 the raw split, exact production tokenizer type/domain/hash, token count,
 minimum/maximum ID, payload size/hash, round-trip hash, builder code hash, and
 zero cross-split parents. V3 cache paths are rejected.
+
+The VFE4 default cache root is exactly
+`str(Path.home() / ".cache" / "vfe4" / "wikitext103")`.
+`Path.home() / ".cache" / "tokenized_cache" / "*.pt"` denotes legacy V3
+PyTorch ZIP/pickle caches. Those files remain untouched, unread,
+un-deserialized, and inadmissible as VFE4 source, tokenizer, or cache
+authority.
 
 The canonical domains are disjoint:
 
@@ -323,6 +344,11 @@ Confirmatory seeds are 2026072101--2026072108, with shared data-order seed
 2026072199. Exactly two passes run. Missing pairs, numerical divergence, or
 failed scientific checks receive no replacement; at most one infrastructure
 retry is allowed with proof of no advancement or exact restoration.
+The full click-launcher hash includes `operation`, while the experiment
+configuration hash excludes only that operational mode. Task 14 evidence,
+plans, checkpoints, and scientific resume identity bind the stable experiment
+hash; the launcher still requires the exact `train` or `resume` operation and
+its separate authorization.
 
 Validation weighted-SMC rows use 256 particles and streams 0--7. Exact rows
 are evaluated once and may only be replayed for identity. Test weighted-SMC
@@ -388,9 +414,46 @@ artifact hashes. `artifact_sha256` is domain-separated over exact payload and
 manifest-body hashes. Faithful resumes require equal scientific state and next
 predictions, not byte-identical operational serialization.
 
+Each attempt holds a nonblocking per-attempt OS execution lease from
+reservation through terminal finalization; another process must fail before
+owner, lineage, metric, or checkpoint mutation. Process exit releases the
+lease. The single allowed infrastructure retry is a plan-bound lineage
+budget, not permission for repeated click-resume attempts. Immediately before
+owner or ordinal mutation, the live lease exclusively creates and reopens an
+immutable `resume-lineage-intent.json`; a pre-ledger crash must recover that
+exact event, never synthesize a new timestamp or digest. Immediately before
+resumed scientific execution, after the conservative resource pre-debit
+commits, the lease exclusively creates and reopens a hashed
+`resume-execution-started.json` transition bound to the plan, reservation,
+ordinal, and lineage. Its presence permanently consumes the retry; the same
+lineage and every new lineage are rejected before subsequent owner or lineage
+mutation. Every rolling save authenticates the currently committed sidecar and
+writes the opposite inactive slot before atomically replacing that sidecar, so
+a crash cannot overwrite the last authenticated resume point. If terminal
+manifest publication succeeds but the process exits before closing the resume
+owner, recovery holds the attempt lease, validates the exact manifest,
+artifacts, lineage intent, lease, and execution-start transition, durably closes
+only that exact active owner against the manifest hash, then strictly
+revalidates before the terminal rename.
+
 `metrics.jsonl` and `failures.jsonl` are independently hash-chained, flushed,
 and durably published. Every mean/rate stores numerator and denominator.
-Required metrics include complete ELBO partitions or explicit
+The complete-objective arms use the distinct
+`wt103-structured-factor-elbo-v1` partition schema. Its raw factor record is
+the expected log emission; initial, source, and transition cross-entropies for
+both model and state paths; the analytic continuous-recognition entropy; the
+one-sample conditional-source-entropy estimate; and their joint-recognition
+entropy estimate. The objective is exactly emission minus all six generative
+cross-entropies plus the joint entropy estimate. Only the conditional
+categorical source terms are also recorded as genuine derived source-KL
+diagnostics. H5's mean-field conditional-Gaussian KL labels are reference-only
+and are not reused for the block-tridiagonal WT103 smoothing law.
+
+The single reparameterized WT103 draw has no preregistered finite estimator
+error bound. `estimator_error_bound` is therefore explicitly not applicable
+with reason
+`no_preregistered_finite_bound_for_single_sample_mc`; zero is prohibited.
+Required metrics otherwise include the complete factor record or explicit
 not-applicability; target-blind NLL/PPL and estimator identities; source
 entropy/effective source count; proposal acceptance/rejection and exact
 optimizer settings; SPD/solve/condition health; gradients and autograd scope;
@@ -406,6 +469,19 @@ independent disk/host/device headroom. Device allocated and reserved peaks
 must each be at most 85% of physical capacity. Insufficiency stops for an
 explicit revision; no batch, sequence, particle, source, dimension, precision,
 seed, or endpoint is silently reduced.
+
+Resource debits are deliberately conservative and never refunded. Before
+scientific work, each attempt durably prepays 60 seconds of device time, wall
+time, and energy at the readiness-bound frozen conservative maximum of the
+measured board-power peak and provider-reported limit. A separate
+monotonic heartbeat, independent of the 100 ms sampler, durably debits elapsed
+30-second intervals at that frozen maximum; heartbeat failure is polled inside every
+training and validation loop and aborts within the prepaid runway. Measured
+device seconds, wall seconds, and sampled energy are then appended without
+offsetting the conservative debits. Headroom is checked before every ledger
+publication, so an uncatchable process exit leaves a prepaid tail rather than
+an unrecorded zero. A measured interruption is debited before propagation, and
+a resumed segment appends rather than replacing or collapsing prior usage.
 
 The deterministic required figure registry contains:
 

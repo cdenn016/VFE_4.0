@@ -30,7 +30,10 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
 ) -> None:
     for filename, module_name in (
         ("verify_vfe4.py", "verify_vfe4_click_contract"),
-        ("train_vfe4.py", "train_vfe4_click_contract"),
+        (
+            "run_h6_prediction_v3.py",
+            "run_h6_prediction_v3_click_contract",
+        ),
     ):
         path = REPO_ROOT / filename
         source = path.read_text(encoding="utf-8")
@@ -151,16 +154,8 @@ def test_click_run_launchers_are_idle_authorized_and_cli_free(
         else:
             monkeypatch.setattr(
                 module,
-                "_run_readiness",
-                lambda raw: dispatched.append(
-                    ("prediction_readiness", raw)
-                )
-                or marker,
-            )
-            monkeypatch.setattr(
-                module,
-                "_run_experiment",
-                lambda operation, raw, authorization: (
+                "_run_operation",
+                lambda operation, raw: (
                     dispatched.append((operation, raw)) or marker
                 ),
             )

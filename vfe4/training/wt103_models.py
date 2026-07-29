@@ -226,6 +226,7 @@ class _A0Block(nn.Module):
             device=device,
             dtype=dtype,
         )
+        self.live_observer: object | None = None
 
     def forward(
         self,
@@ -247,6 +248,15 @@ class _A0Block(nn.Module):
                 head_width,
             ).transpose(1, 2)
 
+        observer = self.live_observer
+        if observer is not None:
+            observer.observe_flash_attention(
+                sequence_length=sequence_length,
+                backend="FLASH_ATTENTION",
+                fallback_allowed=False,
+                explicit_mask_materialized=False,
+                attention_weights_returned=False,
+            )
         with sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION]):
             attended = F.scaled_dot_product_attention(
                 heads(query),
@@ -341,6 +351,9 @@ class WT103A0Model(nn.Module):
             device=device,
             dtype=dtype,
         )
+        self.live_observer: object | None = None
+        self.live_phase: Literal["train", "evaluation"] = "train"
+        self.live_event_prefix = "a0_decoder"
 
     def encode(self, input_ids: Tensor) -> Tensor:
         if (
@@ -378,9 +391,21 @@ class WT103A0Model(nn.Module):
         ):
             raise ValueError("decoder inputs or explicit chunk size are invalid")
         flat = hidden.reshape(-1, self.hidden_width)
-        for start in range(0, flat.shape[0], decoder_chunk_size):
+        for ordinal, start in enumerate(
+            range(0, flat.shape[0], decoder_chunk_size)
+        ):
             end = min(start + decoder_chunk_size, flat.shape[0])
-            yield start, end, self.decoder(flat[start:end])
+            logits = self.decoder(flat[start:end])
+            observer = self.live_observer
+            if observer is not None:
+                observer.observe_tensor(
+                    logits,
+                    "decoder_chunk",
+                    ("token_or_particle_chunk", "vocabulary"),
+                    self.live_phase,
+                    f"{self.live_event_prefix}:{ordinal}",
+                )
+            yield start, end, logits
 
 
 @dataclass(frozen=True, slots=True)

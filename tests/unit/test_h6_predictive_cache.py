@@ -158,6 +158,10 @@ def test_prefix_cache_replays_exactly_and_carries_weighted_filter_state() -> Non
     )
     assert warm.cache.pending.prefix_sha256 == warm.cache.key.prefix_sha256
     assert warm.cache.pending.parent_log_weights.shape == (8,)
+    assert (
+        warm.cache.filtered_population.population_sha256
+        == warm.cache.pending.proposed_population.population_sha256
+    )
     with pytest.raises(FrozenInstanceError):
         warm.cache.cumulative_log_normalizer = 0.0  # type: ignore[misc]
 

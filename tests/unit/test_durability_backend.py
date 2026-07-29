@@ -606,6 +606,40 @@ def test_content_addressed_stream_rejects_an_oversized_chunk_before_publication(
 
 
 @pytest.mark.parametrize("backend_kind", ["posix", "windows"])
+def test_content_addressed_stream_cleans_stage_after_late_oversized_chunk(
+    tmp_path: Path,
+    backend_kind: str,
+) -> None:
+    durability = _durability()
+    volume = durability.VolumeFacts("/", "device-7", "NTFS", False)
+    backend, syscalls = _stream_backend(durability, backend_kind, volume)
+    valid = b"valid"
+    oversized = b"too-large"
+
+    with pytest.raises(durability.DurabilityOperationError) as captured:
+        backend.publish_content_addressed_stream(
+            tmp_path,
+            (valid, oversized),
+            suffix=".bin",
+            chunk_size_limit=len(oversized) - 1,
+            reopen_block_size=3,
+        )
+
+    assert captured.value.phase == "validate_stream_chunk"
+    assert [
+        call[1] for call in syscalls.calls if call[0] == "write_all"
+    ] == [valid]
+    stage_creates = [
+        call
+        for call in syscalls.calls
+        if call[0] in {"open_exclusive", "create_file"}
+    ]
+    assert len(stage_creates) == 1
+    assert stage_creates[0][1].name.startswith(".vfe4-stream-stage-")
+    assert not tuple(tmp_path.glob(".vfe4-stream-stage-*"))
+
+
+@pytest.mark.parametrize("backend_kind", ["posix", "windows"])
 def test_content_addressed_stream_recovers_idempotently_only_for_exact_target(
     tmp_path: Path,
     backend_kind: str,

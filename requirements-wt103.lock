@@ -1,0 +1,16 @@
+# Generated from requirements-wt103.lock-input.json.
+# writer-schema=wt103-lock-writer-v1
+# writer-code-sha256=e07aca8000d56a36f1f8d85237f1e2d1412e07070503e20ed12604159dd2c2fb
+# target-python-version=3.12
+# obligation=task13_capture_exact_installed_record_sha256:matplotlib
+# artifact-filename=matplotlib-3.10.6-cp312-cp312-win_amd64.whl
+# artifact-size-bytes=8122784
+# artifact-url=https://files.pythonhosted.org/packages/45/c3/994ef20eb4154ab84cc08d033834555319e4af970165e6c8894050af0b3c/matplotlib-3.10.6-cp312-cp312-win_amd64.whl
+matplotlib==3.10.6 ; python_version >= "3.12" \
+    --hash=sha256:590f5925c2d650b5c9d813c5b3b5fc53f2929c3f8ef463e4ecfa7e052044fb2b
+# obligation=task13_capture_exact_installed_record_sha256:tiktoken
+# artifact-filename=tiktoken-0.12.0-cp312-cp312-win_amd64.whl
+# artifact-size-bytes=878694
+# artifact-url=https://files.pythonhosted.org/packages/81/10/b8523105c590c5b8349f2587e2fdfe51a69544bd5a76295fc20f2374f470/tiktoken-0.12.0-cp312-cp312-win_amd64.whl
+tiktoken==0.12.0 ; python_version >= "3.12" \
+    --hash=sha256:ffc5288f34a8bc02e1ea7047b8d041104791d2ddbf42d1e5fa07822cbffe16bd

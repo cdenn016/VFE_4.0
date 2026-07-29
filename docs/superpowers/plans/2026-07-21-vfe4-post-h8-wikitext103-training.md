@@ -108,6 +108,7 @@ outcome; any retained v4 wording below is historical planning text only.
 - Every validation-boundary checkpoint is labeled `role="resume_only"`. It may restore the same attempt after a permitted interruption but cannot be selected, scored for confirmation/test, placed in the hash-derived endpoint inventory, or rendered. Only the post-pass terminal checkpoint labeled `role="terminal_scoring"` is eligible for confirmatory/test scoring.
 - The user surface requires no CLI. `train_vfe4.py` and `generate_vfe4_figures.py` each expose one editable top-level `CONFIG`, one `main()`, and one `if __name__ == "__main__": main()` guard. Importing either file performs no parsing, I/O, device initialization, data access, run reservation, rendering, or training.
 - Every launcher dictionary is resolved once into frozen typed sections. Unknown keys, missing required keys, wrong plain-Python scalar types, invalid combinations, stale schema/objective identities, or derived-field overrides fail before side effects. Runtime code never rereads or mutates the dictionary.
+- `TrainingConfig.config_sha256` is the full launcher identity and therefore includes `operation`. A separate `experiment_config_sha256` excludes only that operational discriminator and is the stable scientific identity bound by Task 14 readiness, the experiment plan, checkpoints, resource ledger, and train/resume reopening. Exact operation and authorization checks remain mandatory and are never inferred from the scientific hash.
 - V3 is a read-only rough engineering guide. VFE4 imports no V3 module, reads no V3 checkpoint, accepts no V3 config, and never discovers or reuses V3's filename-inferred/unverified `~/.cache/tokenized_cache/wikitext-103_*` files. V3 data/objective/checkpoint/metric schemas are not migration inputs.
 - Before the user authorizes official acquisition and later real training, tests and launcher smokes use only tiny generated text/archive fixtures under pytest temporary directories. No task silently downloads, expands to the real corpus, maps a real test cache, or launches real optimization.
 - Each implementation task runs only its named focused RED/GREEN commands and ends in one bounded review/commit. After the authorized source lock and all tracked code/docs are frozen, run one full suite exactly once with one JUnit XML at the final integration candidate. Reviewers consume the existing XML and artifacts; they do not rerun the broad suite.
@@ -178,6 +179,19 @@ record is reviewed and committed before the integration JUnit or any training.
 Thereafter its observed values are required literals for reuse; any ambiguity
 or changed response stops source lock for an explicit preregistration revision
 before outcomes, never an automatic cache refresh.
+
+Task 13 permits exactly one typed dependency-lock transition from the reviewed
+unresolved candidate pair to the fully resolved installed-RECORD pair. Both
+predecessor and replacement bytes and the writer source identity are validated;
+partial recovery accepts only those exact endpoints. The finalized bundle and
+tracked source record are exclusive-create-or-exact-idempotent. If the final
+record already exists, source-lock mode reopens it before network, tokenizer,
+cache, lock, or staging activity. Different bytes require a new preregistration
+revision/path and are never replace-published. The complete transaction holds
+nonblocking OS leases over the canonical repository, cache root, and final
+record path in deterministic order from before marker inspection through final
+reopen; sharing any mutation root serializes the transactions even when their
+remaining configured paths differ.
 
 ### Exact member inventory and safety envelope
 
@@ -493,6 +507,69 @@ A0 and the no-latent control execute `model_ce_adam_proposal`. Each latent A5 ro
 
 Validation runs at the 20 boundaries already frozen; checkpointing occurs after the metric/failure ledgers are durable at each boundary. The two newest rolling checkpoints are `role="resume_only"`: they may resume that same attempt and are categorically ineligible for validation selection, confirmatory/test scoring, the hash-derived endpoint inventory, aggregation, or figures. Only the post-pass checkpoint is `role="terminal_scoring"`. Removing an older resume-only checkpoint is a run-owned lineage event performed only after its successor and terminal lineage record are durable; its identity remains in the immutable lineage, and no externally referenced checkpoint is removed.
 
+### Frozen WT103 structured-factor ELBO partition v1
+
+This pre-source-lock amendment freezes the latent-arm training partition as
+`wt103-structured-factor-elbo-v1`. Let
+`Y=(z_0,m_0,...,z_{L-1},m_{L-1})` denote the represented continuous path and
+let `S=(S^z_1,S^m_1,...,S^z_{L-1},S^m_{L-1})` denote its band-limited source
+choices. The recognition law used by this objective is
+`q_phi(Y,S|x,o)=q_phi(Y|x,o) q_phi(S|Y,x)`. For each active prefix position,
+the runtime records raw batch-summed factor cross-entropies, not locally
+entropy-adjusted quantities:
+
+```text
+E_emit[r]       = E_q[log p_theta(o_r | z_r,m_r)]
+C_init_z        = E_q[-log p_theta(z_0)]
+C_init_m        = E_q[-log p_theta(m_0)]
+C_source_z[r]   = E_q[-log pi_theta(S^z_r | x_<r,Y_<r)]
+C_source_m[r]   = E_q[-log pi_theta(S^m_r | x_<r,Y_<r)]
+C_trans_z[r]    = E_q[-log p_theta(z_r | S^z_r,Y_<r,m_r,x_<r)]
+C_trans_m[r]    = E_q[-log p_theta(m_r | S^m_r,Y_<r,x_<r)]
+H_Y             = H[q_phi(Y|x,o)]
+H_source_hat    = E_q(Y)[H[q_phi(S|Y,x)]]
+H_joint_hat     = H_Y + H_source_hat
+
+ELBO_hat =
+    sum_r E_emit[r]
+    - C_init_z - C_init_m
+    - sum_r (C_source_z[r] + C_source_m[r])
+    - sum_r (C_trans_z[r] + C_trans_m[r])
+    + H_joint_hat.
+```
+
+The source and transition tuples have one row per emission horizon and carry
+the canonical zero row at horizon zero; the two initial cross-entropies are
+separate scalars. Prefix masks apply before every batch sum. The formula is
+valid without `d_z=d_m`; state and model channels retain their own widths and
+factor rows.
+
+`model_source_kl[r]` and `state_source_kl[r]` are diagnostics only. Each is
+the corresponding raw source cross-entropy minus its conditional categorical
+entropy, and their combined identity is
+`sum(source_kl)=sum(source_cross_entropy)-H_source_hat`. They do not enter
+`ELBO_hat`, do not receive an objective sign, and cannot substitute for the
+raw source and transition factor cross-entropies.
+
+The continuous Gaussian entropy `H_Y` is analytic for the represented
+block-banded recognition law. The emission expectations, raw source and
+transition cross-entropies, and `H_source_hat` share one reparameterized
+Monte Carlo path sample per forward evaluation. No preregistered finite,
+nonasymptotic single-sample error bound exists for this estimator. Therefore
+`estimator_error_bound` is not applicable, is serialized as null or omitted
+according to the enclosing record schema, and carries the exact applicability
+reason
+`no_preregistered_finite_bound_for_single_sample_mc`; zero is forbidden.
+
+The H5 product-recognition analytic conditional-KL schema in
+`vfe4/objective/h5_complete.py` remains prerequisite and control provenance
+only. Its `H5_OBJECTIVE_SCHEMA_SHA256` is distinct from the WT103
+structured-factor schema hash. No H5 initial/source/transition KL field may
+be relabeled as a WT103 raw cross-entropy or used to reconstruct this
+objective. WT103 training binds its own partition literal and schema hash;
+H5 update, snapshot, and factor-dependency labels retain only their declared
+control meanings.
+
 ---
 
 ## Frozen Experiment, Update, Stopping, and Statistical Policy
@@ -552,7 +629,7 @@ proved. These rows retain distinct labels and never rescue or promote PRIMARY.
 
 - A0 expected/observed autograd scope is `m_step` and has no recognition state or recognition optimizer.
 - Every latent A5 inventory arm has expected/observed scope `e_and_m`. Recognition proposal tensors are the only active E-like leaves while model parameters are frozen. The accepted recognition result is cloned into an immutable nonaliasing `RecognitionSnapshot`, detached, and hashed. Model parameters are then the only active M-like leaves. The no-latent control has no recognition optimizer.
-- Every applicable active optimizer label is `adam_proposal`, with the exact H5 objective/update/snapshot/factor-dependency schema hashes. A proposal is accepted only if the configured rule says so and all finite, gradient, support, SPD, and immutable-snapshot checks pass. Rejections restore every affected parameter/optimizer/scheduler state and record reason plus before/after objective numerators and estimator budget.
+- Every applicable active optimizer label is `adam_proposal`, with the exact WT103 structured-factor objective schema hash and the H5 update/snapshot/factor-dependency schema hashes. The H5 objective hash is reference-only for this runtime. A proposal is accepted only if the configured rule says so and all finite, gradient, support, SPD, and immutable-snapshot checks pass. Rejections restore every affected parameter/optimizer/scheduler state and record reason plus before/after objective numerators and estimator applicability.
 - Runtime instrumentation hard-fails if observed autograd scope differs from resolved scope, if a recognition snapshot aliases model storage, if a target/suffix reaches the prior scorer, if any active parameter is missing/duplicated across optimizers, or if an update is reported under a stronger label than executed.
 
 ### Tuning, confirmation, stopping, test, and inference
@@ -630,6 +707,26 @@ Two identities are mandatory and never conflated:
 
 Resume appends a distinct immutable `resume-lineage.jsonl` event with parent artifact/scientific identities, new process/environment identity, cursor, reason, and timestamps. Operational events never rewrite scientific state. Exact smoke equivalence requires equal scientific hashes; elementwise equality of all scientific tensors/primitives; equal update/metric numerator-denominator state; and bitwise-equal next two batches of prior predictions under the same estimator streams. It does not require equal wall-clock durations, UTC values, terminal run-manifest hash, filesystem path, or serialized artifact hash.
 
+Reservation through terminal finalization holds one nonblocking per-attempt OS
+execution lease that is released automatically at process exit. A concurrent
+train/resume process fails before owner, lineage, metric, or checkpoint
+mutation. Before owner or ordinal mutation, the lease exclusively creates and
+reopens an immutable lineage intent; intent-only and matching
+owner-plus-lease pre-ledger crashes recover that exact event without minting a
+new timestamp or digest. Immediately before resumed scientific execution,
+after the conservative resource pre-debit commits, the live lease exclusively
+creates and reopens a hashed execution-started transition bound to the plan,
+reservation, ordinal, and lineage. Its presence consumes the frozen
+one-infrastructure-retry budget permanently; replay of the same lineage or a
+second lineage is rejected before mutation.
+Each rolling checkpoint first authenticates the sidecar's active payload,
+writes the opposite inactive slot, reopens it, and only then atomically
+replaces the sidecar. Update-counter parity never chooses a slot. If a terminal
+manifest is durable while its exact resume owner remains active after a crash,
+lease-held recovery validates the manifest, artifacts, lineage intent, lease,
+and execution-start transition, durably closes only that owner against the
+manifest hash, then repeats strict validation before the terminal rename.
+
 Executable pickle is prohibited. Before deserialization, require a regular nonlink file, exact manifest-declared byte size and SHA-256, and `size_bytes<=checkpoint_max_bytes` from the immutable experiment plan. Load only with `torch.load(..., map_location="cpu", weights_only=True)`; adding safe globals or retrying with `weights_only=False` is forbidden. Recursively accept only exact `dict/list/tuple/str/int/float/bool/None/torch.Tensor` values, declared tensor dtypes/shapes/numel, CPU storage before explicit restore, and no custom class/global/reducer. A malicious reducer fixture must not execute or create its sentinel. A nonpickle tensor container may replace this schema only through an explicit schema revision.
 
 Writes use the probed `DurabilityBackend`: same-volume unique sibling staging, durable file flush, pre-publication read-back/schema/hash validation, durable replacement, and reopen validation. Loading is fail-closed before mutating a live object. Any schema, config, objective, model shape, arm, optimizer, scheduler, precision, dependency, tokenizer/data/window, predecessor, experiment-plan, RNG, cursor, tensor-inventory, or scientific-state mismatch blocks resume. The default migration set is empty. An explicit future migration profile must name source/destination schema hashes, transform code hash, information-loss declaration, independent test, and a new run identity; no profile may load V3.
@@ -640,9 +737,9 @@ The authoritative live stream is `metrics.jsonl`, one canonical JSON object per 
 
 Every recorded mean/rate carries its raw numerator and denominator. Required fields include:
 
-- per-step/pass train complete ELBO and every `ElboTerms` partition: expected emission log likelihood, initial state/model, state/model source KL, state/model transitions, joint recognition entropy, estimator error, and complete scalar;
+- per-step/pass train complete ELBO under `wt103-structured-factor-elbo-v1`: raw expected emission log likelihood; raw initial state/model cross-entropies; raw state/model source and transition cross-entropies; exact continuous recognition entropy; estimated conditional source entropy; their joint recognition-entropy estimate; the complete numerator and counted-target denominator; and estimator-bound applicability with exact reason `no_preregistered_finite_bound_for_single_sample_mc` rather than a fabricated zero;
 - held-out prior-predictive summed NLL, counted targets, NLL/token, PPL, estimator stream/particle level, and cache audit; separate emission-only diagnostic with `is_elbo=false`;
-- state/model/source KL numerators, categorical source `entropy_sum`, `source_row_count`, support size, and effective source count defined exactly as `exp(entropy_sum/source_row_count)`; a zero row count is explicit `not_applicable`, never zero effective sources;
+- state/model source-KL diagnostic numerators, explicitly marked `objective_term=false`; categorical source `entropy_sum`, `source_row_count`, support size, and effective source count defined exactly as `exp(entropy_sum/source_row_count)`; a zero row count is explicit `not_applicable`, never zero effective sources;
 - accepted/rejected proposals by exact label/block/reason, before/after complete objective numerators/denominators, error allowance, snapshot hash, damping/projection/rollback facts, learning rate, scheduler ordinal/state, AMP scale/overflow/applicability, clipping threshold/pre/post norm/clipped flag, and every effective optimizer parameter (`betas`, `eps`, `weight_decay`, `amsgrad`, `foreach`, `fused`) for that update;
 - minimum local Cholesky pivot, failed pivots, jitter/damping, SPD projections, local condition endpoints, sparse condition estimate, solve residual numerator/allowance, and nonfinite counts;
 - gradient L2/inf norms and clipped/unclipped counts per active block; expected/observed autograd scope;
@@ -680,9 +777,30 @@ For each component use the minimum observed post-warmup throughput and maximum o
 - the inventory-derived exact and weighted-SMC test corpus records;
 - source/token/window preparation, final table aggregation, every frozen required-figure-registry entry with its inventory-derived panels/series, and review/export overhead (GPU hours zero where CPU-only).
 
-Sum predicted GPU seconds/device-hours and wall time without overlapping components unless the executable schedule explicitly overlaps them. Conservative energy is `forecast_gpu_hours * max(measured_max_board_power_watts, reported_power_limit_watts)/1000`. The immutable profile ceilings are `max_gpu_hours=720`, `max_wall_hours=840`, and `max_energy_kwh=500`; authorization requires each `1.25*raw_forecast` to remain at or below its ceiling. Exceeding a ceiling stops for an explicit preregistration/user-authorization revision; no automatic batch/particle/seed/schedule reduction is permitted.
+Sum predicted GPU seconds/device-hours and wall time without overlapping components unless the executable schedule explicitly overlaps them. The hashed forecast stores the measured maximum board power, the provider-reported limit, and the exact conservative maximum of those two values. Conservative energy uses that frozen maximum. The immutable profile ceilings are `max_gpu_hours=720`, `max_wall_hours=840`, and `max_energy_kwh=500`; authorization requires each `1.25*raw_forecast` to remain at or below its ceiling. Exceeding a ceiling stops for an explicit preregistration/user-authorization revision; no automatic batch/particle/seed/schedule reduction is permitted.
 
-Every attempt records actual device-seconds, wall seconds, and sampled energy in an append-only `ResourceUsageLedger` bound to, but never mutating, the immutable experiment plan; remaining allowances are derived from plan ceilings minus validated ledger totals. Immediately before the irreversible test reservation, recompute the test-only forecast from actual validation throughput and require remaining GPU-hour/wall/energy ceilings and disk capacity each to exceed `1.25*test_transaction_forecast`. Insufficient headroom blocks before the durability backend's exclusive reservation; it never opens a partial test to discover cost.
+Every attempt uses an append-only `ResourceUsageLedger` bound to, but never
+mutating, the immutable experiment plan. The ledger is a conservative
+authorization debit, not an exact electricity-billing meter: before scientific
+work it durably prepays a 60-second crash tail at the readiness-bound frozen
+conservative maximum power; an independent monotonic 30-second heartbeat
+debits elapsed device/wall time and conservative-maximum energy; measured device seconds, wall seconds,
+and sampled energy are appended without refund. Heartbeat failure is checked
+inside training and validation loops and aborts within the prepaid runway.
+Headroom is checked before, not after, every publication. Remaining allowances
+are therefore plan ceilings minus validated, possibly over-accounting ledger
+totals. Immediately before the irreversible test reservation, recompute the
+test-only forecast from actual validation throughput and require remaining
+GPU-hour/wall/energy ceilings and disk capacity each to exceed
+`1.25*test_transaction_forecast`. Insufficient headroom blocks before the
+durability backend's exclusive reservation; it never opens a partial test to
+discover cost.
+
+Resource events are ordered per-attempt execution segments. A measured
+interruption is durably debited before its error propagates; resume appends the
+next segment ordinal, and validation requires contiguous groups and ordinals.
+Pre-interruption usage is never replaced by or collapsed into resumed usage,
+and conservative prepayments or heartbeats are never refunded.
 
 ### Figure contract
 
@@ -824,6 +942,7 @@ class FinalizedWikiText103SourceRecord:
     schedule_set_sha256: str
     dependency_lock_sha256: str
     validator_sha256: str
+    freeze_completeness: Literal[True]
     record_sha256: str
 
 @dataclass(frozen=True)

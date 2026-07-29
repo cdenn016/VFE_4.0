@@ -27,6 +27,36 @@ ObjectiveKind = Literal[
     "complete_elbo",
     "emission_only_ablation_non_elbo",
 ]
+WT103_STRUCTURED_FACTOR_ELBO_SCHEMA = "wt103-structured-factor-elbo-v1"
+WT103_STRUCTURED_FACTOR_ELBO_SCHEMA_SHA256 = owned_sha256(
+    "vfe4.wt103.structured-factor-elbo-schema.v1",
+    {
+        "schema_version": WT103_STRUCTURED_FACTOR_ELBO_SCHEMA,
+        "objective_reconstruction": (
+            "sum(expected_log_emission)"
+            "-initial_model_cross_entropy"
+            "-initial_state_cross_entropy"
+            "-sum(model_source_cross_entropy)"
+            "-sum(model_transition_cross_entropy)"
+            "-sum(state_source_cross_entropy)"
+            "-sum(state_transition_cross_entropy)"
+            "+joint_recognition_entropy_estimate"
+        ),
+        "joint_entropy_chain_rule": (
+            "continuous_recognition_entropy"
+            "+conditional_source_entropy_estimate"
+        ),
+        "derived_diagnostics": (
+            "model_source_kl",
+            "state_source_kl",
+        ),
+        "estimator_error_bound": (
+            "not_applicable_only:"
+            "no_preregistered_finite_bound_for_single_sample_mc"
+        ),
+        "h5_kl_partition_schema": "reference_only_not_reused",
+    },
+)
 
 
 class TrainingEngineError(RuntimeError):
@@ -51,21 +81,40 @@ def _scalar_tensor(value: object, *, name: str) -> torch.Tensor:
     return value
 
 
+def _same_float32_reduction(left: torch.Tensor, right: torch.Tensor) -> bool:
+    left_value = float(left.detach().cpu().item())
+    right_value = float(right.detach().cpu().item())
+    scale = max(abs(left_value), abs(right_value), 1.0)
+    return math.isclose(
+        left_value,
+        right_value,
+        rel_tol=0.0,
+        abs_tol=8.0 * scale * 2.0**-23,
+    )
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class ForwardTerms:
-    """One complete, partitioned objective forward pass."""
+    """One complete forward pass under an explicit WT103 factor schema."""
 
     objective_kind: ObjectiveKind
+    partition_schema: (
+        Literal["wt103-structured-factor-elbo-v1"] | None
+    )
     counted_targets: int
     cross_entropy_value: torch.Tensor | None
     expected_log_emission: tuple[torch.Tensor, ...] | None
-    initial_model_kl: torch.Tensor | None
-    initial_state_kl: torch.Tensor | None
+    initial_model_cross_entropy: torch.Tensor | None
+    initial_state_cross_entropy: torch.Tensor | None
+    model_source_cross_entropy: tuple[torch.Tensor, ...] | None
+    model_transition_cross_entropy: tuple[torch.Tensor, ...] | None
+    state_source_cross_entropy: tuple[torch.Tensor, ...] | None
+    state_transition_cross_entropy: tuple[torch.Tensor, ...] | None
     model_source_kl: tuple[torch.Tensor, ...] | None
-    model_transition_kl: tuple[torch.Tensor, ...] | None
     state_source_kl: tuple[torch.Tensor, ...] | None
-    state_transition_kl: tuple[torch.Tensor, ...] | None
-    joint_recognition_entropy: torch.Tensor | None
+    continuous_recognition_entropy: torch.Tensor | None
+    conditional_source_entropy_estimate: torch.Tensor | None
+    joint_recognition_entropy_estimate: torch.Tensor | None
     estimator_error_bound: torch.Tensor | None
 
     @staticmethod
@@ -86,6 +135,10 @@ class ForwardTerms:
         if type(self.counted_targets) is not int or self.counted_targets <= 0:
             raise TrainingEngineError("counted_targets must be positive")
         if self.objective_kind == "cross_entropy":
+            if self.partition_schema is not None:
+                raise TrainingEngineError(
+                    "cross entropy cannot claim an ELBO factor schema"
+                )
             _scalar_tensor(
                 self.cross_entropy_value,
                 name="cross_entropy_value",
@@ -94,13 +147,17 @@ class ForwardTerms:
                 value is not None
                 for value in (
                     self.expected_log_emission,
-                    self.initial_model_kl,
-                    self.initial_state_kl,
+                    self.initial_model_cross_entropy,
+                    self.initial_state_cross_entropy,
+                    self.model_source_cross_entropy,
+                    self.model_transition_cross_entropy,
+                    self.state_source_cross_entropy,
+                    self.state_transition_cross_entropy,
                     self.model_source_kl,
-                    self.model_transition_kl,
                     self.state_source_kl,
-                    self.state_transition_kl,
-                    self.joint_recognition_entropy,
+                    self.continuous_recognition_entropy,
+                    self.conditional_source_entropy_estimate,
+                    self.joint_recognition_entropy_estimate,
                     self.estimator_error_bound,
                 )
             ):
@@ -109,6 +166,10 @@ class ForwardTerms:
                 )
             return
         if self.objective_kind == "emission_only_ablation_non_elbo":
+            if self.partition_schema is not None:
+                raise TrainingEngineError(
+                    "emission-only cannot claim an ELBO factor schema"
+                )
             emissions = self._scalar_tuple(
                 self.expected_log_emission,
                 name="expected_log_emission",
@@ -116,13 +177,17 @@ class ForwardTerms:
             if self.cross_entropy_value is not None or any(
                 value is not None
                 for value in (
-                    self.initial_model_kl,
-                    self.initial_state_kl,
+                    self.initial_model_cross_entropy,
+                    self.initial_state_cross_entropy,
+                    self.model_source_cross_entropy,
+                    self.model_transition_cross_entropy,
+                    self.state_source_cross_entropy,
+                    self.state_transition_cross_entropy,
                     self.model_source_kl,
-                    self.model_transition_kl,
                     self.state_source_kl,
-                    self.state_transition_kl,
-                    self.joint_recognition_entropy,
+                    self.continuous_recognition_entropy,
+                    self.conditional_source_entropy_estimate,
+                    self.joint_recognition_entropy_estimate,
                     self.estimator_error_bound,
                 )
             ):
@@ -136,6 +201,10 @@ class ForwardTerms:
             return
         if self.objective_kind != "complete_elbo":
             raise TrainingEngineError("unknown objective kind")
+        if self.partition_schema != WT103_STRUCTURED_FACTOR_ELBO_SCHEMA:
+            raise TrainingEngineError(
+                "complete ELBO requires the structured-factor schema"
+            )
         if self.cross_entropy_value is not None:
             raise TrainingEngineError(
                 "complete ELBO cannot carry cross entropy"
@@ -147,10 +216,12 @@ class ForwardTerms:
         partitions = tuple(
             self._scalar_tuple(getattr(self, name), name=name)
             for name in (
+                "model_source_cross_entropy",
+                "model_transition_cross_entropy",
+                "state_source_cross_entropy",
+                "state_transition_cross_entropy",
                 "model_source_kl",
-                "model_transition_kl",
                 "state_source_kl",
-                "state_transition_kl",
             )
         )
         if any(len(value) != len(emissions) for value in partitions):
@@ -158,16 +229,61 @@ class ForwardTerms:
                 "ELBO horizon partitions must have identical lengths"
             )
         for name in (
-            "initial_model_kl",
-            "initial_state_kl",
-            "joint_recognition_entropy",
-            "estimator_error_bound",
+            "initial_model_cross_entropy",
+            "initial_state_cross_entropy",
+            "continuous_recognition_entropy",
+            "conditional_source_entropy_estimate",
+            "joint_recognition_entropy_estimate",
         ):
             _scalar_tensor(getattr(self, name), name=name)
-        assert self.estimator_error_bound is not None
-        if float(self.estimator_error_bound.detach().cpu().item()) < 0.0:
+        assert self.conditional_source_entropy_estimate is not None
+        assert self.continuous_recognition_entropy is not None
+        assert self.joint_recognition_entropy_estimate is not None
+        if (
+            float(
+                self.conditional_source_entropy_estimate.detach()
+                .cpu()
+                .item()
+            )
+            < 0.0
+        ):
             raise TrainingEngineError(
-                "estimator_error_bound must be nonnegative"
+                "conditional source entropy estimate must be nonnegative"
+            )
+        expected_joint = (
+            self.continuous_recognition_entropy
+            + self.conditional_source_entropy_estimate
+        )
+        if not _same_float32_reduction(
+            expected_joint,
+            self.joint_recognition_entropy_estimate,
+        ):
+            raise TrainingEngineError(
+                "joint recognition entropy estimate changed chain-rule sum"
+            )
+        assert self.model_source_cross_entropy is not None
+        assert self.state_source_cross_entropy is not None
+        assert self.model_source_kl is not None
+        assert self.state_source_kl is not None
+        source_cross_entropy = sum(
+            (
+                *self.model_source_cross_entropy,
+                *self.state_source_cross_entropy,
+            )
+        )
+        source_kl = sum((*self.model_source_kl, *self.state_source_kl))
+        expected_source_kl = (
+            source_cross_entropy
+            - self.conditional_source_entropy_estimate
+        )
+        if not _same_float32_reduction(source_kl, expected_source_kl):
+            raise TrainingEngineError(
+                "source KL diagnostics changed "
+                "cross-entropy-minus-entropy"
+            )
+        if self.estimator_error_bound is not None:
+            raise TrainingEngineError(
+                "structured-factor estimator_error_bound is not applicable"
             )
 
     @classmethod
@@ -179,16 +295,21 @@ class ForwardTerms:
     ) -> "ForwardTerms":
         return cls(
             objective_kind="cross_entropy",
+            partition_schema=None,
             counted_targets=counted_targets,
             cross_entropy_value=value,
             expected_log_emission=None,
-            initial_model_kl=None,
-            initial_state_kl=None,
+            initial_model_cross_entropy=None,
+            initial_state_cross_entropy=None,
+            model_source_cross_entropy=None,
+            model_transition_cross_entropy=None,
+            state_source_cross_entropy=None,
+            state_transition_cross_entropy=None,
             model_source_kl=None,
-            model_transition_kl=None,
             state_source_kl=None,
-            state_transition_kl=None,
-            joint_recognition_entropy=None,
+            continuous_recognition_entropy=None,
+            conditional_source_entropy_estimate=None,
+            joint_recognition_entropy_estimate=None,
             estimator_error_bound=None,
         )
 
@@ -197,28 +318,47 @@ class ForwardTerms:
         cls,
         *,
         expected_log_emission: tuple[torch.Tensor, ...],
-        initial_model_kl: torch.Tensor,
-        initial_state_kl: torch.Tensor,
+        initial_model_cross_entropy: torch.Tensor,
+        initial_state_cross_entropy: torch.Tensor,
+        model_source_cross_entropy: tuple[torch.Tensor, ...],
+        model_transition_cross_entropy: tuple[torch.Tensor, ...],
+        state_source_cross_entropy: tuple[torch.Tensor, ...],
+        state_transition_cross_entropy: tuple[torch.Tensor, ...],
         model_source_kl: tuple[torch.Tensor, ...],
-        model_transition_kl: tuple[torch.Tensor, ...],
         state_source_kl: tuple[torch.Tensor, ...],
-        state_transition_kl: tuple[torch.Tensor, ...],
-        joint_recognition_entropy: torch.Tensor,
-        estimator_error_bound: torch.Tensor,
+        continuous_recognition_entropy: torch.Tensor,
+        conditional_source_entropy_estimate: torch.Tensor,
+        joint_recognition_entropy_estimate: torch.Tensor,
+        estimator_error_bound: torch.Tensor | None,
         counted_targets: int,
     ) -> "ForwardTerms":
         return cls(
             objective_kind="complete_elbo",
+            partition_schema=WT103_STRUCTURED_FACTOR_ELBO_SCHEMA,
             counted_targets=counted_targets,
             cross_entropy_value=None,
             expected_log_emission=expected_log_emission,
-            initial_model_kl=initial_model_kl,
-            initial_state_kl=initial_state_kl,
+            initial_model_cross_entropy=initial_model_cross_entropy,
+            initial_state_cross_entropy=initial_state_cross_entropy,
+            model_source_cross_entropy=model_source_cross_entropy,
+            model_transition_cross_entropy=(
+                model_transition_cross_entropy
+            ),
+            state_source_cross_entropy=state_source_cross_entropy,
+            state_transition_cross_entropy=(
+                state_transition_cross_entropy
+            ),
             model_source_kl=model_source_kl,
-            model_transition_kl=model_transition_kl,
             state_source_kl=state_source_kl,
-            state_transition_kl=state_transition_kl,
-            joint_recognition_entropy=joint_recognition_entropy,
+            continuous_recognition_entropy=(
+                continuous_recognition_entropy
+            ),
+            conditional_source_entropy_estimate=(
+                conditional_source_entropy_estimate
+            ),
+            joint_recognition_entropy_estimate=(
+                joint_recognition_entropy_estimate
+            ),
             estimator_error_bound=estimator_error_bound,
         )
 
@@ -231,20 +371,27 @@ class ForwardTerms:
     ) -> "ForwardTerms":
         return cls(
             objective_kind="emission_only_ablation_non_elbo",
+            partition_schema=None,
             counted_targets=counted_targets,
             cross_entropy_value=None,
             expected_log_emission=expected_log_emission,
-            initial_model_kl=None,
-            initial_state_kl=None,
+            initial_model_cross_entropy=None,
+            initial_state_cross_entropy=None,
+            model_source_cross_entropy=None,
+            model_transition_cross_entropy=None,
+            state_source_cross_entropy=None,
+            state_transition_cross_entropy=None,
             model_source_kl=None,
-            model_transition_kl=None,
             state_source_kl=None,
-            state_transition_kl=None,
-            joint_recognition_entropy=None,
+            continuous_recognition_entropy=None,
+            conditional_source_entropy_estimate=None,
+            joint_recognition_entropy_estimate=None,
             estimator_error_bound=None,
         )
 
-    def objective(self) -> torch.Tensor:
+    def objective_numerator(self) -> torch.Tensor:
+        """Return the raw summed objective in nats before token normalization."""
+
         self.__post_init__()
         if self.objective_kind == "cross_entropy":
             assert self.cross_entropy_value is not None
@@ -252,26 +399,33 @@ class ForwardTerms:
         assert self.expected_log_emission is not None
         if self.objective_kind == "emission_only_ablation_non_elbo":
             return sum(self.expected_log_emission)
-        assert self.initial_model_kl is not None
-        assert self.initial_state_kl is not None
+        assert self.initial_model_cross_entropy is not None
+        assert self.initial_state_cross_entropy is not None
+        assert self.model_source_cross_entropy is not None
+        assert self.model_transition_cross_entropy is not None
+        assert self.state_source_cross_entropy is not None
+        assert self.state_transition_cross_entropy is not None
         assert self.model_source_kl is not None
-        assert self.model_transition_kl is not None
         assert self.state_source_kl is not None
-        assert self.state_transition_kl is not None
+        assert self.joint_recognition_entropy_estimate is not None
         return (
             sum(self.expected_log_emission)
-            - self.initial_model_kl
-            - self.initial_state_kl
-            - sum(self.model_source_kl)
-            - sum(self.model_transition_kl)
-            - sum(self.state_source_kl)
-            - sum(self.state_transition_kl)
+            - self.initial_model_cross_entropy
+            - self.initial_state_cross_entropy
+            - sum(self.model_source_cross_entropy)
+            - sum(self.model_transition_cross_entropy)
+            - sum(self.state_source_cross_entropy)
+            - sum(self.state_transition_cross_entropy)
+            + self.joint_recognition_entropy_estimate
         )
+
+    def objective(self) -> torch.Tensor:
+        """Return the single counted-target-normalized optimization objective."""
+
+        return self.objective_numerator() / self.counted_targets
 
     def loss(self) -> torch.Tensor:
         objective = self.objective()
-        if self.objective_kind == "cross_entropy":
-            return -objective
         return -objective
 
     def detached_values(self) -> dict[str, float]:
@@ -292,11 +446,17 @@ class ForwardTerms:
         }
         if self.objective_kind == "emission_only_ablation_non_elbo":
             values["emission_only_non_elbo"] = float(
-                self.objective().detach().cpu().item()
+                self.objective_numerator().detach().cpu().item()
             )
             return values
-        for name in ("model_source_kl", "model_transition_kl",
-                     "state_source_kl", "state_transition_kl"):
+        for name in (
+            "model_source_cross_entropy",
+            "model_transition_cross_entropy",
+            "state_source_cross_entropy",
+            "state_transition_cross_entropy",
+            "model_source_kl",
+            "state_source_kl",
+        ):
             tensors = getattr(self, name)
             assert tensors is not None
             for index, tensor in enumerate(tensors):
@@ -304,23 +464,37 @@ class ForwardTerms:
                     tensor.detach().cpu().item()
                 )
         for name in (
-            "initial_model_kl",
-            "initial_state_kl",
-            "joint_recognition_entropy",
-            "estimator_error_bound",
+            "initial_model_cross_entropy",
+            "initial_state_cross_entropy",
+            "continuous_recognition_entropy",
+            "conditional_source_entropy_estimate",
+            "joint_recognition_entropy_estimate",
         ):
             tensor = getattr(self, name)
             assert tensor is not None
             values[name] = float(tensor.detach().cpu().item())
-        values["complete_elbo"] = float(
-            self.objective().detach().cpu().item()
+        if self.estimator_error_bound is not None:
+            values["estimator_error_bound"] = float(
+                self.estimator_error_bound.detach().cpu().item()
+            )
+        values["complete_elbo_numerator"] = float(
+            self.objective_numerator().detach().cpu().item()
         )
         return values
+
+    def complete_elbo_numerator(self) -> float | None:
+        if self.objective_kind != "complete_elbo":
+            return None
+        return float(
+            self.objective_numerator().detach().cpu().item()
+        )
 
     def complete_elbo_value(self) -> float | None:
         if self.objective_kind != "complete_elbo":
             return None
-        return float(self.objective().detach().cpu().item())
+        numerator = self.complete_elbo_numerator()
+        assert numerator is not None
+        return numerator / self.counted_targets
 
 
 def _tensor_bytes(tensor: torch.Tensor) -> bytes:
@@ -432,6 +606,16 @@ class ForwardCallback(Protocol):
     ) -> ForwardTerms: ...
 
 
+class ExecutionEventRunner(Protocol):
+    """Optional observer seam that wraps an actual engine operation."""
+
+    def __call__(
+        self,
+        event_name: str,
+        operation: Callable[[], object],
+    ) -> object: ...
+
+
 class ScientificStateParticipant(Protocol):
     """Explicit non-module scientific state participating in rollback."""
 
@@ -533,6 +717,7 @@ class ArmExecutionRuntime:
     state_participants: tuple[ScientificStateParticipant, ...]
     gradient_clip_norm: float
     update_counter: int = 0
+    execution_event_runner: ExecutionEventRunner | None = None
 
     def validate(self) -> None:
         if type(self.arm_spec) is not WT103ArmSpec:
@@ -582,6 +767,13 @@ class ArmExecutionRuntime:
             )
         if type(self.update_counter) is not int or self.update_counter < 0:
             raise TrainingEngineError("update_counter must be nonnegative")
+        if (
+            self.execution_event_runner is not None
+            and not callable(self.execution_event_runner)
+        ):
+            raise TrainingEngineError(
+                "execution_event_runner must be callable or None"
+            )
         if self.arm_spec.latent_enabled:
             if (
                 not isinstance(self.recognition, torch.nn.Module)
@@ -827,6 +1019,7 @@ class StepResult:
     snapshot_sha256: str | None
     objective_diagnostics_applicable: bool
     objective_terms: dict[str, float] | None
+    complete_elbo_numerator: float | None
     complete_elbo_value: float | None
     counted_targets: int | None
     accepted: bool
@@ -923,27 +1116,42 @@ class StepResult:
                 )
         elif (
             self.objective_terms is not None
+            or self.complete_elbo_numerator is not None
             or self.complete_elbo_value is not None
             or self.counted_targets is not None
         ):
             raise TrainingEngineError(
                 "inapplicable objective diagnostics cannot fabricate values"
             )
-        if self.complete_elbo_value is not None and (
-            self.objective_kind != "complete_elbo"
-            or not self.objective_diagnostics_applicable
-            or not math.isfinite(self.complete_elbo_value)
-        ):
-            raise TrainingEngineError(
-                "complete ELBO diagnostic applicability is inconsistent"
-            )
         if (
+            self.complete_elbo_numerator is None
+        ) != (self.complete_elbo_value is None):
+            raise TrainingEngineError(
+                "complete ELBO numerator/value applicability differs"
+            )
+        if self.complete_elbo_value is not None:
+            assert self.complete_elbo_numerator is not None
+            assert self.counted_targets is not None
+            if (
+                self.objective_kind != "complete_elbo"
+                or not self.objective_diagnostics_applicable
+                or not math.isfinite(self.complete_elbo_numerator)
+                or not math.isfinite(self.complete_elbo_value)
+                or self.complete_elbo_value
+                != self.complete_elbo_numerator / self.counted_targets
+                or self.objective_terms is None
+                or self.objective_terms.get("complete_elbo_numerator")
+                != self.complete_elbo_numerator
+            ):
+                raise TrainingEngineError(
+                    "complete ELBO diagnostic arithmetic is inconsistent"
+                )
+        elif (
             self.objective_kind == "complete_elbo"
             and self.objective_diagnostics_applicable
-            and self.complete_elbo_value is None
         ):
             raise TrainingEngineError(
-                "applicable complete ELBO requires its exact term sum"
+                "applicable complete ELBO requires numerator and value"
             )
 
 
@@ -1403,6 +1611,28 @@ def _gradient_norm(parameters: tuple[torch.nn.Parameter, ...]) -> float:
     return value
 
 
+def _gradient_inf_norm(
+    parameters: tuple[torch.nn.Parameter, ...],
+) -> float:
+    maxima: list[float] = []
+    for parameter in parameters:
+        if parameter.grad is None:
+            raise _ProposalRejected("missing_active_gradient")
+        maxima.append(
+            float(
+                parameter.grad.detach()
+                .abs()
+                .amax()
+                .to(dtype=torch.float64)
+                .item()
+            )
+        )
+    value = max(maxima, default=0.0)
+    if not math.isfinite(value):
+        raise _ProposalRejected("nonfinite_gradient_inf_norm")
+    return value
+
+
 def _plain_group_float(
     group: Mapping[str, object],
     key: str,
@@ -1438,6 +1668,8 @@ def _make_update_control(
     clipping_threshold: float,
     pre_clip_norm: float | None,
     post_clip_norm: float | None,
+    pre_clip_inf_norm: float | None,
+    post_clip_inf_norm: float | None,
     amp_scale: float | None,
     amp_overflow: bool | None,
 ) -> UpdateControlRecord:
@@ -1458,7 +1690,14 @@ def _make_update_control(
         if pre_clip_norm is not None and post_clip_norm is not None
         else "not_applicable"
     )
-    if (pre_clip_norm is None) != (post_clip_norm is None):
+    if (
+        (pre_clip_norm is None)
+        != (post_clip_norm is None)
+        or (pre_clip_norm is None)
+        != (pre_clip_inf_norm is None)
+        or (pre_clip_norm is None)
+        != (post_clip_inf_norm is None)
+    ):
         raise TrainingEngineError(
             "gradient norm observations must be jointly applicable"
         )
@@ -1475,6 +1714,8 @@ def _make_update_control(
         gradient_norm_applicability=gradient_applicability,
         pre_clip_norm=pre_clip_norm,
         post_clip_norm=post_clip_norm,
+        pre_clip_inf_norm=pre_clip_inf_norm,
+        post_clip_inf_norm=post_clip_inf_norm,
         clipped=(
             None
             if pre_clip_norm is None
@@ -1495,16 +1736,26 @@ def _make_update_control(
 
 def _finite_objective_diagnostics(
     terms: ForwardTerms | None,
-) -> tuple[dict[str, float] | None, float | None]:
+) -> tuple[
+    dict[str, float] | None,
+    float | None,
+    float | None,
+]:
     if terms is None:
-        return None, None
+        return None, None, None
     values = terms.detached_values()
     if any(not math.isfinite(value) for value in values.values()):
-        return None, None
-    complete = terms.complete_elbo_value()
-    if complete is not None and not math.isfinite(complete):
-        return None, None
-    return values, complete
+        return None, None, None
+    numerator = terms.complete_elbo_numerator()
+    value = terms.complete_elbo_value()
+    if (
+        numerator is None
+    ) != (value is None) or any(
+        item is not None and not math.isfinite(item)
+        for item in (numerator, value)
+    ):
+        return None, None, None
+    return values, numerator, value
 
 
 def _phase_scope_from_gradients(
@@ -1551,7 +1802,7 @@ def _objective_rows(
     float | None,
     float | None,
 ]:
-    values, _complete = _finite_objective_diagnostics(terms)
+    values, _numerator, _value = _finite_objective_diagnostics(terms)
     if values is None or terms is None:
         return None, None, None
     objective = float(terms.objective().detach().cpu().item())
@@ -1609,6 +1860,17 @@ def _make_proposal_evidence(
     )
 
 
+def _run_execution_event(
+    runtime: ArmExecutionRuntime,
+    event_name: str,
+    operation: Callable[[], object],
+) -> object:
+    runner = runtime.execution_event_runner
+    if runner is None:
+        return operation()
+    return runner(event_name, operation)
+
+
 def _run_proposal(
     runtime: ArmExecutionRuntime,
     *,
@@ -1631,12 +1893,24 @@ def _run_proposal(
         scheduler = runtime.recognition_scheduler
         affected_block: Literal["recognition", "model"] = "recognition"
         expected_scope: PhaseAutogradScope = "e_step"
+        compute_event = "recognition_forward"
+        backward_event = "recognition_backward"
     elif phase in ("model_adam_proposal", "model_ce_adam_proposal"):
         active_module = runtime.model
         optimizer = runtime.model_optimizer
         scheduler = runtime.model_scheduler
         affected_block = "model"
         expected_scope = "m_step"
+        compute_event = (
+            "forward"
+            if phase == "model_ce_adam_proposal"
+            else runtime.arm_spec.training_objective
+        )
+        backward_event = (
+            "backward"
+            if phase == "model_ce_adam_proposal"
+            else "model_backward"
+        )
     else:
         raise TrainingEngineError(f"unknown proposal phase {phase!r}")
 
@@ -1655,6 +1929,8 @@ def _run_proposal(
     rejection: str | None = None
     pre_clip_norm: float | None = None
     post_clip_norm: float | None = None
+    pre_clip_inf_norm: float | None = None
+    post_clip_inf_norm: float | None = None
     amp_overflow: bool | None = (
         None if amp_scale_before is None else False
     )
@@ -1667,7 +1943,11 @@ def _run_proposal(
     try:
         active_parameters = _set_active_module(runtime, active=active_module)
         active_ids = {id(parameter) for parameter in active_parameters}
-        computed = runtime.compute_terms(phase, batch, snapshot)
+        computed = _run_execution_event(
+            runtime,
+            compute_event,
+            lambda: runtime.compute_terms(phase, batch, snapshot),
+        )
         if type(computed) is not ForwardTerms:
             raise _ProposalRejected("invalid_forward_terms")
         computed.__post_init__()
@@ -1679,15 +1959,25 @@ def _run_proposal(
         ):
             raise _ProposalRejected("counted_target_mismatch")
         terms = computed
-        loss = computed.loss()
+        if phase == "model_ce_adam_proposal":
+            loss = _run_execution_event(
+                runtime,
+                "cross_entropy",
+                computed.loss,
+            )
+        else:
+            loss = computed.loss()
         if not bool(torch.isfinite(loss.detach()).item()):
             raise _ProposalRejected("nonfinite_objective")
         optimizer.zero_grad(set_to_none=True)
-        if runtime.grad_scaler is None:
-            loss.backward()
-        else:
-            runtime.grad_scaler.scale(loss).backward()
-            runtime.grad_scaler.unscale_(optimizer)
+        def backward() -> None:
+            if runtime.grad_scaler is None:
+                loss.backward()
+            else:
+                runtime.grad_scaler.scale(loss).backward()
+                runtime.grad_scaler.unscale_(optimizer)
+
+        _run_execution_event(runtime, backward_event, backward)
         active_ids = {id(parameter) for parameter in active_parameters}
         inactive = tuple(
             parameter
@@ -1711,6 +2001,7 @@ def _run_proposal(
             state,
             active_ids=active_ids,
         )
+        pre_clip_inf_norm = _gradient_inf_norm(active_parameters)
         total_norm = torch.nn.utils.clip_grad_norm_(
             active_parameters,
             max_norm=runtime.gradient_clip_norm,
@@ -1720,20 +2011,34 @@ def _run_proposal(
             raise _ProposalRejected("nonfinite_gradient_norm")
         pre_clip_norm = float(total_norm.detach().cpu().item())
         post_clip_norm = _gradient_norm(active_parameters)
-        if runtime.grad_scaler is None:
-            optimizer.step()
-        else:
-            runtime.grad_scaler.step(optimizer)
-            runtime.grad_scaler.update()
-            amp_scale_after = float(runtime.grad_scaler.get_scale())
-            if not math.isfinite(amp_scale_after) or amp_scale_after <= 0.0:
-                raise _ProposalRejected("invalid_amp_scale")
-            amp_overflow = amp_scale_after < amp_scale_before
-            if amp_overflow:
-                raise _ProposalRejected("amp_overflow")
-        if scheduler is not None:
-            scheduler.step()
-        runtime.update_counter += 1
+        post_clip_inf_norm = _gradient_inf_norm(active_parameters)
+        optimizer_event = (
+            "recognition_adamw"
+            if phase == "recognition_adam_proposal"
+            else "model_adamw"
+        )
+
+        def optimizer_update() -> None:
+            nonlocal amp_overflow
+            if runtime.grad_scaler is None:
+                optimizer.step()
+            else:
+                runtime.grad_scaler.step(optimizer)
+                runtime.grad_scaler.update()
+                amp_scale_after = float(runtime.grad_scaler.get_scale())
+                if (
+                    not math.isfinite(amp_scale_after)
+                    or amp_scale_after <= 0.0
+                ):
+                    raise _ProposalRejected("invalid_amp_scale")
+                amp_overflow = amp_scale_after < amp_scale_before
+                if amp_overflow:
+                    raise _ProposalRejected("amp_overflow")
+            if scheduler is not None:
+                scheduler.step()
+            runtime.update_counter += 1
+
+        _run_execution_event(runtime, optimizer_event, optimizer_update)
         if any(
             not bool(torch.isfinite(parameter.detach()).all().item())
             for parameter in active_parameters
@@ -1767,7 +2072,11 @@ def _run_proposal(
             )
             for candidate, _ in state.scheduler_states
         )
-        computed_after = runtime.compute_terms(phase, batch, snapshot)
+        computed_after = _run_execution_event(
+            runtime,
+            compute_event,
+            lambda: runtime.compute_terms(phase, batch, snapshot),
+        )
         if type(computed_after) is not ForwardTerms:
             raise _ProposalRejected("invalid_post_forward_terms")
         computed_after.__post_init__()
@@ -1854,6 +2163,8 @@ def _run_proposal(
             clipping_threshold=runtime.gradient_clip_norm,
             pre_clip_norm=pre_clip_norm,
             post_clip_norm=post_clip_norm,
+            pre_clip_inf_norm=pre_clip_inf_norm,
+            post_clip_inf_norm=post_clip_inf_norm,
             amp_scale=amp_scale_before,
             amp_overflow=amp_overflow,
         )
@@ -1908,6 +2219,8 @@ def _run_proposal(
         clipping_threshold=runtime.gradient_clip_norm,
         pre_clip_norm=pre_clip_norm,
         post_clip_norm=post_clip_norm,
+        pre_clip_inf_norm=pre_clip_inf_norm,
+        post_clip_inf_norm=post_clip_inf_norm,
         amp_scale=amp_scale_before,
         amp_overflow=amp_overflow,
     )
@@ -1954,7 +2267,16 @@ def train_step(
                 raise TrainingEngineError(
                     "snapshot phase requires recognition state"
                 )
-            snapshot = RecognitionSnapshot.capture(runtime.recognition)
+            captured = _run_execution_event(
+                runtime,
+                "immutable_detached_snapshot",
+                lambda: RecognitionSnapshot.capture(runtime.recognition),
+            )
+            if type(captured) is not RecognitionSnapshot:
+                raise TrainingEngineError(
+                    "snapshot instrumentation changed the result"
+                )
+            snapshot = captured
             continue
         update, control, evidence, terms, rejection = _run_proposal(
             runtime,
@@ -1996,7 +2318,11 @@ def train_step(
         observed_scope = "not_observed"
     else:
         observed_scope = "partial"
-    objective_values, complete_elbo = _finite_objective_diagnostics(
+    (
+        objective_values,
+        complete_elbo_numerator,
+        complete_elbo_value,
+    ) = _finite_objective_diagnostics(
         final_terms
     )
     diagnostics_applicable = (
@@ -2018,7 +2344,8 @@ def train_step(
         ),
         objective_diagnostics_applicable=diagnostics_applicable,
         objective_terms=objective_values,
-        complete_elbo_value=complete_elbo,
+        complete_elbo_numerator=complete_elbo_numerator,
+        complete_elbo_value=complete_elbo_value,
         counted_targets=(
             expected_targets if diagnostics_applicable else None
         ),
@@ -2112,12 +2439,15 @@ __all__ = [
     "AttemptEventSink",
     "AttemptResult",
     "ArmExecutionRuntime",
+    "ExecutionEventRunner",
     "ForwardTerms",
     "ProposalEvidence",
     "RecognitionSnapshot",
     "ScientificStateParticipant",
     "StepResult",
     "TrainingEngineError",
+    "WT103_STRUCTURED_FACTOR_ELBO_SCHEMA",
+    "WT103_STRUCTURED_FACTOR_ELBO_SCHEMA_SHA256",
     "train_attempt",
     "train_step",
 ]

@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 wt103 = [
+    "matplotlib==3.10.6",
     "tiktoken==0.12.0",
 ]
 

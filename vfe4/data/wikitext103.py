@@ -16,11 +16,16 @@ import stat
 import unicodedata
 import zipfile
 import zlib
+from collections.abc import Iterator
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Literal, Protocol
 from urllib.parse import urljoin, urlparse
 
+from vfe4.artifacts.durability import (
+    DurableFileIdentity,
+    validate_regular_nonlink_sha256,
+)
 from vfe4.types.training import (
     ArchiveMemberIdentity,
     RedirectHop,
@@ -64,6 +69,7 @@ MAXIMUM_MEMBER_BYTES = 671_088_640
 MAXIMUM_TOTAL_MEMBER_BYTES = 805_306_368
 MAXIMUM_COMPRESSION_RATIO = 100.0
 MAXIMUM_LICENSE_PARAGRAPH_BYTES = 4_096
+ARCHIVE_MEMBER_CHUNK_SIZE_BYTES = 1_048_576
 
 _HTTP_DOMAIN = b"VFE4-WT103-BOUNDED-HTTP-OBSERVATION-V1\x00"
 _LICENSE_DOMAIN = b"VFE4-WT103-LICENSE-OBSERVATION-V1\x00"
@@ -337,6 +343,17 @@ class BoundedHttpClient(Protocol):
 class SourceDurabilityBackend(Protocol):
     def publish_bytes(self, path: Path, payload: bytes) -> object:
         """Publish bytes durably and reopen-validate them."""
+
+    def publish_content_addressed_stream(
+        self,
+        directory: Path,
+        chunks: Iterator[bytes],
+        *,
+        suffix: str,
+        chunk_size_limit: int,
+        reopen_block_size: int,
+    ) -> DurableFileIdentity:
+        """Publish a bounded stream under its verified digest."""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -818,9 +835,134 @@ def _entry_is_redirect(info: zipfile.ZipInfo) -> bool:
     )
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class _ArchiveMemberPlan:
+    split: Literal["train", "validation", "test"]
+    member_path: str
+    uncompressed_size_bytes: int
+    compressed_size_bytes: int
+    compression_method: int
+    flag_bits: int
+    central_crc32: int
+
+    def observation(
+        self,
+        facts: _ArchiveMemberFacts,
+    ) -> ArchiveMemberObservation:
+        if facts.size_bytes != self.uncompressed_size_bytes:
+            raise SourceAcquisitionError(
+                "archive member extracted size does not match central directory"
+            )
+        if facts.crc32 != self.central_crc32:
+            raise SourceAcquisitionError(
+                "archive member CRC32 does not match central directory"
+            )
+        values = (
+            "wt103-archive-member-v1",
+            self.split,
+            self.member_path,
+            self.uncompressed_size_bytes,
+            self.compressed_size_bytes,
+            self.compression_method,
+            self.flag_bits,
+            self.central_crc32,
+            facts.crc32,
+            facts.sha256,
+        )
+        return ArchiveMemberObservation(
+            *values,
+            _digest(_MEMBER_DOMAIN, values),
+        )
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _ArchiveMemberFacts:
+    size_bytes: int
+    crc32: int
+    sha256: str
+
+
+class _ArchiveMemberChunks:
+    """Single-use bounded decompression stream for one validated ZIP member."""
+
+    def __init__(self, archive: bytes, plan: _ArchiveMemberPlan) -> None:
+        self._archive = archive
+        self._plan = plan
+        self._started = False
+        self._facts: _ArchiveMemberFacts | None = None
+
+    @property
+    def facts(self) -> _ArchiveMemberFacts:
+        if self._facts is None:
+            raise SourceAcquisitionError(
+                "archive member facts require complete stream consumption"
+            )
+        return self._facts
+
+    def __iter__(self) -> Iterator[bytes]:
+        if self._started:
+            raise SourceAcquisitionError(
+                "archive member decompression stream is single-use"
+            )
+        self._started = True
+        return self._iter_chunks()
+
+    def _iter_chunks(self) -> Iterator[bytes]:
+        size_bytes = 0
+        crc32 = 0
+        digest = hashlib.sha256()
+        try:
+            with zipfile.ZipFile(io.BytesIO(self._archive), "r") as archive:
+                info = archive.getinfo(self._plan.member_path)
+                if (
+                    info.filename != self._plan.member_path
+                    or info.file_size != self._plan.uncompressed_size_bytes
+                    or info.compress_size != self._plan.compressed_size_bytes
+                    or info.compress_type != self._plan.compression_method
+                    or info.flag_bits != self._plan.flag_bits
+                    or info.CRC != self._plan.central_crc32
+                    or info.is_dir()
+                    or _entry_is_redirect(info)
+                ):
+                    raise SourceAcquisitionError(
+                        "archive member metadata changed before decompression"
+                    )
+                with archive.open(info, "r") as member:
+                    while True:
+                        chunk = member.read(ARCHIVE_MEMBER_CHUNK_SIZE_BYTES)
+                        if type(chunk) is not bytes or len(
+                            chunk
+                        ) > ARCHIVE_MEMBER_CHUNK_SIZE_BYTES:
+                            raise SourceAcquisitionError(
+                                "archive member reader violated its byte bound"
+                            )
+                        if not chunk:
+                            break
+                        size_bytes += len(chunk)
+                        if size_bytes > self._plan.uncompressed_size_bytes:
+                            raise SourceAcquisitionError(
+                                "archive member exceeded declared size"
+                            )
+                        crc32 = zlib.crc32(chunk, crc32)
+                        digest.update(chunk)
+                        yield chunk
+        except SourceAcquisitionError:
+            raise
+        except (zipfile.BadZipFile, KeyError, OSError, RuntimeError, ValueError) as exc:
+            raise SourceAcquisitionError(
+                "archive member extraction/CRC validation failed"
+            ) from exc
+        self._facts = _ArchiveMemberFacts(
+            size_bytes=size_bytes,
+            crc32=crc32 & 0xFFFFFFFF,
+            sha256=digest.hexdigest(),
+        )
+        self._plan.observation(self._facts)
+
+
 def _inspect_archive(
     archive: bytes,
-) -> tuple[tuple[ArchiveMemberObservation, bytes], ...]:
+) -> tuple[_ArchiveMemberPlan, ...]:
     if not archive.startswith((b"PK\x03\x04", b"PK\x05\x06")):
         raise SourceAcquisitionError("archive lacks a valid ZIP signature")
     try:
@@ -844,7 +986,7 @@ def _inspect_archive(
             )
         if _entry_is_redirect(directory):
             raise SourceAcquisitionError("archive directory entry is a redirect/device")
-        rows: list[tuple[ArchiveMemberObservation, bytes]] = []
+        rows: list[_ArchiveMemberPlan] = []
         total_size = 0
         for split, expected_name, info in zip(
             WIKITEXT103_SPLITS,
@@ -883,33 +1025,15 @@ def _inspect_archive(
                 raise SourceAcquisitionError(
                     "archive total uncompressed size exceeds the bound"
                 )
-            try:
-                payload = handle.read(info)
-            except (zipfile.BadZipFile, OSError, RuntimeError, ValueError) as exc:
-                raise SourceAcquisitionError(
-                    "archive member extraction/CRC validation failed"
-                ) from exc
-            if len(payload) != info.file_size:
-                raise SourceAcquisitionError(
-                    "archive member extracted size does not match central directory"
-                )
-            recomputed_crc = zlib.crc32(payload) & 0xFFFFFFFF
-            values = (
-                "wt103-archive-member-v1",
-                split,
-                info.filename,
-                info.file_size,
-                info.compress_size,
-                info.compress_type,
-                info.flag_bits,
-                info.CRC,
-                recomputed_crc,
-                hashlib.sha256(payload).hexdigest(),
-            )
             rows.append(
-                (
-                    ArchiveMemberObservation(*values, _digest(_MEMBER_DOMAIN, values)),
-                    payload,
+                _ArchiveMemberPlan(
+                    split=split,
+                    member_path=info.filename,
+                    uncompressed_size_bytes=info.file_size,
+                    compressed_size_bytes=info.compress_size,
+                    compression_method=info.compress_type,
+                    flag_bits=info.flag_bits,
+                    central_crc32=info.CRC,
                 )
             )
     return tuple(rows)
@@ -1113,6 +1237,62 @@ def _publish(backend: SourceDurabilityBackend, path: Path, payload: bytes) -> No
     )
 
 
+def _validate_corpus_file(
+    path: Path,
+    *,
+    size: int,
+    sha256: str,
+) -> None:
+    try:
+        facts = validate_regular_nonlink_sha256(
+            path,
+            expected_size_bytes=size,
+            expected_sha256=sha256,
+            block_size=ARCHIVE_MEMBER_CHUNK_SIZE_BYTES,
+        )
+    except Exception as exc:
+        raise SourceAcquisitionError(
+            f"staged corpus validation failed: {path}: {exc}"
+        ) from exc
+    if facts.size_bytes != size or facts.sha256 != sha256:
+        raise SourceAcquisitionError(
+            "staged corpus validator returned inconsistent facts"
+        )
+
+
+def _publish_archive_member(
+    backend: SourceDurabilityBackend,
+    *,
+    directory: Path,
+    chunks: _ArchiveMemberChunks,
+) -> DurableFileIdentity:
+    if not callable(
+        getattr(backend, "publish_content_addressed_stream", None)
+    ):
+        raise SourceAcquisitionError(
+            "durability backend must expose bounded stream publication"
+        )
+    try:
+        identity = backend.publish_content_addressed_stream(
+            directory,
+            chunks,
+            suffix=".raw",
+            chunk_size_limit=ARCHIVE_MEMBER_CHUNK_SIZE_BYTES,
+            reopen_block_size=ARCHIVE_MEMBER_CHUNK_SIZE_BYTES,
+        )
+    except SourceAcquisitionError:
+        raise
+    except Exception as exc:
+        raise SourceAcquisitionError(
+            f"durability-backed stream publication failed: {exc}"
+        ) from exc
+    if type(identity) is not DurableFileIdentity:
+        raise SourceAcquisitionError(
+            "durability backend returned an untyped stream identity"
+        )
+    return identity
+
+
 def stage_wikitext103_acquisition_record(
     request: StagedAcquisitionRequest,
     *,
@@ -1152,7 +1332,7 @@ def stage_wikitext103_acquisition_record(
         raise SourceAcquisitionError(
             "archive content type/signature rule is not satisfied"
         )
-    member_payloads = _inspect_archive(archive_response.body)
+    member_plans = _inspect_archive(archive_response.body)
 
     source_response = _validate_http(
         http_client.fetch(
@@ -1186,9 +1366,38 @@ def stage_wikitext103_acquisition_record(
     )
     members: list[ArchiveMemberObservation] = []
     sealed_splits: list[SealedSplitRef] = []
-    for member, payload in member_payloads:
-        relative = f"staged/splits/{member.split}/{member.sha256}.raw"
-        _publish(durability_backend, _target(root, relative), payload)
+    for plan in member_plans:
+        chunks = _ArchiveMemberChunks(archive_response.body, plan)
+        directory = root / "staged" / "splits" / plan.split
+        identity = _publish_archive_member(
+            durability_backend,
+            directory=directory,
+            chunks=chunks,
+        )
+        facts = chunks.facts
+        member = plan.observation(facts)
+        if (
+            identity.operation != "content_addressed"
+            or identity.reopen_verified is not True
+            or identity.size_bytes != facts.size_bytes
+            or identity.sha256 != facts.sha256
+        ):
+            raise SourceAcquisitionError(
+                "durable raw identity differs from decompression facts"
+            )
+        relative = (
+            f"staged/splits/{member.split}/{identity.sha256}.raw"
+        )
+        path = _target(root, relative)
+        if path != directory / f"{identity.sha256}.raw":
+            raise SourceAcquisitionError(
+                "digest-derived raw destination is inconsistent"
+            )
+        _validate_corpus_file(
+            path,
+            size=member.uncompressed_size_bytes,
+            sha256=member.sha256,
+        )
         values = (
             "wt103-sealed-split-ref-v1",
             "nonproduction_staged_observation",
@@ -1276,22 +1485,32 @@ def reopen_staged_wikitext103(
         raise SourceAcquisitionError(
             "source-page license observation changed during offline reuse"
         )
-    archive_rows = _inspect_archive(archive)
-    if tuple(row for row, _ in archive_rows) != observation.members:
+    archive_members: list[ArchiveMemberObservation] = []
+    for plan in _inspect_archive(archive):
+        chunks = _ArchiveMemberChunks(archive, plan)
+        for _ in chunks:
+            pass
+        archive_members.append(plan.observation(chunks.facts))
+    if tuple(archive_members) != observation.members:
         raise SourceAcquisitionError(
             "archive member observations changed during offline reuse"
         )
-    for sealed, (_, archive_payload) in zip(
-        observation.sealed_splits, archive_rows, strict=True
+    for sealed, archive_member in zip(
+        observation.sealed_splits, archive_members, strict=True
     ):
-        staged_payload = _regular_bytes(
+        _validate_corpus_file(
             _target(root, sealed.cache_relative_path),
             size=sealed.payload_size_bytes,
             sha256=sealed.payload_sha256,
         )
-        if staged_payload != archive_payload:
+        if (
+            sealed.split != archive_member.split
+            or sealed.payload_size_bytes
+            != archive_member.uncompressed_size_bytes
+            or sealed.payload_sha256 != archive_member.sha256
+        ):
             raise SourceAcquisitionError(
-                "sealed split bytes differ from the staged archive member"
+                "sealed split facts differ from the staged archive member"
             )
     return observation
 

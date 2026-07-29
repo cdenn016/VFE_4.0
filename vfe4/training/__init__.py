@@ -91,6 +91,8 @@ from .engine import (
     ScientificStateParticipant,
     StepResult,
     TrainingEngineError,
+    WT103_STRUCTURED_FACTOR_ELBO_SCHEMA,
+    WT103_STRUCTURED_FACTOR_ELBO_SCHEMA_SHA256,
     train_attempt,
     train_step,
 )
@@ -348,6 +350,8 @@ __all__ = [
     "TensorStorageObservation",
     "TrainingEngineError",
     "TrainingSparsityAudit",
+    "WT103_STRUCTURED_FACTOR_ELBO_SCHEMA",
+    "WT103_STRUCTURED_FACTOR_ELBO_SCHEMA_SHA256",
     "WT103A0Model",
     "WT103ArmBuildRecord",
     "WT103ArmRuntimeComponents",

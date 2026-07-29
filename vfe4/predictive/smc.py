@@ -387,7 +387,7 @@ class BootstrapSmcPredictor:
         all_consumption = prior_consumption + step.counter_consumption
         return PrefixCache.create(
             key=self._cache_key(prefix, stream),
-            filtered_population=filtered_population,
+            filtered_population=step.population,
             filtered_log_weights=filtered_log_weights,
             cumulative_log_normalizer=cumulative_log_normalizer,
             pending=pending,

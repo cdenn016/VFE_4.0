@@ -983,16 +983,18 @@ class _BackendBase:
                     chunk_size_limit=chunk_size_limit,
                 ),
             )
+        except DurabilityOperationError as exc:
+            if exc.phase in ("validate_stream", "validate_stream_chunk"):
+                self._remove_owned_stage(staging, target_at_risk=False)
+            raise
         except DurabilityError:
             raise
         except (RuntimeError, TypeError, ValueError) as exc:
+            self._remove_owned_stage(staging, target_at_risk=False)
             raise DurabilityOperationError(
                 f"stream producer failed while writing {staging}: {exc}",
                 phase="write_stream",
                 indeterminate=False,
-                obligations=(
-                    f"the retained staging file must be inspected: {staging.name}",
-                ),
             ) from exc
 
         staged = self._validate_stream_file(

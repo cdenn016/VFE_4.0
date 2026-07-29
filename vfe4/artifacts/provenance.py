@@ -12,7 +12,9 @@ import sys
 import time
 from collections.abc import Mapping
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import torch
@@ -22,8 +24,15 @@ from vfe4.config.control_paths import is_repository_control_path, is_same_or_des
 from vfe4.types.h7 import H7GateEvaluation, H7PredecessorReference
 from vfe4.types.h8 import CurrentH8PrerequisiteRefs, H8GateEvaluation
 from vfe4.types.results import H7GateResult, H8GateResult
+from vfe4.types.training import (
+    ProductionTokenCacheIdentity,
+    WT103CheckpointIdentity,
+    owned_sha256,
+)
 
 from .atomic import ArtifactPublicationError
+from .environment import EnvironmentRecord
+from .manifest import ArtifactIntegrityRecord
 
 
 def _canonical_cpu_affinity(cpu_ids: object) -> tuple[int, ...]:
@@ -712,3 +721,307 @@ def build_environment(config: ResolvedConfig) -> dict[str, object]:
         "cuda_available": bool(torch.cuda.is_available()),
         "thread_environment": thread_environment,
     }
+
+
+def _training_sha256(value: object, name: str) -> str:
+    if (
+        type(value) is not str
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError(f"{name} must be a lowercase SHA-256")
+    return value
+
+
+def _training_git_head(value: object) -> str:
+    if (
+        type(value) is not str
+        or len(value) not in (40, 64)
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError("git_head must be a concrete lowercase object ID")
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingGitIdentity:
+    """Exact revision plus dirty-state bytes and content digest."""
+
+    schema_version: Literal["wt103-training-git-identity-v1"]
+    git_head: str
+    dirty_digest: str
+    status_porcelain_sha256: str
+    is_clean: bool
+    evidence_label: Literal["clean", "dirty"]
+    identity_sha256: str
+
+    def semantic_payload(self) -> dict[str, object]:
+        return {
+            name: getattr(self, name)
+            for name in tuple(self.__dataclass_fields__)[:-1]
+        }
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != "wt103-training-git-identity-v1"
+            or type(self.is_clean) is not bool
+            or self.evidence_label not in ("clean", "dirty")
+            or self.evidence_label
+            != ("clean" if self.is_clean else "dirty")
+        ):
+            raise ValueError("training Git identity schema is invalid")
+        _training_git_head(self.git_head)
+        _training_sha256(self.dirty_digest, "dirty_digest")
+        _training_sha256(
+            self.status_porcelain_sha256,
+            "status_porcelain_sha256",
+        )
+        expected = owned_sha256(
+            "vfe4.wt103.training-git-identity.v1",
+            self.semantic_payload(),
+        )
+        _training_sha256(self.identity_sha256, "identity_sha256")
+        if self.identity_sha256 != expected:
+            raise ValueError("training Git identity hash does not match")
+
+
+def capture_git_identity(
+    *,
+    git_head_value: str,
+    dirty_digest_value: str,
+    status_porcelain: bytes,
+) -> TrainingGitIdentity:
+    """Bind injected exact Git status bytes without shelling out."""
+
+    _training_git_head(git_head_value)
+    _training_sha256(dirty_digest_value, "dirty_digest_value")
+    if type(status_porcelain) is not bytes:
+        raise ValueError("status_porcelain must be exact bytes")
+    is_clean = status_porcelain == b""
+    payload = {
+        "schema_version": "wt103-training-git-identity-v1",
+        "git_head": git_head_value,
+        "dirty_digest": dirty_digest_value,
+        "status_porcelain_sha256": hashlib.sha256(
+            status_porcelain
+        ).hexdigest(),
+        "is_clean": is_clean,
+        "evidence_label": "clean" if is_clean else "dirty",
+    }
+    return TrainingGitIdentity(
+        **payload,
+        identity_sha256=owned_sha256(
+            "vfe4.wt103.training-git-identity.v1",
+            payload,
+        ),
+    )  # type: ignore[arg-type]
+
+
+def production_token_cache_set_sha256(
+    caches: tuple[ProductionTokenCacheIdentity, ...],
+) -> str:
+    """Hash the exact ordered production train/validation/test cache set."""
+
+    if (
+        type(caches) is not tuple
+        or tuple(item.split for item in caches)
+        != ("train", "validation", "test")
+        or any(
+            type(item) is not ProductionTokenCacheIdentity
+            for item in caches
+        )
+    ):
+        raise ValueError(
+            "production caches must be exact train/validation/test records"
+        )
+    for cache in caches:
+        cache.__post_init__()
+    if not (caches[0].tokenizer == caches[1].tokenizer == caches[2].tokenizer):
+        raise ValueError("production caches do not share one tokenizer")
+    return owned_sha256(
+        "vfe4.wt103.production-token-cache-set.v1",
+        caches,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingProvenanceRecord:
+    """All training source/runtime/data/evidence/inventory identities."""
+
+    schema_version: Literal["wt103-training-provenance-v1"]
+    git_identity_sha256: str
+    git_head: str
+    dirty_digest: str
+    source_is_clean: bool
+    environment_sha256: str
+    hardware_identity_sha256: str
+    runtime_identity_sha256: str
+    dependency_lock_identity_sha256: str
+    source_record_sha256: str
+    tokenizer_spec_sha256: str
+    token_cache_set_sha256: str
+    schedule_set_sha256: str
+    config_sha256: str
+    objective_sha256: str
+    factory_set_sha256: str
+    endpoint_inventory_sha256: str
+    artifact_integrity_sha256s: tuple[str, ...]
+    parent_checkpoint_identity_sha256: str | None
+    provenance_sha256: str
+
+    def semantic_payload(self) -> dict[str, object]:
+        return {
+            name: getattr(self, name)
+            for name in tuple(self.__dataclass_fields__)[:-1]
+        }
+
+    def __post_init__(self) -> None:
+        if (
+            self.schema_version != "wt103-training-provenance-v1"
+            or type(self.source_is_clean) is not bool
+        ):
+            raise ValueError("training provenance schema is invalid")
+        _training_git_head(self.git_head)
+        for name in (
+            "git_identity_sha256",
+            "dirty_digest",
+            "environment_sha256",
+            "hardware_identity_sha256",
+            "runtime_identity_sha256",
+            "dependency_lock_identity_sha256",
+            "source_record_sha256",
+            "tokenizer_spec_sha256",
+            "token_cache_set_sha256",
+            "schedule_set_sha256",
+            "config_sha256",
+            "objective_sha256",
+            "factory_set_sha256",
+            "endpoint_inventory_sha256",
+        ):
+            _training_sha256(getattr(self, name), name)
+        if (
+            type(self.artifact_integrity_sha256s) is not tuple
+            or len(self.artifact_integrity_sha256s) < 3
+        ):
+            raise ValueError(
+                "training provenance requires data/evidence/inventory records"
+            )
+        for value in self.artifact_integrity_sha256s:
+            _training_sha256(value, "artifact_integrity_sha256")
+        if len(set(self.artifact_integrity_sha256s)) != len(
+            self.artifact_integrity_sha256s
+        ):
+            raise ValueError("artifact integrity identities must be unique")
+        if self.parent_checkpoint_identity_sha256 is not None:
+            _training_sha256(
+                self.parent_checkpoint_identity_sha256,
+                "parent_checkpoint_identity_sha256",
+            )
+        expected = owned_sha256(
+            "vfe4.wt103.training-provenance.v1",
+            self.semantic_payload(),
+        )
+        _training_sha256(self.provenance_sha256, "provenance_sha256")
+        if self.provenance_sha256 != expected:
+            raise ValueError("training provenance hash does not match")
+
+
+def build_training_provenance(
+    *,
+    git_identity: TrainingGitIdentity,
+    environment: EnvironmentRecord,
+    source_record_sha256: str,
+    tokenizer_spec_sha256: str,
+    token_cache_set_sha256: str,
+    schedule_set_sha256: str,
+    config_sha256: str,
+    objective_sha256: str,
+    factory_set_sha256: str,
+    endpoint_inventory_sha256: str,
+    data_integrity: ArtifactIntegrityRecord,
+    evidence_integrity: tuple[ArtifactIntegrityRecord, ...],
+    inventory_integrity: ArtifactIntegrityRecord,
+    parent_checkpoint: WT103CheckpointIdentity | None,
+) -> TrainingProvenanceRecord:
+    """Build a complete typed provenance record from already-captured facts."""
+
+    if type(git_identity) is not TrainingGitIdentity:
+        raise ValueError("git_identity must be exact")
+    if type(environment) is not EnvironmentRecord:
+        raise ValueError("environment must be exact")
+    git_identity.__post_init__()
+    environment.__post_init__()
+    for name, value in (
+        ("source_record_sha256", source_record_sha256),
+        ("tokenizer_spec_sha256", tokenizer_spec_sha256),
+        ("token_cache_set_sha256", token_cache_set_sha256),
+        ("schedule_set_sha256", schedule_set_sha256),
+        ("config_sha256", config_sha256),
+        ("objective_sha256", objective_sha256),
+        ("factory_set_sha256", factory_set_sha256),
+        ("endpoint_inventory_sha256", endpoint_inventory_sha256),
+    ):
+        _training_sha256(value, name)
+    if type(data_integrity) is not ArtifactIntegrityRecord:
+        raise ValueError("data_integrity must be exact")
+    if (
+        type(evidence_integrity) is not tuple
+        or not evidence_integrity
+        or any(
+            type(item) is not ArtifactIntegrityRecord
+            for item in evidence_integrity
+        )
+    ):
+        raise ValueError("evidence_integrity must be a nonempty exact tuple")
+    if type(inventory_integrity) is not ArtifactIntegrityRecord:
+        raise ValueError("inventory_integrity must be exact")
+    integrity_records = (
+        data_integrity,
+        *evidence_integrity,
+        inventory_integrity,
+    )
+    for record in integrity_records:
+        record.__post_init__()
+    if parent_checkpoint is not None:
+        if type(parent_checkpoint) is not WT103CheckpointIdentity:
+            raise ValueError("parent_checkpoint must be exact")
+        parent_checkpoint.__post_init__()
+        parent_sha: str | None = (
+            parent_checkpoint.checkpoint_identity_sha256
+        )
+    else:
+        parent_sha = None
+    payload = {
+        "schema_version": "wt103-training-provenance-v1",
+        "git_identity_sha256": git_identity.identity_sha256,
+        "git_head": git_identity.git_head,
+        "dirty_digest": git_identity.dirty_digest,
+        "source_is_clean": git_identity.is_clean,
+        "environment_sha256": environment.environment_sha256,
+        "hardware_identity_sha256": (
+            environment.hardware_identity_sha256
+        ),
+        "runtime_identity_sha256": environment.runtime_identity_sha256,
+        "dependency_lock_identity_sha256": (
+            environment.dependency_lock_identity_sha256
+        ),
+        "source_record_sha256": source_record_sha256,
+        "tokenizer_spec_sha256": tokenizer_spec_sha256,
+        "token_cache_set_sha256": token_cache_set_sha256,
+        "schedule_set_sha256": schedule_set_sha256,
+        "config_sha256": config_sha256,
+        "objective_sha256": objective_sha256,
+        "factory_set_sha256": factory_set_sha256,
+        "endpoint_inventory_sha256": endpoint_inventory_sha256,
+        "artifact_integrity_sha256s": tuple(
+            record.record_sha256 for record in integrity_records
+        ),
+        "parent_checkpoint_identity_sha256": parent_sha,
+    }
+    return TrainingProvenanceRecord(
+        **payload,
+        provenance_sha256=owned_sha256(
+            "vfe4.wt103.training-provenance.v1",
+            payload,
+        ),
+    )

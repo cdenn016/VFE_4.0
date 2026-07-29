@@ -6,7 +6,11 @@ import hashlib
 from dataclasses import fields, is_dataclass
 
 from vfe4.config.schema import FigureConfig, TrainingConfig
-from vfe4.types.figures import FigureSpec, default_figure_specs
+from vfe4.types.figures import (
+    FigureSpec,
+    WT103_FIGURE_PROVENANCE,
+    default_figure_specs,
+)
 from vfe4.types.training import (
     A0ArchitectureProfile,
     AdamWProfile,
@@ -707,10 +711,18 @@ def resolve_training_config(raw: object) -> TrainingConfig:
         "scientific_preconditions": preconditions,
     }
     canonical = canonical_json_bytes(payload).decode("utf-8")
+    experiment_payload = {
+        name: value
+        for name, value in payload.items()
+        if name != "operation"
+    }
     return TrainingConfig(
         **payload,
         canonical_json=canonical,
         config_sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        experiment_config_sha256=hashlib.sha256(
+            canonical_json_bytes(experiment_payload)
+        ).hexdigest(),
     )  # type: ignore[arg-type]
 
 
@@ -742,12 +754,18 @@ def default_figure_config_mapping(
     if type(inventory) is not EndpointInventory:
         raise ValueError("inventory must be an exact EndpointInventory")
     inventory.__post_init__()
+    provenance = WT103_FIGURE_PROVENANCE
+    if inventory != provenance.endpoint_inventory:
+        raise ValueError(
+            "figure inventory differs from frozen read-only provenance"
+        )
     return {
         "schema_version": "wt103-figure-config-v1",
         "operation": "idle",
         "run_group_manifest_path": "unresolved-until-render",
         "figure_root": "figures",
         "endpoint_inventory_sha256": inventory.endpoint_inventory_sha256,
+        "figure_provenance_sha256": provenance.provenance_sha256,
         "rendering": {
             "backend": "Agg",
             "matplotlib_version": "3.10.6",
@@ -773,6 +791,7 @@ def resolve_figure_config(raw: object) -> FigureConfig:
             "run_group_manifest_path",
             "figure_root",
             "endpoint_inventory_sha256",
+            "figure_provenance_sha256",
             "rendering",
             "specs",
         ),
@@ -793,18 +812,18 @@ def resolve_figure_config(raw: object) -> FigureConfig:
     figure_root = _text(root["figure_root"], "figure_config.figure_root")
     if "v3_transformer" in (run_path + figure_root).casefold():
         raise ValueError("figure config cannot reference a V3 path")
-    inventory = EndpointInventory.create(
-        default_wt103_arm_specs(),
-        default_wt103_gate_specs(),
-        WT103_TUNING_CELLS,
-        (2026072199, 2026072200),
-        tuple(range(2026072101, 2026072109)),
-        EstimatorProtocol.create(),
-    )
+    provenance = WT103_FIGURE_PROVENANCE
+    provenance.__post_init__()
+    inventory = provenance.endpoint_inventory
     _exact(
         root["endpoint_inventory_sha256"],
         inventory.endpoint_inventory_sha256,
         "figure_config.endpoint_inventory_sha256",
+    )
+    _exact(
+        root["figure_provenance_sha256"],
+        provenance.provenance_sha256,
+        "figure_config.figure_provenance_sha256",
     )
     rendering = _mapping(root["rendering"], "figure_config.rendering")
     expected_rendering = {
@@ -818,6 +837,12 @@ def resolve_figure_config(raw: object) -> FigureConfig:
     for key, wanted in expected_rendering.items():
         _exact(rendering[key], wanted, f"figure_config.rendering.{key}")
     specs = default_figure_specs(inventory)
+    if tuple(spec.spec_sha256 for spec in specs) != (
+        provenance.figure_spec_sha256s
+    ):
+        raise ValueError(
+            "frozen figure provenance differs from the renderer registry"
+        )
     provided_specs = root["specs"]
     if type(provided_specs) is not list:
         raise ValueError("figure_config.specs must be an ordered raw list")
@@ -832,6 +857,7 @@ def resolve_figure_config(raw: object) -> FigureConfig:
         "run_group_manifest_path": run_path,
         "figure_root": figure_root,
         "endpoint_inventory_sha256": inventory.endpoint_inventory_sha256,
+        "figure_provenance_sha256": provenance.provenance_sha256,
         "backend": "Agg",
         "matplotlib_version": "3.10.6",
         "font_family": "DejaVu Sans",

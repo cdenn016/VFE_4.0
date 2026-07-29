@@ -2,6 +2,7 @@
 
 from .cache import (
     AssimilationRecord,
+    MarginalPendingPrediction,
     PendingPrediction,
     PrefixCache,
     PrefixCacheKey,
@@ -45,6 +46,7 @@ __all__ = [
     "EstimatorStream",
     "LanguageGenerativeProposalAdapter",
     "ManagedForwardGraphProposal",
+    "MarginalPendingPrediction",
     "PendingPrediction",
     "PopulationComponent",
     "PrefixCache",

@@ -24,6 +24,7 @@ def _record(
     ordinal: int,
     previous: str,
     values: tuple[object, ...],
+    arm_id: str = "WT103-A0-AR-v1",
 ):
     from vfe4.recording.metrics import create_metric_record
 
@@ -34,7 +35,7 @@ def _record(
         ),
         monotonic_ns=1_000_000 + ordinal,
         run_id="run-a0-1",
-        arm_id="WT103-A0-AR-v1",
+        arm_id=arm_id,
         seed_id=2026072101,
         phase="model_ce_adam_proposal",
         split="train",
@@ -43,6 +44,278 @@ def _record(
         previous_record_sha256=previous,
         values=values,
     )
+
+
+_RATIO_METRIC_FAMILIES = frozenset(
+    {
+        "train_cross_entropy",
+        "complete_elbo",
+        "expected_log_emission",
+        "initial_model_cross_entropy",
+        "initial_state_cross_entropy",
+        "model_source_cross_entropy",
+        "model_source_kl",
+        "model_transition_cross_entropy",
+        "state_source_cross_entropy",
+        "state_source_kl",
+        "state_transition_cross_entropy",
+        "continuous_recognition_entropy",
+        "conditional_source_entropy_estimate",
+        "joint_recognition_entropy_estimate",
+        "emission_only_non_elbo",
+        "prior_nll_per_token",
+        "source_entropy",
+        "source_support_size",
+        "acceptance_rate",
+        "objective_before",
+        "objective_after",
+    }
+)
+_EXP_RATIO_METRIC_FAMILIES = frozenset(
+    {"perplexity", "effective_source_count"}
+)
+_TOKENS_PER_SECOND_METRIC_FAMILIES = frozenset({"tokens_per_second"})
+_NOT_APPLICABLE_ONLY_METRIC_FAMILIES = frozenset(
+    {"estimator_error_bound"}
+)
+_SCALAR_METRIC_FAMILIES = frozenset(
+    {
+        "prior_nll_sum",
+        "estimator_stream",
+        "particle_count",
+        "cache_audit_passed",
+        "accepted_proposals",
+        "rejected_proposals",
+        "snapshot_identity_present",
+        "learning_rate",
+        "scheduler_ordinal",
+        "gradient_pre_clip_l2",
+        "gradient_post_clip_l2",
+        "minimum_cholesky_pivot",
+        "failed_pivots",
+        "spd_projections",
+        "condition_estimate",
+        "solve_residual",
+        "damping_events",
+        "gradient_l2",
+        "gradient_inf",
+        "counted_targets",
+        "data_wait_seconds",
+        "forward_seconds",
+        "inference_seconds",
+        "backward_seconds",
+        "update_seconds",
+        "evaluation_seconds",
+        "checkpoint_seconds",
+        "wall_seconds",
+        "process_rss_bytes",
+        "process_hwm_bytes",
+        "cuda_allocated_bytes",
+        "cuda_reserved_bytes",
+        "cuda_peak_allocated_bytes",
+        "cuda_peak_reserved_bytes",
+        "allocation_retries",
+        "oom_count",
+    }
+)
+_LATENT_SOURCE_METRIC_FAMILIES = frozenset(
+    {"source_entropy", "source_support_size", "effective_source_count"}
+)
+
+
+def _valid_required_metric(name: str):
+    from vfe4.recording.metrics import (
+        WT103_REQUIRED_METRIC_FAMILIES,
+        WT103_SOURCE_KL_DIAGNOSTIC_REASON,
+        WT103_UNAVAILABLE_ESTIMATOR_BOUND_REASON,
+        applicable_metric,
+        metric_family_units,
+        not_applicable_metric,
+    )
+
+    semantic_inventory = (
+        _RATIO_METRIC_FAMILIES
+        | _EXP_RATIO_METRIC_FAMILIES
+        | _TOKENS_PER_SECOND_METRIC_FAMILIES
+        | _NOT_APPLICABLE_ONLY_METRIC_FAMILIES
+        | _SCALAR_METRIC_FAMILIES
+    )
+    assert semantic_inventory == frozenset(WT103_REQUIRED_METRIC_FAMILIES)
+    if name in _NOT_APPLICABLE_ONLY_METRIC_FAMILIES:
+        return not_applicable_metric(
+            name=name,
+            reason=WT103_UNAVAILABLE_ESTIMATOR_BOUND_REASON,
+            units=metric_family_units(name),
+        )
+    if name in _RATIO_METRIC_FAMILIES:
+        numerator = 6.0
+        denominator = 3
+        value = numerator / denominator
+    elif name in _EXP_RATIO_METRIC_FAMILIES:
+        numerator = math.log(4.0) * 3.0
+        denominator = 3
+        value = math.exp(numerator / denominator)
+    elif name in _TOKENS_PER_SECOND_METRIC_FAMILIES:
+        numerator = 30.0
+        denominator = 2_000_000_000
+        value = numerator / (denominator / 1_000_000_000.0)
+    else:
+        numerator = None
+        denominator = None
+        value = 2.0
+    return applicable_metric(
+        name=name,
+        numerator=numerator,
+        denominator=denominator,
+        value=value,
+        units=metric_family_units(name),
+        reason=(
+            WT103_SOURCE_KL_DIAGNOSTIC_REASON
+            if name in {"model_source_kl", "state_source_kl"}
+            else "measured"
+        ),
+    )
+
+
+def _required_values_for_arm(
+    arm: object,
+    *,
+    zero_source_rows: bool = False,
+) -> tuple[object, ...]:
+    from vfe4.recording.metrics import (
+        WT103_REQUIRED_METRIC_FAMILIES,
+        metric_family_applicability,
+        metric_family_units,
+        not_applicable_metric,
+    )
+
+    values = []
+    for name in WT103_REQUIRED_METRIC_FAMILIES:
+        applicable, reason = metric_family_applicability(arm, name)
+        if (
+            applicable
+            and zero_source_rows
+            and name in _LATENT_SOURCE_METRIC_FAMILIES
+        ):
+            values.append(
+                not_applicable_metric(
+                    name=name,
+                    reason="source_row_count_is_zero",
+                    units=metric_family_units(name),
+                )
+            )
+        elif applicable:
+            values.append(_valid_required_metric(name))
+        else:
+            values.append(
+                not_applicable_metric(
+                    name=name,
+                    reason=reason,
+                    units=metric_family_units(name),
+                )
+            )
+    return tuple(values)
+
+
+def test_every_required_metric_family_has_closed_exact_semantics() -> None:
+    from vfe4.recording.metrics import (
+        WT103_REQUIRED_METRIC_FAMILIES,
+        WT103_SOURCE_KL_DIAGNOSTIC_REASON,
+        applicable_metric,
+        metric_family_units,
+    )
+    from vfe4.types.training import MetricValue
+
+    for name in WT103_REQUIRED_METRIC_FAMILIES:
+        assert _valid_required_metric(name).name == name
+
+    retired_external_names = (
+        "initial_model_kl",
+        "initial_state_kl",
+        "model_transition_kl",
+        "state_transition_kl",
+        "joint_recognition_entropy",
+    )
+    for name in retired_external_names:
+        assert name not in WT103_REQUIRED_METRIC_FAMILIES
+        with pytest.raises(ValueError, match="unknown metric family"):
+            metric_family_units(name)
+
+    derived_names = (
+        _RATIO_METRIC_FAMILIES
+        | _EXP_RATIO_METRIC_FAMILIES
+        | _TOKENS_PER_SECOND_METRIC_FAMILIES
+    )
+    for name in derived_names:
+        reason = (
+            WT103_SOURCE_KL_DIAGNOSTIC_REASON
+            if name in {"model_source_kl", "state_source_kl"}
+            else "measured"
+        )
+        with pytest.raises(ValueError, match="raw numerator.*denominator"):
+            applicable_metric(
+                name=name,
+                numerator=None,
+                denominator=None,
+                value=2.0,
+                units=metric_family_units(name),
+                reason=reason,
+            )
+        valid = _valid_required_metric(name)
+        assert valid.value is not None
+        with pytest.raises(ValueError, match="exact derivation"):
+            applicable_metric(
+                name=name,
+                numerator=valid.numerator,
+                denominator=valid.denominator,
+                value=valid.value + 0.25,
+                units=valid.units,
+                reason=reason,
+            )
+
+    for name in _SCALAR_METRIC_FAMILIES:
+        with pytest.raises(ValueError, match="forbids raw"):
+            applicable_metric(
+                name=name,
+                numerator=2.0,
+                denominator=1,
+                value=2.0,
+                units=metric_family_units(name),
+            )
+
+    with pytest.raises(ValueError, match="not-applicable-only"):
+        applicable_metric(
+            name="estimator_error_bound",
+            numerator=0.0,
+            denominator=1,
+            value=0.0,
+            units=metric_family_units("estimator_error_bound"),
+        )
+    with pytest.raises(ValueError, match="diagnostic-only marker"):
+        applicable_metric(
+            name="model_source_kl",
+            numerator=0.0,
+            denominator=1,
+            value=0.0,
+            units=metric_family_units("model_source_kl"),
+            reason="train_objective_projection",
+        )
+
+    bypass = MetricValue(
+        name="prior_nll_per_token",
+        applicability="applicable",
+        reason="direct construction",
+        numerator=6.0,
+        denominator=3,
+        value=7.0,
+        units="nats_per_token",
+    )
+    with pytest.raises(ValueError, match="exact derivation"):
+        _record(
+            ordinal=0,
+            previous="0" * 64,
+            values=(bypass,),
+        )
 
 
 def test_metric_jsonl_is_canonical_hash_chained_and_strictly_validated(
@@ -213,6 +486,7 @@ def test_csv_export_is_deterministic_and_round_trip_decimal_exact(
 
 def test_effective_source_count_and_not_applicable_values_are_exact() -> None:
     from vfe4.recording.metrics import (
+        metric_family_units,
         not_applicable_metric,
         source_entropy_metrics,
     )
@@ -236,7 +510,7 @@ def test_effective_source_count_and_not_applicable_values_are_exact() -> None:
     absent = not_applicable_metric(
         name="source_entropy",
         reason="arm_has_no_source_mixture",
-        units="nats",
+        units=metric_family_units("source_entropy"),
     )
     assert absent.numerator is None
     assert absent.denominator is None
@@ -259,6 +533,8 @@ def test_update_control_metrics_capture_every_effective_adamw_amp_and_clip_field
         gradient_norm_applicability="applicable",
         pre_clip_norm=2.0,
         post_clip_norm=1.0,
+        pre_clip_inf_norm=1.5,
+        post_clip_inf_norm=0.75,
         clipped=True,
         adamw_beta1=0.9,
         adamw_beta2=0.95,
@@ -275,6 +551,8 @@ def test_update_control_metrics_capture_every_effective_adamw_amp_and_clip_field
     assert record.scheduler_ordinal == 7
     assert record.amp_overflow is False
     assert record.clipped is True
+    assert record.pre_clip_inf_norm == 1.5
+    assert record.post_clip_inf_norm == 0.75
     assert record.adamw_foreach is False
     assert len(record.control_sha256) == 64
 
@@ -383,42 +661,32 @@ def test_metric_append_uses_real_probed_platform_durability_backend(
 
 def test_finalized_metric_families_require_explicit_arm_applicability() -> None:
     from vfe4.recording.metrics import (
-        WT103_REQUIRED_METRIC_FAMILIES,
-        applicable_metric,
-        metric_family_applicability,
+        metric_family_units,
         not_applicable_metric,
         validate_required_metric_families,
     )
     from vfe4.types.training import default_wt103_arm_specs
 
     arm = default_wt103_arm_specs()[0]
-    values = []
-    for name in WT103_REQUIRED_METRIC_FAMILIES:
-        applicable, reason = metric_family_applicability(arm, name)
-        if applicable:
-            values.append(
-                applicable_metric(
-                    name=name,
-                    numerator=1.0,
-                    denominator=1,
-                    value=1.0,
-                    units="test_unit",
-                )
-            )
-        else:
-            values.append(
-                not_applicable_metric(
-                    name=name,
-                    reason=reason,
-                    units="test_unit",
-                )
-            )
     complete = _record(
         ordinal=0,
         previous="0" * 64,
-        values=tuple(values),
+        values=_required_values_for_arm(arm),
     )
     validate_required_metric_families((complete,), arm_spec=arm)
+
+    midpoint = len(complete.values) // 2
+    first = _record(
+        ordinal=0,
+        previous="0" * 64,
+        values=complete.values[:midpoint],
+    )
+    second = _record(
+        ordinal=1,
+        previous=first.record_sha256,
+        values=complete.values[midpoint:],
+    )
+    validate_required_metric_families((first, second), arm_spec=arm)
 
     incomplete = _record(
         ordinal=0,
@@ -427,3 +695,170 @@ def test_finalized_metric_families_require_explicit_arm_applicability() -> None:
     )
     with pytest.raises(ValueError, match="missing"):
         validate_required_metric_families((incomplete,), arm_spec=arm)
+
+    wrong_nonlatent_reason = tuple(
+        (
+            not_applicable_metric(
+                name=value.name,
+                reason="source_row_count_is_zero",
+                units=metric_family_units(value.name),
+            )
+            if value.name in _LATENT_SOURCE_METRIC_FAMILIES
+            else value
+        )
+        for value in complete.values
+    )
+    wrong_nonlatent = _record(
+        ordinal=0,
+        previous="0" * 64,
+        values=wrong_nonlatent_reason,
+    )
+    with pytest.raises(ValueError, match="noncanonical N/A reason"):
+        validate_required_metric_families(
+            (wrong_nonlatent,),
+            arm_spec=arm,
+        )
+
+
+def test_finalized_latent_source_metrics_distinguish_zero_and_positive_rows() -> None:
+    from vfe4.recording.metrics import (
+        metric_family_units,
+        not_applicable_metric,
+        validate_required_metric_families,
+    )
+    from vfe4.types.training import default_wt103_arm_specs
+
+    arm = next(
+        candidate
+        for candidate in default_wt103_arm_specs()
+        if candidate.latent_enabled
+    )
+    zero = _record(
+        ordinal=0,
+        previous="0" * 64,
+        arm_id=arm.arm_id,
+        values=_required_values_for_arm(arm, zero_source_rows=True),
+    )
+    validate_required_metric_families((zero,), arm_spec=arm)
+
+    positive_source = _record(
+        ordinal=1,
+        previous=zero.record_sha256,
+        arm_id=arm.arm_id,
+        values=tuple(
+            _valid_required_metric(name)
+            for name in _LATENT_SOURCE_METRIC_FAMILIES
+        ),
+    )
+    validate_required_metric_families(
+        (zero, positive_source),
+        arm_spec=arm,
+    )
+
+    fabricated_values = tuple(
+        (
+            not_applicable_metric(
+                name=value.name,
+                reason="source_rows_not_seen",
+                units=metric_family_units(value.name),
+            )
+            if value.name in _LATENT_SOURCE_METRIC_FAMILIES
+            else value
+        )
+        for value in zero.values
+    )
+    fabricated = _record(
+        ordinal=0,
+        previous="0" * 64,
+        arm_id=arm.arm_id,
+        values=fabricated_values,
+    )
+    with pytest.raises(ValueError, match="canonical zero-row N/A"):
+        validate_required_metric_families((fabricated,), arm_spec=arm)
+
+    mixed_values = tuple(
+        (
+            not_applicable_metric(
+                name=value.name,
+                reason="source_row_count_is_zero",
+                units=metric_family_units(value.name),
+            )
+            if value.name == "effective_source_count"
+            else value
+        )
+        for value in _required_values_for_arm(arm)
+    )
+    mixed = _record(
+        ordinal=0,
+        previous="0" * 64,
+        arm_id=arm.arm_id,
+        values=mixed_values,
+    )
+    with pytest.raises(ValueError, match="mixes zero and positive source rows"):
+        validate_required_metric_families((mixed,), arm_spec=arm)
+
+    entropy_only = _record(
+        ordinal=1,
+        previous=zero.record_sha256,
+        arm_id=arm.arm_id,
+        values=(_valid_required_metric("source_entropy"),),
+    )
+    with pytest.raises(ValueError, match="positive source rows require"):
+        validate_required_metric_families(
+            (zero, entropy_only),
+            arm_spec=arm,
+        )
+
+
+def test_complete_elbo_bound_is_canonically_unavailable_only() -> None:
+    from vfe4.recording.metrics import (
+        metric_family_units,
+        not_applicable_metric,
+        validate_required_metric_families,
+    )
+    from vfe4.types.training import default_wt103_arm_specs
+
+    arm = next(
+        candidate
+        for candidate in default_wt103_arm_specs()
+        if candidate.training_objective == "complete_elbo"
+    )
+    unbounded = _record(
+        ordinal=0,
+        previous="0" * 64,
+        arm_id=arm.arm_id,
+        values=_required_values_for_arm(arm),
+    )
+    validate_required_metric_families((unbounded,), arm_spec=arm)
+
+    fabricated_values = tuple(
+        (
+            not_applicable_metric(
+                name=value.name,
+                reason="single_sample_mc",
+                units=metric_family_units(value.name),
+            )
+            if value.name == "estimator_error_bound"
+            else value
+        )
+        for value in unbounded.values
+    )
+    fabricated = _record(
+        ordinal=0,
+        previous="0" * 64,
+        arm_id=arm.arm_id,
+        values=fabricated_values,
+    )
+    with pytest.raises(ValueError, match="canonical unbounded-estimator"):
+        validate_required_metric_families((fabricated,), arm_spec=arm)
+
+    from vfe4.recording.metrics import applicable_metric
+
+    with pytest.raises(ValueError, match="not-applicable-only"):
+        applicable_metric(
+            name="estimator_error_bound",
+            numerator=0.0,
+            denominator=1,
+            value=0.0,
+            units=metric_family_units("estimator_error_bound"),
+        )

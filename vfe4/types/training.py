@@ -144,6 +144,53 @@ def _require_text(value: object, name: str) -> str:
     return value
 
 
+def production_tokenizer_tables_sha256(
+    *,
+    regex_pattern_sha256: str,
+    regex_engine_distribution_name: str,
+    regex_engine_distribution_version: str,
+    regex_engine_distribution_record_sha256: str,
+    mergeable_ranks_sha256: str,
+    special_tokens_sha256: str,
+    golden_vectors_sha256: str,
+) -> str:
+    """Hash every durable preimage governing production token segmentation."""
+
+    return owned_sha256(
+        "vfe4.wt103.gpt2-tokenizer-tables.v1",
+        {
+            "regex_pattern_sha256": _require_sha256(
+                regex_pattern_sha256,
+                "regex_pattern_sha256",
+            ),
+            "regex_engine_distribution_name": _require_text(
+                regex_engine_distribution_name,
+                "regex_engine_distribution_name",
+            ),
+            "regex_engine_distribution_version": _require_text(
+                regex_engine_distribution_version,
+                "regex_engine_distribution_version",
+            ),
+            "regex_engine_distribution_record_sha256": _require_sha256(
+                regex_engine_distribution_record_sha256,
+                "regex_engine_distribution_record_sha256",
+            ),
+            "mergeable_ranks_sha256": _require_sha256(
+                mergeable_ranks_sha256,
+                "mergeable_ranks_sha256",
+            ),
+            "special_tokens_sha256": _require_sha256(
+                special_tokens_sha256,
+                "special_tokens_sha256",
+            ),
+            "golden_vectors_sha256": _require_sha256(
+                golden_vectors_sha256,
+                "golden_vectors_sha256",
+            ),
+        },
+    )
+
+
 def _require_int(value: object, name: str, *, minimum: int = 0) -> int:
     if type(value) is not int or value < minimum:
         raise ValueError(f"{name} must be a plain int >= {minimum}")
@@ -1745,10 +1792,14 @@ class FinalizedWikiText103SourceRecord:
     schedule_set_sha256: str
     dependency_lock_sha256: str
     validator_sha256: str
+    freeze_completeness: Literal[True]
     record_sha256: str
 
     def __post_init__(self) -> None:
-        if self.schema_version != "wt103-finalized-source-record-v1":
+        if (
+            self.schema_version != "wt103-finalized-source-record-v1"
+            or self.freeze_completeness is not True
+        ):
             raise ValueError("unsupported finalized source schema")
         for name in (
             "acquisition_observation_sha256",
@@ -1830,6 +1881,7 @@ class FinalizedWikiText103SourceRecord:
         payload = {
             "schema_version": "wt103-finalized-source-record-v1",
             **values,
+            "freeze_completeness": True,
         }
         return cls(
             **payload,
@@ -1915,9 +1967,13 @@ class ProductionTokenizerSpec:
     corpus_method: Literal["encode_ordinary"]
     distribution_record_sha256: str
     regex_pattern_sha256: str
+    regex_engine_distribution_name: str
+    regex_engine_distribution_version: str
+    regex_engine_distribution_record_sha256: str
     mergeable_ranks_sha256: str
     special_tokens_sha256: str
     golden_vectors_sha256: str
+    tokenizer_tables_sha256: str
     spec_sha256: str
 
     def __post_init__(self) -> None:
@@ -1937,11 +1993,40 @@ class ProductionTokenizerSpec:
         for name in (
             "distribution_record_sha256",
             "regex_pattern_sha256",
+            "regex_engine_distribution_record_sha256",
             "mergeable_ranks_sha256",
             "special_tokens_sha256",
             "golden_vectors_sha256",
+            "tokenizer_tables_sha256",
         ):
             _require_sha256(getattr(self, name), name)
+        _require_text(
+            self.regex_engine_distribution_name,
+            "regex_engine_distribution_name",
+        )
+        _require_text(
+            self.regex_engine_distribution_version,
+            "regex_engine_distribution_version",
+        )
+        expected_tables = production_tokenizer_tables_sha256(
+            regex_pattern_sha256=self.regex_pattern_sha256,
+            regex_engine_distribution_name=(
+                self.regex_engine_distribution_name
+            ),
+            regex_engine_distribution_version=(
+                self.regex_engine_distribution_version
+            ),
+            regex_engine_distribution_record_sha256=(
+                self.regex_engine_distribution_record_sha256
+            ),
+            mergeable_ranks_sha256=self.mergeable_ranks_sha256,
+            special_tokens_sha256=self.special_tokens_sha256,
+            golden_vectors_sha256=self.golden_vectors_sha256,
+        )
+        if self.tokenizer_tables_sha256 != expected_tables:
+            raise ValueError(
+                "tokenizer table hash does not match durable preimages"
+            )
         expected = owned_sha256(
             "vfe4.wt103.production-tokenizer-spec.v1",
             _record_payload(self, omit=("spec_sha256",)),
@@ -1956,9 +2041,13 @@ class ProductionTokenizerSpec:
         *,
         distribution_record_sha256: str,
         regex_pattern_sha256: str,
+        regex_engine_distribution_name: str,
+        regex_engine_distribution_version: str,
+        regex_engine_distribution_record_sha256: str,
         mergeable_ranks_sha256: str,
         special_tokens_sha256: str,
         golden_vectors_sha256: str,
+        tokenizer_tables_sha256: str,
     ) -> "ProductionTokenizerSpec":
         payload = {
             "schema_version": "wt103-production-tokenizer-spec-v1",
@@ -1971,9 +2060,19 @@ class ProductionTokenizerSpec:
             "corpus_method": "encode_ordinary",
             "distribution_record_sha256": distribution_record_sha256,
             "regex_pattern_sha256": regex_pattern_sha256,
+            "regex_engine_distribution_name": (
+                regex_engine_distribution_name
+            ),
+            "regex_engine_distribution_version": (
+                regex_engine_distribution_version
+            ),
+            "regex_engine_distribution_record_sha256": (
+                regex_engine_distribution_record_sha256
+            ),
             "mergeable_ranks_sha256": mergeable_ranks_sha256,
             "special_tokens_sha256": special_tokens_sha256,
             "golden_vectors_sha256": golden_vectors_sha256,
+            "tokenizer_tables_sha256": tokenizer_tables_sha256,
         }
         return cls(
             **payload,

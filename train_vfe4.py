@@ -1,486 +1,1013 @@
-"""Click-to-run H6-Prediction v3 experiment launcher.
+"""Click-to-run WikiText-103 VFE4 training surface.
 
-Edit ``CONFIG`` in this file, enable exactly one operation, provide that
-operation's exact authorization phrase, and click Run. Importing this module
-or running it with every operation disabled performs no repository, artifact,
-data, model, CUDA, training, validation, or held-out-scoring work.
+Edit ``CONFIG`` and click Run. Import is pure: it performs no data access,
+device initialization, run reservation, checkpoint I/O, or training.
 """
 
 from __future__ import annotations
 
-import hashlib
 import hmac
+import os
+import stat
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from vfe4.config.schema import TrainingConfig
 
 
-def _scientific_config_template() -> dict[str, object]:
-    """Return one complete editable-shape v3 scientific configuration."""
-
-    endpoint_phases = [
-        {
-            "endpoint_config_sha256": digest,
-            "latent_enabled": latent_enabled,
-            "phases": (
-                [
-                    "recognition_adamw",
-                    "immutable_detached_snapshot",
-                    "model_adamw",
-                ]
-                if latent_enabled
-                else ["model_ce_adamw"]
-            ),
-            "recognition_updates_per_batch": 1 if latent_enabled else 0,
-            "model_updates_per_batch": 1,
-            "no_op_phases": 0,
-        }
-        for digest, latent_enabled in (
-            (
-                "2340c403c5e6f4ac25dea2d29db16c80813a1d9ef3d49e632984d84421f1bc9b",
-                False,
-            ),
-            (
-                "2cc89da81814e64a1e631b7a35bb0b6a82bd188a71ca59784c6511ad4084f801",
-                True,
-            ),
-            (
-                "5108eb0282bdcc928e09753121138ffa9cd4222e7220211996ec5382f88a9d6a",
-                True,
-            ),
-            (
-                "93b1d810ed5241f2ade9c4f8962e5430fd1c17b0883fe7253dad803fb49608f0",
-                True,
-            ),
-            (
-                "ad720e158315419e1d8bb8144f33ddffdaba87f1d0b78ad707613c08163282f4",
-                True,
-            ),
-            (
-                "1614dac8f7b46cd6da02cdca33774e7e64ded31df21f84f113ab199778886a71",
-                True,
-            ),
-            (
-                "06c48a1125cc7a1ba6f5e47b5e5214b288c03d227b31429cc96bdc4b4e805334",
-                True,
-            ),
-            (
-                "7b02376ea173b9c7fb2c65db220e22e41126a8bed555a09cb128ff9c8ef8a408",
-                True,
-            ),
-            (
-                "4140525a58759b47ded2e48b8b85884b58aa8aa67a44848510fa222322155ea7",
-                True,
-            ),
-            (
-                "5474a8cb0011b2fbdd6f21e123622f29abf0bb314812adc39ef008778b764f89",
-                True,
-            ),
-            (
-                "74cc2284f8ed0d809fba478ad1df45f955a74fa1211d085055c3f387fb3106d9",
-                False,
-            ),
-            (
-                "271f46382e230e60e31dcb00d160094e12b37cd43e7fcf47e6e0f923ed7a5f72",
-                True,
-            ),
-        )
-    ]
-    estimator = {
-        "schema_version": "h6-recognition-estimator-v3",
-        "evaluation_method": "reparameterized_mc",
-        "continuous_base_samples_per_receiver_per_example_per_phase": 1,
-        "categorical_evaluation": "exact_support_sum",
-        "component_sampling": "common_random_numbers_per_receiver",
-        "gaussian_entropy": "analytic",
-        "estimator_sha256": (
-            "7d5ec553f30a9b66e6f5f621b26511cb2629aca48f27d58e2c3d647c8962df19"
-        ),
-    }
-    runtime = {
-        "schema_version": "h6-prediction-runtime-v3",
-        "python_executable": "C:/anaconda/python.exe",
-        "python_version": "3.13.5",
-        "torch_full_version": "2.10.0.dev20251210+cu128",
-        "cuda_runtime_version": "12.8",
-        "training_device": "cuda:0",
-        "training_dtype": "float64",
-        "validation_device": "cpu",
-        "heldout_scoring_device": "cpu",
-        "scoring_dtype": "float64",
-        "cuda_device_name": "NVIDIA GeForce RTX 5090",
-        "cuda_compute_capability": [12, 0],
-        "deterministic_policy_sha256": (
-            "de6d7ad87b9389a2d2ea20fa98e6ae17ab162269b656b74cecb01b3e7c5b31c7"
-        ),
-        "runtime_identity_sha256": (
-            "6757ec16320253535100e6aca9f25ded64688cc382234c832ec95b9e4d11da42"
-        ),
-    }
-    return {
-        "schema_version": "h6-prediction-config-v3",
-        "operation": "H6-Prediction",
-        "source": {
-            "git_head": "1111111111111111111111111111111111111111",
-            "dirty_digest": "2" * 64,
-            "source_sha256": "5" * 64,
-        },
-        "data": {
-            "schema_version": "h6-data-config-v1",
-            "source_url": (
-                "https://s3.amazonaws.com/research.metamind.io/"
-                "wikitext/wikitext-2-raw-v1.zip"
-            ),
-            "max_archive_bytes": 16_777_216,
-            "member_paths": [
-                "wikitext-2-raw/",
-                "wikitext-2-raw/wiki.train.raw",
-                "wikitext-2-raw/wiki.valid.raw",
-                "wikitext-2-raw/wiki.test.raw",
-            ],
-            "allowed_compression_methods": [0, 8],
-            "max_member_bytes": 16_777_216,
-            "max_total_uncompressed_bytes": 33_554_432,
-            "max_compression_ratio": 100,
-            "observed_archive": None,
-        },
-        "prerequisites": {
-            "correctness_manifests": {
-                "H1": "6" * 64,
-                "H2": "7" * 64,
-                "H3": "8" * 64,
-                "H5": "9" * 64,
-            },
-            "h1_prefix_prior_manifest_sha256": "a" * 64,
-            "h1_prefix_prior_generative_factor_schema_sha256": (
-                "0ab33d1cc790711eee82c598bb853d46ab52662eb31e9433e973978e77d9e375"
-            ),
-            "smc_validation_manifest_sha256": "b" * 64,
-            "prefix_certificate_set_sha256": "c" * 64,
-            "a0_direct_exact_prefix_certificate_sha256": "1" * 64,
-        },
-        "h5_update_binding_sha256": "d" * 64,
-        "training_schedule": {
-            "schedule_schema": "h6-training-schedule-v3",
-            "outer": {
-                "schedule_schema": "h6-outer-schedule-v1",
-                "optimizer_class": "AdamW",
-                "optimizer_policy_sha256": (
-                    "67b498399b293d4f267cb7ffbe5f0e329ac0025adaaa5f86869588ad720f5ce8"
-                ),
-                "model_updates_per_batch": 1,
-                "validation_twentieths_per_pass": 20,
-                "full_passes": 2,
-            },
-            "endpoint_phases": endpoint_phases,
-            "recognition_estimator_sha256": estimator["estimator_sha256"],
-            "runtime_identity_sha256": runtime["runtime_identity_sha256"],
-            "training_noise_domain": "vfe4.h6.training-rmc-normal.v1",
-            "counter_mapping_sha256": (
-                "eacc87f6fae59aaa9f1ea5b95211018ed5f8976bc2a83c2e7aad000e2517e91a"
-            ),
-            "phase_ownership_sha256": (
-                "2a277140b0c9cf4bf07820ea1948cd4a289d30392cce2f9e9f81f190c83d28f4"
-            ),
-            "checkpoint_codec_sha256": (
-                "522e0803aab5da303afac7102829daf477074dbea573161555eddaccfdab284b"
-            ),
-        },
-        "critical_values_sha256": (
-            "a127a8b4776f0de17a69d47d4d53229fd70eb73d59311775ea788399e6168f73"
-        ),
-        "endpoint_smc_protocol": {
-            "protocol_schema": "h6-endpoint-smc-v1",
-            "particle_counts": [128, 256, 512, 1024],
-            "replicate_count": 64,
-            "registry_root_seed": 2026072198,
-            "common_stream_domain": "h6-wt2-endpoint-mc-v1",
-            "simultaneous_interval_count": 352,
-            "familywise_alpha": 0.01,
-            "critical_value_df63": 4.514490453537714,
-            "remainder_contraction": 0.75,
-        },
-        "smc_bias_semantics_sha256": (
-            "f3ce5b0b771f2ef1ca1485e395ea73fbb4d019e59c3772d30e8b2e360ee51950"
-        ),
-        "attribution_matrix_sha256": (
-            "cdaf23b181c9be3d10fcbd892d3790ec5a2f21fb0d49bcd840a066ad85e3bd4a"
-        ),
-        "matching_policy_schema": "h6-amended-matching-policy-v3",
-        "matching_policy_sha256": (
-            "a552f19df459905ce70ba63170488382ec374534e368e4d9d6c1afdb11d24ee7"
-        ),
-        "matching_set_schema": "h6-amended-matching-set-v3",
-        "matching_set_sha256": (
-            "bfcfa601febd06117e6cb1575cf47b689419337d64dc46bb15b9379d1659b192"
-        ),
-        "objective_gate": {
-            "schema_version": "h6-objective-gate-v1",
-            "complete_arm_id": (
-                "h6-a5-structured-parent-specific-prefix-exact-"
-                "complete-latent-smoothing-v2"
-            ),
-            "emission_arm_id": (
-                "h6-a5-structured-parent-specific-prefix-exact-"
-                "emission-latent-smoothing-v2"
-            ),
-            "orientation": "nll_complete_minus_nll_emission",
-            "delta_obj": 0.01005033585350145,
-            "opening_policy": "single_all_or_none",
-            "evaluation_order": "OBJECTIVE_then_PRIMARY",
-            "spec_sha256": (
-                "89cdf6c370baa4abd594bab08adb45a7f1c099a19cf6fabf4ccc26c1641dea4d"
-            ),
-        },
-        "data_identity_sha256": "e" * 64,
-        "access_policy_sha256": "f" * 64,
-        "recognition_contract": {
-            "trajectory_schema": "h6-language-recognition-trajectory-v3",
-            "categorical_posterior_schema": (
-                "h6-categorical-source-posterior-v3"
-            ),
-            "terminal_mixture_schema": "h6-terminal-source-mixture-v1",
-            "estimator": estimator,
-        },
-        "runtime": runtime,
-        "counter_mapping_sha256": (
-            "eacc87f6fae59aaa9f1ea5b95211018ed5f8976bc2a83c2e7aad000e2517e91a"
-        ),
-        "phase_ownership_sha256": (
-            "2a277140b0c9cf4bf07820ea1948cd4a289d30392cce2f9e9f81f190c83d28f4"
-        ),
-        "checkpoint_codec_sha256": (
-            "522e0803aab5da303afac7102829daf477074dbea573161555eddaccfdab284b"
-        ),
-        "scoring_inventory_sha256": (
-            "dbc4a85f4a2e6b544d3591d50dcc930ee09d2d2d9b526517ffd7479c6503687e"
-        ),
-        "expected_test_row_count": 4104,
-        "artifact_root": "C:/tmp/vfe4-h6-prediction-v3",
-    }
-
-
-CONFIG: dict[str, object] = {
-    "launcher_schema": "vfe4-train-click-run-v3",
-    "operations": {
-        "prediction_readiness": {
-            "enabled": False,
-            "authorization": None,
-            "config": (
-                _operation_config := {
-                    "scientific_config": _scientific_config_template(),
-                    "correctness_artifact_roots": {
-                        "H1": "C:/tmp/vfe4-h1/CURRENT",
-                        "H2": "C:/tmp/vfe4-h2/CURRENT",
-                        "H3": "C:/tmp/vfe4-h3/CURRENT",
-                        "H5": "C:/tmp/vfe4-h5/CURRENT",
-                    },
-                    "h1_prefix_prior_artifact_root": (
-                        "C:/tmp/vfe4-h1-prefix-prior/CURRENT"
-                    ),
-                    "smc_accuracy_artifact_root": (
-                        "C:/tmp/vfe4-h6-smc-accuracy/CURRENT"
-                    ),
-                    "h6_prefix_artifact_root": (
-                        "C:/tmp/vfe4-h6-prefix-v3/CURRENT"
-                    ),
-                    "h6_prefix_manifest_sha256": "0" * 64,
-                    "h6_prefix_junit_sha256": "0" * 64,
-                    "blinded_store_manifest_path": (
-                        "C:/tmp/vfe4-h6-data-v3/"
-                        "authenticated_blinded_store_v3.json"
-                    ),
-                    "blinded_store_artifact_root": "C:/tmp/vfe4-h6-data-v3",
-                    "authorities_run_root": "C:/tmp/vfe4-h6-prediction-v3",
-                    "authorities_run_name": "AUTHORITIES",
-                    "authorities_directory": (
-                        "C:/tmp/vfe4-h6-prediction-v3/AUTHORITIES"
-                    ),
-                    "planned_attempt_sha256": "0" * 64,
-                    "checkpoint_path": (
-                        "C:/tmp/vfe4-h6-prediction-v3/checkpoints/selected.h6v3"
-                    ),
-                    "maximum_checkpoint_bytes": 1_073_741_824,
-                    "validation_bundle_directory": (
-                        "C:/tmp/vfe4-h6-prediction-v3/VALIDATION"
-                    ),
-                    "transaction_pointer_root": (
-                        "C:/tmp/vfe4-h6-prediction-v3/POINTERS"
-                    ),
-                    "transaction_pointer_name": "current",
-                }
-            ),
-        },
-        "plan": {
-            "enabled": False,
-            "authorization": None,
-            "config": dict(_operation_config),
-        },
-        "train": {
-            "enabled": False,
-            "authorization": None,
-            "config": dict(_operation_config),
-        },
-        "score_validation": {
-            "enabled": False,
-            "authorization": None,
-            "config": dict(_operation_config),
-        },
-        "score_test_transaction": {
-            "enabled": False,
-            "authorization": None,
-            "config": dict(_operation_config),
-        },
-    },
-}
-del _operation_config
-
-
-_AUTHORIZATION_PHRASES = {
-    "prediction_readiness": "AUTHORIZE_VFE4_H6_PREDICTION_READINESS_V1",
-    "plan": "AUTHORIZE_VFE4_H6_EXPERIMENT_PLAN_V1",
-    "train": "AUTHORIZE_VFE4_H6_TRAINING_V1",
-    "score_validation": "AUTHORIZE_VFE4_H6_VALIDATION_SCORING_V1",
-    "score_test_transaction": (
-        "AUTHORIZE_VFE4_H6_ONE_TIME_TEST_TRANSACTION_V1"
-    ),
-}
-_OPERATION_NAMES = tuple(_AUTHORIZATION_PHRASES)
+OPERATIONS = (
+    "idle",
+    "synthetic_smoke",
+    "source_lock",
+    "readiness",
+    "train",
+    "resume",
+)
+SOURCE_LOCK_AUTHORIZATION = "AUTHORIZE_VFE4_WT103_SOURCE_LOCK_V1"
+PRODUCTION_AUTHORIZATION = "AUTHORIZE_VFE4_WT103_PRODUCTION_TRAINING_V1"
 _REPO_ROOT = Path(__file__).resolve().parent
 
 
-@dataclass(frozen=True)
-class TrainLauncherResult:
-    launcher_schema: Literal["vfe4-train-click-run-v3"]
-    operation: str | None
+def _default_training_mapping() -> dict[str, object]:
+    """Return the complete editable profile without importing ``vfe4``.
+
+    Keeping this literal at the launcher boundary is intentional. Importing
+    the broad package configuration surface transitively imports Torch, while
+    merely opening this click-to-run file must remain free of runtime/model
+    imports. Resolution still happens exactly once inside :func:`main`.
+    """
+
+    confirmatory_seeds = tuple(range(2026072101, 2026072109))
+    validation_streams = tuple(range(8))
+    test_streams = tuple(range(64))
+    tuning_grid = (1.0e-4, 3.0e-4, 1.0e-3)
+    particle_counts = (128, 256, 512, 1024)
+
+    def arm(
+        *,
+        arm_id: str,
+        factory_id: str,
+        training_objective: str,
+        prior_variant: str,
+        source_mixture: str,
+        latent_enabled: bool,
+        recognition_enabled: bool,
+        recognition_family: str,
+        recognition_iterations_per_batch: int,
+        update_phases: tuple[str, ...],
+        scorer_kind: str,
+        result_role: str,
+        nonclaims: tuple[str, ...],
+    ) -> dict[str, object]:
+        return {
+            "schema_version": "wt103-arm-spec-v1",
+            "arm_id": arm_id,
+            "factory_id": factory_id,
+            "training_objective": training_objective,
+            "prior_variant": prior_variant,
+            "source_mixture": source_mixture,
+            "latent_enabled": latent_enabled,
+            "recognition_enabled": recognition_enabled,
+            "recognition_family": recognition_family,
+            "recognition_iterations_per_batch": (
+                recognition_iterations_per_batch
+            ),
+            "update_phases": update_phases,
+            "scorer_kind": scorer_kind,
+            "tuning_grid_id": "wt103-six-cell-v1",
+            "confirmatory_seed_ids": confirmatory_seeds,
+            "terminal_checkpoint_role": "terminal_scoring",
+            "result_role": result_role,
+            "nonclaims": nonclaims,
+        }
+
+    arms = [
+        arm(
+            arm_id="WT103-A0-AR-v1",
+            factory_id="build_wt103_a0@wt103-arm-v1",
+            training_objective="cross_entropy",
+            prior_variant="absent",
+            source_mixture="absent",
+            latent_enabled=False,
+            recognition_enabled=False,
+            recognition_family="absent",
+            recognition_iterations_per_batch=0,
+            update_phases=("model_ce_adam_proposal",),
+            scorer_kind="exact_autoregressive",
+            result_role="PRIMARY_REFERENCE",
+            nonclaims=(
+                "reference_is_not_vfe4_complete_elbo",
+                "no_component_attribution",
+            ),
+        ),
+        arm(
+            arm_id="WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1",
+            factory_id=(
+                "build_wt103_a5_parent_specific@wt103-arm-v1"
+            ),
+            training_objective="complete_elbo",
+            prior_variant="parent_specific_pooled_prefix",
+            source_mixture="exact",
+            latent_enabled=True,
+            recognition_enabled=True,
+            recognition_family=(
+                "structured_block_tridiagonal_smoothing"
+            ),
+            recognition_iterations_per_batch=1,
+            update_phases=(
+                "recognition_adam_proposal",
+                "immutable_detached_snapshot",
+                "model_adam_proposal",
+            ),
+            scorer_kind="weighted_smc",
+            result_role="PRIMARY_ENDPOINT",
+            nonclaims=(
+                "whole_architecture_not_component_attribution",
+                "adam_proposal_not_coordinate_ascent",
+            ),
+        ),
+        arm(
+            arm_id="WT103-A5-FIXED-COMPLETE-v1",
+            factory_id="build_wt103_a5_fixed@wt103-arm-v1",
+            training_objective="complete_elbo",
+            prior_variant="fixed",
+            source_mixture="exact",
+            latent_enabled=True,
+            recognition_enabled=True,
+            recognition_family=(
+                "structured_block_tridiagonal_smoothing"
+            ),
+            recognition_iterations_per_batch=1,
+            update_phases=(
+                "recognition_adam_proposal",
+                "immutable_detached_snapshot",
+                "model_adam_proposal",
+            ),
+            scorer_kind="weighted_smc",
+            result_role="PRIOR_CONTROL",
+            nonclaims=(
+                "changed_joint_not_prior_only_causal_estimate",
+                "control_cannot_rescue_primary",
+            ),
+        ),
+        arm(
+            arm_id="WT103-A5-PARENT-SPECIFIC-PREFIX-EMISSION-v1",
+            factory_id=(
+                "build_wt103_a5_parent_specific@wt103-arm-v1"
+            ),
+            training_objective="emission_only_ablation_non_elbo",
+            prior_variant="parent_specific_pooled_prefix",
+            source_mixture="exact",
+            latent_enabled=True,
+            recognition_enabled=True,
+            recognition_family=(
+                "structured_block_tridiagonal_smoothing"
+            ),
+            recognition_iterations_per_batch=1,
+            update_phases=(
+                "recognition_adam_proposal",
+                "immutable_detached_snapshot",
+                "model_adam_proposal",
+            ),
+            scorer_kind="weighted_smc",
+            result_role="OBJECTIVE_GATE",
+            nonclaims=(
+                "emission_only_is_not_an_elbo",
+                "objective_gate_cannot_rescue_primary",
+            ),
+        ),
+        arm(
+            arm_id="WT103-A5-NOLATENT-v1",
+            factory_id="build_wt103_a5_nolatent@wt103-arm-v1",
+            training_objective="cross_entropy",
+            prior_variant="absent",
+            source_mixture="absent",
+            latent_enabled=False,
+            recognition_enabled=False,
+            recognition_family="absent",
+            recognition_iterations_per_batch=0,
+            update_phases=("model_ce_adam_proposal",),
+            scorer_kind="exact_autoregressive",
+            result_role="LATENT_PATH_CONTROL",
+            nonclaims=(
+                "bundled_control_not_held_fixed_attribution",
+                "no_dormant_latent_or_recognition_state",
+            ),
+        ),
+    ]
+
+    def gate(
+        gate_id: str,
+        ordinal: int,
+        prerequisites: tuple[str, ...],
+        result_arm_ids: tuple[str, ...],
+        disposition: str,
+    ) -> dict[str, object]:
+        return {
+            "schema_version": "wt103-gate-spec-v1",
+            "gate_id": gate_id,
+            "ordinal": ordinal,
+            "prerequisite_gate_ids": prerequisites,
+            "result_arm_ids": result_arm_ids,
+            "disposition_rule_id": disposition,
+        }
+
+    gates = [
+        gate("SOURCE_LOCK", 0, (), (), "finalized_source_or_stop"),
+        gate(
+            "H8_EXACT_REVISION",
+            1,
+            ("SOURCE_LOCK",),
+            (),
+            "same_revision_h8_v5_pass_or_stop",
+        ),
+        gate(
+            "POST_H8_READINESS",
+            2,
+            ("H8_EXACT_REVISION",),
+            (),
+            "all_static_and_resource_inputs_pass_or_stop",
+        ),
+        gate(
+            "OBJECTIVE",
+            3,
+            ("POST_H8_READINESS",),
+            ("WT103-A5-PARENT-SPECIFIC-PREFIX-EMISSION-v1",),
+            "objective_gate_before_primary",
+        ),
+        gate(
+            "PRIMARY",
+            4,
+            ("OBJECTIVE",),
+            (
+                "WT103-A0-AR-v1",
+                "WT103-A5-PARENT-SPECIFIC-PREFIX-COMPLETE-v1",
+            ),
+            "paired_estimator_inflated_primary_decision",
+        ),
+        gate(
+            "PRIOR_CONTROL",
+            5,
+            ("POST_H8_READINESS",),
+            ("WT103-A5-FIXED-COMPLETE-v1",),
+            "retain_control_without_primary_promotion",
+        ),
+        gate(
+            "LATENT_PATH_CONTROL",
+            6,
+            ("POST_H8_READINESS",),
+            ("WT103-A5-NOLATENT-v1",),
+            "retain_control_without_primary_promotion",
+        ),
+    ]
+
+    profile = {
+        "schema_version": "wt103-experiment-profile-v1",
+        "dataset_schema": "wikitext-103-raw-v1",
+        "tokenizer_schema": "gpt2-tiktoken-v1",
+        "vocabulary_size": 50_257,
+        "sequence_length": 128,
+        "stride": 128,
+        "batch_size": 128,
+        "gradient_accumulation_steps": 1,
+        "num_workers": 0,
+        "pin_memory": True,
+        "drop_last": False,
+        "model_depth": 1,
+        "d_z": 20,
+        "d_m": 20,
+        "K": 20,
+        "combined_latent_block": 40,
+        "source_lookback": 20,
+        "state_parent_rule": "range(max(0,t-20),t)",
+        "model_parent_rule": "range(max(0,t-20),t)",
+        "population_frame_profile": "h7-direct-glplus-v1",
+        "decoder_profile": "categorical_linear_chunked",
+        "decoder_train_token_chunk": 512,
+        "decoder_eval_token_chunk": 256,
+        "smc_particle_chunk": 32,
+        "dropout_probability": 0.0,
+        "input_output_embedding_tied": False,
+        "optimizer": {
+            "optimizer": "AdamW",
+            "betas": (0.9, 0.999),
+            "epsilon": 1.0e-8,
+            "amsgrad": False,
+            "foreach": False,
+            "fused": False,
+            "gradient_clip": "per_active_block_global_l2",
+            "gradient_clip_max_norm": 1.0,
+            "proposal_acceptance": (
+                "validity_only_no_monotonicity_claim"
+            ),
+            "reject_on": (
+                "nonfinite_objective",
+                "nonfinite_gradient",
+                "amp_overflow",
+                "invalid_support",
+                "non_spd",
+                "scope_mismatch",
+                "snapshot_alias",
+                "optimizer_access_mismatch",
+            ),
+        },
+        "scheduler": {
+            "scheduler": "linear_warmup_then_cosine",
+            "warmup_optimizer_steps": 100,
+            "minimum_lr_ratio": 0.1,
+            "restart_count": 0,
+            "horizon": "planned_active_optimizer_steps_for_attempt",
+        },
+        "precision": {
+            "real_training_device": "cuda:0",
+            "parameter_dtype": "float32",
+            "optimizer_state_dtype": "float32",
+            "autocast_enabled": True,
+            "autocast_dtype": "bfloat16",
+            "grad_scaler_enabled": False,
+            "grad_scaler_fixed_scale": 1.0,
+            "spd_factor_solve_logdet_dtype": "float32",
+            "smc_log_weight_dtype": "float64",
+            "metric_corpus_accumulator": "python_math_fsum_float64",
+            "torch_deterministic_algorithms": True,
+            "cudnn_deterministic": True,
+            "cudnn_benchmark": False,
+            "allow_tf32_matmul": False,
+            "allow_tf32_cudnn": False,
+            "allow_fp16_reduced_precision_reduce": False,
+            "cublas_workspace_config": ":4096:8",
+        },
+        "cadence": {
+            "validation_boundaries_per_pass": 20,
+            "checkpoint_at_every_validation": True,
+            "confirmatory_passes": 2,
+            "early_stopping": False,
+            "validation_boundary_rule": (
+                "stable_unique_ceil_k_batches_per_pass_over_20"
+            ),
+        },
+        "checkpoints": {
+            "rolling_checkpoints_retained": 2,
+            "rolling_role": "resume_only",
+            "terminal_checkpoint_retained": True,
+            "terminal_role": "terminal_scoring",
+            "best_checkpoint_selection": False,
+        },
+        "statistics": {
+            "learning_rate_grid": tuning_grid,
+            "weight_decay_grid": (0.0, 1.0e-2),
+            "tuning_seed_ids": (2026072199, 2026072200),
+            "confirmatory_seed_ids": confirmatory_seeds,
+            "data_order_seed": 2026072199,
+            "validation_stream_ids": validation_streams,
+            "test_stream_ids": test_streams,
+            "validation_particle_count": 256,
+            "particle_counts": particle_counts,
+            "simultaneous_constant": 4.5144904535377144,
+            "practical_threshold": 0.01005033585350145,
+            "contraction_ratio": 0.75,
+            "one_opening_policy": (
+                "durable_exclusive_single_test_transaction"
+            ),
+        },
+        "resources": {
+            "maximum_gpu_hours": 720.0,
+            "maximum_wall_hours": 840.0,
+            "maximum_energy_kwh": 500.0,
+            "forecast_headroom_factor": 1.25,
+            "maximum_device_fraction": 0.85,
+            "power_sample_interval_ms": 100,
+        },
+        "schemas": {
+            "h6_prediction_schema": "h6-prediction-result-v3",
+            "h8_schema": "h8-sparse-scale-v5",
+            "h8_config_schema": "h8-validation-config-v3",
+            "h8_parent_child_protocol": (
+                "vfe4.h8.parent-child-protocol.v3"
+            ),
+            "training_sparsity_schema": "wt103-training-sparsity-v1",
+            "metric_schema": "wt103-metric-record-v1",
+            "figure_schema": "wt103-figure-spec-v1",
+            "checkpoint_schema": "wt103-checkpoint-v1",
+        },
+        "nonclaims": {
+            "backprop_free": False,
+            "h8_training_memory_transfer": False,
+            "h6_byte_vocabulary_transfer": False,
+            "v3_checkpoint_or_config_reuse": False,
+            "h8_asymptotic_scaling_law": False,
+            "monotone_elbo_or_coordinate_ascent": False,
+            "component_attribution_from_primary": False,
+        },
+    }
+    a0 = {
+        "schema_version": "wt103-a0-architecture-v1",
+        "block_count": 1,
+        "hidden_width": 20,
+        "attention_heads": 2,
+        "head_width": 10,
+        "attention_context": "full_causal_inclusive_self",
+        "attention_allowed_keys": "range(0,q+1)",
+        "attention_semantic_pair_count": "L*(L+1)//2",
+        "attention_implementation": (
+            "torch.nn.functional.scaled_dot_product_attention"
+        ),
+        "attention_backend_policy": "flash_attention_only_no_fallback",
+        "pytorch_sdpa_api_binding": (
+            "torch.nn.attention.sdpa_kernel("
+            "backends=[SDPBackend.FLASH_ATTENTION])"
+        ),
+        "enabled_backends": ("FLASH_ATTENTION",),
+        "alternative_backends_disabled": True,
+        "source_lock_scope": "candidate_unverified",
+        "pytorch_version": "unresolved_until_task13_source_lock",
+        "sdpa_api_sha256": "unresolved_until_task13_source_lock",
+        "flash_backend_sha256": "unresolved_until_task13_source_lock",
+        "attention_is_causal": True,
+        "attention_mask_argument": None,
+        "attention_scale": "1/sqrt(head_width)",
+        "attention_dropout_probability": 0.0,
+        "attention_returns_weights": False,
+        "grouped_query_attention": False,
+        "backend_fallback_allowed": False,
+        "fused_full_attention_allowed": True,
+        "fused_attention_materialization": "forbidden",
+        "token_embedding": "learned[V,h]_no_bias",
+        "positional_encoding": "learned_absolute",
+        "positional_capacity": 128,
+        "position_interpolation": False,
+        "input_composition": (
+            "token_embedding_plus_position_embedding"
+        ),
+        "normalization": (
+            "LayerNorm(eps=1e-5,elementwise_affine=true,bias=true)"
+        ),
+        "normalization_placement": "pre_norm_with_final_norm",
+        "residual_topology": (
+            "x=x+attn(ln1(x));x=x+mlp(ln2(x));y=ln_f(x)"
+        ),
+        "qkv_projection": (
+            "Linear(in=h,out=3h,weight[3h,h],bias[3h])"
+        ),
+        "attention_output_projection": (
+            "Linear(in=h,out=h,weight[h,h],bias[h])"
+        ),
+        "mlp_input_projection": (
+            "Linear(in=h,out=4h,weight[4h,h],bias[4h])"
+        ),
+        "activation": "gelu_tanh_approximation",
+        "mlp_output_projection": (
+            "Linear(in=4h,out=h,weight[h,4h],bias[h])"
+        ),
+        "decoder_projection": (
+            "untied_Linear(in=h,out=V,weight[V,h],bias[V])"
+        ),
+        "all_dropout_probabilities": 0.0,
+        "candidate_hidden_widths": (
+            20,
+            24,
+            28,
+            32,
+            36,
+            40,
+            44,
+            48,
+            52,
+            56,
+            60,
+            64,
+            72,
+            80,
+            96,
+            112,
+            128,
+            160,
+        ),
+        "parameter_relative_tolerance": 0.01,
+        "flop_relative_tolerance": 0.05,
+        "candidate_selection_key": (
+            "abs_log_parameter_ratio_abs_log_flop_ratio_hidden_width"
+        ),
+        "parameter_formula_schema": "wt103-a0-parameter-formula-v1",
+        "flop_formula_schema": "wt103-a0-semantic-train-flops-v1",
+    }
+    return {
+        "schema_version": "wt103-training-config-v1",
+        "operation": "idle",
+        "synthetic_authority": "nonproduction_synthetic_smoke",
+        "candidate_tokenizer": {
+            "distribution": "tiktoken",
+            "version": "0.12.0",
+            "encoding_name": "gpt2",
+        },
+        "profile": profile,
+        "a0_architecture": a0,
+        "estimator_protocol": {
+            "schema_version": "wt103-estimator-protocol-v1",
+            "validation_particle_count": 256,
+            "validation_stream_ids": validation_streams,
+            "test_stream_ids": test_streams,
+            "particle_counts": particle_counts,
+            "validation_stream_domain": (
+                "post-h8-wt103-validation-v1|"
+                "2026072198|stream_id|purpose"
+            ),
+            "test_stream_domain": (
+                "post-h8-wt103-test-v1|"
+                "2026072198|stream_id|purpose"
+            ),
+        },
+        "arms": arms,
+        "gates": gates,
+        "scientific_preconditions": {
+            "schema_version": "wt103-scientific-preconditions-v1",
+            "h6_prediction_authority": "native_executable_v3",
+            "h6_prediction_schema": "h6-prediction-result-v3",
+            "h8_schema": "h8-sparse-scale-v5",
+            "h8_config_schema": "h8-validation-config-v3",
+            "h8_parent_child_protocol": (
+                "vfe4.h8.parent-child-protocol.v3"
+            ),
+            "training_sparsity_schema": "wt103-training-sparsity-v1",
+            "h8_reference_required": True,
+            "training_sparsity_reference_required": True,
+            "target_blind_predictor_safety_required": True,
+            "h8_can_satisfy_training_sparsity": False,
+            "capacity_can_satisfy_training_sparsity": False,
+        },
+    }
+
+
+def _config_template() -> dict[str, object]:
+    return {
+        "launcher_schema": "wt103-click-launcher-v1",
+        "training": _default_training_mapping(),
+        "paths": {
+            "cache_root": str(
+                Path.home() / ".cache" / "vfe4" / "wikitext103"
+            ),
+            "run_root": str(_REPO_ROOT / "artifacts" / "wt103-runs"),
+            "source_record_path": str(
+                _REPO_ROOT
+                / "docs"
+                / "data"
+                / "wikitext103-raw-v1-source-record.json"
+            ),
+            "resume_experiment_index_path": str(
+                _REPO_ROOT
+                / "artifacts"
+                / "wt103-runs"
+                / "unresolved-experiment-index.json"
+            ),
+            "smoke_run_id": "wt103-nonproduction-synthetic-smoke",
+        },
+        "authorization": None,
+    }
+
+
+# Edit this dictionary, then click Run.
+CONFIG: dict[str, object] = _config_template()
+
+
+class TrainingLaunchError(RuntimeError):
+    """The click launcher failed before or during an authorized operation."""
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingLauncherResult:
+    launcher_schema: Literal["wt103-click-launcher-result-v1"]
+    operation: Literal[
+        "idle",
+        "synthetic_smoke",
+        "source_lock",
+        "readiness",
+        "train",
+        "resume",
+    ]
     status: Literal["IDLE", "COMPLETED"]
-    _payload: object | None = field(default=None, repr=False, compare=False)
+    payload: object | None = None
 
     def __post_init__(self) -> None:
-        if self.launcher_schema != "vfe4-train-click-run-v3":
-            raise ValueError("unsupported train launcher schema")
-        if self.status not in ("IDLE", "COMPLETED"):
-            raise ValueError("train launcher status must be IDLE or COMPLETED")
-        if self.status == "IDLE":
-            if self.operation is not None or self._payload is not None:
-                raise ValueError("an idle launcher cannot retain an operation")
-        elif self.operation not in _OPERATION_NAMES or self._payload is None:
-            raise ValueError("a completed launcher result requires a payload")
+        if (
+            self.launcher_schema != "wt103-click-launcher-result-v1"
+            or self.operation not in OPERATIONS
+            or self.status not in ("IDLE", "COMPLETED")
+            or (self.status == "IDLE") != (self.operation == "idle")
+            or (self.status == "IDLE") != (self.payload is None)
+        ):
+            raise ValueError("training launcher result is inconsistent")
 
 
-def _mapping(value: object, location: str) -> Mapping[str, object]:
-    if not isinstance(value, Mapping) or any(
-        type(key) is not str for key in value
-    ):
-        raise ValueError(f"{location} must be a string-keyed mapping")
+@dataclass(frozen=True, slots=True)
+class _LauncherPaths:
+    cache_root: Path
+    run_root: Path
+    source_record_path: Path
+    resume_experiment_index_path: Path
+    smoke_run_id: str
+
+
+@runtime_checkable
+class TrainingOperationDriver(Protocol):
+    """Concrete production operation seam used by the click surface."""
+
+    def source_lock(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+    ) -> object: ...
+
+    def reopen_source_lock(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+    ) -> object: ...
+
+    def readiness(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+        source_lock: object,
+    ) -> object: ...
+
+    def train(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+        source_lock: object,
+        readiness: object,
+    ) -> object: ...
+
+    def resume(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+        source_lock: object,
+        readiness: object,
+    ) -> object: ...
+
+
+class _DefaultTrainingOperationDriver:
+    """Lazy bridge to concrete source/readiness/training implementations."""
+
+    def source_lock(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+    ) -> object:
+        from vfe4.training.production import run_source_lock
+
+        return run_source_lock(training=training, paths=paths)
+
+    def reopen_source_lock(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+    ) -> object:
+        from vfe4.training.production import reopen_source_lock
+
+        return reopen_source_lock(training=training, paths=paths)
+
+    def readiness(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+        source_lock: object,
+    ) -> object:
+        from vfe4.training.production import run_readiness
+
+        return run_readiness(
+            training=training,
+            paths=paths,
+            source_lock=source_lock,
+        )
+
+    def train(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+        source_lock: object,
+        readiness: object,
+    ) -> object:
+        from vfe4.training.production import run_training
+
+        return run_training(
+            training=training,
+            paths=paths,
+            source_lock=source_lock,
+            readiness=readiness,
+            mode="train",
+        )
+
+    def resume(
+        self,
+        *,
+        training: "TrainingConfig",
+        paths: _LauncherPaths,
+        source_lock: object,
+        readiness: object,
+    ) -> object:
+        from vfe4.training.production import run_training
+
+        return run_training(
+            training=training,
+            paths=paths,
+            source_lock=source_lock,
+            readiness=readiness,
+            mode="resume",
+        )
+
+
+def _default_driver() -> TrainingOperationDriver:
+    return _DefaultTrainingOperationDriver()
+
+
+def _mapping(value: object, name: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise TrainingLaunchError(f"{name} must be a mapping")
     return value
 
 
-def _selected_operation(
-    config: Mapping[str, object],
-) -> tuple[str, Mapping[str, object], str] | None:
-    if set(config) != {"launcher_schema", "operations"}:
-        raise ValueError("train CONFIG has unknown or missing root keys")
-    if config["launcher_schema"] != "vfe4-train-click-run-v3":
-        raise ValueError("train CONFIG launcher_schema is unsupported")
-    operations = _mapping(config["operations"], "operations")
-    if tuple(operations) != _OPERATION_NAMES:
-        raise ValueError("train CONFIG operations are incomplete or reordered")
-    enabled: list[tuple[str, Mapping[str, object]]] = []
-    for name in _OPERATION_NAMES:
-        entry = _mapping(operations[name], f"operations.{name}")
-        if set(entry) != {"enabled", "authorization", "config"}:
-            raise ValueError(f"operations.{name} has unknown or missing keys")
-        if type(entry["enabled"]) is not bool:
-            raise ValueError(f"operations.{name}.enabled must be boolean")
-        _mapping(entry["config"], f"operations.{name}.config")
-        if entry["enabled"]:
-            enabled.append((name, entry))
-    if not enabled:
-        return None
-    if len(enabled) != 1:
-        raise ValueError("enable exactly one train operation")
-    name, entry = enabled[0]
-    authorization = entry["authorization"]
-    if type(authorization) is not str or not hmac.compare_digest(
-        authorization,
-        _AUTHORIZATION_PHRASES[name],
+def _is_reparse_or_link(path: Path, status: os.stat_result) -> bool:
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    is_junction = getattr(path, "is_junction", None)
+    return (
+        stat.S_ISLNK(status.st_mode)
+        or bool(getattr(status, "st_file_attributes", 0) & reparse_flag)
+        or bool(is_junction is not None and is_junction())
+    )
+
+
+def _has_v3_component(path: Path) -> bool:
+    for part in path.parts:
+        compact = "".join(
+            character for character in part.casefold() if character.isalnum()
+        )
+        if compact.startswith("v3transformer"):
+            return True
+    return False
+
+
+def _reject_existing_reparse_components(path: Path, name: str) -> None:
+    current = Path(path.anchor)
+    for part in path.parts[1:]:
+        current = current / part
+        try:
+            status = current.lstat()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise TrainingLaunchError(
+                f"{name} component metadata is unavailable: {current}: {exc}"
+            ) from exc
+        if _is_reparse_or_link(current, status):
+            raise TrainingLaunchError(
+                f"{name} cannot traverse a symlink, junction, or reparse point"
+            )
+
+
+def _absolute_path(value: object, name: str) -> Path:
+    if type(value) is not str or not value:
+        raise TrainingLaunchError(f"{name} must be nonempty path text")
+    if any(character in value for character in "*?[]"):
+        raise TrainingLaunchError(f"{name} cannot contain a glob")
+    declared = Path(value)
+    if not declared.is_absolute() or ".." in declared.parts:
+        raise TrainingLaunchError(
+            f"{name} must be an absolute normalized path"
+        )
+    path = Path(os.path.abspath(declared))
+    if _has_v3_component(path):
+        raise TrainingLaunchError(f"{name} cannot use a V3 path")
+    _reject_existing_reparse_components(path, name)
+    return path
+
+
+def _same_or_ancestor(left: Path, right: Path) -> bool:
+    left_text = os.path.normcase(str(left))
+    right_text = os.path.normcase(str(right))
+    if left_text == right_text:
+        return True
+    try:
+        Path(right_text).relative_to(Path(left_text))
+    except ValueError:
+        return False
+    return True
+
+
+def _resolve_paths(value: object) -> _LauncherPaths:
+    raw = _mapping(value, "CONFIG.paths")
+    expected = {
+        "cache_root",
+        "run_root",
+        "source_record_path",
+        "resume_experiment_index_path",
+        "smoke_run_id",
+    }
+    if set(raw) != expected:
+        raise TrainingLaunchError("CONFIG.paths has unknown or missing keys")
+    smoke_run_id = raw["smoke_run_id"]
+    if (
+        type(smoke_run_id) is not str
+        or not smoke_run_id
+        or any(
+            character not in "abcdefghijklmnopqrstuvwxyz0123456789-_"
+            for character in smoke_run_id
+        )
+    ):
+        raise TrainingLaunchError(
+            "CONFIG.paths.smoke_run_id is not a portable lowercase component"
+        )
+    paths = _LauncherPaths(
+        cache_root=_absolute_path(raw["cache_root"], "cache_root"),
+        run_root=_absolute_path(raw["run_root"], "run_root"),
+        source_record_path=_absolute_path(
+            raw["source_record_path"],
+            "source_record_path",
+        ),
+        resume_experiment_index_path=_absolute_path(
+            raw["resume_experiment_index_path"],
+            "resume_experiment_index_path",
+        ),
+        smoke_run_id=smoke_run_id,
+    )
+    if _same_or_ancestor(
+        paths.cache_root,
+        paths.run_root,
+    ) or _same_or_ancestor(paths.run_root, paths.cache_root):
+        raise TrainingLaunchError(
+            "cache_root and run_root must be disjoint, non-nested roots"
+        )
+    if paths.source_record_path in (
+        paths.cache_root,
+        paths.run_root,
+    ):
+        raise TrainingLaunchError(
+            "source_record_path cannot equal an artifact root"
+        )
+    if paths.resume_experiment_index_path == paths.cache_root:
+        raise TrainingLaunchError(
+            "resume_experiment_index_path cannot equal cache_root"
+        )
+    return paths
+
+
+def _resolve_launcher(
+    value: object,
+) -> tuple[TrainingConfig, _LauncherPaths, str | None]:
+    from vfe4.config.training import resolve_training_config
+
+    raw = _mapping(value, "CONFIG")
+    if set(raw) != {
+        "launcher_schema",
+        "training",
+        "paths",
+        "authorization",
+    }:
+        raise TrainingLaunchError("CONFIG has unknown or missing root keys")
+    if raw["launcher_schema"] != "wt103-click-launcher-v1":
+        raise TrainingLaunchError("CONFIG launcher_schema is unsupported")
+    try:
+        training = resolve_training_config(raw["training"])
+    except (TypeError, ValueError) as exc:
+        raise TrainingLaunchError(
+            f"training configuration is invalid: {exc}"
+        ) from exc
+    if training.operation not in OPERATIONS:
+        raise TrainingLaunchError("training operation is unsupported")
+    authorization = raw["authorization"]
+    if authorization is not None and type(authorization) is not str:
+        raise TrainingLaunchError(
+            "CONFIG.authorization must be text or None"
+        )
+    return training, _resolve_paths(raw["paths"]), authorization
+
+
+def _authorize(observed: str | None, expected: str, operation: str) -> None:
+    if type(observed) is not str or not hmac.compare_digest(
+        observed,
+        expected,
     ):
         raise PermissionError(
-            f"operations.{name}.authorization does not equal its explicit phrase"
+            f"{operation} requires its exact explicit authorization phrase"
         )
-    return (
-        name,
-        _mapping(entry["config"], f"operations.{name}.config"),
-        authorization,
-    )
 
 
-def _run_operation(
-    operation: str,
-    raw: Mapping[str, object],
-    authorization: str,
+def _require_finalized_source(path: Path) -> None:
+    if not path.is_file():
+        raise TrainingLaunchError(
+            "finalized production source record is absent; run the "
+            "separately authorized source-lock transaction first"
+        )
+
+
+def _run_synthetic_smoke(
+    training: TrainingConfig,
+    paths: _LauncherPaths,
 ) -> object:
-    from vfe4.config import resolve_h6_prediction_v3_config
+    from vfe4.training.smoke import run_wt103_synthetic_smoke
 
-    scientific = _mapping(raw.get("scientific_config"), "scientific_config")
-    resolved = resolve_h6_prediction_v3_config(
-        scientific,
-        repo_root=_REPO_ROOT,
-    )
-    runtime = None
-    if operation == "train":
-        from vfe4.training.h6_runtime_v3 import (
-            configure_installed_runtime_v3,
-        )
-
-        runtime = configure_installed_runtime_v3(
-            expected_identity=resolved.runtime,
-        )
-    if operation == "score_test_transaction":
-        from vfe4.training.h6_experiment_v3 import (
-            prepare_h6_test_transaction_v3,
-        )
-        from vfe4.training.h6_test_transaction_v3 import (
-            execute_h6_test_transaction_v3,
-        )
-
-        transaction = prepare_h6_test_transaction_v3(
-            config=resolved,
-            operation_config=raw,
-            authorization_sha256=hashlib.sha256(
-                authorization.encode("ascii")
-            ).hexdigest(),
-        )
-        return execute_h6_test_transaction_v3(**transaction)
-
-    from vfe4.training.h6_experiment_v3 import run_h6_experiment_v3
-
-    return run_h6_experiment_v3(
-        operation=operation,
-        config=resolved,
-        runtime=runtime,
-        operation_config=raw,
-        authorization_sha256=hashlib.sha256(
-            authorization.encode("ascii")
-        ).hexdigest(),
+    return run_wt103_synthetic_smoke(
+        config=training,
+        cache_root=paths.cache_root,
+        run_root=paths.run_root,
+        smoke_run_id=paths.smoke_run_id,
     )
 
 
-def main(config: Mapping[str, object] = CONFIG) -> TrainLauncherResult:
-    selected = _selected_operation(_mapping(config, "CONFIG"))
-    if selected is None:
-        return TrainLauncherResult(
-            "vfe4-train-click-run-v3",
-            None,
+def main(
+    config: object = CONFIG,
+    *,
+    driver: TrainingOperationDriver | None = None,
+) -> TrainingLauncherResult:
+    training, paths, authorization = _resolve_launcher(config)
+    operation = training.operation
+    if operation == "idle":
+        return TrainingLauncherResult(
+            "wt103-click-launcher-result-v1",
+            "idle",
             "IDLE",
         )
-    operation, raw, authorization = selected
-    payload = _run_operation(operation, raw, authorization)
-    return TrainLauncherResult(
-        "vfe4-train-click-run-v3",
+    if operation == "synthetic_smoke":
+        if authorization is not None:
+            raise TrainingLaunchError(
+                "synthetic_smoke does not accept production authorization"
+            )
+        payload = _run_synthetic_smoke(training, paths)
+    elif operation == "source_lock":
+        _authorize(
+            authorization,
+            SOURCE_LOCK_AUTHORIZATION,
+            operation,
+        )
+        operations = _default_driver() if driver is None else driver
+        if not isinstance(operations, TrainingOperationDriver):
+            raise TrainingLaunchError(
+                "production driver does not implement the exact operation seam"
+            )
+        payload = operations.source_lock(
+            training=training,
+            paths=paths,
+        )
+    else:
+        if operation in ("train", "resume"):
+            _authorize(
+                authorization,
+                PRODUCTION_AUTHORIZATION,
+                operation,
+            )
+        elif authorization is not None:
+            raise TrainingLaunchError(
+                "readiness does not accept training authorization"
+            )
+        _require_finalized_source(paths.source_record_path)
+        operations = _default_driver() if driver is None else driver
+        if not isinstance(operations, TrainingOperationDriver):
+            raise TrainingLaunchError(
+                "production driver does not implement the exact operation seam"
+            )
+        source_lock = operations.reopen_source_lock(
+            training=training,
+            paths=paths,
+        )
+        readiness = operations.readiness(
+            training=training,
+            paths=paths,
+            source_lock=source_lock,
+        )
+        if operation == "readiness":
+            payload = readiness
+        elif operation == "train":
+            payload = operations.train(
+                training=training,
+                paths=paths,
+                source_lock=source_lock,
+                readiness=readiness,
+            )
+        elif operation == "resume":
+            payload = operations.resume(
+                training=training,
+                paths=paths,
+                source_lock=source_lock,
+                readiness=readiness,
+            )
+        else:
+            raise AssertionError("unreachable production operation")
+    return TrainingLauncherResult(
+        "wt103-click-launcher-result-v1",
         operation,
         "COMPLETED",
         payload,
@@ -491,12 +1018,16 @@ def _script_main() -> int:
     try:
         result = main()
     except (OSError, PermissionError, RuntimeError, TypeError, ValueError) as exc:
-        print(f"VFE4 train operation unavailable: {exc}", file=sys.stderr)
+        print(f"VFE4 WikiText-103 operation unavailable: {exc}", file=sys.stderr)
         return 2
     if result.status == "IDLE":
-        print("VFE4 train launcher is idle; enable exactly one CONFIG operation.")
+        print(
+            "VFE4 WikiText-103 launcher is idle; edit "
+            "CONFIG['training']['operation'], then click Run."
+        )
     else:
-        print(f"VFE4 train operation completed: {result.operation}")
+        print(f"VFE4 WikiText-103 operation completed: {result.operation}")
+        print(f"artifact={result.payload}")
     return 0
 
 

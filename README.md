@@ -13,6 +13,97 @@ The user-facing surface is `verify_vfe4.py`. Its top-level `CONFIG` dictionary
 is editable, and the file can be run directly from an IDE or file association;
 there are no command-line flags or parser. Importing it performs no work.
 
+## WikiText-103 operator workflow
+
+`train_vfe4.py` is the separate click-to-run WikiText-103 surface. Edit its
+single top-level `CONFIG` dictionary and click Run; do not add command-line
+arguments or depend on environment-only settings. The default operation is
+`"idle"`, so an unchanged click performs no data access, device
+initialization, reservation, checkpoint I/O, or training. Its exact operations
+are `idle`, `synthetic_smoke`, `source_lock`, `readiness`, `train`, and
+`resume`. The default VFE4-owned cache root is exactly
+`str(Path.home() / ".cache" / "vfe4" / "wikitext103")`; the default run root
+is `artifacts/wt103-runs`. Paths must be absolute, explicit, free of globs,
+and outside every V3 cache or checkout.
+
+`Path.home() / ".cache" / "tokenized_cache" / "*.pt"` denotes legacy V3
+PyTorch ZIP/pickle caches. VFE4 leaves those files untouched and unread,
+never deserializes them, and never admits them as source, tokenizer, or cache
+authority.
+
+For the generated-data integration check, set
+`CONFIG["training"]["operation"] = "synthetic_smoke"` and leave
+`CONFIG["authorization"] = None`. This runs one CPU thread over generated
+scalars through all five frozen arms, validation, metric export, terminal
+checkpoints, manifests, and one real resume continuation. Every output is
+labeled `nonproduction_synthetic_smoke`; the result is a partial `pretest`
+index, is ineligible for production readiness, and cannot open held-out data.
+Reusing the same `smoke_run_id` or output roots is rejected rather than
+overwritten.
+
+Official source locking is a separate network-capable transaction. Set the
+operation to `"source_lock"` only after authorizing the exact phrase
+`AUTHORIZE_VFE4_WT103_SOURCE_LOCK_V1` in `CONFIG["authorization"]`. The
+transaction downloads only the pinned official sources, builds the exact
+token and schedule products, publishes one durable typed source bundle, and
+reopens every byte before returning. Do not substitute an ad hoc download or
+an unverified cache. The bundle also records the actual PRIMARY A5 parameter
+inventory and a phase-by-phase FLOP ledger. That ledger remains explicitly
+inconclusive wherever the semantic primitive policy is not frozen; it never
+invents a scalar FLOP total.
+
+After a finalized source record exists, `"readiness"` uses no authorization
+and performs no corpus optimizer update. It first requires an exact A0 match.
+The current preregistered width grid contains no candidate within the 1%
+PRIMARY parameter margin, and the PRIMARY semantic FLOP total remains open,
+so readiness returns typed capacity-matching obligations before opening any
+Task 14 evidence. Later readiness work must also reopen the exact source,
+dependency lock, predecessor evidence, training-sparsity certificate,
+durability records, environment, and resource forecast before it can issue a
+PASS token.
+
+Real `"train"` and `"resume"` operations require the exact authorization
+phrase `AUTHORIZE_VFE4_WT103_PRODUCTION_TRAINING_V1` after readiness is
+complete. Resume must name one absolute, explicit
+`experiment-index.json` in `CONFIG["paths"]["resume_experiment_index_path"]`;
+there is no glob, newest-run discovery, or fallback checkpoint selection.
+Both operations remain sealed while any capacity-matching or readiness
+obligation is open.
+
+Before acquisition, preprocessing, training, or evaluation, forecast archive
+staging, extracted data, int32 token caches, schedules, every retained
+checkpoint, records, figures, and 25% temporary-write overhead. Available disk
+space must be at least `2 * forecast + 10 GiB`, with enough host headroom for
+the measured preprocessing multiplier and one atomic checkpoint duplicate.
+Before real training, run the shape-identical allocation preflight through
+every distinct frozen arm path. Both peak device allocated memory and peak
+device reserved memory must be at most 85% of physical capacity. A failed
+disk, RAM, dependency, durability, sparsity, device, throughput, power, or
+resource-authorization check stops before reservation or allocation; it never
+silently changes batch size, sequence length, particles, source width,
+precision, or checkpoint contents.
+
+Figure regeneration remains isolated in `generate_vfe4_figures.py`. Edit its
+own `CONFIG`, set `operation` to `"render"`, provide one absolute finalized
+`experiment-index.json`, set `figure_root` to that experiment's exact
+`figures` directory, and click Run. It renders only manifest-validated
+finalized metrics and the frozen result table. It never opens data or
+checkpoints, trains, chooses a newest run, or consumes partial attempts.
+
+The held-out test is an irreversible one-opening transaction. It may occur
+exactly once, only after the complete ordered inventory of `terminal_scoring`
+checkpoint keys and all preflight identities validate. Synthetic smoke,
+readiness, resume, and figure rendering cannot reserve or open it, and an
+interrupted opening cannot be retried or repaired by substituting a
+`resume_only` checkpoint.
+
+V3 files are read-only design references. VFE4 imports no V3 module and
+transfers no V3 config, objective, cache, tokenizer evidence, metric schema,
+checkpoint, or scientific authority. Likewise, the H8 sparse-scale result is
+synthetic structural evidence, not WikiText-103 training-memory evidence. Real
+training independently requires a same-revision
+`TrainingSparsityCertificate` and the separate 85%-capacity preflight.
+
 The separate H8 selection reads only
 `.verification/h8-current-candidate-<FULL_HEAD>-refs.json`, binds its exact
 current-candidate `h8-current-candidate-refs-v3` variants, and executes only

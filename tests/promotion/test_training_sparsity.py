@@ -43,6 +43,7 @@ from vfe4.types.training import (
     ProductionTokenizerSpec,
     SyntheticFixtureTokenCacheIdentity,
     SyntheticFixtureTokenizerSpec,
+    production_tokenizer_tables_sha256,
 )
 
 
@@ -475,12 +476,21 @@ def test_static_preconditions_accept_only_native_current_nontransfer_evidence() 
     assert safety.production_token_authorized is False
     assert not hasattr(safety, "readiness_token")
 
+    production_table_facts = {
+        "regex_pattern_sha256": "7" * 64,
+        "regex_engine_distribution_name": "regex",
+        "regex_engine_distribution_version": "2026.1.1",
+        "regex_engine_distribution_record_sha256": "8" * 64,
+        "mergeable_ranks_sha256": "8" * 64,
+        "special_tokens_sha256": "9" * 64,
+        "golden_vectors_sha256": "a" * 64,
+    }
     production = ProductionTokenizerSpec.create_verified(
         distribution_record_sha256="6" * 64,
-        regex_pattern_sha256="7" * 64,
-        mergeable_ranks_sha256="8" * 64,
-        special_tokens_sha256="9" * 64,
-        golden_vectors_sha256="a" * 64,
+        **production_table_facts,
+        tokenizer_tables_sha256=production_tokenizer_tables_sha256(
+            **production_table_facts
+        ),
     )
     with pytest.raises(ValueError, match="synthetic"):
         certify_wt103_predictor_safety(

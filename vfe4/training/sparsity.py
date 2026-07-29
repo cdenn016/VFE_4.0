@@ -50,6 +50,13 @@ _STORAGE_CLASSES = (
     "particle_chunk",
     "scalar_or_row",
     "checkpoint_classified_parameter",
+    "checkpoint_model_parameter",
+    "checkpoint_recognition_parameter",
+    "checkpoint_optimizer_state",
+    "checkpoint_scheduler_state",
+    "checkpoint_rng_state",
+    "checkpoint_estimator_state",
+    "checkpoint_cursor_or_metric",
 )
 
 
@@ -98,10 +105,10 @@ def _expected_path_events(spec: WT103ArmSpec) -> tuple[str, ...]:
         "data_transfer",
         "forward",
         "recognition_adam_proposal",
+        "recognition_adamw",
         "immutable_detached_snapshot",
         objective_event,
         "model_backward",
-        "recognition_adamw",
         "model_adamw",
         "weighted_smc_scorer",
         "metric_failure_write",
@@ -380,6 +387,39 @@ def guard_tensor_request(
             (vocabulary, block),
             (vocabulary,),
             (length, profile.K, profile.K),
+        )
+    elif storage_class in (
+        "checkpoint_model_parameter",
+        "checkpoint_recognition_parameter",
+        "checkpoint_optimizer_state",
+    ):
+        allowed = (
+            phase == "checkpoint"
+            and not _forbidden_shape(profile=profile, shape=shape)
+            and math.prod(shape)
+            <= vocabulary * max(width, block)
+        )
+    elif storage_class in (
+        "checkpoint_scheduler_state",
+        "checkpoint_cursor_or_metric",
+    ):
+        allowed = phase == "checkpoint" and math.prod(shape) <= block * block
+    elif storage_class == "checkpoint_rng_state":
+        allowed = (
+            phase == "checkpoint"
+            and len(shape) == 1
+            and shape[0] <= vocabulary
+        )
+    elif storage_class == "checkpoint_estimator_state":
+        allowed = (
+            phase == "checkpoint"
+            and not _forbidden_shape(profile=profile, shape=shape)
+            and math.prod(shape)
+            <= (
+                profile.statistics.validation_particle_count
+                * length
+                * block
+            )
         )
     if not allowed and _forbidden_shape(profile=profile, shape=shape):
         raise ForbiddenStorageRequest(

@@ -108,13 +108,46 @@ class _Client:
 
 
 class _Backend:
-    def __init__(self) -> None:
+    def __init__(self, *, reject_corpus_bytes: bool = False) -> None:
         self.writes: list[tuple[Path, bytes]] = []
+        self.stream_writes: list[tuple[Path, tuple[int, ...]]] = []
+        self.reject_corpus_bytes = reject_corpus_bytes
 
     def publish_bytes(self, path: Path, payload: bytes) -> None:
+        if self.reject_corpus_bytes and path.suffix in (".raw", ".int32le"):
+            raise AssertionError("corpus payload reached publish_bytes")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(payload)
         self.writes.append((path, payload))
+
+    def publish_content_addressed_stream(
+        self,
+        directory: Path,
+        chunks: object,
+        *,
+        suffix: str,
+        chunk_size_limit: int,
+        reopen_block_size: int = 1_048_576,
+    ) -> object:
+        from vfe4.artifacts.durability import DurableFileIdentity
+
+        del reopen_block_size
+        parts = tuple(chunks)
+        assert all(type(part) is bytes for part in parts)
+        assert all(len(part) <= chunk_size_limit for part in parts)
+        payload = b"".join(parts)
+        digest = hashlib.sha256(payload).hexdigest()
+        path = directory / f"{digest}{suffix}"
+        path.write_bytes(payload)
+        self.stream_writes.append(
+            (path, tuple(len(part) for part in parts))
+        )
+        return DurableFileIdentity.create_verified(
+            operation="content_addressed",
+            size_bytes=len(payload),
+            sha256=digest,
+            volume_identity="wt103-source-test-volume",
+        )
 
 
 def _request(tmp_path: Path, *, allow_network: bool = True):
@@ -173,7 +206,8 @@ def test_stages_exact_archive_license_and_three_opaque_split_refs(
             ]
         ).hexdigest()
     )
-    assert len(backend.writes) == 5  # archive, source page, three sealed splits
+    assert len(backend.writes) == 2  # archive and source page stay small-bytes
+    assert len(backend.stream_writes) == 3
     reopened = reopen_staged_wikitext103(
         observation=observation,
         staging_root=tmp_path,
@@ -182,6 +216,95 @@ def test_stages_exact_archive_license_and_three_opaque_split_refs(
     assert (
         reopened.observation.observation_sha256
         == observation.observation.observation_sha256
+    )
+
+
+def test_zip_members_are_decompressed_and_published_in_bounded_chunks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import vfe4.data.wikitext103 as source
+
+    member_chunk_bound = 4
+    train_payload = b"larger-than-one-chunk"
+    client = _Client(
+        archive=_archive(
+            members={
+                **MEMBERS,
+                "wikitext-103-raw/wiki.train.raw": train_payload,
+            }
+        )
+    )
+    backend = _Backend(reject_corpus_bytes=True)
+    observed_reads: list[int] = []
+    real_read = zipfile.ZipExtFile.read
+
+    def guarded_read(
+        handle: zipfile.ZipExtFile,
+        size: int = -1,
+    ) -> bytes:
+        observed_reads.append(size)
+        if size < 0 or size > member_chunk_bound:
+            raise AssertionError("ZIP member was read outside the chunk bound")
+        return real_read(handle, size)
+
+    monkeypatch.setattr(
+        source,
+        "ARCHIVE_MEMBER_CHUNK_SIZE_BYTES",
+        member_chunk_bound,
+        raising=False,
+    )
+    monkeypatch.setattr(zipfile.ZipExtFile, "read", guarded_read)
+
+    observation = source.stage_wikitext103_acquisition_record(
+        _request(tmp_path),
+        http_client=client,
+        durability_backend=backend,
+    )
+
+    assert observation.members[0].uncompressed_size_bytes == len(train_payload)
+    assert len(backend.writes) == 2
+    assert len(backend.stream_writes) == 3
+    assert all(
+        size <= member_chunk_bound
+        for _, sizes in backend.stream_writes
+        for size in sizes
+    )
+    assert observed_reads
+    assert all(0 <= size <= member_chunk_bound for size in observed_reads)
+
+
+def test_staged_raw_reopen_never_uses_whole_file_helper(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import vfe4.data.wikitext103 as source
+
+    observation = source.stage_wikitext103_acquisition_record(
+        _request(tmp_path),
+        http_client=_Client(),
+        durability_backend=_Backend(),
+    )
+    real_regular_bytes = source._regular_bytes
+
+    def reject_corpus_read(
+        path: Path,
+        *,
+        size: int,
+        sha256: str,
+    ) -> bytes:
+        if path.suffix == ".raw":
+            raise AssertionError("staged raw reached whole-file helper")
+        return real_regular_bytes(path, size=size, sha256=sha256)
+
+    monkeypatch.setattr(source, "_regular_bytes", reject_corpus_read)
+
+    assert (
+        source.reopen_staged_wikitext103(
+            observation=observation,
+            staging_root=tmp_path,
+        )
+        == observation
     )
 
 

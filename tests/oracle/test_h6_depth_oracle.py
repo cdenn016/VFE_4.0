@@ -150,5 +150,5 @@ def test_depth2_cascade_is_normalized_and_complete_objective_matches() -> None:
         for source in surface.glob("*.py"):
             assert "h6_depth" not in source.read_text(encoding="utf-8")
     assert "h6_depth" not in (
-        REPO_ROOT / "train_vfe4.py"
+        REPO_ROOT / "run_h6_prediction_v3.py"
     ).read_text(encoding="utf-8")

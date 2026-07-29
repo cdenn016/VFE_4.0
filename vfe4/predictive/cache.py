@@ -286,6 +286,190 @@ class PendingPrediction:
 
 
 @dataclass(frozen=True)
+class MarginalPendingPrediction:
+    """Pending prediction with real particles and no cached ``[N,V]`` slab."""
+
+    prefix_sha256: str
+    proposal_identity_sha256: str
+    proposed_population: ProposalPopulation
+    parent_log_weights: FrozenTensorSnapshot
+    prediction_log_probs: FrozenTensorSnapshot
+    counter_consumption: tuple[CounterConsumption, ...]
+    marginalization_evidence_sha256: str
+    pending_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_sha256(self.prefix_sha256, "prefix_sha256")
+        _require_sha256(
+            self.proposal_identity_sha256,
+            "proposal_identity_sha256",
+        )
+        if type(self.proposed_population) is not ProposalPopulation:
+            raise ValueError(
+                "marginal pending prediction requires an exact population"
+            )
+        self.proposed_population.__post_init__()
+        for name in ("parent_log_weights", "prediction_log_probs"):
+            snapshot = getattr(self, name)
+            if type(snapshot) is not FrozenTensorSnapshot:
+                raise ValueError(f"{name} must be a FrozenTensorSnapshot")
+            snapshot.assert_intact()
+        if (
+            self.parent_log_weights.dtype != "float64"
+            or self.parent_log_weights.shape
+            != (self.proposed_population.particle_count,)
+            or self.prediction_log_probs.dtype != "float64"
+            or len(self.prediction_log_probs.shape) != 1
+            or self.prediction_log_probs.shape[0] <= 0
+        ):
+            raise ValueError(
+                "marginal pending prediction tensor shapes do not align"
+            )
+        parent = self.parent_log_weights.value()
+        prediction = self.prediction_log_probs.value()
+        if (
+            not math.isclose(
+                float(torch.logsumexp(parent, dim=0).item()),
+                0.0,
+                rel_tol=0.0,
+                abs_tol=1e-13,
+            )
+            or not bool(torch.isfinite(prediction).all())
+            or not math.isclose(
+                float(torch.logsumexp(prediction, dim=0).item()),
+                0.0,
+                rel_tol=0.0,
+                abs_tol=1e-13,
+            )
+        ):
+            raise ValueError(
+                "marginal pending weights/prediction must be normalized"
+            )
+        if (
+            type(self.counter_consumption) is not tuple
+            or any(
+                type(record) is not CounterConsumption
+                for record in self.counter_consumption
+            )
+        ):
+            raise ValueError(
+                "marginal pending counters must be immutable exact records"
+            )
+        for record in self.counter_consumption:
+            record.__post_init__()
+        expected_evidence = _owned_hash(
+            "vfe4.wt103.streamed-marginalization-evidence.v1",
+            self._evidence_payload(),
+        )
+        _require_sha256(
+            self.marginalization_evidence_sha256,
+            "marginalization_evidence_sha256",
+        )
+        if self.marginalization_evidence_sha256 != expected_evidence:
+            raise ValueError(
+                "streamed marginalization evidence identity is stale"
+            )
+        expected = _owned_hash(
+            "vfe4.wt103.marginal-pending-prediction.v1",
+            self._payload(),
+        )
+        _require_sha256(self.pending_sha256, "pending_sha256")
+        if self.pending_sha256 != expected:
+            raise ValueError("marginal pending prediction identity is stale")
+
+    def _evidence_payload(self) -> dict[str, object]:
+        return {
+            "algorithm": "particle_chunk_logsumexp_without_cached_N_by_V",
+            "proposal_identity_sha256": self.proposal_identity_sha256,
+            "proposed_population_sha256": (
+                self.proposed_population.population_sha256
+            ),
+            "parent_log_weights": _snapshot_payload(
+                self.parent_log_weights
+            ),
+            "prediction_log_probs": _snapshot_payload(
+                self.prediction_log_probs
+            ),
+        }
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "prefix_sha256": self.prefix_sha256,
+            "proposal_identity_sha256": self.proposal_identity_sha256,
+            "proposed_population_sha256": (
+                self.proposed_population.population_sha256
+            ),
+            "parent_log_weights": _snapshot_payload(
+                self.parent_log_weights
+            ),
+            "prediction_log_probs": _snapshot_payload(
+                self.prediction_log_probs
+            ),
+            "counter_consumption": tuple(
+                record.consumption_sha256
+                for record in self.counter_consumption
+            ),
+            "marginalization_evidence_sha256": (
+                self.marginalization_evidence_sha256
+            ),
+        }
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        prefix_sha256: str,
+        proposal_identity_sha256: str,
+        proposed_population: ProposalPopulation,
+        parent_log_weights: Tensor,
+        prediction_log_probs: Tensor,
+        counter_consumption: tuple[CounterConsumption, ...],
+    ) -> "MarginalPendingPrediction":
+        parent = FrozenTensorSnapshot.capture(parent_log_weights)
+        prediction = FrozenTensorSnapshot.capture(prediction_log_probs)
+        evidence_payload = {
+            "algorithm": "particle_chunk_logsumexp_without_cached_N_by_V",
+            "proposal_identity_sha256": proposal_identity_sha256,
+            "proposed_population_sha256": (
+                proposed_population.population_sha256
+            ),
+            "parent_log_weights": _snapshot_payload(parent),
+            "prediction_log_probs": _snapshot_payload(prediction),
+        }
+        evidence_sha256 = _owned_hash(
+            "vfe4.wt103.streamed-marginalization-evidence.v1",
+            evidence_payload,
+        )
+        payload = {
+            "prefix_sha256": prefix_sha256,
+            "proposal_identity_sha256": proposal_identity_sha256,
+            "proposed_population_sha256": (
+                proposed_population.population_sha256
+            ),
+            "parent_log_weights": _snapshot_payload(parent),
+            "prediction_log_probs": _snapshot_payload(prediction),
+            "counter_consumption": tuple(
+                record.consumption_sha256
+                for record in counter_consumption
+            ),
+            "marginalization_evidence_sha256": evidence_sha256,
+        }
+        return cls(
+            prefix_sha256=prefix_sha256,
+            proposal_identity_sha256=proposal_identity_sha256,
+            proposed_population=proposed_population,
+            parent_log_weights=parent,
+            prediction_log_probs=prediction,
+            counter_consumption=counter_consumption,
+            marginalization_evidence_sha256=evidence_sha256,
+            pending_sha256=_owned_hash(
+                "vfe4.wt103.marginal-pending-prediction.v1",
+                payload,
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class AssimilationRecord:
     position: int
     observed_token: int
@@ -397,7 +581,7 @@ class PrefixCache:
     filtered_population: ProposalPopulation
     filtered_log_weights: FrozenTensorSnapshot
     cumulative_log_normalizer: float
-    pending: PendingPrediction
+    pending: PendingPrediction | MarginalPendingPrediction
     assimilations: tuple[AssimilationRecord, ...]
     counter_consumption: tuple[CounterConsumption, ...]
     cache_sha256: str
@@ -432,13 +616,18 @@ class PrefixCache:
             )
         if not math.isfinite(self.cumulative_log_normalizer):
             raise ValueError("cumulative log normalizer must be finite")
-        if type(self.pending) is not PendingPrediction:
+        if type(self.pending) not in (
+            PendingPrediction,
+            MarginalPendingPrediction,
+        ):
             raise ValueError("cache requires one immutable pending prediction")
         self.pending.__post_init__()
         if (
             self.pending.prefix_sha256 != self.key.prefix_sha256
             or self.pending.proposal_identity_sha256
             != self.key.proposal_identity_sha256
+            or self.pending.proposed_population.population_sha256
+            != self.filtered_population.population_sha256
             or self.pending.parent_log_weights.raw_bytes_sha256
             != self.filtered_log_weights.raw_bytes_sha256
         ):
@@ -523,7 +712,7 @@ class PrefixCache:
         filtered_population: ProposalPopulation,
         filtered_log_weights: Tensor,
         cumulative_log_normalizer: float,
-        pending: PendingPrediction,
+        pending: PendingPrediction | MarginalPendingPrediction,
         assimilations: tuple[AssimilationRecord, ...],
         counter_consumption: tuple[CounterConsumption, ...],
     ) -> "PrefixCache":
@@ -558,6 +747,7 @@ class PrefixCache:
 
 __all__ = [
     "AssimilationRecord",
+    "MarginalPendingPrediction",
     "PendingPrediction",
     "PrefixCache",
     "PrefixCacheKey",
