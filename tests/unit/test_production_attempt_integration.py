@@ -26,6 +26,8 @@ from vfe4.types.training import owned_sha256
 
 
 def test_production_attempt_applies_and_revalidates_exact_precision_runtime_policy_before_cuda(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from vfe4.training import production_attempt
 
@@ -119,6 +121,71 @@ def test_production_attempt_applies_and_revalidates_exact_precision_runtime_poli
             environment={},
         )
 
+    from vfe4.artifacts.live_environment import (
+        LivePrecisionRuntimeEvidence,
+    )
+
+    published_evidence = LivePrecisionRuntimeEvidence(
+        cublas_workspace_config=":4096:8",
+        torch_deterministic_algorithms=True,
+        cudnn_deterministic=True,
+        cudnn_benchmark=False,
+        allow_tf32_matmul=False,
+        allow_tf32_cudnn=False,
+        allow_fp16_reduced_precision_reduce=False,
+    )
+
+    class _UnavailableCuda:
+        def is_available(self) -> bool:
+            return False
+
+    class _UnavailableTorch:
+        cuda = _UnavailableCuda()
+
+        @staticmethod
+        def device(value: str) -> SimpleNamespace:
+            assert value == "cuda:0"
+            return SimpleNamespace(type="cuda")
+
+    monkeypatch.setattr(
+        production_attempt,
+        "_apply_frozen_precision_runtime_policy",
+        lambda *, training: published_evidence,
+    )
+    monkeypatch.setattr(production_attempt, "torch", _UnavailableTorch())
+
+    with pytest.raises(
+        production_attempt.ProductionOperationError,
+        match="authorized production training requires CUDA",
+    ):
+        production_attempt._execute_attempt(
+            attempt=None,
+            training=training,
+            source_lock=None,
+            readiness=None,
+            cache_root=tmp_path,
+            plan=None,
+            reserved=SimpleNamespace(inprogress_path=tmp_path),
+            backend=production_attempt._backend(),
+            resume_active=False,
+            resource_abort=lambda: None,
+        )
+
+    evidence_path = tmp_path / "live-precision-runtime-evidence.json"
+    assert evidence_path.is_file()
+    assert production_attempt._canonical_document(evidence_path) == {
+        "schema_version": "wt103-live-precision-runtime-evidence-v1",
+        "effective_precision_policy": {
+            "cublas_workspace_config": ":4096:8",
+            "torch_deterministic_algorithms": True,
+            "cudnn_deterministic": True,
+            "cudnn_benchmark": False,
+            "allow_tf32_matmul": False,
+            "allow_tf32_cudnn": False,
+            "allow_fp16_reduced_precision_reduce": False,
+        },
+    }
+
 
 def _production_experiment_plan_fixture(training):
     from vfe4.artifacts.run_directory import ExperimentPlan
@@ -138,7 +205,11 @@ def _production_experiment_plan_fixture(training):
         objective_sha256="b" * 64,
         checkpoint_schema_sha256="c" * 64,
         resource_forecast_sha256="d" * 64,
-        expected_run_artifact_paths=("metrics.csv", "metrics.jsonl"),
+        expected_run_artifact_paths=(
+            "live-precision-runtime-evidence.json",
+            "metrics.csv",
+            "metrics.jsonl",
+        ),
         expected_group_artifact_paths=("result-table.json",),
     )
 

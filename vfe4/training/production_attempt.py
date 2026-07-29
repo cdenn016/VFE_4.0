@@ -143,6 +143,7 @@ _RESULT_SCHEMA = "wt103-production-training-result-v1"
 _MAXIMUM_INDEX_BYTES = 64 * 1024 * 1024
 _CRASH_TAIL_RESERVE_SECONDS = 60.0
 _RESOURCE_USAGE_HEARTBEAT_SECONDS = 30.0
+_LIVE_PRECISION_RUNTIME_EVIDENCE_NAME = "live-precision-runtime-evidence.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -679,6 +680,7 @@ def _production_experiment_plan(
         ),
         resource_forecast_sha256=bundle.resource_forecast.forecast_sha256,
         expected_run_artifact_paths=(
+            _LIVE_PRECISION_RUNTIME_EVIDENCE_NAME,
             "metrics.csv",
             "metrics.jsonl",
         ),
@@ -3242,6 +3244,35 @@ def _apply_frozen_precision_runtime_policy(
     )
 
 
+def _publish_live_precision_runtime_evidence(
+    *,
+    attempt_root: Path,
+    evidence: LivePrecisionRuntimeEvidence,
+    backend: DurabilityBackend,
+) -> Path:
+    """Durably bind effective CUDA precision settings to this attempt."""
+
+    if type(evidence) is not LivePrecisionRuntimeEvidence:
+        raise ProductionOperationError(
+            "live CUDA precision evidence is not exact"
+        )
+    evidence.__post_init__()
+    path = attempt_root / _LIVE_PRECISION_RUNTIME_EVIDENCE_NAME
+    document = {
+        "schema_version": "wt103-live-precision-runtime-evidence-v1",
+        "effective_precision_policy": {
+            field.name: getattr(evidence, field.name)
+            for field in dataclasses.fields(evidence)
+        },
+    }
+    _publish_document(backend, path, document)
+    if _canonical_document(path) != document:
+        raise ProductionOperationError(
+            "published live CUDA precision evidence changed on reopen"
+        )
+    return path
+
+
 def _execute_attempt(
     *,
     attempt: ProductionAttemptSpec,
@@ -3260,7 +3291,14 @@ def _execute_attempt(
             "production resource-abort authority is invalid"
         )
     resource_abort()
-    _apply_frozen_precision_runtime_policy(training=training)
+    precision_evidence = _apply_frozen_precision_runtime_policy(
+        training=training
+    )
+    _publish_live_precision_runtime_evidence(
+        attempt_root=reserved.inprogress_path,
+        evidence=precision_evidence,
+        backend=backend,
+    )
     device = torch.device(training.profile.precision.real_training_device)
     if not torch.cuda.is_available() or device.type != "cuda":
         raise ProductionOperationError(
@@ -3774,6 +3812,10 @@ def _execute_attempt(
                     metrics_path,
                     relative_path="metrics.jsonl",
                 ),
+                _artifact_record(
+                    attempt_root / _LIVE_PRECISION_RUNTIME_EVIDENCE_NAME,
+                    relative_path=_LIVE_PRECISION_RUNTIME_EVIDENCE_NAME,
+                ),
             ),
             key=lambda item: item.relative_path,
         )
@@ -3856,6 +3898,7 @@ def _failure_artifact_inventory(
     metrics_path = attempt_root / "metrics.jsonl"
     csv_path = attempt_root / "metrics.csv"
     failures_path = attempt_root / "failures.jsonl"
+    precision_path = attempt_root / _LIVE_PRECISION_RUNTIME_EVIDENCE_NAME
     if metrics_path.exists():
         validate_metric_log(metrics_path)
         records.append(
@@ -3869,6 +3912,13 @@ def _failure_artifact_inventory(
             _artifact_record(
                 csv_path,
                 relative_path="metrics.csv",
+            )
+        )
+    if precision_path.exists():
+        records.append(
+            _artifact_record(
+                precision_path,
+                relative_path=_LIVE_PRECISION_RUNTIME_EVIDENCE_NAME,
             )
         )
     records.append(
