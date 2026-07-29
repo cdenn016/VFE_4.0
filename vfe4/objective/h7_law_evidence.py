@@ -5,16 +5,18 @@ from __future__ import annotations
 import math
 import weakref
 from dataclasses import dataclass
-from typing import Literal, final
+from typing import TYPE_CHECKING, Literal, final
 
 import torch
+
+if TYPE_CHECKING:
+    from vfe4.training.arms import BuiltArm
 
 from vfe4.generative.source_priors import (
     FixedSourceFactorContext,
     FixedSourcePrior,
     NormalizedSourceFactor,
 )
-from vfe4.training.arms import BuiltArm
 from vfe4.training.h7_assembly import (
     H7FixedSourceAssemblyReceipt,
     require_h7_fixed_source_assembly,
@@ -57,6 +59,10 @@ _EVIDENCE_HASH_DOMAIN = "vfe4.h7.law-evaluation-evidence.v1"
 _EXPECTATION_HASH_DOMAIN = "vfe4.h7.law-derived-expectation.v1"
 _STRUCTURE_HASH_DOMAIN = "vfe4.h7.law-derived-expectation-structure.v1"
 _FLOAT64_EPSILON = math.ulp(1.0)
+
+
+def _unique_sha256s(values: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(values))
 
 
 def _selected_law(
@@ -608,6 +614,13 @@ def build_h7_grouped_elbo_record(
         action=action,
         role="transformed",
     )
+    if (
+        original.arm is not transformed.arm
+        or original.assembly_receipt is not transformed.assembly_receipt
+    ):
+        raise ValueError(
+            "paired H7 law evidence must come from one issued arm assembly"
+        )
     original_components = original.law_components
     transformed_components = transformed.law_components
     emission_terms = tuple(
@@ -667,6 +680,22 @@ def build_h7_grouped_elbo_record(
             for slot in transformed_components.entropy_ownership.slots
         )
     )
+    original_entropy_operands = _unique_sha256s(
+        tuple(
+            operand
+            for slot in original_components.entropy_ownership.slots
+            for child in slot.children
+            for operand in child.complete_law_operand_sha256s
+        )
+    )
+    transformed_entropy_operands = _unique_sha256s(
+        tuple(
+            operand
+            for slot in transformed_components.entropy_ownership.slots
+            for child in slot.children
+            for operand in child.complete_law_operand_sha256s
+        )
+    )
     original_equality_residual = abs(
         original.raw_trace_evidence.total_value
         - original_components.grouped_total
@@ -694,6 +723,12 @@ def build_h7_grouped_elbo_record(
         entropy_diagnostic=H7NonadditiveEntropyDiagnostic.create(
             original_entropy=original_entropy,
             transformed_entropy=transformed_entropy,
+            original_complete_law_operand_sha256s=(
+                original_entropy_operands
+            ),
+            transformed_complete_law_operand_sha256s=(
+                transformed_entropy_operands
+            ),
             additive_in_grouped_elbo=False,
             covariance_residual=abs(
                 transformed_entropy - original_entropy

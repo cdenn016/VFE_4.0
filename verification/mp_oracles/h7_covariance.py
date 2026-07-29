@@ -5555,8 +5555,8 @@ def evaluate_h7_task5_wiring(
     action: object,
     *,
     trial_spec: object,
-    original_factor_trace: object,
-    transformed_factor_trace: object,
+    original_law_evidence: object,
+    transformed_law_evidence: object,
     density_probe_pairs: object,
     quadrature_orders: tuple[int, int],
     budgets_by_invariant: Mapping[str, object],
@@ -5667,8 +5667,8 @@ def evaluate_h7_task5_wiring(
         original,
         transformed,
         action,
-        original_factor_trace=original_factor_trace,
-        transformed_factor_trace=transformed_factor_trace,
+        original_law_evidence=original_law_evidence,
+        transformed_law_evidence=transformed_law_evidence,
         density_probe_pairs=density_probe_pairs,
         quadrature_orders=quadrature_orders,
         budgets_by_invariant=budgets_by_invariant,
@@ -5801,6 +5801,24 @@ def evaluate_h7_task5_wiring(
         expected_oracle_value = oracle_value(value_id)
         append_values(oracle_key, production_value, expected_oracle_value)
 
+    def append_positive_kl_comparison(
+        value_id: str,
+        production_value: float,
+    ) -> None:
+        oracle_key = f"{oracle_prefix}{value_id}"
+        signed_negative_kl = oracle_mpf(value_id)
+        positive_kl = -signed_negative_kl
+        if positive_kl < 0:
+            raise H7OracleInconclusive(
+                f"oracle local KL {oracle_key!r} is not a signed "
+                "negative-KL contribution"
+            )
+        append_values(
+            oracle_key,
+            production_value,
+            _decimal(positive_kl),
+        )
+
     append_comparison(
         "complete_local_elbo",
         production.original_complete_local_value,
@@ -5825,16 +5843,40 @@ def evaluate_h7_task5_wiring(
         "residual.K0_joint_z0_m0",
         production.initial_joint_kl.residual.value,
     )
+    entropy_oracle_value: str | None = None
     for local_term in production.local_terms:
-        append_comparison(local_term.term_id, local_term.original_value)
-        append_comparison(
-            f"transformed.{local_term.term_id}",
-            local_term.transformed_value,
-        )
-        append_comparison(
-            f"residual.{local_term.term_id}",
-            local_term.residual.value,
-        )
+        if local_term.term_id.endswith(("_kl[1]", "_kl[2]")):
+            append_positive_kl_comparison(
+                local_term.term_id,
+                local_term.original_value,
+            )
+            append_positive_kl_comparison(
+                f"transformed.{local_term.term_id}",
+                local_term.transformed_value,
+            )
+        else:
+            append_comparison(
+                local_term.term_id,
+                local_term.original_value,
+            )
+            append_comparison(
+                f"transformed.{local_term.term_id}",
+                local_term.transformed_value,
+            )
+        if local_term.term_id == "joint_recognition_entropy":
+            entropy_oracle_value = oracle_value(
+                "residual.joint_recognition_entropy"
+            )
+            append_values(
+                f"{oracle_prefix}residual.joint_recognition_entropy",
+                local_term.residual.value,
+                entropy_oracle_value,
+            )
+        else:
+            append_comparison(
+                f"residual.{local_term.term_id}",
+                local_term.residual.value,
+            )
     monolithic_oracle_value = _decimal(
         max(
             oracle_mpf("residual.complete_monolithic_elbo"),
@@ -5859,9 +5901,14 @@ def evaluate_h7_task5_wiring(
         "complete_pointwise_log_ratio",
         production.log_ratio.value,
     )
-    append_comparison(
-        "residual.joint_recognition_entropy",
+    if entropy_oracle_value is None:
+        raise H7OracleInconclusive(
+            "Task-5 production omitted joint-recognition entropy"
+        )
+    append_values(
+        f"{oracle_prefix}{_TASK5_ENTROPY_SHIFT_INVARIANT_ID}",
         production.entropy_shift.value,
+        entropy_oracle_value,
     )
     if oracle_trial.fixture_id == "h1-v1":
         evidence_identity = production.scalar_evidence
@@ -5979,12 +6026,12 @@ def evaluate_h7_task5_wiring(
         "complete_pointwise_p_density_shift",
         "complete_pointwise_q_density_shift",
         "complete_pointwise_log_ratio",
-        "residual.joint_recognition_entropy",
     )
     common_comparison_ids = (
         *common_consumed_ids[: 6 + len(local_value_ids)],
         "complete_monolithic_elbo",
-        *common_consumed_ids[-4:],
+        *common_consumed_ids[-3:],
+        _TASK5_ENTROPY_SHIFT_INVARIANT_ID,
     )
     scalar_consumed_ids = (
         "scalar_log_evidence",

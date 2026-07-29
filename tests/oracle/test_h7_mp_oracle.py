@@ -644,7 +644,18 @@ def _zero_scalar_items() -> tuple[tuple[str, str], ...]:
         "transformed.scalar_evidence_elbo_posterior_kl_residual",
         "scalar_posterior_kl_residual",
     )
-    return tuple((value_id, "0.0") for value_id in value_ids)
+    return tuple(
+        (
+            value_id,
+            "-0.125"
+            if value_id.removeprefix("transformed.").endswith(
+                ("_kl[1]", "_kl[2]")
+            )
+            and not value_id.startswith("residual.")
+            else "0.0",
+        )
+        for value_id in value_ids
+    )
 
 
 def test_h7_oracle_is_independent_and_uses_only_actual_rhs_solves() -> None:
@@ -1080,8 +1091,16 @@ def test_h7_task5_wiring_executes_closed_named_inventory_and_error_split() -> No
     local_terms = tuple(
         _InjectedLocal(
             term_id=term_id,
-            original_value=0.0,
-            transformed_value=0.0,
+            original_value=(
+                0.125
+                if term_id.endswith(("_kl[1]", "_kl[2]"))
+                else 0.0
+            ),
+            transformed_value=(
+                0.125
+                if term_id.endswith(("_kl[1]", "_kl[2]"))
+                else 0.0
+            ),
             residual=_InjectedResidual(term_id, 0.0),
         )
         for term_id in H7_COMPLETE_LOCAL_TERM_IDS
@@ -1149,8 +1168,8 @@ def test_h7_task5_wiring_executes_closed_named_inventory_and_error_split() -> No
             fixture,
             supplied_action,
             trial_spec=trial_spec,
-            original_factor_trace=object(),
-            transformed_factor_trace=object(),
+            original_law_evidence=object(),
+            transformed_law_evidence=object(),
             density_probe_pairs=(),
             quadrature_orders=(41, 51),
             budgets_by_invariant={},

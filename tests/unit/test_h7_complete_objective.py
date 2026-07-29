@@ -29,19 +29,31 @@ from vfe4.generative.source_priors import (
     NormalizedSourceFactor,
 )
 from vfe4.geometry.group_action import borrow_h7_action
+from vfe4.objective.h7_law_evidence import (
+    H7LawEvaluationEvidence,
+    capture_h7_law_evaluation,
+)
 from vfe4.objective.language_elbo import require_h7_complete_factor_trace
 from vfe4.predictive.identities import canonical_model_state_sha256
 from vfe4.training.arms import LatentLanguageArmModel, build_a5
+from vfe4.training.h7_assembly import (
+    H7FixedSourceAssemblySpec,
+    build_h7_fixed_a5_arm,
+)
 from vfe4.types.h6 import (
     ArmConfig,
     ArmId,
     CapacityAllocation,
+    CausalDag,
+    CausalDagRow,
     FrozenTensorSnapshot,
     H6EndpointLanguageElboTerms,
     H6FactorTerm,
+    H6LanguageStructure,
     H6LanguageElboTerms,
     H6SourcePriorTrace,
     VocabularyIdentity,
+    ZeroDimensionalBase,
     canonical_json_bytes,
     h6_source_law_marker_identity,
 )
@@ -56,6 +68,8 @@ from vfe4.types.h7 import (
     H7LawPairSnapshot,
     H7OperandRecord,
     H7OwnedTensorSnapshot,
+    H7TensorActionSnapshot,
+    H7TrialSpec,
     h7_owned_sha256,
 )
 from vfe4.validation.h7_fixture import (
@@ -163,11 +177,15 @@ def _h6_owned_sha256(domain: str, value: object) -> str:
     ).hexdigest()
 
 
-def _complete_endpoint_config() -> ArmConfig:
+def _complete_endpoint_config(
+    *,
+    recognition_family: str = "structured",
+) -> ArmConfig:
     return ArmConfig.create(
         arm=ArmId.A5,
         config_id=(
-            "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1"
+            f"h6-a5-{recognition_family}-fixed-exact-complete-"
+            "latent-smoothing-v1"
         ),
         vocabulary=VocabularyIdentity(
             vocabulary_id="h7-complete-objective-test-v1",
@@ -180,7 +198,7 @@ def _complete_endpoint_config() -> ArmConfig:
         model_channel_enabled=True,
         source_mode="categorical",
         map_mode="shared_vertex_coboundary",
-        recognition_family="structured",
+        recognition_family=recognition_family,
         recognition_conditioning="smoothing",
         prior_variant="fixed",
         mixture_mode="exact",
@@ -429,6 +447,79 @@ def _raw_trace_evidence(prefix: str):
     )
     assert callable(adapter), "missing H7 raw-trace evidence adapter"
     return adapter(_complete_trace(prefix))
+
+
+def _h7_fixed_arm(law: H7CompleteLawSnapshot):
+    second_receiver_parents = (
+        (0, 1) if law.fixture_id == "h1-v1" else (1,)
+    )
+    structure = H6LanguageStructure.create(
+        base=ZeroDimensionalBase.create(),
+        dag=CausalDag.create(
+            node_labels=(0, 1, 2),
+            rows=(
+                CausalDagRow(1, (0,)),
+                CausalDagRow(2, second_receiver_parents),
+            ),
+        ),
+        receiver_labels=(1, 2),
+    )
+    source_spec = (
+        H7FixedSourceAssemblySpec.from_h1(structure)
+        if law.fixture_id == "h1-v1"
+        else H7FixedSourceAssemblySpec.from_h7_v1(structure)
+    )
+    recognition_family = (
+        "structured"
+        if law.recognition.origin_family == "structured_full_block"
+        else "factorized"
+    )
+    return build_h7_fixed_a5_arm(
+        _complete_endpoint_config(
+            recognition_family=recognition_family,
+        ),
+        source_spec,
+    )
+
+
+def _capture_law_evidence_pair(
+    *,
+    trial_spec: H7TrialSpec,
+    law_pair: H7LawPairSnapshot,
+    action: H7TensorActionSnapshot,
+) -> tuple[H7LawEvaluationEvidence, H7LawEvaluationEvidence]:
+    arm = _h7_fixed_arm(law_pair.original)
+    return (
+        capture_h7_law_evaluation(
+            trial_spec=trial_spec,
+            law_pair=law_pair,
+            action=action,
+            role="original",
+            arm=arm,
+        ),
+        capture_h7_law_evaluation(
+            trial_spec=trial_spec,
+            law_pair=law_pair,
+            action=action,
+            role="transformed",
+            arm=arm,
+        ),
+    )
+
+
+def _capture_original_law_evidence(
+    *,
+    trial_spec: H7TrialSpec,
+    law_pair: H7LawPairSnapshot,
+    action: H7TensorActionSnapshot,
+) -> H7LawEvaluationEvidence:
+    return capture_h7_law_evaluation(
+        trial_spec=trial_spec,
+        law_pair=law_pair,
+        action=action,
+        role="original",
+        arm=_h7_fixed_arm(law_pair.original),
+    )
 
 
 def _grouped_term(
@@ -1033,6 +1124,12 @@ def test_h7_grouped_elbo_subtracts_positive_kls_and_keeps_entropy_nonadditive(
     entropy = h7_types.H7NonadditiveEntropyDiagnostic.create(
         original_entropy=1.25,
         transformed_entropy=1.5,
+        original_complete_law_operand_sha256s=(
+            _sha("original entropy law operand"),
+        ),
+        transformed_complete_law_operand_sha256s=(
+            _sha("transformed entropy law operand"),
+        ),
         additive_in_grouped_elbo=False,
         covariance_residual=0.25,
     )
@@ -1077,6 +1174,12 @@ def test_h7_grouped_elbo_rejects_raw_factor_provenance_sign_inventory_and_total(
     entropy = h7_types.H7NonadditiveEntropyDiagnostic.create(
         original_entropy=1.25,
         transformed_entropy=1.25,
+        original_complete_law_operand_sha256s=(
+            _sha("original entropy law operand"),
+        ),
+        transformed_complete_law_operand_sha256s=(
+            _sha("transformed entropy law operand"),
+        ),
         additive_in_grouped_elbo=False,
         covariance_residual=0.0,
     )
@@ -1115,6 +1218,12 @@ def test_h7_grouped_elbo_rejects_raw_factor_provenance_sign_inventory_and_total(
         h7_types.H7NonadditiveEntropyDiagnostic.create(
             original_entropy=1.25,
             transformed_entropy=1.25,
+            original_complete_law_operand_sha256s=(
+                _sha("original entropy law operand"),
+            ),
+            transformed_complete_law_operand_sha256s=(
+                _sha("transformed entropy law operand"),
+            ),
             additive_in_grouped_elbo=True,
             covariance_residual=0.0,
         )
@@ -1330,7 +1439,8 @@ def _scalar_law_pair():
         ),
     )
     assert original is not None
-    action = h7_scalar_trial_specs()[0].action
+    trial_spec = h7_scalar_trial_specs()[0]
+    action = trial_spec.action
     borrowed_action = borrow_h7_action(
         tuple(item.value() for item in action.elements),
         kind=action.kind,
@@ -1356,7 +1466,7 @@ def _scalar_law_pair():
         raw_fixture_sha256=original.raw_fixture_sha256,
         scalar_probe_set=original.scalar_probe_set,
     )
-    return original, transformed, action
+    return original, transformed, action, trial_spec
 
 
 def _matrix_law_pair(recognition_index: int):
@@ -1414,25 +1524,60 @@ def _install_task5_moment_only_evaluator(
     def moment_only_evaluator(
         law: H7CompleteLawSnapshot,
         *,
-        factor_trace,
+        law_evidence: H7LawEvaluationEvidence,
         quadrature_order: int,
     ):
         assert quadrature_order == 51
+        components = law_evidence.law_components
+        grouped_terms = {
+            term.term_id: term
+            for term in (
+                *components.emission_terms,
+                *components.positive_kl_terms,
+            )
+        }
+        entropy_operands = tuple(
+            dict.fromkeys(
+                operand
+                for slot in components.entropy_ownership.slots
+                for child in slot.children
+                for operand in child.complete_law_operand_sha256s
+            )
+        )
         paths = covariance._source_paths(law)
         return covariance._CompleteValues(
-            factor_trace=factor_trace,
-            initial_joint_kl=float(factor_trace.ordered_factor_values[0]),
-            initial_factor_ids=(factor_trace.ordered_factor_ids[0],),
+            law_evidence=law_evidence,
+            initial_joint_kl=grouped_terms["K0_joint_z0_m0"].value,
+            initial_operand_sha256s=(
+                grouped_terms[
+                    "K0_joint_z0_m0"
+                ].complete_law_operand_sha256s
+            ),
             local_terms={
-                term_id: 0.0
+                term_id: (
+                    float(
+                        math.fsum(
+                            slot.value
+                            for slot in components.entropy_ownership.slots
+                        )
+                    )
+                    if term_id == "joint_recognition_entropy"
+                    else grouped_terms[term_id].value
+                )
                 for term_id in covariance.H7_COMPLETE_LOCAL_TERM_IDS
             },
-            local_factor_ids={
-                term_id: (f"task5-moment-only:{term_id}",)
+            local_operand_sha256s={
+                term_id: (
+                    entropy_operands
+                    if term_id == "joint_recognition_entropy"
+                    else grouped_terms[
+                        term_id
+                    ].complete_law_operand_sha256s
+                )
                 for term_id in covariance.H7_COMPLETE_LOCAL_TERM_IDS
             },
-            complete_local=float(factor_trace.total_value),
-            complete_monolithic=float(factor_trace.total_value),
+            complete_local=components.grouped_total,
+            complete_monolithic=components.monolithic_total,
             q_moments={
                 path.path_id: covariance._recognition_joint_moments(
                     law.recognition,
@@ -1671,17 +1816,22 @@ def _task5_factor_energy(
     return value
 
 
-def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    original, transformed, action = _scalar_law_pair()
-    original_trace = _complete_trace("original")
+def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance() -> None:
+    original, transformed, action, trial_spec = _scalar_law_pair()
+    law_pair = H7LawPairSnapshot.create(
+        original=original,
+        transformed=transformed,
+        action_sha256=action.action_sha256,
+    )
+    original_law_evidence, transformed_law_evidence = (
+        _capture_law_evidence_pair(
+            trial_spec=trial_spec,
+            law_pair=law_pair,
+            action=action,
+        )
+    )
     expected_entropy_shift = covariance._global_log_jacobian(action)
     assert expected_entropy_shift > 0.0
-    transformed_trace = _complete_trace(
-        "transformed",
-        entropy_shift=expected_entropy_shift,
-    )
     probes = tuple(
         pair
         for pair in original.scalar_probe_set.probe_pairs
@@ -1704,43 +1854,49 @@ def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance(
         producer_identity_sha256=(
             covariance.H7_INDEPENDENT_H1_PRODUCER_IDENTITY_SHA256
         ),
-        original_log_evidence=original_trace.total_value + 0.25,
-        transformed_log_evidence=transformed_trace.total_value + 0.25,
+        original_log_evidence=(
+            original_law_evidence.law_components.grouped_total + 0.25
+        ),
+        transformed_log_evidence=(
+            transformed_law_evidence.law_components.grouped_total + 0.25
+        ),
         original_posterior_kl=0.25,
         transformed_posterior_kl=0.25,
-    )
-    quadrature_orders: list[int] = []
-    production_quadrature = covariance.probabilists_gauss_hermite
-
-    def recording_quadrature(order: int, *, dtype: torch.dtype):
-        quadrature_orders.append(order)
-        return production_quadrature(order, dtype=dtype)
-
-    monkeypatch.setattr(
-        covariance,
-        "probabilists_gauss_hermite",
-        recording_quadrature,
     )
     result = covariance.evaluate_h7_complete_covariance(
         original,
         transformed,
         action,
-        original_factor_trace=original_trace,
-        transformed_factor_trace=transformed_trace,
+        original_law_evidence=original_law_evidence,
+        transformed_law_evidence=transformed_law_evidence,
         density_probe_pairs=None,
         quadrature_orders=(41, 51),
         budgets_by_invariant=budgets,
         scalar_evidence=evidence,
     )
 
-    assert result.original_factor_trace_sha256 == original_trace.trace_sha256
-    assert result.original_ordered_factor_ids == original_trace.ordered_factor_ids
+    assert result.original_law_evidence_sha256 == (
+        original_law_evidence.evidence_sha256
+    )
+    assert result.transformed_law_evidence_sha256 == (
+        transformed_law_evidence.evidence_sha256
+    )
+    assert result.original_factor_trace_sha256 == (
+        original_law_evidence.factor_trace.trace_sha256
+    )
+    assert result.original_ordered_factor_ids == (
+        original_law_evidence.factor_trace.ordered_factor_ids
+    )
     assert (
         result.original_ordered_factor_values
-        == original_trace.ordered_factor_values
+        == original_law_evidence.factor_trace.ordered_factor_values
     )
-    assert result.original_complete_local_value == original_trace.total_value
-    assert result.initial_joint_kl.original_value == _SIGNED_VALUES[0]
+    assert result.original_complete_local_value == (
+        original_law_evidence.law_components.grouped_total
+    )
+    assert result.initial_joint_kl.original_value == (
+        original_law_evidence.law_components.positive_kl_terms[0].value
+    )
     assert any(item.original_value < 0.0 for item in result.local_terms)
     assert result.complete_local.value <= 5.0e-11
     entropy = next(
@@ -1752,7 +1908,6 @@ def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance(
     assert entropy.residual.value <= 6.0e-11
     assert result.entropy_shift.passed
     assert result.complete_monolithic.category == "monolithic"
-    assert quadrature_orders == [51] * 16
     assert tuple(
         evaluation.probe.source_id
         for evaluation in result.density_probe_evaluations
@@ -1772,17 +1927,12 @@ def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance(
     assert result.scalar_evidence == evidence
     assert result.not_applicable_reason is None
 
-    law_pair = H7LawPairSnapshot.create(
-        original=original,
-        transformed=transformed,
-        action_sha256=action.action_sha256,
-    )
     with pytest.raises(ValueError, match="law_pair"):
         covariance.evaluate_h7_law_pair_covariance(
             object(),  # type: ignore[arg-type]
             action,
-            original_factor_trace=original_trace,
-            transformed_factor_trace=transformed_trace,
+            original_law_evidence=original_law_evidence,
+            transformed_law_evidence=transformed_law_evidence,
             density_probe_pairs=probes,
             quadrature_orders=(41, 51),
             budgets_by_invariant=budgets,
@@ -1808,8 +1958,8 @@ def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance(
             original,
             transformed,
             action,
-            original_factor_trace=original_trace,
-            transformed_factor_trace=transformed_trace,
+            original_law_evidence=original_law_evidence,
+            transformed_law_evidence=transformed_law_evidence,
             density_probe_pairs=None,
             quadrature_orders=(41, 51),
             budgets_by_invariant=budgets,
@@ -1833,37 +1983,73 @@ def test_complete_h7_objective_binds_trace_probe_and_scalar_provenance(
             original,
             transformed,
             action,
-            original_factor_trace=original_trace,
-            transformed_factor_trace=transformed_trace,
+            original_law_evidence=original_law_evidence,
+            transformed_law_evidence=transformed_law_evidence,
             density_probe_pairs=None,
             quadrature_orders=(41, 51),
             budgets_by_invariant=budgets,
             scalar_evidence=wrong_normalization,
         )
-    with pytest.raises(ValueError, match="exact complete post-H6 trace"):
+    with pytest.raises(ValueError, match="role"):
         covariance.evaluate_h7_complete_covariance(
             original,
             transformed,
             action,
-            original_factor_trace=object(),  # type: ignore[arg-type]
-            transformed_factor_trace=transformed_trace,
+            original_law_evidence=transformed_law_evidence,
+            transformed_law_evidence=original_law_evidence,
             density_probe_pairs=None,
             quadrature_orders=(41, 51),
             budgets_by_invariant=budgets,
             scalar_evidence=evidence,
         )
-    with pytest.raises(ValueError, match="values changed"):
-        dataclasses.replace(
-            original_trace,
-            total_value=original_trace.total_value + 1.0,
+
+    cross_pair = H7LawPairSnapshot.create(
+        original=original,
+        transformed=transformed,
+        action_sha256=action.action_sha256,
+    )
+    cross_pair_original_evidence = _capture_original_law_evidence(
+        trial_spec=trial_spec,
+        law_pair=cross_pair,
+        action=action,
+    )
+    with pytest.raises(ValueError, match="exact supplied law pair"):
+        covariance.evaluate_h7_complete_covariance(
+            original,
+            transformed,
+            action,
+            original_law_evidence=cross_pair_original_evidence,
+            transformed_law_evidence=transformed_law_evidence,
+            density_probe_pairs=None,
+            quadrature_orders=(41, 51),
+            budgets_by_invariant=budgets,
+            scalar_evidence=evidence,
+        )
+
+    unregistered = object.__new__(H7LawEvaluationEvidence)
+    for field in dataclasses.fields(H7LawEvaluationEvidence):
+        object.__setattr__(
+            unregistered,
+            field.name,
+            getattr(original_law_evidence, field.name),
+        )
+    with pytest.raises(ValueError, match="registered"):
+        covariance.evaluate_h7_complete_covariance(
+            original,
+            transformed,
+            action,
+            original_law_evidence=unregistered,
+            transformed_law_evidence=transformed_law_evidence,
+            density_probe_pairs=None,
+            quadrature_orders=(41, 51),
+            budgets_by_invariant=budgets,
+            scalar_evidence=evidence,
         )
     assert law_pair.original.generative.scalar_source_law is not None
     assert law_pair.original.recognition.scalar_source_law is not None
 
 
-def test_matrix_inventory_and_factorized_promotion_fail_closed(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_matrix_inventory_and_factorized_promotion_fail_closed() -> None:
     assert len(covariance.H7_MATRIX_SCORER_RESIDUAL_IDS) == 12
     assert covariance.require_h7_matrix_scorer_residual_inventory(
         covariance.H7_MATRIX_SCORER_RESIDUAL_IDS
@@ -1874,61 +2060,27 @@ def test_matrix_inventory_and_factorized_promotion_fail_closed(
         )
 
     fixture = parse_h7_fixture_bytes(H7_FIXTURE_PATH.read_bytes())
-    factorized = fixture.recognition_families[1]
-    action = fixture.actions["internal"]
-    law = H7CompleteLawSnapshot.create(
-        fixture_id="h7-v1",
-        generative=fixture.generative,
-        recognition=factorized,
-        raw_fixture_sha256=fixture.raw_fixture_sha256,
-        scalar_probe_set=None,
-    )
+    law_pair, action, trial_spec = _matrix_law_pair(1)
+    law = law_pair.original
+    transformed = law_pair.transformed
     expected_entropy_shift = covariance._global_log_jacobian(action)
     assert expected_entropy_shift > 0.0
-    matrix_original_trace = _complete_trace("matrix-original")
-    matrix_transformed_trace = _complete_trace(
-        "matrix-transformed",
-        entropy_shift=expected_entropy_shift,
-    )
     unpromoted_pair = H7LawPairSnapshot.create(
         original=law,
         transformed=law,
         action_sha256=action.action_sha256,
     )
     with pytest.raises(ValueError, match="unrestricted"):
-        covariance.evaluate_h7_law_pair_covariance(
+        covariance._require_factorized_promotion(
             unpromoted_pair,
             action,
-            original_factor_trace=matrix_original_trace,
-            transformed_factor_trace=matrix_transformed_trace,
-            density_probe_pairs=None,
-            quadrature_orders=(41, 51),
-            budgets_by_invariant={},
-            scalar_evidence=None,
         )
-
-    borrowed_action = borrow_h7_action(
-        tuple(item.value() for item in action.elements),
-        kind=action.kind,
-        dimension=2,
-    )
-    transformed = H7CompleteLawSnapshot.create(
-        fixture_id="h7-v1",
-        generative=generative_pushforward.freeze_h7_generative(
-            generative_pushforward.pushforward_h7_generative_snapshot(
-                law.generative,
-                borrowed_action,
-            ),
-            action=borrowed_action,
-        ),
-        recognition=recognition_pushforward.freeze_h7_recognition(
-            recognition_pushforward.pushforward_h7_recognition_snapshot(
-                law.recognition,
-                borrowed_action,
-            )
-        ),
-        raw_fixture_sha256=law.raw_fixture_sha256,
-        scalar_probe_set=None,
+    original_law_evidence, transformed_law_evidence = (
+        _capture_law_evidence_pair(
+            trial_spec=trial_spec,
+            law_pair=law_pair,
+            action=action,
+        )
     )
     probes = tuple(
         pair
@@ -1945,24 +2097,12 @@ def test_matrix_inventory_and_factorized_promotion_fail_closed(
         include_matrix_scorers=True,
         include_scalar_evidence=False,
     )
-    quadrature_orders: list[int] = []
-    production_quadrature = covariance.probabilists_gauss_hermite
-
-    def recording_quadrature(order: int, *, dtype: torch.dtype):
-        quadrature_orders.append(order)
-        return production_quadrature(order, dtype=dtype)
-
-    monkeypatch.setattr(
-        covariance,
-        "probabilists_gauss_hermite",
-        recording_quadrature,
-    )
     result = covariance.evaluate_h7_complete_covariance(
         law,
         transformed,
         action,
-        original_factor_trace=matrix_original_trace,
-        transformed_factor_trace=matrix_transformed_trace,
+        original_law_evidence=original_law_evidence,
+        transformed_law_evidence=transformed_law_evidence,
         density_probe_pairs=probes,
         quadrature_orders=(41, 51),
         budgets_by_invariant=budgets,
@@ -1971,17 +2111,18 @@ def test_matrix_inventory_and_factorized_promotion_fail_closed(
 
     assert (
         result.original_factor_trace_sha256
-        == matrix_original_trace.trace_sha256
+        == original_law_evidence.factor_trace.trace_sha256
     )
     assert (
         result.transformed_factor_trace_sha256
-        == matrix_transformed_trace.trace_sha256
+        == transformed_law_evidence.factor_trace.trace_sha256
     )
     assert result.factorized_promotion_witness is not None
     assert result.factorized_promotion_witness.value != 0.0
-    assert result.initial_joint_kl.original_value == _SIGNED_VALUES[0]
-    assert result.initial_joint_kl.residual.value == 0.0
-    assert quadrature_orders == [51] * 4
+    assert result.initial_joint_kl.original_value == (
+        original_law_evidence.law_components.positive_kl_terms[0].value
+    )
+    assert result.initial_joint_kl.residual.passed
     assert tuple(
         item.invariant_id for item in result.scorer_residuals
     ) == covariance.H7_MATRIX_SCORER_RESIDUAL_IDS
@@ -2028,19 +2169,10 @@ def test_matrix_inventory_and_factorized_promotion_fail_closed(
     assert entropy.transformed_value > entropy.original_value
     assert entropy.residual.passed
     assert result.entropy_shift.passed
-    assert compensated_emission.transformed_value < (
-        compensated_emission.original_value
-    )
-    # This synthetic trace deliberately closes the entropy/total signs while
-    # leaving one local and the monolithic scientific obligations open.
-    assert not compensated_emission.residual.passed
+    assert compensated_emission.residual.passed
     assert result.complete_local.passed
     assert result.complete_monolithic.category == "monolithic"
-    assert not result.complete_monolithic.passed
-    assert (
-        result.complete_monolithic.value
-        > result.complete_monolithic.budget.total_allowance
-    )
+    assert result.complete_monolithic.passed
     assert result.evidence is None
     assert result.posterior_kl is None
     assert (
@@ -2069,17 +2201,13 @@ def test_matrix_inventory_and_factorized_promotion_fail_closed(
             used_budget_ids=set(),
         )
 
-    reversed_entropy_trace = _complete_trace(
-        "matrix-reversed-entropy",
-        entropy_shift=-expected_entropy_shift,
-    )
-    with pytest.raises(ValueError, match="entropy-shift sign"):
+    with pytest.raises(ValueError, match="role"):
         covariance.evaluate_h7_complete_covariance(
             law,
             transformed,
             action,
-            original_factor_trace=matrix_original_trace,
-            transformed_factor_trace=reversed_entropy_trace,
+            original_law_evidence=transformed_law_evidence,
+            transformed_law_evidence=original_law_evidence,
             density_probe_pairs=probes,
             quadrature_orders=(41, 51),
             budgets_by_invariant=budgets,
@@ -2119,19 +2247,23 @@ def test_task5_assembles_40_global_canonical_pairs_in_exact_batch_order(
     assembled_rows = []
     observed_global_order = []
     eps = torch.finfo(torch.float64).eps
-    for case_index, (
+    for _case_index, (
         law_pair,
         action,
         trial_spec,
         expected_ids,
         owned_count,
     ) in enumerate(cases):
-        factor_trace = _complete_trace(f"task5-capture-{case_index}")
+        original_law_evidence = _capture_original_law_evidence(
+            trial_spec=trial_spec,
+            law_pair=law_pair,
+            action=action,
+        )
         batch = covariance.capture_h7_task5_precision_batch(
             law_pair,
             action,
             trial_spec=trial_spec,
-            original_factor_trace=factor_trace,
+            original_law_evidence=original_law_evidence,
         )
         batches.append(batch)
         assert tuple(item.gaussian_id for item in batch.operands) == expected_ids
@@ -2559,11 +2691,13 @@ def _task5_precision_v2_table_bytes(
                 law_pair,
                 action,
                 trial_spec=trial_spec,
-                original_factor_trace=_complete_trace(
-                    f"task5-precision-v2-{case_index}"
+                original_law_evidence=_capture_original_law_evidence(
+                    trial_spec=trial_spec,
+                    law_pair=law_pair,
+                    action=action,
                 ),
             )
-            for case_index, (
+            for _case_index, (
                 law_pair,
                 action,
                 trial_spec,

@@ -57,6 +57,12 @@ from vfe4.types.h7 import (
 )
 from vfe4.validation.h7_fixture import H1_FIXTURE_RAW_SHA256
 
+from .h7_law_evidence import (
+    H7LawEvaluationEvidence,
+    build_h7_grouped_elbo_record,
+    require_h7_law_evaluation,
+)
+
 
 H7_COMPLETE_LOCAL_TERM_IDS: tuple[str, ...] = (
     "expected_log_emission[1]",
@@ -204,11 +210,11 @@ class _JointMoments:
 
 @dataclass(frozen=True)
 class _CompleteValues:
-    factor_trace: CompleteLanguageELBOFactorTrace
+    law_evidence: H7LawEvaluationEvidence
     initial_joint_kl: float
-    initial_factor_ids: tuple[str, ...]
+    initial_operand_sha256s: tuple[str, ...]
     local_terms: Mapping[str, float]
-    local_factor_ids: Mapping[str, tuple[str, ...]]
+    local_operand_sha256s: Mapping[str, tuple[str, ...]]
     complete_local: float
     complete_monolithic: float
     q_moments: Mapping[str, _JointMoments]
@@ -217,22 +223,24 @@ class _CompleteValues:
 
     def __post_init__(self) -> None:
         if (
-            type(self.factor_trace) is not CompleteLanguageELBOFactorTrace
+            type(self.law_evidence) is not H7LawEvaluationEvidence
             or type(self.initial_joint_kl) is not float
             or not math.isfinite(self.initial_joint_kl)
-            or type(self.initial_factor_ids) is not tuple
-            or len(self.initial_factor_ids) != 1
+            or self.initial_joint_kl < 0.0
+            or type(self.initial_operand_sha256s) is not tuple
+            or not self.initial_operand_sha256s
             or not isinstance(self.local_terms, Mapping)
             or tuple(self.local_terms) != H7_COMPLETE_LOCAL_TERM_IDS
-            or not isinstance(self.local_factor_ids, Mapping)
-            or tuple(self.local_factor_ids) != H7_COMPLETE_LOCAL_TERM_IDS
+            or not isinstance(self.local_operand_sha256s, Mapping)
+            or tuple(self.local_operand_sha256s)
+            != H7_COMPLETE_LOCAL_TERM_IDS
             or any(
                 type(value) is not float or not math.isfinite(value)
                 for value in self.local_terms.values()
             )
             or any(
                 type(value) is not tuple or not value
-                for value in self.local_factor_ids.values()
+                for value in self.local_operand_sha256s.values()
             )
             or type(self.complete_local) is not float
             or not math.isfinite(self.complete_local)
@@ -319,8 +327,8 @@ def evaluate_h7_complete_covariance(
     transformed: H7CompleteLawSnapshot,
     action: H7TensorActionSnapshot,
     *,
-    original_factor_trace: CompleteLanguageELBOFactorTrace,
-    transformed_factor_trace: CompleteLanguageELBOFactorTrace,
+    original_law_evidence: H7LawEvaluationEvidence,
+    transformed_law_evidence: H7LawEvaluationEvidence,
     density_probe_pairs: tuple[H7DensityProbePair, ...] | None,
     quadrature_orders: tuple[int, int],
     budgets_by_invariant: Mapping[str, H7BudgetRecord],
@@ -338,16 +346,24 @@ def evaluate_h7_complete_covariance(
         raise ValueError("transformed must be an exact H7 complete-law snapshot")
     if type(action) not in (H7ScalarReplayAction, H7GLPlus2Action):
         raise ValueError("action must be an exact owned H7 action")
-    law_pair = H7LawPairSnapshot.create(
-        original=original,
-        transformed=transformed,
-        action_sha256=action.action_sha256,
-    )
+    if (
+        type(original_law_evidence) is not H7LawEvaluationEvidence
+        or type(transformed_law_evidence) is not H7LawEvaluationEvidence
+        or original_law_evidence.law_pair
+        is not transformed_law_evidence.law_pair
+        or original_law_evidence.law_pair.original is not original
+        or original_law_evidence.law_pair.transformed is not transformed
+    ):
+        raise ValueError(
+            "complete covariance requires role-bound evidence for the exact "
+            "supplied law pair"
+        )
+    law_pair = original_law_evidence.law_pair
     return evaluate_h7_law_pair_covariance(
         law_pair,
         action,
-        original_factor_trace=original_factor_trace,
-        transformed_factor_trace=transformed_factor_trace,
+        original_law_evidence=original_law_evidence,
+        transformed_law_evidence=transformed_law_evidence,
         density_probe_pairs=density_probe_pairs,
         quadrature_orders=quadrature_orders,
         budgets_by_invariant=budgets_by_invariant,
@@ -359,8 +375,8 @@ def evaluate_h7_law_pair_covariance(
     law_pair: H7LawPairSnapshot,
     action: H7TensorActionSnapshot,
     *,
-    original_factor_trace: CompleteLanguageELBOFactorTrace,
-    transformed_factor_trace: CompleteLanguageELBOFactorTrace,
+    original_law_evidence: H7LawEvaluationEvidence,
+    transformed_law_evidence: H7LawEvaluationEvidence,
     density_probe_pairs: tuple[H7DensityProbePair, ...] | None,
     quadrature_orders: tuple[int, int],
     budgets_by_invariant: Mapping[str, H7BudgetRecord],
@@ -369,13 +385,34 @@ def evaluate_h7_law_pair_covariance(
     """Construct the immutable Task-5 evaluation from owned evidence."""
 
     _validate_law_pair_action(law_pair, action)
-    for name, trace in (
-        ("original_factor_trace", original_factor_trace),
-        ("transformed_factor_trace", transformed_factor_trace),
-    ):
-        if type(trace) is not CompleteLanguageELBOFactorTrace:
-            raise ValueError(f"{name} must be an exact complete post-H6 trace")
-        trace.__post_init__()
+    if type(original_law_evidence) is not H7LawEvaluationEvidence:
+        raise ValueError(
+            "original_law_evidence must be exact capture-issued evidence"
+        )
+    trial_spec = original_law_evidence.trial_spec
+    original_law_evidence = require_h7_law_evaluation(
+        original_law_evidence,
+        trial_spec=trial_spec,
+        law_pair=law_pair,
+        action=action,
+        role="original",
+    )
+    transformed_law_evidence = require_h7_law_evaluation(
+        transformed_law_evidence,
+        trial_spec=trial_spec,
+        law_pair=law_pair,
+        action=action,
+        role="transformed",
+    )
+    grouped_elbo = build_h7_grouped_elbo_record(
+        trial_spec=trial_spec,
+        law_pair=law_pair,
+        action=action,
+        original_evidence=original_law_evidence,
+        transformed_evidence=transformed_law_evidence,
+    )
+    original_factor_trace = original_law_evidence.factor_trace
+    transformed_factor_trace = transformed_law_evidence.factor_trace
     if quadrature_orders != (41, 51):
         raise ValueError("H7 production quadrature_orders must equal (41, 51)")
     if not isinstance(budgets_by_invariant, Mapping):
@@ -406,12 +443,12 @@ def evaluate_h7_law_pair_covariance(
     )
     original_values = _evaluate_complete_law(
         law_pair.original,
-        factor_trace=original_factor_trace,
+        law_evidence=original_law_evidence,
         quadrature_order=quadrature_orders[1],
     )
     transformed_values = _evaluate_complete_law(
         law_pair.transformed,
-        factor_trace=transformed_factor_trace,
+        law_evidence=transformed_law_evidence,
         quadrature_order=quadrature_orders[1],
     )
     if tuple(
@@ -457,8 +494,12 @@ def evaluate_h7_law_pair_covariance(
     )
     initial_record = H7InitialJointKlRecord.create(
         term_id=_INITIAL_TERM_ID,
-        original_factor_ids=original_values.initial_factor_ids,
-        transformed_factor_ids=transformed_values.initial_factor_ids,
+        original_complete_law_operand_sha256s=(
+            original_values.initial_operand_sha256s
+        ),
+        transformed_complete_law_operand_sha256s=(
+            transformed_values.initial_operand_sha256s
+        ),
         original_value=original_values.initial_joint_kl,
         transformed_value=transformed_values.initial_joint_kl,
         residual=initial_residual,
@@ -482,9 +523,11 @@ def evaluate_h7_law_pair_covariance(
         local_records.append(
             H7LocalTermRecord.create(
                 term_id=term_id,
-                original_factor_ids=original_values.local_factor_ids[term_id],
-                transformed_factor_ids=(
-                    transformed_values.local_factor_ids[term_id]
+                original_complete_law_operand_sha256s=(
+                    original_values.local_operand_sha256s[term_id]
+                ),
+                transformed_complete_law_operand_sha256s=(
+                    transformed_values.local_operand_sha256s[term_id]
                 ),
                 original_value=original_value,
                 transformed_value=transformed_value,
@@ -664,24 +707,13 @@ def evaluate_h7_law_pair_covariance(
             + ", ".join(missing)
         )
     return H7ObjectiveCovarianceEvaluation.create(
-        original_factor_trace_sha256=original_factor_trace.trace_sha256,
-        transformed_factor_trace_sha256=(
-            transformed_factor_trace.trace_sha256
+        original_law_evidence_sha256=(
+            original_law_evidence.evidence_sha256
         ),
-        original_ordered_factor_ids=(
-            original_factor_trace.ordered_factor_ids
+        transformed_law_evidence_sha256=(
+            transformed_law_evidence.evidence_sha256
         ),
-        transformed_ordered_factor_ids=(
-            transformed_factor_trace.ordered_factor_ids
-        ),
-        original_ordered_factor_values=(
-            original_factor_trace.ordered_factor_values
-        ),
-        transformed_ordered_factor_values=(
-            transformed_factor_trace.ordered_factor_values
-        ),
-        original_complete_local_value=original_factor_trace.total_value,
-        transformed_complete_local_value=transformed_factor_trace.total_value,
+        grouped_elbo=grouped_elbo,
         initial_joint_kl=initial_record,
         local_terms=tuple(local_records),
         density_probes=probes,
@@ -706,7 +738,7 @@ def capture_h7_task5_precision_batch(
     action: H7TensorActionSnapshot,
     *,
     trial_spec: H7TrialSpec,
-    original_factor_trace: CompleteLanguageELBOFactorTrace,
+    original_law_evidence: H7LawEvaluationEvidence,
 ) -> H7Task5PrecisionCaptureBatch:
     """Assemble and freeze one original-law Task-5 precision batch."""
 
@@ -724,14 +756,16 @@ def capture_h7_task5_precision_batch(
             "Task-5 precision capture trial/action/fixture binding changed"
         )
     _require_task5_capture_frame_profile(law_pair.original, trial_spec)
-    if type(original_factor_trace) is not CompleteLanguageELBOFactorTrace:
-        raise ValueError(
-            "original_factor_trace must be an exact complete post-H6 trace"
-        )
-    original_factor_trace.__post_init__()
+    original_law_evidence = require_h7_law_evaluation(
+        original_law_evidence,
+        trial_spec=trial_spec,
+        law_pair=law_pair,
+        action=action,
+        role="original",
+    )
     original_values = _evaluate_complete_law(
         law_pair.original,
-        factor_trace=original_factor_trace,
+        law_evidence=original_law_evidence,
         quadrature_order=51,
     )
     gaussian_ids = _task5_precision_gaussian_ids(law_pair.original)
@@ -1383,10 +1417,31 @@ def _require_factorized_promotion(
 def _evaluate_complete_law(
     law: H7CompleteLawSnapshot,
     *,
-    factor_trace: CompleteLanguageELBOFactorTrace,
+    law_evidence: H7LawEvaluationEvidence,
     quadrature_order: int,
 ) -> _CompleteValues:
-    factor_trace.__post_init__()
+    if type(law_evidence) is not H7LawEvaluationEvidence:
+        raise ValueError(
+            "complete law evaluation requires exact role-bound evidence"
+        )
+    if law_evidence.law_pair.original is law:
+        role: Literal["original", "transformed"] = "original"
+    elif law_evidence.law_pair.transformed is law:
+        role = "transformed"
+    else:
+        raise ValueError("role-bound evidence belongs to another complete law")
+    evidence = require_h7_law_evaluation(
+        law_evidence,
+        trial_spec=law_evidence.trial_spec,
+        law_pair=law_evidence.law_pair,
+        action=law_evidence.action,
+        role=role,
+    )
+    components = evidence.law_components
+    if quadrature_order != components.quadrature_order:
+        raise ValueError(
+            "complete law evaluation must use the law-derived quadrature order"
+        )
     paths = _source_paths(law)
     q_moments = {
         path.path_id: _recognition_joint_moments(law.recognition, path)
@@ -1396,86 +1451,51 @@ def _evaluate_complete_law(
         path.path_id: _generative_joint_moments(law.generative, path)
         for path in paths
     }
-    by_slot = {
-        (term.partition, term.receiver_t): (
-            term.factor_identity_sha256,
-            value,
-        )
-        for term, value in zip(
-            factor_trace.source_trace.ordered_factor_terms,
-            factor_trace.ordered_factor_values,
-            strict=True,
+    grouped_terms = {
+        term.term_id: term
+        for term in (
+            *components.emission_terms,
+            *components.positive_kl_terms,
         )
     }
-    local_slots: dict[str, tuple[tuple[str, int], ...]] = {
-        "expected_log_emission[1]": (("emission", 1),),
-        "expected_log_emission[2]": (("emission", 2),),
-        "model_source_kl[1]": (("model_source", 1),),
-        "state_source_kl[1]": (("state_source", 1),),
-        "model_transition_kl[1]": (("model_transition", 1),),
-        "state_transition_kl[1]": (("state_transition", 1),),
-        "model_source_kl[2]": (("model_source", 2),),
-        "state_source_kl[2]": (("state_source", 2),),
-        "model_transition_kl[2]": (("model_transition", 2),),
-        "state_transition_kl[2]": (("state_transition", 2),),
-        "joint_recognition_entropy": (
-            ("entropy", 1),
-            ("entropy", 2),
-        ),
-    }
-    local_factor_ids = {
-        term_id: tuple(by_slot[slot][0] for slot in slots)
-        for term_id, slots in local_slots.items()
-    }
-    local_values = {
-        term_id: float(math.fsum(by_slot[slot][1] for slot in slots))
-        for term_id, slots in local_slots.items()
-    }
-    initial_factor_id, initial_value = by_slot[("initial", 0)]
-    bound_factor_ids = (
-        initial_factor_id,
-        *(
-            factor_id
-            for term_id in H7_COMPLETE_LOCAL_TERM_IDS
-            for factor_id in local_factor_ids[term_id]
-        ),
+    entropy_operands = tuple(
+        dict.fromkeys(
+            operand
+            for slot in components.entropy_ownership.slots
+            for child in slot.children
+            for operand in child.complete_law_operand_sha256s
+        )
     )
-    if set(bound_factor_ids) != set(factor_trace.ordered_factor_ids):
-        raise ValueError("H7 local inventory does not bind all post-H6 factors")
-    monolithic_contributions: list[float] = []
-    for path in paths:
-        if path.q_probability <= 0.0:
-            continue
-        gaussian_ratio = -h7_joint_gaussian_kl(
-            q_moments[path.path_id].mean,
-            q_moments[path.path_id].covariance,
-            p_moments[path.path_id].mean,
-            p_moments[path.path_id].covariance,
-        )
-        source_ratio = math.log(path.p_probability) - math.log(
-            path.q_probability
-        )
-        emission = math.fsum(
-            _expected_log_emission(
-                law,
-                q_moments[path.path_id],
-                receiver_t=receiver_t,
-                quadrature_order=quadrature_order,
+    local_values = {
+        term_id: (
+            float(
+                math.fsum(
+                    slot.value
+                    for slot in components.entropy_ownership.slots
+                )
             )
-            for receiver_t in (1, 2)
+            if term_id == "joint_recognition_entropy"
+            else grouped_terms[term_id].value
         )
-        monolithic_contributions.append(
-            path.q_probability
-            * math.fsum((gaussian_ratio, source_ratio, emission))
+        for term_id in H7_COMPLETE_LOCAL_TERM_IDS
+    }
+    local_operands = {
+        term_id: (
+            entropy_operands
+            if term_id == "joint_recognition_entropy"
+            else grouped_terms[term_id].complete_law_operand_sha256s
         )
+        for term_id in H7_COMPLETE_LOCAL_TERM_IDS
+    }
+    initial = grouped_terms[_INITIAL_TERM_ID]
     return _CompleteValues(
-        factor_trace=factor_trace,
-        initial_joint_kl=float(initial_value),
-        initial_factor_ids=(initial_factor_id,),
+        law_evidence=evidence,
+        initial_joint_kl=initial.value,
+        initial_operand_sha256s=initial.complete_law_operand_sha256s,
         local_terms=MappingProxyType(local_values),
-        local_factor_ids=MappingProxyType(local_factor_ids),
-        complete_local=factor_trace.total_value,
-        complete_monolithic=float(math.fsum(monolithic_contributions)),
+        local_operand_sha256s=MappingProxyType(local_operands),
+        complete_local=components.grouped_total,
+        complete_monolithic=components.monolithic_total,
         q_moments=MappingProxyType(q_moments),
         p_moments=MappingProxyType(p_moments),
         paths=paths,
@@ -1908,13 +1928,27 @@ def _require_matrix_probe_inventory(
                 key=lambda item: item.receiver_t,
             )
         ),
-        (recognition.initial_joint.component_id, "initial", 4),
+        (
+            _density_probe_component_alias(
+                recognition.initial_joint.component_id
+            ),
+            "initial",
+            4,
+        ),
         *tuple(
-            (item.component_id, _transition_source_id(item), 2)
+            (
+                _density_probe_component_alias(item.component_id),
+                _transition_source_id(item),
+                2,
+            )
             for item in recognition.model_conditionals
         ),
         *tuple(
-            (item.component_id, _transition_source_id(item), 2)
+            (
+                _density_probe_component_alias(item.component_id),
+                _transition_source_id(item),
+                2,
+            )
             for item in recognition.state_conditionals
         ),
         ("p.global", "matrix-singleton-path", 12),
@@ -1970,6 +2004,18 @@ def _recognition_component_prefix(
         "structured"
         if recognition.origin_family == "structured_full_block"
         else "factorized"
+    )
+
+
+def _density_probe_component_alias(component_id: str) -> str:
+    return component_id.replace(
+        "q.structured_full_block.",
+        "q.structured.",
+        1,
+    ).replace(
+        "q.factorized_diagonal_within_fiber.",
+        "q.factorized.",
+        1,
     )
 
 
@@ -2239,8 +2285,11 @@ def _density_component(
     matches = tuple(
         item
         for item in candidates
-        if item.component_id == component_id
-        or item.component_id.removesuffix(".receiver") == component_id
+        if _density_probe_component_alias(item.component_id) == component_id
+        or _density_probe_component_alias(
+            item.component_id.removesuffix(".receiver")
+        )
+        == component_id
     )
     if len(matches) != 1:
         raise ValueError("density component lookup is incomplete or ambiguous")
@@ -2633,21 +2682,21 @@ def _signed_child_ids(
         return (f"+decoder[{receiver_t}]",)
     if term_id.startswith("model_source_kl"):
         receiver_t = int(term_id[-2])
-        return (f"-q_model_source[{receiver_t}]", f"+p_model_source[{receiver_t}]")
+        return (f"+q_model_source[{receiver_t}]", f"-p_model_source[{receiver_t}]")
     if term_id.startswith("state_source_kl"):
         receiver_t = int(term_id[-2])
-        return (f"-q_state_source[{receiver_t}]", f"+p_state_source[{receiver_t}]")
+        return (f"+q_state_source[{receiver_t}]", f"-p_state_source[{receiver_t}]")
     if term_id.startswith("model_transition_kl"):
         receiver_t = int(term_id[-2])
         return (
-            f"-q_model_transition[{receiver_t}]",
-            f"+p_model_transition[{receiver_t}]",
+            f"+q_model_transition[{receiver_t}]",
+            f"-p_model_transition[{receiver_t}]",
         )
     if term_id.startswith("state_transition_kl"):
         receiver_t = int(term_id[-2])
         return (
-            f"-q_state_transition[{receiver_t}]",
-            f"+p_state_transition[{receiver_t}]",
+            f"+q_state_transition[{receiver_t}]",
+            f"-p_state_transition[{receiver_t}]",
         )
     if term_id == "joint_recognition_entropy":
         return (

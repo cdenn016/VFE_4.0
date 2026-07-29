@@ -4141,6 +4141,21 @@ class H7IndependentH1EvidenceRecord(_H7IntegrityRecord):
             "producer_identity_sha256",
         ):
             _require_sha256(getattr(self, name), name)
+        for name in (
+            "original_log_evidence",
+            "transformed_log_evidence",
+            "original_posterior_kl",
+            "transformed_posterior_kl",
+        ):
+            value = getattr(self, name)
+            if type(value) is not float or not math.isfinite(value):
+                raise ValueError(f"{name} must be a finite float")
+        for name in (
+            "original_posterior_kl",
+            "transformed_posterior_kl",
+        ):
+            if getattr(self, name) < 0.0:
+                raise ValueError(f"{name} must be nonnegative")
         super().__post_init__()
 
 
@@ -4403,6 +4418,18 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
             )
         for factor_id in self.ordered_factor_ids:
             _require_sha256(factor_id, "ordered_factor_id")
+        reconstructed_total = math.fsum(self.ordered_factor_values)
+        reconstruction_scale = max(
+            1.0,
+            math.fsum(abs(value) for value in self.ordered_factor_values),
+            abs(self.total_value),
+        )
+        if abs(self.total_value - reconstructed_total) > (
+            4096.0 * math.ulp(1.0) * reconstruction_scale
+        ):
+            raise ValueError(
+                "raw trace total does not reconstruct from its 13 values"
+            )
         _require_sha256(self.trace_sha256, "trace_sha256")
         if self.producer_attestation_sha256 != h7_owned_sha256(
             H7_AUTHENTICATED_EVALUATION_HASH_DOMAIN,
@@ -4460,10 +4487,22 @@ class H7GroupedElboTermRecord(_H7IntegrityRecord):
                 "grouped ELBO term semantics and sign must match its term_id"
             )
         if (
-            self.semantics == "positive_kl_q_to_p"
-            and (self.original_value < 0.0 or self.transformed_value < 0.0)
+            type(self.original_value) is not float
+            or not math.isfinite(self.original_value)
+            or type(self.transformed_value) is not float
+            or not math.isfinite(self.transformed_value)
+            or (
+                self.semantics == "positive_kl_q_to_p"
+                and (
+                    self.original_value < 0.0
+                    or self.transformed_value < 0.0
+                )
+            )
         ):
-            raise ValueError("positive grouped KL values must be nonnegative")
+            raise ValueError(
+                "grouped ELBO values must be finite and positive KLs "
+                "must be nonnegative"
+            )
         for name in (
             "original_complete_law_operand_sha256s",
             "transformed_complete_law_operand_sha256s",
@@ -4482,6 +4521,7 @@ class H7GroupedElboTermRecord(_H7IntegrityRecord):
                 _require_sha256(value, name)
         if (
             type(self.covariance_residual) is not float
+            or not math.isfinite(self.covariance_residual)
             or self.covariance_residual < 0.0
             or self.covariance_residual
             != abs(self.transformed_value - self.original_value)
@@ -4498,22 +4538,48 @@ class H7NonadditiveEntropyDiagnostic(_H7IntegrityRecord):
 
     _integrity_field: ClassVar[str] = "diagnostic_sha256"
     _hash_domain: ClassVar[str] = (
-        "vfe4.h7.grouped-elbo-nonadditive-entropy.v1"
+        "vfe4.h7.grouped-elbo-nonadditive-entropy.v2"
     )
 
     original_entropy: float
     transformed_entropy: float
+    original_complete_law_operand_sha256s: tuple[str, ...]
+    transformed_complete_law_operand_sha256s: tuple[str, ...]
     additive_in_grouped_elbo: Literal[False]
     covariance_residual: float
     diagnostic_sha256: str
 
     def __post_init__(self) -> None:
-        if self.additive_in_grouped_elbo is not False:
+        if (
+            self.additive_in_grouped_elbo is not False
+            or type(self.original_entropy) is not float
+            or not math.isfinite(self.original_entropy)
+            or type(self.transformed_entropy) is not float
+            or not math.isfinite(self.transformed_entropy)
+        ):
             raise ValueError(
-                "recognition entropy is nonadditive in the grouped ELBO"
+                "recognition entropy must be finite and nonadditive in the "
+                "grouped ELBO"
             )
+        for name in (
+            "original_complete_law_operand_sha256s",
+            "transformed_complete_law_operand_sha256s",
+        ):
+            values = getattr(self, name)
+            if (
+                type(values) is not tuple
+                or not values
+                or len(set(values)) != len(values)
+            ):
+                raise ValueError(
+                    "entropy complete-law operand inventories must be "
+                    "nonempty and unique"
+                )
+            for value in values:
+                _require_sha256(value, name)
         if (
             type(self.covariance_residual) is not float
+            or not math.isfinite(self.covariance_residual)
             or self.covariance_residual < 0.0
             or self.covariance_residual
             != abs(self.transformed_entropy - self.original_entropy)
@@ -4522,6 +4588,18 @@ class H7NonadditiveEntropyDiagnostic(_H7IntegrityRecord):
                 "entropy covariance residual must be recomputed"
             )
         super().__post_init__()
+
+
+def _h7_raw_grouped_equality_allowance(
+    raw_values: tuple[float, ...],
+    grouped_signed_values: tuple[float, ...],
+) -> float:
+    scale = max(
+        1.0,
+        math.fsum(abs(value) for value in raw_values),
+        math.fsum(abs(value) for value in grouped_signed_values),
+    )
+    return float(8192.0 * math.ulp(1.0) * scale)
 
 
 @dataclass(frozen=True)
@@ -4619,6 +4697,10 @@ class H7GroupedElboRecord(_H7IntegrityRecord):
                 term.transformed_complete_law_operand_sha256s
             )
             for term in grouped_terms
+        ) or raw_factor_ids.intersection(
+            self.entropy_diagnostic.original_complete_law_operand_sha256s
+        ) or raw_factor_ids.intersection(
+            self.entropy_diagnostic.transformed_complete_law_operand_sha256s
         ):
             raise ValueError(
                 "raw factor IDs cannot serve as grouped complete-law provenance"
@@ -4632,7 +4714,11 @@ class H7GroupedElboRecord(_H7IntegrityRecord):
             for term in grouped_terms
         )
         if (
-            self.original_grouped_total != expected_original
+            type(self.original_grouped_total) is not float
+            or not math.isfinite(self.original_grouped_total)
+            or type(self.transformed_grouped_total) is not float
+            or not math.isfinite(self.transformed_grouped_total)
+            or self.original_grouped_total != expected_original
             or self.transformed_grouped_total != expected_transformed
         ):
             raise ValueError(
@@ -4640,7 +4726,11 @@ class H7GroupedElboRecord(_H7IntegrityRecord):
             )
         if (
             type(self.original_raw_grouped_equality_residual) is not float
+            or not math.isfinite(self.original_raw_grouped_equality_residual)
             or type(self.transformed_raw_grouped_equality_residual) is not float
+            or not math.isfinite(
+                self.transformed_raw_grouped_equality_residual
+            )
             or self.original_raw_grouped_equality_residual
             != abs(
                 self.original_raw_trace_evidence.total_value
@@ -4655,17 +4745,41 @@ class H7GroupedElboRecord(_H7IntegrityRecord):
             raise ValueError(
                 "raw/grouped equality residuals must be recomputed"
             )
+        original_allowance = _h7_raw_grouped_equality_allowance(
+            self.original_raw_trace_evidence.ordered_factor_values,
+            tuple(
+                term.elbo_sign * term.original_value
+                for term in grouped_terms
+            ),
+        )
+        transformed_allowance = _h7_raw_grouped_equality_allowance(
+            self.transformed_raw_trace_evidence.ordered_factor_values,
+            tuple(
+                term.elbo_sign * term.transformed_value
+                for term in grouped_terms
+            ),
+        )
+        if (
+            self.original_raw_grouped_equality_residual
+            > original_allowance
+            or self.transformed_raw_grouped_equality_residual
+            > transformed_allowance
+        ):
+            raise ValueError(
+                "raw and grouped ELBO totals exceed the deterministic "
+                "float64 equality allowance"
+            )
         super().__post_init__()
 
 
 @dataclass(frozen=True)
 class H7InitialJointKlRecord(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "record_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.initial-joint-kl.v1"
+    _hash_domain: ClassVar[str] = "vfe4.h7.initial-joint-kl.v2"
 
     term_id: Literal["K0_joint_z0_m0"]
-    original_factor_ids: tuple[str, ...]
-    transformed_factor_ids: tuple[str, ...]
+    original_complete_law_operand_sha256s: tuple[str, ...]
+    transformed_complete_law_operand_sha256s: tuple[str, ...]
     original_value: float
     transformed_value: float
     residual: H7ResidualRecord
@@ -4675,33 +4789,45 @@ class H7InitialJointKlRecord(_H7IntegrityRecord):
     def __post_init__(self) -> None:
         if (
             self.term_id != "K0_joint_z0_m0"
-            or len(self.original_factor_ids) != 1
-            or len(self.transformed_factor_ids) != 1
+            or not self.original_complete_law_operand_sha256s
+            or not self.transformed_complete_law_operand_sha256s
+            or len(set(self.original_complete_law_operand_sha256s))
+            != len(self.original_complete_law_operand_sha256s)
+            or len(set(self.transformed_complete_law_operand_sha256s))
+            != len(self.transformed_complete_law_operand_sha256s)
             or any(
                 type(item) is not str
                 or len(item) != 64
                 or any(character not in _LOWER_HEX for character in item)
                 for item in (
-                    *self.original_factor_ids,
-                    *self.transformed_factor_ids,
+                    *self.original_complete_law_operand_sha256s,
+                    *self.transformed_complete_law_operand_sha256s,
                 )
             )
+            or type(self.original_value) is not float
+            or not math.isfinite(self.original_value)
+            or type(self.transformed_value) is not float
+            or not math.isfinite(self.transformed_value)
+            or self.original_value < 0.0
+            or self.transformed_value < 0.0
             or self.chain_decomposition is not None
             or type(self.residual) is not H7ResidualRecord
             or self.residual.invariant_id != self.term_id
         ):
-            raise ValueError("initial KL must remain one undecomposed joint term")
+            raise ValueError(
+                "initial KL must remain one positive undecomposed joint term"
+            )
         super().__post_init__()
 
 
 @dataclass(frozen=True)
 class H7LocalTermRecord(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "term_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.local-term.v1"
+    _hash_domain: ClassVar[str] = "vfe4.h7.local-term.v2"
 
     term_id: str
-    original_factor_ids: tuple[str, ...]
-    transformed_factor_ids: tuple[str, ...]
+    original_complete_law_operand_sha256s: tuple[str, ...]
+    transformed_complete_law_operand_sha256s: tuple[str, ...]
     original_value: float
     transformed_value: float
     signed_child_ids: tuple[str, ...]
@@ -4711,19 +4837,33 @@ class H7LocalTermRecord(_H7IntegrityRecord):
     def __post_init__(self) -> None:
         _require_nonempty(self.term_id, "term_id")
         if (
-            type(self.original_factor_ids) is not tuple
-            or not self.original_factor_ids
-            or type(self.transformed_factor_ids) is not tuple
-            or not self.transformed_factor_ids
+            type(self.original_complete_law_operand_sha256s) is not tuple
+            or not self.original_complete_law_operand_sha256s
+            or type(self.transformed_complete_law_operand_sha256s)
+            is not tuple
+            or not self.transformed_complete_law_operand_sha256s
+            or len(set(self.original_complete_law_operand_sha256s))
+            != len(self.original_complete_law_operand_sha256s)
+            or len(set(self.transformed_complete_law_operand_sha256s))
+            != len(self.transformed_complete_law_operand_sha256s)
             or any(
                 type(item) is not str
                 or len(item) != 64
                 or any(character not in _LOWER_HEX for character in item)
                 for item in (
-                    *self.original_factor_ids,
-                    *self.transformed_factor_ids,
+                    *self.original_complete_law_operand_sha256s,
+                    *self.transformed_complete_law_operand_sha256s,
                 )
             )
+            or type(self.original_value) is not float
+            or not math.isfinite(self.original_value)
+            or type(self.transformed_value) is not float
+            or not math.isfinite(self.transformed_value)
+            or (
+                self.term_id.endswith("_kl[1]")
+                or self.term_id.endswith("_kl[2]")
+            )
+            and (self.original_value < 0.0 or self.transformed_value < 0.0)
             or type(self.signed_child_ids) is not tuple
             or any(type(item) is not str or not item for item in self.signed_child_ids)
             or len(set(self.signed_child_ids)) != len(self.signed_child_ids)
@@ -4737,16 +4877,11 @@ class H7LocalTermRecord(_H7IntegrityRecord):
 @dataclass(frozen=True)
 class H7ObjectiveCovarianceEvaluation(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "evaluation_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.objective-covariance.v1"
+    _hash_domain: ClassVar[str] = "vfe4.h7.objective-covariance.v2"
 
-    original_factor_trace_sha256: str
-    transformed_factor_trace_sha256: str
-    original_ordered_factor_ids: tuple[str, ...]
-    transformed_ordered_factor_ids: tuple[str, ...]
-    original_ordered_factor_values: tuple[float, ...]
-    transformed_ordered_factor_values: tuple[float, ...]
-    original_complete_local_value: float
-    transformed_complete_local_value: float
+    original_law_evidence_sha256: str
+    transformed_law_evidence_sha256: str
+    grouped_elbo: H7GroupedElboRecord
     initial_joint_kl: H7InitialJointKlRecord
     local_terms: tuple[H7LocalTermRecord, ...]
     density_probes: tuple[H7DensityProbePair, ...]
@@ -4765,32 +4900,48 @@ class H7ObjectiveCovarianceEvaluation(_H7IntegrityRecord):
     not_applicable_reason: str | None
     evaluation_sha256: str
 
+    @property
+    def original_factor_trace_sha256(self) -> str:
+        return self.grouped_elbo.original_raw_factor_trace_sha256
+
+    @property
+    def transformed_factor_trace_sha256(self) -> str:
+        return self.grouped_elbo.transformed_raw_factor_trace_sha256
+
+    @property
+    def original_ordered_factor_ids(self) -> tuple[str, ...]:
+        return self.grouped_elbo.original_raw_factor_ids
+
+    @property
+    def transformed_ordered_factor_ids(self) -> tuple[str, ...]:
+        return self.grouped_elbo.transformed_raw_factor_ids
+
+    @property
+    def original_ordered_factor_values(self) -> tuple[float, ...]:
+        return self.grouped_elbo.original_raw_trace_evidence.ordered_factor_values
+
+    @property
+    def transformed_ordered_factor_values(self) -> tuple[float, ...]:
+        return (
+            self.grouped_elbo.transformed_raw_trace_evidence.ordered_factor_values
+        )
+
+    @property
+    def original_complete_local_value(self) -> float:
+        return self.grouped_elbo.original_grouped_total
+
+    @property
+    def transformed_complete_local_value(self) -> float:
+        return self.grouped_elbo.transformed_grouped_total
+
     def __post_init__(self) -> None:
         for name in (
-            "original_factor_trace_sha256",
-            "transformed_factor_trace_sha256",
+            "original_law_evidence_sha256",
+            "transformed_law_evidence_sha256",
         ):
             _require_sha256(getattr(self, name), name)
         if (
-            type(self.original_ordered_factor_ids) is not tuple
-            or len(self.original_ordered_factor_ids) != 13
-            or type(self.transformed_ordered_factor_ids) is not tuple
-            or len(self.transformed_ordered_factor_ids) != 13
-            or type(self.original_ordered_factor_values) is not tuple
-            or len(self.original_ordered_factor_values) != 13
-            or type(self.transformed_ordered_factor_values) is not tuple
-            or len(self.transformed_ordered_factor_values) != 13
-            or any(
-                type(item) is not str
-                or len(item) != 64
-                or any(character not in _LOWER_HEX for character in item)
-                for item in (
-                    *self.original_ordered_factor_ids,
-                    *self.transformed_ordered_factor_ids,
-                )
-            )
-            or len(set(self.original_ordered_factor_ids)) != 13
-            or len(set(self.transformed_ordered_factor_ids)) != 13
+            type(self.grouped_elbo) is not H7GroupedElboRecord
             or type(self.initial_joint_kl) is not H7InitialJointKlRecord
             or type(self.local_terms) is not tuple
             or not self.local_terms
@@ -4815,59 +4966,63 @@ class H7ObjectiveCovarianceEvaluation(_H7IntegrityRecord):
             or any(type(item) is not H7ResidualRecord for item in self.scorer_residuals)
         ):
             raise ValueError("objective evaluation has incomplete owned evidence")
-        original_bound_ids = (
-            *self.initial_joint_kl.original_factor_ids,
-            *(
-                factor_id
-                for item in self.local_terms
-                for factor_id in item.original_factor_ids
-            ),
-        )
-        transformed_bound_ids = (
-            *self.initial_joint_kl.transformed_factor_ids,
-            *(
-                factor_id
-                for item in self.local_terms
-                for factor_id in item.transformed_factor_ids
-            ),
-        )
+        self.grouped_elbo.__post_init__()
+        self.initial_joint_kl.__post_init__()
+        for record in self.local_terms:
+            record.__post_init__()
+        grouped_by_id = {
+            term.term_id: term
+            for term in (
+                *self.grouped_elbo.emission_terms,
+                *self.grouped_elbo.positive_kl_terms,
+            )
+        }
+        initial_term = grouped_by_id["K0_joint_z0_m0"]
         if (
-            len(original_bound_ids) != 13
-            or len(transformed_bound_ids) != 13
-            or set(original_bound_ids) != set(self.original_ordered_factor_ids)
-            or set(transformed_bound_ids)
-            != set(self.transformed_ordered_factor_ids)
+            self.initial_joint_kl.original_value
+            != initial_term.original_value
+            or self.initial_joint_kl.transformed_value
+            != initial_term.transformed_value
+            or self.initial_joint_kl.original_complete_law_operand_sha256s
+            != initial_term.original_complete_law_operand_sha256s
+            or self.initial_joint_kl.transformed_complete_law_operand_sha256s
+            != initial_term.transformed_complete_law_operand_sha256s
         ):
-            raise ValueError("local terms do not bind the complete H6 factor trace")
-        original_by_id = dict(
-            zip(
-                self.original_ordered_factor_ids,
-                self.original_ordered_factor_values,
-                strict=True,
+            raise ValueError(
+                "initial KL does not match grouped complete-law evidence"
             )
-        )
-        transformed_by_id = dict(
-            zip(
-                self.transformed_ordered_factor_ids,
-                self.transformed_ordered_factor_values,
-                strict=True,
-            )
-        )
-        grouped_records = (self.initial_joint_kl, *self.local_terms)
-        if any(
-            record.original_value
-            != math.fsum(
-                original_by_id[factor_id]
-                for factor_id in record.original_factor_ids
-            )
-            or record.transformed_value
-            != math.fsum(
-                transformed_by_id[factor_id]
-                for factor_id in record.transformed_factor_ids
-            )
-            for record in grouped_records
-        ):
-            raise ValueError("local term values changed after trace binding")
+        entropy = self.grouped_elbo.entropy_diagnostic
+        for record in self.local_terms:
+            if record.term_id == "joint_recognition_entropy":
+                expected_original = entropy.original_entropy
+                expected_transformed = entropy.transformed_entropy
+                expected_original_operands = (
+                    entropy.original_complete_law_operand_sha256s
+                )
+                expected_transformed_operands = (
+                    entropy.transformed_complete_law_operand_sha256s
+                )
+            else:
+                grouped_term = grouped_by_id[record.term_id]
+                expected_original = grouped_term.original_value
+                expected_transformed = grouped_term.transformed_value
+                expected_original_operands = (
+                    grouped_term.original_complete_law_operand_sha256s
+                )
+                expected_transformed_operands = (
+                    grouped_term.transformed_complete_law_operand_sha256s
+                )
+            if (
+                record.original_value != expected_original
+                or record.transformed_value != expected_transformed
+                or record.original_complete_law_operand_sha256s
+                != expected_original_operands
+                or record.transformed_complete_law_operand_sha256s
+                != expected_transformed_operands
+            ):
+                raise ValueError(
+                    "local term does not match grouped complete-law evidence"
+                )
         required_residuals = (
             self.complete_local,
             self.complete_monolithic,

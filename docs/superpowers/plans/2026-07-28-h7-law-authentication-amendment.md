@@ -31,51 +31,56 @@ consistent across raw, grouped, monolithic, and independent-oracle views.
 
 ## Task 2: Construct law-compatible H7 assembly arms
 
-- [ ] Add an H7-only fixed-source assembly specification with exact structure,
+- [x] Add an H7-only fixed-source assembly specification with exact structure,
   logits, and a domain-separated binding hash.
-- [ ] Build H1 with rows `(0,)`, `(0,1)` and the frozen nonuniform model/state
+- [x] Build H1 with rows `(0,)`, `(0,1)` and the frozen nonuniform model/state
   source probabilities.
-- [ ] Build H7-v1 with rows `(0,)`, `(1,)` and exact singleton probabilities.
-- [ ] Replace the ordinary source prior before predictive-boundary,
+- [x] Build H7-v1 with rows `(0,)`, `(1,)` and exact singleton probabilities.
+- [x] Replace the ordinary source prior before predictive-boundary,
   parameter-role, and arm-registration capture.
-- [ ] Reject dense/uniform ordinary A5 substitution and all post-issuance
+- [x] Reject dense/uniform ordinary A5 substitution and all post-issuance
   source-prior mutation.
 
 ## Task 3: Derive exact raw and grouped law components
 
-- [ ] Add immutable entropy-child and chronological ownership records.
-- [ ] Derive all 13 raw factors from the exact law snapshot.
-- [ ] Derive both emissions and all nine positive KLs independently from the
+- [x] Add immutable entropy-child and chronological ownership records.
+- [x] Derive all 13 raw factors from the exact law snapshot.
+- [x] Derive both emissions and all nine positive KLs independently from the
   exact recognition and generative operands.
-- [ ] Retain complete-law operand identities and prohibit raw factor IDs from
+- [x] Retain complete-law operand identities and prohibit raw factor IDs from
   standing in for grouped operands.
-- [ ] Require raw/grouped equality and expose a monolithic comparison value.
+- [x] Require raw/grouped equality and expose a monolithic comparison value.
 
 ## Task 4: Issue role-bound H7 law evidence
 
-- [ ] Add a private identity registry and capture-only
+- [x] Add a private identity registry and capture-only
   `H7LawEvaluationEvidence`.
-- [ ] Bind trial, law pair, action, original/transformed role, law snapshot,
+- [x] Bind trial, law pair, action, original/transformed role, law snapshot,
   source structure, assembly receipt, raw trace, grouped terms, quadrature,
   and derivation hashes.
-- [ ] Reject generic expectations, structural clones, cross-role swaps,
+- [x] Reject generic expectations, structural clones, cross-role swaps,
   cross-trial replay, and changed law operands.
-- [ ] Construct the pair-level grouped record internally.
+- [x] Construct the pair-level grouped record internally.
 
 ## Task 5: Correct Task-5 schema and oracle signs
 
-- [ ] Replace bare raw-trace parameters in
+- [x] Replace bare raw-trace parameters in
   `evaluate_h7_law_pair_covariance` with exact role-bound law evidence.
-- [ ] Populate `K0` and every local `_kl` record from positive law-derived KL
+- [x] Populate `K0` and every local `_kl` record from positive law-derived KL
   values, not raw generative factors.
-- [ ] Reversion the evaluation binding so raw evidence remains separate from
+- [x] Reversion the evaluation binding so raw evidence remains separate from
   grouped complete-law operands.
-- [ ] Normalize the existing oracle's signed negative-KL fields explicitly at
+- [x] Normalize the existing oracle's signed negative-KL fields explicitly at
   the comparison boundary.
-- [ ] Require raw, grouped, monolithic, and oracle agreement within their
+- [x] Require raw, grouped, monolithic, and oracle agreement within their
   frozen operand-local budgets.
 
 ## Task 6: Wire the fail-closed H7 executor
+
+**Authorization boundary:** This amendment intentionally stops before runtime
+trial/control execution. The source-only `INCONCLUSIVE` path remains active
+until the exact H7 authorization phrase is supplied and the separately governed
+calibration values exist. No runtime H7 status decision is authorized here.
 
 - [ ] Capture each frozen fixture exactly once and derive the ordered two
   scalar, five positive-covariance, and one expected-negative trials.
@@ -89,12 +94,11 @@ consistent across raw, grouped, monolithic, and independent-oracle views.
 
 ## Task 7: Proportional closure
 
-- [ ] Run the exact new law/assembly/covariance/gate nodes once at the final
+- [x] Run the exact new law/assembly/covariance/gate nodes once at the final
   candidate revision.
-- [ ] Run Ruff on touched Python files and `git diff --check`.
+- [x] Run Ruff on touched Python files and `git diff --check`.
 - [ ] Record one claim per check in the verification ledger and validate it.
-- [ ] Have independent code, variational, and adversarial reviewers inspect
+- [x] Have independent code, variational, and adversarial reviewers inspect
   the final provenance and sign conventions.
 - [ ] Only after the final source revision is frozen, run the separately
   authorized calibration/evidence workflow.
-

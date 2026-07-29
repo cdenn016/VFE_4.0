@@ -41,6 +41,12 @@ from .language import (
     plan_h6_attempt,
     train_h6_attempt,
 )
+from .h7_assembly import (
+    H7FixedSourceAssemblyReceipt,
+    H7FixedSourceAssemblySpec,
+    build_h7_fixed_a5_arm,
+    require_h7_fixed_source_assembly,
+)
 from .matching import (
     AMENDED_MATCHING_SCHEDULE_POLICY,
     AmendedMatchingSchedulePolicy,
@@ -330,6 +336,8 @@ __all__ = [
     "H6GenerativePriorFeatureProviderV3",
     "H6_VALIDATION_BOUNDARY_CONTRACT_SHA256_V3",
     "H6_TARGET_FREE_DATA_SAFETY_SHA256",
+    "H7FixedSourceAssemblyReceipt",
+    "H7FixedSourceAssemblySpec",
     "LatentLanguageArmModel",
     "MeanPooledPrefixFloor",
     "MatchingReport",
@@ -373,6 +381,7 @@ __all__ = [
     "build_a4",
     "build_a5",
     "build_arm",
+    "build_h7_fixed_a5_arm",
     "build_a0_architecture_profile",
     "build_a0_formula_record",
     "build_h6_evaluation_arm_v3",
@@ -402,6 +411,7 @@ __all__ = [
     "publish_h6_checkpoint_catalog_entry_v3",
     "publish_h6_tuning_selection_v3",
     "recognition_parameter_count",
+    "require_h7_fixed_source_assembly",
     "read_h6_prediction_pointer_v3",
     "read_h6_checkpoint_catalog_v3",
     "read_h6_bounded_prefix_certificate_set_for_scoring_v3",

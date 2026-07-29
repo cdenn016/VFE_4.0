@@ -2205,7 +2205,10 @@ def _build_factory_arm_api():
         _require_builder_arm(config, ArmId.A5)
         if (
             config.config_id
-            != "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1"
+            not in (
+                "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1",
+                "h6-a5-factorized-fixed-exact-complete-latent-smoothing-v1",
+            )
             or config.horizon != 2
             or config.prior_variant != "fixed"
             or config.mixture_mode != "exact"
