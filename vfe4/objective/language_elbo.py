@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import math
 import weakref
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal, Protocol, final, runtime_checkable
 
 import torch
@@ -1114,37 +1114,6 @@ def evaluate_emission_only_ablation(
     return arm.evaluate_emission_only_ablation(expectation)
 
 
-def _build_h7_authenticated_evaluation_origin_api():
-    authority = object()
-
-    class EvaluationOrigin:
-        __slots__ = ()
-
-        def __new__(cls, supplied_authority: object):
-            if supplied_authority is not authority:
-                raise TypeError(
-                    "H7 authenticated evaluations are capture-issued only"
-                )
-            return super().__new__(cls)
-
-    origin = EvaluationOrigin(authority)
-
-    def issue() -> object:
-        return origin
-
-    def validate(value: object) -> bool:
-        return value is origin
-
-    return issue, validate
-
-
-(
-    _issue_h7_authenticated_evaluation_origin,
-    _is_h7_authenticated_evaluation_origin,
-) = _build_h7_authenticated_evaluation_origin_api()
-del _build_h7_authenticated_evaluation_origin_api
-
-
 @final
 @dataclass(
     frozen=True,
@@ -1167,6 +1136,7 @@ class H7AuthenticatedEvaluation:
     model_family_sha256: str
     canonical_model_state_sha256: str
     elbo_inventory_sha256: str
+    evaluator_implementation_sha256: str
     expectation_identity_sha256: str
     expectation_structure_sha256: str
     expectation_source_law_marker_identity_sha256: str
@@ -1178,7 +1148,6 @@ class H7AuthenticatedEvaluation:
         "vfe4.objective.language_elbo.capture_h7_complete_language_elbo"
     ]
     attestation_sha256: str
-    _origin: object = field(repr=False, compare=False)
 
     def __init__(self) -> None:
         raise TypeError(
@@ -1209,6 +1178,9 @@ class H7AuthenticatedEvaluation:
                 self.canonical_model_state_sha256
             ),
             "elbo_inventory_sha256": self.elbo_inventory_sha256,
+            "evaluator_implementation_sha256": (
+                self.evaluator_implementation_sha256
+            ),
             "expectation_identity_sha256": (
                 self.expectation_identity_sha256
             ),
@@ -1230,10 +1202,6 @@ class H7AuthenticatedEvaluation:
         }
 
     def __post_init__(self) -> None:
-        if not _is_h7_authenticated_evaluation_origin(self._origin):
-            raise ValueError(
-                "H7 evaluation lacks its capture-issued origin capability"
-            )
         if type(self.endpoint) is not H6EndpointLanguageElboTerms:
             raise ValueError(
                 "H7 authenticated evaluation requires an exact H6 endpoint"
@@ -1252,6 +1220,7 @@ class H7AuthenticatedEvaluation:
             "model_family_sha256",
             "canonical_model_state_sha256",
             "elbo_inventory_sha256",
+            "evaluator_implementation_sha256",
             "expectation_identity_sha256",
             "expectation_structure_sha256",
             "expectation_source_law_marker_identity_sha256",
@@ -1288,168 +1257,201 @@ class H7AuthenticatedEvaluation:
             )
 
 
-_H7_AUTHENTICATED_EVALUATION_REGISTRY: dict[
-    int,
-    weakref.ReferenceType[H7AuthenticatedEvaluation],
-] = {}
+def _build_h7_authenticated_evaluation_api():
+    registry: dict[
+        int,
+        tuple[
+            weakref.ReferenceType[H7AuthenticatedEvaluation],
+            tuple[int, bytes, str],
+        ],
+    ] = {}
 
-
-def _register_h7_authenticated_evaluation(
-    evaluation: H7AuthenticatedEvaluation,
-) -> H7AuthenticatedEvaluation:
-    identity = id(evaluation)
-
-    def remove(
-        reference: weakref.ReferenceType[H7AuthenticatedEvaluation],
-    ) -> None:
-        if _H7_AUTHENTICATED_EVALUATION_REGISTRY.get(identity) is reference:
-            _H7_AUTHENTICATED_EVALUATION_REGISTRY.pop(identity, None)
-
-    reference = weakref.ref(evaluation, remove)
-    current = _H7_AUTHENTICATED_EVALUATION_REGISTRY.get(identity)
-    if current is not None and current() is not None:
-        raise RuntimeError("H7 evaluation identity was already registered")
-    _H7_AUTHENTICATED_EVALUATION_REGISTRY[identity] = reference
-    return evaluation
-
-
-def _require_h7_authenticated_evaluation(
-    value: object,
-) -> H7AuthenticatedEvaluation:
-    if type(value) is not H7AuthenticatedEvaluation:
-        raise ValueError(
-            "H7 endpoint adaptation requires an exact authenticated BuiltArm "
-            "evaluation receipt"
+    def issuance_snapshot(
+        evaluation: H7AuthenticatedEvaluation,
+    ) -> tuple[int, bytes, str]:
+        return (
+            id(evaluation.endpoint),
+            canonical_json_bytes(evaluation.attestation_payload()),
+            evaluation.attestation_sha256,
         )
-    reference = _H7_AUTHENTICATED_EVALUATION_REGISTRY.get(id(value))
-    if reference is None or reference() is not value:
-        raise ValueError(
-            "H7 evaluation receipt is not a live registered authentication"
+
+    def issue(**values: object) -> H7AuthenticatedEvaluation:
+        evaluation = object.__new__(H7AuthenticatedEvaluation)
+        for name, value in values.items():
+            object.__setattr__(evaluation, name, value)
+        object.__setattr__(
+            evaluation,
+            "attestation_sha256",
+            h7_owned_sha256(
+                H7_AUTHENTICATED_EVALUATION_HASH_DOMAIN,
+                evaluation.attestation_payload(),
+            ),
         )
-    value.__post_init__()
-    return value
+        evaluation.__post_init__()
+        identity = id(evaluation)
 
+        def remove(
+            reference: weakref.ReferenceType[H7AuthenticatedEvaluation],
+        ) -> None:
+            current = registry.get(identity)
+            if current is not None and current[0] is reference:
+                registry.pop(identity, None)
 
-def _issue_h7_authenticated_evaluation(
-    **values: object,
-) -> H7AuthenticatedEvaluation:
-    provisional = object.__new__(H7AuthenticatedEvaluation)
-    for name, value in values.items():
-        object.__setattr__(provisional, name, value)
-    object.__setattr__(
-        provisional,
-        "_origin",
-        _issue_h7_authenticated_evaluation_origin(),
-    )
-    object.__setattr__(
-        provisional,
-        "attestation_sha256",
-        h7_owned_sha256(
-            H7_AUTHENTICATED_EVALUATION_HASH_DOMAIN,
-            provisional.attestation_payload(),
-        ),
-    )
-    provisional.__post_init__()
-    return _register_h7_authenticated_evaluation(provisional)
+        reference = weakref.ref(evaluation, remove)
+        current = registry.get(identity)
+        if current is not None and current[0]() is not None:
+            raise RuntimeError(
+                "H7 evaluation identity was already capture-issued"
+            )
+        registry[identity] = (reference, issuance_snapshot(evaluation))
+        return evaluation
 
+    def require(value: object) -> H7AuthenticatedEvaluation:
+        if type(value) is not H7AuthenticatedEvaluation:
+            raise ValueError(
+                "H7 endpoint adaptation requires an exact authenticated "
+                "BuiltArm evaluation receipt"
+            )
+        current = registry.get(id(value))
+        if current is None or current[0]() is not value:
+            raise ValueError(
+                "H7 evaluation receipt is not a live registered "
+                "authentication"
+            )
+        value.__post_init__()
+        if issuance_snapshot(value) != current[1]:
+            raise ValueError(
+                "H7 evaluation receipt changed after capture issuance"
+            )
+        return value
 
-def capture_h7_complete_language_elbo(
-    arm: object,
-    expectation: LanguageElboExpectation,
-) -> H7AuthenticatedEvaluation:
-    """Capture one real BuiltArm assembly without attesting value derivation."""
+    def capture(
+        arm: object,
+        expectation: LanguageElboExpectation,
+    ) -> H7AuthenticatedEvaluation:
+        """Capture one BuiltArm assembly without attesting value derivation."""
 
-    from vfe4.predictive.identities import canonical_model_state_sha256
-    from vfe4.training.arms import (
-        BuiltArm,
-        _require_factory_issued_built_arm,
-    )
-
-    checked_arm = _require_factory_issued_built_arm(arm)
-    checked_expectation = _validate_expectation(expectation)
-    config = checked_arm.config
-    if type(config) is not ArmConfig:
-        raise ValueError("H7 capture requires an exact endpoint config")
-    config.__post_init__()
-    source_law = require_source_law_for_endpoint(
-        checked_expectation.source_law,
-        endpoint_config=config,
-        prior_variant=config.prior_variant,  # type: ignore[arg-type]
-        mixture_mode=config.mixture_mode,
-    )
-    model_inventory = getattr(
-        checked_arm.model,
-        "elbo_factor_inventory",
-        None,
-    )
-    model_inventory_sha256 = getattr(
-        checked_arm.model,
-        "elbo_inventory_sha256",
-        None,
-    )
-    if (
-        config.horizon != 2
-        or checked_expectation.horizon != config.horizon
-        or source_law.endpoint_config != config
-        or checked_arm.model_family_sha256
-        != arm_model_family_sha256(config)
-        or checked_arm.elbo_factor_inventory != model_inventory
-        or checked_arm.elbo_inventory_sha256 != model_inventory_sha256
-    ):
-        raise ValueError(
-            "factory BuiltArm structure, expectation, or ELBO inventory changed"
+        from vfe4.predictive.identities import (
+            canonical_model_state_sha256,
         )
-    model_state_before = canonical_model_state_sha256(checked_arm.model)
-    endpoint = BuiltArm.evaluate_complete_language_elbo(
-        checked_arm,
-        checked_expectation,
-    )
-    model_state_after = canonical_model_state_sha256(checked_arm.model)
-    if model_state_after != model_state_before:
-        raise ValueError(
-            "BuiltArm model state changed during complete ELBO assembly"
+        from vfe4.training.arms import (
+            _H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256,
+            _evaluate_factory_built_arm_complete_language_elbo,
+            _require_factory_issued_built_arm,
         )
-    if type(endpoint) is not H6EndpointLanguageElboTerms:
-        raise ValueError("BuiltArm returned a non-H6 complete ELBO endpoint")
-    endpoint.__post_init__()
-    source_prior = getattr(checked_arm.model, "source_prior", None)
-    if source_prior is None:
-        raise ValueError("complete ELBO BuiltArm lacks its live source prior")
-    source_prior_state_sha256 = canonical_model_state_sha256(source_prior)
-    if (
-        endpoint.endpoint_config != config
-        or endpoint.source_prior_trace.model_family_sha256
-        != checked_arm.model_family_sha256
-        or endpoint.source_prior_trace.prior_model_state_sha256
-        != source_prior_state_sha256
-        or endpoint.source_law_marker_identity_sha256
-        != source_law.law_identity_sha256
-    ):
-        raise ValueError(
-            "BuiltArm endpoint source-prior, source-law, or config binding changed"
+
+        checked_arm = _require_factory_issued_built_arm(arm)
+        checked_expectation = _validate_expectation(expectation)
+        config = checked_arm.config
+        if type(config) is not ArmConfig:
+            raise ValueError("H7 capture requires an exact endpoint config")
+        config.__post_init__()
+        source_law = require_source_law_for_endpoint(
+            checked_expectation.source_law,
+            endpoint_config=config,
+            prior_variant=config.prior_variant,  # type: ignore[arg-type]
+            mixture_mode=config.mixture_mode,
         )
-    return _issue_h7_authenticated_evaluation(
-        endpoint=endpoint,
-        attestation_scope=H7_AUTHENTICATED_EVALUATION_SCOPE,
-        endpoint_config_sha256=config.config_sha256,
-        model_family_sha256=checked_arm.model_family_sha256,
-        canonical_model_state_sha256=model_state_before,
-        elbo_inventory_sha256=checked_arm.elbo_inventory_sha256,
-        expectation_identity_sha256=(
-            checked_expectation.expectation_identity_sha256
-        ),
-        expectation_structure_sha256=checked_expectation.structure_sha256,
-        expectation_source_law_marker_identity_sha256=(
-            source_law.law_identity_sha256
-        ),
-        source_prior_trace_sha256=endpoint.source_prior_trace_sha256,
-        endpoint_source_law_identity_sha256=(
-            endpoint.source_law_identity_sha256
-        ),
-        endpoint_language_elbo_sha256=endpoint.canonical_sha256,
-        producer_route=H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
-        issuer_route=H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE,
-    )
+        model_inventory = getattr(
+            checked_arm.model,
+            "elbo_factor_inventory",
+            None,
+        )
+        model_inventory_sha256 = getattr(
+            checked_arm.model,
+            "elbo_inventory_sha256",
+            None,
+        )
+        if (
+            config.horizon != 2
+            or checked_expectation.horizon != config.horizon
+            or source_law.endpoint_config != config
+            or checked_arm.model_family_sha256
+            != arm_model_family_sha256(config)
+            or checked_arm.elbo_factor_inventory != model_inventory
+            or checked_arm.elbo_inventory_sha256
+            != model_inventory_sha256
+        ):
+            raise ValueError(
+                "factory BuiltArm structure, expectation, or ELBO inventory "
+                "changed"
+            )
+        model_state_before = canonical_model_state_sha256(
+            checked_arm.model
+        )
+        endpoint = _evaluate_factory_built_arm_complete_language_elbo(
+            checked_arm,
+            checked_expectation,
+        )
+        model_state_after = canonical_model_state_sha256(checked_arm.model)
+        if model_state_after != model_state_before:
+            raise ValueError(
+                "BuiltArm model state changed during complete ELBO assembly"
+            )
+        if type(endpoint) is not H6EndpointLanguageElboTerms:
+            raise ValueError(
+                "BuiltArm returned a non-H6 complete ELBO endpoint"
+            )
+        endpoint.__post_init__()
+        source_prior = getattr(checked_arm.model, "source_prior", None)
+        if source_prior is None:
+            raise ValueError(
+                "complete ELBO BuiltArm lacks its live source prior"
+            )
+        source_prior_state_sha256 = canonical_model_state_sha256(
+            source_prior
+        )
+        if (
+            endpoint.endpoint_config != config
+            or endpoint.source_prior_trace.model_family_sha256
+            != checked_arm.model_family_sha256
+            or endpoint.source_prior_trace.prior_model_state_sha256
+            != source_prior_state_sha256
+            or endpoint.source_law_marker_identity_sha256
+            != source_law.law_identity_sha256
+        ):
+            raise ValueError(
+                "BuiltArm endpoint source-prior, source-law, or config "
+                "binding changed"
+            )
+        return issue(
+            endpoint=endpoint,
+            attestation_scope=H7_AUTHENTICATED_EVALUATION_SCOPE,
+            endpoint_config_sha256=config.config_sha256,
+            model_family_sha256=checked_arm.model_family_sha256,
+            canonical_model_state_sha256=model_state_before,
+            elbo_inventory_sha256=checked_arm.elbo_inventory_sha256,
+            evaluator_implementation_sha256=(
+                _H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256
+            ),
+            expectation_identity_sha256=(
+                checked_expectation.expectation_identity_sha256
+            ),
+            expectation_structure_sha256=(
+                checked_expectation.structure_sha256
+            ),
+            expectation_source_law_marker_identity_sha256=(
+                source_law.law_identity_sha256
+            ),
+            source_prior_trace_sha256=(
+                endpoint.source_prior_trace_sha256
+            ),
+            endpoint_source_law_identity_sha256=(
+                endpoint.source_law_identity_sha256
+            ),
+            endpoint_language_elbo_sha256=endpoint.canonical_sha256,
+            producer_route=H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
+            issuer_route=H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE,
+        )
+
+    return capture, require
+
+
+(
+    capture_h7_complete_language_elbo,
+    _require_h7_authenticated_evaluation,
+) = _build_h7_authenticated_evaluation_api()
+del _build_h7_authenticated_evaluation_api
 
 
 @final
@@ -1468,6 +1470,7 @@ class CompleteLanguageELBOFactorTrace:
     model_family_sha256: str
     canonical_model_state_sha256: str
     elbo_inventory_sha256: str
+    evaluator_implementation_sha256: str
     expectation_identity_sha256: str
     expectation_structure_sha256: str
     expectation_source_law_marker_identity_sha256: str
@@ -1537,6 +1540,9 @@ class CompleteLanguageELBOFactorTrace:
                 receipt.canonical_model_state_sha256
             ),
             "elbo_inventory_sha256": receipt.elbo_inventory_sha256,
+            "evaluator_implementation_sha256": (
+                receipt.evaluator_implementation_sha256
+            ),
             "expectation_identity_sha256": (
                 receipt.expectation_identity_sha256
             ),
@@ -1581,6 +1587,9 @@ class CompleteLanguageELBOFactorTrace:
                 receipt.canonical_model_state_sha256
             ),
             "elbo_inventory_sha256": receipt.elbo_inventory_sha256,
+            "evaluator_implementation_sha256": (
+                receipt.evaluator_implementation_sha256
+            ),
             "expectation_identity_sha256": (
                 receipt.expectation_identity_sha256
             ),
@@ -1649,6 +1658,8 @@ class CompleteLanguageELBOFactorTrace:
             != receipt.canonical_model_state_sha256
             or self.elbo_inventory_sha256
             != receipt.elbo_inventory_sha256
+            or self.evaluator_implementation_sha256
+            != receipt.evaluator_implementation_sha256
             or self.expectation_identity_sha256
             != receipt.expectation_identity_sha256
             or self.expectation_structure_sha256
@@ -1699,6 +1710,9 @@ class CompleteLanguageELBOFactorTrace:
                 self.canonical_model_state_sha256
             ),
             "elbo_inventory_sha256": self.elbo_inventory_sha256,
+            "evaluator_implementation_sha256": (
+                self.evaluator_implementation_sha256
+            ),
             "expectation_identity_sha256": (
                 self.expectation_identity_sha256
             ),
@@ -1776,6 +1790,9 @@ def adapt_h7_raw_factor_trace_evidence(
             trace.canonical_model_state_sha256
         ),
         elbo_inventory_sha256=trace.elbo_inventory_sha256,
+        evaluator_implementation_sha256=(
+            trace.evaluator_implementation_sha256
+        ),
         expectation_identity_sha256=(
             trace.expectation_identity_sha256
         ),

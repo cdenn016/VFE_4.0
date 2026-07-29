@@ -154,7 +154,7 @@ H7_GROUPED_POSITIVE_KL_TERM_IDS = (
     "state_transition_kl[2]",
 )
 H7_AUTHENTICATED_EVALUATION_HASH_DOMAIN = (
-    "vfe4.h7.authenticated-complete-language-elbo-evaluation.v1"
+    "vfe4.h7.authenticated-complete-language-elbo-evaluation.v2"
 )
 H7_AUTHENTICATED_EVALUATION_SCOPE = (
     "built-arm-complete-elbo-assembly-v1"
@@ -163,7 +163,7 @@ H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE = (
     "vfe4.objective.language_elbo.capture_h7_complete_language_elbo"
 )
 H7_RAW_FACTOR_TRACE_HASH_DOMAIN = (
-    "vfe4.h7.complete-language-elbo-factor-trace.v3"
+    "vfe4.h7.complete-language-elbo-factor-trace.v4"
 )
 H7_RAW_FACTOR_TRACE_REPRESENTATION = (
     "raw_expected_log_factors_plus_recognition_entropy_v1"
@@ -829,6 +829,7 @@ H7_RAW_FACTOR_TRACE_PRODUCER_CONTRACT = MappingProxyType(
         ),
         "attestation_scope": H7_AUTHENTICATED_EVALUATION_SCOPE,
         "attestation_issuer": H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE,
+        "evaluator_identity_kind": "captured-python-source-sha256-v1",
         "h6_producer_route": H7_RAW_FACTOR_TRACE_H6_PRODUCER_ROUTE,
         "h7_adapter_entrypoint": H7_RAW_FACTOR_TRACE_ADAPTER_ENTRYPOINT,
         "representation": H7_RAW_FACTOR_TRACE_REPRESENTATION,
@@ -4148,10 +4149,10 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
     """Authenticated, self-verifying H7 view of one complete raw trace."""
 
     _integrity_field: ClassVar[str] = "evidence_sha256"
-    _hash_domain: ClassVar[str] = "vfe4.h7.raw-factor-trace-evidence.v2"
+    _hash_domain: ClassVar[str] = "vfe4.h7.raw-factor-trace-evidence.v3"
 
     trace_hash_domain: Literal[
-        "vfe4.h7.complete-language-elbo-factor-trace.v3"
+        "vfe4.h7.complete-language-elbo-factor-trace.v4"
     ]
     representation: Literal[
         "raw_expected_log_factors_plus_recognition_entropy_v1"
@@ -4163,6 +4164,7 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
     model_family_sha256: str
     canonical_model_state_sha256: str
     elbo_inventory_sha256: str
+    evaluator_implementation_sha256: str
     expectation_identity_sha256: str
     expectation_structure_sha256: str
     expectation_source_law_marker_identity_sha256: str
@@ -4209,6 +4211,7 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
         model_family_sha256: str,
         canonical_model_state_sha256: str,
         elbo_inventory_sha256: str,
+        evaluator_implementation_sha256: str,
         expectation_identity_sha256: str,
         expectation_structure_sha256: str,
         expectation_source_law_marker_identity_sha256: str,
@@ -4235,6 +4238,9 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
             "model_family_sha256": model_family_sha256,
             "canonical_model_state_sha256": canonical_model_state_sha256,
             "elbo_inventory_sha256": elbo_inventory_sha256,
+            "evaluator_implementation_sha256": (
+                evaluator_implementation_sha256
+            ),
             "expectation_identity_sha256": expectation_identity_sha256,
             "expectation_structure_sha256": expectation_structure_sha256,
             "expectation_source_law_marker_identity_sha256": (
@@ -4278,6 +4284,9 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
                 self.canonical_model_state_sha256
             ),
             "elbo_inventory_sha256": self.elbo_inventory_sha256,
+            "evaluator_implementation_sha256": (
+                self.evaluator_implementation_sha256
+            ),
             "expectation_identity_sha256": (
                 self.expectation_identity_sha256
             ),
@@ -4306,6 +4315,40 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
             "total_value": self.total_value,
         }
 
+    def producer_attestation_payload(self) -> dict[str, object]:
+        """Rebuild the capture receipt digest from detached copied fields."""
+
+        return {
+            "attestation_scope": self.attestation_scope,
+            "endpoint_config_sha256": self.endpoint_config_sha256,
+            "model_family_sha256": self.model_family_sha256,
+            "canonical_model_state_sha256": (
+                self.canonical_model_state_sha256
+            ),
+            "elbo_inventory_sha256": self.elbo_inventory_sha256,
+            "evaluator_implementation_sha256": (
+                self.evaluator_implementation_sha256
+            ),
+            "expectation_identity_sha256": (
+                self.expectation_identity_sha256
+            ),
+            "expectation_structure_sha256": (
+                self.expectation_structure_sha256
+            ),
+            "expectation_source_law_marker_identity_sha256": (
+                self.expectation_source_law_marker_identity_sha256
+            ),
+            "source_prior_trace_sha256": self.source_prior_trace_sha256,
+            "endpoint_source_law_identity_sha256": (
+                self.source_law_identity_sha256
+            ),
+            "endpoint_language_elbo_sha256": (
+                self.endpoint_language_elbo_sha256
+            ),
+            "producer_route": self.h6_producer_route,
+            "issuer_route": self.issuer_route,
+        }
+
     def __post_init__(self) -> None:
         if (
             self.trace_hash_domain != H7_RAW_FACTOR_TRACE_HASH_DOMAIN
@@ -4331,6 +4374,7 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
             "model_family_sha256",
             "canonical_model_state_sha256",
             "elbo_inventory_sha256",
+            "evaluator_implementation_sha256",
             "expectation_identity_sha256",
             "expectation_structure_sha256",
             "expectation_source_law_marker_identity_sha256",
@@ -4360,6 +4404,13 @@ class H7RawFactorTraceEvidence(_H7IntegrityRecord):
         for factor_id in self.ordered_factor_ids:
             _require_sha256(factor_id, "ordered_factor_id")
         _require_sha256(self.trace_sha256, "trace_sha256")
+        if self.producer_attestation_sha256 != h7_owned_sha256(
+            H7_AUTHENTICATED_EVALUATION_HASH_DOMAIN,
+            self.producer_attestation_payload(),
+        ):
+            raise ValueError(
+                "inner producer attestation does not match copied bindings"
+            )
         if self.trace_sha256 != h7_owned_sha256(
             self.trace_hash_domain,
             self.trace_payload(),

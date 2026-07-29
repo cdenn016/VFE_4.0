@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import math
 import weakref
 from contextlib import contextmanager
@@ -1708,40 +1709,69 @@ class BuiltArm:
         return result
 
 
-_FACTORY_BUILT_ARM_REGISTRY: dict[
-    int,
-    weakref.ReferenceType[BuiltArm],
-] = {}
+def _callable_source_sha256(value: object) -> str:
+    source = inspect.getsource(value).replace("\r\n", "\n").encode("utf-8")
+    return hashlib.sha256(source).hexdigest()
 
 
-def _register_factory_built_arm(arm: BuiltArm) -> BuiltArm:
-    """Register one exact ``_construct`` result by live object identity."""
+def _build_h7_complete_elbo_evaluator():
+    exact_evaluator = BuiltArm.evaluate_complete_language_elbo
+    exact_source_trace = BuiltArm._live_source_prior_trace
+    exact_objective = _evaluate_language_elbo
+    implementation_sha256 = _owned_hash(
+        "vfe4.h7.bound-complete-elbo-evaluator.v1",
+        {
+            "evaluator_source_sha256": _callable_source_sha256(
+                exact_evaluator
+            ),
+            "source_trace_source_sha256": _callable_source_sha256(
+                exact_source_trace
+            ),
+            "objective_source_sha256": _callable_source_sha256(
+                exact_objective
+            ),
+        },
+    )
 
-    if type(arm) is not BuiltArm:
-        raise ValueError("only an exact BuiltArm can be factory-registered")
-    identity = id(arm)
+    def evaluate(
+        arm: BuiltArm,
+        expectation: LanguageElboExpectation,
+    ) -> H6EndpointLanguageElboTerms:
+        if type(arm) is not BuiltArm:
+            raise ValueError(
+                "bound complete ELBO evaluation requires an exact BuiltArm"
+            )
+        if not isinstance(expectation, LanguageElboExpectation):
+            raise ValueError(
+                "expectation must implement LanguageElboExpectation"
+            )
+        config = arm.config
+        if (
+            config.arm not in (ArmId.A2, ArmId.A5)
+            or config.objective_kind != "complete_elbo"
+            or config.mixture_mode not in ("exact", "moment_projection")
+        ):
+            raise ValueError(
+                "complete source-mixture ELBO is available only for "
+                "complete A2/A5 endpoints"
+            )
+        source_prior_trace = exact_source_trace(arm, expectation)
+        return exact_objective(
+            expectation,
+            endpoint_config=config,
+            prior_variant=config.prior_variant,  # type: ignore[arg-type]
+            mixture_mode=config.mixture_mode,
+            source_prior_trace=source_prior_trace,
+        )
 
-    def remove(reference: weakref.ReferenceType[BuiltArm]) -> None:
-        if _FACTORY_BUILT_ARM_REGISTRY.get(identity) is reference:
-            _FACTORY_BUILT_ARM_REGISTRY.pop(identity, None)
-
-    reference = weakref.ref(arm, remove)
-    current = _FACTORY_BUILT_ARM_REGISTRY.get(identity)
-    if current is not None and current() is not None:
-        raise RuntimeError("BuiltArm factory identity was already registered")
-    _FACTORY_BUILT_ARM_REGISTRY[identity] = reference
-    return arm
+    return evaluate, implementation_sha256
 
 
-def _require_factory_issued_built_arm(value: object) -> BuiltArm:
-    """Return only the exact live ``BuiltArm`` identity issued by ``_construct``."""
-
-    if type(value) is not BuiltArm:
-        raise ValueError("H7 capture requires an exact factory-issued BuiltArm")
-    reference = _FACTORY_BUILT_ARM_REGISTRY.get(id(value))
-    if reference is None or reference() is not value:
-        raise ValueError("H7 capture requires a live factory-issued BuiltArm")
-    return value
+(
+    _evaluate_factory_built_arm_complete_language_elbo,
+    _H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256,
+) = _build_h7_complete_elbo_evaluator()
+del _build_h7_complete_elbo_evaluator
 
 
 def _semantic_role(config: ArmConfig, qualified_name: str) -> str:
@@ -2025,10 +2055,12 @@ def build_arm_model(config: ArmConfig) -> ArmModel:
     )
 
 
-def _construct(config: ArmConfig) -> BuiltArm:
+def _construct_unregistered(
+    config: ArmConfig,
+    model: ArmModel,
+) -> BuiltArm:
     allocation = config.capacity_allocation
     family_sha256 = _model_family_sha256(config)
-    model = build_arm_model(config)
     if config.arm is ArmId.A0 or not config.latent_enabled:
         recognition_store = None
     else:
@@ -2081,7 +2113,7 @@ def _construct(config: ArmConfig) -> BuiltArm:
         == "emission_only_ablation_non_elbo"
         else model.elbo_inventory_sha256
     )
-    arm = BuiltArm(
+    return BuiltArm(
         config,
         model,
         recognition_store,
@@ -2096,7 +2128,127 @@ def _construct(config: ArmConfig) -> BuiltArm:
         False,
         _training_flop_obligations(model, recognition_store),
     )
-    return _register_factory_built_arm(arm)
+
+
+def _build_factory_arm_api():
+    registry: dict[
+        int,
+        tuple[weakref.ReferenceType[BuiltArm], tuple[object, ...]],
+    ] = {}
+    field_names = tuple(BuiltArm.__dataclass_fields__)
+
+    def issuance_snapshot(arm: BuiltArm) -> tuple[object, ...]:
+        model = arm.model
+        source_prior = getattr(model, "source_prior", None)
+        return (
+            tuple(id(getattr(arm, name)) for name in field_names),
+            arm.config.config_sha256,
+            arm.model_family_sha256,
+            tuple(arm.elbo_factor_inventory),
+            arm.elbo_inventory_sha256,
+            arm.training_flop_ledger_complete,
+            tuple(arm.training_flop_obligations),
+            type(model).__module__,
+            type(model).__qualname__,
+            id(source_prior),
+            getattr(model, "elbo_inventory_sha256", None),
+            tuple(getattr(model, "elbo_factor_inventory", ())),
+            getattr(source_prior, "fixture_sha256", None),
+            getattr(source_prior, "predictor_config_sha256", None),
+            getattr(source_prior, "model_family_sha256", None),
+        )
+
+    def register(arm: BuiltArm) -> BuiltArm:
+        identity = id(arm)
+
+        def remove(reference: weakref.ReferenceType[BuiltArm]) -> None:
+            current = registry.get(identity)
+            if current is not None and current[0] is reference:
+                registry.pop(identity, None)
+
+        reference = weakref.ref(arm, remove)
+        current = registry.get(identity)
+        if current is not None and current[0]() is not None:
+            raise RuntimeError("BuiltArm factory identity was already issued")
+        registry[identity] = (reference, issuance_snapshot(arm))
+        return arm
+
+    def require(value: object) -> BuiltArm:
+        if type(value) is not BuiltArm:
+            raise ValueError(
+                "H7 capture requires an exact factory-issued BuiltArm"
+            )
+        current = registry.get(id(value))
+        if current is None or current[0]() is not value:
+            raise ValueError(
+                "H7 capture requires a live factory-issued BuiltArm"
+            )
+        if issuance_snapshot(value) != current[1]:
+            raise ValueError(
+                "factory-issued BuiltArm changed after its issuance"
+            )
+        return value
+
+    def construct(config: ArmConfig) -> BuiltArm:
+        model = build_arm_model(config)
+        return register(_construct_unregistered(config, model))
+
+    def construct_with_fixed_source_prior(
+        config: ArmConfig,
+        *,
+        structure: H6LanguageStructure,
+        source_specification_sha256: str,
+        state_logits: tuple[Tensor, ...],
+        model_logits: tuple[Tensor, ...],
+    ) -> BuiltArm:
+        _require_builder_arm(config, ArmId.A5)
+        if (
+            config.config_id
+            != "h6-a5-structured-fixed-exact-complete-latent-smoothing-v1"
+            or config.horizon != 2
+            or config.prior_variant != "fixed"
+            or config.mixture_mode != "exact"
+            or config.objective_kind != "complete_elbo"
+        ):
+            raise ValueError(
+                "H7 fixed-source assembly requires the exact T=2 A5 "
+                "fixed/exact/complete endpoint"
+            )
+        if type(structure) is not H6LanguageStructure:
+            raise ValueError(
+                "H7 fixed-source assembly requires an exact language structure"
+            )
+        structure.__post_init__()
+        if structure.receiver_labels != (1, 2):
+            raise ValueError(
+                "H7 fixed-source assembly requires receiver labels (1, 2)"
+            )
+        model = build_arm_model(config)
+        if type(model) is not LatentLanguageArmModel:
+            raise ValueError(
+                "H7 fixed-source assembly requires the exact latent A5 model"
+            )
+        family_sha256 = _model_family_sha256(config)
+        model.source_prior = FixedSourcePrior(
+            structure=structure,
+            vocabulary=config.vocabulary,
+            fixture_sha256=source_specification_sha256,
+            predictor_config_sha256=config.config_sha256,
+            model_family_sha256=family_sha256,
+            state_logits=state_logits,
+            model_logits=model_logits,
+        )
+        return register(_construct_unregistered(config, model))
+
+    return construct, construct_with_fixed_source_prior, require
+
+
+(
+    _construct,
+    _construct_with_fixed_source_prior,
+    _require_factory_issued_built_arm,
+) = _build_factory_arm_api()
+del _build_factory_arm_api
 
 
 def build_a0(config: ArmConfig) -> BuiltArm:

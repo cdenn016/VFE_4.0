@@ -20,6 +20,7 @@ import vfe4.generative.pushforward as generative_pushforward
 import vfe4.objective.h7_covariance as covariance
 import vfe4.objective.language_elbo as language_elbo
 import vfe4.recognition.pushforward as recognition_pushforward
+import vfe4.training.arms as training_arms
 import vfe4.types.h7 as h7_types
 import verification.mp_oracles.h7_covariance as mp_oracle
 from vfe4.generative.source_priors import (
@@ -528,6 +529,7 @@ def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
         canonical_model_state_sha256(arm.model)
     )
     assert receipt.elbo_inventory_sha256 == arm.elbo_inventory_sha256
+    assert len(receipt.evaluator_implementation_sha256) == 64
     assert (
         receipt.expectation_identity_sha256
         == expectation.expectation_identity_sha256
@@ -575,6 +577,9 @@ def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
                 "vfe4.objective.language_elbo."
                 "capture_h7_complete_language_elbo"
             ),
+            "evaluator_identity_kind": (
+                "captured-python-source-sha256-v1"
+            ),
             "h6_producer_route": (
                 "vfe4.training.arms.BuiltArm."
                 "evaluate_complete_language_elbo",
@@ -613,6 +618,9 @@ def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
             trace.canonical_model_state_sha256
         ),
         "elbo_inventory_sha256": trace.elbo_inventory_sha256,
+        "evaluator_implementation_sha256": (
+            trace.evaluator_implementation_sha256
+        ),
         "expectation_identity_sha256": trace.expectation_identity_sha256,
         "expectation_structure_sha256": (
             trace.expectation_structure_sha256
@@ -633,11 +641,11 @@ def test_h7_complete_trace_requires_endpoint_and_binds_raw_provenance() -> None:
         "total_value": trace.total_value,
     }
     assert trace.trace_sha256 == _h6_owned_sha256(
-        "vfe4.h7.complete-language-elbo-factor-trace.v3",
+        "vfe4.h7.complete-language-elbo-factor-trace.v4",
         trace_semantic,
     )
     assert trace.trace_sha256 != _h6_owned_sha256(
-        "vfe4.h7.complete-language-elbo-factor-trace.v2",
+        "vfe4.h7.complete-language-elbo-factor-trace.v3",
         trace_semantic,
     )
 
@@ -672,6 +680,10 @@ def test_h7_complete_trace_rejects_mutated_provenance_and_preserves_h6_hashes(
         ("model_family_sha256", _sha("foreign model family")),
         ("canonical_model_state_sha256", _sha("foreign model state")),
         ("elbo_inventory_sha256", _sha("foreign inventory")),
+        (
+            "evaluator_implementation_sha256",
+            _sha("foreign evaluator implementation"),
+        ),
         ("expectation_identity_sha256", _sha("foreign expectation")),
         ("expectation_structure_sha256", _sha("foreign structure")),
         (
@@ -739,6 +751,9 @@ def test_h7_accepts_the_real_built_arm_complete_elbo_producer_route() -> None:
         receipt.canonical_model_state_sha256
     )
     assert evidence.elbo_inventory_sha256 == receipt.elbo_inventory_sha256
+    assert evidence.evaluator_implementation_sha256 == (
+        receipt.evaluator_implementation_sha256
+    )
     assert evidence.expectation_identity_sha256 == (
         receipt.expectation_identity_sha256
     )
@@ -775,6 +790,116 @@ def test_h7_rejects_nonfactory_arm_and_unregistered_receipt_forgeries() -> None:
         pickle.dumps(receipt)
 
 
+def test_h7_factory_registry_and_receipt_issuer_are_closure_owned() -> None:
+    assert not hasattr(training_arms, "_FACTORY_BUILT_ARM_REGISTRY")
+    assert not hasattr(training_arms, "_register_factory_built_arm")
+    assert not hasattr(
+        language_elbo,
+        "_H7_AUTHENTICATED_EVALUATION_REGISTRY",
+    )
+    assert not hasattr(
+        language_elbo,
+        "_register_h7_authenticated_evaluation",
+    )
+    assert not hasattr(
+        language_elbo,
+        "_issue_h7_authenticated_evaluation",
+    )
+
+
+def test_h7_factory_issuance_snapshot_rejects_object_setattr_rewrite() -> None:
+    arm, expectation = _real_built_arm_inputs("arm-issuance-rewrite")
+    object.__setattr__(arm, "training_flop_ledger_complete", True)
+
+    with pytest.raises(ValueError, match="factory|issuance|changed"):
+        language_elbo.capture_h7_complete_language_elbo(arm, expectation)
+
+
+def test_h7_receipt_issuance_snapshot_rejects_self_consistent_rewrite() -> None:
+    receipt, _, _ = _real_built_arm_capture("receipt-issuance-rewrite")
+    object.__setattr__(
+        receipt,
+        "expectation_identity_sha256",
+        _sha("rewritten expectation identity"),
+    )
+    object.__setattr__(
+        receipt,
+        "attestation_sha256",
+        h7_owned_sha256(
+            h7_types.H7_AUTHENTICATED_EVALUATION_HASH_DOMAIN,
+            receipt.attestation_payload(),
+        ),
+    )
+    receipt.__post_init__()
+
+    with pytest.raises(ValueError, match="issuance|registered|changed"):
+        require_h7_complete_factor_trace(receipt)
+
+
+def test_h7_capture_uses_import_bound_evaluator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arm, expectation = _real_built_arm_inputs("class-evaluator-monkeypatch")
+
+    def substituted_evaluator(*args: object, **kwargs: object) -> object:
+        del args, kwargs
+        raise AssertionError("substituted class evaluator was invoked")
+
+    monkeypatch.setattr(
+        training_arms.BuiltArm,
+        "evaluate_complete_language_elbo",
+        substituted_evaluator,
+    )
+
+    receipt = language_elbo.capture_h7_complete_language_elbo(
+        arm,
+        expectation,
+    )
+    assert receipt.endpoint.endpoint_config == arm.config
+
+
+def test_h7_capture_uses_import_bound_source_trace_helper() -> None:
+    arm, expectation = _real_built_arm_inputs("instance-helper-shadow")
+
+    def substituted_source_trace(*args: object, **kwargs: object) -> object:
+        del args, kwargs
+        raise AssertionError("instance source-trace shadow was invoked")
+
+    object.__setattr__(
+        arm,
+        "_live_source_prior_trace",
+        substituted_source_trace,
+    )
+
+    receipt = language_elbo.capture_h7_complete_language_elbo(
+        arm,
+        expectation,
+    )
+    assert receipt.endpoint.endpoint_config == arm.config
+
+
+def test_h7_capture_uses_import_bound_objective(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arm, expectation = _real_built_arm_inputs("objective-monkeypatch")
+
+    def substituted_objective(*args: object, **kwargs: object) -> object:
+        del args, kwargs
+        raise AssertionError("substituted objective was invoked")
+
+    monkeypatch.setattr(
+        training_arms,
+        "_evaluate_language_elbo",
+        substituted_objective,
+    )
+
+    receipt = language_elbo.capture_h7_complete_language_elbo(
+        arm,
+        expectation,
+    )
+    assert receipt.endpoint.endpoint_config == arm.config
+
+
 def test_h7_raw_trace_evidence_rejects_fabricated_and_unrelated_claims() -> None:
     evidence = _raw_trace_evidence("authenticated-evidence")
     unrelated = _raw_trace_evidence("unrelated-evidence")
@@ -796,7 +921,10 @@ def test_h7_raw_trace_evidence_rejects_fabricated_and_unrelated_claims() -> None
         forged(
             trace_sha256=unrelated.trace_sha256,
         ).__post_init__()
-    with pytest.raises(ValueError, match="trace_sha256|evidence_sha256"):
+    with pytest.raises(
+        ValueError,
+        match="inner|attestation|trace_sha256|evidence_sha256",
+    ):
         forged(
             producer_attestation_sha256=(
                 unrelated.producer_attestation_sha256
@@ -806,6 +934,40 @@ def test_h7_raw_trace_evidence_rejects_fabricated_and_unrelated_claims() -> None
         forged(
             ordered_factor_ids=unrelated.ordered_factor_ids,
         ).__post_init__()
+
+
+def test_h7_raw_trace_evidence_recomputes_inner_attestation_digest() -> None:
+    evidence = _raw_trace_evidence("inner-attestation-original")
+    unrelated = _raw_trace_evidence("inner-attestation-unrelated")
+    forged = object.__new__(h7_types.H7RawFactorTraceEvidence)
+    for item in dataclasses.fields(evidence):
+        object.__setattr__(forged, item.name, getattr(evidence, item.name))
+    object.__setattr__(
+        forged,
+        "producer_attestation_sha256",
+        unrelated.producer_attestation_sha256,
+    )
+    object.__setattr__(
+        forged,
+        "trace_sha256",
+        h7_owned_sha256(
+            forged.trace_hash_domain,
+            forged.trace_payload(),
+        ),
+    )
+    evidence_semantic = {
+        item.name: getattr(forged, item.name)
+        for item in dataclasses.fields(forged)
+        if item.name != "evidence_sha256"
+    }
+    object.__setattr__(
+        forged,
+        "evidence_sha256",
+        h7_owned_sha256(forged._hash_domain, evidence_semantic),
+    )
+
+    with pytest.raises(ValueError, match="inner|attestation"):
+        forged.__post_init__()
 
 
 def test_h7_grouped_elbo_subtracts_positive_kls_and_keeps_entropy_nonadditive(
