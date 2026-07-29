@@ -37,6 +37,7 @@ from vfe4.artifacts.run_directory import (
     ExperimentPlanIdentity,
     ResumeLineageEvent,
     RunManifestIdentity,
+    consume_resume_execution_retry,
     finalize_run,
     publish_experiment_index,
     publish_experiment_plan,
@@ -2511,6 +2512,7 @@ def _run_one_arm(
             ],
             step_offset=restored_cursor["batch_index"],  # type: ignore[arg-type]
         )
+        consume_resume_execution_retry(reserved, backend=backend)
         continued = train_attempt(
             runtime,
             batches=(batch,),
