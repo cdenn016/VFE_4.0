@@ -25,6 +25,101 @@ from vfe4.types import (
 from vfe4.types.training import owned_sha256
 
 
+def test_production_attempt_applies_and_revalidates_exact_precision_runtime_policy_before_cuda(
+) -> None:
+    from vfe4.training import production_attempt
+
+    class _FakeCuda:
+        def __init__(self) -> None:
+            self.initialized_checks = 0
+
+        def is_initialized(self) -> bool:
+            self.initialized_checks += 1
+            return False
+
+    class _FakeTorch:
+        def __init__(self) -> None:
+            self.cuda = _FakeCuda()
+            self.backends = SimpleNamespace(
+                cudnn=SimpleNamespace(
+                    benchmark=True,
+                    deterministic=False,
+                    allow_tf32=True,
+                ),
+                cuda=SimpleNamespace(
+                    matmul=SimpleNamespace(
+                        allow_tf32=True,
+                        allow_fp16_reduced_precision_reduction=True,
+                    )
+                ),
+            )
+            self.deterministic_algorithms = False
+
+        def use_deterministic_algorithms(
+            self,
+            enabled: bool,
+        ) -> None:
+            self.deterministic_algorithms = enabled
+
+        def are_deterministic_algorithms_enabled(self) -> bool:
+            return self.deterministic_algorithms
+
+    runtime = _FakeTorch()
+    environment: dict[str, str] = {}
+    training = resolve_training_config(default_training_config_mapping())
+
+    evidence = production_attempt._apply_frozen_precision_runtime_policy(
+        training=training,
+        torch_runtime=runtime,
+        environment=environment,
+    )
+
+    assert runtime.cuda.initialized_checks == 1
+    assert environment == {"CUBLAS_WORKSPACE_CONFIG": ":4096:8"}
+    assert runtime.deterministic_algorithms is True
+    assert runtime.backends.cudnn.benchmark is False
+    assert runtime.backends.cudnn.deterministic is True
+    assert runtime.backends.cuda.matmul.allow_tf32 is False
+    assert runtime.backends.cudnn.allow_tf32 is False
+    assert (
+        runtime.backends.cuda.matmul.allow_fp16_reduced_precision_reduction
+        is False
+    )
+    assert evidence.cublas_workspace_config == ":4096:8"
+    assert evidence.torch_deterministic_algorithms is True
+    assert evidence.cudnn_benchmark is False
+    assert evidence.cudnn_deterministic is True
+    assert evidence.allow_tf32_matmul is False
+    assert evidence.allow_tf32_cudnn is False
+    assert evidence.allow_fp16_reduced_precision_reduce is False
+
+    class _DriftingCudnn:
+        def __init__(self) -> None:
+            self.benchmark = True
+            self.deterministic = False
+            self._allow_tf32 = True
+
+        @property
+        def allow_tf32(self) -> bool:
+            return True
+
+        @allow_tf32.setter
+        def allow_tf32(self, value: bool) -> None:
+            self._allow_tf32 = value
+
+    drifting_runtime = _FakeTorch()
+    drifting_runtime.backends.cudnn = _DriftingCudnn()
+    with pytest.raises(
+        RuntimeError,
+        match="effective CUDA precision runtime policy drifted",
+    ):
+        production_attempt._apply_frozen_precision_runtime_policy(
+            training=training,
+            torch_runtime=drifting_runtime,
+            environment={},
+        )
+
+
 def _production_experiment_plan_fixture(training):
     from vfe4.artifacts.run_directory import ExperimentPlan
 

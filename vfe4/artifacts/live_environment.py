@@ -24,7 +24,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Protocol, TypeVar, cast
+from typing import Callable, MutableMapping, Protocol, TypeVar, cast
 
 from vfe4.types.training import WT103ArmSpec, owned_sha256
 
@@ -48,6 +48,180 @@ class LiveEnvironmentProvider(Protocol):
     """Provider seam for facts captured before CUDA device initialization."""
 
     def capture_before_device_work(self) -> EnvironmentObservation: ...
+
+
+@dataclass(frozen=True, slots=True)
+class LivePrecisionRuntimeEvidence:
+    """Effective CUDA precision settings captured at the production seam."""
+
+    cublas_workspace_config: str
+    torch_deterministic_algorithms: bool
+    cudnn_deterministic: bool
+    cudnn_benchmark: bool
+    allow_tf32_matmul: bool
+    allow_tf32_cudnn: bool
+    allow_fp16_reduced_precision_reduce: bool
+
+    def __post_init__(self) -> None:
+        if type(self.cublas_workspace_config) is not str:
+            raise RuntimeError(
+                "effective CUBLAS_WORKSPACE_CONFIG is not an exact string"
+            )
+        for name in tuple(self.__dataclass_fields__)[1:]:
+            if type(getattr(self, name)) is not bool:
+                raise RuntimeError(
+                    f"effective CUDA precision setting {name} is not an exact bool"
+                )
+
+    def assert_matches_frozen_configuration(
+        self,
+        precision: object,
+    ) -> None:
+        expected = {
+            name: getattr(precision, name)
+            for name in self.__dataclass_fields__
+        }
+        if any(
+            getattr(self, name) != value
+            for name, value in expected.items()
+        ):
+            raise RuntimeError(
+                "effective CUDA precision runtime policy drifted from the "
+                "frozen configuration"
+            )
+
+
+def _required_backend_bool(owner: object, name: str) -> bool:
+    if not hasattr(owner, name):
+        raise RuntimeError(
+            f"installed Torch lacks required CUDA precision setting {name}"
+        )
+    value = getattr(owner, name)
+    if type(value) is not bool:
+        raise RuntimeError(
+            f"installed Torch CUDA precision setting {name} is not an exact bool"
+        )
+    return value
+
+
+def _set_required_backend_bool(
+    owner: object,
+    name: str,
+    value: bool,
+) -> None:
+    _required_backend_bool(owner, name)
+    try:
+        setattr(owner, name, value)
+    except (AttributeError, RuntimeError) as exc:
+        raise RuntimeError(
+            f"installed Torch cannot set CUDA precision setting {name}"
+        ) from exc
+
+
+def apply_frozen_precision_runtime_policy(
+    *,
+    precision: object,
+    torch_runtime: object,
+    environment: MutableMapping[str, str],
+) -> LivePrecisionRuntimeEvidence:
+    """Bind, capture, and revalidate the frozen policy before CUDA use."""
+
+    expected_cublas = getattr(precision, "cublas_workspace_config")
+    expected_bools = {
+        name: getattr(precision, name)
+        for name in (
+            "torch_deterministic_algorithms",
+            "cudnn_deterministic",
+            "cudnn_benchmark",
+            "allow_tf32_matmul",
+            "allow_tf32_cudnn",
+            "allow_fp16_reduced_precision_reduce",
+        )
+    }
+    if type(expected_cublas) is not str or any(
+        type(value) is not bool for value in expected_bools.values()
+    ):
+        raise RuntimeError("frozen CUDA precision configuration is invalid")
+
+    cuda = getattr(torch_runtime, "cuda", None)
+    is_initialized = getattr(cuda, "is_initialized", None)
+    if not callable(is_initialized):
+        raise RuntimeError("installed Torch lacks CUDA initialization status")
+    if is_initialized():
+        raise RuntimeError(
+            "CUDA was initialized before production bound "
+            "CUBLAS_WORKSPACE_CONFIG"
+        )
+    existing_cublas = environment.get("CUBLAS_WORKSPACE_CONFIG")
+    if existing_cublas is None:
+        environment["CUBLAS_WORKSPACE_CONFIG"] = expected_cublas
+    elif existing_cublas != expected_cublas:
+        raise RuntimeError(
+            "existing CUBLAS_WORKSPACE_CONFIG conflicts with the frozen "
+            "production policy"
+        )
+
+    set_deterministic = getattr(
+        torch_runtime,
+        "use_deterministic_algorithms",
+        None,
+    )
+    deterministic_enabled = getattr(
+        torch_runtime,
+        "are_deterministic_algorithms_enabled",
+        None,
+    )
+    if not callable(set_deterministic) or not callable(deterministic_enabled):
+        raise RuntimeError("installed Torch lacks deterministic-algorithm controls")
+    set_deterministic(expected_bools["torch_deterministic_algorithms"])
+
+    backends = getattr(torch_runtime, "backends", None)
+    cudnn = getattr(backends, "cudnn", None)
+    cuda_backends = getattr(backends, "cuda", None)
+    matmul = getattr(cuda_backends, "matmul", None)
+    _set_required_backend_bool(
+        cudnn,
+        "deterministic",
+        expected_bools["cudnn_deterministic"],
+    )
+    _set_required_backend_bool(
+        cudnn,
+        "benchmark",
+        expected_bools["cudnn_benchmark"],
+    )
+    _set_required_backend_bool(
+        matmul,
+        "allow_tf32",
+        expected_bools["allow_tf32_matmul"],
+    )
+    _set_required_backend_bool(
+        cudnn,
+        "allow_tf32",
+        expected_bools["allow_tf32_cudnn"],
+    )
+    _set_required_backend_bool(
+        matmul,
+        "allow_fp16_reduced_precision_reduction",
+        expected_bools["allow_fp16_reduced_precision_reduce"],
+    )
+
+    evidence = LivePrecisionRuntimeEvidence(
+        cublas_workspace_config=environment.get(
+            "CUBLAS_WORKSPACE_CONFIG",
+            "",
+        ),
+        torch_deterministic_algorithms=deterministic_enabled(),
+        cudnn_deterministic=_required_backend_bool(cudnn, "deterministic"),
+        cudnn_benchmark=_required_backend_bool(cudnn, "benchmark"),
+        allow_tf32_matmul=_required_backend_bool(matmul, "allow_tf32"),
+        allow_tf32_cudnn=_required_backend_bool(cudnn, "allow_tf32"),
+        allow_fp16_reduced_precision_reduce=_required_backend_bool(
+            matmul,
+            "allow_fp16_reduced_precision_reduction",
+        ),
+    )
+    evidence.assert_matches_frozen_configuration(precision)
+    return evidence
 
 
 class AllocationBackend(Protocol):

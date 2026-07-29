@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from fractions import Fraction
 from pathlib import Path
-from typing import Callable, Literal, Mapping
+from typing import Callable, Literal, Mapping, MutableMapping
 
 import numpy as np
 import torch
@@ -43,6 +43,8 @@ from vfe4.artifacts.live_environment import (
     NvidiaSmiPowerSampler,
     PowerObservation,
     PowerSampleOperationFailure,
+    LivePrecisionRuntimeEvidence,
+    apply_frozen_precision_runtime_policy,
     discover_nvidia_smi_power_provider,
 )
 from vfe4.artifacts.live_readiness import Task14ReadinessBundle
@@ -3225,6 +3227,21 @@ def _attempt_artifacts_exist(attempt_root: Path) -> bool:
     )
 
 
+def _apply_frozen_precision_runtime_policy(
+    *,
+    training: TrainingConfig,
+    torch_runtime: object | None = None,
+    environment: MutableMapping[str, str] | None = None,
+) -> LivePrecisionRuntimeEvidence:
+    """Apply the frozen CUDA policy before the production attempt touches CUDA."""
+
+    return apply_frozen_precision_runtime_policy(
+        precision=training.profile.precision,
+        torch_runtime=torch if torch_runtime is None else torch_runtime,
+        environment=os.environ if environment is None else environment,
+    )
+
+
 def _execute_attempt(
     *,
     attempt: ProductionAttemptSpec,
@@ -3243,20 +3260,12 @@ def _execute_attempt(
             "production resource-abort authority is invalid"
         )
     resource_abort()
+    _apply_frozen_precision_runtime_policy(training=training)
     device = torch.device(training.profile.precision.real_training_device)
     if not torch.cuda.is_available() or device.type != "cuda":
         raise ProductionOperationError(
             "authorized production training requires CUDA"
         )
-    torch.use_deterministic_algorithms(
-        training.profile.precision.torch_deterministic_algorithms
-    )
-    torch.backends.cudnn.benchmark = (
-        training.profile.precision.cudnn_benchmark
-    )
-    torch.backends.cudnn.deterministic = (
-        training.profile.precision.cudnn_deterministic
-    )
     authority = WT103RuntimeAuthority.from_production_source_lock(
         source_lock,
         device=device,
