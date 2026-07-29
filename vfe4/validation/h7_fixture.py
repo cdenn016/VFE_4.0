@@ -199,30 +199,6 @@ _PROBE_COMPONENTS = (
     ("q.factorized.global", "matrix-singleton-path", 12, "global"),
 )
 _H1_SCALAR_PROBE_ANCHOR_PROFILE = "original-generative-conditional-global-mean-v1"
-_H1_SCALAR_PATH_MEANS = (
-    (0.2, -0.15, 0.090625, -0.0875, 0.2995, -0.17),
-    (0.2, -0.15, 0.090625, -0.0875, 0.1975, -0.17),
-    (0.2, -0.15, 0.090625, -0.0875, 0.2771, -0.106),
-    (0.2, -0.15, 0.090625, -0.0875, 0.1751, -0.106),
-)
-_H1_SCALAR_PATH_PRIMES = (
-    (
-        (0.25, -0.1875, 0.11328125, -0.109375, 0.374375, -0.2125),
-        (0.25, -0.1875, 0.11328125, -0.109375, 0.246875, -0.2125),
-        (0.25, -0.1875, 0.11328125, -0.109375, 0.346375, -0.1325),
-        (0.25, -0.1875, 0.11328125, -0.109375, 0.218875, -0.1325),
-    ),
-    (
-        (0.16, -0.12, 0.0996875, -0.09625, 0.4193, -0.238),
-        (0.16, -0.12, 0.0996875, -0.09625, 0.2765, -0.238),
-        (0.16, -0.12, 0.0996875, -0.09625, 0.38794, -0.1484),
-        (0.16, -0.12, 0.0996875, -0.09625, 0.24514, -0.1484),
-    ),
-)
-_H1_SCALAR_GLOBAL_LOG_JACOBIAN_SHIFTS = (
-    1.3388613078852587,
-    0.4172777302226563,
-)
 
 
 def _reject_duplicate_pairs(
@@ -292,6 +268,35 @@ def _tensor(value: object, shape: tuple[int, ...], location: str) -> torch.Tenso
     def convert(item: object, depth: int, prefix: str) -> object:
         if depth == len(shape):
             return _number(item, prefix)
+        row = _sequence(item, shape[depth], prefix)
+        return [
+            convert(child, depth + 1, f"{prefix}[{index}]")
+            for index, child in enumerate(row)
+        ]
+
+    return torch.tensor(convert(value, 0, location), dtype=torch.float64)
+
+
+def _decimal_string_number(value: object, location: str) -> float:
+    if type(value) is not str or not value:
+        raise ValueError(f"{location} must be a nonempty decimal string")
+    try:
+        result = float(value)
+    except (OverflowError, ValueError) as error:
+        raise ValueError(f"{location} is outside finite binary64") from error
+    if not math.isfinite(result):
+        raise ValueError(f"{location} is outside finite binary64")
+    return result
+
+
+def _decimal_string_tensor(
+    value: object,
+    shape: tuple[int, ...],
+    location: str,
+) -> torch.Tensor:
+    def convert(item: object, depth: int, prefix: str) -> object:
+        if depth == len(shape):
+            return _decimal_string_number(item, prefix)
         row = _sequence(item, shape[depth], prefix)
         return [
             convert(child, depth + 1, f"{prefix}[{index}]")
@@ -1050,6 +1055,156 @@ def h7_scalar_trial_specs() -> tuple[H7TrialSpec, H7TrialSpec]:
     )
 
 
+def _load_scalar_probe_set(
+    *,
+    raw_fixture_sha256: str,
+    ordered_paths: tuple[H7ScalarSourcePathSnapshot, ...],
+    scalar_trial_specs: tuple[H7TrialSpec, H7TrialSpec],
+) -> H7ScalarProbeSetSnapshot:
+    table = _parse_exact_json(
+        H7_SCALAR_PROBE_TABLE_PATH.read_bytes(),
+        expected_sha256=H7_SCALAR_PROBE_TABLE_RAW_SHA256,
+    )
+    root = _fields(
+        table,
+        {
+            "anchor_provenance",
+            "fixture_id",
+            "ordered_source_path_ids",
+            "probe_set_sha256",
+            "probe_table_schema",
+            "raw_fixture_sha256",
+            "records",
+            "scalar_trial_action_sha256",
+        },
+        "scalar_probe_table",
+    )
+    ordered_path_ids = tuple(
+        _sequence(
+            root["ordered_source_path_ids"],
+            4,
+            "scalar_probe_table.ordered_source_path_ids",
+        )
+    )
+    action_sha256 = tuple(
+        _sequence(
+            root["scalar_trial_action_sha256"],
+            2,
+            "scalar_probe_table.scalar_trial_action_sha256",
+        )
+    )
+    expected_path_ids = tuple(path.path_id for path in ordered_paths)
+    expected_action_sha256 = tuple(
+        spec.action_sha256 for spec in scalar_trial_specs
+    )
+    if (
+        root["probe_table_schema"] != "h7-scalar-density-probe-table-v1"
+        or root["fixture_id"] != "h1-v1"
+        or root["raw_fixture_sha256"] != raw_fixture_sha256
+        or root["anchor_provenance"] != _H1_SCALAR_PROBE_ANCHOR_PROFILE
+        or root["probe_set_sha256"] != H7_SCALAR_PROBE_SET_SHA256
+        or ordered_path_ids != expected_path_ids
+        or action_sha256 != expected_action_sha256
+    ):
+        raise ValueError("scalar-probe table identity/path/action changed")
+
+    raw_records = _sequence(root["records"], 8, "scalar_probe_table.records")
+    pairs: list[H7DensityProbePair] = []
+    row_index = 0
+    for trial_spec in scalar_trial_specs:
+        for path in ordered_paths:
+            location = f"scalar_probe_table.records[{row_index}]"
+            record = _fields(
+                raw_records[row_index],
+                {
+                    "action_sha256",
+                    "anchor_provenance",
+                    "anchor_sha256",
+                    "component_id",
+                    "fixture_id",
+                    "global_log_jacobian_shift",
+                    "initial_log_jacobian_shift",
+                    "probe_id",
+                    "probe_sha256",
+                    "receiver_log_jacobian_shift",
+                    "row_index",
+                    "source_id",
+                    "x",
+                    "x_prime",
+                },
+                location,
+            )
+            expected_probe_id = (
+                f"{trial_spec.trial_id}:h1.p.global.source_path:{path.path_id}"
+            )
+            expected_anchor_provenance = (
+                f"{_H1_SCALAR_PROBE_ANCHOR_PROFILE}|"
+                f"raw_fixture_sha256={raw_fixture_sha256}|"
+                f"source_id={path.path_id}"
+            )
+            if (
+                record["row_index"] != str(row_index)
+                or record["probe_id"] != expected_probe_id
+                or record["fixture_id"] != "h1-v1"
+                or record["component_id"] != "h1.p.global.source_path"
+                or record["source_id"] != path.path_id
+                or record["action_sha256"] != trial_spec.action_sha256
+                or record["anchor_provenance"] != expected_anchor_provenance
+            ):
+                raise ValueError(
+                    f"{location} changed from the frozen order/identity"
+                )
+            pair = H7DensityProbePair.create(
+                probe_id=expected_probe_id,
+                fixture_id="h1-v1",
+                component_id="h1.p.global.source_path",
+                source_id=path.path_id,
+                action_sha256=trial_spec.action_sha256,
+                anchor_sha256=cast(str, record["anchor_sha256"]),
+                anchor_provenance=expected_anchor_provenance,
+                x=_snapshot(
+                    _decimal_string_tensor(record["x"], (6,), f"{location}.x")
+                ),
+                x_prime=_snapshot(
+                    _decimal_string_tensor(
+                        record["x_prime"],
+                        (6,),
+                        f"{location}.x_prime",
+                    )
+                ),
+                initial_log_jacobian_shift=_decimal_string_number(
+                    record["initial_log_jacobian_shift"],
+                    f"{location}.initial_log_jacobian_shift",
+                ),
+                receiver_log_jacobian_shift=_decimal_string_number(
+                    record["receiver_log_jacobian_shift"],
+                    f"{location}.receiver_log_jacobian_shift",
+                ),
+                global_log_jacobian_shift=_decimal_string_number(
+                    record["global_log_jacobian_shift"],
+                    f"{location}.global_log_jacobian_shift",
+                ),
+            )
+            if pair.probe_sha256 != record["probe_sha256"]:
+                raise ValueError(f"{location}.probe_sha256 does not bind the row")
+            pairs.append(pair)
+            row_index += 1
+    if row_index != len(raw_records):
+        raise ValueError("scalar-probe table contains unconsumed rows")
+
+    probe_set = H7ScalarProbeSetSnapshot.create(
+        fixture_id="h1-v1",
+        raw_fixture_sha256=raw_fixture_sha256,
+        ordered_source_path_ids=expected_path_ids,
+        scalar_trial_action_sha256=expected_action_sha256,
+        anchor_provenance=_H1_SCALAR_PROBE_ANCHOR_PROFILE,
+        probe_pairs=tuple(pairs),
+    )
+    if probe_set.probe_set_sha256 != root["probe_set_sha256"]:
+        raise ValueError("scalar-probe-set source constant drifted")
+    return probe_set
+
+
 def _direction_ids(dimension: int) -> tuple[str, ...]:
     values = ["zero"]
     for index in range(dimension):
@@ -1606,63 +1761,10 @@ def _adapt_h1(data: bytes) -> H7CompleteLawSnapshot:
             ),
         ),
     )
-    scalar_trial_specs = h7_scalar_trial_specs()
-    scalar_probe_pairs: list[H7DensityProbePair] = []
-    for trial_index, trial_spec in enumerate(scalar_trial_specs):
-        for path_index, path in enumerate(ordered_paths):
-            x = _snapshot(
-                torch.tensor(
-                    _H1_SCALAR_PATH_MEANS[path_index],
-                    dtype=torch.float64,
-                )
-            )
-            x_prime = _snapshot(
-                torch.tensor(
-                    _H1_SCALAR_PATH_PRIMES[trial_index][path_index],
-                    dtype=torch.float64,
-                )
-            )
-            anchor_provenance = (
-                f"{_H1_SCALAR_PROBE_ANCHOR_PROFILE};"
-                f"raw_h1_sha256={H1_FIXTURE_RAW_SHA256};"
-                f"source_id={path.path_id}"
-            )
-            anchor_sha256 = h7_owned_sha256(
-                "vfe4.h7.scalar-density-anchor.v1",
-                {
-                    "raw_fixture_sha256": H1_FIXTURE_RAW_SHA256,
-                    "source_id": path.path_id,
-                    "anchor": x,
-                },
-            )
-            scalar_probe_pairs.append(
-                H7DensityProbePair.create(
-                    probe_id=(
-                        f"{trial_spec.trial_id}:h1.p.global.source_path:{path.path_id}"
-                    ),
-                    fixture_id="h1-v1",
-                    component_id="h1.p.global.source_path",
-                    source_id=path.path_id,
-                    action_sha256=trial_spec.action_sha256,
-                    anchor_sha256=anchor_sha256,
-                    anchor_provenance=anchor_provenance,
-                    x=x,
-                    x_prime=x_prime,
-                    initial_log_jacobian_shift=0.0,
-                    receiver_log_jacobian_shift=0.0,
-                    global_log_jacobian_shift=(
-                        _H1_SCALAR_GLOBAL_LOG_JACOBIAN_SHIFTS[trial_index]
-                    ),
-                )
-            )
-    scalar_probe_set = H7ScalarProbeSetSnapshot.create(
+    scalar_probe_set = _load_scalar_probe_set(
         raw_fixture_sha256=H1_FIXTURE_RAW_SHA256,
-        ordered_source_path_ids=tuple(path.path_id for path in ordered_paths),
-        scalar_trial_action_sha256=tuple(
-            spec.action_sha256 for spec in scalar_trial_specs
-        ),
-        anchor_provenance=_H1_SCALAR_PROBE_ANCHOR_PROFILE,
-        probe_pairs=tuple(scalar_probe_pairs),
+        ordered_paths=ordered_paths,
+        scalar_trial_specs=h7_scalar_trial_specs(),
     )
     return H7CompleteLawSnapshot.create(
         fixture_id="h1-v1",

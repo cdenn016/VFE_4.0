@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 import torch
@@ -27,6 +28,7 @@ from vfe4.types.h7 import (
     canonical_h7_bytes,
 )
 from vfe4.validation.h7_fixture import (
+    adapt_optional_h1_fixture_bytes,
     h7_trial_specs_from_config,
     h7_validation_config_mapping,
 )
@@ -52,6 +54,44 @@ def _h1_paths() -> tuple[H7ScalarSourcePathSnapshot, ...]:
         )
         for index, (a, b, model, state) in enumerate(declarations)
     )
+
+
+def _frozen_h1_law():
+    fixture_path = (
+        Path(__file__).parents[2]
+        / "vfe4"
+        / "validation"
+        / "fixtures"
+        / "h1_v1.json"
+    )
+    law = adapt_optional_h1_fixture_bytes(
+        fixture_path.read_bytes(),
+        required_scalar_trials=(
+            "scalar-base-transformed",
+            "scalar-internal-transformed",
+        ),
+    )
+    assert law is not None
+    return law
+
+
+def test_scalar_probe_set_binds_h1_fixture_identity_into_frozen_hash() -> None:
+    probe_set = _frozen_h1_law().scalar_probe_set
+
+    assert probe_set is not None
+    assert probe_set.fixture_id == "h1-v1"
+    assert (
+        probe_set.probe_set_sha256
+        == "9e3183101c15757e644db63546ebe05b89cef4e0f0346a25cf762d49f1bfa9d6"
+    )
+
+
+def test_scalar_probe_set_rejects_non_h1_fixture_identity() -> None:
+    probe_set = _frozen_h1_law().scalar_probe_set
+
+    assert probe_set is not None
+    with pytest.raises(ValueError, match="fixture_id"):
+        replace(probe_set, fixture_id="h7-v1")
 
 
 def test_borrowed_tensor_law_identity_is_reproducible_live_and_graph_preserving() -> (

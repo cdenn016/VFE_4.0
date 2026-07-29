@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 import torch
 
+import vfe4.validation.h7_fixture as h7_fixture
 from vfe4.types.h7 import (
     H7_CONTROL_IDS,
     H7_MATRIX_TRIAL_IDS,
@@ -34,6 +35,71 @@ from vfe4.validation.h7_fixture import (
     parse_h7_fixture_bytes,
 )
 from verification.mp_oracles.h7_covariance import build_h7_scalar_probe_table_bytes
+
+
+def _h1_fixture_bytes() -> bytes:
+    return (
+        Path(__file__).parents[2]
+        / "vfe4"
+        / "validation"
+        / "fixtures"
+        / "h1_v1.json"
+    ).read_bytes()
+
+
+def _canonical_scalar_probe_table_bytes(value: object) -> bytes:
+    return (
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("ascii")
+        + b"\n"
+    )
+
+
+def _mutated_scalar_probe_table_bytes(case: str) -> bytes:
+    table = json.loads(H7_SCALAR_PROBE_TABLE_PATH.read_bytes())
+    records = table["records"]
+    if case == "payload-tamper":
+        records[0]["x_prime"][0] = (
+            "0.2510000000000000000000000000000000000000000000000000000000000000"
+        )
+    elif case == "row-reorder":
+        records[0], records[1] = records[1], records[0]
+    elif case == "action-mismatch":
+        table["scalar_trial_action_sha256"][0] = "0" * 64
+    elif case == "h1-mismatch":
+        table["raw_fixture_sha256"] = "0" * 64
+    elif case == "root-mismatch":
+        table["probe_table_schema"] = "h7-scalar-density-probe-table-v2"
+    elif case == "row-hash-mismatch":
+        records[0]["probe_sha256"] = "0" * 64
+    elif case == "set-hash-mismatch":
+        table["probe_set_sha256"] = "0" * 64
+    else:
+        raise AssertionError(f"unknown scalar probe mutation {case!r}")
+    return _canonical_scalar_probe_table_bytes(table)
+
+
+def _install_scalar_probe_table(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    table_bytes: bytes,
+    *,
+    trust_raw_hash: bool,
+) -> None:
+    table_path = tmp_path / "h7_scalar_density_probes_v1.json"
+    table_path.write_bytes(table_bytes)
+    monkeypatch.setattr(h7_fixture, "H7_SCALAR_PROBE_TABLE_PATH", table_path)
+    if trust_raw_hash:
+        monkeypatch.setattr(
+            h7_fixture,
+            "H7_SCALAR_PROBE_TABLE_RAW_SHA256",
+            hashlib.sha256(table_bytes).hexdigest(),
+        )
 
 
 def test_h7_raw_fixture_parses_to_the_frozen_matrix_contract() -> None:
@@ -155,9 +221,7 @@ def test_h7_raw_fixture_rejects_any_byte_or_schema_drift() -> None:
 
 
 def test_frozen_h7_scalar_probe_table_matches_independent_builder() -> None:
-    h1_bytes = (
-        Path(__file__).parents[2] / "vfe4" / "validation" / "fixtures" / "h1_v1.json"
-    ).read_bytes()
+    h1_bytes = _h1_fixture_bytes()
     table_bytes = H7_SCALAR_PROBE_TABLE_PATH.read_bytes()
     table = json.loads(table_bytes)
 
@@ -168,6 +232,117 @@ def test_frozen_h7_scalar_probe_table_matches_independent_builder() -> None:
     assert tuple(record["row_index"] for record in table["records"]) == tuple(
         str(index) for index in range(8)
     )
+
+
+def test_h1_adapter_consumes_exact_frozen_scalar_probe_table() -> None:
+    table_bytes = H7_SCALAR_PROBE_TABLE_PATH.read_bytes()
+    table = json.loads(table_bytes)
+    snapshot = adapt_optional_h1_fixture_bytes(
+        _h1_fixture_bytes(),
+        required_scalar_trials=H7_SCALAR_TRIAL_IDS,
+    )
+
+    assert snapshot is not None
+    probes = snapshot.scalar_probe_set
+    assert probes is not None
+    assert hashlib.sha256(table_bytes).hexdigest() == (
+        H7_SCALAR_PROBE_TABLE_RAW_SHA256
+    )
+    assert probes.fixture_id == table["fixture_id"]
+    assert probes.raw_fixture_sha256 == table["raw_fixture_sha256"]
+    assert probes.ordered_source_path_ids == tuple(table["ordered_source_path_ids"])
+    assert probes.scalar_trial_action_sha256 == tuple(
+        table["scalar_trial_action_sha256"]
+    )
+    assert probes.anchor_provenance == table["anchor_provenance"]
+    assert probes.probe_set_sha256 == table["probe_set_sha256"]
+    assert probes.probe_set_sha256 == H7_SCALAR_PROBE_SET_SHA256
+    for pair, record in zip(probes.probe_pairs, table["records"], strict=True):
+        assert pair.probe_id == record["probe_id"]
+        assert pair.fixture_id == record["fixture_id"]
+        assert pair.component_id == record["component_id"]
+        assert pair.source_id == record["source_id"]
+        assert pair.action_sha256 == record["action_sha256"]
+        assert pair.anchor_sha256 == record["anchor_sha256"]
+        assert pair.anchor_provenance == record["anchor_provenance"]
+        assert pair.probe_sha256 == record["probe_sha256"]
+        assert torch.equal(
+            pair.x.value(),
+            torch.tensor(tuple(float(item) for item in record["x"]), dtype=torch.float64),
+        )
+        assert torch.equal(
+            pair.x_prime.value(),
+            torch.tensor(
+                tuple(float(item) for item in record["x_prime"]),
+                dtype=torch.float64,
+            ),
+        )
+        assert pair.initial_log_jacobian_shift == float(
+            record["initial_log_jacobian_shift"]
+        )
+        assert pair.receiver_log_jacobian_shift == float(
+            record["receiver_log_jacobian_shift"]
+        )
+        assert pair.global_log_jacobian_shift == float(
+            record["global_log_jacobian_shift"]
+        )
+
+
+def test_h1_adapter_rejects_scalar_probe_table_raw_byte_tamper(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    table_bytes = H7_SCALAR_PROBE_TABLE_PATH.read_bytes()
+    tampered = table_bytes.replace(
+        b'"probe_table_schema":"h7-scalar-density-probe-table-v1"',
+        b'"probe_table_schema":"h7-scalar-density-probe-table-v2"',
+        1,
+    )
+    assert tampered != table_bytes
+    _install_scalar_probe_table(
+        monkeypatch,
+        tmp_path,
+        tampered,
+        trust_raw_hash=False,
+    )
+
+    with pytest.raises(ValueError, match="raw SHA-256"):
+        adapt_optional_h1_fixture_bytes(
+            _h1_fixture_bytes(),
+            required_scalar_trials=H7_SCALAR_TRIAL_IDS,
+        )
+
+
+@pytest.mark.parametrize(
+    "case",
+    (
+        "payload-tamper",
+        "row-reorder",
+        "action-mismatch",
+        "h1-mismatch",
+        "root-mismatch",
+        "row-hash-mismatch",
+        "set-hash-mismatch",
+    ),
+)
+def test_h1_adapter_rejects_semantically_invalid_scalar_probe_table(
+    case: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    table_bytes = _mutated_scalar_probe_table_bytes(case)
+    _install_scalar_probe_table(
+        monkeypatch,
+        tmp_path,
+        table_bytes,
+        trust_raw_hash=True,
+    )
+
+    with pytest.raises(ValueError):
+        adapt_optional_h1_fixture_bytes(
+            _h1_fixture_bytes(),
+            required_scalar_trials=H7_SCALAR_TRIAL_IDS,
+        )
 
 
 def test_borrowed_views_preserve_identity_and_owned_snapshots_clone() -> None:

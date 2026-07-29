@@ -3435,6 +3435,7 @@ class H7ScalarProbeSetSnapshot(_H7IntegrityRecord):
     _integrity_field: ClassVar[str] = "probe_set_sha256"
     _hash_domain: ClassVar[str] = "vfe4.h7.scalar-probe-set.v1"
 
+    fixture_id: Literal["h1-v1"]
     raw_fixture_sha256: str
     ordered_source_path_ids: tuple[str, str, str, str]
     scalar_trial_action_sha256: tuple[str, str]
@@ -3452,6 +3453,8 @@ class H7ScalarProbeSetSnapshot(_H7IntegrityRecord):
     probe_set_sha256: str
 
     def __post_init__(self) -> None:
+        if self.fixture_id != "h1-v1":
+            raise ValueError("scalar probe set fixture_id must be h1-v1")
         _require_sha256(self.raw_fixture_sha256, "raw_fixture_sha256")
         expected_path_ids = tuple(
             f"h1-path-{index}:a{a[1]}-b{b[1]}"
