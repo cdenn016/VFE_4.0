@@ -243,6 +243,280 @@ def test_production_reservations_bind_exact_ordered_tuning_key(
     production_attempt.release_run_execution_lease(reserved)
 
 
+def test_resume_reopens_declared_plan_ledger_and_sidecar_before_terminal_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vfe4.artifacts.environment import (
+        ResourceUsageEvent,
+        ResourceUsageLedger,
+    )
+    from vfe4.artifacts.run_directory import publish_experiment_plan
+    from vfe4.training import production_attempt
+
+    raw_training = default_training_config_mapping()
+    raw_training["operation"] = "resume"
+    training = resolve_training_config(raw_training)
+    backend = production_attempt._backend()
+    plan_value = _production_experiment_plan_fixture(training)
+    run_root = tmp_path / "runs"
+    experiment_root = run_root / plan_value.experiment_id
+    plan = publish_experiment_plan(
+        experiment_root,
+        plan_value,
+        backend=backend,
+    )
+    declared_plan = plan.plan_path
+    terminal_index = experiment_root / "experiment-index.json"
+    assert declared_plan.name == "experiment-plan.json"
+    assert not terminal_index.exists()
+
+    tuning = production_attempt._attempt_inventory(training, None)
+
+    def outcome_for(attempt):
+        return production_attempt.ProductionAttemptOutcome.create(
+            attempt_sha256=attempt.attempt_sha256,
+            validation_nll_sum=1.0,
+            validation_counted_targets=1,
+            validation_nll_per_token=1.0,
+            accepted_updates=1,
+            terminal_checkpoint_identity_sha256=(
+                None if attempt.role == "tuning" else "f" * 64
+            ),
+            metrics_jsonl_sha256="a" * 64,
+            metrics_csv_sha256="b" * 64,
+        )
+
+    tuning_outcomes = tuple(outcome_for(attempt) for attempt in tuning)
+    selected = production_attempt._select_hyperparameters(
+        {
+            "completed_outcomes": [
+                production_attempt._outcome_document(attempt, outcome)
+                for attempt, outcome in zip(
+                    tuning,
+                    tuning_outcomes,
+                    strict=True,
+                )
+            ]
+        },
+        training,
+    )
+    confirmation = production_attempt._attempt_inventory(training, selected)
+    confirmation_outcomes = tuple(
+        outcome_for(attempt) for attempt in confirmation
+    )
+    outcome_by_attempt = {
+        attempt.attempt_sha256: outcome
+        for attempt, outcome in (
+            *zip(tuning, tuning_outcomes, strict=True),
+            *zip(confirmation, confirmation_outcomes, strict=True),
+        )
+    }
+
+    ledger = ResourceUsageLedger.create(
+        experiment_plan_sha256=plan_value.experiment_plan_sha256,
+        resource_profile=training.profile.resources,
+    )
+    for attempt in (*tuning, *confirmation):
+        ledger = ledger.append(
+            ResourceUsageEvent.create(
+                attempt_id=attempt.attempt_id,
+                segment_ordinal=0,
+                device_seconds=0.001,
+                wall_seconds=0.002,
+                sampled_energy_kwh=0.0,
+                usage_evidence_sha256=hashlib.sha256(
+                    attempt.attempt_id.encode("ascii")
+                ).hexdigest(),
+            )
+        )
+    production_attempt._publish_resource_usage_ledger(
+        path=experiment_root / "resource-usage-ledger.json",
+        ledger=ledger,
+        backend=backend,
+    )
+
+    sidecar_root = experiment_root / "authenticated-resume-state"
+    sidecar_root.mkdir()
+    (
+        _contract,
+        sidecar_identity,
+        _cursor,
+        sidecar_checkpoint,
+        sidecar_path,
+    ) = _resume_sidecar_fixture(
+        sidecar_root,
+        slot=0,
+        payload=b"declared-plan-resume-sidecar",
+    )
+
+    class _SourceLock:
+        source_lock_sha256 = "c" * 64
+        finalized_source = SimpleNamespace(record_sha256="d" * 64)
+
+        def __post_init__(self) -> None:
+            return None
+
+    class _ReadinessBundle:
+        def __init__(self) -> None:
+            self.durability = SimpleNamespace(
+                volume_identity=plan.durable_file.volume_identity
+            )
+            self.resource_forecast = SimpleNamespace(
+                power_provider_identity_sha256="e" * 64
+            )
+
+    class _Readiness:
+        status = production_attempt.GateStatus.PASS
+        result_sha256 = "1" * 64
+        readiness_token = SimpleNamespace(
+            finalized_source_record_sha256="d" * 64,
+            token_sha256="2" * 64,
+        )
+        readiness_bundle = _ReadinessBundle()
+
+        def __post_init__(self) -> None:
+            return None
+
+    source_lock = _SourceLock()
+    readiness = _Readiness()
+    monkeypatch.setattr(
+        production_attempt,
+        "ProductionSourceLock",
+        _SourceLock,
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "ProductionReadinessResult",
+        _Readiness,
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "Task14ReadinessBundle",
+        _ReadinessBundle,
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "_production_experiment_plan",
+        lambda **_kwargs: plan_value,
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "discover_nvidia_smi_power_provider",
+        lambda: (
+            SimpleNamespace(
+                identity_sha256="e" * 64,
+                sample_interval_ms=(
+                    training.profile.resources.power_sample_interval_ms
+                ),
+            ),
+            object(),
+        ),
+    )
+    monkeypatch.setattr(
+        production_attempt,
+        "_frozen_readiness_conservative_power_watts",
+        lambda **_kwargs: 1.0,
+    )
+
+    reopened_plan_paths: list[Path] = []
+    reopen_plan = production_attempt._reopen_experiment_plan_identity
+
+    def reopen_declared_plan(
+        *,
+        plan_path: Path,
+        expected_plan: object,
+        readiness: object,
+    ):
+        reopened_plan_paths.append(plan_path)
+        return reopen_plan(
+            plan_path=plan_path,
+            expected_plan=expected_plan,
+            readiness=readiness,
+        )
+
+    monkeypatch.setattr(
+        production_attempt,
+        "_reopen_experiment_plan_identity",
+        reopen_declared_plan,
+    )
+    sidecar_reopened = False
+
+    def reopen_completed_prefix(
+        *,
+        experiment_root: Path,
+        attempts: tuple[object, ...],
+        training: object,
+        plan: object,
+    ):
+        del experiment_root, training, plan
+        nonlocal sidecar_reopened
+        assert not terminal_index.exists()
+        if not sidecar_reopened:
+            assert production_attempt._reopen_committed_resume_checkpoint(
+                sidecar_path,
+                expected_identity=sidecar_identity,
+            ) == sidecar_checkpoint
+            sidecar_reopened = True
+        return tuple(
+            (
+                attempt,
+                outcome_by_attempt[attempt.attempt_sha256],
+                SimpleNamespace(run_id=attempt.attempt_id),
+            )
+            for attempt in attempts
+        )
+
+    monkeypatch.setattr(
+        production_attempt,
+        "_reopen_completed_attempt_prefix",
+        reopen_completed_prefix,
+    )
+
+    def publish_terminal_index(
+        root: Path,
+        *,
+        plan: object,
+        run_manifests: tuple[object, ...],
+        stage: str,
+        artifact_records: tuple[object, ...],
+        backend: object,
+    ) -> object:
+        del plan, backend
+        assert root == experiment_root
+        assert stage == "pretest"
+        assert artifact_records == ()
+        assert len(run_manifests) == len(tuning) + len(confirmation)
+        assert not terminal_index.exists()
+        terminal_index.write_bytes(b"terminal pretest index")
+        return SimpleNamespace(index_path=terminal_index)
+
+    monkeypatch.setattr(
+        production_attempt,
+        "publish_experiment_index",
+        publish_terminal_index,
+    )
+    paths = SimpleNamespace(
+        cache_root=tmp_path / "cache",
+        run_root=run_root,
+        resume_experiment_plan_path=declared_plan,
+    )
+
+    result = production_attempt.run_production_attempts(
+        training=training,
+        paths=paths,
+        source_lock=source_lock,
+        readiness=readiness,
+        mode="resume",
+    )
+
+    assert result.status == "COMPLETE"
+    assert result.experiment_index_path == str(terminal_index)
+    assert reopened_plan_paths == [declared_plan]
+    assert sidecar_reopened is True
+    assert terminal_index.is_file()
+
+
 def test_production_reopen_recovers_durable_terminal_before_resume_logic(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

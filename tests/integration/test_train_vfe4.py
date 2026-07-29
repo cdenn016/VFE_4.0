@@ -96,6 +96,49 @@ def test_wt103_launcher_is_one_dictionary_click_surface_and_import_safe() -> Non
     assert idle.operation == "idle"
 
 
+def test_launcher_names_exact_resume_plan_and_rejects_old_index_key(
+    tmp_path: Path,
+) -> None:
+    launcher = _load("train_vfe4_wt103_resume_plan_migration")
+    config = copy.deepcopy(launcher.CONFIG)
+    assert config["launcher_schema"] == "wt103-click-launcher-v2"
+    declared_plan = (
+        tmp_path
+        / "runs"
+        / "declared-experiment"
+        / "experiment-plan.json"
+    )
+    config["paths"]["resume_experiment_plan_path"] = str(declared_plan)
+
+    _training, paths, _authorization = launcher._resolve_launcher(config)
+
+    assert paths.resume_experiment_plan_path == declared_plan
+
+    legacy = copy.deepcopy(config)
+    legacy["launcher_schema"] = "wt103-click-launcher-v1"
+    legacy["paths"]["resume_experiment_index_path"] = legacy["paths"].pop(
+        "resume_experiment_plan_path"
+    )
+    with pytest.raises(
+        launcher.TrainingLaunchError,
+        match=(
+            "resume_experiment_index_path was renamed to "
+            "resume_experiment_plan_path"
+        ),
+    ):
+        launcher._resolve_launcher(legacy)
+
+    wrong_basename = copy.deepcopy(config)
+    wrong_basename["paths"]["resume_experiment_plan_path"] = str(
+        declared_plan.with_name("production-experiment-index.json")
+    )
+    with pytest.raises(
+        launcher.TrainingLaunchError,
+        match="resume_experiment_plan_path must name experiment-plan.json",
+    ):
+        launcher._resolve_launcher(wrong_basename)
+
+
 def test_launcher_import_stays_pure_under_transitive_live_import_blockers() -> None:
     script = f"""
 import builtins
@@ -148,8 +191,8 @@ def test_synthetic_smoke_exercises_all_arms_resume_metrics_and_terminal_ids(
     config["paths"]["source_record_path"] = str(
         tmp_path / "unavailable-production-source.json"
     )
-    config["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "unavailable-resume-index.json"
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "unavailable-resume" / "experiment-plan.json"
     )
     config["paths"]["smoke_run_id"] = "task12-focused-smoke"
 
@@ -286,8 +329,8 @@ def test_production_modes_fail_before_reservation_without_source_lock(
     config["paths"]["source_record_path"] = str(
         tmp_path / "missing-source-record.json"
     )
-    config["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "missing-index.json"
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "missing-experiment" / "experiment-plan.json"
     )
     config["authorization"] = (
         launcher.PRODUCTION_AUTHORIZATION
@@ -387,8 +430,8 @@ def test_authorized_production_operations_dispatch_concrete_typed_sequence(
     config["paths"]["run_root"] = str(tmp_path / "runs")
     source_path = tmp_path / "source-record.json"
     config["paths"]["source_record_path"] = str(source_path)
-    config["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "runs" / "experiment-index.json"
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
     )
     if operation != "source_lock":
         source_path.write_bytes(b"typed source seam")
@@ -434,8 +477,8 @@ def test_wrong_authorization_fails_before_default_driver_or_live_import(
     config["paths"]["cache_root"] = str(tmp_path / "cache")
     config["paths"]["run_root"] = str(tmp_path / "runs")
     config["paths"]["source_record_path"] = str(tmp_path / "source.json")
-    config["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "runs" / "index.json"
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
     )
     config["authorization"] = "wrong"
     monkeypatch.setattr(
@@ -669,8 +712,8 @@ def _injected_source_lock_case(
     config["paths"]["source_record_path"] = str(
         tmp_path / "tracked" / "source-record.json"
     )
-    config["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "runs" / "index.json"
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
     )
     config["authorization"] = launcher.SOURCE_LOCK_AUTHORIZATION
     training, paths, _ = launcher._resolve_launcher(config)
@@ -1171,8 +1214,8 @@ def test_production_plan_is_canonical_and_tuning_selection_rejects_duplicates(
     config["paths"]["source_record_path"] = str(
         tmp_path / "source-record.json"
     )
-    config["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "runs" / "production-experiment-index.json"
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
     )
     training, _, _ = launcher._resolve_launcher(config)
     source_lock = SimpleNamespace(source_lock_sha256="1" * 64)
@@ -1243,8 +1286,8 @@ def test_launcher_rejects_overlapping_or_v3_roots_before_dispatch(
     base = copy.deepcopy(launcher.CONFIG)
     base["training"]["operation"] = "synthetic_smoke"
     base["paths"]["source_record_path"] = str(tmp_path / "source.json")
-    base["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "runs" / "index.json"
+    base["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
     )
 
     overlapping = copy.deepcopy(base)
@@ -1276,8 +1319,8 @@ def test_launcher_rejects_exact_legacy_tokenized_cache_root_before_dispatch(
     base["paths"]["cache_root"] = str(tmp_path / "cache")
     base["paths"]["run_root"] = str(tmp_path / "runs")
     base["paths"]["source_record_path"] = str(tmp_path / "source.json")
-    base["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "runs" / "index.json"
+    base["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
     )
     legacy_root = Path.home() / ".cache" / "tokenized_cache"
     mixed_case_descendant = Path(str(legacy_root).upper()) / "nested" / "data"
@@ -1306,7 +1349,7 @@ def test_launcher_rejects_exact_legacy_tokenized_cache_root_before_dispatch(
         "cache_root",
         "run_root",
         "source_record_path",
-        "resume_experiment_index_path",
+        "resume_experiment_plan_path",
     ):
         forbidden_cases = (
             (legacy_root, "legacy V3 token cache"),
@@ -1344,7 +1387,7 @@ def test_launcher_rejects_forbidden_final_path_before_filesystem_metadata(
     config["paths"]["cache_root"] = str(tmp_path / "cache")
     config["paths"]["run_root"] = str(tmp_path / "runs")
     config["paths"]["source_record_path"] = str(tmp_path / "source.json")
-    config["paths"]["resume_experiment_index_path"] = str(
+    config["paths"]["resume_experiment_plan_path"] = str(
         Path.home() / ".cache" / "tokenized_cache" / "final-field"
     )
 

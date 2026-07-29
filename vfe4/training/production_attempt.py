@@ -139,6 +139,7 @@ _PLAN_NAME = "experiment-plan.json"
 _PLAN_SCHEMA = "wt103-production-experiment-plan-v1"
 _INDEX_NAME = "production-experiment-index.json"
 _INDEX_SCHEMA = "wt103-production-experiment-index-v1"
+_TERMINAL_INDEX_NAME = "experiment-index.json"
 _RESULT_SCHEMA = "wt103-production-training-result-v1"
 _MAXIMUM_INDEX_BYTES = 64 * 1024 * 1024
 _CRASH_TAIL_RESERVE_SECONDS = 60.0
@@ -690,7 +691,7 @@ def _production_experiment_plan(
 
 def _reopen_experiment_plan_identity(
     *,
-    experiment_root: Path,
+    plan_path: Path,
     expected_plan: ExperimentPlan,
     readiness: ProductionReadinessResult,
 ) -> ExperimentPlanIdentity:
@@ -699,9 +700,15 @@ def _reopen_experiment_plan_identity(
         raise ProductionOperationError(
             "production plan reopen requires exact Task 14 evidence"
         )
-    path = experiment_root / "experiment-plan.json"
+    if (
+        not isinstance(plan_path, Path)
+        or plan_path.name != _PLAN_NAME
+    ):
+        raise ProductionOperationError(
+            "resume plan path must name the exact experiment-plan.json"
+        )
     payload = _regular_bytes(
-        path,
+        plan_path,
         maximum_bytes=_MAXIMUM_INDEX_BYTES,
     )
     expected_payload = canonical_json_bytes_generic(expected_plan)
@@ -715,7 +722,7 @@ def _reopen_experiment_plan_identity(
         volume_identity=bundle.durability.volume_identity,
     )
     identity = ExperimentPlanIdentity(
-        plan_path=path,
+        plan_path=plan_path,
         plan=expected_plan,
         durable_file=durable,
         identity_sha256=owned_sha256(
@@ -4876,11 +4883,11 @@ def run_production_attempts(
         )
     cache_root = getattr(paths, "cache_root", None)
     run_root = getattr(paths, "run_root", None)
-    declared_index = getattr(paths, "resume_experiment_index_path", None)
+    declared_plan = getattr(paths, "resume_experiment_plan_path", None)
     if (
         not isinstance(cache_root, Path)
         or not isinstance(run_root, Path)
-        or not isinstance(declared_index, Path)
+        or not isinstance(declared_plan, Path)
     ):
         raise ProductionOperationError(
             "production attempt paths are malformed"
@@ -4916,21 +4923,21 @@ def run_production_attempts(
             backend=backend,
         )
     else:
-        if declared_index.name != "experiment-index.json":
+        if declared_plan.name != _PLAN_NAME:
             raise ProductionOperationError(
-                "resume path must name the typed experiment-index.json"
+                "resume path must name the exact experiment-plan.json"
             )
-        experiment_root = declared_index.parent
+        experiment_root = declared_plan.parent
         if (
             experiment_root.name != expected_plan.experiment_id
             or experiment_root.absolute().parent
             != run_root.absolute()
         ):
             raise ProductionOperationError(
-                "resume index is outside the exact experiment root"
+                "resume plan is outside the exact experiment root"
             )
         plan = _reopen_experiment_plan_identity(
-            experiment_root=experiment_root,
+            plan_path=declared_plan,
             expected_plan=expected_plan,
             readiness=readiness,
         )
@@ -5099,9 +5106,9 @@ def run_production_attempts(
         artifact_records=(),
         backend=backend,
     )
-    if mode == "resume" and experiment_index.index_path != declared_index:
+    if experiment_index.index_path != experiment_root / _TERMINAL_INDEX_NAME:
         raise ProductionOperationError(
-            "published experiment index differs from the declared resume path"
+            "published experiment index differs from the exact terminal path"
         )
     selected_sha = owned_sha256(
         "vfe4.wt103.selected-hyperparameters.v1",

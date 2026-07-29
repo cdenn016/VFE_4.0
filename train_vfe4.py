@@ -544,7 +544,7 @@ def _default_training_mapping() -> dict[str, object]:
 
 def _config_template() -> dict[str, object]:
     return {
-        "launcher_schema": "wt103-click-launcher-v1",
+        "launcher_schema": "wt103-click-launcher-v2",
         "training": _default_training_mapping(),
         "paths": {
             "cache_root": str(
@@ -557,11 +557,12 @@ def _config_template() -> dict[str, object]:
                 / "data"
                 / "wikitext103-raw-v1-source-record.json"
             ),
-            "resume_experiment_index_path": str(
+            "resume_experiment_plan_path": str(
                 _REPO_ROOT
                 / "artifacts"
                 / "wt103-runs"
-                / "unresolved-experiment-index.json"
+                / "unresolved-experiment"
+                / "experiment-plan.json"
             ),
             "smoke_run_id": "wt103-nonproduction-synthetic-smoke",
         },
@@ -607,7 +608,7 @@ class _LauncherPaths:
     cache_root: Path
     run_root: Path
     source_record_path: Path
-    resume_experiment_index_path: Path
+    resume_experiment_plan_path: Path
     smoke_run_id: str
 
 
@@ -830,11 +831,17 @@ def _same_or_ancestor(left: Path, right: Path) -> bool:
 
 def _resolve_paths(value: object) -> _LauncherPaths:
     raw = _mapping(value, "CONFIG.paths")
+    if "resume_experiment_index_path" in raw:
+        raise TrainingLaunchError(
+            "resume_experiment_index_path was renamed to "
+            "resume_experiment_plan_path; point it to the exact "
+            "experiment-plan.json"
+        )
     expected = {
         "cache_root",
         "run_root",
         "source_record_path",
-        "resume_experiment_index_path",
+        "resume_experiment_plan_path",
         "smoke_run_id",
     }
     if set(raw) != expected:
@@ -858,9 +865,9 @@ def _resolve_paths(value: object) -> _LauncherPaths:
             raw["source_record_path"],
             "source_record_path",
         ),
-        resume_experiment_index_path=_absolute_path(
-            raw["resume_experiment_index_path"],
-            "resume_experiment_index_path",
+        resume_experiment_plan_path=_absolute_path(
+            raw["resume_experiment_plan_path"],
+            "resume_experiment_plan_path",
         ),
         smoke_run_id=smoke_run_id,
     )
@@ -878,17 +885,21 @@ def _resolve_paths(value: object) -> _LauncherPaths:
         raise TrainingLaunchError(
             "source_record_path cannot equal an artifact root"
         )
-    if paths.resume_experiment_index_path == paths.cache_root:
+    if paths.resume_experiment_plan_path.name != "experiment-plan.json":
         raise TrainingLaunchError(
-            "resume_experiment_index_path cannot equal cache_root"
+            "resume_experiment_plan_path must name experiment-plan.json"
+        )
+    if paths.resume_experiment_plan_path == paths.cache_root:
+        raise TrainingLaunchError(
+            "resume_experiment_plan_path cannot equal cache_root"
         )
     for name, path in (
         ("cache_root", paths.cache_root),
         ("run_root", paths.run_root),
         ("source_record_path", paths.source_record_path),
         (
-            "resume_experiment_index_path",
-            paths.resume_experiment_index_path,
+            "resume_experiment_plan_path",
+            paths.resume_experiment_plan_path,
         ),
     ):
         _reject_existing_reparse_components(path, name)
@@ -908,7 +919,14 @@ def _resolve_launcher(
         "authorization",
     }:
         raise TrainingLaunchError("CONFIG has unknown or missing root keys")
-    if raw["launcher_schema"] != "wt103-click-launcher-v1":
+    path_mapping = _mapping(raw["paths"], "CONFIG.paths")
+    if "resume_experiment_index_path" in path_mapping:
+        raise TrainingLaunchError(
+            "resume_experiment_index_path was renamed to "
+            "resume_experiment_plan_path; point it to the exact "
+            "experiment-plan.json"
+        )
+    if raw["launcher_schema"] != "wt103-click-launcher-v2":
         raise TrainingLaunchError("CONFIG launcher_schema is unsupported")
     try:
         training = resolve_training_config(raw["training"])

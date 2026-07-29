@@ -436,8 +436,8 @@ def test_final_source_marker_reopens_before_live_or_mutating_work(
     config["paths"]["source_record_path"] = str(
         tmp_path / "tracked" / "source-record.json"
     )
-    config["paths"]["resume_experiment_index_path"] = str(
-        tmp_path / "runs" / "index.json"
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
     )
     config["authorization"] = launcher.SOURCE_LOCK_AUTHORIZATION
     training, paths, _ = launcher._resolve_launcher(config)

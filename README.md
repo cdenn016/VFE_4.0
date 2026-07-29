@@ -65,8 +65,14 @@ PASS token.
 Real `"train"` and `"resume"` operations require the exact authorization
 phrase `AUTHORIZE_VFE4_WT103_PRODUCTION_TRAINING_V1` after readiness is
 complete. Resume must name one absolute, explicit
-`experiment-index.json` in `CONFIG["paths"]["resume_experiment_index_path"]`;
-there is no glob, newest-run discovery, or fallback checkpoint selection.
+`experiment-plan.json` in `CONFIG["paths"]["resume_experiment_plan_path"]`;
+that exact immutable plan is reopened before its plan-bound ledger and
+authenticated rolling sidecar/checkpoint. There is no glob, newest-run
+discovery, or fallback checkpoint selection, and the terminal
+`experiment-index.json` remains absent until the complete pretest
+attempt inventory is finalized. Launcher schema v2 migration: rename
+`resume_experiment_index_path` to `resume_experiment_plan_path` and point it
+to the experiment's exact `experiment-plan.json`; the legacy key is rejected.
 Both operations remain sealed while any capacity-matching or readiness
 obligation is open.
 
