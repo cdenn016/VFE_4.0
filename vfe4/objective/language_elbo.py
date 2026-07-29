@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import math
 import weakref
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, Protocol, final, runtime_checkable
 
@@ -1265,6 +1267,14 @@ def _build_h7_authenticated_evaluation_api():
             tuple[int, bytes, str],
         ],
     ] = {}
+    factory_api: tuple[
+        Callable[[object], object],
+        Callable[
+            [object, LanguageElboExpectation],
+            H6EndpointLanguageElboTerms,
+        ],
+        str,
+    ] | None = None
 
     def issuance_snapshot(
         evaluation: H7AuthenticatedEvaluation,
@@ -1325,6 +1335,29 @@ def _build_h7_authenticated_evaluation_api():
             )
         return value
 
+    def bind_factory_api_once(
+        arm_validator: Callable[[object], object],
+        evaluator: Callable[
+            [object, LanguageElboExpectation],
+            H6EndpointLanguageElboTerms,
+        ],
+        evaluator_implementation_sha256: str,
+    ) -> None:
+        nonlocal factory_api
+        if factory_api is not None:
+            raise RuntimeError("H7 factory API is already bound")
+        if not callable(arm_validator) or not callable(evaluator):
+            raise TypeError("H7 factory API requires exact callable entries")
+        _require_sha256(
+            evaluator_implementation_sha256,
+            "evaluator_implementation_sha256",
+        )
+        factory_api = (
+            arm_validator,
+            evaluator,
+            evaluator_implementation_sha256,
+        )
+
     def capture(
         arm: object,
         expectation: LanguageElboExpectation,
@@ -1334,13 +1367,15 @@ def _build_h7_authenticated_evaluation_api():
         from vfe4.predictive.identities import (
             canonical_model_state_sha256,
         )
-        from vfe4.training.arms import (
-            _H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256,
-            _evaluate_factory_built_arm_complete_language_elbo,
-            _require_factory_issued_built_arm,
-        )
 
-        checked_arm = _require_factory_issued_built_arm(arm)
+        if factory_api is None:
+            importlib.import_module("vfe4.training.arms")
+        if factory_api is None:
+            raise RuntimeError(
+                "H7 factory API did not bind during arms initialization"
+            )
+        arm_validator, evaluator, evaluator_sha256 = factory_api
+        checked_arm = arm_validator(arm)
         checked_expectation = _validate_expectation(expectation)
         config = checked_arm.config
         if type(config) is not ArmConfig:
@@ -1379,7 +1414,7 @@ def _build_h7_authenticated_evaluation_api():
         model_state_before = canonical_model_state_sha256(
             checked_arm.model
         )
-        endpoint = _evaluate_factory_built_arm_complete_language_elbo(
+        endpoint = evaluator(
             checked_arm,
             checked_expectation,
         )
@@ -1422,7 +1457,7 @@ def _build_h7_authenticated_evaluation_api():
             canonical_model_state_sha256=model_state_before,
             elbo_inventory_sha256=checked_arm.elbo_inventory_sha256,
             evaluator_implementation_sha256=(
-                _H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256
+                evaluator_sha256
             ),
             expectation_identity_sha256=(
                 checked_expectation.expectation_identity_sha256
@@ -1444,12 +1479,13 @@ def _build_h7_authenticated_evaluation_api():
             issuer_route=H7_AUTHENTICATED_EVALUATION_ISSUER_ROUTE,
         )
 
-    return capture, require
+    return capture, require, bind_factory_api_once
 
 
 (
     capture_h7_complete_language_elbo,
     _require_h7_authenticated_evaluation,
+    _bind_h7_factory_api_once,
 ) = _build_h7_authenticated_evaluation_api()
 del _build_h7_authenticated_evaluation_api
 

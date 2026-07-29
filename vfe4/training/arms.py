@@ -26,6 +26,7 @@ from vfe4.objective.language_elbo import (
     LanguageElboExpectation,
     LiveEmissionExpectation,
     LiveEmissionExpectationContext,
+    _bind_h7_factory_api_once,
     _evaluate_emission_only_ablation,
     _evaluate_language_elbo,
 )
@@ -2249,6 +2250,13 @@ def _build_factory_arm_api():
     _require_factory_issued_built_arm,
 ) = _build_factory_arm_api()
 del _build_factory_arm_api
+
+_bind_h7_factory_api_once(
+    _require_factory_issued_built_arm,
+    _evaluate_factory_built_arm_complete_language_elbo,
+    _H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256,
+)
+del _bind_h7_factory_api_once
 
 
 def build_a0(config: ArmConfig) -> BuiltArm:

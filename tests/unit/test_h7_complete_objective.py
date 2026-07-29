@@ -900,6 +900,63 @@ def test_h7_capture_uses_import_bound_objective(
     assert receipt.endpoint.endpoint_config == arm.config
 
 
+def test_h7_capture_keeps_bound_factory_api_under_arms_monkeypatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    issued, arm, expectation = _real_built_arm_capture(
+        "bound-factory-api"
+    )
+    clone = dataclasses.replace(arm)
+    original_implementation_sha256 = (
+        issued.evaluator_implementation_sha256
+    )
+
+    monkeypatch.setattr(
+        training_arms,
+        "_require_factory_issued_built_arm",
+        lambda value: value,
+    )
+    monkeypatch.setattr(
+        training_arms,
+        "_evaluate_factory_built_arm_complete_language_elbo",
+        lambda *_args, **_kwargs: issued.endpoint,
+    )
+    monkeypatch.setattr(
+        training_arms,
+        "_H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256",
+        _sha("forged evaluator implementation"),
+    )
+
+    with pytest.raises(ValueError, match="factory-issued"):
+        language_elbo.capture_h7_complete_language_elbo(
+            clone,
+            expectation,
+        )
+    recaptured = language_elbo.capture_h7_complete_language_elbo(
+        arm,
+        expectation,
+    )
+    assert (
+        recaptured.evaluator_implementation_sha256
+        == original_implementation_sha256
+    )
+
+
+def test_h7_factory_api_handshake_rejects_second_bind() -> None:
+    binder = getattr(
+        language_elbo,
+        "_bind_h7_factory_api_once",
+        None,
+    )
+    assert callable(binder)
+    with pytest.raises(RuntimeError, match="already|once"):
+        binder(
+            training_arms._require_factory_issued_built_arm,
+            training_arms._evaluate_factory_built_arm_complete_language_elbo,
+            training_arms._H7_COMPLETE_ELBO_EVALUATOR_IMPLEMENTATION_SHA256,
+        )
+
+
 def test_h7_raw_trace_evidence_rejects_fabricated_and_unrelated_claims() -> None:
     evidence = _raw_trace_evidence("authenticated-evidence")
     unrelated = _raw_trace_evidence("unrelated-evidence")
