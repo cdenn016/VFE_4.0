@@ -1264,3 +1264,97 @@ def test_launcher_rejects_overlapping_or_v3_roots_before_dispatch(
         match="V3",
     ):
         launcher.main(v3)
+
+
+def test_launcher_rejects_exact_legacy_tokenized_cache_root_before_dispatch(
+    tmp_path: Path,
+) -> None:
+    launcher = _load("train_vfe4_wt103_legacy_cache_safety")
+    base = copy.deepcopy(launcher.CONFIG)
+    base["training"]["operation"] = "source_lock"
+    base["authorization"] = launcher.SOURCE_LOCK_AUTHORIZATION
+    base["paths"]["cache_root"] = str(tmp_path / "cache")
+    base["paths"]["run_root"] = str(tmp_path / "runs")
+    base["paths"]["source_record_path"] = str(tmp_path / "source.json")
+    base["paths"]["resume_experiment_index_path"] = str(
+        tmp_path / "runs" / "index.json"
+    )
+    legacy_root = Path.home() / ".cache" / "tokenized_cache"
+    mixed_case_descendant = Path(str(legacy_root).upper()) / "nested" / "data"
+    device_namespace_paths = (
+        "\\\\.\\" + str(legacy_root),
+        "\\\\.\\" + str(legacy_root / "nested" / "data"),
+        "\\\\?\\" + str(legacy_root),
+        "\\\\?\\" + str(legacy_root / "nested" / "data"),
+        "//./" + str(legacy_root).replace("\\", "/"),
+        "//./" + str(legacy_root / "nested" / "data").replace("\\", "/"),
+        "//?/" + str(legacy_root).replace("\\", "/"),
+        "//?/" + str(legacy_root / "nested" / "data").replace("\\", "/"),
+    )
+
+    class _DispatchForbiddenDriver(_HermeticProductionDriver):
+        def source_lock(
+            self,
+            *,
+            training: object,
+            paths: object,
+        ) -> object:
+            del training, paths
+            raise AssertionError("launcher reached the injected driver")
+
+    for field in (
+        "cache_root",
+        "run_root",
+        "source_record_path",
+        "resume_experiment_index_path",
+    ):
+        forbidden_cases = (
+            (legacy_root, "legacy V3 token cache"),
+            (mixed_case_descendant, "legacy V3 token cache"),
+            *(
+                (device_path, "Windows device namespace")
+                for device_path in device_namespace_paths
+            ),
+        )
+        for forbidden_path, expected_message in forbidden_cases:
+            case = copy.deepcopy(base)
+            case["paths"][field] = str(forbidden_path)
+            driver = _DispatchForbiddenDriver(
+                events=[],
+                source=object(),
+                readiness_result=object(),
+                operation_result=object(),
+            )
+
+            with pytest.raises(
+                launcher.TrainingLaunchError,
+                match=expected_message,
+            ):
+                launcher.main(case, driver=driver)
+
+
+def test_launcher_rejects_forbidden_final_path_before_filesystem_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _load("train_vfe4_wt103_lexical_admission_order")
+    config = copy.deepcopy(launcher.CONFIG)
+    config["training"]["operation"] = "source_lock"
+    config["authorization"] = launcher.SOURCE_LOCK_AUTHORIZATION
+    config["paths"]["cache_root"] = str(tmp_path / "cache")
+    config["paths"]["run_root"] = str(tmp_path / "runs")
+    config["paths"]["source_record_path"] = str(tmp_path / "source.json")
+    config["paths"]["resume_experiment_index_path"] = str(
+        Path.home() / ".cache" / "tokenized_cache" / "final-field"
+    )
+
+    def _fail_lstat(path: Path) -> object:
+        raise AssertionError(f"filesystem metadata reached for {path}")
+
+    monkeypatch.setattr(Path, "lstat", _fail_lstat)
+
+    with pytest.raises(
+        launcher.TrainingLaunchError,
+        match="legacy V3 token cache",
+    ):
+        launcher.main(config)

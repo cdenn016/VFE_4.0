@@ -779,9 +779,18 @@ def _reject_existing_reparse_components(path: Path, name: str) -> None:
             )
 
 
+def _uses_windows_device_namespace(value: str) -> bool:
+    normalized_separators = value.replace("/", "\\")
+    return normalized_separators.startswith(("\\\\?\\", "\\\\.\\"))
+
+
 def _absolute_path(value: object, name: str) -> Path:
     if type(value) is not str or not value:
         raise TrainingLaunchError(f"{name} must be nonempty path text")
+    if _uses_windows_device_namespace(value):
+        raise TrainingLaunchError(
+            f"{name} cannot use a Windows device namespace"
+        )
     if any(character in value for character in "*?[]"):
         raise TrainingLaunchError(f"{name} cannot contain a glob")
     declared = Path(value)
@@ -789,10 +798,21 @@ def _absolute_path(value: object, name: str) -> Path:
         raise TrainingLaunchError(
             f"{name} must be an absolute normalized path"
         )
-    path = Path(os.path.abspath(declared))
+    absolute_text = os.path.abspath(declared)
+    if _uses_windows_device_namespace(absolute_text):
+        raise TrainingLaunchError(
+            f"{name} cannot use a Windows device namespace"
+        )
+    path = Path(absolute_text)
+    legacy_token_cache_root = Path(
+        os.path.abspath(Path.home() / ".cache" / "tokenized_cache")
+    )
+    if _same_or_ancestor(legacy_token_cache_root, path):
+        raise TrainingLaunchError(
+            f"{name} cannot use the legacy V3 token cache tree"
+        )
     if _has_v3_component(path):
         raise TrainingLaunchError(f"{name} cannot use a V3 path")
-    _reject_existing_reparse_components(path, name)
     return path
 
 
@@ -862,6 +882,16 @@ def _resolve_paths(value: object) -> _LauncherPaths:
         raise TrainingLaunchError(
             "resume_experiment_index_path cannot equal cache_root"
         )
+    for name, path in (
+        ("cache_root", paths.cache_root),
+        ("run_root", paths.run_root),
+        ("source_record_path", paths.source_record_path),
+        (
+            "resume_experiment_index_path",
+            paths.resume_experiment_index_path,
+        ),
+    ):
+        _reject_existing_reparse_components(path, name)
     return paths
 
 
