@@ -1165,6 +1165,348 @@ def test_h8_prerequisite_reopen_is_fail_closed_without_reconstructing_refs(
     assert payload["invariants"]["prerequisites_current_and_pass"] is False
 
 
+def _synthetic_h7_revalidation_case(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[
+    H8H7Reference,
+    dict[str, bytes],
+    dict[str, Path],
+    dict[str, str],
+]:
+    from verification.mp_oracles import h7_covariance
+    from verification.mp_oracles.h7_covariance import H7MPOracleResult
+    from vfe4.types.h7 import h7_owned_sha256
+    from vfe4.types.results import H7GateResult
+    import vfe4.validation
+
+    repository_root = tmp_path / "repo"
+    fixture_root = repository_root / "vfe4" / "validation" / "fixtures"
+    fixture_root.mkdir(parents=True)
+    (repository_root / "verification").mkdir()
+    monkeypatch.setattr(
+        h8_gate,
+        "__file__",
+        str(repository_root / "verification" / "h8_gate.py"),
+    )
+
+    semantic_hashes = {
+        "density_probe_set_sha256": "1" * 64,
+        "scalar_probe_set_sha256": "2" * 64,
+        "precision_operand_set_sha256": "3" * 64,
+        "oracle_inventory_sha256": "4" * 64,
+    }
+    fixture_payloads = {
+        "h1_fixture_raw_sha256": b'{"fixture":"h1"}\n',
+        "h7_fixture_raw_sha256": b'{"fixture":"h7"}\n',
+        "density_probe_table_raw_sha256": h8_gate.canonical_h8_json_bytes(
+            {
+                "probe_set_sha256": semantic_hashes[
+                    "density_probe_set_sha256"
+                ]
+            }
+        )
+        + b"\n",
+        "scalar_probe_table_raw_sha256": h8_gate.canonical_h8_json_bytes(
+            {
+                "probe_set_sha256": semantic_hashes[
+                    "scalar_probe_set_sha256"
+                ]
+            }
+        )
+        + b"\n",
+        "precision_operand_table_raw_sha256": h8_gate.canonical_h8_json_bytes(
+            {
+                "precision_set_sha256": semantic_hashes[
+                    "precision_operand_set_sha256"
+                ]
+            }
+        )
+        + b"\n",
+    }
+    fixture_names = {
+        "h1_fixture_raw_sha256": "h1_v1.json",
+        "h7_fixture_raw_sha256": "h7_v1.json",
+        "density_probe_table_raw_sha256": "h7_density_probes_v1.json",
+        "scalar_probe_table_raw_sha256": (
+            "h7_scalar_density_probes_v1.json"
+        ),
+        "precision_operand_table_raw_sha256": (
+            "h7_precision_operands_v2.json"
+        ),
+    }
+    fixture_paths = {
+        key: fixture_root / fixture_names[key] for key in fixture_payloads
+    }
+    for key, path in fixture_paths.items():
+        path.write_bytes(fixture_payloads[key])
+
+    monkeypatch.setattr(
+        vfe4.validation,
+        "parse_h7_fixture_bytes",
+        lambda _payload: SimpleNamespace(
+            density_probe_set_sha256=semantic_hashes[
+                "density_probe_set_sha256"
+            ]
+        ),
+    )
+
+    def independently_validated(
+        h1_fixture_bytes: bytes,
+        h7_fixture_bytes: bytes,
+        h7_density_probe_bytes: bytes,
+        h1_scalar_probe_bytes: bytes | None = None,
+        precision_operand_bytes: bytes | None = None,
+    ) -> H7MPOracleResult:
+        assert h1_scalar_probe_bytes is not None
+        assert precision_operand_bytes is not None
+        return H7MPOracleResult(
+            status="EVIDENCE_VERIFIED",
+            open_obligations=(),
+            decimal_precision=100,
+            gauss_hermite_orders=(41, 51),
+            raw_fixture_sha256=tuple(
+                hashlib.sha256(payload).hexdigest()
+                for payload in (
+                    h1_fixture_bytes,
+                    h7_fixture_bytes,
+                    h7_density_probe_bytes,
+                    h1_scalar_probe_bytes,
+                    precision_operand_bytes,
+                )
+            ),
+            h1_source_paths=(),
+            h7_source_path=SimpleNamespace(),
+            trials=(),
+            inventory_sha256=semantic_hashes[
+                "oracle_inventory_sha256"
+            ],
+        )
+
+    monkeypatch.setattr(
+        h7_covariance,
+        "evaluate_h7_from_raw_bytes",
+        independently_validated,
+    )
+
+    fixture_hashes: dict[str, str] = {
+        "h1_fixture_raw_sha256": hashlib.sha256(
+            fixture_payloads["h1_fixture_raw_sha256"]
+        ).hexdigest(),
+        "h7_fixture_raw_sha256": hashlib.sha256(
+            fixture_payloads["h7_fixture_raw_sha256"]
+        ).hexdigest(),
+        "density_probe_table_raw_sha256": hashlib.sha256(
+            fixture_payloads["density_probe_table_raw_sha256"]
+        ).hexdigest(),
+        "density_probe_set_sha256": semantic_hashes[
+            "density_probe_set_sha256"
+        ],
+        "scalar_probe_table_raw_sha256": hashlib.sha256(
+            fixture_payloads["scalar_probe_table_raw_sha256"]
+        ).hexdigest(),
+        "scalar_probe_set_sha256": semantic_hashes[
+            "scalar_probe_set_sha256"
+        ],
+        "precision_operand_table_raw_sha256": hashlib.sha256(
+            fixture_payloads["precision_operand_table_raw_sha256"]
+        ).hexdigest(),
+        "precision_operand_set_sha256": semantic_hashes[
+            "precision_operand_set_sha256"
+        ],
+        "oracle_inventory_sha256": semantic_hashes[
+            "oracle_inventory_sha256"
+        ],
+    }
+    assert tuple(fixture_hashes) == H7GateResult.fixture_hash_keys
+    fixture_set_sha256 = h7_owned_sha256(
+        "vfe4.h7.fixture-set.v1",
+        fixture_hashes,
+    )
+    validation = {
+        "schema": "h7-frame-covariance-validation-v1",
+        "fixture_set_sha256": fixture_set_sha256,
+        "result": {
+            "status": "pass",
+            "obligations": [],
+            "fixture_hashes": fixture_hashes,
+        },
+    }
+    payloads = {
+        "validation/h7.json": h8_gate.canonical_h8_json_bytes(validation)
+    }
+    reference = replace(
+        _current_refs().h7,
+        fixture_set_sha256=fixture_set_sha256,
+    )
+    return reference, payloads, fixture_paths, semantic_hashes
+
+
+def test_h8_h7_revalidation_reopens_all_nine_fixture_identities(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reference, payloads, _fixture_paths, _semantic_hashes = (
+        _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
+    )
+
+    h8_gate._revalidate_h7_fixture_set(reference, payloads)
+
+
+@pytest.mark.parametrize(
+    ("fixture_key", "semantic_key"),
+    (
+        ("scalar_probe_table_raw_sha256", None),
+        ("precision_operand_table_raw_sha256", None),
+        ("scalar_probe_table_raw_sha256", "probe_set_sha256"),
+        (
+            "precision_operand_table_raw_sha256",
+            "precision_set_sha256",
+        ),
+    ),
+)
+def test_h8_h7_revalidation_rejects_scalar_and_precision_mutations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fixture_key: str,
+    semantic_key: str | None,
+) -> None:
+    reference, payloads, fixture_paths, _semantic_hashes = (
+        _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
+    )
+    path = fixture_paths[fixture_key]
+    if semantic_key is None:
+        value = json.loads(path.read_bytes())
+        value["mutated"] = True
+        path.write_bytes(h8_gate.canonical_h8_json_bytes(value) + b"\n")
+    else:
+        value = json.loads(path.read_bytes())
+        value[semantic_key] = "9" * 64
+        path.write_bytes(h8_gate.canonical_h8_json_bytes(value) + b"\n")
+
+    with pytest.raises(ValueError, match="fixture hashes"):
+        h8_gate._revalidate_h7_fixture_set(reference, payloads)
+
+
+@pytest.mark.parametrize(
+    ("status", "obligations", "inventory_sha256"),
+    (
+        ("INCONCLUSIVE", ("calibration pending",), "4" * 64),
+        ("EVIDENCE_VERIFIED", ("unexpected obligation",), "4" * 64),
+        ("EVIDENCE_VERIFIED", (), None),
+    ),
+)
+def test_h8_h7_revalidation_rejects_nonclosing_oracle_results(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status: str,
+    obligations: tuple[str, ...],
+    inventory_sha256: str | None,
+) -> None:
+    from verification.mp_oracles import h7_covariance
+    from verification.mp_oracles.h7_covariance import H7MPOracleResult
+
+    reference, payloads, _fixture_paths, _semantic_hashes = (
+        _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
+    )
+    monkeypatch.setattr(
+        h7_covariance,
+        "evaluate_h7_from_raw_bytes",
+        lambda *_args, **_kwargs: H7MPOracleResult(
+            status=status,  # type: ignore[arg-type]
+            open_obligations=obligations,
+            decimal_precision=100,
+            gauss_hermite_orders=(41, 51),
+            raw_fixture_sha256=("a" * 64,) * 5,
+            h1_source_paths=(),
+            h7_source_path=SimpleNamespace(),
+            trials=(),
+            inventory_sha256=inventory_sha256,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="oracle"):
+        h8_gate._revalidate_h7_fixture_set(reference, payloads)
+
+
+def test_h8_h7_revalidation_rejects_oracle_inventory_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from verification.mp_oracles import h7_covariance
+
+    reference, payloads, _fixture_paths, _semantic_hashes = (
+        _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
+    )
+    original = h7_covariance.evaluate_h7_from_raw_bytes
+
+    def changed_inventory(*args: object, **kwargs: object):
+        result = original(*args, **kwargs)
+        return replace(result, inventory_sha256="8" * 64)
+
+    monkeypatch.setattr(
+        h7_covariance,
+        "evaluate_h7_from_raw_bytes",
+        changed_inventory,
+    )
+
+    with pytest.raises(ValueError, match="fixture hashes"):
+        h8_gate._revalidate_h7_fixture_set(reference, payloads)
+
+
+def test_h8_h7_revalidation_rejects_second_read_source_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reference, payloads, fixture_paths, _semantic_hashes = (
+        _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
+    )
+    target = fixture_paths["scalar_probe_table_raw_sha256"]
+    original_read_bytes = Path.read_bytes
+    reads = 0
+
+    def swapped_read_bytes(path: Path) -> bytes:
+        nonlocal reads
+        payload = original_read_bytes(path)
+        if path == target:
+            reads += 1
+            if reads == 2:
+                return payload + b" "
+        return payload
+
+    monkeypatch.setattr(Path, "read_bytes", swapped_read_bytes)
+
+    with pytest.raises(ValueError, match="changed"):
+        h8_gate._revalidate_h7_fixture_set(reference, payloads)
+
+
+@pytest.mark.parametrize("mutation", ("missing", "reordered"))
+def test_h8_h7_revalidation_rejects_missing_or_reordered_hash_keys(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    reference, payloads, _fixture_paths, _semantic_hashes = (
+        _synthetic_h7_revalidation_case(tmp_path, monkeypatch)
+    )
+    validation = json.loads(payloads["validation/h7.json"])
+    hashes = validation["result"]["fixture_hashes"]
+    if mutation == "missing":
+        hashes.pop("scalar_probe_set_sha256")
+    else:
+        validation["result"]["fixture_hashes"] = dict(
+            reversed(tuple(hashes.items()))
+        )
+    monkeypatch.setattr(
+        h8_gate,
+        "_canonical_mapping",
+        lambda _payload, _name: validation,
+    )
+
+    with pytest.raises(ValueError, match="fixture hashes"):
+        h8_gate._revalidate_h7_fixture_set(reference, payloads)
+
+
 def test_h8_payload_inventories_are_exact_and_private(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

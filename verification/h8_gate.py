@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -1178,6 +1179,10 @@ def _revalidate_h7_fixture_set(
     reference: H8H7Reference,
     payloads: Mapping[str, bytes],
 ) -> None:
+    from verification.mp_oracles.h7_covariance import (
+        H7MPOracleResult,
+        evaluate_h7_from_raw_bytes,
+    )
     from vfe4.types.h7 import h7_owned_sha256
     from vfe4.types.results import H7GateResult
     from vfe4.validation import parse_h7_fixture_bytes
@@ -1204,37 +1209,175 @@ def _revalidate_h7_fixture_set(
         "density_probe_table_raw_sha256": (
             fixture_root / "h7_density_probes_v1.json"
         ),
+        "scalar_probe_table_raw_sha256": (
+            fixture_root / "h7_scalar_density_probes_v1.json"
+        ),
+        "precision_operand_table_raw_sha256": (
+            fixture_root / "h7_precision_operands_v2.json"
+        ),
     }
-    fixture_bytes: dict[str, bytes] = {}
-    for key, path in fixture_paths.items():
-        if path.is_symlink() or not path.is_file():
-            raise ValueError(f"H7 current-candidate fixture is unavailable: {key}")
-        resolved = path.resolve(strict=True)
-        if (
-            repository_root not in resolved.parents
-            or resolved.is_symlink()
-            or not resolved.is_file()
-        ):
-            raise ValueError(f"H7 current-candidate fixture escapes the repository: {key}")
-        fixture_bytes[key] = resolved.read_bytes()
+
+    def read_repository_fixture(key: str, path: Path) -> bytes:
+        try:
+            relative = path.relative_to(repository_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"H7 current-candidate fixture escapes the repository: {key}"
+            ) from exc
+        current = repository_root
+        try:
+            for index, component in enumerate(relative.parts):
+                current = current / component
+                metadata = current.lstat()
+                reparse = getattr(
+                    stat,
+                    "FILE_ATTRIBUTE_REPARSE_POINT",
+                    0x400,
+                )
+                is_junction = getattr(current, "is_junction", None)
+                redirected = (
+                    stat.S_ISLNK(metadata.st_mode)
+                    or bool(
+                        getattr(metadata, "st_file_attributes", 0)
+                        & reparse
+                    )
+                    or bool(callable(is_junction) and is_junction())
+                )
+                is_last = index == len(relative.parts) - 1
+                if (
+                    redirected
+                    or (is_last and not stat.S_ISREG(metadata.st_mode))
+                    or (not is_last and not stat.S_ISDIR(metadata.st_mode))
+                ):
+                    raise ValueError(
+                        "H7 current-candidate fixture must be a regular "
+                        f"nonredirected repository file: {key}"
+                    )
+            resolved = path.resolve(strict=True)
+            resolved.relative_to(repository_root)
+        except OSError as exc:
+            raise ValueError(
+                f"H7 current-candidate fixture is unavailable: {key}"
+            ) from exc
+        except ValueError as exc:
+            if "H7 current-candidate" in str(exc):
+                raise
+            raise ValueError(
+                f"H7 current-candidate fixture escapes the repository: {key}"
+            ) from exc
+        return path.read_bytes()
+
+    fixture_bytes = {
+        key: read_repository_fixture(key, path)
+        for key, path in fixture_paths.items()
+    }
+
+    oracle_result = evaluate_h7_from_raw_bytes(
+        h1_fixture_bytes=fixture_bytes["h1_fixture_raw_sha256"],
+        h7_fixture_bytes=fixture_bytes["h7_fixture_raw_sha256"],
+        h7_density_probe_bytes=fixture_bytes[
+            "density_probe_table_raw_sha256"
+        ],
+        h1_scalar_probe_bytes=fixture_bytes[
+            "scalar_probe_table_raw_sha256"
+        ],
+        precision_operand_bytes=fixture_bytes[
+            "precision_operand_table_raw_sha256"
+        ],
+    )
+    observed_raw_hashes = tuple(
+        hashlib.sha256(fixture_bytes[key]).hexdigest()
+        for key in (
+            "h1_fixture_raw_sha256",
+            "h7_fixture_raw_sha256",
+            "density_probe_table_raw_sha256",
+            "scalar_probe_table_raw_sha256",
+            "precision_operand_table_raw_sha256",
+        )
+    )
+    if (
+        type(oracle_result) is not H7MPOracleResult
+        or oracle_result.status != "EVIDENCE_VERIFIED"
+        or oracle_result.open_obligations != ()
+        or oracle_result.inventory_sha256 is None
+        or oracle_result.raw_fixture_sha256 != observed_raw_hashes
+    ):
+        raise ValueError(
+            "H7 independent oracle did not close the exact five-input inventory"
+        )
+    oracle_inventory_sha256 = _sha256(
+        oracle_result.inventory_sha256,
+        "H7 oracle inventory SHA-256",
+    )
+
     parsed_fixture = parse_h7_fixture_bytes(
         fixture_bytes["h7_fixture_raw_sha256"],
     )
-    if (
-        fixture_paths["density_probe_table_raw_sha256"].read_bytes()
-        != fixture_bytes["density_probe_table_raw_sha256"]
-    ):
-        raise ValueError("H7 density-probe bytes changed during fixture parsing")
-    derived_fixture_hashes = {
-        key: hashlib.sha256(payload).hexdigest()
-        for key, payload in fixture_bytes.items()
-    }
-    derived_fixture_hashes["density_probe_set_sha256"] = (
-        parsed_fixture.density_probe_set_sha256
+
+    def semantic_set_sha256(
+        key: str,
+        *,
+        field: str,
+        name: str,
+    ) -> str:
+        payload = fixture_bytes[key]
+        try:
+            value = json.loads(payload.decode("utf-8", errors="strict"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"H7 {name} is not strict JSON") from exc
+        if (
+            type(value) is not dict
+            or canonical_h8_json_bytes(value) + b"\n" != payload
+        ):
+            raise ValueError(f"H7 {name} is not canonical newline JSON")
+        return _sha256(value.get(field), f"H7 {name} {field}")
+
+    density_probe_set_sha256 = semantic_set_sha256(
+        "density_probe_table_raw_sha256",
+        field="probe_set_sha256",
+        name="density-probe table",
     )
     if (
+        parsed_fixture.density_probe_set_sha256
+        != density_probe_set_sha256
+    ):
+        raise ValueError(
+            "H7 fixture and density-probe table semantic identities differ"
+        )
+    scalar_probe_set_sha256 = semantic_set_sha256(
+        "scalar_probe_table_raw_sha256",
+        field="probe_set_sha256",
+        name="scalar-probe table",
+    )
+    precision_operand_set_sha256 = semantic_set_sha256(
+        "precision_operand_table_raw_sha256",
+        field="precision_set_sha256",
+        name="precision-operand table",
+    )
+
+    for key, path in fixture_paths.items():
+        if read_repository_fixture(key, path) != fixture_bytes[key]:
+            raise ValueError(
+                f"H7 current-candidate fixture changed on second read: {key}"
+            )
+
+    derived_fixture_hashes = {
+        "h1_fixture_raw_sha256": observed_raw_hashes[0],
+        "h7_fixture_raw_sha256": observed_raw_hashes[1],
+        "density_probe_table_raw_sha256": observed_raw_hashes[2],
+        "density_probe_set_sha256": density_probe_set_sha256,
+        "scalar_probe_table_raw_sha256": observed_raw_hashes[3],
+        "scalar_probe_set_sha256": scalar_probe_set_sha256,
+        "precision_operand_table_raw_sha256": observed_raw_hashes[4],
+        "precision_operand_set_sha256": precision_operand_set_sha256,
+        "oracle_inventory_sha256": oracle_inventory_sha256,
+    }
+    result_fixture_hashes = result["fixture_hashes"]
+    if (
         tuple(derived_fixture_hashes) != H7GateResult.fixture_hash_keys
-        or result["fixture_hashes"] != derived_fixture_hashes
+        or tuple(result_fixture_hashes)
+        != tuple(sorted(H7GateResult.fixture_hash_keys))
+        or result_fixture_hashes != derived_fixture_hashes
     ):
         raise ValueError(
             "H7 validation fixture hashes differ from current-candidate fixture bytes"
