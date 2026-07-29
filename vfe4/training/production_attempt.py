@@ -125,6 +125,7 @@ from .production import (
     open_production_training_split,
     production_cursor_after_batches,
 )
+from .progress import emit_progress
 from .wt103_runtime import (
     WT103ArmRuntimeBundle,
     WT103RuntimeAuthority,
@@ -455,6 +456,72 @@ class _AttemptResourceUsage:
             raise ProductionOperationError(
                 "attempt resource usage observation is invalid"
             )
+
+
+def _emit_attempt_started(
+    *,
+    attempt: ProductionAttemptSpec,
+    reserved: ReservedRun,
+    phase_total: int,
+    resume_active: bool,
+) -> None:
+    """Report only after the run reservation is durably reopened."""
+
+    emit_progress(
+        "attempt_started",
+        role=attempt.role,
+        ordinal=attempt.ordinal,
+        phase_total=phase_total,
+        arm_id=attempt.arm_id,
+        seed_id=attempt.seed_id,
+        attempt_id=attempt.attempt_id,
+        attempt_sha256=attempt.attempt_sha256,
+        reservation_sha256=reserved.reservation_sha256,
+        in_progress_path=str(reserved.inprogress_path),
+        resume_count=reserved.resume_count,
+        resume_active=resume_active,
+    )
+
+
+def _emit_attempt_finished(
+    *,
+    attempt: ProductionAttemptSpec,
+    manifest: RunManifestIdentity,
+    outcome: object | None,
+    usage: _AttemptResourceUsage,
+    ledger: ResourceUsageLedger,
+) -> None:
+    """Report direct measurements separately from durable ledger accounting."""
+
+    emit_progress(
+        "attempt_finished",
+        role=attempt.role,
+        ordinal=attempt.ordinal,
+        arm_id=attempt.arm_id,
+        seed_id=attempt.seed_id,
+        attempt_id=attempt.attempt_id,
+        disposition=manifest.disposition,
+        manifest_path=str(manifest.run_path / "run-manifest.json"),
+        manifest_sha256=manifest.manifest_sha256,
+        terminal_checkpoint_identity_sha256=getattr(
+            outcome,
+            "terminal_checkpoint_identity_sha256",
+            None,
+        ),
+        observed={
+            "gpu_seconds": usage.device_seconds,
+            "wall_seconds": usage.wall_seconds,
+            "energy_kwh": usage.sampled_energy_kwh,
+        },
+        accounted={
+            "gpu_hours": ledger.used_gpu_hours,
+            "wall_hours": ledger.used_wall_hours,
+            "energy_kwh": ledger.used_energy_kwh,
+            "ledger_sha256": ledger.ledger_sha256,
+        },
+        observed_disk_bytes=None,
+        observed_disk_bytes_status="unavailable",
+    )
 
 
 class _ResourceMeasuredOperationFailure(BaseException):
@@ -4819,6 +4886,13 @@ def _execute_reserved_attempt_under_lease(
         raise heartbeat_error
     if type(result) is _TerminalAttemptResult:
         result.__post_init__()
+        _emit_attempt_finished(
+            attempt=attempt,
+            manifest=result.manifest,
+            outcome=None,
+            usage=usage,
+            ledger=updated,
+        )
         raise ProductionOperationError(
             "production attempt terminated with a durable failure record: "
             f"{result.failure.message}; "
@@ -4838,6 +4912,13 @@ def _execute_reserved_attempt_under_lease(
             "resource usage was durably debited before rejection: "
             f"{updated.ledger_sha256}"
         )
+    _emit_attempt_finished(
+        attempt=attempt,
+        manifest=result[1],
+        outcome=result[0],
+        usage=usage,
+        ledger=updated,
+    )
     return result[0], result[1], updated
 
 
@@ -4936,6 +5017,134 @@ def _require_resource_event_prefix(
         )
 
 
+def _emit_run_resolved(
+    *,
+    training: TrainingConfig,
+    source_lock: ProductionSourceLock,
+    readiness: ProductionReadinessResult,
+    expected_plan: ExperimentPlan,
+    mode: Literal["train", "resume"],
+) -> None:
+    finalized = source_lock.finalized_source
+    emit_progress(
+        "run_resolved",
+        mode=mode,
+        config_sha256=training.experiment_config_sha256,
+        source_lock_sha256=source_lock.source_lock_sha256,
+        source_record_sha256=finalized.record_sha256,
+        source_member_payload_sha256s=[
+            member.payload_sha256 for member in finalized.members
+        ],
+        readiness_result_sha256=readiness.result_sha256,
+        readiness_bundle_sha256=getattr(
+            readiness.readiness_bundle,
+            "bundle_sha256",
+        ),
+        readiness_assessment_sha256=getattr(
+            readiness.readiness,
+            "assessment_sha256",
+        ),
+        readiness_token_sha256=getattr(
+            readiness.readiness_token,
+            "token_sha256",
+        ),
+        tokenizer_spec_sha256=source_lock.tokenizer.spec_sha256,
+        tokenizer_tables_sha256=source_lock.tokenizer.tokenizer_tables_sha256,
+        token_cache_record_sha256s=[
+            cache.record_sha256 for cache in source_lock.token_caches
+        ],
+        token_cache_set_sha256=(
+            finalized.production_token_cache_set_sha256
+        ),
+        window_manifest_sha256s=[
+            manifest.manifest_sha256
+            for manifest in source_lock.schedules.window_manifests
+        ],
+        schedule_sha256s=list(source_lock.schedules.schedule_sha256s),
+        schedule_set_sha256=source_lock.schedules.schedule_set_sha256,
+        endpoint_inventory_sha256=(
+            training.endpoint_inventory.endpoint_inventory_sha256
+        ),
+        expected_experiment_plan_sha256=(
+            expected_plan.experiment_plan_sha256
+        ),
+    )
+
+
+def _emit_plan_ready(
+    *,
+    experiment_root: Path,
+    plan: ExperimentPlanIdentity,
+    ledger_path: Path,
+) -> None:
+    emit_progress(
+        "plan_ready",
+        experiment_id=plan.plan.experiment_id,
+        experiment_plan_sha256=plan.plan.experiment_plan_sha256,
+        experiment_plan_identity_sha256=plan.identity_sha256,
+        plan_path=str(plan.plan_path),
+        predicted_artifact_paths={
+            "resource_usage_ledger": str(ledger_path),
+            "terminal_experiment_index": str(
+                experiment_root / _TERMINAL_INDEX_NAME
+            ),
+            "per_run_relative_paths": list(
+                plan.plan.expected_run_artifact_paths
+            ),
+            "group_relative_paths": list(
+                plan.plan.expected_group_artifact_paths
+            ),
+        },
+    )
+
+
+def _emit_resources_forecast(bundle: Task14ReadinessBundle) -> None:
+    forecast = bundle.resource_forecast
+    emit_progress(
+        "resources_forecast",
+        forecast_sha256=forecast.forecast_sha256,
+        disk_forecast_sha256=forecast.disk_forecast_sha256,
+        available_disk_bytes=forecast.available_disk_bytes,
+        raw={
+            "gpu_hours": forecast.raw_gpu_hours,
+            "wall_hours": forecast.raw_wall_hours,
+            "energy_kwh": forecast.raw_energy_kwh,
+        },
+        forecast={
+            "gpu_hours": forecast.forecast_gpu_hours,
+            "wall_hours": forecast.forecast_wall_hours,
+            "energy_kwh": forecast.forecast_energy_kwh,
+        },
+        ceilings={
+            "gpu_hours": forecast.maximum_gpu_hours,
+            "wall_hours": forecast.maximum_wall_hours,
+            "energy_kwh": forecast.maximum_energy_kwh,
+        },
+        forecast_headroom_factor=forecast.forecast_headroom_factor,
+        observed_disk_bytes=None,
+        observed_disk_bytes_status="unavailable",
+    )
+
+
+def _emit_experiment_finished(
+    *,
+    result: ProductionTrainingResult,
+    experiment_index_path: Path,
+) -> None:
+    emit_progress(
+        "experiment_finished",
+        status=result.status,
+        tuning_attempt_count=result.tuning_attempt_count,
+        confirmation_attempt_count=result.confirmation_attempt_count,
+        completed_attempt_count=result.completed_attempt_count,
+        selected_hyperparameter_sha256=(
+            result.selected_hyperparameter_sha256
+        ),
+        experiment_index_path=str(experiment_index_path),
+        artifact_path=str(experiment_index_path),
+    )
+
+
 def run_production_attempts(
     *,
     training: TrainingConfig,
@@ -5003,6 +5212,13 @@ def run_production_attempts(
         source_lock=source_lock,
         readiness=readiness,
     )
+    _emit_run_resolved(
+        training=training,
+        source_lock=source_lock,
+        readiness=readiness,
+        expected_plan=expected_plan,
+        mode=mode,
+    )
     if mode == "train":
         experiment_root = run_root / expected_plan.experiment_id
         plan = publish_experiment_plan(
@@ -5058,6 +5274,12 @@ def run_production_attempts(
         raise ProductionOperationError(
             "production attempts lost exact Task 14 readiness evidence"
         )
+    _emit_plan_ready(
+        experiment_root=experiment_root,
+        plan=plan,
+        ledger_path=ledger_path,
+    )
+    _emit_resources_forecast(readiness_bundle)
     try:
         power_provider, power_sampler = (
             discover_nvidia_smi_power_provider()
@@ -5124,6 +5346,16 @@ def run_production_attempts(
             backend=backend,
             mode=mode,
         )
+        try:
+            _emit_attempt_started(
+                attempt=attempt,
+                reserved=reserved,
+                phase_total=len(tuning),
+                resume_active=resume_active,
+            )
+        except BaseException:
+            release_run_execution_lease(reserved)
+            raise
         outcome, manifest, ledger = _execute_reserved_attempt(
             attempt=attempt,
             training=training,
@@ -5198,6 +5430,16 @@ def run_production_attempts(
             backend=backend,
             mode=mode,
         )
+        try:
+            _emit_attempt_started(
+                attempt=attempt,
+                reserved=reserved,
+                phase_total=len(confirmation),
+                resume_active=resume_active,
+            )
+        except BaseException:
+            release_run_execution_lease(reserved)
+            raise
         outcome, manifest, ledger = _execute_reserved_attempt(
             attempt=attempt,
             training=training,
@@ -5265,13 +5507,18 @@ def run_production_attempts(
         "status": "COMPLETE",
         "heldout_test_opened": False,
     }
-    return ProductionTrainingResult(
+    result = ProductionTrainingResult(
         **values,
         result_sha256=owned_sha256(
             "vfe4.wt103.production-training-result.v1",
             values,
         ),
     )  # type: ignore[arg-type]
+    _emit_experiment_finished(
+        result=result,
+        experiment_index_path=experiment_index.index_path,
+    )
+    return result
 
 
 __all__ = [

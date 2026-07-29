@@ -96,6 +96,77 @@ def test_wt103_launcher_is_one_dictionary_click_surface_and_import_safe() -> Non
     assert idle.operation == "idle"
 
 
+def test_script_main_installs_console_progress_without_mutating_config_or_driver(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vfe4.training.progress import ConsoleProgressReporter, emit_progress
+
+    launcher = _load("train_vfe4_wt103_progress_injection")
+    original_config = copy.deepcopy(launcher.CONFIG)
+    real_main = launcher.main
+    captured: dict[str, object] = {}
+
+    def fake_main(
+        config: object = launcher.CONFIG,
+        *,
+        driver: object = None,
+        reporter: object = None,
+    ) -> object:
+        captured.update(
+            config=config,
+            driver=driver,
+            reporter=reporter,
+        )
+        return SimpleNamespace(status="IDLE", operation="idle")
+
+    monkeypatch.setattr(launcher, "main", fake_main)
+
+    assert launcher._script_main() == 0
+    assert captured["config"] is launcher.CONFIG
+    assert captured["driver"] is None
+    assert isinstance(captured["reporter"], ConsoleProgressReporter)
+    assert launcher.CONFIG == original_config
+
+    recorded: list[tuple[str, object]] = []
+
+    class _Recorder:
+        def report(self, event: str, payload: object, /) -> None:
+            recorded.append((event, payload))
+
+    class _ProgressDriver(_HermeticProductionDriver):
+        def source_lock(
+            self,
+            *,
+            training: object,
+            paths: object,
+        ) -> object:
+            del training, paths
+            emit_progress("run_resolved", config_sha256="a" * 64)
+            self.events.append("source_lock")
+            return self.source
+
+    config = copy.deepcopy(original_config)
+    config["training"]["operation"] = "source_lock"
+    config["authorization"] = launcher.SOURCE_LOCK_AUTHORIZATION
+    config["paths"]["cache_root"] = str(tmp_path / "cache")
+    config["paths"]["run_root"] = str(tmp_path / "runs")
+    config["paths"]["source_record_path"] = str(tmp_path / "source.json")
+    config["paths"]["resume_experiment_plan_path"] = str(
+        tmp_path / "runs" / "experiment-plan.json"
+    )
+    driver = _ProgressDriver([], object(), object(), object())
+
+    result = real_main(config, driver=driver, reporter=_Recorder())
+
+    assert result.status == "COMPLETED"
+    assert driver.events == ["source_lock"]
+    assert recorded == [
+        ("run_resolved", {"config_sha256": "a" * 64}),
+    ]
+    assert launcher.CONFIG == original_config
+
+
 def test_launcher_names_exact_resume_plan_and_rejects_old_index_key(
     tmp_path: Path,
 ) -> None:

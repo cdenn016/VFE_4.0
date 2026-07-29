@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from vfe4.config.schema import TrainingConfig
+    from vfe4.training.progress import ProgressReporter
 
 
 OPERATIONS = (
@@ -974,7 +975,7 @@ def _run_synthetic_smoke(
     )
 
 
-def main(
+def _main_with_current_reporter(
     config: object = CONFIG,
     *,
     driver: TrainingOperationDriver | None = None,
@@ -1060,9 +1061,25 @@ def main(
     )
 
 
+def main(
+    config: object = CONFIG,
+    *,
+    driver: TrainingOperationDriver | None = None,
+    reporter: "ProgressReporter | None" = None,
+) -> TrainingLauncherResult:
+    """Resolve and run one click operation under an injected progress sink."""
+
+    from vfe4.training.progress import use_progress_reporter
+
+    with use_progress_reporter(reporter):
+        return _main_with_current_reporter(config, driver=driver)
+
+
 def _script_main() -> int:
+    from vfe4.training.progress import ConsoleProgressReporter
+
     try:
-        result = main()
+        result = main(reporter=ConsoleProgressReporter())
     except (OSError, PermissionError, RuntimeError, TypeError, ValueError) as exc:
         print(f"VFE4 WikiText-103 operation unavailable: {exc}", file=sys.stderr)
         return 2

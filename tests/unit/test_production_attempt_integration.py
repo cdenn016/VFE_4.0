@@ -307,6 +307,94 @@ def test_production_reservations_bind_exact_ordered_tuning_key(
     production_attempt.release_run_execution_lease(reserved)
 
 
+def test_attempt_progress_follows_reservation_and_durable_finalization(
+    tmp_path: Path,
+) -> None:
+    from vfe4.artifacts.environment import ResourceUsageLedger
+    from vfe4.artifacts.run_directory import publish_experiment_plan
+    from vfe4.training import production_attempt
+    from vfe4.training.progress import use_progress_reporter
+
+    training = resolve_training_config(default_training_config_mapping())
+    plan_value = _production_experiment_plan_fixture(training)
+    backend = production_attempt._backend()
+    plan = publish_experiment_plan(tmp_path, plan_value, backend=backend)
+    attempt = production_attempt._attempt_inventory(training, None)[0]
+    reserved, resumed = production_attempt._reserve_production_attempt(
+        experiment_root=tmp_path,
+        attempt=attempt,
+        plan=plan,
+        readiness=None,
+        backend=backend,
+        mode="train",
+    )
+    usage = production_attempt._AttemptResourceUsage(
+        device_seconds=3.0,
+        wall_seconds=4.0,
+        sampled_energy_kwh=0.01,
+        usage_evidence_sha256="a" * 64,
+    )
+    ledger = ResourceUsageLedger.create(
+        experiment_plan_sha256=plan_value.experiment_plan_sha256,
+        resource_profile=training.profile.resources,
+    )
+    manifest_path = reserved.final_path / "run-manifest.json"
+    manifest = SimpleNamespace(
+        run_path=reserved.final_path,
+        disposition="success",
+        manifest_sha256="b" * 64,
+    )
+    outcome = SimpleNamespace(terminal_checkpoint_identity_sha256="c" * 64)
+    seen: list[tuple[str, object]] = []
+
+    class _Recorder:
+        def report(self, event: str, payload: object, /) -> None:
+            if event == "attempt_started":
+                assert reserved.inprogress_path.is_dir()
+            if event == "attempt_finished":
+                assert manifest_path.is_file()
+            seen.append((event, payload))
+
+    try:
+        with use_progress_reporter(_Recorder()):
+            production_attempt._emit_attempt_started(
+                attempt=attempt,
+                reserved=reserved,
+                phase_total=plan_value.tuning_attempt_count,
+                resume_active=resumed,
+            )
+            reserved.inprogress_path.rename(reserved.final_path)
+            manifest_path.write_bytes(b"durable terminal sentinel")
+            production_attempt._emit_attempt_finished(
+                attempt=attempt,
+                manifest=manifest,
+                outcome=outcome,
+                usage=usage,
+                ledger=ledger,
+            )
+    finally:
+        production_attempt.release_run_execution_lease(reserved)
+
+    assert [event for event, _payload in seen] == [
+        "attempt_started",
+        "attempt_finished",
+    ]
+    started = seen[0][1]
+    finished = seen[1][1]
+    assert started["role"] == "tuning"
+    assert started["arm_id"] == attempt.arm_id
+    assert started["seed_id"] == attempt.seed_id
+    assert started["resume_count"] == 0
+    assert finished["observed"] == {
+        "gpu_seconds": 3.0,
+        "wall_seconds": 4.0,
+        "energy_kwh": 0.01,
+    }
+    assert finished["accounted"]["ledger_sha256"] == ledger.ledger_sha256
+    assert finished["observed_disk_bytes"] is None
+    assert finished["observed_disk_bytes_status"] == "unavailable"
+
+
 def test_resume_reopens_declared_plan_ledger_and_sidecar_before_terminal_index(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
