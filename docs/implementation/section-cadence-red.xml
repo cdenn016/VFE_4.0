@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.266" timestamp="2026-10-14T15:07:06.929704" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_viewer" name="test_paused_single_sweep_refreshes_before_snapshot_cadence" time="0.949"><failure message="AssertionError: assert (1 == 1 and [] == [1]&#10; +  where 1 = RunResult(run_directory=WindowsPath('C:/Users/chris and christine/AppData/Local/Temp/pytest-of-chris and christine/pyt....,   0,   0,   0], dtype=torch.uint8), standard_normals=None, diagnostic_rng_state=None), sweep=1), completed_sweeps=1).completed_sweeps&#10;  Right contains one more item: 1&#10;  Use -v to get more diff)">tmp_path = WindowsPath('C:/Users/chris and christine/AppData/Local/Temp/pytest-of-chris and christine/pytest-7574/test_paused_single_sweep_refre0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002208C50E4B0&gt;
+
+    def test_paused_single_sweep_refreshes_before_snapshot_cadence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -&gt; None:
+        from vfe4 import viewer as viewer_module
+        from vfe4.simulation import run_simulation
+        frames = []
+    
+        class PausedViewer:
+            def __init__(self) -&gt; None:
+                self.paused, self.calls = True, 0
+    
+            def ready(self) -&gt; bool:
+                self.calls += 1
+                return self.calls == 1
+    
+            def update(self, state: SectionState, model: SimulationModel, objective: float) -&gt; None:
+                frames.append(state.sweep)
+    
+        monkeypatch.setattr(viewer_module, 'SimulationViewer', PausedViewer)
+        config = load_config(resolve_preset('tiny_point', {
+            'population': {'n_agents': 2, 'lattice_shape': (2,)}, 'bundle': {'K': 1},
+            'inference': {'sweeps': 3}, 'output': {'directory': str(tmp_path), 'viewer': True,
+                'snapshot_every': 5, 'figures': False}}))
+        result = run_simulation(config)
+&gt;       assert result.completed_sweeps == 1 and frames == [1]
+E       AssertionError: assert (1 == 1 and [] == [1]
+E        +  where 1 = RunResult(run_directory=WindowsPath('C:/Users/chris and christine/AppData/Local/Temp/pytest-of-chris and christine/pyt....,   0,   0,   0], dtype=torch.uint8), standard_normals=None, diagnostic_rng_state=None), sweep=1), completed_sweeps=1).completed_sweeps
+E         Right contains one more item: 1
+E         Use -v to get more diff)
+
+tests\test_viewer.py:112: AssertionError</failure></testcase></testsuite></testsuites>

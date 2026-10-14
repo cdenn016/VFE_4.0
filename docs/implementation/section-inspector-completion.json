@@ -1,0 +1,44 @@
+{
+  "created_at": "2026-10-14T20:13:10.299184+00:00",
+  "status": "implemented_cpu_qt_package_checked",
+  "scope": "Selected section inspector with paused single-sweep refresh",
+  "source_sha256": {
+    "run_simulation.py": "513ca1259b7c14bad96acb3648995c0ba4d105a24eaeb9ae98a69ec56cf6bd91",
+    "vfe4/section_view.py": "6739fdb7719101760858c3527a872981d7aa70989ff2a6e6ee23ab135e4c16cc",
+    "vfe4/viewer.py": "606b65b1ecdb3f30e17dd313803a62ab4901900282d400eef7374621f927a91d",
+    "vfe4/simulation.py": "7084a4593f6a0db76d3c44739a1307762b420032a89111278b5b9af6446b4460",
+    "tests/test_section_view.py": "2219b47349d33adb0e7265869aab32f909bb071e641f7bb5a898737e77ec9979",
+    "tests/test_viewer.py": "c4913d45260348d7dae3e5836c4804de3d900ce0b3de972f7f393224724c59a9",
+    "experiments/run_viewer_validation.py": "e315849070704967ad08c360c5a6ee4b4f68229429a9995650ac7d2f36ddce74"
+  },
+  "active_config_preserved": true,
+  "cpu": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "73",
+    "time": "3.574",
+    "timestamp": "2026-10-14T15:10:53.524600",
+    "hostname": "DESKTOP-RT15E78"
+  },
+  "cpu_junit": "docs/implementation/section-integration.xml",
+  "qt": {
+    "status": "completed",
+    "backend": "QtAgg",
+    "device": "cpu",
+    "checks": 32,
+    "report": "docs/implementation/section-viewer-validation.json",
+    "screenshots_inspected": true,
+    "manual_interaction": false
+  },
+  "package_record": "docs/implementation/package-validation.json",
+  "wheel_sha256": "4b952424a5147ef96ee749d371c54265bd43b860a57586e0d92616a5c77f968e",
+  "cuda_inspector": {
+    "status": "unrun_other_compute_process",
+    "checked_at": "2026-10-14T20:11:16Z",
+    "python_pid": 5344,
+    "timing_and_extra_memory_measured": false
+  },
+  "prior_engine_cuda_and_scale_evidence_preserved": true
+}

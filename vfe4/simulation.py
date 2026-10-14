@@ -89,7 +89,7 @@ def _execute(model: SimulationModel, state: SectionState, writer: RunWriter,
                            if state.sweep % config['analytics']['every'] == 0 else {})
             observables['sweep_seconds'] = time.perf_counter() - sweep_start
             recorder.record(state.sweep, report, evaluate_vfe(state, model), observables)
-            if viewer is not None and state.sweep % config['output']['snapshot_every'] == 0:
+            if viewer is not None and (state.sweep % config['output']['snapshot_every'] == 0 or viewer.paused):
                 viewer.update(state, model, report.objective_after)
             if state.sweep % config['output']['checkpoint_every'] == 0:
                 save_checkpoint(writer.run_dir / 'checkpoint.pt', model, state, recorder.state)
