@@ -42,6 +42,9 @@ def load_config(raw: dict[str, Any]) -> SimulationConfig:
             raise ValueError('population.lattice_shape must multiply to n_agents')
         if config['spatial']['enabled'] or config['communication']['source_support'] != 'agent_lattice':
             raise ValueError('point mode requires agent_lattice support and no spatial records')
+        if (population['placement'] != 'grid' or population['center_grid'] or population['patch_shape']
+                or population['coverage'] != 'required' or config['bundle']['frame_field'] != 'constant'):
+            raise ValueError('point mode reads no placement, center_grid, patch_shape, coverage or Fourier frames; leave their defaults')
     elif manifold['kind'] == 'flat_torus':
         d = manifold['dimension']
         if d not in (2, 3) or any(len(manifold[key]) != d for key in ('periods', 'grid_shape')):
@@ -62,6 +65,7 @@ def load_config(raw: dict[str, Any]) -> SimulationConfig:
         ('recognition', 'covariance_structure'): ('full_patch', 'node_blocks'),
         ('links', 'mode'): ('held', 'latent_gaussian'),
         ('links', 'generator_precision'): ('diagonal', 'full'),
+        ('links', 'prior_anchor'): ('zero', 'fixture_twist'),
         ('bundle', 'frame_field'): ('constant', 'periodic_fourier'),
         ('inference', 'method'): ('chromatic_cavi', 'fisher_natural'),
         ('communication', 'comparison'): ('full_state', 'projection'),
@@ -89,8 +93,14 @@ def load_config(raw: dict[str, Any]) -> SimulationConfig:
                          ('output', 'snapshot_every'), ('output', 'checkpoint_every')]:
         if not isinstance(config[section][key], int) or config[section][key] < 1:
             raise ValueError(f'{section}.{key} must be a positive integer')
-    if config['inference']['sweeps'] < 0:
-        raise ValueError('sweeps must be nonnegative')
+    sweeps = config['inference']['sweeps']
+    if not isinstance(sweeps, int) or isinstance(sweeps, bool) or sweeps < 0:
+        raise ValueError('inference.sweeps must be a nonnegative integer')
+    if any(not resolution > 0 for resolution in config['analytics']['coherence_resolutions']):
+        raise ValueError('analytics.coherence_resolutions must be positive')
+    max_dim = config['analytics']['coarse_max_dim']
+    if not isinstance(max_dim, int) or isinstance(max_dim, bool) or max_dim < 1:
+        raise ValueError('analytics.coarse_max_dim must be a positive integer')
     if config['links']['samples'] < 2 or config['links']['samples'] % 2:
         raise ValueError('links.samples must be even and at least 2 for antithetic integration')
     if not 0 < config['inference']['link_dt'] <= 1:

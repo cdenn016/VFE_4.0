@@ -56,7 +56,7 @@ CONFIG = {
         'source_support': 'agent_lattice',  # Spatial mode: 'overlap'
         'prior_family': 'window',         # window, directed_window, exponential, power, complete
         'radius': 2,
-        'decay': 1.0,
+        'decay': 1.0,                     # Per lattice step or grid spacing
         'alpha': 2.0,
         'include_self': True,
         'max_sources': None,             # Optional overlap candidate cap
@@ -69,6 +69,7 @@ CONFIG = {
         'shared_channels': True,
         'initial_twist_std': 0.05,
         'prior_std': 0.1,
+        'prior_anchor': 'zero',           # 'zero' or 'fixture_twist' (held-link limit check only)
         'generator_precision': 'diagonal',  # 'diagonal' or 'full'
         'mutual_loop_coefficient': 0.0,   # Nonzero latent loop prior has unknown log Z
         'samples': 8,                     # Latent antithetic integration: even, at least 2

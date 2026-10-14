@@ -52,3 +52,13 @@ def test_sender_is_updated_without_own_receiving_record() -> None:
     model.records = (selected,)
     _channel_sweep(state, model, make_schedule(model, config), config, 0, 1.0)
     assert torch.linalg.vector_norm(state.belief.buckets[0].mu[1]) > 0
+    # Agent 1 only sends; its mean must still be the exact block optimum of F.
+    from vfe4.objective import evaluate_vfe
+    eps = 1e-4
+    for coordinate in range(state.belief.buckets[0].mu.shape[1]):
+        values = []
+        for sign in (1, -1):
+            state.belief.buckets[0].mu[1, coordinate] += sign * eps
+            values.append(float(evaluate_vfe(state, model).total))
+            state.belief.buckets[0].mu[1, coordinate] -= sign * eps
+        assert abs(values[0] - values[1]) / (2 * eps) < 1e-7

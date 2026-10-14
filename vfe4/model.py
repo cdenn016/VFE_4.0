@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import math
+from typing import Optional
 
 import torch
 
@@ -43,6 +44,8 @@ class SimulationModel:
     records: tuple[GaussianRecords, ...]
     initial_links: LinkState
     truth: torch.Tensor             # fixture sidecar, read only by diagnostics/output
+    link_anchor: Optional[torch.Tensor] = None     # (C,K*K) generator prior mean alpha_e
+    fixture_twist: Optional[torch.Tensor] = None   # (C,K*K) data-generating twist, sidecar only
 
     def __getstate__(self) -> dict:
         return {key: value for key, value in self.__dict__.items() if key != '_transport_cache'}
@@ -201,7 +204,11 @@ def build_model(config: SimulationConfig) -> SimulationModel:
     if not config['links']['shared_channels']:
         primitives *= 2
     generator = torch.Generator(device=device).manual_seed(config['runtime']['seed'] + 2)
-    omega = config['links']['initial_twist_std'] * torch.randn(primitives, K * K, device=device, dtype=dtype, generator=generator)
+    # The fixture twist generates the records. Held mode declares it a known generative
+    # parameter; latent recognition starts at the prior anchor and never reads it.
+    fixture_twist = config['links']['initial_twist_std'] * torch.randn(primitives, K * K, device=device, dtype=dtype, generator=generator)
+    anchor = fixture_twist.clone() if config['links']['prior_anchor'] == 'fixture_twist' else torch.zeros_like(fixture_twist)
+    omega = fixture_twist.clone() if config['links']['mode'] == 'held' else anchor.clone()
     if config['links']['generator_precision'] == 'diagonal':
         precision = torch.full_like(omega, config['links']['prior_std']**-2)
     else:
@@ -241,9 +248,7 @@ def build_model(config: SimulationConfig) -> SimulationModel:
         winners = torch.segment_reduce(torch.where(score == maxima[base_rows.row_id], candidate, E).to(dtype),
                                        'min', lengths=base_rows.row_offset.diff()).long()
         # Twist draws are known fixed model parameters in held mode, not hidden peer beliefs.
-        from copy import deepcopy
-        fixed_links = deepcopy(links)
-        fixed_links.mode = 'held'
+        fixed_links = LinkState('held', fixture_twist, precision, generator.get_state())
         temp = SectionState(None, None, rows.log_pi.exp(), rows.log_pi.clone(), fixed_links)
         _, actual_B = SimulationModel(config, domain, incidence, frame_field, rows, copies, loops,
                                      channel_edge, (), links, truth).record_maps(bank, temp)
@@ -252,7 +257,8 @@ def build_model(config: SimulationConfig) -> SimulationModel:
         bank.observed = values[base_rows.row_id]
         banks.append(bank)
     links.rng_state = generator.get_state()
-    return SimulationModel(config, domain, incidence, frame_field, rows, copies, loops, channel_edge, tuple(banks), links, truth)
+    return SimulationModel(config, domain, incidence, frame_field, rows, copies, loops, channel_edge, tuple(banks), links, truth,
+                           anchor, fixture_twist)
 
 
 def initialize_sections(model: SimulationModel, config: SimulationConfig) -> SectionState:

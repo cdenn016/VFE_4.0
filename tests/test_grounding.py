@@ -31,20 +31,64 @@ def test_conditional_kl_correlated_oracle() -> None:
     torch.testing.assert_close(discarded_conditional_kl(mu_q, Sigma_q, mu_p, Sigma_p, T[:1]), expected)
 
 
-def test_hyperedge_colors_and_jacobi_counterexample() -> None:
-    config = load_config(resolve_preset('tiny_point', {'population': {'n_agents': 3, 'lattice_shape': (3,)}}))
-    schedule = make_schedule(build_model(config), config)
+def _belief_vector(state: object, S: int, K: int) -> torch.Tensor:
+    return state.belief.means(S, K).flatten()
+
+
+def test_colored_sweep_is_dense_block_gauss_seidel() -> None:
+    r"""Engine belief means equal Gauss-Seidel on the dense beta-weighted action, in color order.
+
+    The dense J,h come from dense_action, independent of the bucket assembly. A Jacobi
+    sweep (all colors reading start-of-sweep means) gives a different result.
+    """
+    from vfe4.inference import _channel_sweep
+    from vfe4.objective import dense_action
+    config = load_config(resolve_preset('tiny_point', {'population': {'n_agents': 3, 'lattice_shape': (3,)},
+                         'links': {'initial_twist_std': 0.4}, 'observations': {'private_fraction': 1.0}}))
+    model = build_model(config)
+    state = initialize_sections(model, config)
+    generator = torch.Generator().manual_seed(3)
+    for laws in (state.belief, state.model):
+        laws.buckets[0].mu += torch.randn(laws.buckets[0].mu.shape, generator=generator, dtype=config.dtype)
+    schedule = make_schedule(model, config)
     assert len(schedule.colors) == 3
-    # General SPD dense factor counterexample from c08; not a claim about a formation mechanism.
-    J = torch.full((3, 3), 0.9, dtype=torch.float64)
-    J.diagonal().fill_(1)
-    mu = torch.ones(3, dtype=J.dtype)
-    jacobi = -(J - torch.eye(3)) @ mu
-    energy = lambda x: 0.5 * x @ J @ x
-    assert energy(jacobi) > energy(mu)
+    S, K = model.incidence.agent_id.numel(), config['bundle']['K']
+    J, h, _ = dense_action(state, model)
+    x = torch.cat([_belief_vector(state, S, K), state.model.means(S, K).flatten()])
+    start = x.clone()
+
+    def block_update(source: torch.Tensor, agents: torch.Tensor) -> torch.Tensor:
+        target = source.clone()
+        for agent in agents.tolist():
+            a = torch.arange(agent * K, (agent + 1) * K)
+            rest = torch.ones(x.numel(), dtype=torch.bool)
+            rest[a] = False
+            target[a] = torch.linalg.solve(J[a][:, a], h[a] - J[a][:, rest] @ source[rest])
+        return target
+
     for color in schedule.colors:
-        mu[color] = -((J - torch.eye(3)) @ mu)[color]
-    assert energy(mu) < energy(torch.ones_like(mu))
+        x = block_update(x, color)
+    jacobi = block_update(start, torch.arange(S))
+    _channel_sweep(state, model, schedule, config, 0, 1.0)
+    engine = _belief_vector(state, S, K)
+    torch.testing.assert_close(engine, x[:S * K], rtol=1e-10, atol=1e-12)
+    assert not torch.allclose(engine, jacobi[:S * K], atol=1e-6)
+
+
+def test_pairwise_records_make_jacobi_a_descent_too() -> None:
+    r"""With only pairwise record scopes, 2D-J is a sum of S Q S >= 0, so even one color descends.
+
+    The c08 counterexample needs a record coupling three blocks, which this record family lacks.
+    """
+    from vfe4.inference import UpdateSchedule, step
+    config = load_config(resolve_preset('tiny_point', {'population': {'n_agents': 5, 'lattice_shape': (5,)},
+                         'communication': {'radius': 2, 'tau': 0.05}, 'links': {'initial_twist_std': 1.0}}))
+    model = build_model(config)
+    state = initialize_sections(model, config)
+    single = UpdateSchedule((torch.arange(5),))
+    for _ in range(3):
+        state, report = step(state, model, single, config)
+        assert report.objective_after <= report.objective_before + 1e-9 * abs(report.objective_before)
 
 
 def test_latent_kl_spd_and_independent_stream() -> None:
@@ -72,10 +116,16 @@ def test_swept_models_require_separate_groups() -> None:
         aggregate_metric(table, 'x', 'sweep', 99, 'percentile', 0)
 
 
-def test_fourier_frame_transport_cocycle() -> None:
-    config = load_config(resolve_preset('tiny_spatial_2d', {}))
+def test_fourier_frames_are_periodic_so_base_loops_are_trivial() -> None:
+    r"""Omega around a noncontractible cycle is U(c+L e_k)U(c)^{-1}; it is I only for periodic frames."""
+    config = load_config(resolve_preset('tiny_spatial_2d', {'bundle': {'frame_amplitude': 0.8}}))
     model = build_model(config)
-    agent = torch.tensor([0])
-    a, b, c = [torch.tensor([point], dtype=config.dtype) for point in ((.1, .2), (.3, .4), (.6, .7))]
-    Ua, Ub, Uc = [model.frame_field.evaluate(agent, point) for point in (a, b, c)]
-    torch.testing.assert_close(base_transport(Uc, Ub) @ base_transport(Ub, Ua), base_transport(Uc, Ua))
+    agent = torch.tensor([1])
+    point = torch.tensor([[.13, .37]], dtype=config.dtype)
+    U = model.frame_field.evaluate(agent, point)
+    assert not torch.allclose(model.frame_field.evaluate(agent, point + 0.25), U)
+    for axis in range(2):
+        shifted = point.clone()
+        shifted[0, axis] += float(model.domain.periods[axis])
+        loop = base_transport(model.frame_field.evaluate(agent, shifted), U)
+        torch.testing.assert_close(loop, torch.eye(config['bundle']['K'], dtype=config.dtype).expand_as(loop))

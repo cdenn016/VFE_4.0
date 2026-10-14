@@ -22,7 +22,7 @@ DEFAULTS: dict[str, Any] = {
                       'include_self': True, 'max_sources': None, 'tau': 0.5,
                       'source_rate': 0.0, 'source_every': 1},
     'links': {'mode': 'held', 'shared_channels': True, 'initial_twist_std': 0.05,
-              'prior_std': 0.1, 'generator_precision': 'diagonal',
+              'prior_std': 0.1, 'prior_anchor': 'zero', 'generator_precision': 'diagonal',
               'mutual_loop_coefficient': 0.0, 'samples': 8, 'copy_chunk_size': 4096},
     'spatial': {'enabled': False, 'record_value': 'zero', 'noise_std': 0.5},
     'inference': {'method': 'chromatic_cavi', 'sweeps': 4, 'belief_weight': 1.0,
@@ -53,7 +53,9 @@ def _spatial(dimension: int, large: bool = False) -> dict[str, Any]:
     centers = (32, 16) if dimension == 2 else (8, 8, 8)
     patch = (5, 5) if dimension == 2 else (3, 3, 3)
     if not large:
-        grid, centers, patch = (2,) * dimension, (2,) * dimension, (1,) * dimension
+        # Smallest nondegenerate layout: overlapping 3^d patches give spatial records,
+        # cross-node covariance and inter-agent copies.
+        grid, centers, patch = (4,) * dimension, (2,) * dimension, (3,) * dimension
     return strict_merge(DEFAULTS, {
         'runtime': {'device': 'cuda' if large else 'cpu'},
         'manifold': {'kind': 'flat_torus', 'dimension': dimension,

@@ -29,7 +29,7 @@ def run_validation() -> None:
     output = ROOT / 'docs/implementation/cuda.xml'
     result = pytest.main([str(ROOT / 'tests/test_cuda.py'), '-q', f'--junitxml={output}'])
     suites = list(ET.parse(output).getroot().iter('testsuite'))
-    if result or not suites or sum(int(suite.get('tests', '0')) for suite in suites) < 9 or any(int(suite.get('skipped', '0')) for suite in suites):
+    if result or not suites or sum(int(suite.get('tests', '0')) for suite in suites) < 10 or any(int(suite.get('skipped', '0')) for suite in suites):
         write_json(status, {'status': 'failed', 'checked_utc': datetime.now(timezone.utc).isoformat(), 'exit_code': result})
         raise RuntimeError('CUDA lane did not execute all expected tests successfully')
     write_json(status, {'status': 'completed', 'checked_utc': datetime.now(timezone.utc).isoformat(),

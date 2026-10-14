@@ -1,13 +1,16 @@
 """Chromatic Gaussian block inference with every incident sender term (c08)."""
 
+from copy import deepcopy
 from dataclasses import dataclass
+import math
+from typing import Optional
 
 import torch
 
 from .config import SimulationConfig
 from .gaussian import checked_cholesky, damp_moments
 from .model import SimulationModel
-from .objective import evaluate_vfe, optimal_rows
+from .objective import VFEReport, evaluate_vfe, optimal_rows
 from .state import GaussianBucket, PatchGaussians, SectionState
 
 
@@ -18,13 +21,13 @@ class UpdateSchedule:
 
 @dataclass
 class StepReport:
-    objective_before: float
-    objective_after: float
-    accepted: bool
-    retries: int = 0
-    min_spd_status: int = 0
-    estimator_error: float = 0.0
-    normalizer_status: str = 'exact'
+    """A completed sweep; failed sweeps raise and are rolled back instead of being recorded."""
+    objective_before:  float
+    objective_after:   float
+    retries:           int                  = 0
+    link_accepted:     Optional[bool]       = None   # None on sweeps without a link proposal
+    normalizer_status: str                  = 'exact'
+    after_report:      Optional[VFEReport]  = None
 
 
 def make_schedule(model: SimulationModel, config: SimulationConfig) -> UpdateSchedule:
@@ -74,7 +77,7 @@ def _assemble(bucket: GaussianBucket, state: SectionState, model: SimulationMode
     precision = torch.eye(D, device=bucket.mu.device, dtype=bucket.mu.dtype).expand(Bn, D, D).clone() * (precision_bridge + H)
     # precision: (agents_in_bucket, P*K, P*K), never a global precision.
     other = state.model if channel == 0 else state.belief
-    other_mu = other.marginals(S, K)[0]
+    other_mu = other.means(S, K)
     info = precision_bridge * other_mu[bucket.incidence_ids].reshape(Bn, D)
     mapping = torch.full((N,), -1, device=bucket.mu.device, dtype=torch.long)
     mapping[bucket.agent_ids] = torch.arange(Bn, device=bucket.mu.device)
@@ -123,19 +126,21 @@ def _channel_sweep(state: SectionState, model: SimulationModel, schedule: Update
                    config: SimulationConfig, channel: int, weight: float) -> None:
     laws = state.belief if channel == 0 else state.model
     K, S = config['bundle']['K'], model.incidence.agent_id.numel()
+    name = 'belief' if channel == 0 else 'model'
     for bucket in laws.buckets:
         precision, static_info, messages = _assemble(bucket, state, model, channel)
-        L = checked_cholesky(precision)
-        Sigma_star = torch.cholesky_inverse(L)
+        L = checked_cholesky(precision, bucket.agent_ids, f'{name} block precision')
         if laws.covariance_structure == 'node_blocks':
             P = bucket.incidence_ids.shape[1]
             diag = precision.reshape(-1, P, K, P, K).diagonal(dim1=1, dim2=3).permute(0, 3, 1, 2)
-            Sigma_nodes = torch.cholesky_inverse(checked_cholesky(diag))
+            Sigma_nodes = torch.cholesky_inverse(checked_cholesky(diag, bucket.agent_ids, f'{name} node precision'))
+        else:
+            Sigma_star = torch.cholesky_inverse(L)
         for color in schedule.colors:
             selected = torch.isin(bucket.agent_ids, color).nonzero().flatten()
             if not selected.numel():
                 continue
-            mu_nodes = laws.marginals(S, K)[0]
+            mu_nodes = laws.means(S, K)
             incoming = mu_nodes.new_zeros(S, K)
             for rec, src, C in messages:
                 incoming.index_add_(0, rec, (C @ mu_nodes[src, :, None]).squeeze(-1))
@@ -146,30 +151,47 @@ def _channel_sweep(state: SectionState, model: SimulationModel, schedule: Update
             if config['inference']['method'] == 'fisher_natural' and laws.covariance_structure == 'full_patch':
                 old_precision = torch.cholesky_inverse(bucket.chol[selected])
                 new_precision = (1 - weight) * old_precision + weight * precision[selected]
-                new_L = checked_cholesky(new_precision)
+                new_L = checked_cholesky(new_precision, bucket.agent_ids[selected], f'{name} natural update')
                 new_info = (1 - weight) * (old_precision @ old_mu[:, :, None]).squeeze(-1) + weight * rhs
                 new_mu = torch.cholesky_solve(new_info[:, :, None], new_L).squeeze(-1)
                 new_cov = torch.cholesky_inverse(new_L)
             elif laws.covariance_structure == 'full_patch':
-                old_cov = bucket.covariance()[selected]
+                old_cov = bucket.chol[selected] @ bucket.chol[selected].mT
                 new_mu, new_cov = damp_moments(old_mu, target_mu, old_cov, Sigma_star[selected], weight)
             else:
                 old_cov = bucket.chol[selected] @ bucket.chol[selected].mT
                 mean, new_cov = damp_moments(old_mu.reshape(-1, P, K), target_mu.reshape(-1, P, K),
                                              old_cov, Sigma_nodes[selected], weight)
                 new_mu = mean.flatten(1)
+            new_chol = checked_cholesky(new_cov, bucket.agent_ids[selected], f'{name} covariance update')
             bucket.mu[selected] = new_mu
-            bucket.chol[selected] = checked_cholesky(new_cov)
+            bucket.chol[selected] = new_chol
 
 
 @torch.no_grad()
 def step(state: SectionState, model: SimulationModel, schedule: UpdateSchedule,
-         config: SimulationConfig) -> tuple[SectionState, StepReport]:
-    retries = 0
+         config: SimulationConfig, previous: Optional[float] = None) -> tuple[SectionState, StepReport]:
+    """One accepted sweep, or an exception with ``state`` restored to its pre-sweep value.
+
+    ``previous`` is the accepted objective of the preceding sweep. Held links reuse it,
+    since nothing changes between sweeps; sampled links always re-evaluate it.
+    """
+    snapshot = deepcopy(state)
+    try:
+        return _step(state, model, schedule, config, previous)
+    except BaseException:
+        state.__dict__.update(snapshot.__dict__)
+        raise
+
+
+def _step(state: SectionState, model: SimulationModel, schedule: UpdateSchedule,
+          config: SimulationConfig, previous: Optional[float]) -> tuple[SectionState, StepReport]:
+    retries, link_accepted = 0, None
     if state.links.mode == 'latent_gaussian':
         from .latent_links import refresh_samples
         refresh_samples(state.links, config['links']['samples'])
-    before = float(evaluate_vfe(state, model).total)
+    held_previous = previous is not None and state.links.mode == 'held'
+    before = previous if held_previous else float(evaluate_vfe(state, model).total)
     state.beta = optimal_rows(model.record_costs(state), model.rows, state.log_pi)
     _channel_sweep(state, model, schedule, config, 0, config['inference']['belief_weight'])
     if (state.sweep + 1) % config['inference']['model_every'] == 0:
@@ -179,18 +201,13 @@ def step(state: SectionState, model: SimulationModel, schedule: UpdateSchedule,
         state.log_pi = source_prior_step(state.log_pi, state.beta, model.rows.row_offset,
                                          config['communication']['source_rate'])
     if state.links.mode == 'latent_gaussian' and (state.sweep + 1) % config['inference']['link_every'] == 0:
-        from .latent_links import update_links
+        from .latent_links import MAX_LINK_RETRIES, update_links
         retries = update_links(state, model)
+        link_accepted = retries < MAX_LINK_RETRIES
     state.sweep += 1
     after_report = evaluate_vfe(state, model)
     after = float(after_report.total)
     tolerance = (1e-9 if config.dtype == torch.float64 else 1e-5) * max(1.0, abs(before))
-    if not math_isfinite(after) or after > before + tolerance:
+    if not math.isfinite(after) or after > before + tolerance:
         raise RuntimeError(f'Collective VFE failed descent at sweep {state.sweep}: {before} -> {after}')
-    return state, StepReport(before, after, True, retries, estimator_error=after_report.estimator_error,
-                            normalizer_status=after_report.normalizer_status)
-
-
-def math_isfinite(value: float) -> bool:
-    import math
-    return math.isfinite(value)
+    return state, StepReport(before, after, retries, link_accepted, after_report.normalizer_status, after_report)

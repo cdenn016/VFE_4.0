@@ -13,6 +13,8 @@ from .state import LinkState, SectionState
 if TYPE_CHECKING:
     from .model import SimulationModel
 
+MAX_LINK_RETRIES = 12
+
 
 def gaussian_blr_step(mu: torch.Tensor, precision: torch.Tensor, gradient: torch.Tensor,
                       hessian: torch.Tensor, dt: float) -> tuple[torch.Tensor, torch.Tensor]:
@@ -71,9 +73,13 @@ def sampled_generators(links: LinkState, samples: int) -> torch.Tensor:
     return links.omega_mean + perturbation
 
 
-def link_kl(links: LinkState, prior_std: float) -> torch.Tensor:
-    r"""KL(prod_e N(mu_e,P_e^{-1}) || prod_e N(0,sigma_prior^2 I))."""
+def link_kl(links: LinkState, prior_std: float, anchor: torch.Tensor | None = None) -> torch.Tensor:
+    r"""KL(prod_e N(mu_e,P_e^{-1}) || prod_e N(alpha_e,sigma_prior^2 I)), c08b eq:link-gaussian-kl.
+
+    ``anchor`` holds alpha_e with shape (C,K*K); None is the identity anchor alpha_e=0.
+    """
     D = links.omega_mean.shape[-1]
+    offset = links.omega_mean if anchor is None else links.omega_mean - anchor
     if links.precision.ndim == 2:
         trace = links.precision.reciprocal().sum(-1)
         logdet = links.precision.log().sum(-1)
@@ -81,7 +87,7 @@ def link_kl(links: LinkState, prior_std: float) -> torch.Tensor:
         L = torch.linalg.cholesky(links.precision)
         trace = torch.cholesky_inverse(L).diagonal(dim1=-2, dim2=-1).sum(-1)
         logdet = 2 * L.diagonal(dim1=-2, dim2=-1).log().sum(-1)
-    return 0.5 * ((trace + links.omega_mean.square().sum(-1)) / prior_std**2 - D
+    return 0.5 * ((trace + offset.square().sum(-1)) / prior_std**2 - D
                   + D * math.log(prior_std**2) + logdet).sum()
 
 
@@ -97,7 +103,7 @@ def loop_sample_costs(links: LinkState, model: SimulationModel) -> torch.Tensor:
     omega = sampled_generators(links, model.config['links']['samples'])
     samples = omega.shape[0]
     result = omega.new_zeros(samples)
-    if not model.loops.weight.numel():
+    if not model.loops.weight.numel() or not model.config['links']['mutual_loop_coefficient']:
         return result
     pairs = model.loops.primitive_id.reshape(-1, 2)
     repeats = 1 if model.config['links']['shared_channels'] else 2
@@ -155,7 +161,8 @@ def update_links(state: SectionState, model: SimulationModel) -> int:
     omega = sampled_generators(links, config['links']['samples'])
     sample_count = omega.shape[0]
     prior_precision = config['links']['prior_std']**-2
-    gradient = prior_precision * links.omega_mean.clone()
+    anchor = 0.0 if model.link_anchor is None else model.link_anchor
+    gradient = prior_precision * (links.omega_mean - anchor)
     full_hessian = torch.eye(D, device=omega.device, dtype=omega.dtype).expand(C, D, D).clone() * prior_precision
     chunk = config['links']['copy_chunk_size']
     for bank in model.records:
@@ -201,7 +208,7 @@ def update_links(state: SectionState, model: SimulationModel) -> int:
     original_mu, original_precision = links.omega_mean, links.precision
     before = float(evaluate_vfe(state, model).total)
     dt = config['inference']['link_dt']
-    for retry in range(12):
+    for retry in range(MAX_LINK_RETRIES):
         try:
             links.omega_mean, links.precision = gaussian_blr_step(original_mu, original_precision, gradient, projected, dt)
             after = float(evaluate_vfe(state, model).total)
@@ -211,5 +218,5 @@ def update_links(state: SectionState, model: SimulationModel) -> int:
             pass
         links.omega_mean, links.precision = original_mu, original_precision
         dt *= 0.5
-    return 12
+    return MAX_LINK_RETRIES
 
