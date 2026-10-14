@@ -1,0 +1,678 @@
+{
+  "profiles": {
+    "point_lattice_512": {
+      "config": {
+        "runtime": {
+          "device": "cuda",
+          "dtype": "float64",
+          "seed": 20261013,
+          "max_vram_gb": 12.0,
+          "deterministic": false
+        },
+        "manifold": {
+          "kind": "point",
+          "dimension": 0,
+          "periods": [],
+          "grid_shape": []
+        },
+        "population": {
+          "n_agents": 512,
+          "lattice_shape": [
+            32,
+            16
+          ],
+          "placement": "grid",
+          "center_grid": [],
+          "patch_shape": [],
+          "coverage": "required"
+        },
+        "bundle": {
+          "group": "GL_R",
+          "K": 4,
+          "frame_field": "constant",
+          "frame_spread": 0.1,
+          "frame_amplitude": 0.1
+        },
+        "recognition": {
+          "covariance_structure": "full_patch"
+        },
+        "generative": {
+          "bridge": "identity_gaussian",
+          "bridge_std": 0.5,
+          "model_prior_std": 2.0
+        },
+        "observations": {
+          "kind": "synthetic_population",
+          "private_std": 0.15,
+          "private_fraction": 0.25
+        },
+        "communication": {
+          "comparison": "full_state",
+          "comparison_dim": null,
+          "channels": [
+            "belief",
+            "model"
+          ],
+          "source_support": "agent_lattice",
+          "prior_family": "window",
+          "radius": 2,
+          "decay": 1.0,
+          "alpha": 2.0,
+          "include_self": true,
+          "max_sources": null,
+          "tau": 0.5,
+          "source_rate": 0.0,
+          "source_every": 1
+        },
+        "links": {
+          "mode": "held",
+          "shared_channels": true,
+          "initial_twist_std": 0.05,
+          "prior_std": 0.1,
+          "generator_precision": "diagonal",
+          "mutual_loop_coefficient": 0.0,
+          "samples": 8,
+          "copy_chunk_size": 4096
+        },
+        "spatial": {
+          "enabled": false,
+          "record_value": "zero",
+          "noise_std": 0.5
+        },
+        "inference": {
+          "method": "chromatic_cavi",
+          "sweeps": 100,
+          "belief_weight": 1.0,
+          "model_weight": 0.1,
+          "model_every": 1,
+          "link_every": 5,
+          "link_dt": 0.02
+        },
+        "analytics": {
+          "every": 5,
+          "coherence_resolutions": [
+            0.1,
+            0.3,
+            1.0
+          ],
+          "coarse_max_dim": 2048
+        },
+        "output": {
+          "directory": "runs/scaling/point_lattice_512",
+          "viewer": false,
+          "snapshot_every": 5,
+          "checkpoint_every": 25,
+          "figures": false
+        }
+      },
+      "preflight": {
+        "n_agents": 512,
+        "incidences_S": 512,
+        "candidate_edges_E_all_channels": 13312,
+        "max_row_degree": 13,
+        "max_patch_dimension": 4,
+        "covariance_structure": "full_patch",
+        "predicted_peak_bytes": 55967744,
+        "estimate": "conservative work estimate, not measured peak",
+        "configured_budget_bytes": 12884901888
+      },
+      "status": "completed",
+      "sweeps": 100,
+      "elapsed_seconds": 6.660909900034312,
+      "objective": 9689.417391116456,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 79155200,
+      "peak_reserved_bytes": 98566144,
+      "run_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\point_lattice_512\\20261014T190959Z-point-014f4bc0"
+    },
+    "spatial_2d_512": {
+      "config": {
+        "runtime": {
+          "device": "cuda",
+          "dtype": "float64",
+          "seed": 20261013,
+          "max_vram_gb": 12.0,
+          "deterministic": false
+        },
+        "manifold": {
+          "kind": "flat_torus",
+          "dimension": 2,
+          "periods": [
+            1.0,
+            1.0
+          ],
+          "grid_shape": [
+            32,
+            32
+          ]
+        },
+        "population": {
+          "n_agents": 512,
+          "lattice_shape": [
+            4
+          ],
+          "placement": "grid",
+          "center_grid": [
+            32,
+            16
+          ],
+          "patch_shape": [
+            5,
+            5
+          ],
+          "coverage": "required"
+        },
+        "bundle": {
+          "group": "GL_R",
+          "K": 4,
+          "frame_field": "periodic_fourier",
+          "frame_spread": 0.1,
+          "frame_amplitude": 0.1
+        },
+        "recognition": {
+          "covariance_structure": "full_patch"
+        },
+        "generative": {
+          "bridge": "identity_gaussian",
+          "bridge_std": 0.5,
+          "model_prior_std": 2.0
+        },
+        "observations": {
+          "kind": "synthetic_periodic_field",
+          "private_std": 0.15,
+          "private_fraction": 0.25
+        },
+        "communication": {
+          "comparison": "full_state",
+          "comparison_dim": null,
+          "channels": [
+            "belief",
+            "model"
+          ],
+          "source_support": "overlap",
+          "prior_family": "exponential",
+          "radius": 1,
+          "decay": 1.0,
+          "alpha": 2.0,
+          "include_self": true,
+          "max_sources": null,
+          "tau": 0.5,
+          "source_rate": 0.0,
+          "source_every": 1
+        },
+        "links": {
+          "mode": "held",
+          "shared_channels": true,
+          "initial_twist_std": 0.05,
+          "prior_std": 0.1,
+          "generator_precision": "diagonal",
+          "mutual_loop_coefficient": 0.0,
+          "samples": 8,
+          "copy_chunk_size": 4096
+        },
+        "spatial": {
+          "enabled": true,
+          "record_value": "zero",
+          "noise_std": 0.5
+        },
+        "inference": {
+          "method": "chromatic_cavi",
+          "sweeps": 100,
+          "belief_weight": 1.0,
+          "model_weight": 0.1,
+          "model_every": 1,
+          "link_every": 5,
+          "link_dt": 0.02
+        },
+        "analytics": {
+          "every": 5,
+          "coherence_resolutions": [
+            0.1,
+            0.3,
+            1.0
+          ],
+          "coarse_max_dim": 2048
+        },
+        "output": {
+          "directory": "runs/scaling/spatial_2d_512",
+          "viewer": false,
+          "snapshot_every": 5,
+          "checkpoint_every": 25,
+          "figures": false
+        }
+      },
+      "preflight": {
+        "n_agents": 512,
+        "incidences_S": 12800,
+        "candidate_edges_E_all_channels": 332800,
+        "max_row_degree": 15,
+        "max_patch_dimension": 100,
+        "covariance_structure": "full_patch",
+        "predicted_peak_bytes": 1871052800,
+        "estimate": "conservative work estimate, not measured peak",
+        "configured_budget_bytes": 12884901888
+      },
+      "status": "completed",
+      "sweeps": 100,
+      "elapsed_seconds": 48.654595399973914,
+      "objective": 294391.41461726656,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 819347968,
+      "peak_reserved_bytes": 1052770304,
+      "run_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\spatial_2d_512\\20261014T191006Z-flat_torus-b325cae9"
+    },
+    "spatial_3d_512": {
+      "config": {
+        "runtime": {
+          "device": "cuda",
+          "dtype": "float64",
+          "seed": 20261013,
+          "max_vram_gb": 12.0,
+          "deterministic": false
+        },
+        "manifold": {
+          "kind": "flat_torus",
+          "dimension": 3,
+          "periods": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "grid_shape": [
+            16,
+            16,
+            16
+          ]
+        },
+        "population": {
+          "n_agents": 512,
+          "lattice_shape": [
+            4
+          ],
+          "placement": "grid",
+          "center_grid": [
+            8,
+            8,
+            8
+          ],
+          "patch_shape": [
+            3,
+            3,
+            3
+          ],
+          "coverage": "required"
+        },
+        "bundle": {
+          "group": "GL_R",
+          "K": 4,
+          "frame_field": "periodic_fourier",
+          "frame_spread": 0.1,
+          "frame_amplitude": 0.1
+        },
+        "recognition": {
+          "covariance_structure": "full_patch"
+        },
+        "generative": {
+          "bridge": "identity_gaussian",
+          "bridge_std": 0.5,
+          "model_prior_std": 2.0
+        },
+        "observations": {
+          "kind": "synthetic_periodic_field",
+          "private_std": 0.15,
+          "private_fraction": 0.25
+        },
+        "communication": {
+          "comparison": "full_state",
+          "comparison_dim": null,
+          "channels": [
+            "belief",
+            "model"
+          ],
+          "source_support": "overlap",
+          "prior_family": "exponential",
+          "radius": 1,
+          "decay": 1.0,
+          "alpha": 2.0,
+          "include_self": true,
+          "max_sources": null,
+          "tau": 0.5,
+          "source_rate": 0.0,
+          "source_every": 1
+        },
+        "links": {
+          "mode": "held",
+          "shared_channels": true,
+          "initial_twist_std": 0.05,
+          "prior_std": 0.1,
+          "generator_precision": "diagonal",
+          "mutual_loop_coefficient": 0.0,
+          "samples": 8,
+          "copy_chunk_size": 4096
+        },
+        "spatial": {
+          "enabled": true,
+          "record_value": "zero",
+          "noise_std": 0.5
+        },
+        "inference": {
+          "method": "chromatic_cavi",
+          "sweeps": 100,
+          "belief_weight": 1.0,
+          "model_weight": 0.1,
+          "model_every": 1,
+          "link_every": 5,
+          "link_dt": 0.02
+        },
+        "analytics": {
+          "every": 5,
+          "coherence_resolutions": [
+            0.1,
+            0.3,
+            1.0
+          ],
+          "coarse_max_dim": 2048
+        },
+        "output": {
+          "directory": "runs/scaling/spatial_3d_512",
+          "viewer": false,
+          "snapshot_every": 5,
+          "checkpoint_every": 25,
+          "figures": false
+        }
+      },
+      "preflight": {
+        "n_agents": 512,
+        "incidences_S": 13824,
+        "candidate_edges_E_all_channels": 128000,
+        "max_row_degree": 8,
+        "max_patch_dimension": 108,
+        "covariance_structure": "full_patch",
+        "predicted_peak_bytes": 1115291648,
+        "estimate": "conservative work estimate, not measured peak",
+        "configured_budget_bytes": 12884901888
+      },
+      "status": "completed",
+      "sweeps": 100,
+      "elapsed_seconds": 25.653701299976092,
+      "objective": 331783.09516035684,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 517121536,
+      "peak_reserved_bytes": 1052770304,
+      "run_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\spatial_3d_512\\20261014T191055Z-flat_torus-1b6ebb03"
+    },
+    "spatial_2d_1024_sparse": {
+      "config": {
+        "runtime": {
+          "device": "cuda",
+          "dtype": "float64",
+          "seed": 20261013,
+          "max_vram_gb": 12.0,
+          "deterministic": false
+        },
+        "manifold": {
+          "kind": "flat_torus",
+          "dimension": 2,
+          "periods": [
+            1.0,
+            1.0
+          ],
+          "grid_shape": [
+            32,
+            32
+          ]
+        },
+        "population": {
+          "n_agents": 1024,
+          "lattice_shape": [
+            4
+          ],
+          "placement": "grid",
+          "center_grid": [
+            32,
+            32
+          ],
+          "patch_shape": [
+            3,
+            3
+          ],
+          "coverage": "required"
+        },
+        "bundle": {
+          "group": "GL_R",
+          "K": 4,
+          "frame_field": "periodic_fourier",
+          "frame_spread": 0.1,
+          "frame_amplitude": 0.1
+        },
+        "recognition": {
+          "covariance_structure": "full_patch"
+        },
+        "generative": {
+          "bridge": "identity_gaussian",
+          "bridge_std": 0.5,
+          "model_prior_std": 2.0
+        },
+        "observations": {
+          "kind": "synthetic_periodic_field",
+          "private_std": 0.15,
+          "private_fraction": 0.25
+        },
+        "communication": {
+          "comparison": "full_state",
+          "comparison_dim": null,
+          "channels": [
+            "belief",
+            "model"
+          ],
+          "source_support": "overlap",
+          "prior_family": "exponential",
+          "radius": 1,
+          "decay": 1.0,
+          "alpha": 2.0,
+          "include_self": true,
+          "max_sources": 4,
+          "tau": 0.5,
+          "source_rate": 0.0,
+          "source_every": 1
+        },
+        "links": {
+          "mode": "held",
+          "shared_channels": true,
+          "initial_twist_std": 0.05,
+          "prior_std": 0.1,
+          "generator_precision": "diagonal",
+          "mutual_loop_coefficient": 0.0,
+          "samples": 8,
+          "copy_chunk_size": 4096
+        },
+        "spatial": {
+          "enabled": true,
+          "record_value": "zero",
+          "noise_std": 0.5
+        },
+        "inference": {
+          "method": "chromatic_cavi",
+          "sweeps": 20,
+          "belief_weight": 1.0,
+          "model_weight": 0.1,
+          "model_every": 1,
+          "link_every": 5,
+          "link_dt": 0.02
+        },
+        "analytics": {
+          "every": 5,
+          "coherence_resolutions": [
+            0.1,
+            0.3,
+            1.0
+          ],
+          "coarse_max_dim": 2048
+        },
+        "output": {
+          "directory": "runs/scaling/spatial_2d_1024_sparse",
+          "viewer": false,
+          "snapshot_every": 5,
+          "checkpoint_every": 25,
+          "figures": false
+        }
+      },
+      "preflight": {
+        "n_agents": 1024,
+        "incidences_S": 9216,
+        "candidate_edges_E_all_channels": 92160,
+        "max_row_degree": 5,
+        "max_patch_dimension": 36,
+        "covariance_structure": "full_patch",
+        "predicted_peak_bytes": 516685824,
+        "estimate": "conservative work estimate, not measured peak",
+        "configured_budget_bytes": 12884901888
+      },
+      "status": "completed",
+      "sweeps": 20,
+      "elapsed_seconds": 2.8106122999452055,
+      "objective": 306576.5883945558,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 292072448,
+      "peak_reserved_bytes": 1052770304,
+      "run_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\spatial_2d_1024_sparse\\20261014T191121Z-flat_torus-929dd5b5"
+    },
+    "point_512_uncertain": {
+      "config": {
+        "runtime": {
+          "device": "cuda",
+          "dtype": "float64",
+          "seed": 20261013,
+          "max_vram_gb": 12.0,
+          "deterministic": false
+        },
+        "manifold": {
+          "kind": "point",
+          "dimension": 0,
+          "periods": [],
+          "grid_shape": []
+        },
+        "population": {
+          "n_agents": 512,
+          "lattice_shape": [
+            32,
+            16
+          ],
+          "placement": "grid",
+          "center_grid": [],
+          "patch_shape": [],
+          "coverage": "required"
+        },
+        "bundle": {
+          "group": "GL_R",
+          "K": 4,
+          "frame_field": "constant",
+          "frame_spread": 0.1,
+          "frame_amplitude": 0.1
+        },
+        "recognition": {
+          "covariance_structure": "full_patch"
+        },
+        "generative": {
+          "bridge": "identity_gaussian",
+          "bridge_std": 0.5,
+          "model_prior_std": 2.0
+        },
+        "observations": {
+          "kind": "synthetic_population",
+          "private_std": 0.15,
+          "private_fraction": 0.25
+        },
+        "communication": {
+          "comparison": "full_state",
+          "comparison_dim": null,
+          "channels": [
+            "belief",
+            "model"
+          ],
+          "source_support": "agent_lattice",
+          "prior_family": "window",
+          "radius": 1,
+          "decay": 1.0,
+          "alpha": 2.0,
+          "include_self": true,
+          "max_sources": null,
+          "tau": 0.5,
+          "source_rate": 0.0,
+          "source_every": 1
+        },
+        "links": {
+          "mode": "latent_gaussian",
+          "shared_channels": true,
+          "initial_twist_std": 0.05,
+          "prior_std": 0.1,
+          "generator_precision": "diagonal",
+          "mutual_loop_coefficient": 0.0,
+          "samples": 4,
+          "copy_chunk_size": 64
+        },
+        "spatial": {
+          "enabled": false,
+          "record_value": "zero",
+          "noise_std": 0.5
+        },
+        "inference": {
+          "method": "chromatic_cavi",
+          "sweeps": 20,
+          "belief_weight": 1.0,
+          "model_weight": 0.1,
+          "model_every": 1,
+          "link_every": 5,
+          "link_dt": 0.02
+        },
+        "analytics": {
+          "every": 10,
+          "coherence_resolutions": [
+            0.1,
+            0.3,
+            1.0
+          ],
+          "coarse_max_dim": 2048
+        },
+        "output": {
+          "directory": "runs/scaling/point_512_uncertain",
+          "viewer": false,
+          "snapshot_every": 5,
+          "checkpoint_every": 25,
+          "figures": false
+        }
+      },
+      "preflight": {
+        "n_agents": 512,
+        "incidences_S": 512,
+        "candidate_edges_E_all_channels": 5120,
+        "max_row_degree": 5,
+        "max_patch_dimension": 4,
+        "covariance_structure": "full_patch",
+        "predicted_peak_bytes": 38141952,
+        "estimate": "conservative work estimate, not measured peak",
+        "configured_budget_bytes": 12884901888
+      },
+      "status": "completed",
+      "sweeps": 20,
+      "elapsed_seconds": 5.5598231999902055,
+      "objective": 16025.352342488372,
+      "normalizer_status": "estimated_vfe_known_normalizer",
+      "peak_allocated_bytes": 142348800,
+      "peak_reserved_bytes": 159383552,
+      "run_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\point_512_uncertain\\20261014T191425Z-point-5ff89772"
+    }
+  },
+  "batch": {
+    "status": "completed",
+    "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\seeds\\batch-754bf8ea",
+    "seeds": [
+      20261013,
+      20261014,
+      20261015,
+      20261016,
+      20261017
+    ]
+  },
+  "last_checked_utc": "2026-10-14T19:14:24.081882+00:00"
+}

@@ -1,0 +1,13 @@
+{
+  "arms": {
+    "learned": [
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-formation\\learned\\batch-f0a6569b\\20261014T042013Z-point-2637141a"
+    ],
+    "frozen": [
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-formation\\frozen\\batch-833e971d\\20261014T042013Z-point-fe1f9ca9"
+    ]
+  },
+  "matching": "same seed, geometry, private observations and inter-agent records; only source_rate differs",
+  "symmetry_breaking_datum": "seeded asymmetric synthetic population and noisy private observations",
+  "scope": "descriptive finite mean-field CAVI; does not test stochastic formation conjectures"
+}

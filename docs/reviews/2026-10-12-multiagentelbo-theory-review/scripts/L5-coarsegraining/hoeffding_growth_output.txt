@@ -1,0 +1,80 @@
+== Hoeffding identities (alphabets 3x2x4, random product reference)
+  E_B E_B' - E_{B cap B'}: 1.110e-16
+  sum_B P_B f - f: 4.441e-16
+  P_B' P_B - 1{B=B'} P_B: 2.220e-16
+  product formula - Mobius sum: 3.331e-16
+  P_B f depends only on y_B: 1.110e-16
+  P_B f has zero mean in each i in B: 1.851e-16
+  max ||hd f||_G / ||[f]||_osc (bound 26): 3.807e+00
+== Sharpness (4p-1)^n-(2p-1)^n at p=0.999
+  n=1: G-norm 1.998000, formula 1.998000, |diff| 0.00e+00, bound 2
+  n=2: G-norm 7.980012, formula 7.980012, |diff| 0.00e+00, bound 8
+  n=3: G-norm 25.898132, formula 25.898132, |diff| 0.00e+00, bound 26
+  n=4: G-norm 79.576839, formula 79.576839, |diff| 1.42e-14, bound 80
+  n=5: G-norm 240.394274, formula 240.394274, |diff| 2.84e-14, bound 242
+  n=6: G-norm 722.199346, formula 722.199346, |diff| 3.41e-13, bound 728
+== Two-agent remark
+  two-agent xi1' formula error: 8.881784197001252e-16
+  D(pair direction phi_{12}=y1y2) coefficient vs tanh(xi2): (np.float64(0.6043677771171636), np.float64(0.6043677771171634))
+  ||D_0|| at this point (bound of prop: 3^1-1=2; remark quotes 3^2-1=8): 1.0
+== Intra-block invariance
+  max |multi-agent component| (product base): 8.882e-16
+  control: max |multi-agent component| (non-product base): 2.451e-01
+== Exact derivative cocycle on binary networks (exhaustive state enumeration)
+  6->3->1 deterministic parity/majority, scale 0.5:
+     ratio_native: 5.387e-01
+     telescope_err: 1.332e-15
+     fd_err: 7.521e-10
+     dobrushin_bound_violation: -9.225e-01
+     min_slack_native: 9.225e-01
+  6->3->1 stochastic block-product, scale 0.5:
+     ratio_native: 2.351e-01
+     telescope_err: 8.882e-16
+     fd_err: 3.744e-10
+     dobrushin_bound_violation: -1.105e-01
+     min_slack_native: 1.530e+00
+  6->3->1 generic random channels, scale 0.5:
+     ratio_native: 1.770e-01
+     telescope_err: 6.939e-16
+     fd_err: 2.216e-10
+     dobrushin_bound_violation: -3.145e-01
+     min_slack_native: 1.646e+00
+  6->3->2 deterministic keep/parity, scale 0.5:
+     ratio_native: 4.005e-01
+     telescope_err: 8.882e-16
+     fd_err: 2.927e-10
+     dobrushin_bound_violation: -4.796e+00
+     min_slack_native: 4.796e+00
+  6->3->1 deterministic parity/majority, scale 3.0:
+     ratio_native: 7.966e-01
+     telescope_err: 2.220e-15
+     fd_err: 7.518e-10
+     dobrushin_bound_violation: -4.067e-01
+     min_slack_native: 4.067e-01
+  6->3->1 stochastic block-product, scale 3.0:
+     ratio_native: 1.869e-01
+     telescope_err: 3.306e-15
+     fd_err: 4.476e-10
+     dobrushin_bound_violation: -2.302e-05
+     min_slack_native: 1.626e+00
+  6->3->1 generic random channels, scale 3.0:
+     ratio_native: 3.859e-01
+     telescope_err: 3.442e-15
+     fd_err: 7.047e-10
+     dobrushin_bound_violation: -2.629e-08
+     min_slack_native: 1.228e+00
+  6->3->2 deterministic keep/parity, scale 3.0:
+     ratio_native: 4.602e-01
+     telescope_err: 1.332e-15
+     fd_err: 5.670e-10
+     dobrushin_bound_violation: -4.318e+00
+     min_slack_native: 4.318e+00
+== Adversarial one-step search toward the bound
+  2->1 keep-first, max ||D|| (bound 2): 1.5158
+  4->2 keep-first, max ||D|| (bound 8): 4.6093
+  6->3 keep-first, max ||D|| (bound 26): 12.4504
+== Gaussian scope: L2(mbar) extraction ratio 2/sqrt(2+2 rho)
+  rho=0.0: 1.414
+  rho=-0.9: 4.472
+  rho=-0.99: 14.142
+  rho=-0.9999: 141.421

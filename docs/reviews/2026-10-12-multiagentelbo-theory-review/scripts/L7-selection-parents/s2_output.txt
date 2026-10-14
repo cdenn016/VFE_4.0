@@ -1,0 +1,25 @@
+patterns with m1 = m3: 6 [(1, 1, 1, 1), (2, 0, 2, 0), (2, 1, 0, 1), (0, 1, 2, 1), (0, 2, 0, 2), (1, 1, 1, 1)]
+listed four present: True
+remaining six: [(1, 2, 0, 1), (1, 2, 1, 0), (0, 1, 1, 2), (0, 2, 1, 1), (1, 0, 1, 2), (1, 1, 0, 2)]
+pattern (1, 1, 1, 1): min margin/bound ratio 1.0000; min margin +0.0000; good=True
+pattern (2, 0, 2, 0): min margin/bound ratio 1.0000; min margin +1.0000; good=True
+pattern (2, 1, 0, 1): min margin/bound ratio 1.0000; min margin +0.0000; good=True
+pattern (0, 1, 2, 1): min margin/bound ratio 1.0000; min margin +0.0000; good=True
+pattern (0, 2, 0, 2): min margin/bound ratio -76598.2819; min margin -0.0000; good=True
+pattern (1, 1, 1, 1): min margin/bound ratio 1.0000; min margin +0.0000; good=True
+pattern (1, 1, 2, 0): min margin/bound ratio 4.9644; min margin +0.0000; good=True
+pattern (1, 0, 2, 1): min margin/bound ratio 4.9644; min margin +0.0000; good=True
+pattern (2, 0, 1, 1): min margin/bound ratio 4.9644; min margin +0.0000; good=True
+pattern (2, 1, 1, 0): min margin/bound ratio 4.9644; min margin +0.0000; good=True
+pattern (1, 2, 0, 1): min margin/bound ratio nan; min margin -0.0173; good=None
+pattern (1, 2, 1, 0): min margin/bound ratio nan; min margin -0.0278; good=None
+pattern (0, 1, 1, 2): min margin/bound ratio nan; min margin -0.0173; good=None
+pattern (0, 2, 1, 1): min margin/bound ratio nan; min margin -0.0173; good=None
+pattern (1, 0, 1, 2): min margin/bound ratio nan; min margin -0.0278; good=None
+pattern (1, 1, 0, 2): min margin/bound ratio nan; min margin -0.0173; good=None
+half-space invariants and bounds hold on grid: True
+h(inf) = 0.8571428571428575  6/7 = 0.8571428571428571
+post-redraw margin / ((7/50)e^{-4 t_r}) minimum: 4.966346133986692
+post-redraw formula residual: 5.377642775528102e-17
+E|X_h|^2 bound at s= 10.0 : 14.0
+E|X_h|^2 bound at s= 1000.0 : 14.0

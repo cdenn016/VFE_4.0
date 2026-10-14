@@ -1,0 +1,9 @@
+{
+  "status": "completed",
+  "sweeps": 100,
+  "elapsed_seconds": 6.46369899995625,
+  "objective": 7932.0137976803435,
+  "normalizer_status": "exact",
+  "peak_allocated_bytes": 79156224,
+  "peak_reserved_bytes": 98566144
+}

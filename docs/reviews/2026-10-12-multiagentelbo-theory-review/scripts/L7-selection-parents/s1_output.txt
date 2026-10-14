@@ -1,0 +1,41 @@
+== determinant formulas (relative residual, max over 16 sheets, 3 temperatures)
+T=0.003: max rel residual 2.05e-13
+T=0.05: max rel residual 1.63e-14
+T=0.7: max rel residual 4.44e-15
+exact det identity M (2, 0, 2, 0): mismatches at 13 rational T = 0
+exact det identity E (2, 1, 1, 0): mismatches at 13 rational T = 0
+exact det identity N (1, 2, 1, 0): mismatches at 13 rational T = 0
+exact det identity C (1, 1, 1, 1): mismatches at 13 rational T = 0
+class counts {'M': 2, 'E': 8, 'N': 4, 'C': 2}
+== asymptotics r/T and r_C/T^1.5 at T=1e-5: [2.390355 2.390362 1.290964] targets 2.390457218668787 2.390457218668787 1.2909944487358056
+T0 (all r <= 1/8): 0.06506; r at T0: (np.float64(0.12354681190095682), np.float64(0.12499999999999553), np.float64(0.018605084508804236))
+== saddle Jacobian and spectrum
+T=0.0100 eig(J)=[-0.915024 -0.838677 -0.838677  2.592379], formula=[-0.915024 -0.838677 -0.838677  2.592379], |J-J^T|=8.3e-11, alpha>=7/5:True, beta<=-1/3:True, eta<=-2/5:True
+   J v / v = [2.592379 2.592379 2.592379 2.592379]
+   vertex Jacobian diag [-0.977064 -0.977064 -0.977064 -0.977064] expected r_E-1 = -0.977064521859082 offdiag max 0.0
+T=0.0300 eig(J)=[-0.798326 -0.631413 -0.631413  2.061152], formula=[-0.798326 -0.631413 -0.631413  2.061152], |J-J^T|=8.3e-11, alpha>=7/5:True, beta<=-1/3:True, eta<=-2/5:True
+   J v / v = [2.061152 2.061152 2.061152 2.061152]
+   vertex Jacobian diag [-0.936184 -0.936184 -0.936184 -0.936184] expected r_E-1 = -0.9361836103518253 offdiag max 0.0
+T=0.0651 eig(J)=[-0.677439 -0.436016 -0.436016  1.549471], formula=[-0.677439 -0.436016 -0.436016  1.549471], |J-J^T|=8.3e-11, alpha>=7/5:True, beta<=-1/3:True, eta<=-2/5:True
+   J v / v = [1.549471 1.549471 1.549471 1.549471]
+   vertex Jacobian diag [-0.876453 -0.876453 -0.876453 -0.876453] expected r_E-1 = -0.8764531880990432 offdiag max 0.0
+== temperature-tracking constants (T <= 1/100)
+active dets / scale: 5261.930201249998 1000.2981973201247 994.571416020125 3306.1459376421994 claims [5120,5262], [896,1017], [896,2175], [3072,5120)
+  T=1e-06: dM/T^3=5120.0 dE/T=896.0 dN/T=896.0 dC=3072.0
+  T=0.0001: dM/T^3=5121.4 dE/T=897.0 dN/T=897.0 dC=3074.3
+  T=0.001: dM/T^3=5134.1 dE/T=906.2 dN/T=905.6 dC=3094.8
+  T=0.01: dM/T^3=5261.9 dE/T=1000.3 dN/T=994.6 dC=3306.1
+K0 235.409631088713 210 sqrt(2pi/5) = 235.409631088713
+vol 7-ball r=1/2: 0.036912234143214075 pi^3/840 = 0.03691223414321407
+max r_E/T, r_N/T, r_C/T^1.5 on (1e-8, 0.01]: 2.3904571163273434 2.390457123904238 1.2909944186126028 claims 2.5, 2.5, 1.5
+max (8rE+4rN+2.5rC)/T: 28.707229084778948 claim <= 31
+max nonmatching mass / T: 14.344311647609631 claim <= 16
+max T * adjacent weight ratio: 0.4360057348078348 claim <= 1
+max T*|g_i| over random rows: 0.1725003420253194 claim <= 1
+== normal rates of the matching sheet, physical rates, ||H||
+eig A_M (nonpassive part): [4.05 4.05 8.01 8.01]
+eig H_M + T I (top 4): [4.01 4.01 8.01 8.01]
+max ||H_sigma|| = 8.828427124746195 claim <= 12
+t=0.1: residuals [-0.44888  -1.274061 -0.44888  -1.274061], int pred -0.448880, ext pred -1.274061
+t=0.5: residuals [-0.018224 -1.483407 -0.018224 -1.483407], int pred -0.018224, ext pred -1.483407
+t=2.0: residuals [-0.       -1.470298 -0.       -1.470298], int pred -0.000000, ext pred -1.470298

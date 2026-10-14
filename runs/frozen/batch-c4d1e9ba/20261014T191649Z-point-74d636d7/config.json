@@ -1,0 +1,104 @@
+{
+  "runtime": {
+    "device": "cuda",
+    "dtype": "float64",
+    "seed": 20261017,
+    "max_vram_gb": 12.0,
+    "deterministic": false
+  },
+  "manifold": {
+    "kind": "point",
+    "dimension": 0,
+    "periods": [],
+    "grid_shape": []
+  },
+  "population": {
+    "n_agents": 512,
+    "lattice_shape": [
+      32,
+      16
+    ],
+    "placement": "grid",
+    "center_grid": [],
+    "patch_shape": [],
+    "coverage": "required"
+  },
+  "bundle": {
+    "group": "GL_R",
+    "K": 4,
+    "frame_field": "constant",
+    "frame_spread": 0.1,
+    "frame_amplitude": 0.1
+  },
+  "recognition": {
+    "covariance_structure": "full_patch"
+  },
+  "generative": {
+    "bridge": "identity_gaussian",
+    "bridge_std": 0.5,
+    "model_prior_std": 2.0
+  },
+  "observations": {
+    "kind": "synthetic_population",
+    "private_std": 0.15,
+    "private_fraction": 0.25
+  },
+  "communication": {
+    "comparison": "full_state",
+    "comparison_dim": null,
+    "channels": [
+      "belief",
+      "model"
+    ],
+    "source_support": "agent_lattice",
+    "prior_family": "window",
+    "radius": 2,
+    "decay": 1.0,
+    "alpha": 2.0,
+    "include_self": true,
+    "max_sources": null,
+    "tau": 0.5,
+    "source_rate": 0.0,
+    "source_every": 1
+  },
+  "links": {
+    "mode": "held",
+    "shared_channels": true,
+    "initial_twist_std": 0.05,
+    "prior_std": 0.1,
+    "generator_precision": "diagonal",
+    "mutual_loop_coefficient": 0.0,
+    "samples": 8,
+    "copy_chunk_size": 4096
+  },
+  "spatial": {
+    "enabled": false,
+    "record_value": "zero",
+    "noise_std": 0.5
+  },
+  "inference": {
+    "method": "chromatic_cavi",
+    "sweeps": 100,
+    "belief_weight": 1.0,
+    "model_weight": 0.1,
+    "model_every": 1,
+    "link_every": 5,
+    "link_dt": 0.02
+  },
+  "analytics": {
+    "every": 5,
+    "coherence_resolutions": [
+      0.1,
+      0.3,
+      1.0
+    ],
+    "coarse_max_dim": 2048
+  },
+  "output": {
+    "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba",
+    "viewer": false,
+    "snapshot_every": 5,
+    "checkpoint_every": 25,
+    "figures": true
+  }
+}

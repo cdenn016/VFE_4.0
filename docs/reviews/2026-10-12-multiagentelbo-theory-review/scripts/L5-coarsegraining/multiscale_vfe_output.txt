@@ -1,0 +1,16 @@
+== common channel (c09)
+  max |F - (F^c + Delta)|, |p - p^c|, |Pi C - Pi^c|: 8.881784197001252e-16
+  stochastic-infimum gap vs 2log2-(3/4)log3: (0.5623351446188083, np.float64(0.5623351446188083))
+  hard identification KL before/after: (0.0031198983582458265, 0.058891517828191575)
+== adaptive tower (c12)
+  decomposition residual |F_tower - sum of terms| (pushed recognition): 1.7763568394002505e-15
+  depth-Markov reversal residual (version reads only Y_{l+1}): 3.3306690738754696e-16
+  |F_tower - F_0| for pushed recognition (unstated reduction): 1.3322676295501878e-15
+  min (F_tower - F_0) for a recognition tower with other channels (should be >= 0): 1.5640001922416262
+== dropped datum (c12)
+  example extra term I(R;N|Z): 0.03789589865745757
+  |KL(P^tow||P^red) - stated CMI sum| (R factor reads Y_{l+1}): 1.7763568394002505e-15
+  |KL(P^tow||P^red') - (stated + sum I(R_l;N_{l+1}|Z_{l+1}))| (R factor reads Z_{l+1}): 1.5543122344752192e-15
+  witness KL vs log 2: (0.6931471805599453, np.float64(0.6931471805599453))
+== declared hierarchy (c12)
+  declared hierarchy decomposition residual: 1.7763568394002505e-15

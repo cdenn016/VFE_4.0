@@ -1,0 +1,15 @@
+{
+  "status": "completed",
+  "backend": "QtAgg",
+  "device": "cpu",
+  "input_method": "synthetic Matplotlib mouse events in a real Qt window; no manual interaction",
+  "checks": {
+    "pause_button": true,
+    "one_sweep_button": true,
+    "resume_while_waiting": true,
+    "stop_button": true,
+    "orchestrator_stop_checkpoint": true
+  },
+  "snapshot": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-snapshot.png",
+  "run_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\viewer-validation\\20261014T190332Z-point-c881bec4"
+}

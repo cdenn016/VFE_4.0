@@ -1,0 +1,117 @@
+{
+  "checked_utc": "2026-10-14T19:22:09.859001+00:00",
+  "status": "completed",
+  "scope": "October13 revision2 first release: point/periodic2D/3D GL_R; extension backends remain future work",
+  "cpu_integration": {
+    "tests": 51,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 2.726
+  },
+  "cuda_lane": {
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 0.73
+  },
+  "profiles": {
+    "point_lattice_512": {
+      "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\point_lattice_512\\20261014T190959Z-point-014f4bc0",
+      "status": "completed",
+      "sweeps": 100,
+      "elapsed_seconds": 6.660909900034312,
+      "objective": 9689.417391116456,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 79155200,
+      "peak_reserved_bytes": 98566144
+    },
+    "spatial_2d_512": {
+      "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\spatial_2d_512\\20261014T191006Z-flat_torus-b325cae9",
+      "status": "completed",
+      "sweeps": 100,
+      "elapsed_seconds": 48.654595399973914,
+      "objective": 294391.41461726656,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 819347968,
+      "peak_reserved_bytes": 1052770304
+    },
+    "spatial_3d_512": {
+      "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\spatial_3d_512\\20261014T191055Z-flat_torus-1b6ebb03",
+      "status": "completed",
+      "sweeps": 100,
+      "elapsed_seconds": 25.653701299976092,
+      "objective": 331783.09516035684,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 517121536,
+      "peak_reserved_bytes": 1052770304
+    },
+    "spatial_2d_1024_sparse": {
+      "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\spatial_2d_1024_sparse\\20261014T191121Z-flat_torus-929dd5b5",
+      "status": "completed",
+      "sweeps": 20,
+      "elapsed_seconds": 2.8106122999452055,
+      "objective": 306576.5883945558,
+      "normalizer_status": "exact",
+      "peak_allocated_bytes": 292072448,
+      "peak_reserved_bytes": 1052770304
+    },
+    "point_512_uncertain": {
+      "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\point_512_uncertain\\20261014T191425Z-point-5ff89772",
+      "status": "completed",
+      "sweeps": 20,
+      "elapsed_seconds": 5.5598231999902055,
+      "objective": 16025.352342488372,
+      "normalizer_status": "estimated_vfe_known_normalizer",
+      "peak_allocated_bytes": 142348800,
+      "peak_reserved_bytes": 159383552
+    }
+  },
+  "five_seed_batch": {
+    "status": "completed",
+    "directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\scaling\\seeds\\batch-754bf8ea",
+    "seeds": [
+      20261013,
+      20261014,
+      20261015,
+      20261016,
+      20261017
+    ]
+  },
+  "source_controls": {
+    "report": "docs/implementation/source-controls.json",
+    "matched_pairs": 5,
+    "completed_runs": 10,
+    "comparison_figures": 21,
+    "all_pairs_pass": true
+  },
+  "viewer": {
+    "report": "docs/implementation/viewer-validation.json",
+    "checks": {
+      "pause_button": true,
+      "one_sweep_button": true,
+      "resume_while_waiting": true,
+      "stop_button": true,
+      "orchestrator_stop_checkpoint": true
+    },
+    "method": "synthetic Matplotlib mouse events in a real Qt window; no manual interaction",
+    "manual_human_interaction": "untested"
+  },
+  "package": {
+    "report": "docs/implementation/package-validation.json",
+    "wheel": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl",
+    "sha256": "f34615bd3f04020a353ea9953cc9f441d09bccb9ca0b1176e44eba08d208a427",
+    "current_source_modules_matched": 33
+  },
+  "preserved_entry_sha256": "99f43503880e2141b616a4ea05b08da35354a93d8d8e0ee262653a627a154a9f",
+  "known_limits": [
+    "GL_R and point/flat periodic bases only",
+    "deterministic mean-field controls are descriptive",
+    "sampled link objective is estimated; nonzero loop coupling has unknown logZ",
+    "generated build folders retained after automatic cleanup rejection"
+  ],
+  "closed_utc": "2026-10-14T19:25:27.108356+00:00",
+  "goal_status": "complete",
+  "continuation_automation_status": "PAUSED"
+}

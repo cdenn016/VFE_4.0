@@ -1,0 +1,10 @@
+wall 227.4189977645874
+frozen_generic: j_T estimate -5.178; late q(S0)-q(S1) mean +0.0013, late q(S0)=0.3333, q(S1)=0.3320
+frozen_generic_rot: j_T estimate +5.748; late q(S0)-q(S1) mean +0.0027, late q(S0)=0.3338, q(S1)=0.3311
+frozen_s_ucirc: j_T estimate +49.654; late q(S0)-q(S1) mean +0.0056, late q(S0)=0.3352, q(S1)=0.3295
+learn_generic_eps0.02_seed2: selected S1; sup_window q(S!=M) 0.0075; mean 0.0013; rows at 2tL [0. 1. 0. 1.]
+learn_generic_eps0.02_seed3: selected S1; sup_window q(S!=M) 0.0130; mean 0.0023; rows at 2tL [0. 1. 0. 1.]
+learn_generic_rot_eps0.02_seed2: selected S0; sup_window q(S!=M) 0.0500; mean 0.0061; rows at 2tL [9.999e-01 1.000e-04 9.999e-01 1.000e-04]
+learn_generic_eps0.01_seed2: selected S1; sup_window q(S!=M) 0.0010; mean 0.0001; rows at 2tL [0. 1. 0. 1.]
+learn_generic_eps0.01_seed3: selected S1; sup_window q(S!=M) 0.0020; mean 0.0002; rows at 2tL [0. 1. 0. 1.]
+learn_generic_rot_eps0.01_seed2: selected S0; sup_window q(S!=M) 0.0042; mean 0.0005; rows at 2tL [1. 0. 1. 0.]

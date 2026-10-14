@@ -6,7 +6,16 @@ __pycache__/
 venv/
 
 # Local numerical outputs and packaging products
-runs/
+runs/**
+!runs/**/
+!runs/**/*.json
+!runs/**/*.csv
+!runs/formation-comparison/*.png
+!runs/formation-comparison/*.pdf
+!runs/formation-comparison/*.svg
+!runs/scaling/seeds/**/aggregate*.png
+!runs/scaling/seeds/**/aggregate*.pdf
+!runs/scaling/seeds/**/aggregate*.svg
 artifacts/
 build/
 dist/
