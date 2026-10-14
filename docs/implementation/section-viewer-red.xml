@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="1.394" timestamp="2026-10-14T15:01:15.885008" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_viewer" name="test_interactive_section_selection_uses_frozen_agent_law" time="1.006"><failure message="AttributeError: 'SimulationViewer' object has no attribute 'agent_input'">def test_interactive_section_selection_uses_frozen_agent_law() -&gt; None:
+        config = load_config(resolve_preset('tiny_spatial_2d', {
+            'manifold': {'grid_shape': (4, 4)},
+            'population': {'n_agents': 2, 'center_grid': (2, 1), 'patch_shape': (1, 1),
+                           'coverage': 'allow_uncovered'},
+            'bundle': {'frame_field': 'constant', 'frame_spread': 0.0}}))
+        model = build_model(config)
+        state = initialize_sections(model, config)
+        state.model.buckets[0].mu[:] = state.model.buckets[0].mu.new_tensor([[10., 20.], [30., 40.]])
+        viewer = SimulationViewer()
+        try:
+            viewer.update(state, model, 1.25)
+&gt;           viewer.agent_input.set_val('1')
+E           AttributeError: 'SimulationViewer' object has no attribute 'agent_input'
+
+tests\test_viewer.py:44: AttributeError</failure></testcase><testcase classname="tests.test_viewer" name="test_interactive_3d_slice_and_invalid_selection" time="0.065"><failure message="AttributeError: 'SimulationViewer' object has no attribute 'last_section_image'">def test_interactive_3d_slice_and_invalid_selection() -&gt; None:
+        config = load_config(resolve_preset('tiny_spatial_3d', {
+            'manifold': {'grid_shape': (4, 4, 4)},
+            'population': {'n_agents': 2, 'center_grid': (1, 1, 2), 'patch_shape': (1, 1, 1),
+                           'coverage': 'allow_uncovered'}}))
+        model = build_model(config)
+        state = initialize_sections(model, config)
+        viewer = SimulationViewer()
+        try:
+            viewer.update(state, model, 0.5)
+&gt;           assert viewer.last_section_image.z == 0.0
+E           AttributeError: 'SimulationViewer' object has no attribute 'last_section_image'
+
+tests\test_viewer.py:73: AttributeError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,148 @@
+{
+  "status": "completed",
+  "backend": "QtAgg",
+  "device": "cpu",
+  "interpreter": "C:\\anaconda\\python.exe",
+  "torch": "2.10.0.dev20251210+cu128",
+  "torch_threads": 1,
+  "input_method": {
+    "orchestration_buttons": "Matplotlib MouseEvent press/release in real Qt windows",
+    "numeric_inputs": "Matplotlib TextBox.set_val dispatching registered callbacks",
+    "channel_and_statistic": "RadioButtons.set_active dispatching registered callbacks",
+    "slice": "Slider.set_val dispatching the registered callback",
+    "resume": "Qt-backed Matplotlib timer invokes the pause/resume mouse events",
+    "manual_interaction": false
+  },
+  "checks": {
+    "pause_button": true,
+    "one_sweep_button": true,
+    "resume_while_waiting": true,
+    "stop_button": true,
+    "orchestrator_stop_checkpoint": true,
+    "historical_artifacts_preserved": true
+  },
+  "spatial_windows": [
+    {
+      "dimension": 2,
+      "n_agents": 3,
+      "K": 2,
+      "grid_shape": [
+        3,
+        3
+      ],
+      "patch_shape": [
+        1,
+        1
+      ],
+      "checks": {
+        "agent_textbox_callback": true,
+        "channel_radio_callback": true,
+        "channel_changes_displayed_section": true,
+        "component_textbox_callback": true,
+        "uncertainty_radio_callback": true,
+        "unsupported_points_masked": true,
+        "finite_supported_standard_deviation": true,
+        "physical_period_extent": true,
+        "invalid_numeric_input_preserves_selection_and_reports_status": true,
+        "no_slice_slider_in_2d": true,
+        "controls_do_not_advance_or_duplicate_history": true,
+        "recognition_and_rng_unchanged_by_controls": true
+      },
+      "snapshot": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-2d.png",
+      "selection": {
+        "agent": 1,
+        "channel": "belief",
+        "component": 1,
+        "statistic": "std",
+        "slice_index": 0,
+        "z": null
+      },
+      "image_shape": [
+        6,
+        6
+      ],
+      "supported_preview_points": 12,
+      "masked_preview_points": 24,
+      "physical_extent": [
+        0.0,
+        1.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "dimension": 3,
+      "n_agents": 3,
+      "K": 2,
+      "grid_shape": [
+        3,
+        3,
+        3
+      ],
+      "patch_shape": [
+        1,
+        1,
+        1
+      ],
+      "checks": {
+        "agent_textbox_callback": true,
+        "agent_recenters_z_at_center": true,
+        "channel_radio_callback": true,
+        "channel_changes_displayed_section": true,
+        "component_textbox_callback": true,
+        "uncertainty_radio_callback": true,
+        "unsupported_points_masked": true,
+        "finite_supported_standard_deviation": true,
+        "physical_period_extent": true,
+        "invalid_numeric_input_preserves_selection_and_reports_status": true,
+        "slice_slider_callback": true,
+        "new_agent_restores_supported_center_slice": true,
+        "controls_do_not_advance_or_duplicate_history": true,
+        "recognition_and_rng_unchanged_by_controls": true
+      },
+      "snapshot": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-3d.png",
+      "selection": {
+        "agent": 2,
+        "channel": "belief",
+        "component": 1,
+        "statistic": "std",
+        "slice_index": 4,
+        "z": 0.6666666666666666
+      },
+      "image_shape": [
+        6,
+        6
+      ],
+      "supported_preview_points": 12,
+      "masked_preview_points": 24,
+      "physical_extent": [
+        0.0,
+        1.0,
+        0.0,
+        1.0
+      ]
+    }
+  ],
+  "run_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\section-viewer-validation\\20261014T201005Z-point-5e3e4a2c",
+  "stop_summary": {
+    "status": "stopped",
+    "sweeps": 1,
+    "elapsed_seconds": 0.235723500023596,
+    "objective": 44.90555274656728,
+    "normalizer_status": "exact"
+  },
+  "historical_artifact_sha256": {
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-validation.json": "aacc50aeda7a1f2f6b70fc05db11aef25f413ea2471ae13c7f1ef86155bf8e04",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-snapshot.png": "3c30517c026d63eaad7540a025804abddef5eecf45dafc93b1059d5f28dbd594"
+  },
+  "visual_inspection": {
+    "status": "inspected",
+    "method": "Assistant viewed both saved PNGs after the successful Qt execution",
+    "findings": [
+      "Selected-agent channel, component and statistic labels are readable in both previews",
+      "Unsupported points are visibly gray and distinguished from the color scale",
+      "Controls and plotted labels do not overlap in the captured windows",
+      "The 3D screenshot displays its z coordinate and discrete slice slider"
+    ]
+  }
+}
