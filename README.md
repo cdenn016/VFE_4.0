@@ -2,9 +2,26 @@
 
 This suite implements the finite normalized Gaussian realization of the live MultiAgentELBO theory. One engine runs a single context with an agent lattice, local sections over a periodic flat 2D base, or local sections over a periodic flat 3D base. The starting gauge backend is GL(K,R). The design and revised implementation plan are in `docs/superpowers/`.
 
-Open `run_simulation.py` in your editor, select `C:/anaconda/python.exe`, edit `PRESET` and `OVERRIDES`, and press Run. The active entry selects `point_lattice_512`, K=4, CUDA, and 100 sweeps. There are no command-line arguments. The installed interpreter has CUDA Torch; bare Python on this machine has CPU-only Torch. Set `output.viewer=True` for pause, resume, one-sweep, and stop controls. Headless execution uses the same inference engine. A stopped run saves its state and reports `stopped`.
+Open `run_simulation.py` in your editor, select `C:/anaconda/python.exe`, edit its complete literal `CONFIG` dictionary, and press Run. All 66 supported keys are visible there. Its current values select the validated 512-agent point lattice, K=4, CUDA, and 100 sweeps. There are no command-line arguments. The installed interpreter has CUDA Torch; bare Python on this machine has CPU-only Torch. Set `CONFIG['output']['viewer']=True` for pause, resume, one-sweep, and stop controls. Headless execution uses the same inference engine. A stopped run saves its state and reports `stopped`.
 
 The presets are `tiny_point`, `tiny_spatial_2d`, `tiny_spatial_3d`, `point_lattice_512`, `spatial_2d_512`, `spatial_3d_512`, and `spatial_2d_1024_sparse`. The tiny presets use CPU for formula and continuation checks. Change `population.n_agents` together with its lattice or center-grid dimensions; the loader rejects inconsistent shapes. Full patch Gaussian covariance is the default. `node_blocks` is an explicitly different recognition family; it retains full K by K covariance within each node. The Fisher-natural matter method currently requires `full_patch`. Coverage can be required or explicitly allowed to be incomplete.
+
+To select the validated spatial setups, apply the following values to the corresponding `CONFIG` keys. The other settings retain their current values. Presets remain available as complete examples and for the batch/experiment launchers.
+
+| CONFIG key | Periodic 2D, 512 agents | Periodic 3D, 512 agents |
+|---|---|---|
+| manifold.kind | `'flat_torus'` | `'flat_torus'` |
+| manifold.dimension | `2` | `3` |
+| manifold.periods | `(1.0, 1.0)` | `(1.0, 1.0, 1.0)` |
+| manifold.grid_shape | `(32, 32)` | `(16, 16, 16)` |
+| population.center_grid | `(32, 16)` | `(8, 8, 8)` |
+| population.patch_shape | `(5, 5)` | `(3, 3, 3)` |
+| bundle.frame_field | `'periodic_fourier'` | `'periodic_fourier'` |
+| observations.kind | `'synthetic_periodic_field'` | `'synthetic_periodic_field'` |
+| communication.source_support | `'overlap'` | `'overlap'` |
+| communication.prior_family | `'exponential'` | `'exponential'` |
+| communication.radius | `1` | `1` |
+| spatial.enabled | `True` | `True` |
 
 The flat connection is induced by the fixed smooth agent frame: `Omega(y,x)=U(y)U(x)^-1`. Inter-agent attending directions each have an independent primitive generator. A formal inverse is not a second likelihood copy. Held links give a normalized fixed Gaussian/source-label model with an exact VFE evaluation. Latent Gaussian links use antithetic samples, analytical matter expectations conditional on those samples, and Gaussian Fisher/BLR updates with the projected true Hessian. Acceptance uses common samples. Independent diagnostic samples report a separate estimate and standard error. Two samples form only one antithetic pair, so an error bar is unavailable. A nonzero loop prior gives a relative VFE with unknown log normalizer; its prior parameters are fixed.
 
