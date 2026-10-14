@@ -1,0 +1,11 @@
+{
+  "interpreter": "C:\\anaconda\\python.exe",
+  "torch": "2.10.0.dev20251210+cu128",
+  "cuda_runtime": "12.8",
+  "selected_device": "cpu",
+  "dtype": "torch.float64",
+  "cuda_available": true,
+  "device_name": "CPU",
+  "recognition": "product across agents and channels; covariance full_patch",
+  "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+}

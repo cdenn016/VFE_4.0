@@ -1,0 +1,13 @@
+{
+  "n_agents": 512,
+  "incidences_S": 512,
+  "candidate_edges_E_all_channels": 13312,
+  "max_row_degree": 13,
+  "max_patch_dimension": 4,
+  "covariance_structure": "full_patch",
+  "predicted_peak_bytes": 55967744,
+  "estimate": "conservative work estimate, not measured peak",
+  "configured_budget_bytes": 12884901888,
+  "free_cuda_bytes": 31101812736,
+  "total_cuda_bytes": 34190458880
+}

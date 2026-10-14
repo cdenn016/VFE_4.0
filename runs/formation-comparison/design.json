@@ -1,0 +1,21 @@
+{
+  "arms": {
+    "learned": [
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191514Z-point-9b42ac87",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191525Z-point-5e8ca304",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191535Z-point-1eae596e",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191546Z-point-f73fffb9",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191556Z-point-d92915db"
+    ],
+    "frozen": [
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191607Z-point-3a739d74",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191617Z-point-4b1f38fa",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191628Z-point-8e66408a",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191638Z-point-dbb8d604",
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191649Z-point-74d636d7"
+    ]
+  },
+  "matching": "same seed, geometry, private observations and inter-agent records; only source_rate differs",
+  "symmetry_breaking_datum": "seeded asymmetric synthetic population and noisy private observations",
+  "scope": "descriptive finite mean-field CAVI; does not test stochastic formation conjectures"
+}

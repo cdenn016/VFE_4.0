@@ -1,0 +1,3 @@
+m0 = 0: empirical P(contrast formation) = 0.030 +- 0.009 (n=400); proved lower bound = 2.859e-31
+m0 = x_circ: empirical P(contrast formation) = 0.100 +- 0.015 (n=400); proved lower bound = 1.057e-30
+m0 = random: empirical P(contrast formation) = 0.080 +- 0.014 (n=400); proved lower bound = 1.549e-36

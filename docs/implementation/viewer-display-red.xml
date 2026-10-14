@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="3" time="1.328" timestamp="2026-10-14T14:03:12.089734" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_viewer" name="test_sampled_viewer_objective_convention[0.0-sampled]" time="0.919" /><testcase classname="tests.test_viewer" name="test_sampled_viewer_objective_convention[0.1-relative]" time="0.061" /><testcase classname="tests.test_viewer" name="test_first_snapshot_visible_and_controls_clear_labels" time="0.078"><failure message="AssertionError: assert 'None' not in ('None', '', ' ')&#10; +  where 'None' = &lt;bound method Line2D.get_marker of &lt;matplotlib.lines.Line2D object at 0x000002774C8B3C50&gt;&gt;()&#10; +    where &lt;bound method Line2D.get_marker of &lt;matplotlib.lines.Line2D object at 0x000002774C8B3C50&gt;&gt; = &lt;matplotlib.lines.Line2D object at 0x000002774C8B3C50&gt;.get_marker">def test_first_snapshot_visible_and_controls_clear_labels() -&gt; None:
+        config = load_config(resolve_preset('tiny_point', {
+            'population': {'n_agents': 2, 'lattice_shape': (2,)}, 'bundle': {'K': 1}}))
+        model = build_model(config)
+        state = initialize_sections(model, config)
+        viewer = SimulationViewer()
+        try:
+            viewer.update(state, model, float(evaluate_vfe(state, model).total))
+            viewer.figure.canvas.draw()
+&gt;           assert viewer.axes[0].lines[0].get_marker() not in ('None', '', ' ')
+E           AssertionError: assert 'None' not in ('None', '', ' ')
+E            +  where 'None' = &lt;bound method Line2D.get_marker of &lt;matplotlib.lines.Line2D object at 0x000002774C8B3C50&gt;&gt;()
+E            +    where &lt;bound method Line2D.get_marker of &lt;matplotlib.lines.Line2D object at 0x000002774C8B3C50&gt;&gt; = &lt;matplotlib.lines.Line2D object at 0x000002774C8B3C50&gt;.get_marker
+
+tests\test_viewer.py:40: AssertionError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,18 @@
+[project]
+name = "vfe4"
+version = "0.1.0"
+description = "Spatial and pointwise multi-agent Gaussian VFE simulation"
+requires-python = ">=3.11"
+dependencies = ["torch", "numpy", "scipy", "matplotlib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["cuda: explicit CUDA numerical lane"]
+
+[tool.setuptools.packages.find]
+include = ["vfe4*"]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+

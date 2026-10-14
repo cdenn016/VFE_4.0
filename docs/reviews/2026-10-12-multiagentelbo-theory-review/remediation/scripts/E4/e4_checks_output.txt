@@ -1,0 +1,8 @@
+A. |F_tower - F_0| pushed (max over 200): 4.440892098500626e-16
+A. identity residual F_tower = F_0 + E KL(cond) (max): 4.440892098500626e-16
+A. min F_tower - F_0 for unpushed recognition: 0.27295718301125893
+A. F_tower with free coarse coordinate on deterministic part: inf
+B. dropped datum, R reads Y1: |KL - I(Y0;N1|Z1,R)|: 3.469446951953614e-17
+B. dropped datum, R reads Z1 only: |KL - [I(Y0;N1|Z1,R)+I(R;N1|Z1)]|: 1.8041124150158794e-16
+C. max(||D_{2<-0}|| - (3^|V_2|-1) prod delta_k), 30 towers 4->2->1 (<= 0 expected): -0.0480477007735063
+C. max(delta(Cdag_psi) - [1 - e^{-w}(1 - delta(Cdag))]) (<= 0 expected): -0.031731295306285046

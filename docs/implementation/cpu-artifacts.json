@@ -1,0 +1,18 @@
+{
+  "runs": [
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-validation-final\\20261014T042003Z-point-aa710f62",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-validation-final\\20261014T042328Z-flat_torus-be9f9bc2",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-validation-final\\20261014T042331Z-flat_torus-5e3de606",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-validation-final\\20261014T042011Z-point-48f11813"
+  ],
+  "batch": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-batches-final\\batch-48336b86",
+  "controls": {
+    "learned": [
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-formation\\learned\\batch-f0a6569b\\20261014T042013Z-point-2637141a"
+    ],
+    "frozen": [
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\cpu-formation\\frozen\\batch-833e971d\\20261014T042013Z-point-fe1f9ca9"
+    ]
+  },
+  "controls_matching_checked": true
+}

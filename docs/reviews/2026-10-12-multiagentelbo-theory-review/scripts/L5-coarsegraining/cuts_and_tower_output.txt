@@ -1,0 +1,22 @@
+== c10 cuts and holonomy witnesses
+  energy: 4.547473508864641e-13
+  Delta_formula: 8.526512829121202e-14
+  identity: 4.556355293061642e-13
+  aniso_admissible: 6.821210263296962e-13
+  balance: 4.11564116120644e-11
+  balance_alt: 2.332818382910773e-10
+  interval: 0.0
+  end_symmetry: 2.4788171515410795e-10
+  gauge_law: 1.1099920375850204e-06
+  orth_polar: 9.625633623500107e-14
+  law-level Delta for I,2I vs w1w2/(2(4w1+w2)) Sigma^{-1}: 9.71445146547012e-17
+  balanced link at t=0.3: [[1.0, 0.0], [0.0, 1.0]]
+  balanced link at t=-0.3: [[-1.0, 0.0], [0.0, -1.0]]
+  balanced link at t=0.0001: [[1.0, 0.0], [0.0, 1.0]]
+  balanced link at t=-0.0001: [[-1.0, 0.0], [0.0, -1.0]]
+  PSD witness: dim ker L, loop product: (2, [[2, 0], [0, 2]])
+  triangle score numeric vs log(1+A/(2 sigma^2)), argmin vs sigma^2+A/2: (np.float64(0.6368824539067651), np.float64(0.6368824539067651), np.float64(1.3234044233118882), 1.3234044034517094)
+== c11 contracted perturbation tower (random finite towers, depth 6)
+  recursion_violation: -3.596e-08
+  offset_decomp: 7.105e-15
+  uniform_bound_violation: -6.681e-01

@@ -1,0 +1,10 @@
+rE rN rC 0.08220344279113685 0.08292786314056629 0.009447525746854884 mu_T(M)=1/(2D0)= 0.3324209435105884 alpha 1.8779767161842942
+frozen_generic late q(S0)+q(S1)= 0.6652736842105264
+frozen_generic_rot late q(S0)+q(S1)= 0.6649842105263157
+frozen_s_ucirc late q(S0)+q(S1)= 0.6646868421052631
+learn_generic_eps0.02_seed2 exit(|p-1/2|>0.25) slow time 5.0 /log(1/eps)= 1.278 ; q(S!=M)<0.05 slow time 6.6 /log= 1.687
+learn_generic_eps0.02_seed3 exit(|p-1/2|>0.25) slow time 5.4 /log(1/eps)= 1.38 ; q(S!=M)<0.05 slow time 7.0 /log= 1.789
+learn_generic_rot_eps0.02_seed2 exit(|p-1/2|>0.25) slow time 6.4 /log(1/eps)= 1.636 ; q(S!=M)<0.05 slow time 8.2 /log= 2.096
+learn_generic_eps0.01_seed2 exit(|p-1/2|>0.25) slow time 4.1 /log(1/eps)= 0.89 ; q(S!=M)<0.05 slow time 5.3 /log= 1.151
+learn_generic_eps0.01_seed3 exit(|p-1/2|>0.25) slow time 4.5 /log(1/eps)= 0.977 ; q(S!=M)<0.05 slow time 5.5 /log= 1.194
+learn_generic_rot_eps0.01_seed2 exit(|p-1/2|>0.25) slow time 5.9 /log(1/eps)= 1.281 ; q(S!=M)<0.05 slow time 7.1 /log= 1.542

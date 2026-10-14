@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.841" timestamp="2026-10-14T14:13:43.295912" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_latent_links" name="test_sampled_transport_chunking" time="0.798"><failure message="RuntimeError: view size is not compatible with input tensor's size and stride (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead.">def test_sampled_transport_chunking() -&gt; None:
+        config = load_config(resolve_preset('tiny_point', {
+            'population': {'n_agents': 3, 'lattice_shape': (3,)}, 'bundle': {'K': 4},
+            'links': {'mode': 'latent_gaussian', 'samples': 4, 'copy_chunk_size': 2}}))
+        model = build_model(config)
+        state = initialize_sections(model, config)
+        omega = sampled_generators(state.links, 4)
+        T = torch.matrix_exp(omega.reshape(4, -1, 4, 4))
+        G = torch.eye(4, dtype=config.dtype) / config['communication']['tau']
+&gt;       mean, gram = model.transport_moments(state)
+
+tests\test_latent_links.py:74: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = SimulationModel(config=SimulationConfig(raw={'runtime': {'device': 'cpu', 'dtype': 'float64', 'seed': 20261013, 'max_v...36],
+        [ 0.1513,  0.4659,  0.1421,  0.5849],
+        [ 0.0134,  0.9564, -0.8683,  2.0373]], dtype=torch.float64))
+state = SectionState(belief=PatchGaussians(buckets=(GaussianBucket(agent_ids=tensor([0, 1, 2]), incidence_ids=tensor([[0],
+   ...929e+00, -5.3761e-01, -1.9122e+00,
+          -2.4474e-01]]], dtype=torch.float64), diagnostic_rng_state=None), sweep=0)
+
+    def transport_moments(self, state: SectionState) -&gt; tuple[torch.Tensor, torch.Tensor]:
+        from .latent_links import sampled_generators
+        links = state.links
+        K = self.config['bundle']['K']
+        R = K if self.config['communication']['comparison'] == 'full_state' else self.config['communication']['comparison_dim']
+        omega = (sampled_generators(links, self.config['links']['samples']) if links.mode == 'latent_gaussian'
+                 else links.omega_mean.unsqueeze(0))
+        tensors = (links.omega_mean, links.precision, links.standard_normals)
+        versions = tuple(None if x is None else x._version for x in tensors)
+        cached = getattr(self, '_transport_cache', None)
+        if cached is not None and all(a is b for a, b in zip(cached[0], tensors)) and cached[1:3] == (versions, links.mode):
+            return cached[3], cached[4]
+        G = torch.diag(omega.new_tensor([1 / self.config['communication']['tau']] * R + [0.] * (K - R)))
+        mean, gram = [], []
+        for start in range(0, omega.shape[1], self.config['links']['copy_chunk_size']):
+&gt;           T = torch.matrix_exp(omega[:, start:start + self.config['links']['copy_chunk_size']].reshape(omega.shape[0], -1, K, K))
+E           RuntimeError: view size is not compatible with input tensor's size and stride (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead.
+
+vfe4\model.py:72: RuntimeError</failure></testcase></testsuite></testsuites>

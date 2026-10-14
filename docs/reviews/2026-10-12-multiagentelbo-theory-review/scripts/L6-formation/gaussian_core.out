@@ -1,0 +1,33 @@
+L=2: dim=19 (10Nt-1=19), rank B=11 (6Nt-1=11), dim W_l=[np.int64(9), np.int64(8)] pred [9, 8]
+   bridge ends last-first: B_(2,1) shape (1, 10), rank 1, B_ll square cc['B'][l].shape[0]=10==10
+   bridge ends other: B_(2,1) shape (1, 10), rank 1, B_ll square cc['B'][l].shape[0]=10==10
+  rho=0.1: min_l j_l=1.0000, eps(window)=0.1, k=40.00, k log(1/eps) rho=9.21e+00
+   L=2 rho=0.1 interface l=1: Delta/(scale*y(v0)) on I_l in [0.0000,0.0000], Delta/(scale*y(xbar/A)) in [0.9575,0.9575]
+  rho=0.01: min_l j_l=1.0000, eps(window)=0.01, k=40.00, k log(1/eps) rho=1.84e+00
+   L=2 rho=0.01 interface l=1: Delta/(scale*y(v0)) on I_l in [0.0000,0.0028], Delta/(scale*y(xbar/A)) in [0.9960,0.9960]
+  rho=0.001: min_l j_l=1.0000, eps(window)=0.001, k=40.00, k log(1/eps) rho=2.76e-01
+   L=2 rho=0.001 interface l=1: Delta/(scale*y(v0)) on I_l in [0.1701,0.4118], Delta/(scale*y(xbar/A)) in [0.9996,0.9996]
+  rho=1e-05: min_l j_l=1.0000, eps(window)=0.1, k=60.00, k log(1/eps) rho=1.38e-03
+   L=2 rho=1e-05 interface l=1: Delta/(scale*y(v0)) on I_l in [0.9913,0.9957], Delta/(scale*y(xbar/A)) in [1.0000,1.0000]
+  rho=1e-06: min_l j_l=1.0000, eps(window)=0.1, k=72.00, k log(1/eps) rho=1.66e-04
+   L=2 rho=1e-06 interface l=1: Delta/(scale*y(v0)) on I_l in [0.9989,0.9995], Delta/(scale*y(xbar/A)) in [1.0000,1.0000]
+L=3: dim=39 (10Nt-1=39), rank B=23 (6Nt-1=23), dim W_l=[np.int64(19), np.int64(17), np.int64(16)] pred [19, 17, 16]
+   bridge ends last-first: B_(2,1) shape (2, 20), rank 2, B_ll square cc['B'][l].shape[0]=20==20
+   bridge ends last-first: B_(3,2) shape (1, 2), rank 1, B_ll square cc['B'][l].shape[0]=2==2
+   bridge ends other: B_(2,1) shape (2, 20), rank 2, B_ll square cc['B'][l].shape[0]=20==20
+   bridge ends other: B_(3,2) shape (1, 2), rank 1, B_ll square cc['B'][l].shape[0]=2==2
+  rho=0.1: min_l j_l=1.0000, eps(window)=0.1, k=40.00, k log(1/eps) rho=9.21e+00
+   L=3 rho=0.1 interface l=1: Delta/(scale*y(v0)) on I_l in [0.0000,0.0000], Delta/(scale*y(xbar/A)) in [0.9382,0.9390]
+   L=3 rho=0.1 interface l=2: Delta/(scale*y(v0)) on I_l in [0.0000,0.0000], Delta/(scale*y(xbar/A)) in [1.2390,1.2390]
+  rho=0.01: min_l j_l=1.0000, eps(window)=0.01, k=40.00, k log(1/eps) rho=1.84e+00
+   L=3 rho=0.01 interface l=1: Delta/(scale*y(v0)) on I_l in [0.0000,0.0028], Delta/(scale*y(xbar/A)) in [0.9988,1.0414]
+   L=3 rho=0.01 interface l=2: Delta/(scale*y(v0)) on I_l in [0.0000,0.0029], Delta/(scale*y(xbar/A)) in [1.0215,1.0215]
+  rho=0.001: min_l j_l=1.0000, eps(window)=0.001, k=40.00, k log(1/eps) rho=2.76e-01
+   L=3 rho=0.001 interface l=1: Delta/(scale*y(v0)) on I_l in [0.1706,0.4129], Delta/(scale*y(xbar/A)) in [0.9996,0.9996]
+   L=3 rho=0.001 interface l=2: Delta/(scale*y(v0)) on I_l in [0.1735,0.4172], Delta/(scale*y(xbar/A)) in [1.0021,1.0021]
+  rho=1e-05: min_l j_l=1.0000, eps(window)=0.1, k=60.00, k log(1/eps) rho=1.38e-03
+   L=3 rho=1e-05 interface l=1: Delta/(scale*y(v0)) on I_l in [0.9912,0.9956], Delta/(scale*y(xbar/A)) in [1.0000,1.0000]
+   L=3 rho=1e-05 interface l=2: Delta/(scale*y(v0)) on I_l in [0.9913,0.9956], Delta/(scale*y(xbar/A)) in [1.0000,1.0000]
+  rho=1e-06: min_l j_l=1.0000, eps(window)=0.1, k=72.00, k log(1/eps) rho=1.66e-04
+   L=3 rho=1e-06 interface l=1: Delta/(scale*y(v0)) on I_l in [0.9989,0.9995], Delta/(scale*y(xbar/A)) in [1.0000,1.0000]
+   L=3 rho=1e-06 interface l=2: Delta/(scale*y(v0)) on I_l in [0.9994,0.9999], Delta/(scale*y(xbar/A)) in [1.0005,1.0005]

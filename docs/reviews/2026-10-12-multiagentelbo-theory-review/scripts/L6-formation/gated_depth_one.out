@@ -1,0 +1,33 @@
+[C4] N=4 |E|=4 n=2: rank-formula max residual 0; k_S>=2(N-n): True; equality iff min edge cover: True; #min covers 2, all attended: True
+  Omega=I+R_ev T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=1.220e-01 <= K_1 T=1.159e+01: True
+    (d) a=0.3: P(partition not MEC) = 2.049e-01 +- 2.9e-03; bound = 1.417e+01 (K1T=1.16e+01, area term=9.00e-01, tail=1.69e+00); s_*=1.000
+  Omega=I+R_ev T=0.001: sheet-weight bounds hold: True; q(cc<=n-1)=1.412e-02 <= K_1 T=1.159e+00: True
+    (d) a=0.3: P(partition not MEC) = 1.068e-01 +- 2.2e-03; bound = 2.059e+00 (K1T=1.16e+00, area term=9.00e-01, tail=2.71e-09); s_*=1.000
+  Omega=I T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=6.022e-02 <= K_1 T=4.447e-01: True
+    (d) a=0.3: P(partition not MEC) = 9.985e-02 +- 2.1e-03; bound = 2.311e+00 (K1T=4.45e-01, area term=1.80e-01, tail=1.69e+00); s_*=1.000
+  Omega=I T=0.001: sheet-weight bounds hold: True; q(cc<=n-1)=6.385e-03 <= K_1 T=4.447e-02: True
+    (d) a=0.3: P(partition not MEC) = 4.950e-02 +- 1.5e-03; bound = 2.245e-01 (K1T=4.45e-02, area term=1.80e-01, tail=2.71e-09); s_*=1.000
+[C5] N=5 |E|=5 n=2: rank-formula max residual 0; k_S>=2(N-n): True; equality iff min edge cover: True; #min covers 5, all attended: True
+  Omega=I+R_ev T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=4.754e-02 <= K_1 T=1.289e+02: True
+    (d) a=0.3: P(partition not MEC) = 1.555e-01 +- 2.6e-03; bound = 1.324e+02 (K1T=1.29e+02, area term=1.35e+00, tail=2.11e+00); s_*=0.913
+  Omega=I+R_ev T=0.001: sheet-weight bounds hold: True; q(cc<=n-1)=5.200e-03 <= K_1 T=1.289e+01: True
+    (d) a=0.3: P(partition not MEC) = 1.047e-01 +- 2.2e-03; bound = 1.424e+01 (K1T=1.29e+01, area term=1.35e+00, tail=3.38e-09); s_*=0.913
+  Omega=I T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=2.275e-02 <= K_1 T=1.016e+00: True
+    (d) a=0.3: P(partition not MEC) = 7.780e-02 +- 1.9e-03; bound = 3.394e+00 (K1T=1.02e+00, area term=2.70e-01, tail=2.11e+00); s_*=0.913
+  Omega=I T=0.001: sheet-weight bounds hold: True; q(cc<=n-1)=2.343e-03 <= K_1 T=1.016e-01: True
+    (d) a=0.3: P(partition not MEC) = 5.200e-02 +- 1.6e-03; bound = 3.716e-01 (K1T=1.02e-01, area term=2.70e-01, tail=3.38e-09); s_*=0.913
+[triangle+pendant] N=4 |E|=4 n=2: rank-formula max residual 0; k_S>=2(N-n): True; equality iff min edge cover: True; #min covers 1, all attended: True
+  Omega=I+R_ev T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=1.744e-01 <= K_1 T=1.833e+01: True
+    (d) a=0.3: P(partition not MEC) = 2.470e-01 +- 3.0e-03; bound = 2.091e+01 (K1T=1.83e+01, area term=9.00e-01, tail=1.69e+00); s_*=1.000
+  Omega=I+R_ev T=0.001: sheet-weight bounds hold: True; q(cc<=n-1)=2.120e-02 <= K_1 T=1.833e+00: True
+    (d) a=0.3: P(partition not MEC) = 1.148e-01 +- 2.3e-03; bound = 2.733e+00 (K1T=1.83e+00, area term=9.00e-01, tail=2.71e-09); s_*=1.000
+  Omega=I T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=8.861e-02 <= K_1 T=7.032e-01: True
+    (d) a=0.3: P(partition not MEC) = 1.271e-01 +- 2.4e-03; bound = 2.570e+00 (K1T=7.03e-01, area term=1.80e-01, tail=1.69e+00); s_*=1.000
+  Omega=I T=0.001: sheet-weight bounds hold: True; q(cc<=n-1)=9.621e-03 <= K_1 T=7.032e-02: True
+    (d) a=0.3: P(partition not MEC) = 5.265e-02 +- 1.6e-03; bound = 2.503e-01 (K1T=7.03e-02, area term=1.80e-01, tail=2.71e-09); s_*=1.000
+[K4] N=4 |E|=6 n=2: rank-formula max residual 0; k_S>=2(N-n): True; equality iff min edge cover: True; #min covers 3, all attended: True
+  Omega=I+R_ev T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=2.774e-01 <= K_1 T=3.952e+01: True
+  Omega=I T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=1.502e-01 <= K_1 T=1.517e+00: True
+[star K1,3] N=4 |E|=3 n=1: rank-formula max residual 0; k_S>=2(N-n): True; equality iff min edge cover: True; #min covers 1, all attended: True
+  Omega=I+R_ev T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=0.000e+00 <= K_1 T=0.000e+00: True
+  Omega=I T=0.01: sheet-weight bounds hold: True; q(cc<=n-1)=0.000e+00 <= K_1 T=0.000e+00: True

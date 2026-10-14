@@ -1,0 +1,11 @@
+{
+  "n_agents": 2,
+  "incidences_S": 2,
+  "candidate_edges_E_all_channels": 8,
+  "max_row_degree": 2,
+  "max_patch_dimension": 2,
+  "covariance_structure": "full_patch",
+  "predicted_peak_bytes": 34944,
+  "estimate": "conservative work estimate, not measured peak",
+  "configured_budget_bytes": 12884901888
+}

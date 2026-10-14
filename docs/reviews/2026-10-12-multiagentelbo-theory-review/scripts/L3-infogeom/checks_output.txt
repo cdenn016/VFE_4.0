@@ -1,0 +1,39 @@
+== 1. Normal-family Moebius counterexample (prop:pb-statistical-tensor-descent)
+Fisher (mu,s): Matrix([[s**(-2), 0], [0, 2/s**2]])
+T components: {(0, 0, 1): 2/s**3, (0, 1, 0): 2/s**3, (1, 0, 0): 2/s**3, (1, 1, 1): 8/s**3}
+fixed point f(i) = I ; derivative at i = I
+isometry residual at (X,S)=(0.3,0.7): 8.881784197001252e-16
+cubic values T(e_mu)^3 = 0.0 ; T(image)^3 = 2.8284271247461894 ; 2sqrt2 = 2.8284271247461903
+== 2. Gaussian KL Hessian = Fisher (moment chart), K=3; natural gradient
+max |Hess KL - Fisher| = 2.42340479946878e-08 ; scale 0.2991578092657774
+nat_mu - Sigma grad_mu: 8.881784197001252e-16 ; nat_S - 2 Sigma G Sigma: 7.105427357601002e-15
+== 3. Orbit Fisher form, Gaussian GL(K) congruence (cor:pb-orbit-fisher-form)
+ t=0.1: KL/(t^2/2 k) = 0.93572258
+ t=0.01: KL/(t^2/2 k) = 0.99308988
+ t=0.001: KL/(t^2/2 k) = 0.99930393
+ k minus (||Z eta||^2 + 2||sym Z||_F^2): 0.0
+ orbit-form eigenvalues: [-9.3843e-16  2.2152e-01  2.2477e-01  2.0016e+00  2.0215e+00  2.3076e+00
+  2.3744e+00  2.5855e+00  2.6619e+00] ; #zero: 1 ; expected dim stabilizer (K-1)(K-2)/2 = 1
+  stabilizer direction, t=0.5: KL = 0.00e+00
+  stabilizer direction, t=2.0: KL = 4.44e-16
+== 4. Duration examples (c07)
+ int_0^1 sqrt(1+16 z^6) dz = 1.6002294276722058 ; sqrt2 = 1.4142135623730951
+ Bernoulli record speed: 0.47086396474258785 ; 1/(2cosh(t/2)) = 0.47086396474258796
+ d alpha coefficient: (z1**2 - z2**2)/(z1**2 + z2**2)**(3/2) ; residual vs claim: 0
+ block clocks: max 0.7196266666935849 <= l2 0.9742484096433238 <= total 1.0150954232074318 <= sum 1.3763590507557883
+== 5. g01: Bregman form and affine Pythagorean identity, 1-D Gaussian T=(y,y^2)
+ KL(Q_lp || Q_l) - D_A(l, lp) = 2.220446049250313e-16
+ Pythagorean residual (projection onto E[y]=m keeps precision): 0.0
+== 6. g05 witness and fixed-covariance KL
+ P^T L P = [[6.0, 3.0], [3.0, 2.0]] ; gaps: 0.1438410362258905 0.14384103622589042 0.6931471805599454 0.6931471805599453
+ fixed-cov KL minus 1/2 dmu^T W dmu: -2.220446049250313e-16
+== 7. g06 Hermite: Z_2, Mehler eigenvalues
+ Z_2(0.3) quad=1.06715708789478 closed=1.06715708789478
+ Z_2(1.0) quad=1.56940074539410 closed=1.56940074539410
+ Z_2(-0.2) quad=1.05697685723296 closed=1.05697685723296
+ b=2: max abs(E[He_k(xi)He_k(bar)]/k! - b^(-k/2)), k<=6: 3.33e-16
+ b=3: max abs(E[He_k(xi)He_k(bar)]/k! - b^(-k/2)), k<=6: 4.44e-16
+ HS sum b=3: 4.5 ; b^2/(b-1) = 4.5
+ E He_3^2 = 6.000000000000002
+== 8. c07 bivariate normal joint-vs-marginal
+ difference: [[0.16000000000000003, 0.4], [0.4, 0.16000000000000003]] ; (1,1): 1.12 1.1199999999999999 ; (1,-1): -0.48 -0.48

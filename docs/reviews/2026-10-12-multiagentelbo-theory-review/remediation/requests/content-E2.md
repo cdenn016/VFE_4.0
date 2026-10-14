@@ -1,0 +1,10 @@
+# CONTENT.md requests from E2 (c08b_lie_links.tex, g11_latent_links.tex)
+
+New or changed constructions and results, for the latent-link chapter (`ch:links`):
+
+- `def:link-exponential-chart`: states that a mutually attending pair reads two distinct copies (two reversal pairs, independent generators in the two directions); link-space dimension N(N-1) dim G for one copy per ordered pair.
+- `def:link-generator-prior`: walks of the loop family carry their base vertex; by default the loop family contains, for every mutually attending pair, the 2-cycle (e,e') based at i and (e',e) based at j.
+- `rem:link-reciprocal-limit` (new, ESTABLISHED): the two based 2-cycles vanish together, exactly at reciprocal links Theta_{e'} = Theta_e^{-1} (injective rho); the prior mass of {Q_p >= eps} is at most m_eps^{-1} exp(-c eps/2), so a large 2-cycle coefficient concentrates the prior on reciprocal links (the one-reversal-pair convention as a hard-constraint limit).
+- `rem:link-chart-injectivity` (new, ESTABLISHED): exp on gl(K,R) is not injective; generator families with one link have posterior density ratio equal to the base-density ratio; exp is injective on the principal domain D (eigenvalues with |Im| < pi); |Im lambda| <= ||skew||_op, sum (Im lambda)^2 <= ||skew||_F^2, and under N(alpha, s^2 Id) the base-law mass outside D is at most (||skew alpha||_F^2 + K(K-1)s^2/2)/pi^2. Gaussian generator recognition is read on D. New symbol: \mathring{\mathcal D} (added to tab:link-notation).
+- `rem:link-normalizer-role` (new, ESTABLISHED): log Z_S is recognition-independent (cancels in inference at a fixed prior) and is needed for the bound value and the anchor, covariance, and loop-coefficient M-coordinates; log Z_S is convex in the loop coefficients with d log Z_S / d c_p = -E_P[Q_p], log Z_S(c) = -int_0^1 sum_p c_p E_{P_tc}[Q_p] dt (`eq:link-normalizer-integral`), and -E_nu S <= log Z_S <= -E_P S.
+- Held-link limit (`thm:link-held-limit`) prose now scoped to held links whose twists lie in exp(g).

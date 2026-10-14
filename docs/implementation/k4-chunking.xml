@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.813" timestamp="2026-10-14T14:14:06.621211" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_latent_links" name="test_sampled_transport_chunking" time="0.787" /></testsuite></testsuites>

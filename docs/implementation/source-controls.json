@@ -1,0 +1,4159 @@
+{
+  "checked_at_utc": "2026-10-14T19:19:56.925926+00:00",
+  "preset": "point_lattice_512",
+  "runner": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\experiments\\run_formation.py",
+  "runner_sha256": "c73aaa002a050ce4219975b9ea644c403d96d73970dcc8e79d14aaa167b1f189",
+  "check_script": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\check_source_controls.py",
+  "check_script_sha256": "936097da68f613bbbf077759d6251b3824493cc2d70322cebc2d1a4dcfba029b",
+  "check_execution": {
+    "interpreter": "C:\\anaconda\\python.exe",
+    "torch": "2.10.0.dev20251210+cu128",
+    "map_location": "cpu",
+    "weights_only": false,
+    "tensor_comparison": "dtype, shape, raw bytes"
+  },
+  "seeds": [
+    20261013,
+    20261014,
+    20261015,
+    20261016,
+    20261017
+  ],
+  "arms": {
+    "learned": {
+      "20261013": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191514Z-point-9b42ac87",
+        "config_sha256": "e171eb660d06cb87121bec6baa87428c30f4ef5657a997cb23c030754da7e644",
+        "source_rate": 0.02,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.779521299991757,
+          "objective": 7973.7979017461,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79155200,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "7973.7979017461",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "7980.194905295266",
+          "objective_paired_after": "7973.7979017461",
+          "spd_status": "0",
+          "vfe_model_prior": "3555.8104079758914",
+          "vfe_bridge": "1656.9566909806285",
+          "vfe_recognition_entropy": "-1268.8829819785828",
+          "vfe_categorical_kl": "209.91723809313734",
+          "vfe_private": "-276.3745623310007",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4096.371109006027",
+          "row_entropy": "0.20272341999896887",
+          "effective_degree": "1.2971042425226091",
+          "self_weight": "0.1456711904516777",
+          "field_rmse_reference": "0.6722118692564375",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "512.0",
+          "coherent_blocks_mean_field_a1": "408.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.1274481216074767",
+          "holonomy_mean_defect_reference": "0.04065655354320245",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06060470000375062"
+        }
+      },
+      "20261014": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191525Z-point-5e8ca304",
+        "config_sha256": "8b3610e11641d455bf2adb3e282350c10e83278c04784bcd7122018a8abd936c",
+        "source_rate": 0.02,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.4850724000134505,
+          "objective": 7969.029458210938,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79150080,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "7969.029458210938",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "7975.197911187843",
+          "objective_paired_after": "7969.029458210938",
+          "spd_status": "0",
+          "vfe_model_prior": "3563.2014079300134",
+          "vfe_bridge": "1688.5629782589592",
+          "vfe_recognition_entropy": "-1368.9470512267808",
+          "vfe_categorical_kl": "208.8751951103941",
+          "vfe_private": "-233.0539065770623",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4110.390834715414",
+          "row_entropy": "0.19690071931171965",
+          "effective_degree": "1.286247419867582",
+          "self_weight": "0.17289389771508074",
+          "field_rmse_reference": "0.7202999975132593",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "511.0",
+          "coherent_blocks_mean_field_a1": "407.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.12788279560228671",
+          "holonomy_mean_defect_reference": "0.0407748729378676",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06145259999902919"
+        }
+      },
+      "20261015": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191535Z-point-1eae596e",
+        "config_sha256": "8e796432a57e09aee0c9f78227ffb9cb95c2b999c408c60b88bba5148c1614c8",
+        "source_rate": 0.02,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.429737300029956,
+          "objective": 7903.626375081948,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79155712,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "7903.626375081948",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "7909.719704689869",
+          "objective_paired_after": "7903.626375081948",
+          "spd_status": "0",
+          "vfe_model_prior": "3557.213052288248",
+          "vfe_bridge": "1639.4180901909488",
+          "vfe_recognition_entropy": "-1255.612551716725",
+          "vfe_categorical_kl": "205.22424860579366",
+          "vfe_private": "-283.45693069739826",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4040.8404664110803",
+          "row_entropy": "0.17964033806488247",
+          "effective_degree": "1.2538587305498206",
+          "self_weight": "0.1548368835966162",
+          "field_rmse_reference": "0.7051625064180336",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "511.0",
+          "coherent_blocks_mean_field_a1": "422.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.12800309738938082",
+          "holonomy_mean_defect_reference": "0.04036730427656766",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06063199997879565"
+        }
+      },
+      "20261016": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191546Z-point-f73fffb9",
+        "config_sha256": "c5a3fdf12312026b0b46b5751b2bed8a4c0372ea5b0f1197181c8c1cc6ce109c",
+        "source_rate": 0.02,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.452025400009006,
+          "objective": 7915.460466706918,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79151616,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "7915.460466706918",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "7921.5961852276705",
+          "objective_paired_after": "7915.460466706918",
+          "spd_status": "0",
+          "vfe_model_prior": "3560.193380351402",
+          "vfe_bridge": "1667.571582143231",
+          "vfe_recognition_entropy": "-1340.5750863605977",
+          "vfe_categorical_kl": "207.73506069741126",
+          "vfe_private": "-248.9175945719902",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4069.4531244474606",
+          "row_entropy": "0.18866744793707485",
+          "effective_degree": "1.270890101011675",
+          "self_weight": "0.16480396698664168",
+          "field_rmse_reference": "0.7430996915090438",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "509.0",
+          "coherent_blocks_mean_field_a1": "407.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.12649398172441467",
+          "holonomy_mean_defect_reference": "0.04067163682357981",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06138539995299652"
+        }
+      },
+      "20261017": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e\\20261014T191556Z-point-d92915db",
+        "config_sha256": "83c9eee34bf605f4041a4fadd36cbd2ab6bf757bfc4f4ab209d648de5b1da5a2",
+        "source_rate": 0.02,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.46369899995625,
+          "objective": 7932.0137976803435,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79156224,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "7932.0137976803435",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "7938.013366744658",
+          "objective_paired_after": "7932.0137976803435",
+          "spd_status": "0",
+          "vfe_model_prior": "3574.4874252966415",
+          "vfe_bridge": "1642.103663790699",
+          "vfe_recognition_entropy": "-1249.4685781177434",
+          "vfe_categorical_kl": "204.12454223658494",
+          "vfe_private": "-293.73490952587906",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4054.5016540000406",
+          "row_entropy": "0.17957742320324094",
+          "effective_degree": "1.2573253672076885",
+          "self_weight": "0.15091930781636134",
+          "field_rmse_reference": "0.6710006302415368",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "511.0",
+          "coherent_blocks_mean_field_a1": "425.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.13127734525983495",
+          "holonomy_mean_defect_reference": "0.040422153214887166",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.060041899967473"
+        }
+      }
+    },
+    "frozen": {
+      "20261013": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191607Z-point-3a739d74",
+        "config_sha256": "dcf5e0d5d8f702edd6b79c131103de9e542800348a2b2b58f3d9af203d526098",
+        "source_rate": 0.0,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.414916199981235,
+          "objective": 9689.417391116456,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79155200,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "9689.417391116456",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "9690.59816349972",
+          "objective_paired_after": "9689.417391116456",
+          "spd_status": "0",
+          "vfe_model_prior": "3555.058086241947",
+          "vfe_bridge": "1558.2905802587136",
+          "vfe_recognition_entropy": "-1139.4575227305977",
+          "vfe_categorical_kl": "1645.1427831368387",
+          "vfe_private": "-276.2009910342043",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4346.584455243759",
+          "row_entropy": "0.9583646083044678",
+          "effective_degree": "3.0658107349720254",
+          "self_weight": "0.07325646483168435",
+          "field_rmse_reference": "0.6140642132590732",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "511.0",
+          "coherent_blocks_mean_field_a1": "395.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.12526946177178389",
+          "holonomy_mean_defect_reference": "0.04065655354320245",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.059738899988587946"
+        }
+      },
+      "20261014": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191617Z-point-4b1f38fa",
+        "config_sha256": "8b08949771a42656cf7a89ced20a5899317970d93ada62dbd834571aa08aa7a6",
+        "source_rate": 0.0,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.430765600001905,
+          "objective": 9680.59785265889,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79150080,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "9680.59785265889",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "9681.56106578534",
+          "objective_paired_after": "9680.59785265889",
+          "spd_status": "0",
+          "vfe_model_prior": "3557.602126272661",
+          "vfe_bridge": "1578.6441072597258",
+          "vfe_recognition_entropy": "-1217.852212770037",
+          "vfe_categorical_kl": "1656.8918097332612",
+          "vfe_private": "-234.84491833944992",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4340.156940502728",
+          "row_entropy": "0.9468909495188987",
+          "effective_degree": "3.052112030386505",
+          "self_weight": "0.08026837179884219",
+          "field_rmse_reference": "0.6609450484945019",
+          "coherent_blocks_mean_field_a0.1": "511.0",
+          "coherent_blocks_mean_field_a0.3": "509.0",
+          "coherent_blocks_mean_field_a1": "367.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.12513442027514232",
+          "holonomy_mean_defect_reference": "0.0407748729378676",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06468239997047931"
+        }
+      },
+      "20261015": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191628Z-point-8e66408a",
+        "config_sha256": "88655132e17abf7c211633bbd7435e40a884b58fb46fb433a6ba9978798c2e08",
+        "source_rate": 0.0,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.435967499972321,
+          "objective": 9723.649399078859,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79155712,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "9723.649399078859",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "9724.640676795803",
+          "objective_paired_after": "9723.649399078859",
+          "spd_status": "0",
+          "vfe_model_prior": "3553.759385332919",
+          "vfe_bridge": "1555.6671313483407",
+          "vfe_recognition_entropy": "-1128.4375157638544",
+          "vfe_categorical_kl": "1670.9793548925709",
+          "vfe_private": "-284.14206962829974",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4355.823112897182",
+          "row_entropy": "0.9331335811992604",
+          "effective_degree": "2.991587429461193",
+          "self_weight": "0.07769499034517731",
+          "field_rmse_reference": "0.6751890205285863",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "512.0",
+          "coherent_blocks_mean_field_a1": "387.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.1253560630363586",
+          "holonomy_mean_defect_reference": "0.04036730427656766",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06018460000632331"
+        }
+      },
+      "20261016": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191638Z-point-dbb8d604",
+        "config_sha256": "479c9b1cb6ebf9e7e9241e05eeada1eb7f937c4e963c5bd23d2c39da1c2884b2",
+        "source_rate": 0.0,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.387327899981756,
+          "objective": 9660.951460867382,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79151616,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "9660.951460867382",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "9661.970198761217",
+          "objective_paired_after": "9660.951460867382",
+          "spd_status": "0",
+          "vfe_model_prior": "3556.687792140656",
+          "vfe_bridge": "1574.6719162239283",
+          "vfe_recognition_entropy": "-1204.5690057884715",
+          "vfe_categorical_kl": "1675.7764851997827",
+          "vfe_private": "-250.83113451659605",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4309.215407608082",
+          "row_entropy": "0.928448883633624",
+          "effective_degree": "3.0264907746457324",
+          "self_weight": "0.08467850169545431",
+          "field_rmse_reference": "0.6768498186355643",
+          "coherent_blocks_mean_field_a0.1": "511.0",
+          "coherent_blocks_mean_field_a0.3": "508.0",
+          "coherent_blocks_mean_field_a1": "380.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.1214885179978301",
+          "holonomy_mean_defect_reference": "0.04067163682357981",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06131030002143234"
+        }
+      },
+      "20261017": {
+        "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba\\20261014T191649Z-point-74d636d7",
+        "config_sha256": "67cd2236cc08f58faf70dfe50c7a1aa2efe1cc14949c07105b3088ca1434cbb0",
+        "source_rate": 0.0,
+        "summary": {
+          "status": "completed",
+          "sweeps": 100,
+          "elapsed_seconds": 6.437348400009796,
+          "objective": 9728.794603462604,
+          "normalizer_status": "exact",
+          "peak_allocated_bytes": 79156224,
+          "peak_reserved_bytes": 98566144
+        },
+        "environment": {
+          "interpreter": "C:\\anaconda\\python.exe",
+          "torch": "2.10.0.dev20251210+cu128",
+          "cuda_runtime": "12.8",
+          "selected_device": "cuda",
+          "dtype": "torch.float64",
+          "cuda_available": true,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "recognition": "product across agents and channels; covariance full_patch",
+          "model": "normalized Gaussian roots, bridges, private/spatial/source-label records"
+        },
+        "recorded_sweeps": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "final_metrics": {
+          "sweep": "100",
+          "vfe_total": "9728.794603462604",
+          "normalizer_status": "exact",
+          "estimator_error": "0.0",
+          "accepted": "1",
+          "retries": "0",
+          "objective_paired_before": "9729.724125430877",
+          "objective_paired_after": "9728.794603462604",
+          "spd_status": "0",
+          "vfe_model_prior": "3570.2133458519415",
+          "vfe_bridge": "1552.0760635787346",
+          "vfe_recognition_entropy": "-1115.761784903596",
+          "vfe_categorical_kl": "1694.638248875549",
+          "vfe_private": "-294.45989077412025",
+          "vfe_spatial": "0.0",
+          "vfe_communication": "4322.088620834096",
+          "row_entropy": "0.9100291925440084",
+          "effective_degree": "2.9634006259953822",
+          "self_weight": "0.0737493206031532",
+          "field_rmse_reference": "0.6228909579510641",
+          "coherent_blocks_mean_field_a0.1": "512.0",
+          "coherent_blocks_mean_field_a0.3": "509.0",
+          "coherent_blocks_mean_field_a1": "391.0",
+          "fixed_sector_rank_context0": "0.0",
+          "analytics_context_id": "0.0",
+          "analytics_context_agents": "512.0",
+          "routing_reciprocity_reference_mean_abs": "0.12621528005604446",
+          "holonomy_mean_defect_reference": "0.040422153214887166",
+          "discarded_conditional_kl_available": "0.0",
+          "sweep_seconds": "0.06161949998931959"
+        }
+      }
+    }
+  },
+  "pairs": [
+    {
+      "seed": 20261013,
+      "configs_match_except_declared_fields": true,
+      "config_differences": {
+        "communication.source_rate": {
+          "learned": 0.02,
+          "frozen": 0.0
+        },
+        "output.directory": {
+          "learned": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e",
+          "frozen": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba"
+        }
+      },
+      "both_completed_100_sweeps": true,
+      "saved_geometry_records_truth_equal": true,
+      "tensor_count": 49,
+      "tensor_elements_compared": 903154,
+      "tensor_comparisons": [
+        {
+          "path": "geometry.pt.loops.offset",
+          "shape": [
+            6145
+          ],
+          "dtype": "torch.int64",
+          "elements": 6145,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.primitive_id",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.orientation",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.base_incidence",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.int64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.weight",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.float64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.agent_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.context_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.patch_offset",
+          "shape": [
+            513
+          ],
+          "dtype": "torch.int64",
+          "elements": 513,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.local_node_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.centers",
+          "shape": [
+            512,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_offset",
+          "shape": [
+            1025
+          ],
+          "dtype": "torch.int64",
+          "elements": 1025,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.receiver_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.source_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.copy_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.log_pi",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.float64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.channel",
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int64",
+          "elements": 1024,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.contexts",
+          "shape": [
+            1,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.periods",
+          "shape": [
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.cell_volume",
+          "shape": [
+            1
+          ],
+          "dtype": "torch.float64",
+          "elements": 1,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.frame_field.seed_frames",
+          "shape": [
+            512,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 8192,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.receiver_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.source_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.context_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.primitive_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.orientation",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.is_self",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.bool",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].receiver",
+          "shape": [
+            130
+          ],
+          "dtype": "torch.int64",
+          "elements": 130,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].sender",
+          "shape": [
+            130
+          ],
+          "dtype": "torch.int64",
+          "elements": 130,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].query",
+          "shape": [
+            130,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2080,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].key",
+          "shape": [
+            130,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2080,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].observed",
+          "shape": [
+            130,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 520,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].precision",
+          "shape": [
+            130,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2080,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].candidate_id",
+          "shape": [
+            130
+          ],
+          "dtype": "torch.int64",
+          "elements": 130,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.truth_fixture",
+          "shape": [
+            512,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2048,
+          "bitwise_equal": true
+        }
+      ],
+      "differences": [],
+      "input_files": [
+        {
+          "filename": "geometry.pt",
+          "learned_sha256": "55adf2c6074ee8b14034ca306f4fc78d15f8566a1d2032e7a0c8cff055c0ad85",
+          "frozen_sha256": "55adf2c6074ee8b14034ca306f4fc78d15f8566a1d2032e7a0c8cff055c0ad85"
+        },
+        {
+          "filename": "observations.pt",
+          "learned_sha256": "b7a79ff00f92a4596091c6e2150baeb729e0a5c8645baef130cee195de7c2251",
+          "frozen_sha256": "b7a79ff00f92a4596091c6e2150baeb729e0a5c8645baef130cee195de7c2251"
+        }
+      ]
+    },
+    {
+      "seed": 20261014,
+      "configs_match_except_declared_fields": true,
+      "config_differences": {
+        "communication.source_rate": {
+          "learned": 0.02,
+          "frozen": 0.0
+        },
+        "output.directory": {
+          "learned": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e",
+          "frozen": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba"
+        }
+      },
+      "both_completed_100_sweeps": true,
+      "saved_geometry_records_truth_equal": true,
+      "tensor_count": 49,
+      "tensor_elements_compared": 902109,
+      "tensor_comparisons": [
+        {
+          "path": "geometry.pt.loops.offset",
+          "shape": [
+            6145
+          ],
+          "dtype": "torch.int64",
+          "elements": 6145,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.primitive_id",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.orientation",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.base_incidence",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.int64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.weight",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.float64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.agent_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.context_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.patch_offset",
+          "shape": [
+            513
+          ],
+          "dtype": "torch.int64",
+          "elements": 513,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.local_node_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.centers",
+          "shape": [
+            512,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_offset",
+          "shape": [
+            1025
+          ],
+          "dtype": "torch.int64",
+          "elements": 1025,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.receiver_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.source_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.copy_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.log_pi",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.float64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.channel",
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int64",
+          "elements": 1024,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.contexts",
+          "shape": [
+            1,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.periods",
+          "shape": [
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.cell_volume",
+          "shape": [
+            1
+          ],
+          "dtype": "torch.float64",
+          "elements": 1,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.frame_field.seed_frames",
+          "shape": [
+            512,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 8192,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.receiver_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.source_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.context_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.primitive_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.orientation",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.is_self",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.bool",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].receiver",
+          "shape": [
+            111
+          ],
+          "dtype": "torch.int64",
+          "elements": 111,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].sender",
+          "shape": [
+            111
+          ],
+          "dtype": "torch.int64",
+          "elements": 111,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].query",
+          "shape": [
+            111,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 1776,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].key",
+          "shape": [
+            111,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 1776,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].observed",
+          "shape": [
+            111,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 444,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].precision",
+          "shape": [
+            111,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 1776,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].candidate_id",
+          "shape": [
+            111
+          ],
+          "dtype": "torch.int64",
+          "elements": 111,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.truth_fixture",
+          "shape": [
+            512,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2048,
+          "bitwise_equal": true
+        }
+      ],
+      "differences": [],
+      "input_files": [
+        {
+          "filename": "geometry.pt",
+          "learned_sha256": "6b5e5285c485dd68f7a0304f379e5a4b55acb81ba735ab48a04f4cfe60e6d47b",
+          "frozen_sha256": "6b5e5285c485dd68f7a0304f379e5a4b55acb81ba735ab48a04f4cfe60e6d47b"
+        },
+        {
+          "filename": "observations.pt",
+          "learned_sha256": "6fa3c472caac50de68baefe68638897409f1d2258efded432dd762337cd57452",
+          "frozen_sha256": "6fa3c472caac50de68baefe68638897409f1d2258efded432dd762337cd57452"
+        }
+      ]
+    },
+    {
+      "seed": 20261015,
+      "configs_match_except_declared_fields": true,
+      "config_differences": {
+        "communication.source_rate": {
+          "learned": 0.02,
+          "frozen": 0.0
+        },
+        "output.directory": {
+          "learned": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e",
+          "frozen": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba"
+        }
+      },
+      "both_completed_100_sweeps": true,
+      "saved_geometry_records_truth_equal": true,
+      "tensor_count": 49,
+      "tensor_elements_compared": 903319,
+      "tensor_comparisons": [
+        {
+          "path": "geometry.pt.loops.offset",
+          "shape": [
+            6145
+          ],
+          "dtype": "torch.int64",
+          "elements": 6145,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.primitive_id",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.orientation",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.base_incidence",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.int64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.weight",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.float64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.agent_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.context_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.patch_offset",
+          "shape": [
+            513
+          ],
+          "dtype": "torch.int64",
+          "elements": 513,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.local_node_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.centers",
+          "shape": [
+            512,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_offset",
+          "shape": [
+            1025
+          ],
+          "dtype": "torch.int64",
+          "elements": 1025,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.receiver_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.source_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.copy_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.log_pi",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.float64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.channel",
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int64",
+          "elements": 1024,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.contexts",
+          "shape": [
+            1,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.periods",
+          "shape": [
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.cell_volume",
+          "shape": [
+            1
+          ],
+          "dtype": "torch.float64",
+          "elements": 1,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.frame_field.seed_frames",
+          "shape": [
+            512,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 8192,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.receiver_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.source_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.context_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.primitive_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.orientation",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.is_self",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.bool",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].receiver",
+          "shape": [
+            133
+          ],
+          "dtype": "torch.int64",
+          "elements": 133,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].sender",
+          "shape": [
+            133
+          ],
+          "dtype": "torch.int64",
+          "elements": 133,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].query",
+          "shape": [
+            133,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2128,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].key",
+          "shape": [
+            133,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2128,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].observed",
+          "shape": [
+            133,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 532,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].precision",
+          "shape": [
+            133,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2128,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].candidate_id",
+          "shape": [
+            133
+          ],
+          "dtype": "torch.int64",
+          "elements": 133,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.truth_fixture",
+          "shape": [
+            512,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2048,
+          "bitwise_equal": true
+        }
+      ],
+      "differences": [],
+      "input_files": [
+        {
+          "filename": "geometry.pt",
+          "learned_sha256": "f5aaf4cdc3ec143af4401f7c2b59343590f38b32485be4f14c0719ba6621ad04",
+          "frozen_sha256": "f5aaf4cdc3ec143af4401f7c2b59343590f38b32485be4f14c0719ba6621ad04"
+        },
+        {
+          "filename": "observations.pt",
+          "learned_sha256": "89d845790a3b67431851a47d3a6b81a7d2fb58a49f1b6a51d2a1d6c572bbd588",
+          "frozen_sha256": "89d845790a3b67431851a47d3a6b81a7d2fb58a49f1b6a51d2a1d6c572bbd588"
+        }
+      ]
+    },
+    {
+      "seed": 20261016,
+      "configs_match_except_declared_fields": true,
+      "config_differences": {
+        "communication.source_rate": {
+          "learned": 0.02,
+          "frozen": 0.0
+        },
+        "output.directory": {
+          "learned": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e",
+          "frozen": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba"
+        }
+      },
+      "both_completed_100_sweeps": true,
+      "saved_geometry_records_truth_equal": true,
+      "tensor_count": 49,
+      "tensor_elements_compared": 902439,
+      "tensor_comparisons": [
+        {
+          "path": "geometry.pt.loops.offset",
+          "shape": [
+            6145
+          ],
+          "dtype": "torch.int64",
+          "elements": 6145,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.primitive_id",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.orientation",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.base_incidence",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.int64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.weight",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.float64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.agent_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.context_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.patch_offset",
+          "shape": [
+            513
+          ],
+          "dtype": "torch.int64",
+          "elements": 513,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.local_node_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.centers",
+          "shape": [
+            512,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_offset",
+          "shape": [
+            1025
+          ],
+          "dtype": "torch.int64",
+          "elements": 1025,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.receiver_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.source_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.copy_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.log_pi",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.float64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.channel",
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int64",
+          "elements": 1024,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.contexts",
+          "shape": [
+            1,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.periods",
+          "shape": [
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.cell_volume",
+          "shape": [
+            1
+          ],
+          "dtype": "torch.float64",
+          "elements": 1,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.frame_field.seed_frames",
+          "shape": [
+            512,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 8192,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.receiver_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.source_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.context_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.primitive_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.orientation",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.is_self",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.bool",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].receiver",
+          "shape": [
+            117
+          ],
+          "dtype": "torch.int64",
+          "elements": 117,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].sender",
+          "shape": [
+            117
+          ],
+          "dtype": "torch.int64",
+          "elements": 117,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].query",
+          "shape": [
+            117,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 1872,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].key",
+          "shape": [
+            117,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 1872,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].observed",
+          "shape": [
+            117,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 468,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].precision",
+          "shape": [
+            117,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 1872,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].candidate_id",
+          "shape": [
+            117
+          ],
+          "dtype": "torch.int64",
+          "elements": 117,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.truth_fixture",
+          "shape": [
+            512,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2048,
+          "bitwise_equal": true
+        }
+      ],
+      "differences": [],
+      "input_files": [
+        {
+          "filename": "geometry.pt",
+          "learned_sha256": "7d8879f389e390d0d69f6d94817a07eef01f6b2a08fe2447508a035d4462e67a",
+          "frozen_sha256": "7d8879f389e390d0d69f6d94817a07eef01f6b2a08fe2447508a035d4462e67a"
+        },
+        {
+          "filename": "observations.pt",
+          "learned_sha256": "0e85eb8fe0e6911bfa542671a75d3cde629ef53ffe39d660e86ee454d48478e4",
+          "frozen_sha256": "0e85eb8fe0e6911bfa542671a75d3cde629ef53ffe39d660e86ee454d48478e4"
+        }
+      ]
+    },
+    {
+      "seed": 20261017,
+      "configs_match_except_declared_fields": true,
+      "config_differences": {
+        "communication.source_rate": {
+          "learned": 0.02,
+          "frozen": 0.0
+        },
+        "output.directory": {
+          "learned": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\learned\\batch-6093bf9e",
+          "frozen": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\frozen\\batch-c4d1e9ba"
+        }
+      },
+      "both_completed_100_sweeps": true,
+      "saved_geometry_records_truth_equal": true,
+      "tensor_count": 49,
+      "tensor_elements_compared": 903594,
+      "tensor_comparisons": [
+        {
+          "path": "geometry.pt.loops.offset",
+          "shape": [
+            6145
+          ],
+          "dtype": "torch.int64",
+          "elements": 6145,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.primitive_id",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.orientation",
+          "shape": [
+            12288
+          ],
+          "dtype": "torch.int64",
+          "elements": 12288,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.base_incidence",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.int64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.loops.weight",
+          "shape": [
+            6144
+          ],
+          "dtype": "torch.float64",
+          "elements": 6144,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.agent_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.context_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.patch_offset",
+          "shape": [
+            513
+          ],
+          "dtype": "torch.int64",
+          "elements": 513,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.local_node_id",
+          "shape": [
+            512
+          ],
+          "dtype": "torch.int64",
+          "elements": 512,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.incidence.centers",
+          "shape": [
+            512,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_offset",
+          "shape": [
+            1025
+          ],
+          "dtype": "torch.int64",
+          "elements": 1025,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.receiver_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.source_incidence",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.copy_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.log_pi",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.float64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.row_id",
+          "shape": [
+            13312
+          ],
+          "dtype": "torch.int64",
+          "elements": 13312,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.rows.channel",
+          "shape": [
+            1024
+          ],
+          "dtype": "torch.int64",
+          "elements": 1024,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.contexts",
+          "shape": [
+            1,
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.periods",
+          "shape": [
+            0
+          ],
+          "dtype": "torch.float64",
+          "elements": 0,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.domain.cell_volume",
+          "shape": [
+            1
+          ],
+          "dtype": "torch.float64",
+          "elements": 1,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.frame_field.seed_frames",
+          "shape": [
+            512,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 8192,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.receiver_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.source_agent",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.context_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.primitive_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.orientation",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "geometry.pt.copies.is_self",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.bool",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].receiver",
+          "shape": [
+            138
+          ],
+          "dtype": "torch.int64",
+          "elements": 138,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].sender",
+          "shape": [
+            138
+          ],
+          "dtype": "torch.int64",
+          "elements": 138,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].query",
+          "shape": [
+            138,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2208,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].key",
+          "shape": [
+            138,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2208,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].observed",
+          "shape": [
+            138,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 552,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].precision",
+          "shape": [
+            138,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2208,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[0].candidate_id",
+          "shape": [
+            138
+          ],
+          "dtype": "torch.int64",
+          "elements": 138,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[1].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].receiver",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].sender",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].query",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].key",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].observed",
+          "shape": [
+            6656,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 26624,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].precision",
+          "shape": [
+            6656,
+            4,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 106496,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.records[2].candidate_id",
+          "shape": [
+            6656
+          ],
+          "dtype": "torch.int64",
+          "elements": 6656,
+          "bitwise_equal": true
+        },
+        {
+          "path": "observations.pt.truth_fixture",
+          "shape": [
+            512,
+            4
+          ],
+          "dtype": "torch.float64",
+          "elements": 2048,
+          "bitwise_equal": true
+        }
+      ],
+      "differences": [],
+      "input_files": [
+        {
+          "filename": "geometry.pt",
+          "learned_sha256": "81efdcb4f2bd98ad083277168e5799f4e5397dd3fb90faed6ed369e6c61ba93f",
+          "frozen_sha256": "81efdcb4f2bd98ad083277168e5799f4e5397dd3fb90faed6ed369e6c61ba93f"
+        },
+        {
+          "filename": "observations.pt",
+          "learned_sha256": "da5869bce2e18a7351c3863fecb2bba1a8dbfd5820308e3c1a5690d579848fce",
+          "frozen_sha256": "da5869bce2e18a7351c3863fecb2bba1a8dbfd5820308e3c1a5690d579848fce"
+        }
+      ]
+    }
+  ],
+  "comparison_design": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\design.json",
+  "comparison_design_sha256": "dfd44e69e71dd64dc15afc0f4871492a6ad5ecc0d197805aaf710916fc893e9a",
+  "comparison_figures": [
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a0.1.pdf",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a0.1.png",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a0.1.svg",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a0.3.pdf",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a0.3.png",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a0.3.svg",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a1.pdf",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a1.png",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\coherent_blocks_mean_field_a1.svg",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\effective_degree.pdf",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\effective_degree.png",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\effective_degree.svg",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\fixed_sector_rank_context0.pdf",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\fixed_sector_rank_context0.png",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\fixed_sector_rank_context0.svg",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\self_weight.pdf",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\self_weight.png",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\self_weight.svg",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\vfe_total.pdf",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\vfe_total.png",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\runs\\formation-comparison\\vfe_total.svg"
+  ],
+  "comparison_figure_count": 21,
+  "all_pairs_pass": true,
+  "scope": "Saved-input matching and recorded completion of deterministic finite mean-field CAVI controls; not a test of stochastic formation conjectures, population effects, or a formation theorem.",
+  "path_note": "The preset resolves output.directory to runs; these GPU controls are separate from runs/cpu-formation."
+}
