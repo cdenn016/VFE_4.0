@@ -50,7 +50,8 @@ def test_unknown_loop_normalizer_is_relative() -> None:
 def test_sampled_link_resume(tmp_path: Path) -> None:
     raw = {'population': {'n_agents': 2, 'lattice_shape': (2,)}, 'bundle': {'K': 1},
            'links': {'mode': 'latent_gaussian', 'samples': 4},
-           'inference': {'link_every': 1}, 'output': {'directory': str(tmp_path), 'figures': False}}
+           'inference': {'link_every': 1}, 'analytics': {'every': 1},
+           'output': {'directory': str(tmp_path), 'figures': False}}
     a = run_simulation(load_config(resolve_preset('tiny_point', raw)))
     raw['inference']['sweeps'] = 2
     b = run_simulation(load_config(resolve_preset('tiny_point', raw)))
@@ -60,6 +61,11 @@ def test_sampled_link_resume(tmp_path: Path) -> None:
     assert torch.equal(a.final_state.beta, c.final_state.beta)
     assert torch.equal(a.final_state.links.rng_state, c.final_state.links.rng_state)
     assert torch.equal(a.final_state.links.diagnostic_rng_state, c.final_state.links.diagnostic_rng_state)
+    # The diagnostic stream advances across calls rather than restarting from its seed.
+    omega = a.final_state.links.omega_mean
+    fresh = torch.Generator().manual_seed(load_config(resolve_preset('tiny_point', raw))['runtime']['seed'] + 101)
+    torch.randn(2, *omega.shape, generator=fresh, dtype=omega.dtype)   # one call: samples // 2 = 2
+    assert not torch.equal(fresh.get_state(), c.final_state.links.diagnostic_rng_state)
 
 
 def test_sampled_transport_chunking() -> None:
@@ -74,3 +80,62 @@ def test_sampled_transport_chunking() -> None:
     mean, gram = model.transport_moments(state)
     torch.testing.assert_close(mean, T.mean(0))
     torch.testing.assert_close(gram, (T.mT @ G @ T).mean(0))
+
+
+def _latent_three(anchor: str = 'zero', prior_std: float = 0.1) -> tuple[object, object, object]:
+    config = load_config(resolve_preset('tiny_point', {
+        'population': {'n_agents': 3, 'lattice_shape': (3,)},
+        'links': {'mode': 'latent_gaussian', 'samples': 4, 'initial_twist_std': 0.3,
+                  'prior_anchor': anchor, 'prior_std': prior_std}}))
+    model = build_model(config)
+    return config, model, initialize_sections(model, config)
+
+
+def test_latent_recognition_does_not_start_at_fixture_twist() -> None:
+    config, model, state = _latent_three()
+    assert bool(model.fixture_twist.abs().max() > 0)
+    assert torch.equal(state.links.omega_mean, torch.zeros_like(model.fixture_twist))
+    held = build_model(load_config(resolve_preset('tiny_point', {
+        'population': {'n_agents': 3, 'lattice_shape': (3,)}, 'links': {'initial_twist_std': 0.3}})))
+    # Same records in both modes: only recognition initialization differs.
+    for a, b in zip(model.records, held.records):
+        assert torch.equal(a.observed, b.observed)
+    assert torch.equal(held.initial_links.omega_mean, model.fixture_twist)
+
+
+def test_fixture_anchor_reaches_held_limit() -> None:
+    from vfe4.latent_links import update_links, refresh_samples
+    config, model, state = _latent_three('fixture_twist', 1e-4)
+    state.links.omega_mean = state.links.omega_mean + 0.05
+    refresh_samples(state.links, 4)
+    config['inference']['link_dt'] = 1.0
+    for _ in range(5):
+        update_links(state, model)
+    torch.testing.assert_close(state.links.omega_mean, model.fixture_twist, atol=1e-6, rtol=0)
+
+
+def test_link_gradient_matches_objective_finite_difference(monkeypatch: object) -> None:
+    import vfe4.latent_links as latent
+    config, model, state = _latent_three()
+    generator = torch.Generator().manual_seed(5)
+    state.links.omega_mean = 0.3 * torch.randn(state.links.omega_mean.shape, generator=generator, dtype=config.dtype)
+    state.belief.buckets[0].mu += torch.randn(state.belief.buckets[0].mu.shape, generator=generator, dtype=config.dtype)
+    latent.refresh_samples(state.links, 4)
+    captured = {}
+
+    def capture(mu: torch.Tensor, precision: torch.Tensor, gradient: torch.Tensor,
+                hessian: torch.Tensor, dt: float) -> tuple[torch.Tensor, torch.Tensor]:
+        captured['gradient'] = gradient.clone()
+        return mu, precision
+
+    monkeypatch.setattr(latent, 'gaussian_blr_step', capture)
+    latent.update_links(state, model)
+    eps = 1e-6
+    for copy, entry in ((0, 1), (1, 2), (3, 0)):
+        values = []
+        for sign in (1, -1):
+            state.links.omega_mean[copy, entry] += sign * eps
+            values.append(float(evaluate_vfe(state, model).total))
+            state.links.omega_mean[copy, entry] -= sign * eps
+        fd = (values[0] - values[1]) / (2 * eps)
+        assert abs(fd - float(captured['gradient'][copy, entry])) < 1e-5 * max(1.0, abs(fd))

@@ -93,6 +93,13 @@ class PatchGaussians:
     buckets: tuple[GaussianBucket, ...]
     covariance_structure: str
 
+    def means(self, n_incidence: int, K: int) -> torch.Tensor:
+        """Nodal means (S,K) without materializing any covariance."""
+        mu = self.buckets[0].mu.new_empty(n_incidence, K)
+        for bucket in self.buckets:
+            mu[bucket.incidence_ids.flatten()] = bucket.mu.reshape(-1, K)
+        return mu
+
     def marginals(self, n_incidence: int, K: int) -> tuple[torch.Tensor, torch.Tensor]:
         mu = self.buckets[0].mu.new_empty(n_incidence, K)
         covariance = mu.new_empty(n_incidence, K, K)

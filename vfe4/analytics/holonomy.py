@@ -1,52 +1,44 @@
-from collections import deque
+from typing import Optional
 
 import torch
 
 from ..state import LoopTable
 
 
-def fixed_sector_rank(transports: torch.Tensor, edge_src: torch.Tensor, edge_dst: torch.Tensor,
-                      n_agents: int, rtol: float = 1e-10) -> int:
-    r"""dim ker L = sum dim Fix(Hol), c10 prop:cg-kernel-holonomy, with SPD weights.
+def fixed_sector_rank(
+    transports: torch.Tensor,            # (E,K,K) receiver <- sender maps
+    edge_src:   torch.Tensor,            # (E,) sender vertex
+    edge_dst:   torch.Tensor,            # (E,) receiver vertex
+    n_agents:   int,
+    rtol:       Optional[float] = None,
+) -> int:
+    r"""dim ker(delta^T delta), the connection-Laplacian kernel of c10 prop:cg-kernel-holonomy.
 
-    A spanning forest reduces constraints to K root coordinates per component,
-    avoiding a dense (N*K)-dimensional Laplacian. Numerical rank uses declared rtol.
+    Edge e contributes the residual x_dst - T_e x_src. The (nK x nK) Gram matrix
+    delta^T delta is assembled from O(1)-scaled blocks and diagonalized densely, so the
+    caller must admit nK. Eigenvalues at most rtol * lambda_max are kernel, with default
+    rtol = nK * eps. Rooted path products are avoided: on long spanning trees their
+    norms grow exponentially and swamp any global threshold.
     """
     K = transports.shape[-1]
-    adjacency: list[list[tuple[int, int, bool]]] = [[] for _ in range(n_agents)]
-    sources, targets = edge_src.cpu().tolist(), edge_dst.cpu().tolist()
-    for e, (s, t) in enumerate(zip(sources, targets)):
-        adjacency[s].append((t, e, False))
-        adjacency[t].append((s, e, True))
-    visited = [False] * n_agents
-    total = 0
-    eye = torch.eye(K, device=transports.device, dtype=transports.dtype)
-    for root in range(n_agents):
-        if visited[root]:
-            continue
-        visited[root] = True
-        queue = deque([root])
-        maps: dict[int, torch.Tensor] = {root: eye}
-        while queue:
-            parent = queue.popleft()
-            for child, edge, inverse in adjacency[parent]:
-                if visited[child]:
-                    continue
-                visited[child] = True
-                matrix = torch.linalg.solve(transports[edge], eye) if inverse else transports[edge]
-                maps[child] = matrix @ maps[parent]
-                queue.append(child)
-        indices = [e for e, s in enumerate(sources) if s in maps]
-        if not indices:
-            total += K
-            continue
-        rec_map = torch.stack([maps[targets[e]] for e in indices])
-        src_map = torch.stack([maps[sources[e]] for e in indices])
-        constraints = rec_map - transports[indices] @ src_map
-        singular = torch.linalg.svdvals(constraints.reshape(-1, K))
-        scale = max(float(torch.linalg.vector_norm(rec_map)), float(torch.linalg.vector_norm(transports[indices] @ src_map)), 1.0)
-        total += K - int((singular > rtol * scale).sum())
-    return total
+    D = n_agents * K
+    gram = transports.new_zeros(D, D)
+    eye = torch.eye(K, device=transports.device, dtype=transports.dtype).expand_as(transports)
+    coordinate = torch.arange(K, device=transports.device)
+
+    def add(rows: torch.Tensor, cols: torch.Tensor, blocks: torch.Tensor) -> None:
+        index = ((rows[:, None, None] * K + coordinate[None, :, None]) * D
+                 + cols[:, None, None] * K + coordinate[None, None, :])
+        gram.view(-1).index_add_(0, index.flatten(), blocks.flatten())
+
+    add(edge_dst, edge_dst, eye)
+    add(edge_src, edge_src, transports.mT @ transports)
+    add(edge_dst, edge_src, -transports)
+    add(edge_src, edge_dst, -transports.mT)
+    eigenvalues = torch.linalg.eigvalsh(gram)
+    scale = float(eigenvalues[-1]) if D else 0.0
+    threshold = (D * torch.finfo(transports.dtype).eps if rtol is None else rtol) * scale
+    return int((eigenvalues <= threshold).sum())
 
 
 def loop_holonomy_defect(omega: torch.Tensor, loops: LoopTable) -> torch.Tensor:

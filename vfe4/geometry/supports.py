@@ -29,21 +29,34 @@ def agent_lattice_support(n_agents: int, lattice_shape: tuple[int, ...], family:
     axes = [torch.arange(n, device=device) for n in lattice_shape]
     coords = torch.stack(torch.meshgrid(*axes, indexing='ij'), -1).reshape(n_agents, -1)
     size = torch.tensor(lattice_shape, device=device)
-    delta = torch.remainder(coords[None, :, :] - coords[:, None, :] + size // 2, size) - size // 2
-    distance = delta.abs().sum(-1)
-    mask = distance > 0
     if family in ('window', 'directed_window'):
         if radius is None or radius < 1:
             raise ValueError('window radius must be positive')
-        mask &= distance <= radius
-    elif family not in ('complete', 'exponential', 'power'):
+        # O(N r^d) stencil: canonical minimal-image offsets in [-n//2, n-1-n//2] per axis,
+        # so each source appears once, exactly as in the all-pairs construction.
+        ranges = [torch.arange(max(-(n // 2), -radius), min(n - 1 - n // 2, radius) + 1, device=device)
+                  for n in lattice_shape]
+        delta = torch.stack(torch.meshgrid(*ranges, indexing='ij'), -1).reshape(-1, len(lattice_shape))
+        offset_distance = delta.abs().sum(-1)
+        keep = (offset_distance > 0) & (offset_distance <= radius)
+        if family == 'directed_window':
+            first = (delta != 0).long().argmax(-1)
+            keep &= delta.gather(-1, first.unsqueeze(-1)).squeeze(-1) > 0
+        delta, offset_distance = delta[keep], offset_distance[keep]
+        target = torch.remainder(coords[:, None, :] + delta[None, :, :], size)   # (N, offsets, d)
+        strides = torch.tensor([prod(lattice_shape[i + 1:]) for i in range(len(lattice_shape))], device=device)
+        source = (target * strides).sum(-1)
+        receiver = torch.arange(n_agents, device=device)[:, None].expand_as(source)
+        order = (receiver * n_agents + source).flatten().argsort()
+        receiver, source = receiver.flatten()[order], source.flatten()[order]
+        dist = offset_distance.expand(n_agents, -1).flatten()[order].to(dtype)
+    elif family in ('complete', 'exponential', 'power'):
+        delta = torch.remainder(coords[None, :, :] - coords[:, None, :] + size // 2, size) - size // 2
+        distance = delta.abs().sum(-1)
+        receiver, source = (distance > 0).nonzero(as_tuple=True)
+        dist = distance[receiver, source].to(dtype)
+    else:
         raise ValueError(f'Unsupported prior_family {family}')
-    if family == 'directed_window':
-        first = (delta != 0).long().argmax(-1)
-        direction = delta.gather(-1, first.unsqueeze(-1)).squeeze(-1)
-        mask &= direction > 0
-    receiver, source = mask.nonzero(as_tuple=True)
-    dist = distance[receiver, source].to(dtype)
     weights = torch.zeros_like(dist)
     if family == 'exponential':
         weights = -(1.0 if decay is None else decay) * dist
@@ -73,7 +86,8 @@ def overlap_support(incidence: Incidence, domain: Domain, config: SimulationConf
     family = comm['prior_family']
     weights = torch.zeros_like(distance)
     if family == 'exponential':
-        weights = -comm['decay'] * distance
+        # decay is per grid spacing, the unit of radius, alpha and the point-lattice distance.
+        weights = -comm['decay'] * distance / domain.manifold.spacing.min()
     elif family == 'power':
         weights = -comm['alpha'] * torch.log1p(distance / domain.manifold.spacing.min())
     elif family in ('window', 'directed_window'):

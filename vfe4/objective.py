@@ -14,7 +14,6 @@ from .state import CandidateRows, SectionState
 class VFEReport:
     terms: dict[str, torch.Tensor]
     normalizer_status: str = 'exact'
-    estimator_error: float = 0.0
 
     @property
     def total(self) -> torch.Tensor:
@@ -48,11 +47,11 @@ def evaluate_vfe(state: SectionState, model: SimulationModel) -> VFEReport:
         terms[bank.kind] = terms[bank.kind] + (weight * costs).sum()
     if state.links.mode == 'latent_gaussian':
         from .latent_links import link_kl, loop_sample_costs
-        terms['generator_kl'] = link_kl(state.links, model.config['links']['prior_std'])
+        terms['generator_kl'] = link_kl(state.links, model.config['links']['prior_std'], model.link_anchor)
         terms['loop_prior'] = loop_sample_costs(state.links, model).mean()
         status = ('relative_vfe_unknown_logZ' if model.config['links']['mutual_loop_coefficient'] and model.loops.weight.numel()
                   else 'estimated_vfe_known_normalizer')
-        return VFEReport(terms, status, math.nan)
+        return VFEReport(terms, status)
     return VFEReport(terms)
 
 

@@ -45,9 +45,15 @@ def _difference(a: dict, b: dict, path: str = '') -> str | None:
     return None
 
 
+def _hashable(value: Any) -> Any:
+    return tuple(_hashable(x) for x in value) if isinstance(value, list) else value
+
+
 def load_runs(runs_dir: Path, swept_keys: tuple[str, ...] = ()) -> RunTable:
+    """Completed runs of one model; each (seed, swept values) may appear only once."""
     rows, configs = [], {}
     reference = None
+    seen: dict[tuple[Any, ...], str] = {}
     for folder in sorted(runs_dir.iterdir()):
         if not (folder / 'config.json').is_file() or not (folder / 'metrics.csv').is_file():
             continue
@@ -59,17 +65,23 @@ def load_runs(runs_dir: Path, swept_keys: tuple[str, ...] = ()) -> RunTable:
             section = normalized
             for part in parts[:-1]:
                 section = section[part]
-            values[dotted] = section.pop(parts[-1])
+            values[dotted] = _hashable(section.pop(parts[-1]))
         if reference is None:
             reference = normalized
         difference = _difference(reference, normalized)
         if difference:
             raise ValueError(f'Cannot pool different resolved configs: {difference}')
         configs[folder.name] = config
-        if (folder / 'summary.json').exists():
-            summary = json.loads((folder / 'summary.json').read_text())
-            if summary['status'] != 'completed':
-                raise ValueError(f'Run {folder.name} failed; inspect its summary before aggregation')
+        if not (folder / 'summary.json').is_file():
+            raise ValueError(f'Run {folder.name} has no summary.json; it did not finish and cannot be aggregated')
+        summary = json.loads((folder / 'summary.json').read_text(encoding='utf-8'))
+        if summary['status'] != 'completed':
+            raise ValueError(f'Run {folder.name} is {summary["status"]}; inspect its summary before aggregation')
+        identity = (config['runtime']['seed'], *values.values())
+        if identity in seen:
+            raise ValueError(f'Runs {seen[identity]} and {folder.name} share seed and swept values; a resumed '
+                             'continuation repeats its parent and is not an independent run')
+        seen[identity] = folder.name
         with (folder / 'metrics.csv').open(newline='', encoding='utf-8') as file:
             for row in csv.DictReader(file):
                 converted: dict[str, Any] = {'run_id': folder.name, **values}
@@ -90,6 +102,9 @@ def aggregate_metric(table: RunTable, metric: str, by: str | tuple[str, ...], n_
     group_keys = (by,) if isinstance(by, str) else by
     if any(key not in group_keys for key in table.swept_keys):
         raise ValueError('All swept keys must be explicit aggregation groups')
+    relative = any(row.get('normalizer_status') == 'relative_vfe_unknown_logZ' for row in table.rows)
+    if relative and table.swept_keys and metric.startswith(('vfe_', 'objective_', 'diagnostic_vfe')):
+        raise ValueError('Relative VFE omits a different log Z for each loop prior; it cannot be compared across swept models')
     seen = set()
     for row in table.rows:
         if row.get(metric) is None:

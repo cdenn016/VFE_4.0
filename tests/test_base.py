@@ -20,5 +20,5 @@ def test_point_and_three_dimensional_domains() -> None:
     assert point.contexts.shape == (1, 0)
     assert point.cell_volume.tolist() == [1.0]
     domain = build_domain(load_config(resolve_preset('tiny_spatial_3d', {})))
-    assert domain.contexts.shape == (8, 3)
+    assert domain.contexts.shape == (64, 3)
     torch.testing.assert_close(domain.manifold.wrap(domain.contexts + 1), domain.contexts)

@@ -40,7 +40,9 @@ def render_controls(results: dict[str, list[Path]]) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     histories = {arm: [list(csv.DictReader((path / 'metrics.csv').open())) for path in paths]
                  for arm, paths in results.items()}
-    keys = ['vfe_total', 'effective_degree', 'self_weight', 'fixed_sector_rank_context0']
+    # VFE falls in the learned arm by construction of the source M-step; fixture RMSE is the external referent.
+    keys = ['vfe_total', 'vfe_categorical_kl', 'field_rmse_reference', 'effective_degree', 'self_weight',
+            'routing_reciprocity_reference_mean_abs']
     keys += [key for key in histories['learned'][0][0] if key.startswith('coherent_blocks_')]
     for metric in keys:
         fig, ax = plt.subplots(figsize=(6.4, 4.0))
@@ -57,7 +59,11 @@ def render_controls(results: dict[str, list[Path]]) -> None:
         plt.close(fig)
     write_json(destination / 'design.json', {'arms': {arm: [str(path) for path in paths] for arm, paths in results.items()},
         'matching': 'same seed, geometry, private observations and inter-agent records; only source_rate differs',
-        'symmetry_breaking_datum': 'seeded asymmetric synthetic population and noisy private observations',
+        'symmetry_group': 'translations of the periodic agent lattice (population.lattice_shape)',
+        'symmetry_breaking_datum': ('seeded asymmetric synthetic population, noisy private observations, and the seeded '
+                                    'per-copy twist realization; initial recognition means are zero, so sweep-0 '
+                                    'coherence is fixed by initialization'),
+        'learned_arm_vfe': 'lower by construction: the source step minimizes the categorical KL at fixed Q',
         'scope': 'descriptive finite mean-field CAVI; does not test stochastic formation conjectures'})
 
 

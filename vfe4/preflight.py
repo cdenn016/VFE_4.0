@@ -25,7 +25,10 @@ def storage_preflight(config: SimulationConfig) -> dict[str, int | float | str]:
     S, E = incidence.agent_id.numel(), rows.copy_id.numel() * len(comm['channels'])
     size = torch.empty((), dtype=cpu.dtype).element_size()
     patch_elements = N * (P * K)**2 if cpu['recognition']['covariance_structure'] == 'full_patch' else N * P * K * K
-    work_elements = 4 * patch_elements + 8 * N * (P * K)**2 + 32 * E * K * K + 10 * S * K * K
+    # 6 patch states: two channels, a damping copy, and the rollback snapshot of both channels.
+    work_elements = 6 * patch_elements + 8 * N * (P * K)**2 + 32 * E * K * K + 10 * S * K * K
+    if comm['source_support'] == 'agent_lattice' and comm['prior_family'] not in ('window', 'directed_window'):
+        work_elements += 3 * N * N * len(cpu['population']['lattice_shape'])   # all-pairs lattice displacements
     if cpu['links']['mode'] == 'latent_gaussian':
         C = int((~copies.is_self).sum()) * (1 if cpu['links']['shared_channels'] else 2)
         work_elements += 3 * cpu['links']['samples'] * C * K * K
@@ -33,6 +36,7 @@ def storage_preflight(config: SimulationConfig) -> dict[str, int | float | str]:
     report = {'n_agents': N, 'incidences_S': S, 'candidate_edges_E_all_channels': E,
               'max_row_degree': int(rows.row_offset.diff().max()), 'max_patch_dimension': P * K,
               'covariance_structure': cpu['recognition']['covariance_structure'],
-              'predicted_peak_bytes': work_elements * size, 'estimate': 'conservative work estimate, not measured peak',
+              'predicted_peak_bytes': work_elements * size,
+              'estimate': 'uncalibrated work estimate, not a bound; measured peaks have exceeded it by up to 3.7x',
               'configured_budget_bytes': int(cpu['runtime']['max_vram_gb'] * 1024**3)}
     return report

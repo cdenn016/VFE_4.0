@@ -104,10 +104,12 @@ def render_run(run_dir: Path, model: SimulationModel, state: SectionState, recor
         ax.set(xlabel='Context axis 0', ylabel='Context axis 1', title='Supports of the first eight agents (xy projection)')
         ax.legend(title='Physical agent', fontsize=7, ncol=2)
         save(fig, 'agent-supports')
+    from .analytics.observables import analytics_context
+    context = analytics_context(model)
     bank = next((b for b in model.records if b.kind == 'communication' and b.channel == 0), None)
     if bank is not None:
-        vertices = (model.incidence.context_id == 0).nonzero().flatten()
-        selected = model.incidence.context_id[bank.receiver] == 0
+        vertices = (model.incidence.context_id == context).nonzero().flatten()
+        selected = model.incidence.context_id[bank.receiver] == context
         rec, src = bank.receiver[selected], bank.sender[selected]
         local_r, local_s = torch.searchsorted(vertices, rec), torch.searchsorted(vertices, src)
         weights = state.beta[bank.candidate_id[selected]]
@@ -130,21 +132,25 @@ def render_run(run_dir: Path, model: SimulationModel, state: SectionState, recor
                 if i != j:
                     ax.annotate('', xy=positions[i], xytext=positions[j], arrowprops={'arrowstyle': '->', 'color': '#697d89', 'alpha': 0.4, 'lw': 0.7})
         ax.scatter(positions[:, 0], positions[:, 1], s=20, color='#224f69')
-        ax.set(title='Most probable belief source per row; context 0', xlabel='Agent center/lattice axis 0', ylabel='Agent center/lattice axis 1')
-        save(fig, 'selected-routing-context0')
+        ax.set(title=f'Most probable belief source per row; context {context}', xlabel='Agent center/lattice axis 0', ylabel='Agent center/lattice axis 1')
+        save(fig, f'selected-routing-context{context}')
         for resolution in model.config['analytics']['coherence_resolutions']:
             labels = coherent_partition(norm, local_s, local_r, resolution, len(vertices)).detach().cpu().numpy()
             fig, ax = plt.subplots(figsize=(6.4, 4.3))
             ax.scatter(positions[:, 0], positions[:, 1], c=labels, cmap='tab20', s=25)
-            ax.set(title=f'Mean-field coherent blocks, context 0; resolution {resolution:g}', xlabel='Agent center/lattice axis 0', ylabel='Agent center/lattice axis 1')
+            ax.set(title=f'Mean-field coherent blocks, context {context}; resolution {resolution:g}', xlabel='Agent center/lattice axis 0', ylabel='Agent center/lattice axis 1')
             ax.title.set_fontsize(10)
-            save(fig, f'coherent-blocks-context0-a{resolution:g}')
-    fig, axes = plt.subplots(1, 2, figsize=(8.4, 3.4), constrained_layout=True)
-    for ax, key, label in zip(axes, ('fixed_sector_rank_context0', 'holonomy_mean_defect_reference'),
-                              ('Fixed-sector rank, context 0 (held links)', 'Mean based-loop defect, reference metric')):
-        ax.plot(x, [row.get(key, np.nan) for row in rows], marker='.', markersize=3)
-        ax.set(xlabel='Inference sweep', ylabel=label)
-    save(fig, 'transport-observables')
+            save(fig, f'coherent-blocks-context{context}-a{resolution:g}')
+    # Held-link rank and holonomy are run constants in structure.json; only sampled links evolve.
+    holonomy = [key for key in rows[-1] if key.startswith('holonomy_mean_defect_reference')]
+    if holonomy:
+        fig, ax = plt.subplots(figsize=(5.4, 3.4))
+        for key in holonomy:
+            ax.plot(x, [row.get(key, np.nan) for row in rows], marker='.', markersize=3,
+                    label=key.removeprefix('holonomy_mean_defect_reference').strip('_') or 'shared')
+        ax.set(xlabel='Inference sweep', ylabel='Mean based-loop defect of generator means, reference metric')
+        ax.legend(title='Channel', fontsize=8)
+        save(fig, 'transport-observables')
     return paths
 
 

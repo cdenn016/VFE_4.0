@@ -1,15 +1,25 @@
 """Normalized Gaussian algebra; constants are retained in every record cost."""
 
 import math
+from typing import Optional
 
 import torch
 
 
-def checked_cholesky(Sigma: torch.Tensor) -> torch.Tensor:
+def checked_cholesky(
+    Sigma:  torch.Tensor,                    # (..., D, D)
+    agents: Optional[torch.Tensor] = None,   # (B,) physical agent IDs of the leading batch axis
+    where:  str                    = '',
+) -> torch.Tensor:
+    """Cholesky factor, or an error naming each failed block; nothing is repaired."""
     L, info = torch.linalg.cholesky_ex(Sigma, check_errors=False)
-    if torch.any(info != 0) or not torch.isfinite(L).all():
-        bad = (info != 0).nonzero().tolist()
-        raise ValueError(f'Non-SPD Gaussian block at {bad}; covariance is not repaired')
+    bad = (info != 0) | ~torch.isfinite(L).flatten(-2).all(-1)
+    if torch.any(bad):
+        index = (bad.reshape(bad.shape[0], -1).any(-1) if bad.ndim else bad.reshape(1)).nonzero().flatten()
+        named = agents[index].tolist() if agents is not None else index.tolist()
+        label = 'agents' if agents is not None else 'batch indices'
+        raise ValueError(f'Non-SPD or nonfinite Gaussian block{" in " + where if where else ""} at {label} {named}; '
+                         'covariance is not repaired')
     return L
 
 

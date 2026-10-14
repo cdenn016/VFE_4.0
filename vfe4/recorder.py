@@ -17,11 +17,12 @@ class MetricRecorder:
 
     def record(self, sweep: int, report: StepReport, vfe: VFEReport,
                observables: dict[str, float]) -> dict[str, float | int | str]:
+        # Only accepted sweeps are recorded: a failed descent or factorization raises and is rolled back.
         row: dict[str, float | int | str] = {'sweep': sweep, 'vfe_total': float(vfe.total.detach()),
-            'normalizer_status': vfe.normalizer_status, 'estimator_error': vfe.estimator_error,
-            'accepted': int(report.accepted), 'retries': report.retries,
-            'objective_paired_before': report.objective_before, 'objective_paired_after': report.objective_after,
-            'spd_status': report.min_spd_status}
+            'normalizer_status': vfe.normalizer_status, 'link_retries': report.retries,
+            'objective_paired_before': report.objective_before, 'objective_paired_after': report.objective_after}
+        if report.link_accepted is not None:
+            row['link_accepted'] = int(report.link_accepted)
         row.update({f'vfe_{name}': float(value.detach()) for name, value in vfe.terms.items()})
         row.update(observables)
         self.state.rows.append(row)
