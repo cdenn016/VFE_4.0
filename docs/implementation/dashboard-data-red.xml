@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.053" timestamp="2026-10-15T13:50:07.041585" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_dashboard" name="test_reference_averages_nodal_coefficients_without_agent_frames[belief-0-mean0-truth0-error0]" time="0.001"><failure message="ModuleNotFoundError: No module named 'vfe4.dashboard'">channel = 'belief', component = 0, mean = [3.0, 6.0, 8.0]
+truth = [3.0, 4.0, 7.0], error = [0.0, 2.0, 1.0]
+
+    @pytest.mark.parametrize('channel,component,mean,truth,error', [
+        ('belief', 0, [3., 6., 8.], [3., 4., 7.], [0., 2., 1.]),
+        ('belief', 1, [30., 60., 80.], [30., 40., 70.], [0., 20., 10.]),
+        ('model', 0, [13., 16., 18.], [3., 4., 7.], [10., 12., 11.]),
+        ('model', 1, [130., 160., 180.], [30., 40., 70.], [100., 120., 110.]),
+    ])
+    def test_reference_averages_nodal_coefficients_without_agent_frames(
+        channel: str, component: int, mean: list[float], truth: list[float], error: list[float],
+    ) -&gt; None:
+&gt;       api = _api()
+
+tests\test_dashboard.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_dashboard.py:17: in _api
+    return import_module('vfe4.dashboard')
+C:\anaconda\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1387: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1360: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'vfe4.dashboard', import_ = &lt;function _gcd_import at 0x00000211768A80E0&gt;
+
+&gt;   ???
+E   ModuleNotFoundError: No module named 'vfe4.dashboard'
+
+&lt;frozen importlib._bootstrap&gt;:1324: ModuleNotFoundError</failure></testcase></testsuite></testsuites>
