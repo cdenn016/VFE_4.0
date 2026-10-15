@@ -1,23 +1,26 @@
 {
   "schema_version": 1,
-  "created_utc": "2026-10-14T20:11:39.353628+00:00",
+  "created_utc": "2026-10-15T18:54:04.279119+00:00",
   "workspace": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0",
   "interpreter": "C:\\anaconda\\python.exe",
   "offline": true,
-  "refresh_reason": "Stable section-image helper and section inspector viewer; current34 source modules",
+  "refresh_reason": "Stable spatial dashboard helper/viewer after Qt context-label overlap fix; current 35 source modules",
   "previous_record_archive": {
-    "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\package-validation-before-20261014T201139349628Z.json",
-    "sha256": "cad023a9c73076d7ad53d4e6629b090be76ec2b5d7a78ff502e3acea38f1295e"
+    "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\package-validation-before-20261015T185404219119Z.json",
+    "sha256": "be789175ddec00558ddd85e619e99b7c18b875cda43dc4ad5c1e0650f4611dc9"
   },
   "previous_wheel": {
     "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl",
-    "sha256": "f34615bd3f04020a353ea9953cc9f441d09bccb9ca0b1176e44eba08d208a427"
+    "sha256": "4b952424a5147ef96ee749d371c54265bd43b860a57586e0d92616a5c77f968e"
   },
   "environment_overrides": {
     "PIP_NO_INDEX": "1",
     "PIP_DISABLE_PIP_VERSION_CHECK": "1",
     "PIP_NO_CACHE_DIR": "1",
-    "CUDA_VISIBLE_DEVICES": ""
+    "CUDA_VISIBLE_DEVICES": "",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "PYTHONDONTWRITEBYTECODE": "1"
   },
   "build_command": [
     "C:\\anaconda\\python.exe",
@@ -37,60 +40,62 @@
   ],
   "source_sha256_before_build": {
     "vfe4/__init__.py": "d9b3fc88acc66a0c9b1d20620c4241c0f4f8e7f5973a903adb87f387bba0ce06",
-    "vfe4/aggregate.py": "6806b304c205ff55f53123bdd9bb0878b948a76e295ea111c622ff5ea5a85f57",
+    "vfe4/aggregate.py": "a2ba73972b90899a5a35559a010d8138ee70b0ec426b96c193a63e2007c8e1d7",
     "vfe4/analytics/__init__.py": "1aec253a1278405c4282c589d7e6bd2f2b1ccb2c398e9c2f1a42546bb15f103c",
     "vfe4/analytics/attention.py": "76b071c681b4a0e9331f51d43f972d3aa4592deca7e7c4edbba9f7bf1c91a0d4",
     "vfe4/analytics/coarse.py": "4131e9f991b22583d57d95807ca0044eb5a7ed51f0ee6edae05632d3ffe32ef1",
     "vfe4/analytics/coherence.py": "52617dfe238b9aa0c930f440b0cb8af3d96acf34aebce1608f452b6d6f976c98",
-    "vfe4/analytics/holonomy.py": "501760eeb13d9e26c3b28229df2465cd88d6c8f6e27e84844f16a84c9b506b87",
-    "vfe4/analytics/observables.py": "4e6d051591a1452f2423913b0477ca0adf0e4ac63acfa35cb21c3797f9ce7b42",
+    "vfe4/analytics/holonomy.py": "4354082b9c2634eeaa1d3b27c2150744f0b4e29bce0ed3a6d2850a8a129e02a5",
+    "vfe4/analytics/observables.py": "a71702ec14f418bb37a6de0b134dfa4eec08d6cd1e02924f77d271de2861cc42",
     "vfe4/batch.py": "d503f600975ae953def5099a96d0299aa739f33339c4b61d938ce20a3990858e",
-    "vfe4/config.py": "a1124648e5d3b57f79b23dc370d4deaf24effba1688f5ddcdae9bf2c8ab827af",
+    "vfe4/config.py": "0b5fadbe79e6b9349e1afa0bb840056f304c45e6ce7cf51a525177945c094031",
+    "vfe4/dashboard.py": "9c643ba53f2ba380c653d255add254a77d8dc401721842febb37c24fe164419c",
     "vfe4/exchange.py": "126dca59598bde67d6e26fac7f5b8306a7a9c71459e5c435fdf85f89c3785feb",
-    "vfe4/gaussian.py": "1a920258a399d3ea2bde09e4ed8d66bbb9ec9327d54bf1298d883a4846d241d7",
+    "vfe4/gaussian.py": "9e6630939345125d79aba95505f306e6a9814cef325a379d7f48fb54dcf96b6e",
     "vfe4/geometry/__init__.py": "816d38dc422f6e0f32524d1825831225ad358836ca7fbe825e32d68d47a12203",
     "vfe4/geometry/base.py": "e14d536c75354d347babaec164825dd6105b4511d637239dbdeb995a14f2390f",
     "vfe4/geometry/groups.py": "a73505c5f75ff4b5e33df8239e90216e0fab9b05cfc5de2af11252ed18b4a8cf",
     "vfe4/geometry/sections.py": "78b948605e964023d1b19637087fd83d6f7ef07345aa44ecb4f8591c77e22705",
-    "vfe4/geometry/supports.py": "c67a59d734c449f82763f9037f3802aa7d6eb71cca9ca670d77fc836808c154f",
+    "vfe4/geometry/supports.py": "ee12af2dd7e8da1a8175b7ee4902d262753e82db9c93a86552034b63e7599829",
     "vfe4/geometry/transport.py": "7ea6371b8852b8266d222923fd1c88488aefb5b98f395ec9238b04f704982eed",
-    "vfe4/inference.py": "3b1b5b3b427512447003babf670d420ab25b5bd9f23a29adf1b8bbfd11d8617e",
+    "vfe4/inference.py": "e31b77e5d4af7258644c948484a0ceb7b1077cf40042e122d3ade30aa9027e50",
     "vfe4/io.py": "1c733a760fa69d475b53511c6dfb4637d1f5444ee83136fc9f4a37abd20b0b04",
-    "vfe4/latent_links.py": "46295fccba613486406c9f3d8ae80b9aa06e69e1e1a367c8a4a827544176f38a",
-    "vfe4/model.py": "c2b9e88587afbf15f307d8d0aae79c34d12b26afb666f5e491731a3f82accbcb",
+    "vfe4/latent_links.py": "4c50cb32eb952574f1b3a4229f6beda57e8ebfe67931182cc24ba7025fb0690f",
+    "vfe4/model.py": "a618ad80038997111bfd0ccb6b9d7396683ca99c0d7534560e661e068794644d",
     "vfe4/monitor.py": "ed53745119c111ea16de1aa3a5e4b58b734afa913033afc45d5166f8535b4af8",
-    "vfe4/objective.py": "1a0d9ab183d22ba238689744b21691122501f97222b27809bcc2ca6561804ac0",
+    "vfe4/objective.py": "20814d754ee3a4b8639c4acd695229f6c4acff78e91d4bd7da565fd9344b9be8",
     "vfe4/observations.py": "94aa915633da70b56af8234e359110694ec8833751eae60a81f61b3961f589bb",
-    "vfe4/preflight.py": "68e52a80d7b9e38947c4d5895655371af273ba7cb3238b3cb6ea3fc475fb4f3c",
-    "vfe4/presets.py": "1dd2aee708de686eda003c84f585b08818975c17c3b33e5911f921903ee9e38a",
-    "vfe4/recorder.py": "9a541442839933211b940a101a6fb9f8c0d1b2f86bdfb8906c847485e26922e6",
+    "vfe4/preflight.py": "a966e7065b325cf82887e1d787f56ae4d0500d82bfad3ad1d476bcc5be937c9a",
+    "vfe4/presets.py": "c96cae4e4bed620ec79a20512553f17146cc6b1095a0c9b5a5605546b6ac4e7a",
+    "vfe4/recorder.py": "cd1123d8c208152c095b17bcde6cb91705b75ab453441d4ccf51bd7ced805751",
     "vfe4/section_view.py": "6739fdb7719101760858c3527a872981d7aa70989ff2a6e6ee23ab135e4c16cc",
-    "vfe4/simulation.py": "7084a4593f6a0db76d3c44739a1307762b420032a89111278b5b9af6446b4460",
+    "vfe4/simulation.py": "586d2fa22e7f7fd9ebae91eb06655e1287cd5193b3c839df488df187a77b097e",
     "vfe4/source_learning.py": "69a2b97cff926dbd6995668ce82435e11c1a7dbf11f72aff7cfc23794684c571",
-    "vfe4/state.py": "56b5f520f4034a06d15f60118d9dea59a42029572c3f0d47fe6aaf84fd432af6",
-    "vfe4/viewer.py": "606b65b1ecdb3f30e17dd313803a62ab4901900282d400eef7374621f927a91d",
-    "vfe4/visualization.py": "3d47031dbdf2c028b0f9a306313197ebd8601576f1c29bfaaeec0b1df5916576"
+    "vfe4/state.py": "3dbc0e01031288b44541619e849a3b97a1617e1b64e8c6e41051f712f2243377",
+    "vfe4/viewer.py": "39a662ae5f186bfef40eebb0fafa45378caaff73c9761036d0bed3e7c2c69d50",
+    "vfe4/visualization.py": "046a1d6697afe94dbfd4522215aa5a8152f444cc192a901c0f0f50e2c3de00e2"
   },
   "status": "passed",
   "failures": [],
   "cleanup": {
     "status": "retained_per_parent_instruction",
-    "reason": "Earlier build/egg-info cleanup denied; no deletion attempted",
+    "reason": "No deletion attempted; retained build/ and vfe4.egg-info as instructed",
     "retained_generated_build_paths": [
       "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\build",
       "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\vfe4.egg-info"
-    ]
+    ],
+    "retained_import_directory": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\wheel-import-vuzp9ow1"
   },
   "build_result": {
     "returncode": 0,
-    "stdout": "Processing c:\\users\\chris and christine\\desktop\\vfe_4.0\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nBuilding wheels for collected packages: vfe4\n  Building wheel for vfe4 (pyproject.toml): started\n  Building wheel for vfe4 (pyproject.toml): finished with status 'done'\n  Created wheel for vfe4: filename=vfe4-0.1.0-py3-none-any.whl size=55639 sha256=4b952424a5147ef96ee749d371c54265bd43b860a57586e0d92616a5c77f968e\n  Stored in directory: C:\\Users\\chris and christine\\AppData\\Local\\Temp\\pip-ephem-wheel-cache-lle5lxz9\\wheels\\cd\\91\\49\\5a2f9c7ccd453134e28e3f2354c6c11b7ea69fd1556dcdad73\nSuccessfully built vfe4\n",
+    "stdout": "Processing c:\\users\\chris and christine\\desktop\\vfe_4.0\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nBuilding wheels for collected packages: vfe4\n  Building wheel for vfe4 (pyproject.toml): started\n  Building wheel for vfe4 (pyproject.toml): finished with status 'done'\n  Created wheel for vfe4: filename=vfe4-0.1.0-py3-none-any.whl size=63165 sha256=31ec67b54ff62e8d7ff5b39920e2b5a61b4afd99cc4f5893071711c511b72972\n  Stored in directory: C:\\Users\\chris and christine\\AppData\\Local\\Temp\\pip-ephem-wheel-cache-pbwfdaf7\\wheels\\cd\\91\\49\\5a2f9c7ccd453134e28e3f2354c6c11b7ea69fd1556dcdad73\nSuccessfully built vfe4\n",
     "stderr": "",
-    "elapsed_seconds": 2.172284300031606
+    "elapsed_seconds": 4.282868899987079
   },
   "wheel": {
     "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl",
-    "size_bytes": 55639,
-    "sha256": "4b952424a5147ef96ee749d371c54265bd43b860a57586e0d92616a5c77f968e",
+    "size_bytes": 63165,
+    "sha256": "31ec67b54ff62e8d7ff5b39920e2b5a61b4afd99cc4f5893071711c511b72972",
     "files": [
       "vfe4-0.1.0.dist-info/METADATA",
       "vfe4-0.1.0.dist-info/RECORD",
@@ -106,6 +111,7 @@
       "vfe4/analytics/observables.py",
       "vfe4/batch.py",
       "vfe4/config.py",
+      "vfe4/dashboard.py",
       "vfe4/exchange.py",
       "vfe4/gaussian.py",
       "vfe4/geometry/__init__.py",
@@ -147,8 +153,8 @@
     "wheel_metadata_text": "Wheel-Version: 1.0\nGenerator: setuptools (75.1.0)\nRoot-Is-Purelib: true\nTag: py3-none-any\n\n"
   },
   "module_packaging": {
-    "expected_count": 34,
-    "packaged_count": 34,
+    "expected_count": 35,
+    "packaged_count": 35,
     "expected_paths": [
       "vfe4/__init__.py",
       "vfe4/aggregate.py",
@@ -160,6 +166,44 @@
       "vfe4/analytics/observables.py",
       "vfe4/batch.py",
       "vfe4/config.py",
+      "vfe4/dashboard.py",
+      "vfe4/exchange.py",
+      "vfe4/gaussian.py",
+      "vfe4/geometry/__init__.py",
+      "vfe4/geometry/base.py",
+      "vfe4/geometry/groups.py",
+      "vfe4/geometry/sections.py",
+      "vfe4/geometry/supports.py",
+      "vfe4/geometry/transport.py",
+      "vfe4/inference.py",
+      "vfe4/io.py",
+      "vfe4/latent_links.py",
+      "vfe4/model.py",
+      "vfe4/monitor.py",
+      "vfe4/objective.py",
+      "vfe4/observations.py",
+      "vfe4/preflight.py",
+      "vfe4/presets.py",
+      "vfe4/recorder.py",
+      "vfe4/section_view.py",
+      "vfe4/simulation.py",
+      "vfe4/source_learning.py",
+      "vfe4/state.py",
+      "vfe4/viewer.py",
+      "vfe4/visualization.py"
+    ],
+    "packaged_paths": [
+      "vfe4/__init__.py",
+      "vfe4/aggregate.py",
+      "vfe4/analytics/__init__.py",
+      "vfe4/analytics/attention.py",
+      "vfe4/analytics/coarse.py",
+      "vfe4/analytics/coherence.py",
+      "vfe4/analytics/holonomy.py",
+      "vfe4/analytics/observables.py",
+      "vfe4/batch.py",
+      "vfe4/config.py",
+      "vfe4/dashboard.py",
       "vfe4/exchange.py",
       "vfe4/gaussian.py",
       "vfe4/geometry/__init__.py",
@@ -187,7 +231,44 @@
     ],
     "missing": [],
     "unexpected": [],
-    "source_hash_mismatches": []
+    "source_hash_mismatches": [],
+    "wheel_module_sha256": {
+      "vfe4/__init__.py": "d9b3fc88acc66a0c9b1d20620c4241c0f4f8e7f5973a903adb87f387bba0ce06",
+      "vfe4/aggregate.py": "a2ba73972b90899a5a35559a010d8138ee70b0ec426b96c193a63e2007c8e1d7",
+      "vfe4/analytics/__init__.py": "1aec253a1278405c4282c589d7e6bd2f2b1ccb2c398e9c2f1a42546bb15f103c",
+      "vfe4/analytics/attention.py": "76b071c681b4a0e9331f51d43f972d3aa4592deca7e7c4edbba9f7bf1c91a0d4",
+      "vfe4/analytics/coarse.py": "4131e9f991b22583d57d95807ca0044eb5a7ed51f0ee6edae05632d3ffe32ef1",
+      "vfe4/analytics/coherence.py": "52617dfe238b9aa0c930f440b0cb8af3d96acf34aebce1608f452b6d6f976c98",
+      "vfe4/analytics/holonomy.py": "4354082b9c2634eeaa1d3b27c2150744f0b4e29bce0ed3a6d2850a8a129e02a5",
+      "vfe4/analytics/observables.py": "a71702ec14f418bb37a6de0b134dfa4eec08d6cd1e02924f77d271de2861cc42",
+      "vfe4/batch.py": "d503f600975ae953def5099a96d0299aa739f33339c4b61d938ce20a3990858e",
+      "vfe4/config.py": "0b5fadbe79e6b9349e1afa0bb840056f304c45e6ce7cf51a525177945c094031",
+      "vfe4/dashboard.py": "9c643ba53f2ba380c653d255add254a77d8dc401721842febb37c24fe164419c",
+      "vfe4/exchange.py": "126dca59598bde67d6e26fac7f5b8306a7a9c71459e5c435fdf85f89c3785feb",
+      "vfe4/gaussian.py": "9e6630939345125d79aba95505f306e6a9814cef325a379d7f48fb54dcf96b6e",
+      "vfe4/geometry/__init__.py": "816d38dc422f6e0f32524d1825831225ad358836ca7fbe825e32d68d47a12203",
+      "vfe4/geometry/base.py": "e14d536c75354d347babaec164825dd6105b4511d637239dbdeb995a14f2390f",
+      "vfe4/geometry/groups.py": "a73505c5f75ff4b5e33df8239e90216e0fab9b05cfc5de2af11252ed18b4a8cf",
+      "vfe4/geometry/sections.py": "78b948605e964023d1b19637087fd83d6f7ef07345aa44ecb4f8591c77e22705",
+      "vfe4/geometry/supports.py": "ee12af2dd7e8da1a8175b7ee4902d262753e82db9c93a86552034b63e7599829",
+      "vfe4/geometry/transport.py": "7ea6371b8852b8266d222923fd1c88488aefb5b98f395ec9238b04f704982eed",
+      "vfe4/inference.py": "e31b77e5d4af7258644c948484a0ceb7b1077cf40042e122d3ade30aa9027e50",
+      "vfe4/io.py": "1c733a760fa69d475b53511c6dfb4637d1f5444ee83136fc9f4a37abd20b0b04",
+      "vfe4/latent_links.py": "4c50cb32eb952574f1b3a4229f6beda57e8ebfe67931182cc24ba7025fb0690f",
+      "vfe4/model.py": "a618ad80038997111bfd0ccb6b9d7396683ca99c0d7534560e661e068794644d",
+      "vfe4/monitor.py": "ed53745119c111ea16de1aa3a5e4b58b734afa913033afc45d5166f8535b4af8",
+      "vfe4/objective.py": "20814d754ee3a4b8639c4acd695229f6c4acff78e91d4bd7da565fd9344b9be8",
+      "vfe4/observations.py": "94aa915633da70b56af8234e359110694ec8833751eae60a81f61b3961f589bb",
+      "vfe4/preflight.py": "a966e7065b325cf82887e1d787f56ae4d0500d82bfad3ad1d476bcc5be937c9a",
+      "vfe4/presets.py": "c96cae4e4bed620ec79a20512553f17146cc6b1095a0c9b5a5605546b6ac4e7a",
+      "vfe4/recorder.py": "cd1123d8c208152c095b17bcde6cb91705b75ab453441d4ccf51bd7ced805751",
+      "vfe4/section_view.py": "6739fdb7719101760858c3527a872981d7aa70989ff2a6e6ee23ab135e4c16cc",
+      "vfe4/simulation.py": "586d2fa22e7f7fd9ebae91eb06655e1287cd5193b3c839df488df187a77b097e",
+      "vfe4/source_learning.py": "69a2b97cff926dbd6995668ce82435e11c1a7dbf11f72aff7cfc23794684c571",
+      "vfe4/state.py": "3dbc0e01031288b44541619e849a3b97a1617e1b64e8c6e41051f712f2243377",
+      "vfe4/viewer.py": "39a662ae5f186bfef40eebb0fafa45378caaff73c9761036d0bed3e7c2c69d50",
+      "vfe4/visualization.py": "046a1d6697afe94dbfd4522215aa5a8152f444cc192a901c0f0f50e2c3de00e2"
+    }
   },
   "source_drift_during_build": [],
   "clean_import": {
@@ -196,21 +277,23 @@
       "-I",
       "-B",
       "-c",
-      "import importlib, importlib.metadata, json, os, sys\nwheel = sys.argv[1]\nmodules = json.loads(sys.argv[2])\nsys.path.insert(0, wheel)\nimport torch\ntorch.set_num_threads(1)\norigins = {}\nfor name in modules:\n    origins[name] = importlib.import_module(name).__file__\nnormalized_wheel = wheel.replace(chr(92), '/').lower().rstrip('/') + '/'\nassert all(origin.replace(chr(92), '/').lower().startswith(normalized_wheel) for origin in origins.values()), origins\nprint(json.dumps({'module_origins': origins, 'vfe4_origin': origins['vfe4'], 'distribution_version': importlib.metadata.version('vfe4'), 'dependency_versions': {name: importlib.metadata.version(name) for name in ('torch','numpy','scipy','matplotlib')}, 'cwd': os.getcwd(), 'sys_path': sys.path, 'torch_threads': torch.get_num_threads(), 'cuda_visible_devices': os.environ.get('CUDA_VISIBLE_DEVICES')}))\n",
+      "\nimport importlib, importlib.metadata, json, os, sys\nwheel = sys.argv[1]\nmodules = json.loads(sys.argv[2])\nsys.path.insert(0, wheel)\nimport torch\ntorch.set_num_threads(1)\norigins = {name: importlib.import_module(name).__file__ for name in modules}\nnormalized_wheel = wheel.replace(chr(92), '/').lower().rstrip('/') + '/'\nassert all(origin.replace(chr(92), '/').lower().startswith(normalized_wheel) for origin in origins.values()), origins\nassert os.environ.get('CUDA_VISIBLE_DEVICES') == ''\nassert sys.flags.isolated == 1\nprint(json.dumps({'module_origins': origins, 'module_count': len(origins), 'vfe4_origin': origins['vfe4'],\n'distribution_version': importlib.metadata.version('vfe4'),\n'dependency_versions': {name: importlib.metadata.version(name) for name in ('torch', 'numpy', 'scipy', 'matplotlib')},\n'cwd': os.getcwd(), 'sys_path': sys.path, 'isolated': sys.flags.isolated,\n'torch_threads': torch.get_num_threads(), 'cuda_visible_devices': os.environ.get('CUDA_VISIBLE_DEVICES')}))\n",
       "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl",
-      "[\"vfe4\", \"vfe4.aggregate\", \"vfe4.analytics\", \"vfe4.analytics.attention\", \"vfe4.analytics.coarse\", \"vfe4.analytics.coherence\", \"vfe4.analytics.holonomy\", \"vfe4.analytics.observables\", \"vfe4.batch\", \"vfe4.config\", \"vfe4.exchange\", \"vfe4.gaussian\", \"vfe4.geometry\", \"vfe4.geometry.base\", \"vfe4.geometry.groups\", \"vfe4.geometry.sections\", \"vfe4.geometry.supports\", \"vfe4.geometry.transport\", \"vfe4.inference\", \"vfe4.io\", \"vfe4.latent_links\", \"vfe4.model\", \"vfe4.monitor\", \"vfe4.objective\", \"vfe4.observations\", \"vfe4.preflight\", \"vfe4.presets\", \"vfe4.recorder\", \"vfe4.section_view\", \"vfe4.simulation\", \"vfe4.source_learning\", \"vfe4.state\", \"vfe4.viewer\", \"vfe4.visualization\"]"
+      "[\"vfe4\", \"vfe4.aggregate\", \"vfe4.analytics\", \"vfe4.analytics.attention\", \"vfe4.analytics.coarse\", \"vfe4.analytics.coherence\", \"vfe4.analytics.holonomy\", \"vfe4.analytics.observables\", \"vfe4.batch\", \"vfe4.config\", \"vfe4.dashboard\", \"vfe4.exchange\", \"vfe4.gaussian\", \"vfe4.geometry\", \"vfe4.geometry.base\", \"vfe4.geometry.groups\", \"vfe4.geometry.sections\", \"vfe4.geometry.supports\", \"vfe4.geometry.transport\", \"vfe4.inference\", \"vfe4.io\", \"vfe4.latent_links\", \"vfe4.model\", \"vfe4.monitor\", \"vfe4.objective\", \"vfe4.observations\", \"vfe4.preflight\", \"vfe4.presets\", \"vfe4.recorder\", \"vfe4.section_view\", \"vfe4.simulation\", \"vfe4.source_learning\", \"vfe4.state\", \"vfe4.viewer\", \"vfe4.visualization\"]"
     ],
-    "cwd": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\wheel-import-emuxhr57",
+    "cwd": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\wheel-import-vuzp9ow1",
     "environment_overrides": {
       "CUDA_VISIBLE_DEVICES": "",
       "MPLBACKEND": "Agg",
-      "MPLCONFIGDIR": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\wheel-import-emuxhr57\\mplconfig",
-      "OMP_NUM_THREADS": "1"
+      "MPLCONFIGDIR": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\wheel-import-vuzp9ow1\\mplconfig",
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "PYTHONDONTWRITEBYTECODE": "1"
     },
     "returncode": 0,
-    "stdout": "{\"module_origins\": {\"vfe4\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\__init__.py\", \"vfe4.aggregate\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\aggregate.py\", \"vfe4.analytics\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\__init__.py\", \"vfe4.analytics.attention\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\attention.py\", \"vfe4.analytics.coarse\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\coarse.py\", \"vfe4.analytics.coherence\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\coherence.py\", \"vfe4.analytics.holonomy\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\holonomy.py\", \"vfe4.analytics.observables\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\observables.py\", \"vfe4.batch\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\batch.py\", \"vfe4.config\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\config.py\", \"vfe4.exchange\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\exchange.py\", \"vfe4.gaussian\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\gaussian.py\", \"vfe4.geometry\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\__init__.py\", \"vfe4.geometry.base\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\base.py\", \"vfe4.geometry.groups\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\groups.py\", \"vfe4.geometry.sections\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\sections.py\", \"vfe4.geometry.supports\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\supports.py\", \"vfe4.geometry.transport\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\transport.py\", \"vfe4.inference\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\inference.py\", \"vfe4.io\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\io.py\", \"vfe4.latent_links\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\latent_links.py\", \"vfe4.model\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\model.py\", \"vfe4.monitor\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\monitor.py\", \"vfe4.objective\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\objective.py\", \"vfe4.observations\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\observations.py\", \"vfe4.preflight\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\preflight.py\", \"vfe4.presets\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\presets.py\", \"vfe4.recorder\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\recorder.py\", \"vfe4.section_view\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\section_view.py\", \"vfe4.simulation\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\simulation.py\", \"vfe4.source_learning\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\source_learning.py\", \"vfe4.state\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\state.py\", \"vfe4.viewer\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\viewer.py\", \"vfe4.visualization\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\visualization.py\"}, \"vfe4_origin\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\__init__.py\", \"distribution_version\": \"0.1.0\", \"dependency_versions\": {\"torch\": \"2.10.0.dev20251210+cu128\", \"numpy\": \"2.0.0\", \"scipy\": \"1.16.0\", \"matplotlib\": \"3.10.6\"}, \"cwd\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\wheel-import-emuxhr57\", \"sys_path\": [\"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\", \"C:\\\\anaconda\\\\python312.zip\", \"C:\\\\anaconda\\\\DLLs\", \"C:\\\\anaconda\\\\Lib\", \"C:\\\\anaconda\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\\\\win32\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\\\\win32\\\\lib\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\\\\Pythonwin\"], \"torch_threads\": 1, \"cuda_visible_devices\": \"\"}\n",
+    "stdout": "{\"module_origins\": {\"vfe4\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\__init__.py\", \"vfe4.aggregate\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\aggregate.py\", \"vfe4.analytics\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\__init__.py\", \"vfe4.analytics.attention\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\attention.py\", \"vfe4.analytics.coarse\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\coarse.py\", \"vfe4.analytics.coherence\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\coherence.py\", \"vfe4.analytics.holonomy\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\holonomy.py\", \"vfe4.analytics.observables\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\analytics\\\\observables.py\", \"vfe4.batch\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\batch.py\", \"vfe4.config\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\config.py\", \"vfe4.dashboard\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\dashboard.py\", \"vfe4.exchange\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\exchange.py\", \"vfe4.gaussian\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\gaussian.py\", \"vfe4.geometry\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\__init__.py\", \"vfe4.geometry.base\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\base.py\", \"vfe4.geometry.groups\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\groups.py\", \"vfe4.geometry.sections\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\sections.py\", \"vfe4.geometry.supports\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\supports.py\", \"vfe4.geometry.transport\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\geometry\\\\transport.py\", \"vfe4.inference\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\inference.py\", \"vfe4.io\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\io.py\", \"vfe4.latent_links\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\latent_links.py\", \"vfe4.model\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\model.py\", \"vfe4.monitor\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\monitor.py\", \"vfe4.objective\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\objective.py\", \"vfe4.observations\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\observations.py\", \"vfe4.preflight\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\preflight.py\", \"vfe4.presets\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\presets.py\", \"vfe4.recorder\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\recorder.py\", \"vfe4.section_view\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\section_view.py\", \"vfe4.simulation\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\simulation.py\", \"vfe4.source_learning\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\source_learning.py\", \"vfe4.state\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\state.py\", \"vfe4.viewer\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\viewer.py\", \"vfe4.visualization\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\visualization.py\"}, \"module_count\": 35, \"vfe4_origin\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\\\\vfe4\\\\__init__.py\", \"distribution_version\": \"0.1.0\", \"dependency_versions\": {\"torch\": \"2.10.0.dev20251210+cu128\", \"numpy\": \"2.0.0\", \"scipy\": \"1.16.0\", \"matplotlib\": \"3.10.6\"}, \"cwd\": \"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\wheel-import-vuzp9ow1\", \"sys_path\": [\"C:\\\\Users\\\\chris and christine\\\\Desktop\\\\VFE_4.0\\\\artifacts\\\\package\\\\vfe4-0.1.0-py3-none-any.whl\", \"C:\\\\anaconda\\\\python312.zip\", \"C:\\\\anaconda\\\\DLLs\", \"C:\\\\anaconda\\\\Lib\", \"C:\\\\anaconda\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\\\\win32\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\\\\win32\\\\lib\", \"C:\\\\anaconda\\\\Lib\\\\site-packages\\\\Pythonwin\"], \"isolated\": 1, \"torch_threads\": 1, \"cuda_visible_devices\": \"\"}\n",
     "stderr": "",
-    "elapsed_seconds": 2.014874399988912,
+    "elapsed_seconds": 2.334657299972605,
     "result": {
       "module_origins": {
         "vfe4": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\__init__.py",
@@ -223,6 +306,7 @@
         "vfe4.analytics.observables": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\analytics\\observables.py",
         "vfe4.batch": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\batch.py",
         "vfe4.config": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\config.py",
+        "vfe4.dashboard": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\dashboard.py",
         "vfe4.exchange": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\exchange.py",
         "vfe4.gaussian": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\gaussian.py",
         "vfe4.geometry": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\geometry\\__init__.py",
@@ -248,6 +332,7 @@
         "vfe4.viewer": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\viewer.py",
         "vfe4.visualization": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\visualization.py"
       },
+      "module_count": 35,
       "vfe4_origin": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl\\vfe4\\__init__.py",
       "distribution_version": "0.1.0",
       "dependency_versions": {
@@ -256,7 +341,7 @@
         "scipy": "1.16.0",
         "matplotlib": "3.10.6"
       },
-      "cwd": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\wheel-import-emuxhr57",
+      "cwd": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\wheel-import-vuzp9ow1",
       "sys_path": [
         "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\artifacts\\package\\vfe4-0.1.0-py3-none-any.whl",
         "C:\\anaconda\\python312.zip",
@@ -268,13 +353,10 @@
         "C:\\anaconda\\Lib\\site-packages\\win32\\lib",
         "C:\\anaconda\\Lib\\site-packages\\Pythonwin"
       ],
+      "isolated": 1,
       "torch_threads": 1,
       "cuda_visible_devices": ""
-    },
-    "module_count": 34
+    }
   },
-  "generated_build_paths": [
-    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\build",
-    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\vfe4.egg-info"
-  ]
+  "source_drift_during_validation": []
 }

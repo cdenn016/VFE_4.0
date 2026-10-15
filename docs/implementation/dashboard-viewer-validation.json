@@ -1,0 +1,286 @@
+{
+  "status": "completed",
+  "backend": "QtAgg",
+  "device": "cpu",
+  "dtype": "float64",
+  "interpreter": "C:\\anaconda\\python.exe",
+  "torch": "2.10.0.dev20251210+cu128",
+  "torch_threads": 1,
+  "gpu_work_or_query": false,
+  "input_method": {
+    "population_and_buttons": "Matplotlib MouseEvent press/release in real Qt windows",
+    "numeric_inputs": "TextBox.set_val dispatches registered submit callbacks",
+    "channel_and_statistic": "RadioButtons.set_active dispatches registered callbacks",
+    "slice": "Slider.set_val dispatches the registered changed callback",
+    "manual_interaction": false
+  },
+  "checks": {
+    "historical_scripts_and_evidence_preserved": true
+  },
+  "spatial_windows": [
+    {
+      "dimension": 2,
+      "n_agents": 2,
+      "K": 2,
+      "grid_shape": [
+        4,
+        4
+      ],
+      "patch_shape": [
+        3,
+        3
+      ],
+      "coverage": "allow_uncovered",
+      "checks": {
+        "pause_and_single_sweep_request_mouse_callbacks": true,
+        "population_mouse_selects_agent_and_recenters_context": true,
+        "explicit_context_moves_slice_and_displays_exact_row": true,
+        "channel_callback_changes_reference_and_exact_source_row": true,
+        "component_callback_changes_displayed_reference": true,
+        "uncertainty_callback_preserves_reference_mean_definition": true,
+        "no_slice_slider_in_2d": true,
+        "uncovered_reference_and_unsupported_section_points_masked": true,
+        "controls_preserve_state_snapshot_rng_history_and_axes": true,
+        "later_live_updates_leave_captured_beta_and_reference_unchanged": true,
+        "context_range_clear_of_orchestration_buttons": true,
+        "stop_button_mouse_callback": true
+      },
+      "population_clicks": [
+        {
+          "target_agent": 1,
+          "physical_xy": [
+            0.505,
+            0.005
+          ],
+          "selected_agent": 1
+        }
+      ],
+      "displayed_rows": [
+        {
+          "agent": 1,
+          "channel": "belief",
+          "context": 4,
+          "status": "active",
+          "candidate_ids": [
+            17,
+            18
+          ],
+          "source_agents": [
+            0,
+            1
+          ],
+          "probabilities": [
+            0.4122095404536062,
+            0.5877904595463938
+          ]
+        },
+        {
+          "agent": 1,
+          "channel": "model",
+          "context": 4,
+          "status": "active",
+          "candidate_ids": [
+            47,
+            48
+          ],
+          "source_agents": [
+            0,
+            1
+          ],
+          "probabilities": [
+            0.28181348158642816,
+            0.718186518413572
+          ]
+        },
+        {
+          "agent": 1,
+          "channel": "model",
+          "context": 4,
+          "status": "active",
+          "candidate_ids": [
+            47,
+            48
+          ],
+          "source_agents": [
+            0,
+            1
+          ],
+          "probabilities": [
+            0.28181348158642816,
+            0.718186518413572
+          ]
+        }
+      ],
+      "plot_axis_count": 19,
+      "reference_shape": [
+        4,
+        4
+      ],
+      "supported_reference_nodes": 12,
+      "masked_reference_nodes": 4,
+      "snapshot": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\dashboard-viewer-2d.png",
+      "selection": {
+        "agent": 1,
+        "context": 4,
+        "channel": "model",
+        "component": 1,
+        "statistic": "mean",
+        "slice_index": 0,
+        "z": null
+      }
+    },
+    {
+      "dimension": 3,
+      "n_agents": 4,
+      "K": 2,
+      "grid_shape": [
+        4,
+        4,
+        4
+      ],
+      "patch_shape": [
+        3,
+        3,
+        3
+      ],
+      "coverage": "allow_uncovered",
+      "checks": {
+        "pause_and_single_sweep_request_mouse_callbacks": true,
+        "population_mouse_selects_agent_and_recenters_context": true,
+        "population_hit_testing_uses_current_z": true,
+        "explicit_context_moves_slice_and_displays_exact_row": true,
+        "channel_callback_changes_reference_and_exact_source_row": true,
+        "component_callback_changes_displayed_reference": true,
+        "uncertainty_callback_preserves_reference_mean_definition": true,
+        "slice_context_section_reference_sync_including_periodic_interpolation": true,
+        "uncovered_reference_and_unsupported_section_points_masked": true,
+        "controls_preserve_state_snapshot_rng_history_and_axes": true,
+        "later_live_updates_leave_captured_beta_and_reference_unchanged": true,
+        "context_range_clear_of_orchestration_buttons": true,
+        "stop_button_mouse_callback": true
+      },
+      "population_clicks": [
+        {
+          "target_agent": 2,
+          "physical_xy": [
+            0.505,
+            0.005
+          ],
+          "selected_agent": 2
+        },
+        {
+          "target_agent": 3,
+          "physical_xy": [
+            0.505,
+            0.005
+          ],
+          "selected_agent": 3
+        }
+      ],
+      "displayed_rows": [
+        {
+          "agent": 3,
+          "channel": "belief",
+          "context": 17,
+          "status": "active",
+          "candidate_ids": [
+            235,
+            236,
+            237,
+            238
+          ],
+          "source_agents": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "probabilities": [
+            0.0002504114802945487,
+            0.0038856321683786205,
+            0.06029331135369435,
+            0.9355706449976324
+          ]
+        },
+        {
+          "agent": 3,
+          "channel": "model",
+          "context": 17,
+          "status": "active",
+          "candidate_ids": [
+            535,
+            536,
+            537,
+            538
+          ],
+          "source_agents": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "probabilities": [
+            7.720404782328174e-09,
+            3.9036732476494045e-06,
+            0.0019738168210162465,
+            0.9980222717853314
+          ]
+        },
+        {
+          "agent": 3,
+          "channel": "model",
+          "context": 17,
+          "status": "active",
+          "candidate_ids": [
+            535,
+            536,
+            537,
+            538
+          ],
+          "source_agents": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "probabilities": [
+            7.720404782328174e-09,
+            3.9036732476494045e-06,
+            0.0019738168210162465,
+            0.9980222717853314
+          ]
+        }
+      ],
+      "plot_axis_count": 20,
+      "reference_shape": [
+        4,
+        4
+      ],
+      "supported_reference_nodes": 12,
+      "masked_reference_nodes": 4,
+      "snapshot": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\dashboard-viewer-3d.png",
+      "selection": {
+        "agent": 3,
+        "context": 17,
+        "channel": "model",
+        "component": 1,
+        "statistic": "mean",
+        "slice_index": 2,
+        "z": 0.25
+      }
+    }
+  ],
+  "historical_artifact_sha256": {
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\experiments\\run_viewer_validation.py": "e315849070704967ad08c360c5a6ee4b4f68229429a9995650ac7d2f36ddce74",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-2d.png": "55c1144a658aab16da8dc41ba66100ca8e73514bc0809597388db73e66f2e77a",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-3d.png": "a079a7a0b030a3949106876200f9333c2a8f4059384992a8693e4e6cb9714393",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-red.xml": "d042763d23bb7f69e4cf10696c32f794a2bb1c4aa6d5f0f510bbc926a4aa6243",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-validation.json": "4fbc917e28089f36115333c54717200d826004f9239d9be312394c8c81b56955",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer.xml": "510fd4aab0865945e0ff9e28e32655bfca2f4b491c1cb0670b6ad357547dcb48",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-display-red.xml": "5d1cdc1363b45df54da3e40d77ff6557e7499da5452a5a0dc951bc564a2dac3a",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-labels.xml": "701c51727358ceec95fe455ad0e339d1be2657f68841ede1b8473a8612b63290",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-snapshot.png": "3c30517c026d63eaad7540a025804abddef5eecf45dafc93b1059d5f28dbd594",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-validation.json": "aacc50aeda7a1f2f6b70fc05db11aef25f413ea2471ae13c7f1ef86155bf8e04"
+  },
+  "scope": "Tiny CPU Qt callback/display validation; CUDA and manual human interaction remain for the user."
+}

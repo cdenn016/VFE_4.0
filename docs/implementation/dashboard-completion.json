@@ -1,0 +1,45 @@
+{
+  "created_at": "2026-10-15T18:56:47.562002+00:00",
+  "status": "implemented_cpu_qt_package_checked",
+  "scope": "Live spatial population/routing/reference-field dashboard",
+  "source_sha256": {
+    "run_simulation.py": "a59cbad43f316fa4150fecd7fe3c2c95c84de2127536342face12a9c203a6e0c",
+    "vfe4/dashboard.py": "9c643ba53f2ba380c653d255add254a77d8dc401721842febb37c24fe164419c",
+    "vfe4/viewer.py": "39a662ae5f186bfef40eebb0fafa45378caaff73c9761036d0bed3e7c2c69d50",
+    "tests/test_dashboard.py": "643940a583f6e6bdd02b9c1c9d873469b863c96ed4e8301bd3aceb45ca2347d1",
+    "tests/test_dashboard_viewer.py": "0ae9f9b6717b4b09861c52f4c4fbdc86bf8ab515435b7fab3159e0e1aa2d0979",
+    "experiments/run_dashboard_validation.py": "c90996229916111ea6c2fac3cf73d738424f187c164e8abcdbe93db2cde54f3e"
+  },
+  "active_config_preserved": true,
+  "inference_engine_unchanged": true,
+  "cpu": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "136",
+    "time": "13.674",
+    "timestamp": "2026-10-15T13:53:38.337798",
+    "hostname": "DESKTOP-RT15E78"
+  },
+  "cpu_junit": "docs/implementation/dashboard-integration.xml",
+  "qt": {
+    "status": "completed",
+    "backend": "QtAgg",
+    "device": "cpu",
+    "spatial_checks": 25,
+    "preservation_checks": 1,
+    "report": "docs/implementation/dashboard-viewer-validation.json",
+    "screenshots_inspected": true,
+    "manual_interaction": false
+  },
+  "package_record": "docs/implementation/package-validation.json",
+  "wheel_sha256": "31ec67b54ff62e8d7ff5b39920e2b5a61b4afd99cc4f5893071711c511b72972",
+  "packaged_module_count": 35,
+  "cuda": {
+    "status": "left_to_user_by_request",
+    "gpu_work_or_query": false,
+    "dashboard_agreement_and_performance_measured": false
+  },
+  "prior_evidence_preserved": true
+}

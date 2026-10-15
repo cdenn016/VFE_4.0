@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="2.816" timestamp="2026-10-15T13:48:35.863662" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_dashboard_viewer" name="test_population_click_and_reference_controls_use_frozen_snapshot" time="1.710"><failure message="AttributeError: 'SimulationViewer' object has no attribute 'reference_axes'">def test_population_click_and_reference_controls_use_frozen_snapshot() -&gt; None:
+        state, model = _fixture(2)
+        viewer = SimulationViewer()
+        try:
+            viewer.update(state, model, 2.)
+            axes_count = len(viewer.figure.axes)
+&gt;           assert len(viewer.reference_axes) == 3
+E           AttributeError: 'SimulationViewer' object has no attribute 'reference_axes'
+
+tests\test_dashboard_viewer.py:44: AttributeError</failure></testcase><testcase classname="tests.test_dashboard_viewer" name="test_context_and_3d_slice_selection_stay_synchronized" time="0.259"><failure message="AttributeError: 'SimulationViewer' object has no attribute 'selection_context'. Did you mean: 'selection_agent'?">def test_context_and_3d_slice_selection_stay_synchronized() -&gt; None:
+        state, model = _fixture(3)
+        viewer = SimulationViewer()
+        try:
+            viewer.update(state, model, 2.)
+            viewer.slice_slider.set_val(4)
+&gt;           assert viewer.selection_context == 2 and viewer.last_reference_image.z == 0.5
+E           AttributeError: 'SimulationViewer' object has no attribute 'selection_context'. Did you mean: 'selection_agent'?
+
+tests\test_dashboard_viewer.py:71: AttributeError</failure></testcase><testcase classname="tests.test_dashboard_viewer" name="test_missing_receiver_context_is_reported_without_an_overlay" time="0.284"><failure message="AttributeError: 'SimulationViewer' object has no attribute 'context_input'. Did you mean: 'component_input'?">def test_missing_receiver_context_is_reported_without_an_overlay() -&gt; None:
+        state, model = _fixture(3)
+        viewer = SimulationViewer()
+        try:
+            viewer.update(state, model, 2.)
+&gt;           viewer.context_input.set_val('16')  # x=0.25, outside the one-node xy patch.
+E           AttributeError: 'SimulationViewer' object has no attribute 'context_input'. Did you mean: 'component_input'?
+
+tests\test_dashboard_viewer.py:93: AttributeError</failure></testcase><testcase classname="tests.test_dashboard_viewer" name="test_dashboard_retains_point_mode_and_labels_probability" time="0.083"><failure message="AttributeError: 'SimulationViewer' object has no attribute 'last_reference_image'">def test_dashboard_retains_point_mode_and_labels_probability() -&gt; None:
+        config = load_config(resolve_preset('tiny_point', {
+            'population': {'n_agents': 2, 'lattice_shape': (2,)}, 'bundle': {'K': 1}}))
+        model = build_model(config)
+        state = initialize_sections(model, config)
+        viewer = SimulationViewer()
+        try:
+            viewer.update(state, model, 0.)
+&gt;           assert viewer.last_reference_image.mean.shape == (2,)
+E           AttributeError: 'SimulationViewer' object has no attribute 'last_reference_image'
+
+tests\test_dashboard_viewer.py:109: AttributeError</failure></testcase></testsuite></testsuites>
