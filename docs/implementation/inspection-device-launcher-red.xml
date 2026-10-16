@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="5" time="1.414" timestamp="2026-10-16T18:19:18.321324" hostname="DESKTOP-RT15E78"><testcase classname="tests.test_inspection" name="test_cpu_inspection_maps_cuda_metadata_without_rng_restoration" time="1.054"><failure message="AssertionError: Inspection entered an inference, RNG restoration or CUDA path">tmp_path = WindowsPath('C:/Users/chris and christine/AppData/Local/Temp/pytest-of-chris and christine/pytest-7634/test_cpu_inspection_maps_cuda_0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002111DA35F40&gt;
+
+    def test_cpu_inspection_maps_cuda_metadata_without_rng_restoration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -&gt; None:
+        path = _checkpoint(tmp_path / 'final_state.pt', cuda_metadata=True)
+        saved = path.read_bytes()
+        rng = torch.get_rng_state().clone()
+        monkeypatch.setattr(torch, 'set_rng_state', _forbid)
+        monkeypatch.setattr(torch, 'use_deterministic_algorithms', _forbid)
+        monkeypatch.setattr(torch.cuda, 'set_rng_state', _forbid)
+        monkeypatch.setattr(torch.cuda, 'is_available', _forbid)
+&gt;       model, state, recorder = load_inspection_checkpoint(path, 'cpu')
+
+tests\test_inspection.py:53: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+vfe4\inspection.py:30: in load_inspection_checkpoint
+    model.config = load_config(raw)
+vfe4\config.py:129: in load_config
+    torch.use_deterministic_algorithms(config['runtime']['deterministic'])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+args = (False,), kwargs = {}
+
+    def _forbid(*args: object, **kwargs: object) -&gt; None:
+&gt;       raise AssertionError('Inspection entered an inference, RNG restoration or CUDA path')
+E       AssertionError: Inspection entered an inference, RNG restoration or CUDA path
+
+tests\test_inspection.py:42: AssertionError</failure></testcase><testcase classname="tests.test_inspection" name="test_launcher_forwards_literal_config_relative_to_its_file" time="0.002"><failure message="AttributeError: module 'run_viewer' has no attribute 'main'">tmp_path = WindowsPath('C:/Users/chris and christine/AppData/Local/Temp/pytest-of-chris and christine/pytest-7634/test_launcher_forwards_literal0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x00000211222BD250&gt;
+
+    def test_launcher_forwards_literal_config_relative_to_its_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -&gt; None:
+        import run_viewer
+        from vfe4 import inspection
+        calls = []
+    
+        def capture(path: Path, device: str = 'cpu') -&gt; None:
+            calls.append((path, device))
+    
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(run_viewer, 'CONFIG', {'checkpoint': 'runs/example', 'device': 'cpu', 'cpu_threads': 2})
+        monkeypatch.setattr(inspection, 'open_saved_run', capture)
+        monkeypatch.setattr(matplotlib, 'use', lambda backend: None)
+        monkeypatch.setattr(torch, 'set_num_threads', lambda count: calls.append(count))
+        for name in ('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS'):
+            monkeypatch.setenv(name, '1')
+&gt;       run_viewer.main()
+E       AttributeError: module 'run_viewer' has no attribute 'main'
+
+C:\Users\chris and christine\Desktop\VFE_4.0\tests\test_inspection.py:135: AttributeError</failure></testcase><testcase classname="tests.test_inspection" name="test_launcher_enforces_bounded_cpu_threads[0]" time="0.000"><failure message="AttributeError: module 'run_viewer' has no attribute 'main'">threads = 0
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x00000211222BF500&gt;
+
+    @pytest.mark.parametrize('threads', [0, 5, True])
+    def test_launcher_enforces_bounded_cpu_threads(threads: int, monkeypatch: pytest.MonkeyPatch) -&gt; None:
+        import run_viewer
+        monkeypatch.setitem(run_viewer.CONFIG, 'cpu_threads', threads)
+        with pytest.raises(ValueError, match='1 through 4'):
+&gt;           run_viewer.main()
+E           AttributeError: module 'run_viewer' has no attribute 'main'
+
+tests\test_inspection.py:145: AttributeError</failure></testcase><testcase classname="tests.test_inspection" name="test_launcher_enforces_bounded_cpu_threads[5]" time="0.000"><failure message="AttributeError: module 'run_viewer' has no attribute 'main'">threads = 5
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x00000211222BED80&gt;
+
+    @pytest.mark.parametrize('threads', [0, 5, True])
+    def test_launcher_enforces_bounded_cpu_threads(threads: int, monkeypatch: pytest.MonkeyPatch) -&gt; None:
+        import run_viewer
+        monkeypatch.setitem(run_viewer.CONFIG, 'cpu_threads', threads)
+        with pytest.raises(ValueError, match='1 through 4'):
+&gt;           run_viewer.main()
+E           AttributeError: module 'run_viewer' has no attribute 'main'
+
+tests\test_inspection.py:145: AttributeError</failure></testcase><testcase classname="tests.test_inspection" name="test_launcher_enforces_bounded_cpu_threads[True]" time="0.000"><failure message="AttributeError: module 'run_viewer' has no attribute 'main'">threads = True
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x00000211222BD580&gt;
+
+    @pytest.mark.parametrize('threads', [0, 5, True])
+    def test_launcher_enforces_bounded_cpu_threads(threads: int, monkeypatch: pytest.MonkeyPatch) -&gt; None:
+        import run_viewer
+        monkeypatch.setitem(run_viewer.CONFIG, 'cpu_threads', threads)
+        with pytest.raises(ValueError, match='1 through 4'):
+&gt;           run_viewer.main()
+E           AttributeError: module 'run_viewer' has no attribute 'main'
+
+tests\test_inspection.py:145: AttributeError</failure></testcase></testsuite></testsuites>

@@ -9,7 +9,7 @@ from .state import SectionState
 
 
 class SimulationViewer:
-    def __init__(self) -> None:
+    def __init__(self, inspection_only: bool = False) -> None:
         import matplotlib.pyplot as plt
         from matplotlib.widgets import Button, RadioButtons, TextBox
         self.plt = plt
@@ -18,7 +18,8 @@ class SimulationViewer:
         self.population_ax, self.reference_axes = plots[0, 2], plots[1]
         self.figure.subplots_adjust(left=0.25, right=0.96, bottom=0.25, top=0.87,
                                     wspace=0.5, hspace=0.75)
-        self.paused, self.stopped, self.once = False, False, False
+        self.inspection_only = inspection_only
+        self.paused, self.stopped, self.once = inspection_only, False, False
         self.history: list[tuple[int, float]] = []
         self.snapshot: DashboardSnapshot | None = None
         self.last_section_image: SectionImage | None = None
@@ -59,20 +60,33 @@ class SimulationViewer:
             button = Button(self.figure.add_axes([0.27 + index * 0.23, 0.055, 0.21, 0.065]), label)
             button.on_clicked(action)
             self.buttons.append(button)
+        if inspection_only:
+            for button in self.buttons[:2]:
+                button.set_active(False)
+                button.label.set_color('0.6')
+            self.buttons[2].label.set_text('Close')
         self.figure.canvas.mpl_connect('close_event', self.stop)
         self.figure.canvas.mpl_connect('button_press_event', self._click_population)
         plt.show(block=False)
 
     def toggle(self, event: object) -> None:
-        self.paused = not self.paused
+        if not self.inspection_only:
+            self.paused = not self.paused
 
     def single(self, event: object) -> None:
-        self.paused, self.once = True, True
+        if not self.inspection_only:
+            self.paused, self.once = True, True
 
     def stop(self, event: object) -> None:
+        if self.stopped:
+            return
         self.stopped = True
+        if self.inspection_only:
+            self.plt.close(self.figure)
 
     def ready(self) -> bool:
+        if self.inspection_only:
+            return False
         while self.paused and not self.once and not self.stopped:
             self.plt.pause(0.05)
         self.once = False
@@ -282,7 +296,8 @@ class SimulationViewer:
             self._draw_population()
             self.figure.canvas.draw_idle()
 
-    def update(self, state: SectionState, model: SimulationModel, objective: float) -> None:
+    def update(self, state: SectionState, model: SimulationModel, objective: float | None,
+               recorded_history: list[tuple[int, float]] | None = None) -> None:
         self.snapshot = capture_dashboard(state)
         if self._model is None:
             self._model = model
@@ -307,9 +322,16 @@ class SimulationViewer:
                 self.slice_slider.on_changed(self._select_slice)
                 self._center_slice()
             self._context_near_agent()
-        self.history.append((state.sweep, objective))
+        if recorded_history is not None:
+            self.history = list(recorded_history)
+        elif objective is not None:
+            self.history.append((state.sweep, objective))
         self.axes[0].clear()
-        self.axes[0].plot(*zip(*self.history), marker='o', markersize=3)
+        if self.history:
+            self.axes[0].plot(*zip(*self.history), marker='o', markersize=3)
+        else:
+            self.axes[0].text(0.5, 0.5, 'Saved VFE history unavailable', transform=self.axes[0].transAxes,
+                              ha='center', va='center')
         label = 'Collective VFE (nats)'
         if state.links.mode == 'latent_gaussian':
             relative = model.config['links']['mutual_loop_coefficient'] and model.loops.weight.numel()
