@@ -1,0 +1,49 @@
+{
+  "created_at": "2026-10-16T23:23:01.213433+00:00",
+  "status": "implemented_cpu_qt_package_checked",
+  "scope": "Saved-checkpoint inspection without inference or RNG/global deterministic restoration",
+  "source_sha256": {
+    "run_viewer.py": "03575c6b8e1247d4e5cddf7f9266a229a6aa1cc662ff47885bd90d0a987460fc",
+    "vfe4/inspection.py": "f705a9a95ac059313757611b2c62aa902738707c51b29c85a508d8ea1dfe3857",
+    "vfe4/viewer.py": "eaf6b66eb8b179455827d4b467ce6030a47dcac53c953b1988cb596557614808",
+    "tests/test_inspection.py": "e3623830ac23bafb7c7e4f0c65522ed9b97f4b09fbb76965836cde5a957114c1",
+    "experiments/run_inspector_validation.py": "ec6c41746f7ae0484abb4ab1c146d1630f0ec15480889737dadf572de9e93dda"
+  },
+  "protected_config_sha256": {
+    "run_simulation.py": "a59cbad43f316fa4150fecd7fe3c2c95c84de2127536342face12a9c203a6e0c",
+    "run_multi_seed.py": "a3b98b49e4bbb2e81590892bbf43d5f100c0e2bef49855df7e1b180b458957a2",
+    "run_aggregate.py": "33809275751567b2d3e0e6673526854aa6024784aa418448bce65b95a08b376d"
+  },
+  "active_configs_preserved": true,
+  "launcher_config": {
+    "checkpoint": "runs/your-run/final_state.pt",
+    "device": "cpu",
+    "cpu_threads": 4
+  },
+  "cpu": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "147",
+    "time": "15.051",
+    "timestamp": "2026-10-16T18:19:31.207715",
+    "hostname": "DESKTOP-RT15E78"
+  },
+  "cpu_junit": "docs/implementation/inspection-integration.xml",
+  "qt": {
+    "checks": 30,
+    "backend": "QtAgg",
+    "report": "docs/implementation/inspector-viewer-validation.json",
+    "screenshots_inspected": true,
+    "manual_interaction": false,
+    "simulated_cuda_metadata_only": true
+  },
+  "packaged_module_count": 36,
+  "wheel_sha256": "a0be494b9853e1674f83a2afa23c52ae74175056900f40806b4740ef98744e0a",
+  "package_record": "docs/implementation/package-validation.json",
+  "cuda": {
+    "gpu_work_or_query": false,
+    "actual_cuda_checkpoint_and_device_validation": "left_to_user_by_request"
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "status": "completed",
+  "backend": "QtAgg",
+  "device": "cpu",
+  "dtype": "float64",
+  "interpreter": "C:\\anaconda\\python.exe",
+  "torch": "2.10.0.dev20251210+cu128",
+  "torch_threads": 1,
+  "torch_interop_threads": 1,
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "gpu_work_or_query": false,
+  "input_method": {
+    "buttons": "Matplotlib MouseEvent press/release in real Qt windows",
+    "numeric_inputs": "TextBox.set_val dispatches registered submit callbacks",
+    "channel_and_statistic": "RadioButtons.set_active dispatches registered callbacks",
+    "slice": "Slider.set_val dispatches the registered changed callback",
+    "manual_interaction": false
+  },
+  "checks": {
+    "historical_scripts_and_evidence_preserved": true
+  },
+  "spatial_windows": [
+    {
+      "dimension": 2,
+      "n_agents": 3,
+      "K": 2,
+      "grid_shape": [
+        3,
+        3
+      ],
+      "patch_shape": [
+        1,
+        1
+      ],
+      "snapshot_sweep": 7,
+      "recorded_history": [
+        [
+          1,
+          18.25
+        ],
+        [
+          4,
+          7.5
+        ]
+      ],
+      "saved_device_metadata": "cuda",
+      "actual_fixture_tensor_device": "cpu",
+      "display_device": "cpu",
+      "checks": {
+        "cpu_loader_maps_saved_cuda_metadata_without_cuda_or_rng_restoration": true,
+        "checkpoint_coefficients_fixed_data_dtype_and_recorder_retained": true,
+        "real_qt_window_uses_recorded_history_without_synthetic_endpoint": true,
+        "inference_buttons_disabled_and_mouse_callbacks_inactive": true,
+        "agent_selector_updates_stored_section": true,
+        "channel_radio_updates_displayed_reference": true,
+        "component_textbox_updates_displayed_reference": true,
+        "uncertainty_radio_remains_active": true,
+        "explicit_context_selector_remains_active": true,
+        "selectors_preserve_snapshot_state_rng_history_and_axes": true,
+        "context_range_clear_of_buttons": true,
+        "close_mouse_callback_exits_real_qt_window": true,
+        "inspection_preserves_global_deterministic_settings_without_setting_them": true,
+        "inspection_writes_no_run_files_or_checkpoint_and_leaves_rng_unchanged": true
+      },
+      "snapshot": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\inspector-viewer-2d.png",
+      "plot_axis_count": 19,
+      "cuda_functions_blocked": [
+        "is_available",
+        "device_count",
+        "current_device",
+        "get_device_properties",
+        "get_device_name",
+        "init",
+        "_lazy_init",
+        "get_rng_state",
+        "get_rng_state_all",
+        "set_rng_state",
+        "set_rng_state_all"
+      ],
+      "cuda_call_count": 0,
+      "cpu_rng_restore_call_count": 0,
+      "deterministic_setting_call_count": 0,
+      "checkpoint_sha256": "d38e7e82edf223679b4307f658013c06ab9a2d3b4605e64817e264f828ee48a7",
+      "selection": {
+        "agent": 1,
+        "channel": "model",
+        "component": 1,
+        "context": 3,
+        "slice_index": 0,
+        "z": null
+      }
+    },
+    {
+      "dimension": 3,
+      "n_agents": 3,
+      "K": 2,
+      "grid_shape": [
+        3,
+        3,
+        3
+      ],
+      "patch_shape": [
+        1,
+        1,
+        1
+      ],
+      "snapshot_sweep": 7,
+      "recorded_history": [
+        [
+          1,
+          18.25
+        ],
+        [
+          4,
+          7.5
+        ]
+      ],
+      "saved_device_metadata": "cuda",
+      "actual_fixture_tensor_device": "cpu",
+      "display_device": "cpu",
+      "checks": {
+        "cpu_loader_maps_saved_cuda_metadata_without_cuda_or_rng_restoration": true,
+        "checkpoint_coefficients_fixed_data_dtype_and_recorder_retained": true,
+        "real_qt_window_uses_recorded_history_without_synthetic_endpoint": true,
+        "inference_buttons_disabled_and_mouse_callbacks_inactive": true,
+        "agent_selector_updates_stored_section": true,
+        "channel_radio_updates_displayed_reference": true,
+        "component_textbox_updates_displayed_reference": true,
+        "uncertainty_radio_remains_active": true,
+        "slice_and_context_callbacks_keep_section_and_reference_synchronized": true,
+        "explicit_context_selector_remains_active": true,
+        "selectors_preserve_snapshot_state_rng_history_and_axes": true,
+        "context_range_clear_of_buttons": true,
+        "close_mouse_callback_exits_real_qt_window": true,
+        "inspection_preserves_global_deterministic_settings_without_setting_them": true,
+        "inspection_writes_no_run_files_or_checkpoint_and_leaves_rng_unchanged": true
+      },
+      "snapshot": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\inspector-viewer-3d.png",
+      "plot_axis_count": 20,
+      "cuda_functions_blocked": [
+        "is_available",
+        "device_count",
+        "current_device",
+        "get_device_properties",
+        "get_device_name",
+        "init",
+        "_lazy_init",
+        "get_rng_state",
+        "get_rng_state_all",
+        "set_rng_state",
+        "set_rng_state_all"
+      ],
+      "cuda_call_count": 0,
+      "cpu_rng_restore_call_count": 0,
+      "deterministic_setting_call_count": 0,
+      "checkpoint_sha256": "5311eb6027f65130987df924ce47565e649331aaab952fe15d20ea6ede5bde07",
+      "selection": {
+        "agent": 1,
+        "channel": "model",
+        "component": 1,
+        "context": 1,
+        "slice_index": 2,
+        "z": 0.3333333333333333
+      }
+    }
+  ],
+  "historical_artifact_sha256": {
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\experiments\\run_cpu_validation.py": "d66e60176a3fa67f15e4320508e30f201133d29d2d15cb746b5600e0e618de94",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\experiments\\run_cuda_validation.py": "0c05797d06e37c89fb72f5dad56c7acf69950c9be2e8f4d0e4d9256f87d62fba",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\experiments\\run_dashboard_validation.py": "c90996229916111ea6c2fac3cf73d738424f187c164e8abcdbe93db2cde54f3e",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\experiments\\run_viewer_validation.py": "e315849070704967ad08c360c5a6ee4b4f68229429a9995650ac7d2f36ddce74",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\dashboard-viewer-2d.png": "5911e184a3f939ffab89f85dfb970e8c7e775cb0fdea603a478ef412d53741e4",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\dashboard-viewer-3d.png": "9d75f3290fe9b21b6fa77eebb1d32e344143cbd6277d98290eddcfcfafd6d615",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\dashboard-viewer-red.xml": "8bc9b667c029a7ec8cd610b21f22b854ea3bf10ad8c611ec0701918ceda04df1",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\dashboard-viewer-validation.json": "9445c678cb85f02eba3fc98cd5fb9180b0cbcc5e991c0b9d0aaefd7d34f69826",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\dashboard-viewer.xml": "65dcc3847352aedde89a6b7d9d7f3fdc272024a1581a6cbd210f7005bbb9ba3a",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-2d.png": "55c1144a658aab16da8dc41ba66100ca8e73514bc0809597388db73e66f2e77a",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-3d.png": "a079a7a0b030a3949106876200f9333c2a8f4059384992a8693e4e6cb9714393",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-red.xml": "d042763d23bb7f69e4cf10696c32f794a2bb1c4aa6d5f0f510bbc926a4aa6243",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer-validation.json": "4fbc917e28089f36115333c54717200d826004f9239d9be312394c8c81b56955",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\section-viewer.xml": "510fd4aab0865945e0ff9e28e32655bfca2f4b491c1cb0670b6ad357547dcb48",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-display-red.xml": "5d1cdc1363b45df54da3e40d77ff6557e7499da5452a5a0dc951bc564a2dac3a",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-labels.xml": "701c51727358ceec95fe455ad0e339d1be2657f68841ede1b8473a8612b63290",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-snapshot.png": "3c30517c026d63eaad7540a025804abddef5eecf45dafc93b1059d5f28dbd594",
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\implementation\\viewer-validation.json": "aacc50aeda7a1f2f6b70fc05db11aef25f413ea2471ae13c7f1ef86155bf8e04"
+  },
+  "scope": "Tiny CPU Qt inspection of CPU tensors with simulated CUDA metadata; no inference, CUDA run, or manual human interaction."
+}
