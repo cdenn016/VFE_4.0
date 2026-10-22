@@ -1,0 +1,128 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "target_digest": "70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "provenance": "Sequential same-model failure-directed passes, not an independent panel or adjudication.",
+  "attacks": [
+    {
+      "id": "AT-reference",
+      "claim_ids": [
+        "target",
+        "C-local",
+        "C-reference"
+      ],
+      "attack": "Calling the two-jet construction strictly local conceals its use of c0 data.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "L2 retains a disclosed finite native reference tuple; R1 reconstructs closure. This supports finite-reference locality only and leaves the unrestricted target open.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+    },
+    {
+      "id": "AT-past",
+      "claim_ids": [
+        "target",
+        "C-history"
+      ],
+      "attack": "Current laws and one observed record word do not determine its unconditional past probability.",
+      "disposition": "REJECTED",
+      "response": "Section 5 and R2 require the actual normalized preparation/record kernels and a replay seed or initialized pushforward law; no past probability is inferred from the snapshot alone.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+    },
+    {
+      "id": "AT-density",
+      "claim_ids": [
+        "target",
+        "C-geometry"
+      ],
+      "attack": "A stored two-jet or copied geometry is not an actual normalized parent family.",
+      "disposition": "REJECTED",
+      "response": "L5-L6 and the polynomial initial-seed realization in Section 8 use normalized native laws. Reference memory is unsampled and the true contextual phase dependence remains in B.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+    },
+    {
+      "id": "AT-frozen",
+      "claim_ids": [
+        "target",
+        "C-local",
+        "C-generator"
+      ],
+      "attack": "Freezing the handoff frame could restore the lost phase or hide nonlocal initialization.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "R3 counts canonical seed memory and does not retain U inverse; common physical rotation remains lost. The reference-coherent initialization condition remains explicit and is not called a germ-local rule.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+    },
+    {
+      "id": "AT-nojet",
+      "claim_ids": [
+        "target",
+        "C-nojet"
+      ],
+      "attack": "The derivative-order proof might apply only to a failed ansatz, or incorrectly infer conditional equality from averaged Fisher equality.",
+      "disposition": "REJECTED",
+      "response": "N1 covers smooth finite differential-order rules under its rich-jet hypotheses. Its joint-L2 norm polynomial, branchwise invertible native derivative and finite basis argument avoid the conditional inference. R4 checks this repair.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+    },
+    {
+      "id": "AT-allcontexts",
+      "claim_ids": [
+        "target",
+        "C-global"
+      ],
+      "attack": "The finite-encoding argument may invent context-relocation probes or ignore a finite generator.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "N2 is explicitly about one global encoding of the indexed experiment; it adds no protocol action. N2 excludes neither evaluation-local states nor the restricted F1 generator. R5 states these boundaries.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+    },
+    {
+      "id": "AT-generator",
+      "claim_ids": [
+        "target",
+        "C-generator"
+      ],
+      "attack": "A finite preparation family might silently replace the published arbitrary C2 class.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "F1 is an added explicit sufficient condition, with a concrete O1 witness inside its image. The evolved field is not projected into an ansatz. This conditional construction cannot close the unrestricted target, as R6 records.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+    }
+  ],
+  "independent_reconstruction": {
+    "claim_ids": [
+      "target",
+      "C-local",
+      "C-history",
+      "C-geometry",
+      "C-reference",
+      "C-nojet",
+      "C-global",
+      "C-generator"
+    ],
+    "method": "Sequential same-model reconstruction from the frozen contract; no independent worker or corroboration. Sections R1-R6 reconstruct every load-bearing interface.",
+    "result": "PASS",
+    "conclusion": "All seven scoped derivations retain their assumptions; the unrestricted target remains INCONCLUSIVE.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+  },
+  "oracle_erasure": {
+    "claim_ids": [
+      "target",
+      "C-local",
+      "C-history",
+      "C-geometry",
+      "C-reference",
+      "C-nojet",
+      "C-global",
+      "C-generator"
+    ],
+    "method": "Semantic removal of any affirmative expectation; R6 rereads the full dependency closure and conditional hypotheses.",
+    "result": "PASS",
+    "conclusion": "No affirmative prior or paraphrased existence assumption is needed for the scoped results. This does not prove the unresolved target.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "3770aa46092b016f71a0036689b0bb883a68a381413f4c688c81db4065c6d11f"
+  }
+}

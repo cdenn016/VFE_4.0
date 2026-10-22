@@ -1,0 +1,17 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "target_digest": "70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "reviewed_changes": [
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\05_inheritance.tex",
+      "baseline_sha256": "f7276ab73f41f950bb4d769dedbf9d7d68c2eb27053e68a7e5d23ab1620407fa",
+      "current_sha256": "5ddc3be35e02eb3ec2c93d7034cc5bb3939ff9da17835797055e17907c348a82",
+      "baseline_commit": "03a7a8c3785d393d98f494a933805daa875a574d",
+      "observed_current_commit": "ab88447e027dcf500b1f2c2be000a892ec3df574",
+      "change_commit": "6ff3bc3",
+      "reason": "Complete baseline-to-current chapter diff inspected: one sentence at the smooth-channel covariance discussion now uses one common structure group with separate sector representations. No formulas or inheritance/memory criteria changed. Our marked group has the trivial presentation representation and the private physical psi rotation is a separate nongauge action; the correction is compatible. Historical baseline retained rather than replaced.",
+      "review_record": "source-notes.md"
+    }
+  ]
+}

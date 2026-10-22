@@ -1,0 +1,108 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "target_digest": "70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "mechanism_families": [
+    {
+      "family_id": "finite-reference",
+      "representation": "Native local/reference values and two-jets",
+      "core_mechanism": "Keep a finite context-reference state to close the global sample frame",
+      "invariant_or_obstruction": "Nonzero anchor and exact same-time chain rule",
+      "target_obligation_ids": [
+        "target",
+        "C-local",
+        "C-history",
+        "C-geometry",
+        "C-reference"
+      ],
+      "obligations": [
+        "C-local",
+        "C-history",
+        "C-geometry",
+        "C-reference"
+      ],
+      "bridge": "Explicit actual-law isomorphism L5-L6",
+      "failure_test": "Drop reference law coordinates at fixed S; Omega changes",
+      "verified_results": [
+        "C-local",
+        "C-history",
+        "C-geometry",
+        "C-reference"
+      ],
+      "open_gaps": [
+        "No strictly germ-local initialization or arbitrary-profile finite global encoding"
+      ],
+      "novelty_fingerprint": "Native local/reference values and two-jets | Keep a finite context-reference state to close the global sample frame | Nonzero anchor and exact same-time chain rule | Explicit actual-law isomorphism L5-L6 | No strictly germ-local initialization or arbitrary-profile finite global encoding",
+      "disposition": "SUPPORTED_SCOPED"
+    },
+    {
+      "family_id": "strict-local-differential",
+      "representation": "Finite jets mapped to actual normalized laws",
+      "core_mechanism": "Recover geometry using derivative-valued local law coordinates",
+      "invariant_or_obstruction": "Highest-jet positive norm polynomial",
+      "target_obligation_ids": [
+        "target",
+        "C-nojet"
+      ],
+      "obligations": [
+        "C-nojet"
+      ],
+      "bridge": "N1 forces derivative independence, then physical score loss",
+      "failure_test": "Independent next jets, same minimizer class and positive private score",
+      "verified_results": [
+        "C-nojet"
+      ],
+      "open_gaps": [
+        "Does not cover separately phase-bearing memory or constrained initial generators"
+      ],
+      "novelty_fingerprint": "Finite jets mapped to actual normalized laws | Recover geometry using derivative-valued local law coordinates | Highest-jet positive norm polynomial | N1 forces derivative independence, then physical score loss | Does not cover separately phase-bearing memory or constrained initial generators",
+      "disposition": "OBSTRUCTED_SCOPED"
+    },
+    {
+      "family_id": "finite-global-encoding",
+      "representation": "One regular finite state for arbitrary section functions",
+      "core_mechanism": "Encode every contextual direct law response in fixed finite smooth coordinates",
+      "invariant_or_obstruction": "Rank of independent contextual public responses",
+      "target_obligation_ids": [
+        "target",
+        "C-global"
+      ],
+      "obligations": [
+        "C-global"
+      ],
+      "bridge": "Disjoint supported perturbations and finite tangent dimension",
+      "failure_test": "More response coordinates than parent dimension",
+      "verified_results": [
+        "C-global"
+      ],
+      "open_gaps": [
+        "No obstruction to a local field, nonfinite seed, irregular encoding or finite generator"
+      ],
+      "novelty_fingerprint": "One regular finite state for arbitrary section functions | Encode every contextual direct law response in fixed finite smooth coordinates | Rank of independent contextual public responses | Disjoint supported perturbations and finite tangent dimension | No obstruction to a local field, nonfinite seed, irregular encoding or finite generator",
+      "disposition": "OBSTRUCTED_SCOPED"
+    },
+    {
+      "family_id": "preparation-generator",
+      "representation": "Finite canonical preparation seed, full chronological history and law evaluations",
+      "core_mechanism": "Replay the native controlled flow from a known finite section generator",
+      "invariant_or_obstruction": "Physical rotation equivariance and actual causal law equality",
+      "target_obligation_ids": [
+        "target",
+        "C-generator"
+      ],
+      "obligations": [
+        "C-generator"
+      ],
+      "bridge": "F1-F3 and L6 on the same positive finite window",
+      "failure_test": "Allow an arbitrary unknown bump outside the generator image",
+      "verified_results": [
+        "C-generator"
+      ],
+      "open_gaps": [
+        "Initialization is restricted; raw history and replay work remain unbounded"
+      ],
+      "novelty_fingerprint": "Finite canonical preparation seed, full chronological history and law evaluations | Replay the native controlled flow from a known finite section generator | Physical rotation equivariance and actual causal law equality | F1-F3 and L6 on the same positive finite window | Initialization is restricted; raw history and replay work remain unbounded",
+      "disposition": "SUPPORTED_CONDITIONAL"
+    }
+  ]
+}

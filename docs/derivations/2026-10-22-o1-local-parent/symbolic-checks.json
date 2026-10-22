@@ -1,0 +1,45 @@
+{
+  "scope": "Seven exact symbolic identities only; side conditions and universal arguments are in the derivations.",
+  "sympy_version": "1.14.0",
+  "passed": true,
+  "checks": [
+    {
+      "name": "moving-frame derivative, nonzero anchor",
+      "passed": true
+    },
+    {
+      "name": "canonical anchor direction",
+      "passed": true
+    },
+    {
+      "name": "equivariance of rotation slice",
+      "passed": true
+    },
+    {
+      "name": "reference sum alone does not close its angular rate",
+      "passed": true
+    },
+    {
+      "name": "second-jet chain rule, no third derivative",
+      "passed": true
+    },
+    {
+      "name": "highest-jet norm coefficient",
+      "passed": true
+    },
+    {
+      "name": "actual circular exponential under common sample rotation",
+      "passed": true
+    }
+  ],
+  "not_run": [
+    "model simulations",
+    "training",
+    "GPU probes",
+    "Lean",
+    "independent agent verification"
+  ],
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "target_digest": "70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555"
+}

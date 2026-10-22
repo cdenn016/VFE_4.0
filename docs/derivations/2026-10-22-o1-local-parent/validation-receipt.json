@@ -1,0 +1,97 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "target_digest": "70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "validator": "C:\\Users\\chris and christine\\.agents\\skills\\rigorous-theory-search\\scripts\\validate_run.py",
+  "validator_exit_code": 0,
+  "validator_stdout": "",
+  "validator_stderr": "",
+  "structural_validation_passed": true,
+  "source_checks": [
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression\\problem-contract.json",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "78f498814a00ae3edb8837d17bcde668a99d38dab20dfe28bdadaea6bcbfe758"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression\\construction-or-strongest-theorem.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "07c56bb50a6cb2e294922ae927b429d2e8938a618234d60a541ab507fbb924ba"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression\\routes\\constructive-per-agent.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "a353eaa22e1c4fc3b6f91771565122ac8a51e32e6a9b4a5eb86f6754c83f8482"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression\\routes\\observability.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "a02d83561dea718b04e56d8c212f30189220a7c4e96ce444ffc7353bc69794fc"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression\\routes\\geometry-history.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "b944e92b1075a71ed33c6cd91578720260244095c5757c0d3e2516db1bbd9108"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression\\counterexample-register.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "541711479a8187938e372d8acd99473b723ffb92d4c2ae18c803082c57eaa2c2"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression\\final-report.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "d1c81020cf8ecd57f481b487536fac69cab60ed32bc0b78f31eaf4ca0fc516d2"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\02_geometry.tex",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "8f8902123acd72079a66d748a2ffe05e37611126052f66996ee6320cbfb156c5"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\03_dynamics.tex",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "a6f24c5374a16cb25ba235fe41ad3d8399d15b900045eb8d890811531751c3d4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\05_inheritance.tex",
+      "unchanged": false,
+      "source_revision_reviewed": true,
+      "sha256": "5ddc3be35e02eb3ec2c93d7034cc5bb3939ff9da17835797055e17907c348a82"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\13_per_agent_inheritance.tex",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "bd36bdcaf93645002596ddf5463b43d2cf518430b0545672ed4c15931fa946d4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\wiki\\concepts\\Belief Compression.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "586a567c0a41a159a4f434e04f0546b3418fcc6741a32b913e6430ae2175aebb"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\wiki\\concepts\\Fisher information metric.md",
+      "unchanged": true,
+      "source_revision_reviewed": true,
+      "sha256": "59c517e7dc9f49983e883aab77bacfd1d6742dfe9a5514b2fe08e0e5e2af2994"
+    }
+  ],
+  "all_read_sources_unchanged": false,
+  "all_source_revisions_reviewed": true,
+  "vault_status_unchanged": true,
+  "vault_head_after": "ab88447e027dcf500b1f2c2be000a892ec3df574",
+  "vault_status_after": " M docs/2026-10-21-edits.md\n M index.md\n M log.md\n M manuscripts/Attention/minimal_agent_model.pdf\n M manuscripts/Attention/minimal_agent_model.tex\n M \"wiki/fields/CS-ML MOC.md\"\n M \"wiki/fields/Statistics MOC.md\"\n M \"wiki/projects/VFE Transformer Program.md\"\n?? README.md\n?? docs/derivations/2026-10-21-gauge-agent-foundation/\n?? docs/lint-reports/\n?? manuscripts/2026-10-21-observer-free-gauge-agent-foundation.md\n?? manuscripts/2026-10-21-shared-predictions-from-gauge-model-agreement.md\n?? manuscripts/pifb2/2026-10-09-kaluza-klein-pullback/\n?? sources/runs/vfe3-2026-10-06-minimal-agent-implementation.md\n",
+  "repo_status_after": " M docs/change-logs/2026-10-22.md\n?? docs/change-logs/2026-10-21.md\n?? docs/derivations/2026-10-22-endogenous-interface-selection/\n?? docs/derivations/2026-10-22-formation-next-step-reassessment.md\n?? docs/derivations/2026-10-22-o1-local-parent/\n?? docs/derivations/2026-10-22-unprepared-recursive-formation/\n?? docs/superpowers/plans/2026-10-21-gauge-agent-inherited-formation.md\n?? future_TODO.md\n",
+  "limitations": "Structural consistency and source revision review only. No mechanical theorem proof or independent verification."
+}
