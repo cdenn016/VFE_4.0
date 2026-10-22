@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-22",
+  "scope": "Manuscript implementation of the accepted causal-memory packet; no new mathematical adjudication.",
+  "vfe_base": "9cb27e79d2ce54a12020126d1ca17256e2ae2645",
+  "research_base": "3ba94d1872fef8538be332206532a3dceff86712",
+  "documents": {
+    "MAgent_Theory_2.0": {
+      "pages": 208,
+      "pdf_sha256": "814424ef0c3b3bc46099bd549aadf3f9c8a3ac9930b3b5ecc03c29760846bab6",
+      "build_exit_code": 0,
+      "box_warnings": [
+        {
+          "file": "chapters/02_interactions.tex",
+          "message": "Overfull \\hbox (9.51393pt too wide) in paragraph at lines 115--116"
+        },
+        {
+          "file": "chapters/07_smooth_closure.tex",
+          "message": "Overfull \\hbox (20.93712pt too wide) in paragraph at lines 105--106"
+        },
+        {
+          "file": "chapters/08_smooth_erasure.tex",
+          "message": "Overfull \\hbox (9.39738pt too wide) in paragraph at lines 176--178"
+        }
+      ],
+      "unresolved_references_or_citations": false,
+      "duplicate_labels": false,
+      "page_bounds_issues": 0
+    },
+    "MAgent_Theory_2.0_companion": {
+      "pages": 79,
+      "pdf_sha256": "f470c60c0046cf9ade4a5c37f5d9300641896ac5a800f4ec4abb6375fd6ca74e",
+      "build_exit_code": 0,
+      "box_warnings": [],
+      "unresolved_references_or_citations": false,
+      "duplicate_labels": false,
+      "page_bounds_issues": 0
+    }
+  },
+  "pdf_inspection": {
+    "rendered_selected_pages": 16,
+    "all_page_bounds_checked": 287,
+    "rendered_inspection": "passed; equations, headings, contents, scope passages and chapter boundary inspected"
+  },
+  "vault_lint": {
+    "files": 1307,
+    "BROKEN": 0,
+    "GRAPH": 0,
+    "EMPTY": 0,
+    "CASE": 0,
+    "IDENTITY": 0
+  },
+  "archive": {
+    "files": 20,
+    "byte_identity": true,
+    "structural_validator_exit_code": 0,
+    "terminal_status": "INCONCLUSIVE",
+    "initial_coherence_is_additional_condition": true
+  },
+  "protected_wip": {
+    "vfe_files": 43,
+    "research_files": 77,
+    "unchanged_before_publication": true
+  },
+  "source_sha256": {
+    "manuscripts/MAgent_Theory_2.0/chapters/14_collective_local_parent.tex": "78fd351acfd0ce6448d29f537342fdf19d72a1e299f948499e40f39a401460af",
+    "manuscripts/MAgent_Theory_2.0/companion/c14_collective_local_parent.tex": "842ba3c48e014f6db7edc85c5bf19f1040d8c3da242403cde31fac582b8a3253",
+    "manuscripts/MAgent_Theory_2.0/frontmatter.tex": "790b229cbd38b9b7144e0b17bdb106b63579b7eae4ad3173c53aaffae7ba9cff",
+    "manuscripts/MAgent_Theory_2.0/chapters/06_outlook.tex": "c850e1e101b898c624047035027a63522648f163b1fb9861441c0bfa48c475a8"
+  },
+  "limitations": "Document builds, rendering, link lint, byte identity and structural validation do not certify theorem truth. The scoped obstructions do not establish general impossibility. No model, GPU or Lean run."
+}
