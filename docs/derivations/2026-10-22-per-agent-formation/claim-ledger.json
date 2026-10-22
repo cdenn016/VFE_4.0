@@ -1,0 +1,279 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "assumptions": [
+    {
+      "id": "A-C1",
+      "statement": "Positive four-state laws, normalized fixed local evaluator, complete sender-dependent channel substitution, exact unit-temperature Gibbs rows, product recognition, and own-block Fisher dynamics.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/per-agent-transfer.md"
+    },
+    {
+      "id": "A-C2",
+      "statement": "The N=2 constants (26), sufficiently small positive epsilon and record strength h, and the explicit threshold selector on a full open positive-table neighborhood.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/per-agent-transfer.md"
+    },
+    {
+      "id": "A-C3",
+      "statement": "The positive Bernoulli model, pi_self=1/5, pi_peer=2/5, record vector (+,+,-), sufficiently small positive epsilon, and selector (R7).",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/persistent-record-grouping.md"
+    },
+    {
+      "id": "A-C4",
+      "statement": "The declared invariant circle family and fixed phase-insensitive pre-handoff protocol, full retained records, shape parameters, primitive ports and event data; product port inheritance is used.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/operational-compression.md"
+    },
+    {
+      "id": "A-C5",
+      "statement": "The hybrid model and regular invariant family in the bridge, weak positive epsilon, J=epsilon^3, positive fixed-small marked amplitudes, and its predeclared public selector.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/integrated-grouping-bridge.md"
+    },
+    {
+      "id": "A-C6",
+      "statement": "Context-constant discarded phases, marked-circle passive frame action with constitutive and record-coordinate transport, actual normalized comparison experiment, and a fixed finite grouping/geometry window.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/record-geometry.md"
+    },
+    {
+      "id": "A-C7",
+      "statement": "All hypotheses of C4-C6, including a declared phase-insensitive interface fixed before selection and the retained primitive port architecture.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "construction-or-strongest-theorem.md"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E-C1",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Sections 1-5, equations (1)-(25).",
+      "side_conditions": [
+        "Positive four-state laws, normalized fixed local evaluator, complete sender-dependent channel substitution, exact unit-temperature Gibbs rows, product recognition, and own-block Fisher dynamics."
+      ],
+      "artifact_path": "routes/per-agent-transfer.md",
+      "artifact_sha256": "da9689243c5b0abee33123f2e78aa8d7b7aba91607b3e1561515528d8951447a"
+    },
+    {
+      "id": "E-C2",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Section 6, equations (26)-(29), full-table null cone and finite-time crossing proof.",
+      "side_conditions": [
+        "The N=2 constants (26), sufficiently small positive epsilon and record strength h, and the explicit threshold selector on a full open positive-table neighborhood."
+      ],
+      "artifact_path": "routes/per-agent-transfer.md",
+      "artifact_sha256": "da9689243c5b0abee33123f2e78aa8d7b7aba91607b3e1561515528d8951447a"
+    },
+    {
+      "id": "E-C3",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "R1-R7, stable affine limit, local attraction, and all-time null sign invariance.",
+      "side_conditions": [
+        "The positive Bernoulli model, pi_self=1/5, pi_peer=2/5, record vector (+,+,-), sufficiently small positive epsilon, and selector (R7)."
+      ],
+      "artifact_path": "routes/persistent-record-grouping.md",
+      "artifact_sha256": "84444afec3bd7ff41fb4090b13cc93a2b18c3ccc02ebee6de43c5495b81ba6d9"
+    },
+    {
+      "id": "E-C4",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "O14-O38, with separate recognition-dependent and fixed-own-model channel conventions.",
+      "side_conditions": [
+        "The declared invariant circle family and fixed phase-insensitive pre-handoff protocol, full retained records, shape parameters, primitive ports and event data; product port inheritance is used."
+      ],
+      "artifact_path": "routes/operational-compression.md",
+      "artifact_sha256": "3f57611c79f4b741803f3d04248431afeda18fc6da234707444071d069ce3995"
+    },
+    {
+      "id": "E-C5",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Exact parameter fields, invariant null box, stable full-flow limit, and fixed-amplitude compatibility with geometry.",
+      "side_conditions": [
+        "The hybrid model and regular invariant family in the bridge, weak positive epsilon, J=epsilon^3, positive fixed-small marked amplitudes, and its predeclared public selector."
+      ],
+      "artifact_path": "routes/integrated-grouping-bridge.md",
+      "artifact_sha256": "5c44b909222644fbaf204a2ad6c364642fc6a1a3c89cfd308e6eb7e2c21a2c73"
+    },
+    {
+      "id": "E-C6",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Record-sensitive score isometry, nonflat two-mark calculation, and integrated fixed-own-model extension.",
+      "side_conditions": [
+        "Context-constant discarded phases, marked-circle passive frame action with constitutive and record-coordinate transport, actual normalized comparison experiment, and a fixed finite grouping/geometry window."
+      ],
+      "artifact_path": "routes/record-geometry.md",
+      "artifact_sha256": "a849b3fc551b1321ae08b68f5c23a7aae88f9ad0b0aec9e78f232c216a47f140"
+    },
+    {
+      "id": "E-C7",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "The assembled conditional theorem and its explicit interface, protocol, geometry and recursion restrictions.",
+      "side_conditions": [
+        "All hypotheses of C4-C6, including a declared phase-insensitive interface fixed before selection and the retained primitive port architecture."
+      ],
+      "artifact_path": "construction-or-strongest-theorem.md",
+      "artifact_sha256": "7011a2d070ac7a80724c433fcb4c4a115acf99be902f696a9ce0ae8cc87166fd"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "statement": "The four-state conditional-interface model has the exact per-agent and prescribed null fields displayed in the transfer route; reciprocal equilibrium and stability claims require new conditions.",
+      "quantifiers": "Positive four-state laws, normalized fixed local evaluator, complete sender-dependent channel substitution, exact unit-temperature Gibbs rows, product recognition, and own-block Fisher dynamics.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C1"
+      ],
+      "evidence_ids": [
+        "E-C1"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An omitted source derivative within an own objective, incorrect self-row weighting, or a failed normalization would invalidate the transfer."
+    },
+    {
+      "id": "C2",
+      "statement": "The transferred four-state model admits a full-open interaction-dependent selected pair with persistent nonconstant records and a nonzero persistence window.",
+      "quantifiers": "The N=2 constants (26), sufficiently small positive epsilon and record strength h, and the explicit threshold selector on a full open positive-table neighborhood.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C2"
+      ],
+      "evidence_ids": [
+        "E-C2"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "Failure of the strict null sign cone or the full-flow threshold crossing would invalidate F5 for this witness."
+    },
+    {
+      "id": "C3",
+      "statement": "Three identical per-agent species with conflicting persistent records form a persistent full block on an open class, whereas the prescribed null never forms that block.",
+      "quantifiers": "The positive Bernoulli model, pi_self=1/5, pi_peer=2/5, record vector (+,+,-), sufficiently small positive epsilon, and selector (R7).",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C3"
+      ],
+      "evidence_ids": [
+        "E-C3"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A failure of the stable equilibrium or the strict graph margins would invalidate the claimed partition contrast."
+    },
+    {
+      "id": "C4",
+      "statement": "The marked-spectrum and canonical-circle parents preserve exact original-time port dynamics and all admitted finite adaptive response-record histories while deleting physical hidden phases.",
+      "quantifiers": "The declared invariant circle family and fixed phase-insensitive pre-handoff protocol, full retained records, shape parameters, primitive ports and event data; product port inheritance is used.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C4"
+      ],
+      "evidence_ids": [
+        "E-C4"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An admitted hidden-phase response or a retained update depending on the erased phase defeats the corresponding quotient."
+    },
+    {
+      "id": "C5",
+      "statement": "The integrated fixed-own-model circle extension retains a persistent interaction-dependent group with an all-time null obstruction.",
+      "quantifiers": "The hybrid model and regular invariant family in the bridge, weak positive epsilon, J=epsilon^3, positive fixed-small marked amplitudes, and its predeclared public selector.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C5"
+      ],
+      "evidence_ids": [
+        "E-C5"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A false Gibbs-row cancellation, failure of the null box, or loss of the public sign and ratio margins invalidates this bridge."
+    },
+    {
+      "id": "C6",
+      "statement": "The canonical phase parent preserves the actual collective minimizing connection classes and contextual Fisher tensors, including retained history scores, on the declared regular nonflat family.",
+      "quantifiers": "Context-constant discarded phases, marked-circle passive frame action with constitutive and record-coordinate transport, actual normalized comparison experiment, and a fixed finite grouping/geometry window.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C6"
+      ],
+      "evidence_ids": [
+        "E-C6"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A context-dependent erased phase, omitted random-history score, or changed frame action can invalidate equality; nonflatness is only asserted on the declared patch."
+    },
+    {
+      "id": "C7",
+      "statement": "One normalized per-agent hybrid combines interaction-dependent grouping with physically noninjective conditional inheritance of port dynamics, histories, persistent records and nonflat collective geometry.",
+      "quantifiers": "All hypotheses of C4-C6, including a declared phase-insensitive interface fixed before selection and the retained primitive port architecture.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C7"
+      ],
+      "evidence_ids": [
+        "E-C7"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "Any mismatch of the constitutive model across grouping, quotient and geometry would invalidate assembly; the result does not assert endogenous creation of the interface."
+    },
+    {
+      "id": "O1",
+      "statement": "Derive an interaction-selected sufficient interface or genuinely collective physical loss whose noninjectivity is not supplied by a permanently invisible primitive factor, with the same exact field, complete response-record laws, and nonflat geometry.",
+      "quantifiers": "Existence within the frozen target and its explicitly declared recursive extension; no witness is supplied here.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "INCONCLUSIVE",
+      "assumption_ids": [],
+      "evidence_ids": [],
+      "bridge_premise_ids": [],
+      "falsifier": "An admissible complete construction closes existence; failure of this particular candidate does not prove nonexistence."
+    },
+    {
+      "id": "O2",
+      "statement": "Extension: construct a second genuinely noninjective inherited handoff and prove the specified counterfactual dependence; concatenating already canonical ports is insufficient.",
+      "quantifiers": "Existence within the frozen target and its explicitly declared recursive extension; no witness is supplied here.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "INCONCLUSIVE",
+      "assumption_ids": [],
+      "evidence_ids": [],
+      "bridge_premise_ids": [],
+      "falsifier": "An admissible complete construction closes existence; failure of this particular candidate does not prove nonexistence."
+    },
+    {
+      "id": "target",
+      "statement": "Transfer the existing conditional-interface construction to normalized per-agent mixture-source free energies and their prescribed null control, then construct interaction-dependent grouping with genuinely compressive inherited parents preserving original-time dynamics, complete admitted response histories, persistent records, and nontrivial collective Fisher geometry.",
+      "quantifiers": "There exist a finite population with normalized per-agent mixture-source generative models, fixed positive source priors and unit source-label temperatures, declared regular law domains, and an initially unpartitioned nonempty open class or explicitly declared invariant family, for which a state/history selector gives a persistent nontrivial block and a partition sequence different from its prescribed no-peer-cost control on a nonempty relatively open subset. The selected block has a non-injective retention with a positive-dimensional nongauge physical distinction after necessary interface state, event information and record memory are retained, while preserving its original-time dynamics, every joint adaptive boundary-response and record history in a nonempty operational protocol fixed before retention, and the actual collective minimizing connection class and positive-rank contextual Fisher tensor with nonzero local curvature. The existing four-state model's exact per-agent transfer and null comparison are mandatory subsidiary results, not assumed positive witnesses. A second inherited join and counterfactual dependence are an explicit extension obligation unless constructed.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+      "state": "INCONCLUSIVE",
+      "assumption_ids": [],
+      "evidence_ids": [],
+      "bridge_premise_ids": [],
+      "falsifier": "A positive construction must satisfy every required grouping, null-control, compression, dynamics, history, record and geometry conjunct. Failure of a candidate or an analytic subclass does not refute the general existential target. A negative closure needs a nonexistence proof covering the allowed class."
+    }
+  ],
+  "interpretation": "EVIDENCE_VERIFIED denotes root-accepted direct analytical derivations under their explicit hypotheses. It does not denote formal proof, numerical verification of the theorem, or independent adjudication."
+}

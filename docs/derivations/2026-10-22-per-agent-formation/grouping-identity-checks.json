@@ -1,0 +1,16 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "scope": "Exact finite algebra checks only; no simulation, basin computation, or full formation test.",
+  "checks": {
+    "record_normalization_at_k_plus": true,
+    "record_normalization_at_k_minus": true,
+    "all_KL_first_derivatives_zero_at_uniform": true,
+    "full_field_Jacobian": true,
+    "equilibrium_equation": true,
+    "linear_eigenvalues": true,
+    "initial_and_final_selector_margins": true
+  },
+  "all_passed": true
+}

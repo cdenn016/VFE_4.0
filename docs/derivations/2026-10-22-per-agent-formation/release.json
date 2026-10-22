@@ -1,0 +1,15 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "checkpoint": "analytical partial-results release",
+  "target_claim": "target",
+  "terminal_status": "INCONCLUSIVE",
+  "certificate_claim": null,
+  "strongest_result": "Exact per-agent transfer and persistent interaction-dependent grouping, plus a same-model conditional phase-compressive parent preserving port dynamics, admitted histories, records and nonflat finite-window collective geometry.",
+  "unresolved_obligations": [
+    "O1: Derive an interaction-selected sufficient interface or genuinely collective physical loss whose noninjectivity is not supplied by a permanently invisible primitive factor, with the same exact field, complete response-record laws, and nonflat geometry.",
+    "O2: Extension: construct a second genuinely noninjective inherited handoff and prove the specified counterfactual dependence; concatenating already canonical ports is insufficient."
+  ],
+  "certificate_limitations": "Direct analytical derivations and same-root sequential reconstruction. The sufficient invisible interface is supplied from the outset. Seven symbolic identities are ancillary checks; no dynamics simulation or independent adjudication."
+}
