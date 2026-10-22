@@ -1,0 +1,149 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "recorded_at": "2026-10-22T19:33:29.328505+00:00",
+  "executed_release_validator": {
+    "script": "C:/Users/chris and christine/.agents/skills/rigorous-theory-search/scripts/validate_run.py",
+    "arguments": [
+      "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-o1-collective-compression",
+      "--mode",
+      "release"
+    ],
+    "exit_code": 0,
+    "basis": "Successful execution immediately before this receipt; not rerun by the receipt writer."
+  },
+  "source_checks": [
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\AUTHORING.md",
+      "unchanged": true,
+      "sha256": "d7207fcba1102dc881e1858dec70de49a567555e0b87a0a1aa51e239270f28ac"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\03_dynamics.tex",
+      "unchanged": true,
+      "sha256": "a6f24c5374a16cb25ba235fe41ad3d8399d15b900045eb8d890811531751c3d4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\04_prediction.tex",
+      "unchanged": true,
+      "sha256": "b4511df9b7e40efe4a26b1663f3632ba316dc1ae3f822008fe1a04e7e8b75cf4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\05_inheritance.tex",
+      "unchanged": true,
+      "sha256": "f7276ab73f41f950bb4d769dedbf9d7d68c2eb27053e68a7e5d23ab1620407fa"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\08_smooth_erasure.tex",
+      "unchanged": true,
+      "sha256": "32a07630af58529b9a145e4a5a293b869c95755c84c012eec4bd180290cd2580"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\09_public_compression.tex",
+      "unchanged": true,
+      "sha256": "25e4d9ab573b8fbbe7ee71fed381cfadddd808fcb177ee4f41f52c56ede651f7"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\12_open_formation.tex",
+      "unchanged": true,
+      "sha256": "e211912a4dc31666e6308da5f4b75e7c1ff8b6c28b3dbff6f21366597aa9a3fb"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\13_per_agent_inheritance.tex",
+      "unchanged": true,
+      "sha256": "bd36bdcaf93645002596ddf5463b43d2cf518430b0545672ed4c15931fa946d4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\02_geometry.tex",
+      "unchanged": true,
+      "sha256": "8f8902123acd72079a66d748a2ffe05e37611126052f66996ee6320cbfb156c5"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\future_TODO.md",
+      "unchanged": true,
+      "sha256": "b39292e710ff71295de1f447accc77b3299083ca3bc703cbe45880f3f66a236e"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\future_TODO.md",
+      "unchanged": true,
+      "sha256": "b39292e710ff71295de1f447accc77b3299083ca3bc703cbe45880f3f66a236e"
+    }
+  ],
+  "all_sources_unchanged": true,
+  "artifact_snapshot": [
+    {
+      "path": "adversarial-report.json",
+      "sha256": "a25e69b279c79ec57c0cd7172f99e20b538d905ccdb6e386d388c930680aa3fc"
+    },
+    {
+      "path": "approach-registry.json",
+      "sha256": "91af60d7d0961777c970a32d3e20235260b0aab64dcea23f29e17184f82fb2f4"
+    },
+    {
+      "path": "claim-ledger.json",
+      "sha256": "67b013a951335962f6677fb01339c5bc399d3a76733c55a859cf7538e42cdebb"
+    },
+    {
+      "path": "construction-or-strongest-theorem.md",
+      "sha256": "07c56bb50a6cb2e294922ae927b429d2e8938a618234d60a541ab507fbb924ba"
+    },
+    {
+      "path": "counterexample-register.md",
+      "sha256": "541711479a8187938e372d8acd99473b723ffb92d4c2ae18c803082c57eaa2c2"
+    },
+    {
+      "path": "dependency-dag.json",
+      "sha256": "fd9c5ccd133a25025c45c83cb61c9bbbc376015a1f2cfa628f1cc562e2a5aa7b"
+    },
+    {
+      "path": "final-report.md",
+      "sha256": "d1c81020cf8ecd57f481b487536fac69cab60ed32bc0b78f31eaf4ca0fc516d2"
+    },
+    {
+      "path": "prepare_contract.py",
+      "sha256": "4befee96218913831f00f52cb204b47afe220f9a5daff827ecedf79d709b8400"
+    },
+    {
+      "path": "prepare_record.py",
+      "sha256": "4f9c58c98f18daa20d770585a434f24b6beceea9e37ae1092105dde7bc70c174"
+    },
+    {
+      "path": "problem-contract.json",
+      "sha256": "78f498814a00ae3edb8837d17bcde668a99d38dab20dfe28bdadaea6bcbfe758"
+    },
+    {
+      "path": "proof-reconstruction.md",
+      "sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    },
+    {
+      "path": "release.json",
+      "sha256": "c3a5d54c630b67ca244de1a6901519330b6de6e31b0e3fecc2f0b76c491a6567"
+    },
+    {
+      "path": "research-record.md",
+      "sha256": "faf13bd0c6de36e4d97c29839dfeba167e508cb3063648441c27e9a8af046593"
+    },
+    {
+      "path": "routes/constructive-per-agent.md",
+      "sha256": "a353eaa22e1c4fc3b6f91771565122ac8a51e32e6a9b4a5eb86f6754c83f8482"
+    },
+    {
+      "path": "routes/geometry-history.md",
+      "sha256": "b944e92b1075a71ed33c6cd91578720260244095c5757c0d3e2516db1bbd9108"
+    },
+    {
+      "path": "routes/observability.md",
+      "sha256": "a02d83561dea718b04e56d8c212f30189220a7c4e96ce444ffc7353bc69794fc"
+    },
+    {
+      "path": "source-manifest.json",
+      "sha256": "1d9a7b8d4294aeeba3186e02c04c6461a3c2f0a6bffb7ebc95077cfa63bc1984"
+    },
+    {
+      "path": "source-notes.md",
+      "sha256": "ec469a18678efc437e3c062cb92c6cd1d434e8b711ca16a6c42157ca556a1bb0"
+    }
+  ],
+  "limits": "Structural validation and source identity checks do not prove the analytical claims. No simulation, GPU work, Lean work, or independent adjudication was performed."
+}

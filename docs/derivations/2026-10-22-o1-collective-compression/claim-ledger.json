@@ -1,0 +1,336 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "assumptions": [
+    {
+      "id": "A-C1",
+      "statement": "Positive exponential-family recognition, fixed normalized evaluator and copying/resampling channels, persistent psi-independent likelihoods, positive priors (1/5,2/5,2/5), and exact unit-temperature row reduction.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/constructive-per-agent.md"
+    },
+    {
+      "id": "A-C2",
+      "statement": "The C1 model, fixed initial public record pattern (+,+,-), arbitrary retained angular records, small independent positive epsilon and delta, public graph rule C34, and fixed census times 0,T.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/constructive-per-agent.md"
+    },
+    {
+      "id": "A-C3",
+      "statement": "Three nonzero von Mises physical factors on a complete probe graph, direct public/marked and presentation law queries, known retained frame embeddings, and exterior-fixed block-local inheritance.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/constructive-per-agent.md"
+    },
+    {
+      "id": "A-C4",
+      "statement": "Entire C2 contextual sections with one fixed basepoint, common cone, complete records and ports, fresh samples between transactions, actual shared-sample edge kernels, psi-independent evidence, and history-based policies.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/constructive-per-agent.md"
+    },
+    {
+      "id": "A-C5",
+      "statement": "A fixed prepared contextual family; complete random histories; fixed lab labels for every stored marked output; covariantly transformed local embeddings and constitutive directions; regular dominated finite-episode experiment; fixed-census events with strict margins.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/geometry-history.md"
+    },
+    {
+      "id": "A-C6",
+      "statement": "C1-C2 and C5, fixed positive marked amplitudes independent of epsilon and delta, a compact two-context patch, the same finite T, the initial evidence episode held fixed, and sufficiently small positive parameters.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/geometry-history.md"
+    },
+    {
+      "id": "A-C7",
+      "statement": "All explicitly declared witness hypotheses C1-C6, including the whole-section parent, fixed relative protocol, lab-label marked-frame convention, and common finite geometric window; no newly created symmetry or local parent is asserted.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "construction-or-strongest-theorem.md"
+    },
+    {
+      "id": "A-C8",
+      "statement": "Finite-dimensional analytic field, analytic measure-determining finite-experiment expectations on a common connected domain, prefix-wait closure, and no change of record-conditioned stratum along the compared segment.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/observability.md"
+    },
+    {
+      "id": "A-C9",
+      "statement": "Regular dominated joint families, the same marked Lie algebra convention, a fixed equivariant sample kernel, and constant fine/coarse orbit ranks; this does not treat a nonlinear law-section retention as a fixed statistic.",
+      "kind": "ROUTE_HYPOTHESIS",
+      "source": "routes/geometry-history.md"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E-C1",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Sections 1-2, C1-C17, and finite-horizon existence in Section 6.",
+      "side_conditions": [
+        "Positive exponential-family recognition, fixed normalized evaluator and copying/resampling channels, persistent psi-independent likelihoods, positive priors (1/5,2/5,2/5), and exact unit-temperature row reduction."
+      ],
+      "artifact_path": "routes/constructive-per-agent.md",
+      "artifact_sha256": "a353eaa22e1c4fc3b6f91771565122ac8a51e32e6a9b4a5eb86f6754c83f8482"
+    },
+    {
+      "id": "E-C2",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Section 7, C26-C34: invariant full/null boxes, signed null barrier, stable scaled field, and common finite entrance.",
+      "side_conditions": [
+        "The C1 model, fixed initial public record pattern (+,+,-), arbitrary retained angular records, small independent positive epsilon and delta, public graph rule C34, and fixed census times 0,T."
+      ],
+      "artifact_path": "routes/constructive-per-agent.md",
+      "artifact_sha256": "a353eaa22e1c4fc3b6f91771565122ac8a51e32e6a9b4a5eb86f6754c83f8482"
+    },
+    {
+      "id": "E-C3",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Section 4, C19-C22, including strict monotonicity of the circular moment ratio and direct-law identifiability.",
+      "side_conditions": [
+        "Three nonzero von Mises physical factors on a complete probe graph, direct public/marked and presentation law queries, known retained frame embeddings, and exterior-fixed block-local inheritance."
+      ],
+      "artifact_path": "routes/constructive-per-agent.md",
+      "artifact_sha256": "a353eaa22e1c4fc3b6f91771565122ac8a51e32e6a9b4a5eb86f6754c83f8482"
+    },
+    {
+      "id": "E-C4",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Sections 3, 5-6, C23-C25; the joint-kernel argument is also reconstructed as A19-A20 in observability.md.",
+      "side_conditions": [
+        "Entire C2 contextual sections with one fixed basepoint, common cone, complete records and ports, fresh samples between transactions, actual shared-sample edge kernels, psi-independent evidence, and history-based policies."
+      ],
+      "artifact_path": "routes/constructive-per-agent.md",
+      "artifact_sha256": "a353eaa22e1c4fc3b6f91771565122ac8a51e32e6a9b4a5eb86f6754c83f8482"
+    },
+    {
+      "id": "E-C5",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "G12-G17, including G16a, full history score, the two distinct parameter derivatives, and fixed-census regularity.",
+      "side_conditions": [
+        "A fixed prepared contextual family; complete random histories; fixed lab labels for every stored marked output; covariantly transformed local embeddings and constitutive directions; regular dominated finite-episode experiment; fixed-census events with strict margins."
+      ],
+      "artifact_path": "routes/geometry-history.md",
+      "artifact_sha256": "b944e92b1075a71ed33c6cd91578720260244095c5757c0d3e2516db1bbd9108"
+    },
+    {
+      "id": "E-C6",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "G18-G20 and the finite-time C2 continuation of fine costs before applying the regular positive-parameter quotient.",
+      "side_conditions": [
+        "C1-C2 and C5, fixed positive marked amplitudes independent of epsilon and delta, a compact two-context patch, the same finite T, the initial evidence episode held fixed, and sufficiently small positive parameters."
+      ],
+      "artifact_path": "routes/geometry-history.md",
+      "artifact_sha256": "b944e92b1075a71ed33c6cd91578720260244095c5757c0d3e2516db1bbd9108"
+    },
+    {
+      "id": "E-C7",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "The assembled same-model theorem and its source, protocol, geometry, physical/gauge and locality boundaries.",
+      "side_conditions": [
+        "All explicitly declared witness hypotheses C1-C6, including the whole-section parent, fixed relative protocol, lab-label marked-frame convention, and common finite geometric window; no newly created symmetry or local parent is asserted."
+      ],
+      "artifact_path": "construction-or-strongest-theorem.md",
+      "artifact_sha256": "07c56bb50a6cb2e294922ae927b429d2e8938a618234d60a541ab507fbb924ba"
+    },
+    {
+      "id": "E-C8",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Lemma A1 and Theorem A2, with C2, event, finite-record and schedule limitations in Sections 4-6.",
+      "side_conditions": [
+        "Finite-dimensional analytic field, analytic measure-determining finite-experiment expectations on a common connected domain, prefix-wait closure, and no change of record-conditioned stratum along the compared segment."
+      ],
+      "artifact_path": "routes/observability.md",
+      "artifact_sha256": "a02d83561dea718b04e56d8c212f30189220a7c4e96ce444ffc7353bc69794fc"
+    },
+    {
+      "id": "E-C9",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "G21-G22 and their orthogonal-decomposition proof, with explicit moving-map and finite-record failure cases.",
+      "side_conditions": [
+        "Regular dominated joint families, the same marked Lie algebra convention, a fixed equivariant sample kernel, and constant fine/coarse orbit ranks; this does not treat a nonlinear law-section retention as a fixed statistic."
+      ],
+      "artifact_path": "routes/geometry-history.md",
+      "artifact_sha256": "b944e92b1075a71ed33c6cd91578720260244095c5757c0d3e2516db1bbd9108"
+    },
+    {
+      "id": "E-target",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Existential collective branch: the complete assembled witness, not interaction-created equivalence or pointwise parent geometry.",
+      "side_conditions": [
+        "All explicitly declared witness hypotheses C1-C6, including the whole-section parent, fixed relative protocol, lab-label marked-frame convention, and common finite geometric window; no newly created symmetry or local parent is asserted."
+      ],
+      "artifact_path": "construction-or-strongest-theorem.md",
+      "artifact_sha256": "07c56bb50a6cb2e294922ae927b429d2e8938a618234d60a541ab507fbb924ba"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "statement": "The normalized three-agent bit/two-circle model has exactly the own-agent Fisher and prescribed null fields C15 and C17, with Gibbs rows C14 and C16.",
+      "quantifiers": "Positive exponential-family recognition, fixed normalized evaluator and copying/resampling channels, persistent psi-independent likelihoods, positive priors (1/5,2/5,2/5), and exact unit-temperature row reduction.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C1"
+      ],
+      "evidence_ids": [
+        "E-C1"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An incorrect normalization, omitted own derivative, extra source-role derivative, or changed null row would invalidate the field."
+    },
+    {
+      "id": "C2",
+      "statement": "A relatively open initial class selects a persistent full three-agent block at a common fixed census time, whereas the prescribed null never selects it.",
+      "quantifiers": "The C1 model, fixed initial public record pattern (+,+,-), arbitrary retained angular records, small independent positive epsilon and delta, public graph rule C34, and fixed census times 0,T.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C2"
+      ],
+      "evidence_ids": [
+        "E-C2"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "Failure of a box boundary inequality, stability margin, or uniform entrance would defeat the persistent partition contrast."
+    },
+    {
+      "id": "C3",
+      "statement": "Complete pairwise relative-angle responses identify all nonzero circular laws up to one common rotation; a proper block with any fixed nonzero exterior law has no noninjective local law retention preserving those responses and direct remaining-law queries.",
+      "quantifiers": "Three nonzero von Mises physical factors on a complete probe graph, direct public/marked and presentation law queries, known retained frame embeddings, and exterior-fixed block-local inheritance.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C3"
+      ],
+      "evidence_ids": [
+        "E-C3"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A zero factor, absent crossing edge, or unrecorded shared exterior reference would change the identification hypothesis."
+    },
+    {
+      "id": "C4",
+      "statement": "The nonzero-anchor whole-section quotient has normalized canonical parent port laws, exact autonomous original-time free evolution, and every admitted finite adaptive joint response-record history.",
+      "quantifiers": "Entire C2 contextual sections with one fixed basepoint, common cone, complete records and ports, fresh samples between transactions, actual shared-sample edge kernels, psi-independent evidence, and history-based policies.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C4"
+      ],
+      "evidence_ids": [
+        "E-C4"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A zero anchor, exposed absolute psi output, phase-sensitive assimilation, or failure of the actual joint response/update kernel invalidates descent."
+    },
+    {
+      "id": "C5",
+      "statement": "The section quotient preserves the entire actual joint contextual/marked-orbit Fisher quadratic cost, hence the minimizing connection class and minimized contextual tensor.",
+      "quantifiers": "A fixed prepared contextual family; complete random histories; fixed lab labels for every stored marked output; covariantly transformed local embeddings and constitutive directions; regular dominated finite-episode experiment; fixed-census events with strict margins.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C5"
+      ],
+      "evidence_ids": [
+        "E-C5"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "Pointwise contextual anchoring, an unproved action on numerical history angles, or an omitted event/history score can destroy the cost identity."
+    },
+    {
+      "id": "C6",
+      "statement": "The same positive-parameter selected family has rank-two actual minimized Fisher tensor and nonzero marked curvature on a common finite post-census window, with exact parent equality.",
+      "quantifiers": "C1-C2 and C5, fixed positive marked amplitudes independent of epsilon and delta, a compact two-context patch, the same finite T, the initial evidence episode held fixed, and sufficiently small positive parameters.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C6"
+      ],
+      "evidence_ids": [
+        "E-C6"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A vanishing limiting inertia, a nonuniform entrance time, or using the singular delta=0 anchor would invalidate this bridge."
+    },
+    {
+      "id": "C7",
+      "statement": "The frozen O1 existential collective alternative is realized by one normalized per-agent model with a selected persistent group, a genuinely collective physical loss, exact original-time dynamics and histories, and actual nonflat inherited contextual geometry.",
+      "quantifiers": "All explicitly declared witness hypotheses C1-C6, including the whole-section parent, fixed relative protocol, lab-label marked-frame convention, and common finite geometric window; no newly created symmetry or local parent is asserted.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C7"
+      ],
+      "evidence_ids": [
+        "E-C7"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A mismatch between the model, complete history convention, selector or parent state across C1-C6 would defeat the assembly."
+    },
+    {
+      "id": "C8",
+      "statement": "Operational equivalence cannot first appear at finite time along a common regular analytic fixed-history flow segment for an analytic, wait-closed experiment family.",
+      "quantifiers": "Finite-dimensional analytic field, analytic measure-determining finite-experiment expectations on a common connected domain, prefix-wait closure, and no change of record-conditioned stratum along the compared segment.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C8"
+      ],
+      "evidence_ids": [
+        "E-C8"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "Failure of analyticity, common-domain continuation, wait closure, or fixed-history conditions removes this obstruction; preexisting collective equivalence is allowed."
+    },
+    {
+      "id": "C9",
+      "statement": "For a fixed equivariant sample coarsening retaining history, the minimized Fisher tensor is preserved exactly when the fine horizontal residual is measurable from retained data; equality of minimizing affine classes additionally requires unchanged orbit isotropy.",
+      "quantifiers": "Regular dominated joint families, the same marked Lie algebra convention, a fixed equivariant sample kernel, and constant fine/coarse orbit ranks; this does not treat a nonlinear law-section retention as a fixed statistic.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C9"
+      ],
+      "evidence_ids": [
+        "E-C9"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A nonzero residual conditional variance or new orbit isotropy invalidates the corresponding equality."
+    },
+    {
+      "id": "target",
+      "statement": "Resolve O1: construct genuinely collective or interaction-selected physical compression under current normalized per-agent dynamics, preserving exact original-time inherited dynamics, all fixed-protocol joint histories and persistent records, and actual nonflat collective geometry, without a permanently invisible factor; or establish a scope-matched obstruction.",
+      "quantifiers": "There exist a finite population under the normalized per-agent mixture-source model, positive fixed source priors and a declared unit-temperature row convention, fixed normalized constitutive data and a fixed nonempty operational protocol, and an initially unpartitioned nonempty open class or declared invariant family, such that interaction selects a persistent nontrivial block differently from the prescribed null after event times are removed. Its parent retention is genuinely noninjective in a positive-dimensional nongauge physical distinction after interface state, event information and complete persistent records are included. The loss must be genuinely collective or interaction-selected and cannot be supplied by a permanently invisible primitive factor or a quotient available for every partition throughout the admitted class. The parent has normalized laws and exact original-time flow, preserves every admitted finite adaptive joint response-record history, and preserves the actual collective minimizing connection class and positive-rank Fisher tensor with nonzero curvature on a declared common regular window. Second-stage recursion and every future_TODO extension are excluded from this target.",
+      "kind": "MATHEMATICAL",
+      "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-C7"
+      ],
+      "evidence_ids": [
+        "E-target"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "A positive construction must satisfy every required grouping, null-control, compression, dynamics, history, record and geometry conjunct. Failure of a candidate or an analytic subclass does not refute the general existential target. A negative closure needs a nonexistence proof covering the allowed class."
+    }
+  ],
+  "interpretation": "Direct analytical derivations accepted by a same-root sequential reconstruction under their exact hypotheses. Not formal proof, independent adjudication, or numerical evidence for universal claims."
+}

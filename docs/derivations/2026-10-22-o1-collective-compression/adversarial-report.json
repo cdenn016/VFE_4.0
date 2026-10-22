@@ -1,0 +1,138 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "workflow": "Substantive analytical failure tests and same-root sequential reconstruction; no independent adjudication panel.",
+  "attacks": [
+    {
+      "id": "native-and-null",
+      "claim_ids": [
+        "C1",
+        "C2",
+        "C7",
+        "target"
+      ],
+      "attack": "The construction might reuse reciprocal derivatives or alter the null self row, making the grouping contrast inapplicable.",
+      "response": "C10-C17 derive the own-agent envelope field and retained-prior null; C26-C34 prove its invariant null barrier and full stable entrance.",
+      "disposition": "REJECTED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    },
+    {
+      "id": "hidden-primitive",
+      "claim_ids": [
+        "C3",
+        "C4",
+        "C7",
+        "target"
+      ],
+      "attack": "The final collective witness might simply rename the old invisible primitive factor because its global symmetry preexists selection.",
+      "response": "Rejected for the exact final claim: C19-C22 identify every proper block against a nonzero exterior and exactly one global fiber. The frozen target permits genuinely collective loss. The stronger interaction-created-invisibility claim is excluded and remains open.",
+      "disposition": "REJECTED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    },
+    {
+      "id": "incomplete-joint-history",
+      "claim_ids": [
+        "C4",
+        "C7",
+        "target"
+      ],
+      "attack": "Separate marginals, dropped records, raw absolute-angle outputs, or unstated sample reuse could invalidate exact histories.",
+      "response": "The protocol uses actual joint edge pushforwards, fresh transactions, complete history, fixed lab labels, and joint response/next-state descent. Absolute psi outputs are excluded initially and no probe is retired.",
+      "disposition": "REJECTED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    },
+    {
+      "id": "pointwise-and-record-geometry",
+      "claim_ids": [
+        "C5",
+        "C6",
+        "C7",
+        "target"
+      ],
+      "attack": "The final whole-section history-dependent map might still remove contextual or orbit scores through a moving evaluation anchor or an unproved marked action.",
+      "response": "Rejected after the explicit interface corrections: the final parent retains a whole section, G16a fixes every stored lab label and transforms embeddings, and history-based policies preserve covariance. G14-G17 prove full-cost equality. The failed pointwise and numerical-history-action variants remain documented as counterexamples, outside the final claims.",
+      "disposition": "REJECTED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    },
+    {
+      "id": "event-and-zero-limit",
+      "claim_ids": [
+        "C2",
+        "C5",
+        "C6",
+        "C7",
+        "target"
+      ],
+      "attack": "Exact event timestamps or a singular zero-anchor limit could invalidate regular Fisher geometry at the same grouping time.",
+      "response": "The fixed census is declared before execution and all its data are retained with strict uniform margins. The fine costs are continued from the zero-parameter limit; canonicalization is applied only at positive parameters with a nonzero cone anchor.",
+      "disposition": "REJECTED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    },
+    {
+      "id": "analytic-overreach",
+      "claim_ids": [
+        "C8"
+      ],
+      "attack": "An analytic segment argument could be promoted to universal nonexistence across C2 laws or record-changing jumps.",
+      "response": "A1-A2 use exact analytic wait-closure and common-domain hypotheses. A6 and the record/event analysis delimit the conclusion; no universal negative claim is made.",
+      "disposition": "REJECTED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    },
+    {
+      "id": "records-repair-score",
+      "claim_ids": [
+        "C9"
+      ],
+      "attack": "Retained noisy history might compensate a positive conditional-current horizontal score loss.",
+      "response": "The orthogonal decomposition G21-G22 proves the two nonnegative defects. History-only scores are already retained and cannot cancel the missing conditional residual; G23 gives a strict example.",
+      "disposition": "REJECTED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+    }
+  ],
+  "independent_reconstruction": {
+    "claim_ids": [
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "C8",
+      "C9",
+      "target"
+    ],
+    "method": "A labeled root pass from the frozen contract, rebuilding the normalization, fields, bounds, kernels, and score interfaces; not independent corroboration.",
+    "result": "PASS",
+    "conclusion": "The whole-section collective witness reconstructs under the exact final protocol and frame convention. Stronger locality and interaction-created-equivalence claims do not follow.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+  },
+  "oracle_erasure": {
+    "claim_ids": [
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "C8",
+      "C9",
+      "target"
+    ],
+    "method": "Remove expectations of a positive outcome and inspect every assumption, dependency and bridge; the frozen contract contains no affirmative search prior.",
+    "result": "PASS",
+    "conclusion": "The direct model formulas, inequalities, kernel maps and score identities establish the scoped witness without assuming its conclusions. Scope restrictions remain explicit.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "ba0dad15cc23893c5b780897cffdb1042fc97c5e240759482c39c9e30857a9db"
+  }
+}

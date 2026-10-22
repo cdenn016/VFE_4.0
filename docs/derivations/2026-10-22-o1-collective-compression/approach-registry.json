@@ -1,0 +1,152 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "mechanism_families": [
+    {
+      "family_id": "analytic-observability",
+      "core_mechanism": "Continue analytic experiment expectations along actual common trajectories.",
+      "target_obligation_ids": [
+        "target"
+      ],
+      "representation": "Regular analytic law-state charts and fixed-history experiment functions.",
+      "invariant_or_obstruction": "Wait closure prevents first appearance of future equivalence on one segment.",
+      "obligations": [
+        "Does not cover general C2 data, arbitrary record changes, or rule out a preexisting collective quotient."
+      ],
+      "bridge": "Wait closure prevents first appearance of future equivalence on one segment.",
+      "failure_test": "Does not cover general C2 data, arbitrary record changes, or rule out a preexisting collective quotient.",
+      "verified_results": [
+        "C8"
+      ],
+      "open_gaps": [
+        "Does not cover general C2 data, arbitrary record changes, or rule out a preexisting collective quotient."
+      ],
+      "novelty_fingerprint": "Continue analytic experiment expectations along actual common trajectories. Compared with the consulted local sources; no global novelty claim.",
+      "disposition": "Scoped direct analytical result."
+    },
+    {
+      "family_id": "relative-angle-collectivity",
+      "core_mechanism": "Transmit psi between peers and expose all relative laws on a homogeneous complete graph.",
+      "target_obligation_ids": [
+        "target"
+      ],
+      "representation": "Positive bit/two-circle exponential families and exact Gibbs rows.",
+      "invariant_or_obstruction": "Pair first moments identify every proper block against its exterior, but preserve one global rotation.",
+      "obligations": [
+        "The symmetry is predeclared; a pointwise quotient alone does not preserve contextual geometry."
+      ],
+      "bridge": "Pair first moments identify every proper block against its exterior, but preserve one global rotation.",
+      "failure_test": "The symmetry is predeclared; a pointwise quotient alone does not preserve contextual geometry.",
+      "verified_results": [
+        "C1",
+        "C3",
+        "C4"
+      ],
+      "open_gaps": [
+        "The symmetry is predeclared; a pointwise quotient alone does not preserve contextual geometry."
+      ],
+      "novelty_fingerprint": "Transmit psi between peers and expose all relative laws on a homogeneous complete graph. Compared with the consulted local sources; no global novelty claim.",
+      "disposition": "Scoped direct analytical result."
+    },
+    {
+      "family_id": "fixed-score-sufficiency",
+      "core_mechanism": "Compute the exact conditional-variance and orbit-isotropy loss under a fixed sample coarsening.",
+      "target_obligation_ids": [
+        "target"
+      ],
+      "representation": "Joint record/current-state L2 score spaces.",
+      "invariant_or_obstruction": "Horizontal residual measurability is necessary and sufficient for the minimized tensor.",
+      "obligations": [
+        "A law-dependent section canonicalization is not a fixed sample statistic."
+      ],
+      "bridge": "Horizontal residual measurability is necessary and sufficient for the minimized tensor.",
+      "failure_test": "A law-dependent section canonicalization is not a fixed sample statistic.",
+      "verified_results": [
+        "C9"
+      ],
+      "open_gaps": [
+        "A law-dependent section canonicalization is not a fixed sample statistic."
+      ],
+      "novelty_fingerprint": "Compute the exact conditional-variance and orbit-isotropy loss under a fixed sample coarsening. Compared with the consulted local sources; no global novelty claim.",
+      "disposition": "Scoped direct analytical result."
+    },
+    {
+      "family_id": "pointwise-canonicalization",
+      "core_mechanism": "Choose a separate physical-angle representative at every evaluation context.",
+      "target_obligation_ids": [
+        "target"
+      ],
+      "representation": "Context-dependent sample diffeomorphisms.",
+      "invariant_or_obstruction": "The moving-map score removes positive private phase information.",
+      "obligations": [
+        "Retired: it fails the required geometric equality on explicit nonflat families."
+      ],
+      "bridge": "The moving-map score removes positive private phase information.",
+      "failure_test": "Retired: it fails the required geometric equality on explicit nonflat families.",
+      "verified_results": [],
+      "open_gaps": [
+        "Retired: it fails the required geometric equality on explicit nonflat families."
+      ],
+      "novelty_fingerprint": "Choose a separate physical-angle representative at every evaluation context. Compared with the consulted local sources; no global novelty claim.",
+      "disposition": "Retired after explicit geometric failure."
+    },
+    {
+      "family_id": "anchored-record-geometry",
+      "core_mechanism": "Use one contextual basepoint and fixed lab history labels to construct an actual joint-sample isometry.",
+      "target_obligation_ids": [
+        "target"
+      ],
+      "representation": "Whole C2 sections, complete histories, and a passive marked-frame action on local embeddings.",
+      "invariant_or_obstruction": "Context and orbit scores are both preserved; a two-mark limit gives a common nonflat window.",
+      "obligations": [
+        "No pointwise or fixed-size parent result; exact crossing timestamps require another regular experiment."
+      ],
+      "bridge": "Context and orbit scores are both preserved; a two-mark limit gives a common nonflat window.",
+      "failure_test": "No pointwise or fixed-size parent result; exact crossing timestamps require another regular experiment.",
+      "verified_results": [
+        "C5",
+        "C6"
+      ],
+      "open_gaps": [
+        "No pointwise or fixed-size parent result; exact crossing timestamps require another regular experiment."
+      ],
+      "novelty_fingerprint": "Use one contextual basepoint and fixed lab history labels to construct an actual joint-sample isometry. Compared with the consulted local sources; no global novelty claim.",
+      "disposition": "Scoped direct analytical result."
+    },
+    {
+      "family_id": "integrated-collective-o1",
+      "core_mechanism": "Combine native persistent grouping with complete-graph identification and the whole-section geometric parent.",
+      "target_obligation_ids": [
+        "target"
+      ],
+      "representation": "One normalized model and fixed protocol with two small positive parameters.",
+      "invariant_or_obstruction": "Common census time, null barrier, explicit quotient field, joint kernels, and actual full-cost equality.",
+      "obligations": [
+        "The collective existential branch closes; interaction-created invisibility and second-stage recursion are not claimed."
+      ],
+      "bridge": "Common census time, null barrier, explicit quotient field, joint kernels, and actual full-cost equality.",
+      "failure_test": "The collective existential branch closes; interaction-created invisibility and second-stage recursion are not claimed.",
+      "verified_results": [
+        "C2",
+        "C7"
+      ],
+      "open_gaps": [
+        "The collective existential branch closes; interaction-created invisibility and second-stage recursion are not claimed."
+      ],
+      "novelty_fingerprint": "Combine native persistent grouping with complete-graph identification and the whole-section geometric parent. Compared with the consulted local sources; no global novelty claim.",
+      "disposition": "Scoped direct analytical result."
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "result": "Analytic obstruction, explicit transmitted-angle collective model, exact fields, and whole-section candidate."
+    },
+    {
+      "round": 2,
+      "result": "Same-model grouping and nonflat window assembled; fixed census, fixed lab labels, direct-query labels, and history-based policies close the identified geometry/history interfaces."
+    }
+  ],
+  "stopping_reason": "The existential collective witness is assembled under its explicit scope. No further route search or background continuation is needed for this request."
+}

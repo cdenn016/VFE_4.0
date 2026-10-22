@@ -1,0 +1,55 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target": {
+    "statement": "Resolve O1: construct genuinely collective or interaction-selected physical compression under current normalized per-agent dynamics, preserving exact original-time inherited dynamics, all fixed-protocol joint histories and persistent records, and actual nonflat collective geometry, without a permanently invisible factor; or establish a scope-matched obstruction.",
+    "kind": "MATHEMATICAL",
+    "quantifier_class": "EXISTENTIAL",
+    "quantifiers": "There exist a finite population under the normalized per-agent mixture-source model, positive fixed source priors and a declared unit-temperature row convention, fixed normalized constitutive data and a fixed nonempty operational protocol, and an initially unpartitioned nonempty open class or declared invariant family, such that interaction selects a persistent nontrivial block differently from the prescribed null after event times are removed. Its parent retention is genuinely noninjective in a positive-dimensional nongauge physical distinction after interface state, event information and complete persistent records are included. The loss must be genuinely collective or interaction-selected and cannot be supplied by a permanently invisible primitive factor or a quotient available for every partition throughout the admitted class. The parent has normalized laws and exact original-time flow, preserves every admitted finite adaptive joint response-record history, and preserves the actual collective minimizing connection class and positive-rank Fisher tensor with nonzero curvature on a declared common regular window. Second-stage recursion and every future_TODO extension are excluded from this target.",
+    "domains": [
+      "General probability laws on standard Borel sample and model spaces; finite positive tables and positive smooth compact-space density charts are admissible witnesses, without Gaussian closure.",
+      "Each agent uses the normalized mixture-source model and free energy of current MAgent Theory 2.0 Chapter 3, with its own evaluator and reference as self sources, communicated peer laws as nonself sources, and a normalized persistent record likelihood. It updates only its own recognition-law blocks using their Fisher metric.",
+      "Source rows may be retained dynamical variables or exactly Gibbs-reduced at unit temperature; a route must choose one convention explicitly and use it in the null flow too.",
+      "Declared contextual sections, gauge actions, normalized parent laws, and fixed pre-handoff operational protocols including adaptive records."
+    ],
+    "codomains": [
+      "A one-stage selected parent with inherited normalized belief/model laws, evaluators, operational kernels, complete required memory and autonomous original-time dynamics.",
+      "Every admitted joint adaptive response-record process, including response/next-state dependence and events, and actual collective nonflat Fisher geometry on a common declared window.",
+      "If incomplete, proved scope-specific obstructions and exact conditions still required by an admissible construction; no general negative claim follows from an analytic or finite-table special case."
+    ],
+    "regularity": "At least C2 positive constitutive data with finite divergences and complete derivatives, and a unique local flow on the declared chart. General-law routes must establish their chart and regularity. Analyticity, invariant-family restrictions, regular event surfaces, and constant-rank quotients are route-specific hypotheses, not universal premises.",
+    "measures": [
+      "Every evaluator, communication kernel and record likelihood is normalized relative to declared references, with support, absolute continuity and finite logarithms stated.",
+      "No distribution over law configurations is presumed. A filter-based history construction must declare its preparation law and prove the relevant joint-kernel equalities."
+    ],
+    "boundary_conditions": [
+      "The null flow deletes nonself peer KL costs, freezes hidden peer dependence in channels/evaluators at initial peer laws, and leaves other constitutive data and row convention unchanged. Compare partition sequences without event times.",
+      "Exact finite-time handoff and persistence on a declared invariant set or a stated nonzero window are sought. Approximate and asymptotic claims remain distinct partial results.",
+      "The operational protocol is fixed before the retention. Do not delete previously admitted future probes at handoff merely to obtain compression, erase retained records, insert a flat erasure gate, reset the system, supply a membership tree, or add an independently fitted parent force.",
+      "Distinguish child-level diagnostics that witness physical loss from the inherited boundary protocol. If a separating diagnostic remains an admitted future response, it must be preserved and can obstruct compression. A preselected permanently invisible factor alone does not establish endogenous selection of an interface."
+    ],
+    "symmetries": [
+      "Population relabeling covariance for homogeneous agent species; heterogeneous sources or graph structure must be explicit constitutive choices and cannot encode the desired blocks.",
+      "Gauge/frame actions and whether belief and model sectors share a group are declared before curvature claims. Physical information loss is not just passive frame change.",
+      "Local regular geometry is admissible but does not establish global roots, singular-stratum continuation, or unlimited recursion."
+    ],
+    "equivalence": "Exact same-time flow intertwining, equality of every admitted joint adaptive response-record law including response/next-state dependence, and equality of actual collective minimizing connection classes and contextual tensors on the declared family. Parent memory, interface labels and event information are included when judging noninjectivity.",
+    "premises": [
+      "Use current normalized per-agent own-block Fisher dynamics with persistent record likelihoods. Do not replace it by a reciprocal potential, an assumed global free energy, or a separately designed parent force.",
+      "Declare the complete probe/record protocol before choosing a retention. Include action labels, waiting times, event data and retained memories whenever accessible. Keep the old prohibition on deleting future probes, inserting flat erasure gates, resetting the system or supplying a membership tree.",
+      "A whole population has no assumed probability law over its law configurations. Any filtering construction must introduce and label its preparation law and prove the appropriate conditional equivalence rather than substitute it for pointwise inheritance.",
+      "The existing per-agent grouping, conditional phase parent, history identity and geometric results are scoped source material. Their permanently invisible phase does not close O1. A collective candidate must show exactly why it is not the same supplied factor or all-partition quotient in different coordinates.",
+      "Fixed state-dependent constitutive formulas are allowed only within the existing model and with complete own-block derivatives. Additional analyticity, finite dimensions or probing richness are route-specific assumptions, not premises of the full existential target."
+    ],
+    "modeling_postulates": [],
+    "search_priors": [],
+    "permitted_theorems": [
+      "Direct finite probability algebra, normalized variational differentiation, Fisher-coordinate calculus, and explicit ODE arguments with stated hypotheses.",
+      "Primary-source local flow, observability, sufficiency, conditional independence and geometric quotient results after reading the exact statement and mapping hypotheses."
+    ],
+    "negative_certificate_kind": "NONEXISTENCE_PROOF",
+    "falsification_criterion": "A positive construction must satisfy every required grouping, null-control, compression, dynamics, history, record and geometry conjunct. Failure of a candidate or an analytic subclass does not refute the general existential target. A negative closure needs a nonexistence proof covering the allowed class.",
+    "literature_policy": "Read current Research manuscripts, wiki context and linked investigations first. Search primary journal, arXiv or institutional sources only for a concrete unresolved bridge; no priority or exhaustive-search claim. Unsupported applicability remains an open obligation."
+  }
+}
