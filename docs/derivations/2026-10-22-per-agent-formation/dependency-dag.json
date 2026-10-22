@@ -1,0 +1,72 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "edges": [
+    {
+      "from": "target",
+      "to": "C1",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "C2",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "C3",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "C4",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "C5",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "C6",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "C7",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "O1",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "target",
+      "to": "O2",
+      "reason": "Scoped result or open obligation characterizing this investigation; O2 is the explicitly declared extension."
+    },
+    {
+      "from": "C2",
+      "to": "C1",
+      "reason": "Uses the transferred own-block and null fields."
+    },
+    {
+      "from": "C7",
+      "to": "C4",
+      "reason": "Same-model assembly of dynamics, response-record and geometry inheritance."
+    },
+    {
+      "from": "C7",
+      "to": "C5",
+      "reason": "Same-model assembly of dynamics, response-record and geometry inheritance."
+    },
+    {
+      "from": "C7",
+      "to": "C6",
+      "reason": "Same-model assembly of dynamics, response-record and geometry inheritance."
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target": {
+    "statement": "Transfer the existing conditional-interface construction to normalized per-agent mixture-source free energies and their prescribed null control, then construct interaction-dependent grouping with genuinely compressive inherited parents preserving original-time dynamics, complete admitted response histories, persistent records, and nontrivial collective Fisher geometry.",
+    "kind": "MATHEMATICAL",
+    "quantifier_class": "EXISTENTIAL",
+    "quantifiers": "There exist a finite population with normalized per-agent mixture-source generative models, fixed positive source priors and unit source-label temperatures, declared regular law domains, and an initially unpartitioned nonempty open class or explicitly declared invariant family, for which a state/history selector gives a persistent nontrivial block and a partition sequence different from its prescribed no-peer-cost control on a nonempty relatively open subset. The selected block has a non-injective retention with a positive-dimensional nongauge physical distinction after necessary interface state, event information and record memory are retained, while preserving its original-time dynamics, every joint adaptive boundary-response and record history in a nonempty operational protocol fixed before retention, and the actual collective minimizing connection class and positive-rank contextual Fisher tensor with nonzero local curvature. The existing four-state model's exact per-agent transfer and null comparison are mandatory subsidiary results, not assumed positive witnesses. A second inherited join and counterfactual dependence are an explicit extension obligation unless constructed.",
+    "domains": [
+      "General probability laws on standard Borel sample and model spaces; finite positive tables and positive smooth compact-space density charts are admissible witnesses, without Gaussian closure.",
+      "Each agent uses the normalized mixture-source model and free energy of current MAgent Theory 2.0 Chapter 3, with its own evaluator and reference as self sources, communicated peer laws as nonself sources, and a normalized persistent record likelihood. It updates only its own recognition-law blocks using their Fisher metric.",
+      "Source rows may be retained dynamical variables or exactly Gibbs-reduced at unit temperature; a route must choose one convention explicitly and use it in the null flow too.",
+      "Declared contextual sections, gauge actions, normalized parent laws, and fixed pre-handoff operational protocols including adaptive records."
+    ],
+    "codomains": [
+      "Exact own-block Fisher vector fields and null-control fields for the transferred four-state construction.",
+      "Selected blocks, inherited belief/model laws and evaluators, operational kernels, necessary memory, and autonomous original-time parent dynamics.",
+      "Full admitted joint response-record processes and the actual collective minimizing connection classes and contextual tensors on a regular nonflat family."
+    ],
+    "regularity": "At least C2 positive constitutive data with finite divergences and complete derivatives, and a unique local flow on the declared chart. General-law routes must establish their chart and regularity. Analyticity, invariant-family restrictions, regular event surfaces, and constant-rank quotients are route-specific hypotheses, not universal premises.",
+    "measures": [
+      "Every evaluator, communication kernel and record likelihood is normalized relative to declared references, with support, absolute continuity and finite logarithms stated.",
+      "No distribution over law configurations is presumed. A filter-based history construction must declare its preparation law and prove the relevant joint-kernel equalities."
+    ],
+    "boundary_conditions": [
+      "The null flow deletes nonself peer KL costs, freezes hidden peer dependence in channels/evaluators at initial peer laws, and leaves other constitutive data and row convention unchanged. Compare partition sequences without event times.",
+      "Exact finite-time handoff and persistence on a declared invariant set or a stated nonzero window are sought. Approximate and asymptotic claims remain distinct partial results.",
+      "The operational protocol is fixed before the retention. Do not delete previously admitted future probes at handoff merely to obtain compression, erase retained records, insert a flat erasure gate, reset the system, supply a membership tree, or add an independently fitted parent force.",
+      "Distinguish child-level diagnostics that witness physical loss from the inherited boundary protocol. If a separating diagnostic remains an admitted future response, it must be preserved and can obstruct compression. A preselected permanently invisible factor alone does not establish endogenous selection of an interface."
+    ],
+    "symmetries": [
+      "Population relabeling covariance for homogeneous agent species; heterogeneous sources or graph structure must be explicit constitutive choices and cannot encode the desired blocks.",
+      "Gauge/frame actions and whether belief and model sectors share a group are declared before curvature claims. Physical information loss is not just passive frame change.",
+      "Local regular geometry is admissible but does not establish global roots, singular-stratum continuation, or unlimited recursion."
+    ],
+    "equivalence": "Exact same-time flow intertwining, equality of every admitted joint adaptive response-record law including response/next-state dependence, and equality of actual collective minimizing connection classes and contextual tensors on the declared family. Parent memory, interface labels and event information are included when judging noninjectivity.",
+    "premises": [
+      "Use the revised normalized per-agent model, not the reciprocal law-potential gradient and not an assumed global normalized joint. A relation to a global free energy needs a separate construction.",
+      "Fixed normalized candidate kernels, evaluators and physical protocol structure are declared model data; the selected grouping, rank-deficient sufficient interface and successful geometry cannot be assumptions.",
+      "The existing conditional-interface algebra is a starting construction. Its reciprocal stability and observability theorems do not automatically transfer."
+    ],
+    "modeling_postulates": [],
+    "search_priors": [],
+    "permitted_theorems": [
+      "Direct finite probability algebra, normalized variational differentiation, Fisher-coordinate calculus, and explicit ODE arguments with stated hypotheses.",
+      "Primary-source local flow, observability, sufficiency, conditional independence and geometric quotient results after reading the exact statement and mapping hypotheses."
+    ],
+    "negative_certificate_kind": "NONEXISTENCE_PROOF",
+    "falsification_criterion": "A positive construction must satisfy every required grouping, null-control, compression, dynamics, history, record and geometry conjunct. Failure of a candidate or an analytic subclass does not refute the general existential target. A negative closure needs a nonexistence proof covering the allowed class.",
+    "literature_policy": "Read current Research manuscripts, wiki context and linked investigations first. Search primary journal, arXiv or institutional sources only for a concrete unresolved bridge; no priority or exhaustive-search claim. Unsupported applicability remains an open obligation."
+  }
+}

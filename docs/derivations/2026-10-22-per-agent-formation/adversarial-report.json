@@ -1,0 +1,66 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "workflow": "Same-root sequential reconstruction and concrete failure tests; no independent adjudication panel.",
+  "attacks": [
+    {
+      "id": "model-interface-history-geometry",
+      "claim_ids": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "O1",
+        "O2",
+        "target"
+      ],
+      "attack": "The per-agent force, null control, persistent records, geometric experiment or compression interface might be changed between routes, or a pre-existing quotient mistaken for formation.",
+      "response": "The integrated route explicitly fixes one model, proves the all-time null bound, retains complete records and port state, and proves cost equality on a declared section. The supplied phase-invisible interface remains an unresolved formation gap.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "7c52273372fd2cdc7707c3fa9b5d154a1f220fc74e2805e36deba308a696367b"
+    }
+  ],
+  "independent_reconstruction": {
+    "claim_ids": [
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "O1",
+      "O2",
+      "target"
+    ],
+    "method": "Sequential root reconstruction from the frozen contract; not independent corroboration.",
+    "result": "PASS",
+    "conclusion": "Scoped derivations reconstruct; the endogenous-interface and second-stage extensions do not follow.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "7c52273372fd2cdc7707c3fa9b5d154a1f220fc74e2805e36deba308a696367b"
+  },
+  "oracle_erasure": {
+    "claim_ids": [
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "O1",
+      "O2",
+      "target"
+    ],
+    "method": "Remove any expectation of a positive target and inspect every premise and bridge; the contract has no search prior.",
+    "result": "PASS",
+    "conclusion": "The conditional theorem remains valid with its supplied interface; no complete existential or negative certificate results.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "7c52273372fd2cdc7707c3fa9b5d154a1f220fc74e2805e36deba308a696367b"
+  }
+}

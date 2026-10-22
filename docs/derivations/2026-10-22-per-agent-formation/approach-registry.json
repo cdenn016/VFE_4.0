@@ -1,0 +1,140 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "mechanism_families": [
+    {
+      "family_id": "four-state-transfer",
+      "core_mechanism": "Rederive own-objective conditional-channel dynamics and compare full and null sign evolution.",
+      "target_obligation_ids": [
+        "target",
+        "O1",
+        "O2"
+      ],
+      "representation": "Finite positive tables and conditional channels.",
+      "invariant_or_obstruction": "Full-table null sign cones and a transverse selected crossing.",
+      "obligations": [
+        "No compressed parent in this route."
+      ],
+      "bridge": "Full-table null sign cones and a transverse selected crossing.",
+      "failure_test": "No compressed parent in this route.",
+      "verified_results": [
+        "C1",
+        "C2"
+      ],
+      "open_gaps": [
+        "No compressed parent in this route."
+      ],
+      "novelty_fingerprint": "Rederive own-objective conditional-channel dynamics and compare full and null sign evolution. Relative to consulted local sources; no worldwide priority claim.",
+      "disposition": "Scoped direct derivation; complete target remains open."
+    },
+    {
+      "family_id": "persistent-record-consensus",
+      "core_mechanism": "Use peer influence to overcome opposing persistent record forces.",
+      "target_obligation_ids": [
+        "target",
+        "O1",
+        "O2"
+      ],
+      "representation": "Three Bernoulli law pairs with positive source priors.",
+      "invariant_or_obstruction": "Stable affine small-parameter limit versus all-time null sign invariance.",
+      "obligations": [
+        "Grouping alone preserves every child coordinate."
+      ],
+      "bridge": "Stable affine small-parameter limit versus all-time null sign invariance.",
+      "failure_test": "Grouping alone preserves every child coordinate.",
+      "verified_results": [
+        "C3"
+      ],
+      "open_gaps": [
+        "Grouping alone preserves every child coordinate."
+      ],
+      "novelty_fingerprint": "Use peer influence to overcome opposing persistent record forces. Relative to consulted local sources; no worldwide priority claim.",
+      "disposition": "Scoped direct derivation; complete target remains open."
+    },
+    {
+      "family_id": "marked-conditional-spectrum",
+      "core_mechanism": "Retain public laws and record-marked spectra, then realize them by regular canonical laws.",
+      "target_obligation_ids": [
+        "target",
+        "O1",
+        "O2"
+      ],
+      "representation": "General bounded profiles and smooth two-circle invariant families.",
+      "invariant_or_obstruction": "Exact joint response/next-state factorization.",
+      "obligations": [
+        "Invisible phase supplied by the declared interface."
+      ],
+      "bridge": "Exact joint response/next-state factorization.",
+      "failure_test": "Invisible phase supplied by the declared interface.",
+      "verified_results": [
+        "C4"
+      ],
+      "open_gaps": [
+        "Invisible phase supplied by the declared interface."
+      ],
+      "novelty_fingerprint": "Retain public laws and record-marked spectra, then realize them by regular canonical laws. Relative to consulted local sources; no worldwide priority claim.",
+      "disposition": "Scoped direct derivation; complete target remains open."
+    },
+    {
+      "family_id": "record-inclusive-geometry",
+      "core_mechanism": "Carry actual history and current-state scores through phase canonicalization.",
+      "target_obligation_ids": [
+        "target",
+        "O1",
+        "O2"
+      ],
+      "representation": "Regular dominated families with a marked-circle comparison action.",
+      "invariant_or_obstruction": "Equality of complete collective quadratic costs.",
+      "obligations": [
+        "Context-varying discarded phases and phase-reading records fail."
+      ],
+      "bridge": "Equality of complete collective quadratic costs.",
+      "failure_test": "Context-varying discarded phases and phase-reading records fail.",
+      "verified_results": [
+        "C6"
+      ],
+      "open_gaps": [
+        "Context-varying discarded phases and phase-reading records fail."
+      ],
+      "novelty_fingerprint": "Carry actual history and current-state scores through phase canonicalization. Relative to consulted local sources; no worldwide priority claim.",
+      "disposition": "Scoped direct derivation; complete target remains open."
+    },
+    {
+      "family_id": "integrated-fixed-model-hybrid",
+      "core_mechanism": "Couple marked angle and public sign through a weak normalized evaluator while retaining fixed-own-model semantics.",
+      "target_obligation_ids": [
+        "target",
+        "O1",
+        "O2"
+      ],
+      "representation": "Binary public variable and two compact angular coordinates.",
+      "invariant_or_obstruction": "Common Gibbs cost cancellation, invariant null box, and exact canonical phase quotient.",
+      "obligations": [
+        "Grouping is endogenous; sufficient phase interface is predeclared. Second compressive join remains open."
+      ],
+      "bridge": "Common Gibbs cost cancellation, invariant null box, and exact canonical phase quotient.",
+      "failure_test": "Grouping is endogenous; sufficient phase interface is predeclared. Second compressive join remains open.",
+      "verified_results": [
+        "C5",
+        "C7"
+      ],
+      "open_gaps": [
+        "Grouping is endogenous; sufficient phase interface is predeclared. Second compressive join remains open."
+      ],
+      "novelty_fingerprint": "Couple marked angle and public sign through a weak normalized evaluator while retaining fixed-own-model semantics. Relative to consulted local sources; no worldwide priority claim.",
+      "disposition": "Scoped direct derivation; complete target remains open."
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "result": "Exact per-agent transfer, persistent-record grouping, conditional operational compression, and record-sensitive geometry."
+    },
+    {
+      "round": 2,
+      "result": "One fixed-own-model hybrid combines persistent grouping, exact conditional compression and finite-window nonflat geometry; an invariant null box supplies the all-time control."
+    }
+  ],
+  "stopping_reason": "The combined route gives checkable progress but retains a predeclared invisible factor. A new selected-interface mechanism is required to close O1; no background continuation scheduled."
+}

@@ -1,0 +1,64 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "revisions": {
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0": "70f74740aa45eac76cb08a35756858220cb68478",
+    "C:\\Users\\chris and christine\\Desktop\\Research": "5dee4e8e60f4e13f26959ab84a3bea206848c6e9"
+  },
+  "scope": "Current source bytes read for continuity. No remote synchronization or source correctness is certified by these identifiers.",
+  "sources": [
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\AUTHORING.md",
+      "sha256": "6834edd0a4a05c2d7bfe7360eba2bc18e9709f2af34aea61627a4b4331166eb1"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\02_geometry.tex",
+      "sha256": "8f8902123acd72079a66d748a2ffe05e37611126052f66996ee6320cbfb156c5"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\03_dynamics.tex",
+      "sha256": "a6f24c5374a16cb25ba235fe41ad3d8399d15b900045eb8d890811531751c3d4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\05_inheritance.tex",
+      "sha256": "5aa63bb99c1d436310f8436bf65796a533b908438db56a4f6c518c227fa7370e"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\07_smooth_closure.tex",
+      "sha256": "7f43cd7d376d6984d2e910c89ade8c3134bcff940f513b18e04c5248caf5e60a"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\09_public_compression.tex",
+      "sha256": "25e4d9ab573b8fbbe7ee71fed381cfadddd808fcb177ee4f41f52c56ede651f7"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\12_open_formation.tex",
+      "sha256": "e211912a4dc31666e6308da5f4b75e7c1ff8b6c28b3dbff6f21366597aa9a3fb"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\wiki\\concepts\\Communication-constrained inference.md",
+      "sha256": "8da16f69e32c27a43d488a3d53071d68749ddf3c643373ef6886bee030fad14e"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-formation-next-step-reassessment.md",
+      "sha256": "9c6a9f9e71d8744865fe6442ab2c1bfe8c70dce7314bb50968b33daf8997dfcf"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\variational-selection.md",
+      "sha256": "80ffcb8e068e6f53e251b02022df137b8e666ee5f016b314ee580bf871975005"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\history-selection.md",
+      "sha256": "bda8acd1a964322a7cae527748c9ed6eebb227140e05e81a1ea436eac992d7ce"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\selection-observability-bridge.md",
+      "sha256": "628ad0c97636684fd1214f25ed9670c573e494993517dc3dd096caf2b49e948a"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\moving-interface-geometry.md",
+      "sha256": "724e19a9cdca740fc87951d8bb87d471f8e83baba6f57657597b4a51c4305164"
+    }
+  ]
+}

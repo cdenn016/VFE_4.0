@@ -1,0 +1,13 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "target_digest": "0324b4d85a47c03878c8c5ffc8caeec2c30ab48cb28b2f143c858ee2931b6dca",
+  "validator": "C:/Users/chris and christine/.agents/skills/rigorous-theory-search/scripts/validate_run.py",
+  "interpreter": "C:/Python314/python.exe",
+  "mode": "release",
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "",
+  "terminal_status": "INCONCLUSIVE",
+  "scope": "Package structure, contract binding, claim/dependency compatibility, and current artifact references. Does not prove mathematical truth or constitute independent adjudication."
+}
