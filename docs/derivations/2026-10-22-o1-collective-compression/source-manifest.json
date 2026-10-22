@@ -1,0 +1,51 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "sources": [
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\AUTHORING.md",
+      "sha256": "d7207fcba1102dc881e1858dec70de49a567555e0b87a0a1aa51e239270f28ac"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\03_dynamics.tex",
+      "sha256": "a6f24c5374a16cb25ba235fe41ad3d8399d15b900045eb8d890811531751c3d4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\04_prediction.tex",
+      "sha256": "b4511df9b7e40efe4a26b1663f3632ba316dc1ae3f822008fe1a04e7e8b75cf4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\05_inheritance.tex",
+      "sha256": "f7276ab73f41f950bb4d769dedbf9d7d68c2eb27053e68a7e5d23ab1620407fa"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\08_smooth_erasure.tex",
+      "sha256": "32a07630af58529b9a145e4a5a293b869c95755c84c012eec4bd180290cd2580"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\09_public_compression.tex",
+      "sha256": "25e4d9ab573b8fbbe7ee71fed381cfadddd808fcb177ee4f41f52c56ede651f7"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\12_open_formation.tex",
+      "sha256": "e211912a4dc31666e6308da5f4b75e7c1ff8b6c28b3dbff6f21366597aa9a3fb"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\13_per_agent_inheritance.tex",
+      "sha256": "bd36bdcaf93645002596ddf5463b43d2cf518430b0545672ed4c15931fa946d4"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\02_geometry.tex",
+      "sha256": "8f8902123acd72079a66d748a2ffe05e37611126052f66996ee6320cbfb156c5"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\future_TODO.md",
+      "sha256": "b39292e710ff71295de1f447accc77b3299083ca3bc703cbe45880f3f66a236e"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\future_TODO.md",
+      "sha256": "b39292e710ff71295de1f447accc77b3299083ca3bc703cbe45880f3f66a236e"
+    }
+  ]
+}

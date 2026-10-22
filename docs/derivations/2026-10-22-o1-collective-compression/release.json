@@ -1,0 +1,18 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "checkpoint": "scoped collective O1 analytical release",
+  "target_claim": "target",
+  "terminal_status": "COMPLETE_AFFIRMATIVE",
+  "certificate_claim": "target",
+  "strongest_result": "A genuinely collective one-angle physical quotient under current normalized per-agent dynamics, with persistent full/null-separated grouping, exact original-time whole-section parent dynamics, complete admitted histories, and actual nonflat inherited contextual geometry on a common finite window.",
+  "unresolved_obligations": [],
+  "outside_scope_open": [
+    "Interaction-created operational invisibility.",
+    "Pointwise local or fixed-size parent with the same geometry.",
+    "Regular geometry with continuously reported parameter-dependent crossing times.",
+    "Second-stage recursion and future_TODO extensions."
+  ],
+  "certificate_limitations": "Direct analytical derivations and same-root sequential reconstruction. Whole contextual section and fixed relative/lab-label protocol are required. No numerical parameter threshold, simulation, formal proof, independent adjudication, or infinite-time curvature bound."
+}

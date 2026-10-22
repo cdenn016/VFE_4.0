@@ -1,0 +1,72 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "target_digest": "f83979013626f813aee847ebad2dcca2c0fa4f2687c0daf601404aed35c64a6a",
+  "edges": [
+    {
+      "from": "target",
+      "to": "C7",
+      "reason": "The explicit same-model witness realizes the existential collective alternative."
+    },
+    {
+      "from": "C7",
+      "to": "C1",
+      "reason": "Required interface of the complete constructive witness."
+    },
+    {
+      "from": "C7",
+      "to": "C2",
+      "reason": "Required interface of the complete constructive witness."
+    },
+    {
+      "from": "C7",
+      "to": "C3",
+      "reason": "Required interface of the complete constructive witness."
+    },
+    {
+      "from": "C7",
+      "to": "C4",
+      "reason": "Required interface of the complete constructive witness."
+    },
+    {
+      "from": "C7",
+      "to": "C5",
+      "reason": "Required interface of the complete constructive witness."
+    },
+    {
+      "from": "C7",
+      "to": "C6",
+      "reason": "Required interface of the complete constructive witness."
+    },
+    {
+      "from": "C2",
+      "to": "C1",
+      "reason": "Uses the exact native and prescribed null fields."
+    },
+    {
+      "from": "C4",
+      "to": "C1",
+      "reason": "Uses native equivariance, complete kernels, and finite-time cone regularity."
+    },
+    {
+      "from": "C5",
+      "to": "C4",
+      "reason": "Uses the actual normalized section parent and carried histories."
+    },
+    {
+      "from": "C6",
+      "to": "C1",
+      "reason": "Combines the same native model, common grouping time, and exact positive-parameter geometric equality."
+    },
+    {
+      "from": "C6",
+      "to": "C2",
+      "reason": "Combines the same native model, common grouping time, and exact positive-parameter geometric equality."
+    },
+    {
+      "from": "C6",
+      "to": "C5",
+      "reason": "Combines the same native model, common grouping time, and exact positive-parameter geometric equality."
+    }
+  ]
+}
