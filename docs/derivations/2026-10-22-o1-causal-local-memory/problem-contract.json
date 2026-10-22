@@ -1,0 +1,46 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "target": {
+    "statement": "Determine whether a causal local retained state can replace the published O1 reference configuration, removing the common physical phase while inheriting the exact normalized native dynamics, complete fixed experiment, and actual minimizing marked connection and Fisher tensor on the original nonflat window. Supply a complete conditional construction or a precisely delimited obstruction without treating either as unrestricted closure.",
+    "kind": "MATHEMATICAL",
+    "quantifier_class": "MIXED",
+    "quantifiers": "The unrestricted target asks for one regular causal local realization valid for the rich published positive C2 contextual preparation class and every admitted finite adaptive history. A sufficient construction may restrict preparation only with an explicit additional hypothesis. A negative conclusion for a specified memory class quantifies over that class only; it does not refute unrestricted causal memory.",
+    "domains": [
+      "Three-agent positive normalized O1 exponential-family chart, context patch C in R2, pointed-cone transmitted vectors with nonzero collective sum, finite original time, full finite chronological histories.",
+      "Smooth sections inside a C2-open strict-margin class for jet-variation obstructions; context is a parameter, not an added relocation action.",
+      "Local memory initialized from permitted local data and generated forward by the native local trajectory and actual records; all retained memory is counted when assessing physical phase loss."
+    ],
+    "codomains": [
+      "Actual normalized parent recognition, presentation, source-label and joint response/update kernels; finite local law coordinates, explicitly stated jet order and required memory."
+    ],
+    "regularity": "Native field and fixed-record flows smooth on regular finite branches. Parent actual-law maps differentiable in quadratic mean with positive Fisher metric on identifiable law tangents. Bounded-jet obstruction additionally assumes smooth finite-order initialization, finite-dimensional smooth memory ODE and append maps, with a common finite order. Unrestricted alternatives are not assumed finite order.",
+    "measures": [
+      "Counting measure on signs and original labels; normalized Haar measure on each angle; original normalized chronological response/record kernels and policy randomness.",
+      "The geometry uses the actual joint history/current experiment, including its scores and any public-pattern conditioning normalizer. No prior over prepared contextual sections is introduced."
+    ],
+    "boundary_conditions": [
+      "Keep all initial persistent evidence, full ordered histories and both fixed census records. Finite record appends alter the objective without resetting recognition laws; diagnostics append history without assimilation.",
+      "The conditional accumulator begins at the declared actual initialization time with zero phase memory. Initial collective-phase coherence is an additional sufficient condition, not a conclusion about unprepared data.",
+      "Research vault and published packets read-only; no runtime/configuration edit, Lean, GPU operation, recursion, interaction-created invisibility or future_TODO extension."
+    ],
+    "symmetries": [
+      "Physical S1 rotates every transmitted B vector together; fixed relative-angle probes expose proper blocks against their exterior.",
+      "The marked gauge group acts on phi and covariant embeddings, fixes stored numerical lab labels, and acts trivially on the model presentation. It is distinct from physical transmitted-angle rotation."
+    ],
+    "equivalence": "Exact original-time intertwining and equality of every fixed adaptive joint response/update history, persistent evidence and census. Actual parent laws must have the same full minimizing marked connection affine classes, isotropy, minimized Fisher tensor and curvature on a common positive-rank nonflat window. Storing geometry without realizing it in normalized laws is insufficient.",
+    "premises": [
+      "The published O1 native vector field is pointwise in context and equivariant under physical common rotation; every admitted kernel and record transaction is invariant under that rotation.",
+      "The reference construction and earlier bounded differential-order obstruction remain scoped historical results. Neither is an unrestricted impossibility theorem."
+    ],
+    "modeling_postulates": [],
+    "search_priors": [],
+    "permitted_theorems": [
+      "Elementary equivariant ODE uniqueness, local invertibility of finite fixed-record flows, finite jet prolongation, positive Fisher norm and differentiation of normalized native densities; hypotheses supplied in the derivation."
+    ],
+    "negative_certificate_kind": "NONEXISTENCE_PROOF",
+    "falsification_criterion": "A conditional realization fails if any admitted branch changes native time or a fixed joint kernel, recovers the erased physical angle through memory, lacks local closure, or reproduces only stored geometry. A scoped obstruction fails if an in-scope regular realization escapes its phase-field or highest-jet argument. Only a scope-matched nonexistence proof could refute the unrestricted existence target.",
+    "literature_policy": "Use relevant live Research chapters and published packets first; primary literature supplies context only unless theorem hypotheses are explicitly mapped. No theorem is closed by retrieval scores or computational agreement."
+  }
+}

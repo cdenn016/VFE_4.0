@@ -1,0 +1,13 @@
+{
+  "sympy_version": "1.14.0",
+  "checks": {
+    "native_field_cancellation": true,
+    "contextual_first_jet": true,
+    "contextual_second_jet": true,
+    "spatial_temporal_compatibility": true,
+    "initial_phase_score_defect_sign": true,
+    "physical_score_positive_quadratic_coefficient": true,
+    "native_angular_velocity_depends_on_public_weight": true
+  },
+  "passed": true
+}

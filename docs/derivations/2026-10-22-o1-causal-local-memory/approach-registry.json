@@ -1,0 +1,79 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "mechanism_families": [
+    {
+      "family_id": "causal-local-initial-frame",
+      "core_mechanism": "Integrate the local native angular velocity from zero and put the generated phase into the actual native laws.",
+      "target_obligation_ids": [
+        "C-local",
+        "C-history",
+        "C-geometry",
+        "C-defect"
+      ],
+      "representation": "Local slice, one phase memory, bounded two-jet, canonical local preparation seed and full records.",
+      "invariant_or_obstruction": "Native field cancellation and exact constant-sample-map equality under initial coherence.",
+      "obligations": [
+        "Prove the named statements with their exact preparation, causal-input and geometric quantifiers."
+      ],
+      "bridge": "No hybrid route is used; each mechanism has its own direct derivation.",
+      "failure_test": "Initial phase-gradient defect outside the coherent subfamily.",
+      "verified_results": [
+        "C-local",
+        "C-history",
+        "C-geometry",
+        "C-defect"
+      ],
+      "open_gaps": [
+        "Initial phase-gradient defect outside the coherent subfamily."
+      ],
+      "novelty_fingerprint": "A locally initialized causal implementation of the source's frozen-frame idea; no novelty claim for freezing frames.",
+      "disposition": "conditional construction"
+    },
+    {
+      "family_id": "phase-field-path-obstruction",
+      "core_mechanism": "Exploit time-constant contextual physical-phase rotations that preserve every local path modulo rotation and every actual history.",
+      "target_obligation_ids": [
+        "C-path"
+      ],
+      "representation": "Arbitrary temporal causal memory with strictly spatial-order-zero invariant input.",
+      "invariant_or_obstruction": "The retained law is fixed while the fine minimized Fisher cost has a positive quadratic phase term.",
+      "obligations": [
+        "Prove the named statements with their exact preparation, causal-input and geometric quantifiers."
+      ],
+      "bridge": "No hybrid route is used; each mechanism has its own direct derivation.",
+      "failure_test": "Spatial derivative input or an initialized contextual phase relation changes the hypotheses.",
+      "verified_results": [
+        "C-path"
+      ],
+      "open_gaps": [
+        "Spatial derivative input or an initialized contextual phase relation changes the hypotheses."
+      ],
+      "novelty_fingerprint": "No temporal-memory dimension or horizon bound; spatial input and invariance are load-bearing.",
+      "disposition": "scoped obstruction"
+    },
+    {
+      "family_id": "bounded-jet-memory-obstruction",
+      "core_mechanism": "Reduce smooth generated finite memory to a finite-order current-jet law on each fixed native history, then descend the highest jet.",
+      "target_obligation_ids": [
+        "C-jet"
+      ],
+      "representation": "Uniform finite contextual order, finite-dimensional deterministic smooth recurrence and actual positive law chart.",
+      "invariant_or_obstruction": "A fixed common minimizing affine class makes the high-jet norm polynomial constant only when every derivative-law coefficient vanishes.",
+      "obligations": [
+        "Prove the named statements with their exact preparation, causal-input and geometric quantifiers."
+      ],
+      "bridge": "No hybrid route is used; each mechanism has its own direct derivation.",
+      "failure_test": "Nonfinite differential input, stochastic memory outside P or constrained preparation are not excluded.",
+      "verified_results": [
+        "C-jet"
+      ],
+      "open_gaps": [
+        "Nonfinite differential input, stochastic memory outside P or constrained preparation are not excluded."
+      ],
+      "novelty_fingerprint": "Causal recurrence reduction adds a class result to the earlier finite differential-order obstruction.",
+      "disposition": "scoped obstruction"
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "assumptions": [
+    {
+      "id": "A-native",
+      "kind": "ROUTE_HYPOTHESIS",
+      "statement": "Exact normalized positive three-agent O1 laws, original own-block Fisher field and Gibbs rows, pointwise contextual evolution, physical equivariance, nonzero cone sum on each regular finite branch; no changed force or time."
+    },
+    {
+      "id": "A-history",
+      "kind": "ROUTE_HYPOTHESIS",
+      "statement": "Every original fixed joint response/update kernel, shared relative samples, admitted history-based policies, actual preparation/past-law initialization or canonical replay seed, all raw histories, persistent evidence and census records; diagnostics do not assimilate."
+    },
+    {
+      "id": "A-coherence",
+      "kind": "ROUTE_HYPOTHESIS",
+      "statement": "At the actual initialization t_* the collective transmitted-angle direction S/|S| is constant across context and independent of subsequent history. Zero phase memory runs from that time and is retained at later handoffs. This is an additional preparation condition."
+    },
+    {
+      "id": "A-geometry",
+      "kind": "ROUTE_HYPOTHESIS",
+      "statement": "Regular actual joint history/current experiment with all history and conditioning scores, fixed lab labels, marked action distinct from physical phase, equality of complete minimizing affine connection classes and tensors, and the original finite positive-rank nonflat window."
+    },
+    {
+      "id": "A-path",
+      "kind": "ROUTE_HYPOTHESIS",
+      "statement": "Strict spatial-order-zero causal retention of the full local native value path and actual records, invariant after counting every memory under constant physical rotation; no derivative, neighboring/reference context or calibrated contextual phase seed. Arbitrary temporal memory size is allowed. For stochastic retention, the complete retained kernel is invariant and has declared regular actual laws."
+    },
+    {
+      "id": "A-jet",
+      "kind": "ROUTE_HYPOTHESIS",
+      "statement": "Finite-dimensional smooth deterministic memory, locally initialized, evolved and read out at one uniform finite contextual jet order, branchwise smooth record updates and no independent/reference phase field; rich smooth open preparation class with independent jets, invertible finite native flow on its regular reached image, and positive actual-law Fisher tangents."
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E-local",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Sections 1-3, C1-C8: normalization, cone, local angular velocity, native cancellation, two-jet prolongation and actual law germs.",
+      "side_conditions": [
+        "Exact normalized positive three-agent O1 laws, original own-block Fisher field and Gibbs rows, pointwise contextual evolution, physical equivariance, nonzero cone sum on each regular finite branch; no changed force or time."
+      ],
+      "artifact_path": "causal-phase-memory.md",
+      "artifact_sha256": "4531393f7185db9981d3b0443434d0594862365ef77973f9727f7ec1fc12e07c"
+    },
+    {
+      "id": "E-history",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Section 4: fixed-context constant sample rotation, shared-query law, transaction induction, preparation and handoff initialization.",
+      "side_conditions": [
+        "Exact normalized positive three-agent O1 laws, original own-block Fisher field and Gibbs rows, pointwise contextual evolution, physical equivariance, nonzero cone sum on each regular finite branch; no changed force or time.",
+        "Every original fixed joint response/update kernel, shared relative samples, admitted history-based policies, actual preparation/past-law initialization or canonical replay seed, all raw histories, persistent evidence and census records; diagnostics do not assimilate."
+      ],
+      "artifact_path": "causal-phase-memory.md",
+      "artifact_sha256": "4531393f7185db9981d3b0443434d0594862365ef77973f9727f7ec1fc12e07c"
+    },
+    {
+      "id": "E-geometry",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Section 5, C9-C11: constant sample isomorphism, counted memory, phase loss and nonempty marked finite-window witness.",
+      "side_conditions": [
+        "Exact normalized positive three-agent O1 laws, original own-block Fisher field and Gibbs rows, pointwise contextual evolution, physical equivariance, nonzero cone sum on each regular finite branch; no changed force or time.",
+        "Every original fixed joint response/update kernel, shared relative samples, admitted history-based policies, actual preparation/past-law initialization or canonical replay seed, all raw histories, persistent evidence and census records; diagnostics do not assimilate.",
+        "At the actual initialization t_* the collective transmitted-angle direction S/|S| is constant across context and independent of subsequent history. Zero phase memory runs from that time and is retained at later handoffs. This is an additional preparation condition.",
+        "Regular actual joint history/current experiment with all history and conditioning scores, fixed lab labels, marked action distinct from physical phase, equality of complete minimizing affine connection classes and tensors, and the original finite positive-rank nonflat window."
+      ],
+      "artifact_path": "causal-phase-memory.md",
+      "artifact_sha256": "4531393f7185db9981d3b0443434d0594862365ef77973f9727f7ec1fc12e07c"
+    },
+    {
+      "id": "E-defect",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Section 6, C12-C13: parameter-dependent density differentiation and temporal-spatial compatibility.",
+      "side_conditions": [
+        "Exact normalized positive three-agent O1 laws, original own-block Fisher field and Gibbs rows, pointwise contextual evolution, physical equivariance, nonzero cone sum on each regular finite branch; no changed force or time.",
+        "Every original fixed joint response/update kernel, shared relative samples, admitted history-based policies, actual preparation/past-law initialization or canonical replay seed, all raw histories, persistent evidence and census records; diagnostics do not assimilate.",
+        "Regular actual joint history/current experiment with all history and conditioning scores, fixed lab labels, marked action distinct from physical phase, equality of complete minimizing affine connection classes and tensors, and the original finite positive-rank nonflat window."
+      ],
+      "artifact_path": "causal-phase-memory.md",
+      "artifact_sha256": "4531393f7185db9981d3b0443434d0594862365ef77973f9727f7ec1fc12e07c"
+    },
+    {
+      "id": "E-path",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Sections 1-3, P1-P5: phase-field history identity, retained-law identity and positive horizontal physical-score quadratic.",
+      "side_conditions": [
+        "Exact normalized positive three-agent O1 laws, original own-block Fisher field and Gibbs rows, pointwise contextual evolution, physical equivariance, nonzero cone sum on each regular finite branch; no changed force or time.",
+        "Every original fixed joint response/update kernel, shared relative samples, admitted history-based policies, actual preparation/past-law initialization or canonical replay seed, all raw histories, persistent evidence and census records; diagnostics do not assimilate.",
+        "Regular actual joint history/current experiment with all history and conditioning scores, fixed lab labels, marked action distinct from physical phase, equality of complete minimizing affine connection classes and tensors, and the original finite positive-rank nonflat window.",
+        "Strict spatial-order-zero causal retention of the full local native value path and actual records, invariant after counting every memory under constant physical rotation; no derivative, neighboring/reference context or calibrated contextual phase seed. Arbitrary temporal memory size is allowed. For stochastic retention, the complete retained kernel is invariant and has declared regular actual laws."
+      ],
+      "artifact_path": "causal-obstructions.md",
+      "artifact_sha256": "41e9ede75adc6634c256aecff470961f44e7ba0e7752c6cd5997d77ae13b9612"
+    },
+    {
+      "id": "E-jet",
+      "kind": "DERIVATION",
+      "supports": true,
+      "scope": "Sections 4-5, J1-J3: branchwise finite-order reduction, joint-L2 highest-jet descent and physical-score contradiction; precise exclusions.",
+      "side_conditions": [
+        "Exact normalized positive three-agent O1 laws, original own-block Fisher field and Gibbs rows, pointwise contextual evolution, physical equivariance, nonzero cone sum on each regular finite branch; no changed force or time.",
+        "Every original fixed joint response/update kernel, shared relative samples, admitted history-based policies, actual preparation/past-law initialization or canonical replay seed, all raw histories, persistent evidence and census records; diagnostics do not assimilate.",
+        "Regular actual joint history/current experiment with all history and conditioning scores, fixed lab labels, marked action distinct from physical phase, equality of complete minimizing affine connection classes and tensors, and the original finite positive-rank nonflat window.",
+        "Finite-dimensional smooth deterministic memory, locally initialized, evolved and read out at one uniform finite contextual jet order, branchwise smooth record updates and no independent/reference phase field; rich smooth open preparation class with independent jets, invertible finite native flow on its regular reached image, and positive actual-law Fisher tangents."
+      ],
+      "artifact_path": "causal-obstructions.md",
+      "artifact_sha256": "41e9ede75adc6634c256aecff470961f44e7ba0e7752c6cd5997d77ae13b9612"
+    }
+  ],
+  "claims": [
+    {
+      "id": "target",
+      "statement": "Determine whether a causal local retained state can replace the published O1 reference configuration, removing the common physical phase while inheriting the exact normalized native dynamics, complete fixed experiment, and actual minimizing marked connection and Fisher tensor on the original nonflat window. Supply a complete conditional construction or a precisely delimited obstruction without treating either as unrestricted closure.",
+      "quantifiers": "The unrestricted target asks for one regular causal local realization valid for the rich published positive C2 contextual preparation class and every admitted finite adaptive history. A sufficient construction may restrict preparation only with an explicit additional hypothesis. A negative conclusion for a specified memory class quantifies over that class only; it does not refute unrestricted causal memory.",
+      "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+      "kind": "MATHEMATICAL",
+      "state": "INCONCLUSIVE",
+      "assumption_ids": [
+        "A-native",
+        "A-history",
+        "A-geometry"
+      ],
+      "evidence_ids": [],
+      "bridge_premise_ids": [],
+      "falsifier": "A conditional realization fails if any admitted branch changes native time or a fixed joint kernel, recovers the erased physical angle through memory, lacks local closure, or reproduces only stored geometry. A scoped obstruction fails if an in-scope regular realization escapes its phase-field or highest-jet argument. Only a scope-matched nonexistence proof could refute the unrestricted existence target."
+    },
+    {
+      "id": "C-local",
+      "statement": "The local slice r and zero-initialized causal phase accumulator have exact native original-time actual-law reconstruction and closed contextual two-jet evolution on every regular finite branch.",
+      "quantifiers": "Every instance satisfying the explicit route hypotheses and exact scope of the named derivation; no unrestricted claim.",
+      "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+      "kind": "MATHEMATICAL",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-native"
+      ],
+      "evidence_ids": [
+        "E-local"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An in-scope instance violating the displayed identity or the precise hypothesis-mapped derivation; a mechanism outside the hypotheses is not a refutation."
+    },
+    {
+      "id": "C-history",
+      "statement": "With the actual original preparation/past law retained, the local causal reconstruction preserves every admitted finite adaptive joint response/update history, persistent evidence and census, for arbitrary initial phase profiles.",
+      "quantifiers": "Every instance satisfying the explicit route hypotheses and exact scope of the named derivation; no unrestricted claim.",
+      "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+      "kind": "MATHEMATICAL",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-native",
+        "A-history"
+      ],
+      "evidence_ids": [
+        "E-history"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An in-scope instance violating the displayed identity or the precise hypothesis-mapped derivation; a mechanism outside the hypotheses is not a refutation."
+    },
+    {
+      "id": "C-geometry",
+      "statement": "Under explicit initial collective-phase coherence, the causal local reconstruction erases one common physical angle and preserves actual Fisher costs, marked minimizers, isotropy, tensor and curvature, with an O1 positive-rank nonflat witness on the same finite window.",
+      "quantifiers": "Every instance satisfying the explicit route hypotheses and exact scope of the named derivation; no unrestricted claim.",
+      "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+      "kind": "MATHEMATICAL",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-native",
+        "A-history",
+        "A-coherence",
+        "A-geometry"
+      ],
+      "evidence_ids": [
+        "E-geometry"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An in-scope instance violating the displayed identity or the precise hypothesis-mapped derivation; a mechanism outside the hypotheses is not a refutation."
+    },
+    {
+      "id": "C-defect",
+      "statement": "For arbitrary initial collective phase alpha_0(c), the accumulator's actual contextual score differs by minus d alpha_0 times the physical phase score; temporal integration supplies the phase change but not the initial spatial phase one-form.",
+      "quantifiers": "Every instance satisfying the explicit route hypotheses and exact scope of the named derivation; no unrestricted claim.",
+      "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+      "kind": "MATHEMATICAL",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-native",
+        "A-history",
+        "A-geometry"
+      ],
+      "evidence_ids": [
+        "E-defect"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An in-scope instance violating the displayed identity or the precise hypothesis-mapped derivation; a mechanism outside the hypotheses is not a refutation."
+    },
+    {
+      "id": "C-path",
+      "statement": "No in-scope rotation-invariant causal retention of the entire local value path and records can universally reproduce the actual minimized Fisher tensor on the rich open O1 preparation class, even with unbounded temporal memory.",
+      "quantifiers": "Every instance satisfying the explicit route hypotheses and exact scope of the named derivation; no unrestricted claim.",
+      "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+      "kind": "MATHEMATICAL",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-native",
+        "A-history",
+        "A-geometry",
+        "A-path"
+      ],
+      "evidence_ids": [
+        "E-path"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An in-scope instance violating the displayed identity or the precise hypothesis-mapped derivation; a mechanism outside the hypotheses is not a refutation."
+    },
+    {
+      "id": "C-jet",
+      "statement": "No in-scope smooth finite-dimensional deterministic causal memory reading a uniformly bounded contextual jet can erase the common physical phase and universally inherit both original minimizing marked affine classes and tensors on the rich smooth open preparation class.",
+      "quantifiers": "Every instance satisfying the explicit route hypotheses and exact scope of the named derivation; no unrestricted claim.",
+      "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+      "kind": "MATHEMATICAL",
+      "state": "EVIDENCE_VERIFIED",
+      "assumption_ids": [
+        "A-native",
+        "A-history",
+        "A-geometry",
+        "A-jet"
+      ],
+      "evidence_ids": [
+        "E-jet"
+      ],
+      "bridge_premise_ids": [],
+      "falsifier": "An in-scope instance violating the displayed identity or the precise hypothesis-mapped derivation; a mechanism outside the hypotheses is not a refutation."
+    }
+  ]
+}

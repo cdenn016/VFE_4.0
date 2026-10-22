@@ -1,0 +1,43 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "edges": [
+    {
+      "from": "target",
+      "to": "C-local"
+    },
+    {
+      "from": "target",
+      "to": "C-history"
+    },
+    {
+      "from": "target",
+      "to": "C-geometry"
+    },
+    {
+      "from": "target",
+      "to": "C-defect"
+    },
+    {
+      "from": "target",
+      "to": "C-path"
+    },
+    {
+      "from": "target",
+      "to": "C-jet"
+    },
+    {
+      "from": "C-history",
+      "to": "C-local"
+    },
+    {
+      "from": "C-geometry",
+      "to": "C-local"
+    },
+    {
+      "from": "C-geometry",
+      "to": "C-history"
+    }
+  ]
+}

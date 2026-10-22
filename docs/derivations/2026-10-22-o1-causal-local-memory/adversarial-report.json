@@ -1,0 +1,138 @@
+{
+  "schema_version": "rigorous-theory-search/v1",
+  "contract_id": "contract-sha256-26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "target_digest": "26ec7fe2a48e4cb1afab6357d8b2bb3c2f89e4e3cf052844f500ffc03dfea722",
+  "provenance": "Sequential same-model passes, no independent agents, corroboration or adjudication.",
+  "attacks": [
+    {
+      "id": "AT-initial-coherence",
+      "claim_ids": [
+        "target",
+        "C-geometry",
+        "C-defect"
+      ],
+      "attack": "Temporal memory might silently assume it generates initial contextual coherence.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "R3 and C12 keep C9 as an additional preparation hypothesis; unrestricted existence remains open.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    },
+    {
+      "id": "AT-handoff",
+      "claim_ids": [
+        "target",
+        "C-local",
+        "C-history"
+      ],
+      "attack": "A blank accumulator at the selected census may delete its actual prehistory.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "R1-R2 require running from actual t_* and retaining its value; zero at T is a different initialization requiring its own coherence.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    },
+    {
+      "id": "AT-density",
+      "claim_ids": [
+        "C-local",
+        "C-geometry"
+      ],
+      "attack": "The phase and tensor might be metadata with no effect on sampled normalized parent laws.",
+      "disposition": "REJECTED",
+      "response": "R1 and R3 sample q(z), whose C8 derivatives include the generated phase, and derive the full actual-law cost isomorphism.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    },
+    {
+      "id": "AT-existing-frame",
+      "claim_ids": [
+        "target",
+        "C-local"
+      ],
+      "attack": "The purported mechanism may just rename the already known frozen reference frame.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "C5 and R3 identify the predecessor explicitly; the result is a conditional local causal implementation and new memory-scope obstruction, not new invisibility.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    },
+    {
+      "id": "AT-unbounded-time-memory",
+      "claim_ids": [
+        "C-path"
+      ],
+      "attack": "Storing the whole local value path instead of a finite statistic could evade the phase obstruction.",
+      "disposition": "REJECTED",
+      "response": "R4 already allows the full path and arbitrary temporal memory; each path is the same modulo one constant local rotation under P1.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    },
+    {
+      "id": "AT-one-ansatz",
+      "claim_ids": [
+        "target",
+        "C-jet"
+      ],
+      "attack": "A failed fixed-jet recurrence is insufficient for a general no-go theorem.",
+      "disposition": "PARTIALLY_SUSTAINED",
+      "response": "R5 proves the complete declared bounded-jet smooth-memory class by reduction and descent. Mechanisms outside that class remain unresolved, so no general no-go is claimed.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    },
+    {
+      "id": "AT-averaged-history",
+      "claim_ids": [
+        "C-history",
+        "C-path",
+        "C-jet"
+      ],
+      "attack": "Averaged Fisher equality cannot simply be conditioned on each recorded branch.",
+      "disposition": "REJECTED",
+      "response": "R2 proves path-law equality by kernel induction; R4 uses joint score identities; R5 uses the nonnegative joint-L2 quadratic coefficient and finite-basis invertibility.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    },
+    {
+      "id": "AT-mixed-connections",
+      "claim_ids": [
+        "C-geometry",
+        "C-defect"
+      ],
+      "attack": "An exact physical spatial phase one-form may have been confused with the nonflat marked Fisher connection.",
+      "disposition": "REJECTED",
+      "response": "R3 distinguishes their actions and derivations. The marked connection remains the actual nonflat C11 connection; C13 is a separate initialization identity.",
+      "artifact_path": "proof-reconstruction.md",
+      "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+    }
+  ],
+  "independent_reconstruction": {
+    "claim_ids": [
+      "target",
+      "C-local",
+      "C-history",
+      "C-geometry",
+      "C-defect",
+      "C-path",
+      "C-jet"
+    ],
+    "method": "Sequential same-model reconstruction from the frozen native equations; R1-R5. Role-separated passes are not independent evidence.",
+    "result": "PASS",
+    "conclusion": "All six scoped derivations retain their assumptions; the unrestricted target remains INCONCLUSIVE.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+  },
+  "oracle_erasure": {
+    "claim_ids": [
+      "target",
+      "C-local",
+      "C-history",
+      "C-geometry",
+      "C-defect",
+      "C-path",
+      "C-jet"
+    ],
+    "method": "Semantic erasure of desired conclusions and scan of the complete dependency closure, including explicit initial-coherence and finite-input restrictions.",
+    "result": "PASS",
+    "conclusion": "No affirmative existence assumption or paraphrased unrestricted impossibility is used. This does not prove the target.",
+    "artifact_path": "proof-reconstruction.md",
+    "artifact_sha256": "56568288e7b03a031c7bc697da11b856af09e0dff62bafbaf502aaa6b729f17b"
+  }
+}
