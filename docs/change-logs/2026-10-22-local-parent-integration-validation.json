@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-22",
+  "scope": "Implementation of the accepted conditional local-parent construction and scoped obstructions. The unrestricted target remains INCONCLUSIVE.",
+  "source_contract_id": "contract-sha256-70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555",
+  "builds": {
+    "MAgent_Theory_2.0": {
+      "pages": 204,
+      "new_chapter_pdf_pages": [
+        178,
+        185
+      ],
+      "rendered_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        186,
+        187
+      ],
+      "contact_sheets": [
+        "C:\\tmp\\o1-local-parent-publication-receipts-20261022\\pdf-qa\\MAgent_Theory_2.0-contact-1.png",
+        "C:\\tmp\\o1-local-parent-publication-receipts-20261022\\pdf-qa\\MAgent_Theory_2.0-contact-2.png"
+      ],
+      "words_outside_page": [],
+      "warnings": [
+        "Overfull \\hbox (9.51393pt too wide) in paragraph at lines 115--116",
+        "Overfull \\hbox (20.93712pt too wide) in paragraph at lines 105--106",
+        "Overfull \\hbox (9.39738pt too wide) in paragraph at lines 176--178"
+      ],
+      "sha256": "2fd41608d6a02a8e7e7e55670bc4ffe685e3ff7c761e3561aa3885a4ede0956f"
+    },
+    "MAgent_Theory_2.0_companion": {
+      "pages": 76,
+      "new_chapter_pdf_pages": [
+        68,
+        72
+      ],
+      "rendered_pages": [
+        1,
+        2,
+        3,
+        4,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73
+      ],
+      "contact_sheets": [
+        "C:\\tmp\\o1-local-parent-publication-receipts-20261022\\pdf-qa\\MAgent_Theory_2.0_companion-contact-1.png",
+        "C:\\tmp\\o1-local-parent-publication-receipts-20261022\\pdf-qa\\MAgent_Theory_2.0_companion-contact-2.png"
+      ],
+      "words_outside_page": [],
+      "warnings": [],
+      "sha256": "50f71bec088ea666b5550647c97bec4acd01ff44d13497cf1f86a634e565554b"
+    }
+  },
+  "visual_inspection": "All new chapter pages and revised title/abstract/contents/outlook pages rendered and inspected; no new clipping or overlap observed.",
+  "lint": {
+    "files": 1307,
+    "broken_wikilinks": 0,
+    "graph_grey_nodes": 0,
+    "empty_files": 0,
+    "case_collisions": 0,
+    "identity_collisions": 0
+  },
+  "analytical_structural_validation": {
+    "collective_O1": "PASS",
+    "local_parent": "PASS",
+    "limitation": "Structure and evidence-file hashes only; not theorem truth."
+  },
+  "not_run": [
+    "new research or adjudication panels",
+    "model simulations",
+    "GPU work",
+    "Lean",
+    "second-stage recursion",
+    "future_TODO extensions"
+  ]
+}

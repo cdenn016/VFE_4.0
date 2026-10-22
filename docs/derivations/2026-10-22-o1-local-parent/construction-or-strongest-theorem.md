@@ -1,0 +1,36 @@
+<!-- rigorous-theory-search-metadata {"contract_id": "contract-sha256-70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555", "schema_version": "rigorous-theory-search/v1", "target_digest": "70f14344fcdcf4941082bb0826fdae50a6f48a09a54f2945f1984813d5dcb555"} -->
+# Exact local realization: construction and obstruction boundary
+
+The published O1 parent has an exact evaluation-local two-jet realization with finite contextual-reference memory. It also has a complete finite preparation-and-history realization on an explicitly restricted finite-generator initial family. Neither construction establishes a strictly germ-local compressive law on the full open class of arbitrary contextual sections. A smooth finite differential-order rule cannot erase the common physical angle and preserve both the actual minimizing connection class and tensor on that rich class. A single regular finite state cannot encode all its direct law responses over the entire contextual patch.
+
+The governing target remains INCONCLUSIVE at its unrestricted locality/memory scope. This is not a statement that a local parent is impossible: the conditional constructions below are exact. The obstruction is to specified regular representations, with explicit ways to evade their hypotheses. The fixed protocol, per-agent model, evidence, census and same-time requirement are kept throughout.
+
+## Established construction L
+
+Let x(c) be the published 24-coordinate native law tuple and a=x(c0). Retain the current canonical local two-jet, the canonical reference law tuple, complete history and initialized past-law data. Rotate every private B at c and c0 by the same matrix U(sum B(c0)). The parent recognition laws are the actual normalized canonical port laws, with the original presentation, source-label and model factors. The reference is deterministic memory and is not sampled as an extra agent or Fisher factor.
+
+The reference field determines Omega. The exact local field is V(y,c,h)-Omega K y and its contextual two-jet satisfies L4. The reference field is the same formula at c0. Because the native V is pointwise in context and the anchor is held fixed under evaluation differentiation, no third contextual derivative appears. Every admitted evidence append is applied coherently at the reference; diagnostics only append history. The same actual joint transaction kernels descend, including shared relative-angle samples and response/update dependence. A bounded preparation seed plus the complete word reconstructs the historical law when an unconditional history/current experiment is required.
+
+For each fixed t,h the sample rotation is independent of evaluation c and commutes with the marked lab-label action. Equality L6 of the complete actual Fisher costs follows. The minimizing connection, isotropy, minimized tensor and curvature coincide on the same finite positive-rank nonflat window as O1. The original grouping and prescribed-null contrast are unchanged. One global physical angle is still lost after the reference and replay memory are counted. Full derivation: [local-realization.md](local-realization.md), Sections 2-8.
+
+This replaces the whole section as an input to the *local evolution and local two-jet calculation*. It uses reference-context data, so its initialization is not strictly germ-local. Compatible data across all c remain a contextual field; one local jet does not store that field. A frame frozen at the census removes the live reference from subsequent local evolution, but it retains the reference-coherent handoff information and does not turn that initialization into a pointwise quotient.
+
+## Established conditional construction F
+
+If the initial section is given by a known finite C2 generator f(c;p), retain its physical-rotation-canonical seed, the complete chronological record, and original time. Use the exact native flow and updates to evaluate current local laws, the reference and their two-jets. This is closed as a preparation-and-history realization, with no projection of the evolved section into an ansatz and no added law force. Its normalized history/current experiment is exactly F3 and has equality L6. The explicit finite family in F1 includes the O1 rank-two marked patch, noncollinear transmitted B vectors, conflicting records and the published grouping/null window. Physical loss remains one collective rotation.
+
+This is a complete construction under the added finite-generator condition. It does not show that arbitrary C2 section data have finite generators, does not bound raw history length or evaluation cost, and does not claim a new single-source-row parent species. Full derivation: [finite-generator.md](finite-generator.md).
+
+## Established scoped obstructions N
+
+The published moving representative is not determined by a germ at c away from c0, and the anchor sum alone does not determine its angular velocity. The finite-reference state is sufficient; its minimal dimension is not established.
+
+N1 rules out every smooth finite-order jet-to-actual-law compression of the declared strict-local form on a rich smooth open section class, when both the minimizing marked connection class and tensor must agree. Its proof varies the next jet at fixed lower jets. A fixed common minimizer forces a constant positive quadratic norm, whose highest-variation coefficient must vanish. This removes all derivative dependence from the actual parent law. The remaining order-zero physical-phase quotient then loses the strictly positive horizontal psi score. The joint-history proof is in the joint L2 space, not an invalid inference from average equality to every conditional branch. Phase-bearing reference memory and constrained generator families fall outside N1.
+
+N2 rules out a single smooth finite-dimensional encoding that preserves all direct public law responses over an open arbitrary section class. More disjoint independent public perturbations than state dimensions give a response Jacobian with rank too large to factor through that state. A family of local states, a finite generator restriction, nonfinite memory and irregular encodings are outside N2. Full proofs and hypothesis limits: [locality-obstructions.md](locality-obstructions.md).
+
+## What remains open
+
+No result here supplies a strictly germ-local, geometrically faithful compressive parent on the entire arbitrary published section class with a more general allowed memory mechanism outside N1. No general impossibility of such mechanisms is proved. To assert one finite global parent on the full class one must also remove N2's encoding obstruction by declaring additional structure, nonfinite memory or a different admissible regularity class. A mechanism that merely stores the original Fisher tensor fails the actual-law requirement and is not an obstruction-removal method.
+
+The next decisive task would specify the intended admissible memory and initialization locality, then either minimize the finite reference realization or seek a genuinely different phase-bearing statistical realization. It need not repeat jet truncations covered by N1. Interaction-created invisibility, a second compressive handoff and all future_TODO extensions remain excluded.
