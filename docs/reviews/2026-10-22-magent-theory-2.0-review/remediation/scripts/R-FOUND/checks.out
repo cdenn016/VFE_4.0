@@ -1,0 +1,27 @@
+1. directed 3-cycle
+   agent-wise eigenvalues at w=2: [-1, -4 - sqrt(3)*I, -4 + sqrt(3)*I]
+   char poly: (lam + 1)*(lam**2 + 3*lam*w + 2*lam + 3*w**2 + 3*w + 1)
+2. row relaxation
+   measured rate: 0.24999999999934627 expected 0.25
+3. learned prior
+   residuals: [0, 0, 0]
+4. registered agreement
+   TF - (E + C_n + T log|X|): 0.0
+   row 1 posterior - Gibbs: 1.3877787807814457e-16
+   row 2 posterior - Gibbs: 1.1102230246251565e-16
+5. frozen source, tied copies
+   residual: 0.0
+6. label model
+   residual: -8.881784197001252e-16
+7. compensation identity
+   residual: 5.551115123125783e-17
+8. record processes
+   KL: 0.0012066247331914914 sum predictive: 0.0012066247331914972 bound: 0.025842348174500814 residual: -5.854691731421724e-18
+9. global floor
+   initial min 1e-09 trajectory min 1.0000000000000009e-09 max E increase: 3.3306690738754696e-16 final |field|: 2.8710403264613475e-09
+10. self-row bounds
+   worst margin: 0.0
+11. log odds ratio
+   residual: -4.440892098500626e-16 LOR(R) = 2.8000000000000007 4J = 2.8
+12. Dirichlet predictive
+   max TV*(A+n): 0.9122807017543859

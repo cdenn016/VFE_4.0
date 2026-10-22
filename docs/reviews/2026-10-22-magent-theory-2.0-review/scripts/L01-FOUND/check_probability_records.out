@@ -1,0 +1,24 @@
+eq:s-chain-rule                                                          residual = 1.110e-16
+   chain rule with KL = inf: lhs = inf, rhs = inf
+eq:s-different-evaluators                                                residual = 2.220e-16
+eq:s-different-evaluators after presentation change                      residual = 2.220e-16
+four-point reconstruction KL(q||qhat) = log 2                            residual = 0.000e+00
+four-point conditional divergence at each H = log 2                      residual = 0.000e+00
+   route mark b=0: shared-source O law [1.0, 0.0], independent-redraw O law [0.5, 0.5]
+   route mark b=1: shared-source O law [0.0, 1.0], independent-redraw O law [0.5, 0.5]
+   I(B;X|U=A) = H(B|A) - 0 = 0.693147 (log 2 = 0.693147); I(A;X|U=A) = 0
+   agreement: marginals [0.5, 0.5] [0.5, 0.5], E[XY] 0.250 -> 0.500, mutual information 0.693147
+   hard agreement record: best product KL(Q||posterior) = 0.693147 at (a,b) = (0.00,0.00)
+   soft record J=0.5: symmetric product optimum magnetization |m*| = 0.000 (mean-field theory: 0 iff J <= 1), KL at m=0: 0.1201, at m*: 0.1201
+   soft record J=0.9: symmetric product optimum magnetization |m*| = 0.000 (mean-field theory: 0 iff J <= 1), KL at m=0: 0.3598, at m*: 0.3598
+   soft record J=1.1: symmetric product optimum magnetization |m*| = 0.503 (mean-field theory: 0 iff J <= 1), KL at m=0: 0.5119, at m*: 0.4986
+   soft record J=2.0: symmetric product optimum magnetization |m*| = 0.958 (mean-field theory: 0 iff J <= 1), KL at m=0: 1.3250, at m*: 0.6720
+   c01 mixture (s G)(k=1) = 0.6200
+prop:registered-history total mass                                       residual = 2.220e-16
+prop:registered-history records agree with readouts a.s.                 residual = 2.220e-16
+prop:registered-history marginal consistency                             residual = 3.469e-18
+prop:bayesian-history sequential product = mixture                       residual = 2.776e-17
+extension: KL(P_Bayes||P_var) = sum_t E KL(one-step predictives)         residual = 6.939e-18
+   extension: KL(P_Bayes||P_var) = 0.036272 <= sum_t E KL(posteriors) = 0.194598
+   Z2 loop: KL(nu||H#nu) = 0.000e+00; shared-sample pair law (Y, HY) = [[0.0, 0.5], [0.5, 0.0]]; XOR record = 1.0
+   rotation holonomy theta=0.7: KL isotropic = 0.000e+00, KL anisotropic = 0.2767

@@ -1,0 +1,36 @@
+A. open:core vs limit field, 400 random (a,b): max residual 1.55e-15
+B. a_c = 1.048147, B(a_c) = 0.100000, dB/dt(a_c) = 0.553701
+   a_* = 0.832555, B(a_*) = 0.200000; time 4 -> a_c = 1.281672; S = 1.426696 <= log(4/a_*) = 1.569551
+   min dB/dt over a in [a_*, 4]: at a=4 8.105e-13 (tiny: no global positivity margin; transversality is needed only near the crossing)
+C. float64 grid scan (margins must all be > 0; V needs > SLACK = 0.006 )
+   m=0.25: largest eps passing ~ 0.3539; margins at 0.999*eps: I=1.4945, III=0.4333, IV=0.1000, Vp=0.2384, Vc=0.0062
+   m=0.50: largest eps passing ~ 0.5240; margins at 0.999*eps: I=1.0456, III=0.4166, IV=0.1000, Vp=0.2384, Vc=0.0062
+   m=0.75: largest eps passing ~ 0.7758; margins at 0.999*eps: I=0.5968, III=0.3998, IV=0.1000, Vp=0.1313, Vc=0.0062
+   m=1.00: largest eps passing ~ 1.0325; margins at 0.999*eps: I=0.1573, III=0.4077, IV=0.1000, Vp=0.0064, Vc=0.0245
+   m=1.25: largest eps passing ~ 0.0000; margins at 0.999*eps: I=-0.2481, III=0.5520, IV=0.1000, Vp=0.3000, Vc=0.1500
+D. interval certificate eps=0.5, m=0.5: PASS
+     I_lower: 0.9702133745655145
+     III_boxes_touching_B=0.1: 148
+     III_lower_Bdot: 0.40821183698822255
+     min_a_on_crossing_boxes: 1.0443775215365267
+     crossing_time_upper: 1.3428733263576522
+     V_p_lower: 0.24159145546279762
+     V_con_lower: 0.014096988477546438
+     IV_lower: 0.09988610077695961
+     start_B_upper: 7.13421785137838e-12
+     crossing_time_upper < S = 1.426696: True
+D. interval certificate eps=1.0, m=1.0: PASS
+     I_lower: 0.08381257314058826
+     III_boxes_touching_B=0.1: 152
+     III_lower_Bdot: 0.39350393863980376
+     min_a_on_crossing_boxes: 1.0443775215365267
+     crossing_time_upper: 1.3428733263576522
+     V_p_lower: 0.01774615216145778
+     V_con_lower: 0.02892968554312493
+     IV_lower: 0.09989606932858552
+     start_B_upper: 6.707271895648495e-09
+     crossing_time_upper < S = 1.426696: True
+E. open:small-gap at A=4096: 2(A/4)^(-1/4) = 0.3536
+   sharpened: bdot <= -(1-68e^-8) b = -0.97719 b gives b(t_A) <= 2(A/4)^(-0.48859) = 0.0676
+   m=0.5: eps_b = 0.5: text bound needs A >= 4 (2/eps_b)^4 = 1024.0; text bound at 4096 meets it
+   m=1.0: eps_b = 1.0: text bound needs A >= 4 (2/eps_b)^4 = 64.0; text bound at 4096 meets it

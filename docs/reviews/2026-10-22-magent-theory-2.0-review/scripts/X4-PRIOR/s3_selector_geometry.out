@@ -1,0 +1,9 @@
+(a) 1D trials: mismatches with UPGMC = 0  inversions = 0
+(a) manuscript example events: [(np.float64(0.3465735903), (0, 1), np.float64(0.19999999999999996)), (np.float64(0.5493061443), (2, 3), np.float64(0.30000000000000004)), (np.float64(1.0700330817), (0, 1, 2, 3), np.float64(0.8500000000000001))]  expected times 0.34657359027997264 0.5493061443340549 1.0700330817481354
+(a) 2D inversion: first merge height 1.0, new centroid distance 0.9
+(b) t= 0.0 A=-0.753229 F=-0.241653 dA/dk(fd)=-0.241653 h_chichi=1.741e-01
+(b) t= 1.0 A=-0.774752 F=-0.267447 dA/dk(fd)=-0.267447 h_chichi=3.473e-03
+(b) t= 3.0 A=-0.775229 F=-0.268075 dA/dk(fd)=-0.268075 h_chichi=1.167e-06
+(b) t= 6.0 A=-0.775229 F=-0.268075 dA/dk(fd)=-0.268075 h_chichi=7.170e-12
+(b) t=10.0 A=-0.775229 F=-0.268075 dA/dk(fd)=-0.268075 h_chichi=8.069e-19
+(b) predicted limits: A -> -0.7752293577981652  F -> -0.2680750778553993

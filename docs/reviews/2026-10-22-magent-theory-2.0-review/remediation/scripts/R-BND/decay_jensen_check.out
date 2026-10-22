@@ -1,0 +1,18 @@
+d=2 N=4 contrast eigenvalues min=3.666666666667 max=3.666666666667 predicted=3.666666666667
+   random rows min rate 2.600283 (>=1 expected)
+   Jensen gap k=0: 7.251e-02
+   Jensen gap k=1: 0.000e+00
+   profile depending on bit 1 only, k=0 gap: 0.000e+00 (zero iff no dependence on bits k+2..d)
+d=3 N=8 contrast eigenvalues min=3.285714285714 max=3.285714285714 predicted=3.285714285714
+   random rows min rate 1.634607 (>=1 expected)
+   Jensen gap k=0: 2.034e-01
+   Jensen gap k=1: 1.633e-01
+   Jensen gap k=2: 0.000e+00
+   profile depending on bit 1 only, k=0 gap: 0.000e+00 (zero iff no dependence on bits k+2..d)
+d=4 N=16 contrast eigenvalues min=3.133333333333 max=3.133333333333 predicted=3.133333333333
+   random rows min rate 1.646492 (>=1 expected)
+   Jensen gap k=0: 2.002e-01
+   Jensen gap k=1: 1.056e-01
+   Jensen gap k=2: 1.421e-01
+   Jensen gap k=3: 0.000e+00
+   profile depending on bit 1 only, k=0 gap: 0.000e+00 (zero iff no dependence on bits k+2..d)

@@ -1,0 +1,4 @@
+prop:int-kl-covariance  nu_j' K' = (g_i)_# (nu_j K)   residual = 5.551e-17
+prop:int-kl-covariance  D' - D                        residual = 0.000e+00
+link kernel delta_(Theta y) satisfies eq:int-kernel-covariance: True
+prop:record-law induced kernel = event kernel R under registration  residual = 0.000e+00

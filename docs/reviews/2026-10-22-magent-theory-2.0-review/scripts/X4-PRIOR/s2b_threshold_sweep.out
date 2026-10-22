@@ -1,0 +1,6 @@
+eps=0.100 delta=0.050  t_pair=0.589  t_parent=5.442  third-pair join before parent: False
+eps=0.020 delta=0.010  t_pair=0.354  t_parent=5.207  third-pair join before parent: False
+eps=0.050 delta=0.020  t_pair=0.477  t_parent=5.33  third-pair join before parent: False
+eps=0.150 delta=0.050  t_pair=0.67  t_parent=5.522  third-pair join before parent: False
+eps=0.200 delta=0.100  t_pair=0.735  t_parent=5.588  third-pair join before parent: False
+eps=0.240 delta=0.050  t_pair=0.785  t_parent=5.638  third-pair join before parent: False

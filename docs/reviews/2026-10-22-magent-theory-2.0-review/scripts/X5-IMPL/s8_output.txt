@@ -1,0 +1,8 @@
+(a) C=16.407799949245; H(q)+KL(q||pK)+E_q KL(p||p^w) = 16.407799949245; residual=0.00e+00; Jensen gap=8.2384
+(b) example rows: VFE_4.0 [0.8491 0.0162 0.1347]  2.0 identity-channel [0.0771 0.9187 0.0042]  2.0 noisy-channel [0.2744 0.6239 0.1017] (found at trial 0)
+(c) w=0.1: time to mean 0.5  moment-CAVI=0.7000  fisher_natural=0.1000  exact Fisher flow=0.0100
+(c) w=0.01: time to mean 0.5  moment-CAVI=0.6900  fisher_natural=0.0100  exact Fisher flow=0.0100
+(c) w=0.001: time to mean 0.5  moment-CAVI=0.6930  fisher_natural=0.0100  exact Fisher flow=0.0100
+(d) xbar-dot at A, B: 0.125 0.09375  claimed 1/8, 3/32
+    response means: 20.0 17.0  (x256) claimed 20, 17
+(e) relative Fisher norm of the non-Gaussian part of d/dt log q_i: without sender role 1.26e-13, with sender role 0.926

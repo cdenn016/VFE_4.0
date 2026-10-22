@@ -1,0 +1,18 @@
+configurations: 120 (A in 8,100,4100; D in [3, 10.5])
+  max ratio observed / analytic bound for C0: 0.3348 at (A, D) = (4100.0, 8.375)  (<= 1 required)
+  max ratio observed / analytic bound for C1: 0.3951 at (A, D) = (4100.0, 8.375)  (<= 1 required)
+  max ratio observed / analytic bound for B0: 0.0383 at (A, D) = (8.0, 10.45)  (<= 1 required)
+  max ratio observed / analytic bound for B1: 0.0137 at (A, D) = (8.0, 10.45)  (<= 1 required)
+  max ratio observed / analytic bound for MOV: 0.0698 at (A, D) = (4100.0, 8.375)  (<= 1 required)
+  sup_(D>=3) C1-polynomial / (1 + D^2) = 39.770 (so C1 constant 40 suffices for D >= 3)
+  sup_(D>=1) C1-polynomial / (1 + D^2) = 83.550
+LIP: max ||DF||_inf over 3000 random 6-agent configurations = 4.322 (analytic bound 64.5)
+D_R = R e^-L - A - 6 = 5.0: R = 1.7513e+07
+D_R = R e^-L - A - 6 = 12.0: R = 1.7543e+07
+D_R = R e^-L - A - 6 = 33.0: R = 1.7632e+07
+moving-frame inequality R e^-t rho <= (rho+A+6) rho and rho >= D_R: violations 0/20000
+h-step: isolated far agent, exact scaled decay vs limit  (1/h)(1-h^2u^2)atanh(hu) - u
+  h=1e-09: field error at u=R -3.6014e+03 (~ -(2/3)h^2R^3 = -3.6012e+03); max_t |u(t) - R e^-t| = 6.9312e+02 at t=0.550; at t=L 4.223e-01
+  h=1e-10: field error at u=R -3.6012e+01 (~ -(2/3)h^2R^3 = -3.6012e+01); max_t |u(t) - R e^-t| = 6.9305e+00 at t=0.549; at t=L 4.223e-03
+  h=1e-11: field error at u=R -3.6012e-01 (~ -(2/3)h^2R^3 = -3.6012e-01); max_t |u(t) - R e^-t| = 6.9304e-02 at t=0.549; at t=L 4.223e-05
+  radius-1/2 tube for the far pair alone needs h <~ 2.69e-11, i.e. T <~ 7.21e-22

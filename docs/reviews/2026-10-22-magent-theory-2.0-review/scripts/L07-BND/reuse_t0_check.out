@@ -1,0 +1,4 @@
+t=0 TV(reuse two-draw law, rotated): 0.018621330499213575
+t=0 TV(fresh two-draw law, rotated): 0.0
+t=0 TV(shared belief/model label law, belief-rotated): 0.013301304285991387
+t=0 TV(child LL law, rotated): 0.09649178850869533

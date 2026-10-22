@@ -1,0 +1,35 @@
+== 1. class costs: KL(q_i||q_j) vs D_k(f) ==
+D_k(f) = [0.2479685  0.11101298]  max |KL - D_k| = 5.551115123125783e-17
+== 2. energy identity E = N F ==
+E = 4.130853269411644  N F = 4.130853269411646  residual = 1.7763568394002505e-15
+== 3. fine gradient vs finite differences of E ==
+max relative FD residual = 6.762443521823869e-10
+== 4. fine Fisher flow vs profile flow, t in [0,1] ==
+max|q_i(t) - f(t)(u(i))| = 1.887379141862766e-15  model: 1.5543122344752192e-15  rows: 2.7200464103316335e-15
+profile moved by |f(1)-f(0)|_max = 0.786531834594745  |b(1)-b(0)| = 0.05727534260519135
+energy F(0) = 1.0327133173529115  F(1) = 0.061070546800905734
+== 5. drop the incoming ratio P_k f/f in the profile flow ==
+max|f_noincoming(1) - f(1)| = 0.07595181742137913
+== 5b. replace D_k by KL(f||P_k f) (averaged source) ==
+max|f_avgsource(1) - f(1)| = 0.008383437923514814
+== 6. non-family fine initial condition leaves the family ==
+defect at t=0: 0.15523269254976868  at t=1: 0.018646979244689055  (family run defect at t=1: 2.220446049250313e-15 )
+== 7. Gibbs-reduced variant ==
+reduced flow max|q_i - f(u(i))| = 5.773159728050814e-15
+== 8. responses at t=1 (fine family run) ==
+root response residual: 1.1102230246251565e-15
+node-L response residual: 1.5543122344752192e-15
+== 9. phase rotation at node L: same profile flow, different child laws ==
+pulled-back profile difference between phase variants: 2.886579864025407e-15
+root response difference: 2.220446049250313e-16  node-L response difference: 1.1102230246251565e-16
+TV(child LL, rotated child LL) = 0.002137432649196863  formula eq:boundary-tree-tv = 0.0021374326491967826
+== 10. base-dependent automorphism equivariance of the profile flow ==
+max|(tau f)(t) - tau(f(t))| = 0.0  rows: 0.0
+== 11. common base-record update commutes, family survives ==
+component normalizers Z_i: [0.46243439 0.46243439 0.46243439 0.46243439]  profile Z_o: 0.46243439393126606
+after record + flow, max|q_i - f(u(i))| = 2.220446049250313e-15
+== 12. reuse of one hidden child (two draws) vs fresh draws ==
+TV(reuse law, rotated reuse law) = 9.137236659730649e-06
+TV(fresh two-draw law, rotated) = 1.3010426069826053e-17
+== 13. shared belief/model label ==
+TV(shared-label joint law, belief-rotated) = 5.309378029391427e-06

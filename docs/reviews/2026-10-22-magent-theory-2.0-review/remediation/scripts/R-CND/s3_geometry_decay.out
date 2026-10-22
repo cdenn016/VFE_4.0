@@ -1,0 +1,22 @@
+alpha0=1.0 eta0=1.0 kappa=1.0: p*=1.414214, 2|f_p(p*)|=6.343146, fitted g_aa rate (t=4..6) 6.342891
+   t=0  g_aa=4.400e+00  h_chichi=7.563e-01  A_chi=-0.5366  F=-1.7072
+   t=1  g_aa=2.692e-03  h_chichi=3.573e-04  A_chi=-0.4712  F=-1.7977
+   t=2  g_aa=5.196e-06  h_chichi=6.650e-07  A_chi=-0.4817  F=-1.8102
+   t=4  g_aa=1.646e-11  h_chichi=2.094e-12  A_chi=-0.4845  F=-1.8113
+   t=6  g_aa=5.095e-17  h_chichi=6.481e-18  A_chi=-0.4844  F=-1.8138
+   t=8  g_aa=1.576e-22  h_chichi=2.062e-23  A_chi=-0.4853  F=-1.2392
+alpha0=1.0 eta0=2.0 kappa=1.0: p*=1.414214, 2|f_p(p*)|=6.343146, fitted g_aa rate (t=4..6) 6.342891
+   t=0  g_aa=4.400e+00  h_chichi=7.563e-01  A_chi=-0.5366  F=-1.7072
+   t=1  g_aa=2.692e-03  h_chichi=2.230e-04  A_chi=-0.6701  F=-1.5950
+   t=2  g_aa=5.196e-06  h_chichi=1.725e-07  A_chi=-0.8656  F=-0.8437
+   t=4  g_aa=1.646e-11  h_chichi=8.432e-14  A_chi=-0.9792  F=-0.1474
+   t=6  g_aa=5.095e-17  h_chichi=3.788e-20  A_chi=-0.9970  F=-0.0218
+   t=8  g_aa=1.576e-22  h_chichi=8.438e-29  A_chi=-1.0000  F=-0.0000
+alpha0=1.0 eta0=1.0 kappa=0.0: p*=1.000000, 2|f_p(p*)|=4.000000, fitted g_aa rate (t=4..6) 3.999948
+   t=0  g_aa=4.400e+00  h_chichi=7.563e-01  A_chi=-0.5366  F=-1.7072
+   t=1  g_aa=8.356e-02  h_chichi=1.349e-02  A_chi=-0.5051  F=-1.6986
+   t=2  g_aa=1.582e-03  h_chichi=2.486e-04  A_chi=-0.5007  F=-1.7136
+   t=4  g_aa=5.336e-07  h_chichi=8.348e-08  A_chi=-0.5000  F=-1.7163
+   t=6  g_aa=1.790e-10  h_chichi=2.801e-11  A_chi=-0.5000  F=-1.7164
+   t=8  g_aa=6.005e-14  h_chichi=9.395e-15  A_chi=-0.5000  F=-1.7164
+12 - 4 sqrt 2 = 6.343145750507619

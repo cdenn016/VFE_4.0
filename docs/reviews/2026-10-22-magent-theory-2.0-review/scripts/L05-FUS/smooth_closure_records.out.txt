@@ -1,0 +1,9 @@
+R1: conditional [0.75 0.25] P(record 1) = 0.625 posterior [0.9 0.1]
+R1: conditional [0.25 0.75] P(record 1) = 0.375 posterior [0.5 0.5]
+R2: dH/dt numeric -0.23533576946621612  -Var formula -0.2353357694524047  residual -1.3811424226517488e-11
+R3: inverse map residual 1.6653345369377348e-16
+R4 kappa       : unmarked spectrum [-0.916291 -0.223144  0.182322  0.470004], P(o=1)=0.600000, then flow 0.5 and P(o=0)=0.348692; marked-vs-direct residual 1.67e-16; H after = 0.059031
+R4 within-mark : unmarked spectrum [-0.916291 -0.223144  0.182322  0.470004], P(o=1)=0.600000, then flow 0.5 and P(o=0)=0.348692; marked-vs-direct residual 1.67e-16; H after = 0.059031
+R4 cross-mark  : unmarked spectrum [-0.916291 -0.223144  0.182322  0.470004], P(o=1)=0.500000, then flow 0.5 and P(o=0)=0.409118; marked-vs-direct residual 2.22e-16; H after = 0.126504
+R5: A=(0.6,0.4), conditional [0.75 0.25] spectrum atoms (mass, value): [(np.float64(0.4), np.float64(-0.470004)), (np.float64(0.6), np.float64(0.223144))]
+R5: A=(0.6,0.4), conditional [0.25 0.75] spectrum atoms (mass, value): [(np.float64(0.4), np.float64(0.628609)), (np.float64(0.6), np.float64(-0.875469))]

@@ -1,0 +1,12 @@
+[A] tau=0.9683 (bound 2log4=2.7726); t_A=6.9315 (lower bound 3.4657)
+[A] b(t_A)=9.309e-09 (bound 3.536e-01); a'/a in [-1.0000,-1.0000] (claim [-2,-1]); b'/b in [-3.0000,-1.0013] (claim [-4,-1/2])
+[A] p_+(tau) = 0.3775 (claim > 1/4), a(tau)=1555.4 (claim >= A/256=16.0)
+[B] parent crossing at a=1.048147 (claim 1.048147), t=1.2817; S=1.4267 (bound 1.5696)
+[C] L=8.3582, R=1.7546e+07
+[C] merge at t=0.5891: block [0, 1], qualifying margin at detection 2.98e-04
+[C] merge at t=0.5891: block [2, 3], qualifying margin at detection 2.98e-04
+[C] merge at t=0.5891: block [4, 5], qualifying margin at detection 2.98e-04
+[C] merge at t=8.2133: block [0, 1, 2, 3], qualifying margin at detection 7.12e-05
+[C] merge at t=15.9973: block [0, 1, 2, 3, 4, 5], qualifying margin at detection 4.14e-06
+[C] final partition: [[0, 1, 2, 3, 4, 5]]
+[C] max primitive core<->third-pair mass on [0,L] = 0.00e+00 (claim < 1e-3)

@@ -1,0 +1,41 @@
+eq:sgeom-lowrank generic d=3 r=1                                       residual = 2.776e-17
+eq:sgeom-lowrank generic d=4 r=2                                       residual = 8.882e-16
+eq:sgeom-lowrank generic d=5 r=3                                       residual = 1.554e-15
+eq:sgeom-lowrank generic d=6 r=6                                       residual = 1.954e-14
+eq:sgeom-lowrank with TO = 0                                           residual = 8.882e-16
+   TO = [[0.0, 1.0], [0.0, 0.0]]
+eq:sgeom-lowrank with nilpotent singular TO                            residual = 0.000e+00
+stacked interfaces identity                                            residual = 4.441e-16
+   diagonal-block replacement error with generic cross terms = 1.403e+00 (should be O(1))
+diagonal-block replacement when T1 O2 = T2 O1 = 0                      residual = 2.220e-16
+prop:sgeom-rankone closed form t=-0.874                                residual = 2.220e-16
+prop:sgeom-rankone det e^L = e^t t=-0.874                              residual = 1.665e-16
+prop:sgeom-rankone closed form t=-0.000                                residual = 2.220e-16
+prop:sgeom-rankone det e^L = e^t t=-0.000                              residual = 1.110e-16
+prop:sgeom-rankone L^2 = 0 when t = 0                                  residual = 5.646e-17
+prop:sgeom-rankone closed form t=+1.188                                residual = 8.882e-16
+prop:sgeom-rankone det e^L = e^t t=+1.188                              residual = 1.332e-15
+lem:sgeom-frechet integral vs scipy expm_frechet                       residual = 2.753e-14
+lem:sgeom-frechet integral vs central difference                       residual = 5.617e-10
+lem:sgeom-frechet commuting case equals e^L H                          residual = 1.336e-12
+eq:sgeom-moment-derivative symbolic residual: Matrix([[0, 0], [0, 0]])
+prop:int-rank e^{OT} v = v on ker T                                    residual = 4.441e-16
+prop:int-rank im(e^OT - I) in im O: rank O = 2, rank [O, e^OT - I] = 2
+prop:int-rank rank OT = 2, det e^OT = 0.0800 = e^tr = 0.0800
+prop:int-moment-equivariance L' = h^-1 L h                             residual = 3.775e-15
+eq:int-reference-equivariance => link independent of common h          residual = 1.332e-15
+eq:int-endpoint Theta' = g_i Theta g_j^-1                              residual = 1.776e-15
+frame redundancy KL(nu_i||Theta# nu_j) = KL(ref_i||e^L# ref_j)         residual = 1.110e-16
+eq:int-nongaussian-loop (I+E12)(I+E21) = [[2,1],[1,1]]                 residual = 0.000e+00
+   Laplace(0,b) variance 2b^2 = 1.000000
+Laplace example L12 = E12                                              residual = 0.000e+00
+Laplace example L21 = E21                                              residual = 0.000e+00
+   loop trace 3.000, det 1.000, eigenvalues [0.38196601 2.61803399]
+Theta_21 != Theta_12^-1 (norm of difference, should be O(1))           residual = -1.000e+00
+reciprocal part: Omega_ij Omega_ji = I (50 random pairs, worst)        residual = 3.154e-15
+reciprocal part: Omega' = g_i Omega g_j^-1 (50 random, worst)          residual = 1.066e-14
+   Laplace example: backtrack loop at agent 2 Theta_21 Theta_12 = [[1.0, 1.0], [1.0, 2.0]]
+   Laplace example: reciprocal part Omega_12 = [[0.894427, 0.447214], [-0.447214, 0.894427]]
+   Laplace Omega_12 Omega_21 = I                                       residual = 3.029e-16
+   Laplace Theta_12 = Omega_12 (Theta_21 Theta_12)^{1/2}               residual = 6.050e-17
+   logm([[-1,1],[0,-1]]) max |imag| = 3.142; det = 1.0 > 0

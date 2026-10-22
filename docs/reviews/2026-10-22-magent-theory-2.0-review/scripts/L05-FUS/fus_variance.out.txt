@@ -1,0 +1,4 @@
+d(local KL)/d v_q at v_q = 1/n: n*(a - 1)/2   (zero iff a = 1)
+d(peer)/d s_receiver at s=1: 0
+d(peer)/d s_source   at s=1: (chi*(m_i - m_j) - m_i + m_j)**2/(2*(chi - 1)*Abs(chi*(m_i - m_j) - m_i + m_j))  (nonzero whenever m_i != m_j)
+   numeric example m_i=1, m_j=0, chi=0.3: -0.5

@@ -1,0 +1,14 @@
+[self-similarity of collapsed clusters]
+  m=1: B=0.1652048699 (v/(1+v)=0.1652048702); a'=-1.49473753 vs -a(1+4B)=-1.49473753
+  m=2: B=0.1652048697 (v/(1+v)=0.1652048702); a'=-1.49473753 vs -a(1+4B)=-1.49473753
+  m=4: B=0.1652048692 (v/(1+v)=0.1652048702); a'=-1.49473753 vs -a(1+4B)=-1.49473753
+[depth-3 probe] A2=50.0, A3=2500.0, R=1.020e+06
+  merge t=0.589 block [0, 1] margin 3.6e-04
+  merge t=0.589 block [2, 3] margin 3.6e-04
+  merge t=0.589 block [4, 5] margin 3.6e-04
+  merge t=0.589 block [6, 7] margin 3.6e-04
+  merge t=0.589 block [8, 9] margin 3.6e-04
+  merge t=3.808 block [0, 1, 2, 3] margin 9.3e-05
+  merge t=3.808 block [4, 5, 6, 7] margin 9.3e-05
+  merge t=7.720 block [0, 1, 2, 3, 4, 5, 6, 7] margin 2.6e-04
+  merge t=13.281 block [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] margin 2.4e-04

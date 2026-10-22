@@ -1,0 +1,3 @@
+T6: spectra of agent 0 at z=-1 under psi / psi': [-0.69314718 -0.69314718  0.40546511  0.40546511] [-2.30258509 -1.2039728  -0.10536052  0.99325177]
+    max public difference, common psi vs common psi' (spectra differ everywhere): 9.468936745804513e-11
+    control: psi at z=-1, psi' at z=+1 vs common psi: 0.02234896457595703

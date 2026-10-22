@@ -1,0 +1,15 @@
+== explicit instance: base trivial, d=2, f(u1,u2) = 1 + 0.5 u2, k = 0 ==
+D_0 = 0.274653072167, KL(J||J^rev) = 0.274653072167, KL(f||P_0 f) = 0.130812035941
+D_0 - KL(f||P_0 f) = 0.143841036226, Jensen term = 0.143841036226, closed form -0.5 log 0.75 = 0.143841036226
+P_0 f = [1. 1. 1. 1.] (constant: the averaged class source equals the reference here)
+== random d=3 profile on a 2-point base: all k ==
+k=0: D_k=1.5420035796 KL(J||Jrev)=1.5420035796 |diff|=2.2e-16; D_k-KL(f||P_kf)=0.1724700297 gap=0.1724700297
+k=1: D_k=1.2912971724 KL(J||Jrev)=1.2912971724 |diff|=4.4e-16; D_k-KL(f||P_kf)=0.1582484581 gap=0.1582484581
+k=2: D_k=1.7926394598 KL(J||Jrev)=1.7926394598 |diff|=2.2e-16; D_k-KL(f||P_kf)=-0.0000000000 gap=0.0000000000
+== gradient of D_k vs gradient of KL(f || P_k f) at the d=2 instance ==
+centred force from D_0: [ 0.607986 -1.823959  0.607986 -1.823959]
+centred force from KL(f||P_0 f): [ 0.274653 -0.823959  0.274653 -0.823959]
+== decay of public contrast: linearized operator 3 - 2 sum_k b_k P_k ==
+d=2: uniform-prior class weights [0.6667 0.3333]; contrast eigenvalues min 3.6667 max 3.6667
+d=3: uniform-prior class weights [0.5714 0.2857 0.1429]; contrast eigenvalues min 3.2857 max 3.2857
+d=4: uniform-prior class weights [0.5333 0.2667 0.1333 0.0667]; contrast eigenvalues min 3.1333 max 3.1333

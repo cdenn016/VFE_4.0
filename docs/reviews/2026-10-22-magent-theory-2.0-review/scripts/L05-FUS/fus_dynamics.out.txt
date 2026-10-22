@@ -1,0 +1,36 @@
+=== Part A: event-driven exact solution, original time ===
+a=1.0,c=0.5,lam=0.3,d=1.0: events [(np.float64(1.212271607141), [[0, 1], [2, 3]]), (np.float64(2.252022525712), [[0, 1, 2, 3]])]
+   t1 formula 1.212271607141, t2 formula 2.252022525712; residuals 0.00e+00, 0.00e+00
+a=2.0,c=1.5,lam=1.0,d=0.5: events [(np.float64(0.235566071313), [[0, 1], [2, 3]]), (np.float64(0.543867430967), [[0, 1, 2, 3]])]
+   t1 formula 0.235566071313, t2 formula 0.543867430967; residuals 0.00e+00, -2.22e-16
+gaps (0.7, 2.9, 1.1): D=+1.600; event sequence [[[0, 1], [2], [3]], [[0, 1], [2, 3]], [[0, 1, 2, 3]]]; final t 1.898161109394 vs formula 1.898161109394 (formula applies only if D>0)
+gaps (1.3, 3.0, 0.4): D=+1.250; event sequence [[[0], [1], [2, 3]], [[0, 1], [2, 3]], [[0, 1, 2, 3]]]; final t 1.914225452789 vs formula 1.914225452789 (formula applies only if D>0)
+gaps (1.0, 1.2, 1.3): D=-0.250; event sequence [[[0, 1], [2], [3]], [[0, 1, 2], [3]], [[0, 1, 2, 3]]]; final t 1.400135246809 vs formula 1.365351761385 (formula applies only if D>0)
+
+=== Part B: smoothed full two-sector system (eps-regularized sign) ===
+nfev 4355 status 0
+  first contact (0, 1, 'q') 1.21219
+  first contact (0, 1, 's') 1.21219
+  first contact (2, 3, 'q') 1.21219
+  first contact (2, 3, 's') 1.21219
+  first contact (1, 2, 'q') 2.25199
+  first contact (1, 2, 's') 2.25199
+  formulas: t1=1.21227, t2=2.25202
+  max |v_i(t) - v0 e^{-(a+c)t}| over agents and grid: 2.4816371180236274e-11
+  max |mu(T)| (u should be 0 after t2): 5.421010862427522e-18
+
+=== Part C: perturbation off the common-offset class (numerical observation) ===
+ trial 0: contact order (time, pair, sector): [(np.float64(1.181), (2, 3, 'q')), (np.float64(1.2062), (0, 1, 's')), (np.float64(1.2189), (0, 1, 'q')), (np.float64(1.2193), (2, 3, 's')), (np.float64(2.24), (0, 2, 'q')), (np.float64(2.24), (0, 3, 'q')), (np.float64(2.24), (1, 2, 'q')), (np.float64(2.24), (1, 3, 'q'))]
+ trial 1: contact order (time, pair, sector): [(np.float64(1.2193), (0, 1, 'q')), (np.float64(1.2279), (0, 1, 's')), (np.float64(1.2446), (2, 3, 'q')), (np.float64(1.2518), (2, 3, 's')), (np.float64(2.2547), (0, 2, 'q')), (np.float64(2.2547), (0, 3, 'q')), (np.float64(2.2547), (1, 2, 'q')), (np.float64(2.2547), (1, 3, 'q'))]
+ trial 2: contact order (time, pair, sector): [(np.float64(1.1978), (0, 1, 'q')), (np.float64(1.1985), (0, 1, 's')), (np.float64(1.2121), (2, 3, 's')), (np.float64(1.223), (2, 3, 'q')), (np.float64(2.2568), (0, 2, 'q')), (np.float64(2.2568), (0, 3, 'q')), (np.float64(2.2568), (1, 2, 'q')), (np.float64(2.2568), (1, 3, 'q'))]
+
+=== Part D: two agents, contact in one sector without sticking ===
+  |c dy(0)| = 2.5 > 2 lam = 0.6
+  q-gap sign changes at t ~ [0.0322 2.3786 2.3925 2.3926 2.4032] ; dx just after first crossing: -0.00898001126813771
+  max dx on [0.2, 2.0] (negative => crossed and separated): -0.02400460409697247 ; min dx there: -0.5008969122103702
+  q-gap settles (|dx|<50eps thereafter) at t ~ 2.0494 ; s-gap settles at t ~ 2.3786
+
+=== Part E: random initial data, time to complete synchronization (both sectors) ===
+ trial 0: complete synchronization (spread<1e-4) from t ~ 1.9520000000000002; |mu| at that time 0.4429751283775449
+ trial 1: complete synchronization (spread<1e-4) from t ~ 1.3035; |mu| at that time 0.31390092640322564
+ trial 2: complete synchronization (spread<1e-4) from t ~ 0.934; |mu| at that time 0.6841284911541256

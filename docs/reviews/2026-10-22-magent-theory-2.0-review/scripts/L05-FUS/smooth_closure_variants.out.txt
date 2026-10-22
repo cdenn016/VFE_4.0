@@ -1,0 +1,6 @@
+V1 fixed reconstruction: max |dlog kappa/dt - 2(H - ell)| = 5.6576854312595515e-11
+   swapped (equal spectra) max public trajectory difference: 3.933187109339542e-12
+V2 private-transmitting channel: public belief velocity, original vs swapped:
+    [ 0.3071121  -0.3071121  -0.44923305  0.44923305 -0.0952117   0.0952117 ]
+    [ 0.32759989 -0.32759989 -0.36998589  0.36998589 -0.26809711  0.26809711]
+   max difference: 0.17288541577642483

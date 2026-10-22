@@ -1,0 +1,15 @@
+1. precision residual: Matrix([[0, 0], [0, 0]])
+2. KL - (C + nU): 0
+3. predictive variance residual: 0
+4a. q_n B_n variance residual: 0
+4b. G_n B_n^h vs B_n G_1 variance residual: 0 ; equals h-(c/a)^2/n: 0
+4c. predictive square variances: 0 0
+5. 2KL/(1-chi)^2 - (mi-mj)^2: 0
+6. 1/n_I residual: 0.0 ; joint cov residual: 5.551115123125783e-17 ; conditional noise residual: 0.0
+7. n=2: fine KL - parent KL - (n-1)C = -2.7755575615628914e-16 ; fine KL - n(C+U) = 0.0
+7. n=3: fine KL - parent KL - (n-1)C = -9.992007221626409e-16 ; fine KL - n(C+U) = -8.881784197001252e-16
+7. n=5: fine KL - parent KL - (n-1)C = 6.661338147750939e-16 ; fine KL - n(C+U) = 8.881784197001252e-16
+8. n=2: cond cov residual 0.00e+00, cross cov(R, Zbar) 0.00e+00, one-child var 0.5000 vs 1-1/n 0.5000, independent-residual off-diag cov of reused-sample children 0.5000 (true 0)
+8. n=4: cond cov residual 0.00e+00, cross cov(R, Zbar) 0.00e+00, one-child var 0.7500 vs 1-1/n 0.7500, independent-residual off-diag cov of reused-sample children 0.2500 (true 0)
+8b. generative residual covariance (I-11^T/n) x Sigma_{s1G1} residual: 5.551115123125783e-17
+    parent generative law s_nG_n = averaged child law: cov residual 5.551115123125783e-17

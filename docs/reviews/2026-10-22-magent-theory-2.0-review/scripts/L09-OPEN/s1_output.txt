@@ -1,0 +1,9 @@
+[1] open:binary-field vs FD Fisher gradient, max|diff| = 9.488676511182348e-11
+[2] product reduction of open:full-field to open:binary-field, residuals = [-2.4980018054066023e-17, 1.1102230246251565e-16]
+[3] open:core residuals = [0.0, 6.938893903907228e-17, 0.0, -6.759672320180059e-17, 0.0, -1.6040538691147586e-17]  reflection invariance residuals = [0.0, 0.0]
+[4a] Hankel H - c1 c2 (v1-v2)^2 = 0
+[4b] sigma1 - (v1+v2) = 0 ; sigma2 - v1 v2 = 0
+[4c] F(r) = sum_j b_j exp(v_j r), v_j = atanh(x_j)/T : log-residuals = [-3.3306690738754696e-16, 1.1102230246251565e-16]
+[5] generated-loss coefficient = 32/3
+[6] quotient metric - F^2/(1/I1+1/I2) = 0 ; slice - quotient = F**2*(I1 - I2)**2/(4*(I1 + I2))
+[7] max |g_c'| / ((1+4r^2)e^{-2r^2}) on r in [2,8], c in {1,1.5,3,10} = 0.9922178988326849 ; 34 e^-8 = 0.011405729348685403 ; 68 e^-8 = 0.022811458697370807
