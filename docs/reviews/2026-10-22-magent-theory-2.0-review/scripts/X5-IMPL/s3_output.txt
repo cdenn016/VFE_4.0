@@ -1,0 +1,8 @@
+max |fine belief velocity - lifted profile velocity| = 4.440892098500626e-16
+max |fine model velocity - lifted profile velocity|  = 1.6653345369377348e-16
+max row-velocity residual (belief, model) = 1.3877787807814457e-17 0.0
+class 0: D_k(f)=0.214514413631, fine KL range=(0.214514413631,0.214514413631)
+  Jensen gap D_k - KL(f||P_k f) = 1.579e-02, direct = 1.579e-02
+class 1: D_k(f)=0.091366173598, fine KL range=(0.091366173598,0.091366173598)
+  Jensen gap D_k - KL(f||P_k f) = 0.000e+00, direct = 0.000e+00
+velocity change if incoming term is dropped: 1.0952420221495944

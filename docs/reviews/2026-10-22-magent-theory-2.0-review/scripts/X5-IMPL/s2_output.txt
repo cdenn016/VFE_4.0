@@ -1,0 +1,4 @@
+Fx residual through order 4: 0
+Fy residual through order 4: 0
+det (truncated fields): 12*c1**2*c2**2*epsilon**4*(J - 6)*(J - 2)
+claimed - computed: 0

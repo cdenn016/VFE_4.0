@@ -1,0 +1,6 @@
+events (tau, masses): [(0.714285714286, 1, 1), (0.714285714286, 1, 1), (1.785714285714, 2, 2)]
+t1, t2 numeric: 0.6282860707022654 1.3474912518317177  claimed: 0.6282860707022654 1.3474912518317177
+D>0 cases checked: 4495, violations of two-pair-then-merge or tau_final: 0
+two-pair structure with D<=0 (condition is sufficient, not necessary): 0
+explicit Euler dt=0.01: post-collision gap oscillation amplitude ~ 8.00e-03 (2*lam*dt=1.4e-02); exact gap is 0
+explicit Euler dt=0.001: post-collision gap oscillation amplitude ~ 1.00e-03 (2*lam*dt=1.4e-03); exact gap is 0

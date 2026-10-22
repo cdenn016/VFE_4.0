@@ -1,0 +1,4 @@
+max relative passive/reference invariance error: 7.952666542483709e-12
+Q(I) = 0.0
+unipotent holonomy, M=I: Q = 1.0 ; M=diag(4,1): Q = 0.25
+2.0 moment-family two-cycle holonomy [[2.0, 1.0], [1.0, 1.0]]  defect at base vertex with M=I: 3.0

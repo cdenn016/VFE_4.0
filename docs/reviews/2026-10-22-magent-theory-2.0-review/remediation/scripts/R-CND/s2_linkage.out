@@ -1,0 +1,8 @@
+1000 configurations: centroid mismatches 0, single-linkage set-sequence mismatches 251
+example [0.   1.   2.05 3.5 ] event rule: [(np.float64(1.1513), [0, 1]), (np.float64(1.3371), [2, 3]), (np.float64(1.5623), [0, 1, 2, 3])]
+  centroid: [(np.float64(1.0), [0, 1]), (np.float64(1.45), [2, 3]), (np.float64(2.275), [0, 1, 2, 3])]
+  single  : [(np.float64(1.0), [0, 1]), (np.float64(1.05), [0, 1, 2]), (np.float64(1.45), [0, 1, 2, 3])]
+chapter example times [np.float64(0.346574), np.float64(0.549306), np.float64(1.070033)] expected [np.float64(0.346574), np.float64(0.549306), np.float64(1.070033)]
+distinct trees over four deltas: 1
+N=4: balanced 9382, exact predicate 9382, mismatches 0, sufficient class 6691
+gap below threshold -> rule requires initial distances above delta: None

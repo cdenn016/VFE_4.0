@@ -1,0 +1,15 @@
+1a cost^2 - (mi-mj)^2: 0
+1b dKL/dv at v=1/n (per sector, both sectors share v): n*(a - 1)  expected n(a-1) for two sectors
+2 sync time, bound: (0.7005800000004191, np.float64(3.0412260734300847), np.float64(0.04364005587822565))
+2 sync time, bound: (0.9696400000006882, np.float64(3.977828753596503), np.float64(0.0731494406559951))
+2 sync time, bound: (0.7167800000004353, np.float64(2.9498957128783148), np.float64(0.0060223340134877255))
+3 dyadic history: [(np.float64(0.5), [0, 1]), (np.float64(0.5), [2, 3]), (np.float64(0.5), [4, 5]), (np.float64(0.5), [6, 7]), (np.float64(1.35), [4, 5, 6, 7]), (np.float64(1.35), [0, 1, 2, 3]), (np.float64(3.704), [0, 1, 2, 3, 4, 5, 6, 7])]
+4a spectrum atoms (mass, value): [(np.float64(0.6), np.float64(0.223)), (np.float64(0.4), np.float64(-0.47))]
+4a spectrum atoms (mass, value): [(np.float64(0.6), np.float64(-0.875)), (np.float64(0.4), np.float64(0.629))]
+4b max |difference of CGF differences|: 2.5326962749261384e-16
+4c CGF evolution residual: 1.8214596497756474e-16
+4d range0 -0.6931471805599453 0.6931471805599453 range_t -0.2960579819059834 0.39235542455505534 width ratio 0.49658530379140947 a 0.4965853037914095
+5 KL(k1||k1)=0, KL(k1||k2)= 0.5493061443340548 0.5 log 3 = 0.5493061443340549
+6 d0 0.13 argmin d 0.0 threshold 2h lam = 0.13999999999999999
+6 d0 0.14 argmin d 0.0 threshold 2h lam = 0.13999999999999999
+6 d0 0.15 argmin d 0.01 threshold 2h lam = 0.13999999999999999

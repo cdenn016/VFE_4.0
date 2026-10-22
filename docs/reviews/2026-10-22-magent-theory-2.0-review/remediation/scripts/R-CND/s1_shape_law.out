@@ -1,0 +1,7 @@
+unequal precisions; alpha' + 2(alpha - alpha0) residual, P' residual
+full  kappa=0.0: shape residual 2.62e-08, precision residual 4.24e-08, alpha' = [-0.  -0.4 -1.6 -2.2]
+null  kappa=0.0: shape residual 2.62e-08, P1' null vs full differ by 0.000
+full  kappa=1.0: shape residual 3.09e-07, precision residual 2.57e-07, alpha' = [-0.  -0.4 -1.6 -2.2]
+null  kappa=1.0: shape residual 2.49e-07, P1' null vs full differ by 1.087
+full  kappa=5.0: shape residual 1.60e-06, precision residual 1.25e-06, alpha' = [-0.       -0.4      -1.6      -2.200002]
+null  kappa=5.0: shape residual 1.16e-06, P1' null vs full differ by 6.441

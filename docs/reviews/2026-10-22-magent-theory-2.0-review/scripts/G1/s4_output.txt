@@ -1,0 +1,16 @@
+ka = 1.001342, kb = 0.977189
+manuscript constants, A = 4096:
+  tau <= 2 log 4 = 2.7726; a(tau) >= A/256 = 16.0
+  t_A >= 0.5 log(A/4) = 3.4657; b(t_A) <= 2 (A/4)^-1/4 = 0.3536
+sharpened constants:
+  tau <= log 4 / kb = 1.4187; a(tau) >= A e^(-ka tau) = 0.2416 A
+  a(tau) >= 8 needs A >= 33.12; b(t_A) <= 2 (A/4)^(-kb/ka) <= 1 needs A >= 8.14
+  A=    34: t_A in [2.1372, 2.1401], b(t_A) <= 0.2478, parent crossing <= t_A + 1.3429 < L = t_A + S <= 3.5668
+      D_R =  8.0: R = 1.6993e+03; admissibility h < 1/(R+3) = 5.874e-04; far-pair tube (radius 1/2, common mode) h < 2.818e-05
+      D_R = 12.0: R = 1.8409e+03; admissibility h < 1/(R+3) = 5.423e-04; far-pair tube (radius 1/2, common mode) h < 2.499e-05
+  A=    64: t_A in [2.7689, 2.7726], b(t_A) <= 0.1336, parent crossing <= t_A + 1.3429 < L = t_A + S <= 4.1993
+      D_R =  8.0: R = 5.1978e+03; admissibility h < 1/(R+3) = 1.923e-04; far-pair tube (radius 1/2, common mode) h < 5.268e-06
+      D_R = 12.0: R = 5.4644e+03; admissibility h < 1/(R+3) = 1.829e-04; far-pair tube (radius 1/2, common mode) h < 4.887e-06
+  A=  4096: t_A in [6.9222, 6.9315], b(t_A) <= 0.0023, parent crossing <= t_A + 1.3429 < L = t_A + S <= 8.3582
+      D_R =  8.0: R = 1.7529e+07; admissibility h < 1/(R+3) = 5.705e-08; far-pair tube (radius 1/2, common mode) h < 2.690e-11
+      D_R = 12.0: R = 1.7546e+07; admissibility h < 1/(R+3) = 5.699e-08; far-pair tube (radius 1/2, common mode) h < 2.686e-11

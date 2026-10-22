@@ -1,0 +1,10 @@
+[T1] max |rows_full - rows_binary| at t=0: 6.971962070168036e-16
+[T2] angular factor vs f0^(e^-2t)/norm at t=2.00: max rel err = 3.6221758925591985e-10
+[T2] bit means full vs binary at t=2.00: max|diff|/h = 7.175475491560945e-09
+[T3] product reference events: [(0.59, [2, 3]), (0.61, [0, 1]), (0.67, [4, 5]), (1.68, [0, 1, 2, 3]), (3.445, [0, 1, 2, 3, 4, 5])]
+[T6] max normalization drift: 4.440892098500626e-16
+[T3] correlated eps_c=1e-04 (eps_c/h=0.02) events: [(0.59, [2, 3]), (0.605, [0, 1]), (0.67, [4, 5]), (1.68, [0, 1, 2, 3]), (3.445, [0, 1, 2, 3, 4, 5])]
+[T3] correlated eps_c=1e-03 (eps_c/h=0.20) events: [(0.595, [2, 3]), (0.63, [0, 1]), (0.675, [4, 5]), (1.685, [0, 1, 2, 3]), (3.445, [0, 1, 2, 3, 4, 5])]
+[T3] correlated eps_c=1e-02 (eps_c/h=2.00) events: [(0.605, [4, 5]), (0.635, [2, 3]), (0.835, [0, 1]), (1.7, [0, 1, 2, 3]), (3.445, [0, 1, 2, 3, 4, 5])]
+[T4] H_I rotation (+11,-11) grid steps: max row diff 3.36e-12; max |rotated law diff| 1.55e-15; aggregate-angle first-moment diff 1.69e-16; individual first-moment diff 6.13e-01
+[T5] omega_0=1.133e-04, omega_1=3.650e-05; max|lhs - rhs| over block = 4.45e-08; size of correction term = 7.96e-06; error if correction omitted = 7.98e-06

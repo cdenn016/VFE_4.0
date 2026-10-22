@@ -1,0 +1,2 @@
+receiver-dependent targets=False: max spread over z of d/dt log(q_i/q_j) + 2 log(q_i/q_j) = 7.42e-09
+receiver-dependent targets=True: max spread over z of d/dt log(q_i/q_j) + 2 log(q_i/q_j) = 7.06e+00

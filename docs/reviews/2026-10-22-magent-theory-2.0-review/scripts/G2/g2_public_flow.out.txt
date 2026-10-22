@@ -1,0 +1,29 @@
+(1) finite-difference check of the first variation h_i
+  agent 0: FD -0.0906195741  formula -0.0906195742
+  agent 1: FD -0.1886154531  formula -0.1886154528
+  agent 2: FD -0.0139505320  formula -0.0139505319
+  max |FD - formula| = 3.28e-10
+(1b) independent check: full fine energy with receiver-reconstruction channels
+     K_ij((z',v'),(z,v)) = b_ij[mu](z',z) kappa_{i,z}(v); claim dE/dq_i = h_i(z) + ell_{i,z}(v) + const
+  agent 0: FD +0.1367480342  h(z)+ell(z,v) +0.1367480340
+  agent 1: FD -0.3000429443  h(z)+ell(z,v) -0.3000429445
+  agent 2: FD +0.0992549718  h(z)+ell(z,v) +0.0992549719
+  max |FD - formula| = 2.16e-10
+(2) fine flow on (z,v) tables vs lift of the retained flow, n=32, m=24, T=1.5
+  max |mu_fine - mu_retained| = 1.02e-11; max |ell_fine - ell_explicit| = 8.32e-12; rows 1.02e-13
+(3) dissipation identity along the retained flow (central differences)
+  dt=0.005: t=0.100: dE/dt (FD) -3.33402471, -sum Var -3.33395904
+  dt=0.005: t=0.500: dE/dt (FD) -1.77361197, -sum Var -1.77359303
+  dt=0.005: t=1.000: dE/dt (FD) -0.93448449, -sum Var -0.93447940
+  dt=0.005: max residual 6.57e-05 (central-difference error should scale like dt^2)
+  dt=0.0025: t=0.100: dE/dt (FD) -3.33397546, -sum Var -3.33395904
+  dt=0.0025: t=0.500: dE/dt (FD) -1.77359776, -sum Var -1.77359303
+  dt=0.0025: t=1.000: dE/dt (FD) -0.93448067, -sum Var -0.93447940
+  dt=0.0025: max residual 1.64e-05 (central-difference error should scale like dt^2)
+(4) a priori oscillation bound, osc m_i(0) about 10
+  n=16: agent 0 C_0 = 8.873, osc m_0(0) = 7.682, osc m_0(T) = 1.508, min beta over agents at T = 0.264
+  n=16: max over t in [0.05,3], i of [osc m_i(t) - bound_i(t)] = -0.264 (< 0 expected)
+  n=64: agent 0 C_0 = 8.927, osc m_0(0) = 7.564, osc m_0(T) = 1.510, min beta over agents at T = 0.264
+  n=64: max over t in [0.05,3], i of [osc m_i(t) - bound_i(t)] = -0.259 (< 0 expected)
+  n=256: agent 0 C_0 = 8.931, osc m_0(0) = 7.929, osc m_0(T) = 1.510, min beta over agents at T = 0.264
+  n=256: max over t in [0.05,3], i of [osc m_i(t) - bound_i(t)] = -0.260 (< 0 expected)

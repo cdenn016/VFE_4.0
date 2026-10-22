@@ -1,0 +1,4 @@
+two-block family: max|q_i - f^X(u(i))| = 4.440892098500626e-15  model: 2.1094237467877974e-15
+rows residual: 3.4416913763379853e-15   block base marginals differ: 0.5246139017300047
+heterogeneous blocks: TV(root response, root-phase-rotated root response) = 0.018166090584557336
+homogeneous check (f^L = f^R): TV = 8.326672684688674e-18

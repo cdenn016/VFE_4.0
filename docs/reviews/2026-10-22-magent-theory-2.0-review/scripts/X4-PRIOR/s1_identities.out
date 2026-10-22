@@ -1,0 +1,11 @@
+(a) Fisher - 1/(1-rho^2) = 0
+(b) max residual of the two jet identities: 0
+(b) rank of collective action map (expect 7): 7
+(b) kernel basis: [[0, 1, 0, 0, 0, 0, 0, 1]]
+(c) pi_dot - T(beta*-pi) = [0, 0, 0]
+(c) learned row after time 400 (self first): [9.776e-01 2.140e-02 9.000e-04]
+(d) jensen identity residual: 4.440892098500626e-16
+(d) jensen identity residual: -4.440892098500626e-16
+(d) jensen identity residual: 0.0
+(e) coarse minimizer: [1/3]  fine minimizer: [0]
+(f) quotient metric - F^2/(1/I1+1/I2): 0

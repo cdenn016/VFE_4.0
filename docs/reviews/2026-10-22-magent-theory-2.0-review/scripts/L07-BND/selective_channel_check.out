@@ -1,0 +1,16 @@
+== energy identity E = 2 sum KL(q_i||A) + N W(m,e) (rows at prior) ==
+E = 0.769658071735746  formula = 0.7696580717357461  residual = 1.1102230246251565e-16
+== q_j K_ij = nu exactly ==
+max |q_j K - nu| = 2.7755575615628914e-17  row sums: 0.0
+== finite-difference gradient vs 2 log f_i + c T (centred) ==
+max centred residual = 4.759475036308913e-10
+== row gradient independent of matter laws ==
+row costs equal within each row: [0. 0. 0.]
+== explicit solution ell_i(t) = a ell_i^0 + b T - log Z_i, a = e^{-2t}, bdot = -2b - c ==
+max |fine(t=1) - explicit| = 7.771561172376096e-15
+== block statistic P_I and convolution join ==
+max |cf(P_{I u J}) - cf(P_I) cf(P_J)| = 1.1703856914265263e-10
+max |cf(P_I * P_J) - cf(P_I) cf(P_J)| (convolution routine) = 3.433175098891678e-16
+== noninjectivity example: (ab, 1) vs (a, b) on A = A_U x A_V ==
+max |P_I(ab,1) - P_I(a,b)| = 2.7755575615628914e-17
+child laws differ: True

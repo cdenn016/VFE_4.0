@@ -1,0 +1,9 @@
+mdot - f_b(m) to order 4: -3*A**2*M*epsilon**3*(J - 2)
+adot to order 2: A*epsilon*(J - 5)
+check (6-3J) m a^2 residual: 0
+J=0.1 m=a=0.04: (p-m)/(m a^2)=0.583170  claimed c=0.581633  T-stability=3.43e-15
+J=0.1 m=a=0.02: (p-m)/(m a^2)=0.582016  claimed c=0.581633  T-stability=4.08e-15
+J=0.1 m=a=0.01: (p-m)/(m a^2)=0.581728  claimed c=0.581633  T-stability=3.75e-15
+J=0.2 m=a=0.04: (p-m)/(m a^2)=0.564006  claimed c=0.562500  T-stability=1.39e-15
+J=0.2 m=a=0.02: (p-m)/(m a^2)=0.562875  claimed c=0.562500  T-stability=1.46e-15
+J=0.2 m=a=0.01: (p-m)/(m a^2)=0.562594  claimed c=0.562500  T-stability=1.29e-15

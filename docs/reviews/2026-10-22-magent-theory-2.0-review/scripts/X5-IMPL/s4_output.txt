@@ -1,0 +1,4 @@
+max |natural-gradient velocity - form:ode| (separate precisions, FD grad): 5.466531725062396e-07
+velocity change if the moment-channel derivative is frozen: 1.609260618915893
+t_L, t_R, t2 = 0.34657359027997253 0.5493061443340549 1.0700330817481354  claimed 0.34657359027997264 0.5493061443340549 1.0700330817481354
+orbit inertia numeric 12.595238095238093  claimed k1 12.595238095238095

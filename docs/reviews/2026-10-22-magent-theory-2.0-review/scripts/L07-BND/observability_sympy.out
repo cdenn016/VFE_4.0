@@ -1,0 +1,9 @@
+eq:boundary-binary-flow residual (symbolic): x1**2*log(1 - x1)/2 - x1**2*log(1 - x2)/2 - x1**2*log(x1 - 1)/2 + x1**2*log(x2 - 1)/2 - log(1 - x1)/2 + log(1 - x2)/2 + log(x1 - 1)/2 - log(x2 - 1)/2
+numeric residual: -4.68791672147972e-16
+exchanged model equation numeric residual: 1.11022302462516e-16
+F_x through total degree 4, residual vs eq:boundary-response-derivatives: 0
+det D H series to eps^5: 12*c1**2*c2**2*epsilon**4*(J - 6)*(J - 2)
+claimed leading term: 12*c1**2*c2**2*epsilon**4*(J - 6)*(J - 2)
+roots in J of (6-3J)(6-J): [2, 6]
+F''(a) - (5-a^2)/(1-a^2)^2 = 0
+bracket/2 - F = log(1 - aa)/2 - log(1 - aa**2)/2 + log(aa + 1)/2  numeric at a=0.37: 1.66533453693773e-16

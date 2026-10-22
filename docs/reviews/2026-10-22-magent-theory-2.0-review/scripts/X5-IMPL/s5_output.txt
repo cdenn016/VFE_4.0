@@ -1,0 +1,12 @@
+open:core residual max over 200 random (a,b): 8.881784197001252e-16
+h=0.01: max|exact scaled field - limit field| = 1.472e-01
+h=0.001: max|exact scaled field - limit field| = 1.467e-03
+h=0.0001: max|exact scaled field - limit field| = 1.467e-05
+h=1e-06: max|exact scaled field - limit field| = 1.468e-09
+t=0.0025: (fine - retained Fisher)/t^2 = 10.35723  (claimed 32/3 = 10.66667)
+t=0.00125: (fine - retained Fisher)/t^2 = 10.51061  (claimed 32/3 = 10.66667)
+t=0.000625: (fine - retained Fisher)/t^2 = 10.58830  (claimed 32/3 = 10.66667)
+Richardson extrapolation (error O(t)): 10.665994928513413
+h=0.0001: naive d/h^2=2.0000000644, stable d/h^2=2.0000000600, limit=2.0
+h=1e-06: naive d/h^2=2.0000997545, stable d/h^2=2.0000000001, limit=2.0
+h=1e-08: naive d/h^2=2.3346654809, stable d/h^2=2.0000000172, limit=2.0

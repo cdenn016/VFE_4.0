@@ -1,0 +1,7 @@
+T1: (dE/dq_0 - ell) column spread within each z (should be ~0): [2.87887492e-11 1.74897208e-10]
+    same for s_0: [6.82837120e-11 1.85327476e-10]
+T2: max |d/dt log kappa - (H - ell)| at t=0: 1.0493836355429664e-10
+    explicit solution kappa_t ~ kappa_0^a A^(1-a), max residual at t=1: 1.113953373987897e-11
+T3: equal spectra (swapped private points), max public trajectory difference: 3.9825920339353615e-12
+T4: different spectrum at one public value, max public trajectory difference: 0.02306493317347713
+T5: equal spectra across z: max |public(full) - coarse E_c flow|: 6.592737467059351e-11

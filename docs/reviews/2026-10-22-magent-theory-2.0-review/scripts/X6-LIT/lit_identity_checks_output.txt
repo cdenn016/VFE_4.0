@@ -1,0 +1,12 @@
+1 Gibbs variational identity residual: 4.440892098500626e-16
+2 Fisher-Rao KL flow (log-density eq, entropy rate, Renyi form): (5.196842955967895e-11, 8.688233466003226e-11, np.float64(3.2621044754321815e-11))
+3 Jeffrey lift (marginal, KL identity, Pythagoras): (5.551115123125783e-17, np.float64(0.0), 5.551115123125783e-17)
+4 open:limit = -grad log-sum-exp energy, max residual: 1.3168074963765264e-09
+5 replicator dissipation dE/dt + Var residual: 1.3813483690228168e-10
+6 sticky collision times residuals: (np.float64(0.0), np.float64(0.0))
+7 Wishart Fisher = Hessian of -alpha logdet; Gamma_2 normalizer: (np.float64(2.8477032953944104e-09), np.float64(1.199040866595169e-13))
+8 von Mises inertia and derivative: (np.float64(2.220446049250313e-16), np.float64(1.2138706706465996e-11))
+9 Prony roots residual: 2.398081733190338e-14
+10 quotient vs slice metric residuals: (np.float64(0.0), 0.0)
+11 joint Fisher 1/(1-rho^2) residual: 0.0
+12 statistic pushforward is a Fisher-Rao Riemannian submersion (norm, orthogonality, gradient): (np.float64(0.0), np.float64(2.7755575615628914e-17), 1.1102230246251565e-16)

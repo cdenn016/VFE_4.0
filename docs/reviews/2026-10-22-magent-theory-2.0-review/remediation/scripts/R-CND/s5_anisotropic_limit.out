@@ -1,0 +1,7 @@
+(i) natural-gradient residual for alpha' and P' = -2P + Gamma + C: 2.91e-07
+(ii) t=   0: g_aa=4.4000 h_chichi=0.7563 A_chi=-0.5366 F=-1.7072
+(ii) t=   1: g_aa=1.0622 h_chichi=0.1821 A_chi=-0.4918 F=-1.6926
+(ii) t=   2: g_aa=1.1544 h_chichi=0.1972 A_chi=-0.4994 F=-1.6884
+(ii) t=   4: g_aa=1.1678 h_chichi=0.1992 A_chi=-0.5000 F=-1.6887
+(ii) t=   8: g_aa=1.1679 h_chichi=0.1992 A_chi=-0.5000 F=-1.6887
+(ii) t=  16: g_aa=1.1679 h_chichi=0.1992 A_chi=-0.5000 F=-1.6887
