@@ -1,0 +1,30 @@
+{
+  "head": "ba14d40daa069072fb6a320a7fa46f2bdca8061d",
+  "protected_sha256": {
+    "docs/2026-10-21-edits.md": "d020e6d91d4b506119b6a7db0dfaf892ac6d9ddc24ed7a41f32e7ee0d4f90cd1",
+    "index.md": "86394ff57721f21e074c74e0fbc5a23d90cf7762c1db9df56f0257fb3efaec60",
+    "log.md": "416b404fddfe95d3f43ea74322ab330e558f066c84432a5953d14b4b06dd88cc",
+    "manuscripts/Attention/minimal_agent_model.pdf": "492d727e05534f9e8f039bdd5fd3bc5614720933232689745c3ded46a8a446f6",
+    "manuscripts/Attention/minimal_agent_model.tex": "c032b2a8a596632436234cf505c06b32b02a97f5caa52027b8c13ee17c563e2f",
+    "wiki/fields/CS-ML MOC.md": "c9f0fc4102957f48db63e80e4a75cffb760c24aa7a42453525c961a793204c79",
+    "wiki/fields/Statistics MOC.md": "a98e91ff495625630227600abd3535491ac8e1a4b43b215be2eb7d0b0f1e3977",
+    "wiki/projects/VFE Transformer Program.md": "2674bcbd9b0f834d4a3690c40900856c807d3483c918eb062e5d54aec9f2436d",
+    "README.md": "86d08000cfe13f0bbc0cd05ab52bdb90b46305d6c57308ad36b50d96f4128c39",
+    "manuscripts/2026-10-21-observer-free-gauge-agent-foundation.md": "a5aee742ed0c5c84eb357905a634f3b1fc2b9c853d74780992023152e5a7cc6a",
+    "manuscripts/2026-10-21-shared-predictions-from-gauge-model-agreement.md": "53b1811883481aca34dbfe98a80393ab22c97bf093125f403bc2e6f71b4396b6",
+    "sources/runs/vfe3-2026-10-06-minimal-agent-implementation.md": "d5c5c9aedf1959a1c2a9df8bbfd786fe01b41ecbb38e1ac1ec7b1eed3e9da645",
+    "manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.tex": "1ba7c6d66e1a7dbefe4477252314d35497ea482ca037ee56e72ea30492f75a70",
+    "manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.pdf": "cb93516a8fe5ff19b2d900dcbddb5e2e0046cba7bbc53fc6fcc7dd31c32c5b6b",
+    "manuscripts\\MAgent_Theory_2.0\\item7_refs.bib": "76803d06318c4a061b15046cd6bfd250af8009f0785f8bef3b4de77cd3635322",
+    "manuscripts\\MAgent_Theory_2.0\\item7_checks\\checks.py": "f2e38659020f761581249f9467cbc1e117cd373acd8de75b56c2e371a366a4d8"
+  },
+  "build_warnings": {
+    "MAgent_Theory_2.0.log": [
+      "Overfull \\hbox (9.51393pt too wide) in paragraph at lines 115--116",
+      "Overfull \\hbox (20.93712pt too wide) in paragraph at lines 105--106",
+      "Overfull \\hbox (9.39738pt too wide) in paragraph at lines 176--178"
+    ],
+    "MAgent_Theory_2.0_companion.log": [],
+    "MAgent_Theory_2.0_supplement.log": []
+  }
+}

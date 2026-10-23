@@ -1,0 +1,418 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\DeclareMathOperator{\KL}{KL}
+\DeclareMathOperator{\grad}{grad}
+\DeclareMathOperator{\Log}{Log}
+\DeclareMathOperator{\Ad}{Ad}
+\DeclareMathOperator{\tr}{tr}
+\newcommand{\R}{\mathbb R}
+\newcommand{\E}{\mathbb E}
+\newcommand{\M}{\mathcal M}
+\newcommand{\G}{\mathsf G}
+\newcommand{\id}{\mathrm{id}}
+\title{Finite-context Fisher coupling with auxiliary transports}
+\author{Standalone mathematical note}
+\date{October 23, 2026}
+\begin{document}
+\maketitle
+\begin{abstract}
+A finite contextual graph can couple regular families of general probability laws through squared Fisher distance after a common group alignment. The alignment is an auxiliary variable. Its stationarity equation is orthogonality of the geodesic residual to the collective group orbit. Eliminating a smooth minimizing branch gives an explicit neighboring-context force, a locally unique Fisher gradient flow, and an exact dissipation identity. The infinitesimal expansion recovers the collective locked-inertia normal equation. A two-context, two-agent example has nontrivial belief and model dynamics and an explicit change of local velocity when a neighbor changes. A free-action counterexample shows why orbit regularity alone does not guarantee a differentiable minimized energy. The result concerns a finite graph on a regular branch, without a continuum existence or refinement theorem.
+\end{abstract}
+
+\section{Statistical and contextual data}
+
+Let $V$ be a finite set of contexts and $E$ a finite set of unoriented contextual edges. Choose one orientation $e:u\to v$ for each edge, positive vertex masses $m_v$, and positive edge weights $w_e$. The graph, masses, weights, agent census, and comparisons below are fixed. They are supplied contextual data. A change in the agent census is outside the evolution defined here.
+
+At each context there are $n$ agents with normalized laws on standard Borel spaces. For the reciprocal potential studied here impose the product restriction
+\begin{equation}
+ \zeta_{iv}(dk,dm)=q_{iv}(dk)s_{iv}(dm).
+ \label{eq:product}
+\end{equation}
+This is an admitted family, not an assertion that unrestricted joint Fisher dynamics preserves independence. Each factor belongs to a finite-dimensional regular statistical manifold. Assume differentiability in quadratic mean with centered square-integrable scores and a smooth positive-definite Fisher tensor. Redundant parameters have been removed. No Gaussian assumption or finite sample alphabet is imposed.
+
+Fixed bimeasurable comparisons $\mathsf S_{iv}$ place the joint laws in compatible target spaces, preserving the factorization when it is used. Write $p_{iv}=(\mathsf S_{iv})_\#\zeta_{iv}$ and $p_v=(p_{iv})_{i=1}^n\in\M$. The manifold $\M$ is the declared product family, equipped with the metric of the normalized product experiment
+\begin{equation}
+ P_{p_v}=\bigotimes_{i=1}^n p_{iv},\qquad
+ \G_{p_v}(a,b)=\sum_{i=1}^n g^F_{p_{iv}}(a_i,b_i),\qquad
+ g^F_p(a,b)=\E_p[\ell_a\ell_b].
+ \label{eq:fisher}
+\end{equation}
+The equality follows because the product score is the sum of the individual centered scores, so its cross terms vanish. For \eqref{eq:product}, $g^F_{p_{iv}}$ is the transported sum of the belief and model Fisher metrics. The product experiment specifies the metric; it is not a proposed population generative model for which the reciprocal potential is an ELBO. Unit agent weights are chosen to match the local Fisher flow. Other positive constant weights define a different declared metric and therefore different mobilities.
+
+Let a finite-dimensional Lie group $G$ act smoothly on $\M$ by diagonal pushforward through bimeasurable sample maps. One element acts on both sectors, through their respective representations when those are linear. The admitted family is stable under the group elements used. The action is isometric: a fixed sample bijection sends a score $\ell_a$ to $\ell_a\circ g^{-1}$, leaving its squared integral unchanged. Define the fundamental tangent
+\begin{equation}
+ J_p\xi=\left.\frac{d}{dt}\right|_{t=0}\exp(t\xi)\cdot p,
+ \qquad \xi\in\mathfrak g.
+ \label{eq:J}
+\end{equation}
+The notation $g\cdot p$ means pushforward, not multiplication of density values. A nontrivial continuous action on a finite sample alphabet is not assumed.
+
+An agent-coordinate change $g_{iv}$ and a common target change $h_v$ act as
+\begin{equation}
+ \zeta'_{iv}=(g_{iv})_\#\zeta_{iv},\qquad
+ \mathsf S'_{iv}=h_v\mathsf S_{iv}g_{iv}^{-1},\qquad
+ p'_v=h_v\cdot p_v.
+ \label{eq:comparisons}
+\end{equation}
+These changes are fixed in evolution time. Comparisons that depend on the evolving laws would require their derivatives in both the metric pullback and the energy variation; they are not used here.
+
+\section{The chosen context-local potential}
+
+At context $v$, fix normalized references $r_{iv}$, normalized evaluator kernels $G_{iv}(m,dk)$, and the normalized joint references
+\begin{equation}
+ R_{iv}(dk,dm)=r_{iv}(dm)G_{iv}(m,dk).
+\end{equation}
+Choose finite nonempty source sets, positive normalized prior rows $\pi^q_{iv},\pi^s_{iv}$, and temperatures $T_q,T_s>0$. Belief rows $\beta_{iv}$ and model rows $\gamma_{iv}$ lie in the interiors of their probability simplexes. For normalized, possibly law-dependent, channels at that same context set
+\begin{align}
+ \nu^q_{ijv}&=q_{jv}\mathcal K^q_{ijv}[p_v],&
+ D^q_{ijv}&=\KL(q_{iv}\Vert\nu^q_{ijv}),\\
+ \nu^s_{ijv}&=s_{jv}\mathcal K^s_{ijv}[p_v],&
+ D^s_{ijv}&=\KL(s_{iv}\Vert\nu^s_{ijv}).
+\end{align}
+The local reciprocal law potential is
+\begin{align}
+ \mathcal E_v={}&\sum_i\KL(q_{iv}\otimes s_{iv}\Vert R_{iv})\nonumber\\
+ &+\sum_i\left[\sum_j\beta_{ijv}D^q_{ijv}
+                   +T_q\KL(\beta_{iv}\Vert\pi^q_{iv})\right]\nonumber\\
+ &+\sum_i\left[\sum_j\gamma_{ijv}D^s_{ijv}
+                   +T_s\KL(\gamma_{iv}\Vert\pi^s_{iv})\right].
+ \label{eq:local}
+\end{align}
+Assume every term is finite and $\mathcal E_v$ is $C^3$ on the chosen law and row chart. Differentiability in quadratic mean alone does not imply this KL regularity. It is a separate hypothesis about the family, supports, references, and channels. Evaluators, references, and channel rules are fixed; their declared dependence on the evolving laws is differentiated. Links between agents at one context remain independent directed communication data.
+
+This objective is a direct potential on laws. A fixed normalized global generative model with coordinate-descent recognition, and an agent's own normalized model treating peers as external sources, are different choices. The derivative of \eqref{eq:local} contains all receiver, source, and channel roles. On a differentiable dominated subfamily with justified differentiation under the integrals,
+\begin{align}
+ d\KL(a\Vert b)&=\int\log(a/b)da-\int(a/b)db,\\
+ d\nu^q_{ijv}&=(dq_{jv})\mathcal K^q_{ijv}
+                 +q_{jv}D\mathcal K^q_{ijv}(dp_v).
+ \label{eq:roles}
+\end{align}
+The absent $\int da$ term is zero by normalization. Thus differentiating a source law must include the costs of receivers attending to it. The coordinate derivative of \eqref{eq:local} is used when a density formula is unavailable.
+
+Under \eqref{eq:comparisons}, carry references, evaluators, and channels with the same sample maps. For a sector channel this means
+\begin{equation}
+ \mathcal K'_{ijv}(g_{jv}y,A)
+ =\mathcal K_{ijv}(y,g_{iv}^{-1}A).
+\end{equation}
+Relative entropy is then invariant by change of variables. Any law-dependent constitutive rule is required to obey this relation. Passive covariance does not imply active symmetry of arbitrarily fixed references.
+
+\section{Finite transports and their stationarity equation}
+
+For $e:u\to v$, let $U_e\in G$ send target coordinates at $u$ to those at $v$. The other orientation of this geometric edge uses $U_e^{-1}$. This convention places no inverse constraint on independently attending agent links. Set
+\begin{equation}
+ c_e(p_u,p_v,U_e)=\frac12 d_{\M}(p_v,U_e\cdot p_u)^2,
+ \qquad
+ \mathcal C(p,U)=\sum_{e\in E}w_e c_e(p_u,p_v,U_e).
+ \label{eq:C}
+\end{equation}
+Here $d_{\M}$ is the intrinsic Riemannian distance of the admitted family with metric \eqref{eq:fisher}, not necessarily the distance in the unrestricted space of all laws. We work where the compared pairs have a unique minimizing geodesic and squared distance is smooth. The edge transports transform by the endpoint law
+\begin{equation}
+ U'_e=h_vU_eh_u^{-1}.
+ \label{eq:endpoint}
+\end{equation}
+Indeed, $U'_e\cdot p'_u=h_v\cdot(U_e\cdot p_u)$, so isometry proves invariance of every $c_e$. Reversing an edge leaves its cost unchanged because
+$d(p_v,U_ep_u)=d(p_u,U_e^{-1}p_v)$.
+
+\begin{proposition}[Auxiliary transport equation and endpoint forces]
+Write $x=p_v$, $y=p_u$, and $z=U_e\cdot y$. At a smooth stationary transport,
+\begin{equation}
+ \G_z(\Log_z x,J_z\xi)=0
+ \quad\hbox{for every }\xi\in\mathfrak g.
+ \label{eq:stationarity}
+\end{equation}
+Holding $U_e$ fixed, the two endpoint gradients are
+\begin{equation}
+ \grad_x c_e=-\Log_x(U_e\cdot y),\qquad
+ \grad_y c_e=-\Log_y(U_e^{-1}\cdot x).
+ \label{eq:endpointgrad}
+\end{equation}
+\end{proposition}
+\begin{proof}
+Let $\eta:[0,1]\to\M$ be the minimizing geodesic from $x$ to $z$, with constant speed. Its energy is $d(x,z)^2/2$. For an endpoint variation, differentiating its energy and integrating the covariant derivative by parts gives
+$\langle\dot\eta(1),\delta z\rangle-\langle\dot\eta(0),\delta x\rangle$;
+the interior term vanishes because $\nabla_t\dot\eta=0$. Since
+$\dot\eta(0)=\Log_xz$ and $\dot\eta(1)=-\Log_zx$, this gives both distance gradients. For $U_e(t)=\exp(t\xi)U_e$, the target velocity is $J_z\xi$. Setting its derivative to zero proves \eqref{eq:stationarity}. For the source endpoint, pull the target gradient back by the isometry $U_e$. Isometries carry minimizing geodesics and their initial velocities to those of the transformed endpoints, giving the second formula in \eqref{eq:endpointgrad}.
+\end{proof}
+
+Equation \eqref{eq:stationarity} is the exact finite connection equation of this construction. It is generally nonlinear in $U_e$. It selects comparisons between neighboring collective laws. There is no transport kinetic energy, curvature penalty, or independent evolution equation for $U_e$. Cyclic products of the selected transports can have holonomy; no flatness constraint has been imposed. Finite group elements on edges are not connection one-forms. Discrete connections and their relation to continuous connection data have a separate geometric theory \cite{Leok2005}; here the edge cost and its elimination specify the finite model directly.
+
+\section{Elimination on a regular minimizing branch}
+
+\begin{assumption}[Regular branch]
+On an open law domain $\mathcal O\subset\M^V$, each edge admits a chosen stationary point $U_e^*$ at a reference configuration. Squared distance is smooth on a neighborhood of that point and those endpoints. In group coordinates $a_e$ near $U_e^*$, the Hessian $\partial^2_{a_ea_e}c_e$ is positive definite. The local branch is continued only while these conditions hold.
+\label{ass:branch}
+\end{assumption}
+
+\begin{proposition}[Local elimination and envelope]
+After shrinking $\mathcal O$, Assumption \ref{ass:branch} determines a unique smooth local minimizing transport branch $U_e^*(p_u,p_v)$ through the specified point. Define its reduced energy by
+\begin{equation}
+ \mathcal C_*(p)=\mathcal C(p,U^*(p)).
+\end{equation}
+Then
+\begin{equation}
+ d\mathcal C_*[\delta p]
+ =\sum_e w_e\left[
+  -\G_{p_v}(\Log_{p_v}(U_e^*p_u),\delta p_v)
+  -\G_{p_u}(\Log_{p_u}((U_e^*)^{-1}p_v),\delta p_u)
+ \right].
+ \label{eq:envelope}
+\end{equation}
+\end{proposition}
+\begin{proof}
+The stationarity map $\partial_{a_e}c_e$ has invertible derivative in $a_e$. The implicit-function theorem gives a smooth critical branch; continuity of its positive-definite Hessian makes it a strict local minimum. Differentiate the composite energy. Its transport derivative is zero on the branch, so the term containing $dU_e^*$ vanishes. The two remaining derivatives are \eqref{eq:endpointgrad}. The smooth implicit-function theorem applies because the metric and action are smooth; $C^3$ data would already suffice for a $C^2$ reduced energy and a $C^1$ vector field.
+\end{proof}
+
+A local minimum is not automatically the global infimum over $G$. One sufficient global version assumes compact $G$, continuous cost on all of $G$, and a unique global minimizer at the initial pair, with the stated smoothness and positive Hessian there. Choose a small neighborhood on which the Hessian remains positive and the critical point is unique. Compactness and uniqueness give a positive cost gap on its complement at the initial pair. Uniform continuity preserves a smaller gap for nearby endpoints. Every global minimizer then lies in that neighborhood and equals the implicit branch. Under these added hypotheses $\mathcal C_*$ is the actual minimized energy locally. For noncompact groups, attainment and exclusion of escaping minimizing sequences require separate hypotheses.
+
+These hypotheses hold on a nonempty neighborhood of agreement when $G$ is compact and its action at a common law point $p_0$ is free. At $(p_0,p_0)$, only the identity gives zero distance. Its group Hessian is $\G_{p_0}(J_{p_0}\cdot,J_{p_0}\cdot)$, which is positive definite because freeness makes $J_{p_0}$ injective. Squared distance is smooth near the diagonal. The local implicit branch and compactness argument therefore give a unique smooth global minimizer for endpoint pairs sufficiently near $(p_0,p_0)$. This is a local sufficient condition, not a statement about distant endpoint pairs.
+
+Positive-definite group Hessians exclude infinitesimal stabilizers of the endpoints. With isotropy, the cost is invariant under
+\begin{equation}
+ U_e\longmapsto h_vU_eh_u^{-1},\qquad
+ h_v\in G_{p_v},\quad h_u\in G_{p_u},
+\end{equation}
+so transport representatives can be nonunique. A quotient version requires a specified smooth law stratum and a smooth bundle of minimizing classes, with positive normal Hessian in a smooth transverse slice. It also requires a smooth local representative and constancy of the cost along each minimizing fiber. On that stratum the same chain-rule proof gives a representative-independent differential. The gradient uses the induced Fisher metric, equivalently the Fisher-orthogonal projection of \eqref{eq:endpointgrad} onto the stratum tangent. These are additional hypotheses, not consequences of constant orbit rank. The main theorem below uses Assumption \ref{ass:branch} on an open chart and does not assert unrestricted passage through singular or competing-minimum configurations.
+
+Under a fixed gauge change, transport the branch neighborhood and the chosen initial minimizer by \eqref{eq:endpoint}. Isometry identifies the two minimization problems. Local uniqueness then gives
+\begin{equation}
+ U_e^{*\prime}(p'_u,p'_v)=h_vU_e^*(p_u,p_v)h_u^{-1}.
+ \label{eq:branchgauge}
+\end{equation}
+A numerical branch rule defined by a preferred coordinate angle must satisfy this condition; coordinate-dependent branch switching need not.
+
+\section{The coupled Fisher field and its local solution}
+
+Let $b_v$ denote all rows at $v$. On their interior simplexes use
+\begin{equation}
+ g^{\mathrm{row}}_\beta(a,b)=\sum_j\frac{a_jb_j}{\beta_j},
+ \qquad \sum_j a_j=\sum_j b_j=0,
+\end{equation}
+and the analogous metric for $\gamma$. On law and row configurations define
+\begin{align}
+ \mathbb G&=\sum_v m_v\left(\G_{p_v}+\sum_i g^{\mathrm{row}}_{\beta_{iv}}
+                                  +\sum_i g^{\mathrm{row}}_{\gamma_{iv}}\right),\\
+ \mathcal F_*&=\sum_v m_v\mathcal E_v(p_v,b_v)+\lambda\mathcal C_*(p),
+ \qquad \lambda\geq0.
+ \label{eq:F}
+\end{align}
+This is a Fisher metric up to a fixed overall scale. To see this, choose a context label with probabilities $m_v/M_0$, $M_0=\sum_vm_v$, then conditionally draw the product experiment \eqref{eq:fisher} and independent categorical labels with the rows at that context. Its normalized joint law has Fisher metric $\mathbb G/M_0$. The overall scale only fixes the evolution time convention. This auxiliary sampling description does not identify $\mathcal F_*$ with a free energy.
+
+For either orientation of an incident contextual edge write $U^*_{v\leftarrow u}$ for the transport into $v$, using its inverse when necessary, and put
+\begin{equation}
+ B_v(p)=\sum_{e=\{u,v\}}w_e\Log_{p_v}(U^*_{v\leftarrow u}\cdot p_u).
+ \label{eq:B}
+\end{equation}
+The natural-gradient equation \cite{Amari1998} is
+\begin{equation}
+ \boxed{\dot p_v=-\grad_{\G}\mathcal E_v+\frac{\lambda}{m_v}B_v(p).}
+ \label{eq:flow}
+\end{equation}
+In a chart $\theta_v$, if $c_v=\partial_{\theta_v}\mathcal C_*$ is a covector, this is
+\begin{equation}
+ \dot\theta_v^a=-(\G_v^{-1})^{ab}
+ \left(\partial_{\theta_v^b}\mathcal E_v+\frac{\lambda}{m_v}c_{v,b}\right).
+\end{equation}
+All local derivatives include \eqref{eq:roles}. Define the row costs
+\begin{align}
+ h^q_{ijv}&=D^q_{ijv}+T_q\log(\beta_{ijv}/\pi^q_{ijv}),&
+ \bar h^q_{iv}&=\sum_j\beta_{ijv}h^q_{ijv},\\
+ h^s_{ijv}&=D^s_{ijv}+T_s\log(\gamma_{ijv}/\pi^s_{ijv}),&
+ \bar h^s_{iv}&=\sum_j\gamma_{ijv}h^s_{ijv}.
+\end{align}
+Their equations remain
+\begin{equation}
+ \dot\beta_{ijv}=-\beta_{ijv}(h^q_{ijv}-\bar h^q_{iv}),\qquad
+ \dot\gamma_{ijv}=-\gamma_{ijv}(h^s_{ijv}-\bar h^s_{iv}).
+ \label{eq:rowflow}
+\end{equation}
+The constant $+T_a$ in an unconstrained derivative cancels under centering. To derive the formula, pair its right side with any mass-zero row tangent using the row metric; the result is the negative directional derivative. The factor $m_v$ cancels between the local energy and its metric. A singleton row has no tangent variables and remains one. The contextual cost has no direct row derivative.
+
+\begin{theorem}[Finite-context local well-posedness and dissipation]
+Assume the stated smooth positive Fisher metric, $C^3$ finite local potentials on an open chart with positive rows, and Assumption \ref{ass:branch} for every edge. Through each configuration in a sufficiently small such domain, \eqref{eq:flow}--\eqref{eq:rowflow} have a unique local solution, continuously differentiable in the initial configuration. It extends uniquely to a maximal solution in the regular domain. Along it,
+\begin{align}
+ \frac{d\mathcal F_*}{dt}
+ =-\sum_v m_v\bigg[
+  &\left\|\grad_{\G}\mathcal E_v-\frac{\lambda}{m_v}B_v\right\|_{\G}^2\nonumber\\
+  &+\sum_{ij}\beta_{ijv}(h^q_{ijv}-\bar h^q_{iv})^2
+   +\sum_{ij}\gamma_{ijv}(h^s_{ijv}-\bar h^s_{iv})^2\bigg].
+ \label{eq:dissipation}
+\end{align}
+Fixed gauge re-expression with transported constitutive data sends this solution to the solution of the re-expressed system. At $\lambda=0$ the equations recover exactly the chosen context-local reciprocal Fisher flows.
+\label{thm:ode}
+\end{theorem}
+\begin{proof}
+Use ordinary coordinates for the law families and the first $r-1$ entries of each interior row simplex. The Fisher matrices and their inverses are smooth and positive definite. Implicit elimination makes the reduced energy at least $C^2$, hence its metric gradient is $C^1$ and locally Lipschitz. For completeness, choose a closed coordinate ball inside the regular domain, on which the vector field $f$ is bounded by $K$ and has Lipschitz constant $L$. On a sufficiently short interval, the map
+$x(\cdot)\mapsto x_0+\int_0^{\cdot}f(x(s))ds$
+maps the closed continuous-path ball into itself and contracts by a factor at most $Lt<1$. Its fixed point is a unique differentiable solution. The integral inequality for two solutions and Gronwall's inequality give continuous dependence. Differentiating this integral equation gives the variational equation and the corresponding differentiable dependence. Compatible local solutions concatenate by uniqueness, giving the maximal solution. Interior normalization is built into the coordinates; the displayed row equations also have zero sum.
+
+The envelope identity shows that the full vector field is $-\grad_{\mathbb G}\mathcal F_*$. Pairing it with $d\mathcal F_*$ gives minus its squared metric norm. Substitution of the law and row components gives \eqref{eq:dissipation}. Metric isometry, invariance of the transformed local potential, and \eqref{eq:branchgauge} imply covariance of the gradient. Uniqueness then gives covariance of trajectories. Setting $\lambda=0$ deletes precisely $B_v$ and leaves \eqref{eq:rowflow} unchanged.
+\end{proof}
+
+The law and row solution can be continued whenever it remains in a compact subset of the regular domain. A finite endpoint therefore requires leaving every such compact subset: possibilities include a statistical-family boundary, a row approaching zero, unbounded coordinates, loss of KL regularity, a geodesic cut locus, or loss of the selected minimizing branch. Energy decrease alone excludes none of these in general. At $\lambda=0$ total-energy stationarity places no condition on $U$ at all. The law and row ODE is still unique; a separately chosen diagnostic transport does not become dynamically determined. Time-dependent frame changes add their coordinate-velocity term and are not covered by fixed-gauge covariance.
+
+A coordinate-chart boundary alone can be crossed in another regular chart. Row positivity has a sharper criterion: for two entries of the same row,
+\begin{equation}
+ \frac{d}{dt}\log\frac{\beta_j}{\beta_k}
+ =-(D_j-D_k)-T_q\left(\log\frac{\beta_j}{\beta_k}
+                           -\log\frac{\pi_j}{\pi_k}\right).
+\end{equation}
+Variation of constants bounds these log ratios on every finite interval with bounded costs, giving a positive row floor there. Thus a row cannot reach zero in finite time while all its costs remain bounded. This does not prevent the other regular-domain exits.
+
+If the rows are instead minimized instantaneously, finite positive costs give
+\begin{equation}
+ \beta^*_{ijv}=\frac{\pi^q_{ijv}e^{-D^q_{ijv}/T_q}}{Z^q_{iv}},\qquad
+ Z^q_{iv}=\sum_j\pi^q_{ijv}e^{-D^q_{ijv}/T_q},
+\end{equation}
+and analogously for $\gamma^*$. Replacing their row energies by $-T_q\log Z^q_{iv}$ and $-T_s\log Z^s_{iv}$ gives a different, reduced law-only flow. Direct differentiation yields $-T_qd\log Z^q_{iv}=\sum_j\beta^*_{ijv}dD^q_{ijv}$; there is no extra row-response term. The theorem applies to that smooth reduced potential, with the row dissipation terms absent. The main result above retains the rows as evolving variables.
+
+For own-block per-agent free energies $\mathcal F_{iv}$, define $A_{iv}=\grad_{iv}\mathcal F_{iv}$ with peers held fixed. Adding the contextual force gives a locally well-posed vector field under the same local regularity assumptions, but it need not be a gradient of $\sum_{iv}\mathcal F_{iv}+\lambda\mathcal C_*$. If $R$ denotes the omitted source-role and channel derivatives in that sum, its gradient is $A+\lambda\grad\mathcal C_*+R$ (with the chosen metric weights). Along the proposed own-block field the derivative is
+\begin{equation}
+ -\|A+\lambda\grad\mathcal C_*\|^2
+ -\langle R,A+\lambda\grad\mathcal C_*\rangle.
+\end{equation}
+The second term has no fixed sign. Thus \eqref{eq:dissipation} belongs to the reciprocal gradient construction.
+
+\section{Relation to the infinitesimal connection equation}
+
+Take a smooth local section $p(c)$ in a common frame, a base tangent $X$, and a displacement $\epsilon X$. Suppose the near-identity minimizing transport branch satisfies $U^*(0)=e$ and is smooth. Put
+\begin{equation}
+ U^*(\epsilon)=\exp[-\epsilon A(X)+O(\epsilon^2)],\qquad
+ p(c+\epsilon X)=p(c)+\epsilon dp(X)+O(\epsilon^2)
+\end{equation}
+in local charts. The initial geodesic residual, identified to $T_{p(c)}\M$ by any smooth local trivialization, is
+\begin{equation}
+ \Log_{U^*(\epsilon)p(c)}p(c+\epsilon X)
+ =\epsilon\bigl(dp(X)+J_pA(X)\bigr)+O(\epsilon^2).
+\end{equation}
+Dividing \eqref{eq:stationarity} by $\epsilon$ and taking its first-order coefficient gives
+\begin{equation}
+ \boxed{\mathfrak k_p(A(X),\xi)=-\G_p(dp(X),J_p\xi),\qquad
+ \mathfrak k_p(\eta,\xi)=\G_p(J_p\eta,J_p\xi).}
+ \label{eq:normal}
+\end{equation}
+If $J_p$ is injective, $\mathfrak k_p$ is positive definite. At coincident endpoints the group Hessian of $c_e$ is exactly $\mathfrak k_p$, so the near-identity branch and its smooth dependence follow from the same implicit-function argument. Differentiating stationarity gives \eqref{eq:normal}, and its solution is linear in $X$. With a kernel, solutions form an affine class modulo $\ker J_p$ under the corresponding constant-rank hypotheses. The residual is the Fisher-orthogonal projection of $dp(X)$ off the orbit directions. This is the mechanical-connection construction expressed with a Fisher metric; the separation of rotation and shape in mechanics provides its classical antecedent \cite{Littlejohn1997}.
+
+Expanding the finite edge cost gives
+\begin{equation}
+ c_e=\frac{\epsilon^2}{2}\|dp(X)+J_pA(X)\|_\G^2+O(\epsilon^3).
+\end{equation}
+Under a smooth base-dependent frame change, the endpoint law expands as
+\begin{align}
+ U'(c+\epsilon X,c)&=h(c+\epsilon X)U(c+\epsilon X,c)h(c)^{-1},\\
+ A'(X)&=\Ad_h A(X)-dh(X)h^{-1}.
+\end{align}
+These are local consistency statements, not convergence of a refining graph or existence for a continuum equation. The familiar candidate continuum energy
+\begin{equation}
+ \frac12\int\gamma^{\mu\nu}\G(D^A_\mu p,D^A_\nu p)\mathrm{dvol}_\gamma
+\end{equation}
+requires a supplied base metric, measure, functional domain, and boundary conditions. Finite graph weights do not supply those choices or their analytic estimates.
+
+\section{An explicit two-context witness}
+
+Use two contexts of unit mass, one edge of unit weight, and two agents. Both belief and model sample spaces are $\R^2$. At each context let
+\begin{equation}
+ q_i=\mathcal N(\mu_i,I_2),\quad s_i=\mathcal N(\nu_i,I_2),\quad
+ r_i=\mathcal N(0,I_2),\quad G_i(m,dk)=\mathcal N(m,I_2)(dk).
+\end{equation}
+The evaluator depends on the model presentation, so both sectors contribute to the local dynamics. Direct integration gives
+\begin{equation}
+ \KL(q_i\otimes s_i\Vert r_iG_i)
+ =\frac12\|\mu_i-\nu_i\|^2+\frac12\|\nu_i\|^2+1.
+\end{equation}
+Give each agent the other agent as its singleton source in each sector, with an identity channel. Rows and their priors equal one. The two directed belief divergences sum to $\|\mu_1-\mu_2\|^2$, and likewise for models. Thus
+\begin{equation}
+ \mathcal E(X)=\sum_{i=1}^2\left[
+ \frac12\|\mu_i-\nu_i\|^2+\frac12\|\nu_i\|^2+1\right]
+ +\|\mu_1-\mu_2\|^2+\|\nu_1-\nu_2\|^2,
+ \label{eq:examplelocal}
+\end{equation}
+where $X=(\mu_1,\nu_1,\mu_2,\nu_2)\in\R^{2\times4}$. The Fisher metric is the Frobenius inner product on these means. It is the intrinsic metric of the fixed-covariance location family, whose full-law Fisher invariance is not asserted. A single $SO(2)$ rotation acts on every column, in both sectors. References, evaluator, and channels obey this symmetry.
+
+For a source matrix $X$ and a target matrix $Y$, write
+\begin{equation}
+ J=\begin{pmatrix}0&-1\\1&0\end{pmatrix},\quad
+ R_\theta=\cos\theta I+\sin\theta J,\quad
+ C=\langle Y,X\rangle_F,\quad S=\langle Y,JX\rangle_F,\quad
+ \rho=\sqrt{C^2+S^2}.
+\end{equation}
+Then
+\begin{equation}
+ c(X,Y,R_\theta)=\tfrac12(\|X\|_F^2+\|Y\|_F^2)-C\cos\theta-S\sin\theta.
+\end{equation}
+For $\rho>0$ the unique minimizing group element and reduced energy are
+\begin{equation}
+ R_*=(CI+SJ)/\rho,\qquad
+ c_* =\tfrac12(\|X\|_F^2+\|Y\|_F^2)-\rho.
+ \label{eq:procrustes}
+\end{equation}
+Stationarity is $C\sin\theta-S\cos\theta=0$; the Hessian at this minimum is $\rho>0$. The two envelope gradients are
+\begin{equation}
+ \nabla_Xc_*=X-R_*^TY,\qquad \nabla_Yc_*=Y-R_*X.
+\end{equation}
+The formula for $R_*$ is smooth on $\rho>0$, regardless of any angle-coordinate branch cut.
+
+Choose the ordered columns
+\begin{equation}
+ X=(e_1,e_1,e_2,e_2),\qquad
+ Y=(2e_1,3e_1,e_2,2e_2).
+\end{equation}
+Here $(C,S,\rho)=(8,0,8)$, $R_*=I$, and $c_*=3$. From \eqref{eq:examplelocal},
+\begin{equation}
+ \nabla\mathcal E(X)=
+ \begin{pmatrix}2&3&-2&-2\\-2&-2&2&3\end{pmatrix}.
+\end{equation}
+Consequently the source-context velocity is
+\begin{equation}
+ \dot X=
+ \begin{pmatrix}
+ -2+\lambda&-3+2\lambda&2&2\\
+ 2&2&-2&-3+\lambda
+ \end{pmatrix}.
+ \label{eq:witnessvelocity}
+\end{equation}
+Changing only the neighbor's first column from $2e_1$ to $3e_1$ keeps $R_*=I$ and adds exactly $\lambda e_1$ to the local $\dot\mu_1$. This is a genuine contextual force on top of the reciprocal local flow. All laws, reference joints, and channels in the example are normalized. Gaussianity supplies the explicit formula; Theorem \ref{thm:ode} is a general regular-family result.
+
+\subsection{Free action does not prevent a branch singularity}
+
+Consider two Gaussian location factors with means
+$x_\epsilon=(e_1,(1+\epsilon)e_2)$ and $y=(e_1,-e_2)$ and the same diagonal rotation group. Both endpoints lie in the free-action region near $\epsilon=0$. Nevertheless $C=-\epsilon$, $S=0$, and
+\begin{equation}
+ \min_R\tfrac12\|x_\epsilon-Ry\|_F^2
+ =2+\epsilon+\tfrac12\epsilon^2-|\epsilon|.
+ \label{eq:cusp}
+\end{equation}
+For $\epsilon<0$ the minimizer is $I$, and for $\epsilon>0$ it is $-I$; at zero every rotation minimizes. The minimized energy is not differentiable at zero. The statistical metric is nonsingular and there is no geodesic cut locus. Thus constant orbit rank, even freeness, cannot replace the transport Hessian and branch hypotheses.
+
+\section{What the contextual energy controls}
+
+Auxiliary elimination penalizes variation of collective law shape after group alignment. Pure common frame variation can have zero cost. A single family on which $G$ acts transitively has zero minimized contextual cost wherever alignment is possible; collective laws are needed if the common action otherwise removes every difference. The example retains shape mismatch despite optimizing the common rotation.
+
+With the local potential absent, the contextual flow decreases $\mathcal C_*$ by its own negative squared gradient. With the local potential present, only the total dissipation \eqref{eq:dissipation} is asserted: local forces can increase contextual cost, and individual edge costs need not decrease even under the contextual flow. In a finite graph, smoothing means this aligned law-variation penalty and its gradient, not a continuum regularity theorem.
+
+Independent rows have no contextual penalty in this model. Their local equations can react to changing laws, but this supplies no separate spatial regularity estimate for rows. Independent communication links and frames have no new evolution equation here. Law-dependent channels inherit whatever regularity follows from their declared constitutive maps, without becoming independent smoothed fields. The contextual graph, comparisons, reference data, and transport branch selection remain supplied; the laws and rows evolve, and the auxiliary transports follow their algebraic minimizers.
+
+The remaining continuum problem is to specify the base geometry and measure, boundary conditions, a function-space chart with positive regular Fisher metric, and a regular auxiliary branch, then establish the relevant parabolic estimates and continuation criteria. A separate construction must derive contextual displacement transport from inter-agent links if that is desired. No formation, recursive inheritance, global convergence, or graph-refinement result follows from the local finite-system theorem.
+
+\begin{thebibliography}{9}
+\bibitem{Amari1998}
+S.-I. Amari, Natural Gradient Works Efficiently in Learning,
+\emph{Neural Computation} \textbf{10} (1998), 251--276.
+\href{https://doi.org/10.1162/089976698300017746}{doi:10.1162/089976698300017746}.
+\bibitem{Littlejohn1997}
+R. G. Littlejohn and M. Reinsch, Gauge Fields in the Separation of Rotations and Internal Motions in the $n$-Body Problem,
+\emph{Reviews of Modern Physics} \textbf{69} (1997), 213--275.
+\href{https://doi.org/10.1103/RevModPhys.69.213}{doi:10.1103/RevModPhys.69.213}.
+\bibitem{Leok2005}
+M. Leok, J. E. Marsden, and A. Weinstein,
+A Discrete Theory of Connections on Principal Bundles (2005).
+\href{https://arxiv.org/abs/math/0508338}{arXiv:math/0508338}.
+\end{thebibliography}
+\end{document}
