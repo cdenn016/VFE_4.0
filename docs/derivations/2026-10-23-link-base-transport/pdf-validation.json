@@ -1,0 +1,76 @@
+{
+  "pdf": "latex/base-transport.pdf",
+  "sha256": "718bf4897612f480a3105b0ae9d0da8ae34994d44028228b43f6e6c26f3f24d5",
+  "source_sha256": "ed7afa327fc1410f388cd05b3594467bbf50d052426c7662ad7201b5a34e3fdb",
+  "pages": 10,
+  "all_pages_rendered": 10,
+  "renderer": "Poppler pdftoppm 95dpi",
+  "out_of_page_text_spans": [],
+  "compiler": "TeX Live 2025 latexmk/pdfLaTeX",
+  "compiler_exit_code": 0,
+  "compiler_warnings": [],
+  "app_preview": {
+    "status": "failed",
+    "reason": "Windows process launch error 5"
+  },
+  "page_details": [
+    {
+      "page": 1,
+      "characters": 2600,
+      "start": "From agent links to base transport\nFrames, contextual messages, and a derived connection\nStandalone "
+    },
+    {
+      "page": 2,
+      "characters": 2774,
+      "start": "In agent i\u2019s displayed coordinates the same connection is\nBi = UiaU\u22121\ni\n\u2212dUiU\u22121\ni\n,\nFi = UiF aU\u22121\ni\n"
+    },
+    {
+      "page": 3,
+      "characters": 2655,
+      "start": "This factorization retains the original directed pair exactly. It does not impose inverse relations "
+    },
+    {
+      "page": 4,
+      "characters": 2404,
+      "start": "equals I at c\u2032 = c, is invertible on a neighborhood of the diagonal, and obeys\nC\u2032(c\u2032, c) = h(c\u2032)\u22121C("
+    },
+    {
+      "page": 5,
+      "characters": 2930,
+      "start": "Proof. At the diagonal N = I, so its principal root is smooth nearby. The calculation in (9) proves\n"
+    },
+    {
+      "page": 6,
+      "characters": 2251,
+      "start": "This projector construction is an instance of induced subbundle geometry, related to the classical\nu"
+    },
+    {
+      "page": 7,
+      "characters": 2822,
+      "start": "Proposition 7 (A selector in the declared Lie algebra). For a closed matrix group G, (30) has a\nuniq"
+    },
+    {
+      "page": 8,
+      "characters": 2765,
+      "start": "The target can retain reciprocal link matrices and backtrack factors, both transforming by\nconjugati"
+    },
+    {
+      "page": 9,
+      "characters": 2978,
+      "start": "For group-valued links the Lie algebra of the center is always invisible to conjugation. For\narbitra"
+    },
+    {
+      "page": 10,
+      "characters": 585,
+      "start": "References\n[1] N. J. Higham. Functions of Matrices: Theory and Computation. SIAM, 2008.\ndoi:10.1137/"
+    }
+  ],
+  "visual_inspection": {
+    "contact_sheets": "all ten final pages",
+    "full_pages": [
+      4,
+      8
+    ],
+    "result": "No clipping, overlap, or missing equations seen; references on their own page."
+  }
+}
