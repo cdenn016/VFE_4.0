@@ -1,0 +1,10 @@
+{
+  "pages": 10,
+  "rendered_pages": 10,
+  "out_of_page_text_spans": [],
+  "replacement_character_pages": [],
+  "tex_warnings": [],
+  "visual_review": "All-page contact sheet and full-size pages 6 and 9 inspected; no detected layout defect",
+  "compiler": "TeX Live 2025 via latexmk/pdflatex; exit 0",
+  "app_preview": "Failed before compilation: Windows process access denied, error 5"
+}

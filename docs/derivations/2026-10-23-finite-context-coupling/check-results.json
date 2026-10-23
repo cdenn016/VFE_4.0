@@ -1,0 +1,96 @@
+{
+  "status": "passed",
+  "check_groups": 9,
+  "numpy": "2.4.4",
+  "compute": "single-thread CPU; no torch, GPU, process pools, or trajectories",
+  "scope": "explicit finite examples only; analytical theorem in main.tex",
+  "results": {
+    "exact_witness": {
+      "C": 8.0,
+      "S": 0.0,
+      "rho": 8.0,
+      "context_energy": 3.0,
+      "total_energy": 37.5,
+      "energy_derivative": -323.0,
+      "source_velocity": [
+        [
+          -1.0,
+          -1.0,
+          2.0,
+          2.0
+        ],
+        [
+          2.0,
+          2.0,
+          -2.0,
+          -2.0
+        ]
+      ],
+      "target_velocity": [
+        [
+          -4.0,
+          -12.0,
+          4.0,
+          6.0
+        ],
+        [
+          2.0,
+          4.0,
+          -1.0,
+          -8.0
+        ]
+      ]
+    },
+    "all_16_total_gradient_components": {
+      "max_abs_error": 4.964678002039591e-09
+    },
+    "stationarity_and_group_hessian": {
+      "stationarity_residual": -2.220446049250313e-12,
+      "finite_difference_hessian": 7.903954601928831,
+      "analytic_hessian": 7.903954706347956
+    },
+    "endpoint_gauge_covariance_and_pure_frame_zero_cost": {
+      "max_abs_error": 8.881784197001252e-16
+    },
+    "neighbor_influence_and_zero_coupling": {
+      "local_velocity_change": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    "dissipation_directional_derivative": {
+      "measured": -323.00000000162754,
+      "exact": -323.0
+    },
+    "nontrivial_row_fisher_dissipation": {
+      "rate": -0.3402594223045341,
+      "minus_norm": -0.34025942228850187
+    },
+    "infinitesimal_normal_equation": {
+      "A_scalar": -0.075,
+      "transport_angle_over_epsilon": 0.07499986875021561,
+      "scaled_edge_energy": 0.2287500196763912,
+      "projected_tangent_energy": 0.22875000000000004
+    },
+    "free_action_minimizer_cusp": {
+      "flat_rotation_costs": [
+        2.0,
+        1.9999999999999998,
+        2.0,
+        2.0
+      ],
+      "left_slope": 1.9999950000126885,
+      "right_slope": 5.000000413701855e-06
+    }
+  }
+}

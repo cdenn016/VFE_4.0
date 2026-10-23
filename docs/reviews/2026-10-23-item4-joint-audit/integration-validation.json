@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-23",
+  "status": "locally integrated and validated",
+  "research_head": "ba14d40daa069072fb6a320a7fa46f2bdca8061d",
+  "new_sources_sha256": {
+    "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\15_contextual_coupling.tex": "4f376cce822ee4b82c91fbf87b837f7bea54dcc519026a0e7d7af01f59953452",
+    "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\companion\\c15_contextual_coupling.tex": "745f80c4d6aa97ada679f0e10928cf2bee1601d60f3e87c2324cbc69415aacae"
+  },
+  "protected_files_checked": 16,
+  "protected_files_changed": [],
+  "item7_backlog_section_unchanged": true,
+  "build_warnings": {
+    "MAgent_Theory_2.0.log": [
+      "Overfull \\hbox (9.51393pt too wide) in paragraph at lines 115--116",
+      "Overfull \\hbox (20.93712pt too wide) in paragraph at lines 105--106",
+      "Overfull \\hbox (9.39738pt too wide) in paragraph at lines 176--178"
+    ],
+    "MAgent_Theory_2.0_companion.log": []
+  },
+  "preexisting_bibtex_warning": "Shahshahani1979 has both volume and number",
+  "unresolved_references_or_citations": false,
+  "checks_rerun": false,
+  "reason_no_formula_rerun": "Only the standalone normal-equation typesetting was repaired; mathematical calculations were analytically reconstructed by the investigators.",
+  "publication": "not requested; not performed",
+  "final_pdf_pages": {
+    "main": 232,
+    "companion": 86,
+    "continuum_standalone": 12
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "pdf": "continuum-context-coupling.pdf",
+  "sha256": "fa4b1cf087076ecef0a96cd8c3482624ab333dd73a3cc95424d656500c9e4042",
+  "source_sha256": "d6f61a8880d07d6a70bab08158bb9bd26dc285799461c24f6b28e8e5b96ff903",
+  "compiler": "TeX Live 2025, latexmk with pdfLaTeX",
+  "compiler_exit_code": 0,
+  "compiler_warnings": [],
+  "app_preview": {
+    "status": "failed",
+    "reason": "Windows CreateProcessAsUserW access denied, error 5"
+  },
+  "pages": 12,
+  "all_pages_rendered": 12,
+  "renderer": "Poppler pdftoppm at 100 dpi for 2026-10-23 audit correction",
+  "out_of_page_text_spans": [],
+  "page_details": [
+    {
+      "page": 1,
+      "characters": 2641,
+      "start": "Continuum contextual coupling of statistical laws Auxiliary Fisher geometry and local well-posedness"
+    },
+    {
+      "page": 2,
+      "characters": 2788,
+      "start": "Write p = (pi)i \u2208M for the collective target configuration. Its metric is the Fisher metric of the n"
+    },
+    {
+      "page": 3,
+      "characters": 2299,
+      "start": "There is no row dependence in these channel rules. Define V (x, p, \u03b2, \u03b3) = X i KL(qi \u2297si\u2225Ri(x)) + X "
+    },
+    {
+      "page": 4,
+      "characters": 2185,
+      "start": "At fixed p the integrand is a strictly convex quadratic in each A\u00b5. Its unique minimizer satisfies k"
+    },
+    {
+      "page": 5,
+      "characters": 1962,
+      "start": "Pairing the negative gradient condition with independent coordinate variations yields hut + CT k(rt "
+    },
+    {
+      "page": 6,
+      "characters": 2812,
+      "start": "Push references and evaluators forward as well, and transform each sector channel by K\u2032 ij(gjy, S) ="
+    },
+    {
+      "page": 7,
+      "characters": 2313,
+      "start": "The asymmetric regularity is intentional. Only the shape coordinate is assigned the extra spatial de"
+    },
+    {
+      "page": 8,
+      "characters": 1779,
+      "start": "One can first extend the smooth coefficients to a compact neighborhood of the initial image; their d"
+    },
+    {
+      "page": 9,
+      "characters": 2654,
+      "start": "Split the fiber integrand difference into C(z)(u+ t \u2212eu+ t ) + (C(z) \u2212C(ez))eu+ t and the Q differen"
+    },
+    {
+      "page": 10,
+      "characters": 2873,
+      "start": "(17) gives the better residual regularity DA\u2217p = Ha\u2202\u00b5ua \u2208CHm. There is no separate connection evolut"
+    },
+    {
+      "page": 11,
+      "characters": 1855,
+      "start": "Equivalently, the peer terms are \u2225\u00b51 \u2212\u00b52\u22252 + \u2225\u03bd1 \u2212\u03bd2\u22252. A single SO(2) rotation acts on every column"
+    },
+    {
+      "page": 12,
+      "characters": 2582,
+      "start": "At zero coupling this ratio is constant; at positive coupling it decays faster for higher spatial fr"
+    }
+  ],
+  "visual_review": {
+    "status": "completed",
+    "all_page_contact_sheet": true,
+    "full_size_pages_inspected": [
+      4
+    ],
+    "result": "Corrected normal equation inspected at full size; all twelve pages inspected in contact sheet. No clipping or missing glyphs observed."
+  },
+  "validation_scope": "Build, page rendering, and layout checks; no mathematical verification claim.",
+  "audit_followup": "Normal-equation typesetting repaired after joint audit; no mathematical formula changes or repeated numerical checks."
+}
