@@ -1,0 +1,1043 @@
+{
+  "completed_utc": "2026-10-23T21:32:47.366080+00:00",
+  "status": "locally_integrated_and_validated",
+  "audit_verdict": "No blocking mathematical defect found under the stated hypotheses",
+  "protected_files": [
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item1_checks\\checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\adversarial-report.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\appendices\\determinant_example.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\audit-checks-output.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item1_refs.bib",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item3_checks\\checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\frontmatter.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\03_dynamics.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\appendices\\record_process.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\operational-underdetermination.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\problem-contract.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\routes\\native-cliques.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\Item_3_curvature_hierarchy.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\preamble.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\latex\\base-transport.pdf",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\source-manifest.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\routes\\geometry.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c13_per_agent_inheritance.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c01_objects.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item7_checks\\checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-manifest.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\literature-mapping.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\08_smooth_erasure.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\dependency-dag.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c06_geometry.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\future_TODO.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\README.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c09_public_compression.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\09_public_compression.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\appendices\\base_connection.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\variational-selection.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item1_checks\\checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\claim-ledger.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\routes\\parent-closure.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\MAgent_Theory_2.0.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c02_links.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\variational-audit.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\NEXT_TASK.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\13_per_agent_inheritance.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\Item_7_formation_feedback.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\formation-audit.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\change-logs\\2026-10-23.md",
+      "result": "prior prefix preserved; authorized append"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\source-manifest.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\README.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\superpowers\\plans\\2026-10-21-gauge-agent-inherited-formation.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\approach-registry.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\claim-ledger.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\final-report.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\proof-reconstruction.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\check-results.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\preservation-result.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\check_identities.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\adversarial-report.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\source-baseline.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\routes\\staged-cliques.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\Item_2_link_dynamics.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\routes\\geometry-symmetry-interface.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\04_prediction.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\references.bib",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\11_conditional_formation.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\14_collective_local_parent.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item7_refs.bib",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c11_formation.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\gauge-audit.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\.gitignore",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\bind_contract.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\audit_checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\structural-validation.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\counterexample-register.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\REPORT.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\construction-or-strongest-theorem.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\moving-interface-geometry.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\proof-reconstruction.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\AUTHORING.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\supplements\\s04_inheritance.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\release.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\supplements\\s02_geometry.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\final-report.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\02_interactions.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item7_checks\\checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\release.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c03_dynamics.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item2_checks\\checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\MAgent_Theory_2.0_companion.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\routes\\native-response-recovery.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\figures\\inheritance_square.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-formation-next-step-reassessment.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\counterexample-register.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\ITEM7_REVIEW_REQUIREMENTS.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\01_foundations.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\history-selection.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\06_fusion.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\07_smooth_closure.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c14_collective_local_parent.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\approach-registry.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\05_inheritance.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\latex\\main.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\glossary.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\12_open_formation.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\identity-checks.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\10_boundary_closure.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\pdf-validation.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c12_open_formation.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\research\\frame-construction.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c05_inheritance.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c08_smooth.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\research\\link-alignment.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c04_communication.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\supplements\\s01_probability.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\06_outlook.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\routes\\selection-observability-bridge.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\problem-contract.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\figures\\message_reconstruction.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c10_boundary.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\Item_1_communication_links.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\figures\\link_transport.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\appendices\\notation.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-23-link-base-transport\\checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item2_checks\\checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\supplements\\s03_variation.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\dependency-dag.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\chapters\\02_geometry.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\companion\\c07_fusion.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-unprepared-recursive-formation\\construction-or-strongest-theorem.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\MAgent_Theory_2.0_supplement.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item3_checks\\checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\reviews\\2026-10-23-theory-next-task\\source-snapshot\\item2_refs.bib",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\change-logs\\2026-10-21.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\derivations\\2026-10-22-endogenous-interface-selection\\prepare_record.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_qm_route3.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_qm_route3_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\Attention\\minimal_agent_model.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\11-complex-structure-dynamics.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\qm_route2_checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_t2.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\final-report.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\03-information-geometric-source.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\2026-10-21-observer-free-gauge-agent-foundation.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_qm_route1_composition_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\01-gauge-geometry-phase-bundle.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\2026-10-21-edits.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\kk_fisher_checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\log.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\independent-check.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_t2_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\dependency-dag.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\14-qm-route1-composition.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\16-qm-route3-graph-nonlocality.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_complex_axioms.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\2026-10-21-shared-predictions-from-gauge-model-agreement.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\lint-reports\\2026-10-23-mechanical.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_torsion_free_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\assemble_records.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\lint-reports\\2026-10-11-weekly.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\torsion_teleparallel_checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\kk_fisher_checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\collective_curvature_checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\KK_summary.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\06-collective-curvature.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\counterexample-register.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\index.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\complex_structure_checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\freeze_contract.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\README.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\12-complex-structure-axioms.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_qm_route1_composition.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_complex_axioms_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\wiki\\projects\\VFE Transformer Program.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_torsion_free.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\construction-or-strongest-theorem.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\05-T2-history-soldering.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\geometry-witness.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\15-qm-route2-fisher-current.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_T2_curvature.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\04-symbolic-checks.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_torsion.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\qm_route2_checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\RESULTS.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\certification-notes.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\BRIEF.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\collective_curvature_checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\Attention\\minimal_agent_model.pdf",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\torsion_teleparallel_checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\sources\\runs\\vfe3-2026-10-06-minimal-agent-implementation.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_kk_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\09-torsion-teleparallel.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\claim-ledger.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\wiki\\fields\\CS-ML MOC.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_kk.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\release.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_T2_curvature_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\lint-reports\\2026-10-04-weekly.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\07-checks-T2-curvature.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\wiki\\fields\\Statistics MOC.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\10-checks-torsion.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\adversarial-report.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\complex_structure_checks_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\02-radical-as-fiber.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\13-complex-structure-geometry.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_complex_structure.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\probability-dynamics.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_complex_structure_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\approach-registry.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\lint-reports\\2026-10-22-mechanical.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\checks_torsion_output.txt",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\derivations\\2026-10-21-gauge-agent-foundation\\problem-contract.json",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\pifb2\\2026-10-09-kaluza-klein-pullback\\08-torsion-free-structure.md",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\item7_refs.bib",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.aux",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.bbl",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.blg",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.fdb_latexmk",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.fls",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.log",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.out",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.pdf",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\Item_7_formation_feedback.toc",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\13_per_agent_inheritance.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\chapters\\14_collective_local_parent.tex",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\item7_checks\\checks.py",
+      "result": "byte-identical"
+    },
+    {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\item7_checks\\checks_output.txt",
+      "result": "byte-identical"
+    }
+  ],
+  "daily_log_prefixes": {
+    "C:\\Users\\chris and christine\\Desktop\\VFE_4.0\\docs\\change-logs\\2026-10-23.md": {
+      "bytes": 7685,
+      "sha256": "710947edb78d7a5de8593ef7e1d2762bcb50983ff34be2c24b51fc2b6559d8a4"
+    },
+    "C:\\Users\\chris and christine\\Desktop\\Research\\docs\\2026-10-23-edits.md": {
+      "bytes": 2264,
+      "sha256": "375cfb89f4cbab1ea722f21e514de9ab5cdb9148b008681a4acb8443d8f4e45d"
+    }
+  },
+  "item7_backlog_bytes_unchanged": true,
+  "changed_manuscript_files": [
+    "AUTHORING.md",
+    "frontmatter.tex",
+    "future_TODO.md",
+    "MAgent_Theory_2.0.pdf",
+    "MAgent_Theory_2.0.tex",
+    "MAgent_Theory_2.0_companion.pdf",
+    "MAgent_Theory_2.0_companion.tex",
+    "README.md",
+    "references.bib",
+    "appendices\\base_connection.tex",
+    "chapters\\01_foundations.tex",
+    "chapters\\02_geometry.tex",
+    "chapters\\02_interactions.tex",
+    "chapters\\06_outlook.tex",
+    "chapters\\15_contextual_coupling.tex",
+    "companion\\c02_links.tex",
+    "companion\\c06_geometry.tex",
+    "companion\\c15_contextual_coupling.tex"
+  ],
+  "new_manuscript_files": [
+    "chapters/16_link_base_transport.tex",
+    "companion/c16_link_base_transport.tex"
+  ],
+  "warnings": {
+    "MAgent_Theory_2.0": [
+      "Overfull \\hbox (9.51393pt too wide) in paragraph at lines 115--116",
+      "Overfull \\hbox (20.93712pt too wide) in paragraph at lines 105--106",
+      "Overfull \\hbox (9.39738pt too wide) in paragraph at lines 176--178"
+    ],
+    "MAgent_Theory_2.0_companion": []
+  },
+  "pdfs": [
+    {
+      "name": "main",
+      "pdf": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\MAgent_Theory_2.0.pdf",
+      "sha256": "a54d77e5d58ddf456b0fc8c6996919bdfaee05a9a586fe8e1a3c6d687c8d4c44",
+      "pages": 242,
+      "rendered_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        8,
+        9,
+        10,
+        20,
+        21,
+        22,
+        25,
+        26,
+        27,
+        199,
+        200,
+        201,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        228,
+        229,
+        230,
+        231,
+        232,
+        241,
+        242
+      ],
+      "out_of_page_text_spans": [],
+      "visual_review": {
+        "status": "completed",
+        "method": "Poppler page renders and contact sheets; full equation, final scope, and contents pages inspected",
+        "result": "No clipping, overlap, missing glyphs, or unreadable equations observed in the inspected pages.",
+        "full_page_views": [
+          6,
+          219,
+          222,
+          223
+        ]
+      },
+      "last_layout_change_pages": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "companion",
+      "pdf": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\MAgent_Theory_2.0_companion.pdf",
+      "sha256": "8fd135df50bda8c78107aaf7f7317ac0c9071f2241b26e03d41a36c057e19e49",
+      "pages": 92,
+      "rendered_pages": [
+        1,
+        2,
+        3,
+        8,
+        9,
+        10,
+        11,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        91,
+        92
+      ],
+      "out_of_page_text_spans": [],
+      "visual_review": {
+        "status": "completed",
+        "method": "Poppler page renders and contact sheets; full equation, final scope, and contents pages inspected",
+        "result": "No clipping, overlap, missing glyphs, or unreadable equations observed in the inspected pages.",
+        "full_page_views": [
+          3,
+          87,
+          88
+        ]
+      }
+    }
+  ],
+  "publication": "not requested or performed"
+}

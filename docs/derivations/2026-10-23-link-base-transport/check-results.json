@@ -1,0 +1,97 @@
+{
+  "status": "passed",
+  "check_groups": 19,
+  "scope": "Small illustrative formulas only; no GPU or training",
+  "checks": {
+    "exact_rectangular_curvature_and_metric": "symbolic identities equal zero",
+    "zero_displacement": {
+      "residual": 1.1457254178033772e-16,
+      "tolerance": 1e-13
+    },
+    "right_inverse": {
+      "residual": 1.1457254178033772e-16,
+      "tolerance": 1e-13
+    },
+    "nonorthogonal_endpoint_law": {
+      "residual": 3.1680439426699847e-16,
+      "tolerance": 1e-12
+    },
+    "affine_connection_axis_0": {
+      "residual": 6.27977684498044e-11,
+      "tolerance": 2e-09
+    },
+    "normal_equation_axis_0": {
+      "residual": 1.3377712271280256e-11,
+      "tolerance": 2e-10
+    },
+    "reciprocal_first_jet_axis_0": {
+      "residual": 2.467566636124587e-12,
+      "tolerance": 2e-09
+    },
+    "affine_connection_axis_1": {
+      "residual": 1.2220573023037496e-10,
+      "tolerance": 2e-09
+    },
+    "normal_equation_axis_1": {
+      "residual": 1.3377712271280256e-11,
+      "tolerance": 2e-10
+    },
+    "reciprocal_first_jet_axis_1": {
+      "residual": 3.23853278963654e-11,
+      "tolerance": 2e-09
+    },
+    "reciprocal_reversal": {
+      "residual": 3.169445388404851e-16,
+      "tolerance": 1e-12
+    },
+    "cross_path_refinement": {
+      "steps": [
+        8,
+        16,
+        32,
+        64
+      ],
+      "errors": [
+        0.018920003156224472,
+        0.009489079994453207,
+        0.004752066073028305,
+        0.002377946747252348
+      ]
+    },
+    "reciprocal_path_refinement": {
+      "steps": [
+        8,
+        16,
+        32,
+        64
+      ],
+      "errors": [
+        0.0001507210192709632,
+        3.763912850600866e-05,
+        9.407216019542033e-06,
+        2.3516436980580645e-06
+      ]
+    },
+    "so3_normal_axis_0": {
+      "residual": 0.0,
+      "tolerance": 2e-09
+    },
+    "so3_finite_alignment_jet_axis_0": {
+      "residual": 0.0,
+      "tolerance": 3e-07
+    },
+    "so3_normal_axis_1": {
+      "residual": 5.685212075053344e-11,
+      "tolerance": 2e-09
+    },
+    "so3_finite_alignment_jet_axis_1": {
+      "residual": 7.785228852142761e-10,
+      "tolerance": 3e-07
+    },
+    "so3_curvature": {
+      "coefficient": 0.4838437316791579,
+      "min_locked_eigenvalue": 0.5004912714817475
+    },
+    "backtrack_scalar_connection": "symbolic identity equal zero"
+  }
+}

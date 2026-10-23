@@ -1,0 +1,104 @@
+[
+  {
+    "name": "main",
+    "pdf": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\MAgent_Theory_2.0.pdf",
+    "sha256": "a54d77e5d58ddf456b0fc8c6996919bdfaee05a9a586fe8e1a3c6d687c8d4c44",
+    "pages": 242,
+    "rendered_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      10,
+      20,
+      21,
+      22,
+      25,
+      26,
+      27,
+      199,
+      200,
+      201,
+      212,
+      213,
+      214,
+      215,
+      216,
+      217,
+      218,
+      219,
+      220,
+      221,
+      222,
+      223,
+      224,
+      225,
+      226,
+      228,
+      229,
+      230,
+      231,
+      232,
+      241,
+      242
+    ],
+    "out_of_page_text_spans": [],
+    "visual_review": {
+      "status": "completed",
+      "method": "Poppler page renders and contact sheets; full equation, final scope, and contents pages inspected",
+      "result": "No clipping, overlap, missing glyphs, or unreadable equations observed in the inspected pages.",
+      "full_page_views": [
+        6,
+        219,
+        222,
+        223
+      ]
+    },
+    "last_layout_change_pages": [
+      4,
+      5,
+      6
+    ]
+  },
+  {
+    "name": "companion",
+    "pdf": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\MAgent_Theory_2.0_companion.pdf",
+    "sha256": "8fd135df50bda8c78107aaf7f7317ac0c9071f2241b26e03d41a36c057e19e49",
+    "pages": 92,
+    "rendered_pages": [
+      1,
+      2,
+      3,
+      8,
+      9,
+      10,
+      11,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      91,
+      92
+    ],
+    "out_of_page_text_spans": [],
+    "visual_review": {
+      "status": "completed",
+      "method": "Poppler page renders and contact sheets; full equation, final scope, and contents pages inspected",
+      "result": "No clipping, overlap, missing glyphs, or unreadable equations observed in the inspected pages.",
+      "full_page_views": [
+        3,
+        87,
+        88
+      ]
+    }
+  }
+]

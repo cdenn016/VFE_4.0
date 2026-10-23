@@ -1,0 +1,415 @@
+\documentclass[11pt]{article}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype,amsmath,amssymb,amsthm,mathtools}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{assumption}[theorem]{Assumption}
+\newcommand{\R}{\mathbb R}
+\newcommand{\GL}{\operatorname{GL}}
+\newcommand{\Tr}{\operatorname{Tr}}
+\newcommand{\dd}{\mathrm d}
+\newcommand{\Ad}{\operatorname{Ad}}
+\newcommand{\C}{\mathcal C}
+\newcommand{\E}{\mathbb E}
+\title{From agent links to base transport\\\large Frames, contextual messages, and a derived connection}
+\author{Standalone mathematical note}
+\date{October 23, 2026}
+\begin{document}
+\maketitle
+\begin{abstract}
+A smooth frame gives a local flat connection once that frame is declared parallel. Curvature can instead arise from a redundant collection of law-derived vectors and link-transformed messages, or from collective alignment of contextual link fields. We give an explicit full-rank construction whose displacement maps equal the identity on the diagonal, transform at their two endpoints, and have a derivative linear in displacement. Reciprocalization preserves this derivative, and products along refining partitions converge to its parallel transport. Both reciprocal and backtrack parts of the original directed links are retained. We derive the curvature, give curved examples, and extend the selector to a declared matrix structure group. The construction requires smooth contextual data and stated comparison choices. It does not select a unique rule from pointwise links alone, and link data invariant under a continuous gauge subgroup cannot identify that subgroup's connection component.
+\end{abstract}
+
+\section{The question and the types of the data}
+
+Let $\C$ be a smooth finite-dimensional contextual base, $P\to\C$ a principal matrix-group bundle, and $E=P\times_G V$ an associated vector bundle. The explicit construction first uses $G=\GL(K,\R)$ and $V=\R^K$. Section~\ref{sec:group} treats a smaller declared matrix group. A context is denoted $c$; agent labels $i,j$ are not base coordinates. All derivatives below are contextual derivatives at fixed evolution time.
+
+On a patch choose a reference presentation of $E$. Agent $i$ displays vectors in a coordinate copy $E_i$ through an invertible map $U_i:V\to E_i$. Its normalized law $\nu_i$ may be a belief or model marginal. A passive change of displayed coordinates and a change of common reference act differently:
+\begin{align}
+ U_i'&=g_iU_i,&\nu_i'&=(g_i)_\#\nu_i,
+ \label{eq:passive}\\
+ U_i'&=U_i h,&\bar\nu_i'&=(h^{-1})_\#\bar\nu_i,
+ &\bar\nu_i&=(U_i^{-1})_\#\nu_i.
+ \label{eq:reference}
+\end{align}
+The presentation maps and coordinate changes are $C^2$ and may vary with context. Reference-independent statements must satisfy both rules.
+
+A directed, invertible interaction at one context is
+\begin{equation}
+ \Theta_{ij}=U_i K_{ij}U_j^{-1}:E_j\longrightarrow E_i,
+ \qquad K_{ij}'=h^{-1}K_{ij}h.
+ \label{eq:point-link}
+\end{equation}
+For example, $K_{ij}=\exp(L_{ij})$, where $L_{ij}=O_iT_j$ is a receiving--sending product on $V$ that may depend on the current laws. General normalized channels need not be invertible; the factorization arguments here apply to invertible links only. Neither $\Theta_{ij}$ nor its exponential generator is already a displacement map between $c$ and $c+\delta c$.
+
+Our convention for a reference connection is $D^a=\dd+a$, with
+\begin{equation}
+ a'=h^{-1}ah+h^{-1}\dd h.
+ \label{eq:affine}
+\end{equation}
+In agent $i$'s displayed coordinates the same connection is
+\begin{equation}
+ B_i=U_i aU_i^{-1}-\dd U_iU_i^{-1},\qquad
+ F_i=U_i F^aU_i^{-1},\qquad F^a=\dd a+a\wedge a.
+ \label{eq:dressed}
+\end{equation}
+Thus $B_i'=g_iB_ig_i^{-1}-\dd g_i g_i^{-1}$ under~\eqref{eq:passive}, and $B_i$ is unchanged by~\eqref{eq:reference} together with~\eqref{eq:affine}. Products of matrix-valued forms include matrix multiplication; $(a\wedge a)(Y,Z)=[a(Y),a(Z)]$.
+
+The issue is to derive $a$ from stated contextual agent data. Merely declaring $a_\mu$ and inserting $\exp(-a_\mu\delta c^\mu)$ supplies the answer as additional data. The construction below begins with finite cross-context messages and differentiates their normalized alignment.
+
+\section{What an agent frame does determine}
+
+\begin{proposition}[A square frame selects flat local transport]
+Let $Q(c)$ be a $C^2$ invertible matrix whose columns are declared physical frame vectors, expressed in one reference coordinate system. Put
+\begin{equation}
+ a_Q=-\dd Q Q^{-1},\qquad
+ T_Q(c',c)=Q(c')Q(c)^{-1}.
+ \label{eq:frame}
+\end{equation}
+Then $T_Q(c,c)=I$, $D^{a_Q}Q=0$, $F^{a_Q}=0$, and
+$T_Q(c'',c')T_Q(c',c)=T_Q(c'',c)$. If $Q'=h^{-1}Q$, then $a_Q$ obeys~\eqref{eq:affine} and $T_Q'=h(c')^{-1}T_Qh(c)$.
+\end{proposition}
+\begin{proof}
+Identity, composition and covariance follow by multiplication. Taylor expansion gives $T_Q(c+\delta c,c)=I-a_Q(\delta c)+O(|\delta c|^2)$. The identity $\dd Q^{-1}=-Q^{-1}(\dd Q)Q^{-1}$ gives $\dd a_Q=-a_Q\wedge a_Q$, proving flatness.
+\end{proof}
+
+An agent frame can therefore select a connection if declaring that frame parallel is part of the model. When the frame is only a coordinate choice, that declaration changes the model under an arbitrary change of frame unless the connection is transformed with it. In particular $B_i=-\dd U_iU_i^{-1}$, with $U_i$ as in~\eqref{eq:reference}, holds the reference connection $a=0$ fixed. Replacing $U_i$ by $U_i h(c)$ while again setting $a=0$ changes $B_i$ by $-U_i\dd h h^{-1}U_i^{-1}$. This rule is not independent of the common reference.
+
+Several individually flat connections can give a curved affine average. They must already be connections on the same bundle. For two such connections $a_1,a_2$, put $\Delta=a_1-a_2$ and let $\lambda$ be a smooth scalar. Then $a=a_2+\lambda\Delta$ has
+\begin{equation}
+ F^a=\dd\lambda\wedge\Delta-\lambda(1-\lambda)\Delta\wedge\Delta.
+ \label{eq:average-curvature}
+\end{equation}
+Flatness gives $D^{a_2}\Delta=-\Delta\wedge\Delta$, which substituted into $F^{a_2+\lambda\Delta}$ proves the formula. Weight variation can produce Abelian curvature, and noncommuting disagreements can produce non-Abelian curvature even at constant weight. The weights and identification of the individual connections remain constitutive inputs. Averaging square frames and applying~\eqref{eq:frame} still gives a flat connection.
+
+\section{Retaining reciprocal and backtrack information}
+
+Suppose each backtrack $N_{ij,j}=\Theta_{ji}\Theta_{ij}$ has spectrum disjoint from $(-\infty,0]$. The ordered-pair subscripts distinguish loops from different neighbors. Define
+\begin{equation}
+ S_{ij,j}=N_{ij,j}^{1/2},\qquad
+ \Omega_{ij}=\Theta_{ij}S_{ij,j}^{-1},\qquad
+ \Theta_{ij}=\Omega_{ij}S_{ij,j}.
+ \label{eq:reciprocal}
+\end{equation}
+The principal real matrix root is smooth on this spectral domain and commutes with similarity~\cite{Higham2008}. Since $N_{ij,i}=\Theta_{ij}N_{ij,j}\Theta_{ij}^{-1}$, multiplication gives
+\begin{equation}
+ \Omega_{ji}=\Omega_{ij}^{-1},\qquad
+ \Omega_{ij}'=g_i\Omega_{ij}g_j^{-1},\qquad
+ S_{ij,j}'=g_jS_{ij,j}g_j^{-1}.
+ \label{eq:reciprocal-law}
+\end{equation}
+This factorization retains the original directed pair exactly. It does not impose inverse relations on the original $\Theta$ fields. An interaction loop at one context is also distinct from a loop in the contextual base.
+
+The construction may use raw $\Theta$ fields directly, without any square-root branch. Where the branch exists, including both $\Omega$-transformed and $\Theta$-transformed messages makes their different roles explicit. Storing $\Omega$ and $S$ retains all directed links, even though their eventual connection need not encode them injectively.
+
+\section{A full-rank contextual message construction}
+\label{sec:messages}
+
+Fix a finite census and persistent message labels. Their message space is $H=\R^r$, with a stated, context-independent Euclidean inner product. A fixed positive message metric can be absorbed into the columns. Identifying these labels between contexts is an assumption; agent labels or fixed receiving-interface columns give one realization. Section~\ref{sec:message-connection} treats changing message coordinates.
+
+For a normalized law with a finite first moment, let $m_i=\E_{\nu_i}[v]\in E_i$ and $\bar m_i=U_i^{-1}m_i$. The law need not be Gaussian. Smoothness of its moments is an assumption on the law family, not a consequence of normalization. Define
+\begin{equation}
+ R_{ij}=U_i^{-1}\Omega_{ij}U_j,\qquad
+ K_{ij}=U_i^{-1}\Theta_{ij}U_j.
+\end{equation}
+One permissible collective message matrix is a chosen concatenation
+\begin{equation}
+ X(c)=\bigl[\{\bar m_i\}_i,\ \{R_{ij}\bar m_j\}_{(i,j)},\
+                    \{K_{ij}\bar m_j\}_{(i,j)}\bigr]:H\longrightarrow V.
+ \label{eq:X-construction}
+\end{equation}
+Each column has a stated label. Receiving-interface columns $O_i:H_i\to V$, or their link-transformed columns, can replace or supplement the means. Gauge-invariant scalar column weights may depend smoothly on laws and rows; their derivatives are included in $\dd X$. Column selection, weights and message metric specify the rule. The identity self link does not imply that these columns span $V$.
+
+Under passive agent re-expression every reference column is unchanged. Under reference rechoice it obeys
+\begin{equation}
+ X'=h^{-1}X.
+ \label{eq:X-law}
+\end{equation}
+For example $(h^{-1}R_{ij}h)(h^{-1}\bar m_j)=h^{-1}R_{ij}\bar m_j$. The same calculation applies to raw link and interface columns. Thus the construction is reference consistent when its original link and interface rules are reference consistent.
+
+\begin{assumption}[Regular message region]
+On an open region $\mathcal U\subset\C$, $X$ is $C^2$ with row rank $K$. Its columns refer to one fixed labeled message space. Local expressions on overlaps obey~\eqref{eq:X-law}. No spatial connection on $E$ is included in these data.
+\end{assumption}
+
+Put
+\begin{equation}
+ H_X=XX^T,\qquad Q_X=X^T H_X^{-1},\qquad P_X=Q_XX.
+ \label{eq:right-inverse}
+\end{equation}
+Here $H_X$ is a positive-definite $K\times K$ Gram matrix, $Q_X:V\to H$ is a right inverse of $X$, and $P_X$ is the orthogonal projector in message space onto $\operatorname{im}X^T$.
+
+\begin{theorem}[Displacement links and their connection]
+Under the regular message assumption, the map
+\begin{equation}
+ C(c',c)=X(c')Q_X(c)
+ \label{eq:cross-map}
+\end{equation}
+equals $I$ at $c'=c$, is invertible on a neighborhood of the diagonal, and obeys
+\begin{equation}
+ C'(c',c)=h(c')^{-1}C(c',c)h(c).
+ \label{eq:cross-endpoint}
+\end{equation}
+Its first derivative determines a $C^1$ connection:
+\begin{equation}
+ C(c+\delta c,c)=I-a_c(\delta c)+O(|\delta c|^2),\qquad
+ a=-\dd X Q_X.
+ \label{eq:derived-a}
+\end{equation}
+The derivative is linear in the tangent displacement. The local forms obey~\eqref{eq:affine} and define a connection wherever the data have the stated overlap laws. In agent coordinates
+\begin{equation}
+ C_i(c',c)=U_i(c')C(c',c)U_i(c)^{-1}
+ \label{eq:display-cross}
+\end{equation}
+has connection~\eqref{eq:dressed}, is reference independent, and transforms by $g_i(c')$ and $g_i(c)^{-1}$ at its two endpoints.
+\end{theorem}
+\begin{proof}
+Full row rank gives $XQ_X=I$. Continuity of the determinant makes $C$ invertible near each diagonal point. Under~\eqref{eq:X-law},
+\begin{equation}
+ H_X'=h^{-1}H_Xh^{-T},\qquad Q_X'=Q_Xh,\qquad P_X'=P_X.
+\end{equation}
+This proves the endpoint law. Differentiating the first argument of~\eqref{eq:cross-map} gives~\eqref{eq:derived-a}; Taylor's theorem gives its remainder locally uniformly on compact subsets. Moreover,
+\begin{equation}
+ -\dd(h^{-1}X)Q_Xh=h^{-1}(-\dd XQ_X)h+h^{-1}\dd h.
+\end{equation}
+The affine law and the bundle transition cocycle glue the local covariant derivatives. Expanding~\eqref{eq:display-cross} gives $B_i$; substitution proves passive covariance and reference independence.
+\end{proof}
+
+The displacement maps are locally invertible, but the connection can be global on a nontrivial bundle if a global surjection $\C\times\R^r\to E$ with these data is supplied. When $r>K$, such a surjection need not trivialize $E$: its projector describes a moving subspace of the message space. A global square frame is the more restrictive case $r=K$.
+
+A receiver's displayed columns $m_i,\Omega_{ij}m_j,\Theta_{ij}m_j$ also transform by left multiplication by $g_i$. Applying the formula gives a receiver-selected connection. Different receivers' selections need not agree. The collective reference construction~\eqref{eq:X-construction} instead selects one $a$, displayed by all agents through~\eqref{eq:dressed}.
+
+\section{Reversal, finite paths, and zero displacement}
+
+The cross-map $C$ generally fails both reversal and composition. These failures do not invalidate its first jet as a connection, but matter before calling a finite map parallel transport. Discrete connections and their infinitesimal limits are classical geometric constructions~\cite{LeokMarsdenWeinstein2005}.
+
+\begin{proposition}[Reciprocal displacement maps with the same derivative]
+After shrinking the neighborhood of the diagonal, define
+\begin{equation}
+ N(c',c)=C(c,c')C(c',c),\qquad
+ T(c',c)=C(c',c)N(c',c)^{-1/2}.
+ \label{eq:discrete-reciprocal}
+\end{equation}
+Then $T(c,c)=I$, $T(c,c')=T(c',c)^{-1}$, and $T$ obeys~\eqref{eq:cross-endpoint}. Furthermore,
+\begin{equation}
+ N(c+\delta c,c)=I+O(|\delta c|^2),\qquad
+ T(c+\delta c,c)=I-a_c(\delta c)+O(|\delta c|^2).
+ \label{eq:same-jet}
+\end{equation}
+\end{proposition}
+\begin{proof}
+At the diagonal $N=I$, so its principal root is smooth nearby. The calculation in~\eqref{eq:reciprocal-law} proves reversal and endpoint covariance. Differentiating $XQ_X=I$ gives $X\dd Q_X=-\dd XQ_X$, so the two factors of $N$ have opposite linear terms. Its root is $I+O(|\delta c|^2)$, proving the expansion.
+\end{proof}
+
+The new $N(c',c)$ is a cross-context reconstruction defect. It differs from the agent backtrack $N_{ij,j}(c)$, retained in the input state through~\eqref{eq:reciprocal}. Reciprocalizing a displacement map does not delete the backtrack data that determined $X$.
+
+\begin{theorem}[Parallel transport from the derived first jet]
+For a piecewise $C^2$ path $\gamma:[0,1]\to\mathcal U$, the equation
+\begin{equation}
+ \dot{\mathcal T}(t)=-a_{\gamma(t)}(\dot\gamma(t))\mathcal T(t),\qquad
+ \mathcal T(0)=I
+ \label{eq:path-ode}
+\end{equation}
+has a unique invertible solution. It composes under concatenation, inverts under reversal, and has the endpoint law. Ordered products of $C$ or $T$ along partitions of $\gamma$ converge to $\mathcal T(1)$ as the maximum time step tends to zero.
+\end{theorem}
+\begin{proof}
+On each smooth segment the coefficient in~\eqref{eq:path-ode} is continuous and bounded. Picard iteration on a sufficiently short interval is a contraction, and finitely many intervals cover the path. The solution of $\dot S=Sa(\dot\gamma)$, $S(0)=I$, satisfies $\frac{\dd}{\dd t}(S\mathcal T)=0$, proving invertibility. Uniqueness proves concatenation and reversal. Differentiating $h(\gamma(t))^{-1}\mathcal T(t)h(\gamma(0))$ verifies its transformed equation.
+
+Include the finitely many corners among partition points. On each smooth segment the exact short propagator and discrete factor equal $I-a(\dot\gamma)\Delta t+O(\Delta t^2)$ uniformly on the compact path image. Their norms are bounded by $1+M\Delta t$. Telescoping the product difference bounds it by $C\exp(2M)\sum_k\Delta t_k^2$, which tends to zero because $\sum_k\Delta t_k^2\leq\max_k\Delta t_k$. This proves convergence for both discrete factors. Local trivializations can be joined by transition maps; the endpoint laws make the result independent of this description.
+\end{proof}
+
+An unrefined $C(c',c)$ or $T(c',c)$ need not equal exact transport along a selected path. Its first jet determines~\eqref{eq:path-ode}, while the finite endpoint rule contains additional, nonunique higher-order data.
+
+\section{Curvature and a curved law-dependent example}
+\label{sec:curvature}
+
+\begin{proposition}[Curvature of the rectangular construction]
+For~\eqref{eq:derived-a},
+\begin{align}
+ F^a&=\dd X\wedge\dd P_X Q_X
+      =\dd X\wedge(I-P_X)\dd Q_X\nonumber\\
+    &=\dd X\wedge(I-P_X)\dd X^T H_X^{-1},
+ \label{eq:curvature}\\
+ \dd H_X+aH_X+H_Xa^T&=0,\qquad
+ \Tr a=-\tfrac12\dd\log\det H_X,\qquad \Tr F^a=0.
+ \label{eq:metric-compatibility}
+\end{align}
+The connection preserves the fiber metric $H_X^{-1}$. When $r=K$, $P_X=I$ and the curvature vanishes. Redundant columns permit nonzero curvature.
+\end{proposition}
+\begin{proof}
+Exterior differentiation of $a=-\dd XQ_X$ gives $\dd a=\dd X\wedge\dd Q_X$. Differentiating $P_X=Q_XX$ and multiplying by $Q_X$ gives $\dd P_XQ_X=\dd Q_X+Q_X\dd XQ_X$. This proves the first equality after adding $a\wedge a$. Differentiating $P_XQ_X=Q_X$ proves the second. In $\dd Q_X=\dd X^TH_X^{-1}+X^T\dd H_X^{-1}$ the second term is killed by $I-P_X$, giving the last expression. Finally $aH_X=-\dd XX^T$ and $H_Xa^T=-X\dd X^T$, proving metric compatibility. Taking its trace after multiplying by $H_X^{-1}$ gives $2\Tr a=-\dd\log\det H_X$. The trace of a commutator vanishes, so $\Tr F^a=\dd\Tr a=0$.
+\end{proof}
+
+This projector construction is an instance of induced subbundle geometry, related to the classical universal connection on a Stiefel bundle~\cite{Narasimhan1962,MassambaThompson2003}. No universality claim for this particular real message rule is made:~\eqref{eq:metric-compatibility} restricts its curvature. The choice here is how agent laws and directed links supply the columns.
+
+On $\R^2$ with coordinates $(x,y)$ take
+\begin{equation}
+ X=\begin{pmatrix}1&0&x\\0&1&y\end{pmatrix},\qquad
+ v=\begin{pmatrix}x\\y\end{pmatrix},\qquad s=1+x^2+y^2.
+ \label{eq:witnessX}
+\end{equation}
+It has rank two everywhere. Substitution gives
+\begin{align}
+ a&=-\frac{(\dd v)v^T}{s},\label{eq:witnessA}\\
+ F^a&=\frac{1}{s^2}
+ \begin{pmatrix}-xy&1+x^2\\-(1+y^2)&xy\end{pmatrix}
+ \dd x\wedge\dd y.
+ \label{eq:witnessF}
+\end{align}
+At the origin $a=0$ but $F^a_{xy}=\begin{pmatrix}0&1\\-1&0\end{pmatrix}\ne0$.
+
+An explicit realization uses normalized non-Gaussian laws and an invertible link. Let a receiver carry receiving columns $e_1,e_2$. Let a source law be the product Laplace law of unit coordinate variances on $\R^2$, translated to mean $(x,1)^T$. Choose
+\begin{equation}
+ K_{ij}=\begin{pmatrix}1&0\\y&1\end{pmatrix}
+        =\exp(yE_{21}),\qquad K_{ji}=K_{ij}^{-1}.
+\end{equation}
+The linked mean is $(x,1+xy)^T$. Replacing $v$ in~\eqref{eq:witnessX} by this vector gives a full-rank, link-dependent matrix. Its curvature is the pullback of~\eqref{eq:witnessF} under $(x,y)\mapsto(x,1+xy)$, nonzero wherever $x\ne0$ because the Jacobian determinant is $x$. The labels and receiving axes are declared interface data. No Gaussian closure or evolving distributional ansatz is used.
+
+Backtracks can affect the connection while the reciprocal agent link stays fixed. In a scalar example take a receiver seed column $1$, source mean $1$, and $\Theta_{ij}=\Theta_{ji}=s(c)>0$. Then $\Omega_{ij}=1$ and $N_{ij,j}=s^2$. The raw linked column gives $X=[1,s]$ and
+\begin{equation}
+ a=-\frac{s\dd s}{1+s^2},
+\end{equation}
+whereas using only the reciprocal column gives $X=[1,1]$ and $a=0$. Both scalar connections are flat, but their transports differ for varying $s$. This proves a backtrack contribution can survive the selector, without asserting that every backtrack distinction is recoverable from one connection.
+
+\section{A declared structure group and joint sector data}
+\label{sec:group}
+
+The explicit matrix~\eqref{eq:derived-a} need not lie in an arbitrarily chosen subalgebra $\mathfrak g\subset\mathfrak{gl}(K)$. A $\GL(E)$ connection is not automatically a connection on a prescribed $G$-reduction.
+
+Let $M(c)$ be a $C^1$ positive-definite fiber metric with $M'=h^TMh$, and let $X$ have full row rank and~\eqref{eq:X-law}. The choice $M=H_X^{-1}$ is available. For $Y\in T_c\C$, minimize over $\xi\in\mathfrak g$
+\begin{equation}
+ \mathcal J_Y(\xi)=\tfrac12\Tr\bigl[M(\dd X(Y)+\xi X)
+                            (\dd X(Y)+\xi X)^T\bigr].
+ \label{eq:constrained}
+\end{equation}
+\begin{proposition}[A selector in the declared Lie algebra]
+For a closed matrix group $G$,~\eqref{eq:constrained} has a unique minimizer $a(Y)\in\mathfrak g$, linear in $Y$, $C^1$ in $c$, and satisfying~\eqref{eq:affine}. It solves
+\begin{equation}
+ \Tr[M(a(Y)X)(\eta X)^T]
+ =-\Tr[M\dd X(Y)(\eta X)^T]\quad(\eta\in\mathfrak g).
+ \label{eq:group-normal}
+\end{equation}
+For $\mathfrak g=\mathfrak{gl}(K)$ the solution is~\eqref{eq:derived-a}.
+\end{proposition}
+\begin{proof}
+The Hessian is positive: $\xi X=0$ implies $\xi=0$ after multiplying by $Q_X$. Its matrix in any basis of $\mathfrak g$ is invertible, giving existence, uniqueness and linear, smooth dependence. Under reference rechoice the candidate $\xi'=h^{-1}\xi h+h^{-1}\dd h(Y)$ belongs to $\mathfrak g$ and $\dd X'(Y)+\xi'X'=h^{-1}(\dd X(Y)+\xi X)$. The norm is unchanged; uniqueness gives the affine law. In the unrestricted algebra the normal equation is $(\dd X+aX)X^T=0$, yielding~\eqref{eq:derived-a}.
+\end{proof}
+
+Finite $G$-valued transport follows by~\eqref{eq:path-ode} along declared short paths with this derived $a$. Belief and model sectors carry representations $\varrho_q,\varrho_s$ of one group. To select one principal connection from both, sum their costs, replacing $\xi X$ by $d\varrho_a(\xi)X^a$, and minimize over the same $\xi\in\mathfrak g$. The required nondegeneracy is
+\begin{equation}
+ \{\xi:d\varrho_q(\xi)X^q=0,
+       \ d\varrho_s(\xi)X^s=0\}=\{0\}.
+\end{equation}
+The same proof applies to the summed normal equation. Two unrelated sector connections do not automatically arise from one principal connection.
+
+\section{Direct alignment of contextual link data}
+\label{sec:alignment}
+
+The rectangular construction is sufficient, but a full-rank vector collection is not necessary when the group action on links is itself identifiable. Let $\mathcal Z$ be a finite-dimensional Riemannian target of laws, interfaces and links with a smooth isometric left $G$-action and metric $\mathcal H$. Write $Z(c)\in\mathcal Z$ and $J_Z\xi=\left.\frac{\dd}{\dd t}\right|_0\exp(t\xi)\cdot Z$. Suppose $Z$ is smooth and $J_Z$ is injective on the region considered.
+
+\begin{proposition}[Local link alignment]
+Near each diagonal point there is a unique critical branch near $e$ that is a local minimizer of
+\begin{equation}
+ t(c',c)=\mathop{\operatorname{argmin}}_{g\text{ near }e}
+       \tfrac12 d_{\mathcal H}(Z(c'),g\cdot Z(c))^2.
+ \label{eq:alignment}
+\end{equation}
+It satisfies $t(c,c)=e$, reversal by inversion, and the endpoint law. Its connection solves
+\begin{equation}
+ \mathcal H(J_Za(Y),J_Z\eta)=-\mathcal H(\dd Z(Y),J_Z\eta).
+ \label{eq:augmented-normal}
+\end{equation}
+\end{proposition}
+\begin{proof}
+Use squared distance inside a normal neighborhood. At a diagonal point the group gradient vanishes and its Hessian is the positive locked form $\mathcal H(J_Z\xi,J_Z\eta)$. The implicit function theorem gives a unique smooth critical branch, whose Hessian remains positive nearby. Expanding $t(c+\delta c,c)=e-a(\delta c)+O(|\delta c|^2)$ gives residual $\dd Z(Y)+J_Za(Y)$ and hence~\eqref{eq:augmented-normal}. Isometry makes a reference rechoice carry the selected branch to $h(c')^{-1}t(c',c)h(c)$. Symmetry of distance and isometry identify the reversed objective at $g^{-1}$ with the original at $g$; local uniqueness proves inversion.
+\end{proof}
+
+This statement concerns the branch continuous from the identity. Infinitesimal identifiability does not exclude distant competing minima. On overlaps the local identity branches agree after restriction by uniqueness. Its first jet gives path transport by the preceding ODE argument.
+
+The target can retain reciprocal link matrices and backtrack factors, both transforming by conjugation, as well as laws and interfaces. Its invariant metric is an additional comparison choice. For example on a full-rank matrix region the terms
+\begin{equation}
+ \Tr(H_X^{-1}\delta X\delta X^T)
+ +\sum_e\Tr(H_X^{-1}\delta K_e H_X\delta K_e^T)
+\end{equation}
+are positive and invariant under $X\mapsto h^{-1}X$, $K_e\mapsto h^{-1}K_eh$. One can include Fisher terms for regular statistical families. An interface or link norm is not automatically the Fisher metric of a normalized statistical experiment.
+
+\subsection{A curved connection from reciprocal links alone}
+
+There is a concrete link-only example for $G=SO(3)$. Identify its Lie algebra with vectors by $\widehat v w=v\times w$, and use the product bi-invariant metric on $SO(3)^2$, normalized by $\langle\widehat v,\widehat w\rangle=v\cdot w$. On $(x,y)\in(0,\pi)^2$, fix $\beta\in(0,\pi)$ and set
+\begin{equation}
+ Q_1=R_x(x),\qquad Q_2=R_z(y)R_x(\beta)R_z(-y).
+ \label{eq:SO3-links}
+\end{equation}
+These can be the two edges of a three-agent star, with the reverse links set to their inverses. All agent backtracks are the identity. Under reference change the pair transforms by simultaneous conjugation.
+
+Let $C_r=I-\Ad_{Q_r}$ and $V_r=\dd Q_r Q_r^{-1}$. The right-trivialized infinitesimal conjugation is $C_r\xi$, so~\eqref{eq:augmented-normal} reads
+\begin{equation}
+ \mathcal K a=-\sum_{r=1}^2 C_r^*V_r,\qquad
+ \mathcal K=\sum_{r=1}^2 C_r^*C_r.
+ \label{eq:SO3-normal}
+\end{equation}
+For a rotation through angle $\alpha$ about unit axis $n$,
+$(I-Q)^T(I-Q)=4\sin^2(\alpha/2)(I-nn^T)$. Here the axes are $e_1$ and $n(y)=(\cos y,\sin y,0)^T$, which are nonparallel on the stated region. Thus $\mathcal K$ is positive definite. Write $w_x=4\sin^2(x/2)$ and $w_\beta=4\sin^2(\beta/2)$. The identities
+$V_1=\widehat e_1\dd x$ and $V_2=C_2\widehat e_3\dd y$ imply $C_1^*V_1=0$ and $C_2^*V_2=w_\beta\widehat e_3\dd y$. Since $\mathcal K\widehat e_3=(w_x+w_\beta)\widehat e_3$, one obtains
+\begin{equation}
+ a=-\frac{w_\beta}{w_x+w_\beta}\widehat e_3\dd y,\qquad
+ F^a=\frac{2w_\beta\sin x}{(w_x+w_\beta)^2}\widehat e_3\dd x\wedge\dd y\ne0.
+ \label{eq:SO3-curvature}
+\end{equation}
+The wedge square vanishes because $a$ has only one base component. This proves nonzero curvature from smoothly varying reciprocal agent links and a declared comparison metric, without adding directional generators or a spatial connection as input. Normalized rotationally invariant agent laws may be attached; their orbit terms are zero and do not alter this example. The axes are selected by the links, not by those invariant laws.
+
+\section{What pointwise links do not determine}
+
+\begin{proposition}[An invisible gauge subgroup]
+Suppose the only input fields are reference links and their contextual derivatives, with links transforming by simultaneous conjugation. If a nonzero $Z\in\mathfrak g$ commutes with every admitted link field, then no full connection selector from these inputs alone can obey~\eqref{eq:affine} for every smooth reference change $h(c)=\exp(f(c)Z)$.
+\end{proposition}
+\begin{proof}
+Every link field is unchanged as a function of $c$, so all its derivatives are also unchanged. A selector of those data returns the same $a$. Choose a point $c_0$ and $f$ with $f(c_0)=0$ and $\dd f(c_0)\ne0$. At that point the affine law requires $a'=a+Z\dd f$, a contradiction.
+\end{proof}
+
+For group-valued links the Lie algebra of the center is always invisible to conjugation. For arbitrary endomorphism-valued links, the relevant ambiguity is their actual common commutant within the represented group; a central group element need not commute with arbitrary maps between inequivalent representation blocks. In the defining $\GL(K)$ representation scalar matrices are invisible to every conjugation link. An Abelian group acting on its own group-valued links is entirely invisible. The $SO(3)$ example avoids this obstruction because the two nonparallel axes have zero common infinitesimal stabilizer.
+
+Laws, labeled vectors, or interfaces can resolve an ambiguity if their combined infinitesimal action is identifiable. Full row rank of $X$ is sufficient in the fundamental representation. It is not implied by many links: centered invariant laws and deficient interfaces can fail it.
+
+Even after identifiability is supplied, several covariant comparison rules can select different connections. Column sets, weights, message metrics, and augmented target metrics affect the selector. Gauge covariance does not choose these data. A finite link collection at one context supplies no contextual derivative; the constructions require a smooth contextual field of such data.
+
+\section{Message coordinates, dynamics, and remaining scope}
+\label{sec:message-connection}
+
+The fixed message space assumption has an intrinsic formulation. If $X$ maps a message bundle into $E$ and the message bundle has connection $\Gamma$, use
+\begin{equation}
+ a=-(\dd X-X\Gamma)Q_X.
+ \label{eq:message-gamma}
+\end{equation}
+For a change $w'=s(c)w$ of message coordinates, $X'=Xs^{-1}$, $\Gamma'=s\Gamma s^{-1}-\dd s s^{-1}$ and $Q_X'=sQ_X$, provided the message metric is transformed as well. Hence $\dd X'-X'\Gamma'=(\dd X-X\Gamma)s^{-1}$, and~\eqref{eq:message-gamma} is unchanged. Fixed labeled coordinates with $\Gamma=0$ give~\eqref{eq:derived-a}. Resetting $\Gamma$ to zero after a context-dependent message re-expression changes the model. A supplied nonflat message connection can contribute additional curvature beyond~\eqref{eq:curvature}.
+
+These constructions supply a connection from regular contextual data, without supplying an evolution equation for those data. Derivatives include all dependence of the columns or target on laws, rows, interfaces and links. Substituting the resulting connection into a contextual energy requires differentiating that full constitutive dependence. The normal equations here generally differ from minimizing a Fisher contextual energy of laws alone. Equality needs an identification of targets, metrics and inputs; a Fisher-flow theorem does not transfer merely because both selectors are connections.
+
+The result is conditional existence with explicit zero-displacement identities, first jets, overlap covariance and path transport on a regular region. Selection of the comparison rule by agent dynamics, preservation or recovery of rank, singular-region continuation, inheritance of the link sector and formation consequences remain open. The base, its dimension and topology are supplied. Deriving a base connection does not by itself derive these structures.
+
+\clearpage
+\begingroup
+\small
+\begin{thebibliography}{9}
+\raggedright
+\setlength{\itemsep}{2pt}
+\bibitem{Higham2008}
+N. J. Higham. \emph{Functions of Matrices: Theory and Computation}. SIAM, 2008.
+\href{https://doi.org/10.1137/1.9780898717778}{doi:10.1137/1.9780898717778}.
+\bibitem{LeokMarsdenWeinstein2005}
+M. Leok, J. E. Marsden, and A. D. Weinstein.
+\emph{A Discrete Theory of Connections on Principal Bundles}. 2005.
+\href{https://arxiv.org/abs/math/0508338}{arXiv:math/0508338}.
+\bibitem{Narasimhan1962}
+M. S. Narasimhan. Existence of universal connections.
+In \emph{General Topology and its Relations to Modern Analysis and Algebra},
+Academia, Prague, 1962, p.~286. Report on joint work with S. Ramanan.
+\href{https://dml.cz/handle/10338.dmlcz/700905}{DML-CZ primary source}.
+\bibitem{MassambaThompson2003}
+F. Massamba and G. Thompson. \emph{The Universal Connection and Metrics on Moduli Spaces}. 2003.
+\href{https://arxiv.org/abs/math/0311198}{arXiv:math/0311198}.
+\end{thebibliography}
+\endgroup
+\end{document}
