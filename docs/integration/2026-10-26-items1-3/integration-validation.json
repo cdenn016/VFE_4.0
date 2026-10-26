@@ -1,0 +1,120 @@
+{
+  "task_date": "2026-10-26",
+  "scope": "Apply existing Items 1-3 corrections and integrate supported results",
+  "preservation": {
+    "VFE_4.0": {
+      "protected_files": 118,
+      "mismatches": [],
+      "head": "5a1152b57e857b00e8f7534e4b7078861523c21a",
+      "branch": "main",
+      "diff_check_exit": 0,
+      "diff_check_output": "",
+      "staged_paths": []
+    },
+    "Research": {
+      "protected_files": 29,
+      "mismatches": [],
+      "head": "84965962b091039472da105d3a6bfc0d952e7977",
+      "branch": "main",
+      "diff_check_exit": 0,
+      "diff_check_output": "warning: in the working copy of 'docs/2026-10-21-edits.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'manuscripts/MAgent_Theory_2.0/Item_3_curvature_hierarchy.tex', LF will be replaced by CRLF the next time Git touches it\n",
+      "staged_paths": []
+    }
+  },
+  "item7_files_unchanged": 13,
+  "item7_todo_section_unchanged": true,
+  "changed_existing_manuscript_paths": [
+    "AUTHORING.md",
+    "Item_1_communication_links.pdf",
+    "Item_1_communication_links.tex",
+    "Item_2_link_dynamics.pdf",
+    "Item_2_link_dynamics.tex",
+    "Item_3_curvature_hierarchy.pdf",
+    "Item_3_curvature_hierarchy.tex",
+    "MAgent_Theory_2.0.pdf",
+    "MAgent_Theory_2.0.tex",
+    "MAgent_Theory_2.0_companion.pdf",
+    "MAgent_Theory_2.0_companion.tex",
+    "README.md",
+    "chapters/02_interactions.tex",
+    "chapters/06_outlook.tex",
+    "companion/c02_links.tex",
+    "frontmatter.tex",
+    "future_TODO.md"
+  ],
+  "new_manuscript_paths": [
+    "chapters/17_communication_links.tex",
+    "chapters/18_link_dynamics.tex",
+    "chapters/19_curvature_hierarchy.tex",
+    "companion/c17_communication_links.tex",
+    "companion/c18_link_dynamics.tex",
+    "companion/c19_curvature_hierarchy.tex"
+  ],
+  "documents": [
+    {
+      "name": "MAgent_Theory_2.0",
+      "pages": 284,
+      "bytes": 1789159,
+      "sha256": "c12d2a0f789cbb82320a6eaea300ffb8b179985a88b8fc054a9056afb520bcd4",
+      "warnings": [
+        "Overfull \\hbox (9.51393pt too wide) in paragraph at lines 115--116",
+        "Overfull \\hbox (20.93712pt too wide) in paragraph at lines 105--106",
+        "Overfull \\hbox (9.39738pt too wide) in paragraph at lines 176--178",
+        "Underfull \\hbox (badness 1087) in paragraph at lines 261--262"
+      ],
+      "out_of_page_text_spans": []
+    },
+    {
+      "name": "MAgent_Theory_2.0_companion",
+      "pages": 113,
+      "bytes": 797981,
+      "sha256": "0c42d9e9a30429822f7637cda4e5b7d84510487b85d9b2233986fd9771e43689",
+      "warnings": [],
+      "out_of_page_text_spans": []
+    },
+    {
+      "name": "Item_1_communication_links",
+      "pages": 29,
+      "bytes": 361020,
+      "sha256": "a23ae671767982dbefa67f19b2b0020f7f217d1c29a7dd9576f376c740c802f6",
+      "warnings": [],
+      "out_of_page_text_spans": [],
+      "visual_sample_pages": [
+        1,
+        15
+      ],
+      "visual_sample_findings": []
+    },
+    {
+      "name": "Item_2_link_dynamics",
+      "pages": 18,
+      "bytes": 242269,
+      "sha256": "49c2490295aab02647731768692992f5208ae1ec51102b6ab46a454bf30e3ef6",
+      "warnings": [
+        "Underfull \\hbox (badness 1087) in paragraph at lines 277--278"
+      ],
+      "out_of_page_text_spans": [],
+      "visual_sample_pages": [
+        1,
+        10
+      ],
+      "visual_sample_findings": [],
+      "underfull_visual_page": 16
+    },
+    {
+      "name": "Item_3_curvature_hierarchy",
+      "pages": 15,
+      "bytes": 213550,
+      "sha256": "2d228863f685aa69af01221c29858e9864a41f4c0a3a628b9e51ec80336191d7",
+      "warnings": [],
+      "out_of_page_text_spans": [],
+      "visual_sample_pages": [
+        1,
+        8
+      ],
+      "visual_sample_findings": []
+    }
+  ],
+  "publication_performed": false,
+  "new_numerical_research_experiments": false
+}
