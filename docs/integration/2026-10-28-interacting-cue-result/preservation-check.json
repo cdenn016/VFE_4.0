@@ -1,0 +1,77 @@
+{
+  "Research": {
+    "protected_count": 34,
+    "changed": []
+  },
+  "VFE_4.0": {
+    "protected_count": 118,
+    "changed": []
+  },
+  "research_packet": {
+    "protected_count": 9,
+    "changed": []
+  },
+  "Item7": {
+    "protected_count": 13,
+    "changed": []
+  },
+  "publication_files": {
+    "Research": [
+      "docs/2026-10-28-edits.md",
+      "docs/research/2026-10-28-interacting-cue-result-integration.md",
+      "index.md",
+      "log.md",
+      "manuscripts/MAgent_Theory_2.0/AUTHORING.md",
+      "manuscripts/MAgent_Theory_2.0/MAgent_Theory_2.0.pdf",
+      "manuscripts/MAgent_Theory_2.0/MAgent_Theory_2.0.tex",
+      "manuscripts/MAgent_Theory_2.0/MAgent_Theory_2.0_companion.pdf",
+      "manuscripts/MAgent_Theory_2.0/README.md",
+      "manuscripts/MAgent_Theory_2.0/appendices/interacting_memory.tex",
+      "manuscripts/MAgent_Theory_2.0/chapters/04_prediction.tex",
+      "manuscripts/MAgent_Theory_2.0/chapters/06_outlook.tex",
+      "manuscripts/MAgent_Theory_2.0/companion/c04_communication.tex",
+      "manuscripts/MAgent_Theory_2.0/companion/c04_interacting_memory.tex",
+      "manuscripts/MAgent_Theory_2.0/frontmatter.tex",
+      "manuscripts/MAgent_Theory_2.0/references.bib",
+      "sources/manuscripts/dennis-2026-interacting-cue-result.md",
+      "wiki/methods/Cue-result generative memory.md",
+      "wiki/projects/Gauge-Theoretic Multi-Agent VFE Model.md"
+    ],
+    "VFE_4.0": [
+      "docs/change-logs/2026-10-28.md",
+      "docs/integration/2026-10-28-interacting-cue-result/.gitignore",
+      "docs/integration/2026-10-28-interacting-cue-result/README.md",
+      "docs/integration/2026-10-28-interacting-cue-result/build-companion.json",
+      "docs/integration/2026-10-28-interacting-cue-result/build-main.json",
+      "docs/integration/2026-10-28-interacting-cue-result/inspect_pdfs.py",
+      "docs/integration/2026-10-28-interacting-cue-result/pdf-validation.json",
+      "docs/integration/2026-10-28-interacting-cue-result/preservation-check.json",
+      "docs/integration/2026-10-28-interacting-cue-result/publication-baseline.json",
+      "docs/integration/2026-10-28-interacting-cue-result/wiki-lint.txt",
+      "docs/research/2026-10-28-interacting-cue-result/REPORT.md",
+      "docs/research/2026-10-28-interacting-cue-result/check_interaction.py",
+      "docs/research/2026-10-28-interacting-cue-result/exact-interaction.md",
+      "docs/research/2026-10-28-interacting-cue-result/finite-example.md",
+      "docs/research/2026-10-28-interacting-cue-result/gaussian-and-retention.md",
+      "docs/research/2026-10-28-interacting-cue-result/interaction-checks.json",
+      "docs/research/2026-10-28-interacting-cue-result/research-record.md",
+      "docs/research/2026-10-28-interacting-cue-result/source-baseline.json",
+      "docs/research/2026-10-28-interacting-cue-result/validation.json"
+    ]
+  },
+  "pdf_sha256": {
+    "companion": "50d496ec305ba4a0b8280e4b4dc392a91680361832f34dcdcde55f485859898f",
+    "main": "eeade126eca948e336c3c8e664bd0ebd68c1a10fe1562864c6c998bb2d32e76f"
+  },
+  "research_hashes": {
+    "docs/research/2026-10-28-interacting-cue-result/check_interaction.py": "8687f17593b183441d028cc8dc8ed41bad1fd8c98cc23c60b5c5b6cbf7e70866",
+    "docs/research/2026-10-28-interacting-cue-result/exact-interaction.md": "fe5d2a2985f8becc96b6e4b5cac62b0d0367aca5528480034a4bbff9779dacb0",
+    "docs/research/2026-10-28-interacting-cue-result/finite-example.md": "b3c659a8ef75424fa38f9babff727956872d5cfa995d42da6c0462c691388538",
+    "docs/research/2026-10-28-interacting-cue-result/gaussian-and-retention.md": "a364126a19c783b16249493558fbd181b230655947dd662ffad9faae0ca6c148",
+    "docs/research/2026-10-28-interacting-cue-result/interaction-checks.json": "ff0bd186f17a7844c69245f01006b14a14dc5e5407a17c21dcd01818bfc93514",
+    "docs/research/2026-10-28-interacting-cue-result/REPORT.md": "38bba334436ae20c344404c9a13a24af7e7610ac43037791a18ebb00d833a366",
+    "docs/research/2026-10-28-interacting-cue-result/research-record.md": "6638f90d85987b5efbd24ec75a4c58aa370b5542087afdf4d1f8b8f03cded32c",
+    "docs/research/2026-10-28-interacting-cue-result/source-baseline.json": "c21a00d4c4ecfec0ff944f02df3bcbdbc3f2f3a4c3c523c6c32489f215a1ea66",
+    "docs/research/2026-10-28-interacting-cue-result/validation.json": "c8d911a8eb46315513cfc20e72e759f8fbe40daae0696516d929966edbffae5c"
+  }
+}

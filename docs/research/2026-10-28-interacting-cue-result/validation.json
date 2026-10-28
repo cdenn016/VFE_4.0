@@ -1,0 +1,37 @@
+{
+  "source_files_checked": 14,
+  "changed_source_paths": [],
+  "repositories": {
+    "Research": {
+      "protected_file_count": 34,
+      "changed_protected_paths": [],
+      "head_before": "5da9e7f371adae24a909a6a66fcb347623e150db",
+      "head_after": "5da9e7f371adae24a909a6a66fcb347623e150db"
+    },
+    "VFE_4.0": {
+      "protected_file_count": 118,
+      "changed_protected_paths": [],
+      "head_before": "516eef73afa5fdc84334b0d38d19efa4acebb229",
+      "head_after": "516eef73afa5fdc84334b0d38d19efa4acebb229"
+    }
+  },
+  "local_links_checked": 17,
+  "missing_links": [],
+  "trailing_whitespace": [],
+  "forbidden_latex_spacing_macros": [],
+  "python_ast_parse": "passed",
+  "git_diff_check": "passed",
+  "finite_execution_receipt": "interaction-checks.json",
+  "finite_receipt_checks": {
+    "full_joint_matches_direct_product": true,
+    "all_sender_self_message_invariance": true,
+    "all_history_normalizers_and_local_correlations": true,
+    "four_weight_retention_exact_on_all_two_message_histories": true,
+    "deterministic_echo_no_change": true
+  },
+  "finite_script_sha256": "8687f17593b183441d028cc8dc8ed41bad1fd8c98cc23c60b5c5b6cbf7e70866",
+  "finite_output_sha256": "ff0bd186f17a7844c69245f01006b14a14dc5e5407a17c21dcd01818bfc93514",
+  "finite_script_mtime_ns": 1793223321666854700,
+  "finite_output_mtime_ns": 1793223323541722100,
+  "note": "Static preservation and artifact validation. The already-passing finite experiment was not rerun; the analytical Gaussian and retention results were not tested numerically."
+}

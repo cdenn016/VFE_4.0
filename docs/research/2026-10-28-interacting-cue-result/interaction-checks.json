@@ -1,0 +1,89 @@
+{
+  "state_count": 256,
+  "exact_arithmetic": "fractions.Fraction",
+  "first_message_kernel_H1_1": {
+    "0": "5/8",
+    "1": "3/8"
+  },
+  "reply_kernel_H2_1_given_H1_1": {
+    "0": "7/11",
+    "1": "12/31"
+  },
+  "public_history_probabilities": {
+    "00": "33/128",
+    "01": "31/128",
+    "10": "31/128",
+    "11": "33/128"
+  },
+  "actual_private_records": {
+    "D0": 1,
+    "D1": 0
+  },
+  "local_posterior_table": {
+    "agent0_D0_1_before": {
+      "P_X1": "3/4",
+      "P_A1": "5/8",
+      "P_Y1": "3/8",
+      "Cov_A_X": "3/32"
+    },
+    "agent0_D0_1_after_peer": {
+      "P_X1": "45/62",
+      "P_A1": "19/31",
+      "P_Y1": "12/31",
+      "Cov_A_X": "765/7688"
+    },
+    "agent0_D0_1_after_own_reply": {
+      "P_X1": "45/62",
+      "P_A1": "19/31",
+      "P_Y1": "12/31",
+      "Cov_A_X": "765/7688"
+    },
+    "agent1_D1_0_before": {
+      "P_X1": "1/4",
+      "P_A1": "3/8",
+      "P_Y1": "5/8",
+      "Cov_A_X": "3/32"
+    },
+    "agent1_D1_0_after_own_message": {
+      "P_X1": "1/4",
+      "P_A1": "3/8",
+      "P_Y1": "5/8",
+      "Cov_A_X": "3/32"
+    },
+    "agent1_D1_0_after_reply": {
+      "P_X1": "437/1918",
+      "P_A1": "349/959",
+      "P_Y1": "610/959",
+      "Cov_A_X": "647197/7357448"
+    }
+  },
+  "correct_first_receiver_P_X0_1": "45/62",
+  "wrong_direct_sensor_P_X0_1": "9/14",
+  "two_fresh_peer_samples_P_X0_1": "45/64",
+  "wrong_independent_given_X1_P_X0_1": "171/244",
+  "full_joint_matches_direct_product": true,
+  "all_sender_self_message_invariance": true,
+  "all_history_normalizers_and_local_correlations": true,
+  "retained_joint_private_weights_initial": {
+    "(0, 0)": "9/32",
+    "(0, 1)": "7/32",
+    "(1, 0)": "7/32",
+    "(1, 1)": "9/32"
+  },
+  "retained_joint_private_weights_after_H1_1": {
+    "(0, 0)": "45/128",
+    "(0, 1)": "21/128",
+    "(1, 0)": "35/128",
+    "(1, 1)": "27/128"
+  },
+  "retained_joint_private_weights_after_H1_H2_11": {
+    "(0, 0)": "105/242",
+    "(0, 1)": "49/242",
+    "(1, 0)": "70/341",
+    "(1, 1)": "54/341"
+  },
+  "four_weight_retention_exact_on_all_two_message_histories": true,
+  "deterministic_echo_no_change": true,
+  "wall_seconds": 0.0314,
+  "scope": "Exact enumeration of one 256-state two-agent model; no sampling, trajectory scan, or universal numerical proof."
+}
