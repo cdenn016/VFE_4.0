@@ -1,0 +1,16 @@
+{
+  "chapters/18_link_dynamics.tex": {
+    "lines": 535,
+    "labels": 71,
+    "source_checks": "passed",
+    "normalized_text_sha256": "2413fb3cd4f9ef2770c9f5112bcd0a26a64f50420e342af2cddedb433ac0ccd4",
+    "file_sha256": "326dcdf6a9d635dab5064d9586616bd22583d5a6d45ef6ca604e24357f6f7553"
+  },
+  "companion/c18_link_dynamics.tex": {
+    "lines": 345,
+    "labels": 40,
+    "source_checks": "passed",
+    "normalized_text_sha256": "7d476bad5e390d3d7fe7dfd6aeef7019b8074c2d9cb28973c7f5627b3ffb5913",
+    "file_sha256": "e7920514e7d6a0b8effce2d897d45d6dff995aee0f8179aaedaf00a79f41aad0"
+  }
+}
