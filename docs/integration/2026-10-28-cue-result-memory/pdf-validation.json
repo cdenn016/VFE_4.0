@@ -1,0 +1,51 @@
+{
+  "main": {
+    "pdf": "C:\\Users\\chris and christine\\.codex\\worktrees\\coupled-dynamics-publication\\Research\\manuscripts\\MAgent_Theory_2.0\\build\\MAgent_Theory_2.0.pdf",
+    "sha256": "588c00765c6ae3768b0553c2e9fe1ade40b28b54079813f0aa4093784290e516",
+    "pages": 299,
+    "rendered_pages": [
+      3,
+      5,
+      8,
+      55,
+      56,
+      57,
+      278,
+      279,
+      280,
+      281,
+      282,
+      283,
+      284,
+      285
+    ],
+    "contact_sheets": [
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-cue-result-memory\\rendered\\MAgent_Theory_2.0\\contact-1.png",
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-cue-result-memory\\rendered\\MAgent_Theory_2.0\\contact-2.png",
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-cue-result-memory\\rendered\\MAgent_Theory_2.0\\contact-3.png",
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-cue-result-memory\\rendered\\MAgent_Theory_2.0\\contact-4.png"
+    ],
+    "physical_bounds_violations": [],
+    "unresolved_references": [],
+    "overfull_count": 3,
+    "underfull_count": 1
+  },
+  "companion": {
+    "pdf": "C:\\Users\\chris and christine\\.codex\\worktrees\\coupled-dynamics-publication\\Research\\manuscripts\\MAgent_Theory_2.0\\build\\MAgent_Theory_2.0_companion.pdf",
+    "sha256": "e9bec4fd6c3b424cfd73f451b1083f0c087e655bf11e790dac561585e545d868",
+    "pages": 119,
+    "rendered_pages": [
+      2,
+      22,
+      23,
+      24
+    ],
+    "contact_sheets": [
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-cue-result-memory\\rendered\\MAgent_Theory_2.0_companion\\contact-1.png"
+    ],
+    "physical_bounds_violations": [],
+    "unresolved_references": [],
+    "overfull_count": 0,
+    "underfull_count": 0
+  }
+}
