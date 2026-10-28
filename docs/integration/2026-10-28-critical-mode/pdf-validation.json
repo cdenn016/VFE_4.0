@@ -1,0 +1,49 @@
+{
+  "main": {
+    "pdf": "C:\\Users\\chris and christine\\.codex\\worktrees\\coupled-dynamics-publication\\Research\\manuscripts\\MAgent_Theory_2.0\\build\\MAgent_Theory_2.0.pdf",
+    "sha256": "7535551825312e25f44f939777dc8118b7f7ae518066615786c5e86863a578e8",
+    "pages": 302,
+    "rendered_pages": [
+      8,
+      262,
+      263,
+      264,
+      265,
+      266,
+      275,
+      301,
+      302
+    ],
+    "contact_sheets": [
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-critical-mode\\rendered\\MAgent_Theory_2.0\\contact-1.png",
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-critical-mode\\rendered\\MAgent_Theory_2.0\\contact-2.png",
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-critical-mode\\rendered\\MAgent_Theory_2.0\\contact-3.png"
+    ],
+    "physical_bounds_violations": [],
+    "unresolved_references": [],
+    "overfull_count": 3,
+    "underfull_count": 1
+  },
+  "companion": {
+    "pdf": "C:\\Users\\chris and christine\\.codex\\worktrees\\coupled-dynamics-publication\\Research\\manuscripts\\MAgent_Theory_2.0\\build\\MAgent_Theory_2.0_companion.pdf",
+    "sha256": "5f2cf34718a4bad1b34f580817216ed0925b242daada96f7947834922ff175c4",
+    "pages": 121,
+    "rendered_pages": [
+      4,
+      109,
+      110,
+      111,
+      112,
+      120,
+      121
+    ],
+    "contact_sheets": [
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-critical-mode\\rendered\\MAgent_Theory_2.0_companion\\contact-1.png",
+      "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-critical-mode\\rendered\\MAgent_Theory_2.0_companion\\contact-2.png"
+    ],
+    "physical_bounds_violations": [],
+    "unresolved_references": [],
+    "overfull_count": 0,
+    "underfull_count": 0
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "coordinate_order": [
+    "mu0",
+    "mu1",
+    "mu2",
+    "a1",
+    "a2",
+    "v0",
+    "v1",
+    "v2",
+    "V1",
+    "V2"
+  ],
+  "critical_temperature": "3269/10118",
+  "X_prime": [
+    "-2400/5059",
+    "960/5059",
+    "960/5059",
+    "1600/5059",
+    "1600/5059",
+    "0",
+    "716/5059",
+    "-716/5059",
+    "-2440/5059",
+    "2440/5059"
+  ],
+  "k": [
+    "0",
+    "25951840/25593481",
+    "-25951840/25593481",
+    "25951840/25593481",
+    "-25951840/25593481",
+    "-1747040/25593481",
+    "13494712/25593481",
+    "13494712/25593481",
+    "-6827120/25593481",
+    "-6827120/25593481"
+  ],
+  "X_second": [
+    "0",
+    "-40336424960/81054554327",
+    "40336424960/81054554327",
+    "-201682124800/243163662981",
+    "201682124800/243163662981",
+    "3143421952/243163662981",
+    "-117071906560/243163662981",
+    "-117071906560/243163662981",
+    "115094945920/243163662981",
+    "115094945920/243163662981"
+  ],
+  "X_third": [
+    "-4305329060650874880/2074468196131542287",
+    "1722131624260349952/2074468196131542287",
+    "1722131624260349952/2074468196131542287",
+    "2870219373767249920/2074468196131542287",
+    "2870219373767249920/2074468196131542287",
+    "0",
+    "3053014587103440896/2074468196131542287",
+    "-3053014587103440896/2074468196131542287",
+    "-1789475673282876928/2074468196131542287",
+    "1789475673282876928/2074468196131542287"
+  ],
+  "A_fourth_along_p": "236914859731152/655026269697361",
+  "delta_third_along_p": "-31633266640/129477420379",
+  "stable_direction_fourth_correction": "21485600170644766720/2074468196131542287",
+  "matter_envelope_fourth": "-22762585001939744016/2074468196131542287",
+  "total_envelope_fourth_at_critical": "-1315068787181058944/2074468196131542287",
+  "cubic_potential_derivative_coefficient": "-657534393590529472/6223404588394626861",
+  "cubic_potential_derivative_decimal": -0.10565509348640072,
+  "matter_metric_norm_D": "19189456/25593481",
+  "inverse_metric_norm_reduced": "25593481/19189456",
+  "inverse_metric_norm_full": "25593481/121563380",
+  "branch_squared_amplitude_slope": "6223404588394626861/164383598397632368",
+  "branch_amplitude_prefactor_decimal": 6.152969698825556,
+  "full_to_reduced_leading_speed_ratio": "4797364/30390845",
+  "fourth_envelope_checked_by_direct_stationary_third_jet": true,
+  "reflection_exchange_symmetry_checked": true,
+  "kinetics": {
+    "reduced": {
+      "linear_parameter_coefficient": "-25593481/4797364",
+      "cubic_coefficient": "41095899599408092/291636150723295521",
+      "linear_parameter_decimal": -5.334904960307369,
+      "cubic_decimal": 0.1409149705805845,
+      "offshoot_eigenvalue_slope": "25593481/2398682",
+      "center_manifold_invariance_at_leading_orders": true,
+      "linear_coefficient_from_left_null_projection": true
+    },
+    "full": {
+      "linear_parameter_coefficient": "-25593481/30390845",
+      "cubic_coefficient": "164383598397632368/7389949191287808945",
+      "linear_parameter_decimal": -0.8421444352731884,
+      "cubic_decimal": 0.022244212259460213,
+      "offshoot_eigenvalue_slope": "51186962/30390845",
+      "center_manifold_invariance_at_leading_orders": true,
+      "linear_coefficient_from_left_null_projection": true
+    }
+  },
+  "wall_seconds": 0.454,
+  "scope": "Exact rational jets at one specified stationary point; no trajectory or parameter scan."
+}

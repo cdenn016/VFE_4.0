@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "source_file_count": 15,
+  "source_changes": [],
+  "manuscript_file_count": 84,
+  "manuscript_changes": [],
+  "canonical_repos": {
+    "C:/Users/chris and christine/Desktop/VFE_4.0": {
+      "protected_file_count": 118,
+      "changed_protected_paths": [],
+      "head_unchanged": true
+    },
+    "C:/Users/chris and christine/Desktop/Research": {
+      "protected_file_count": 34,
+      "changed_protected_paths": [],
+      "head_unchanged": true
+    }
+  },
+  "tracked_worktree_changes": [
+    "docs/change-logs/2026-10-28.md"
+  ],
+  "git_diff_check_exit_code": 0,
+  "new_packet_text_issues": [],
+  "symbolic_check_wall_seconds": 0.454,
+  "packet_sha256": {
+    "check_critical_mode.py": "c33d702951494f3926c87cbf008bdde65158921be48d9b10909bb6a2e53a9c87",
+    "critical-mode-checks.json": "98dce17a1e2bef5ebefd9094e0dbbb7a949b4e6b55d90a0026ace0ffe4eb59c0",
+    "dynamics-reduction.md": "0d916f9217b70ac8211978e9da599ae5c481f02b34da39abb1ee0e7a0b380f9d",
+    "REPORT.md": "72e503d1ba140fcb4a542087694073d59d0a645868e78b1c21a17eba4dc6199f",
+    "research-record.md": "7013b7c4956fdb587510d2c497af73ed36a41c266a7141aab49f7c3ee082ee57",
+    "source-baseline.json": "557477f5c6f126c4a76a16075c7c743a859dcdc3ed09e36e5fa424d85a454d22",
+    "stationary-reduction.md": "a006c58a9350d278322a762b0a0029ccd111420f487b6afc596fdf834387d0d2"
+  },
+  "scope": "Local analytical and exact symbolic research only. No manuscript edit, trajectory, parameter scan, GPU work, Lean, or publication."
+}
