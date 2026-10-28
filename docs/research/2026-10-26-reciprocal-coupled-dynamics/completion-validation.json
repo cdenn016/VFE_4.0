@@ -1,0 +1,27 @@
+{
+  "scope": "File preservation and document checks; mathematical checks are in the two separate result files.",
+  "source_references_unchanged": 6,
+  "manuscript_files_unchanged": 75,
+  "item7_files_unchanged": 13,
+  "canonical_wip_files_unchanged": 147,
+  "protected_baselines": [
+    "source-baseline.json",
+    "../../integration/2026-10-26-items1-3/baseline.json"
+  ],
+  "git_diff_check": "passed",
+  "new_file_whitespace_check": "passed",
+  "local_document_links": "passed",
+  "only_research_folder_and_daily_log_changed": true,
+  "research_artifact_sha256": {
+    "check_matrix_flow.py": "affc60eccccff04e4d05dbdd12e07b90945821a7b4727d1f3ed6f78c03185777",
+    "check_stability.py": "b2d36c10756c2953d9cb642ce6a00b4da521af47bfae21deaf8d6e586a9aa140",
+    "full-flow.md": "9bbe1c6c184f8ce05c23764a16f995ecc014d6167b0db983b8816204ccddacaa",
+    "matrix-flow-checks.json": "228ce67a805ad0b8fb37e8fb349c610599ab33479af1fabdcda2b7a5d79aa774",
+    "REPORT.md": "5cad3f3f5e56da11d670f32be990ca84c3b58ca9a8afb40af379f2c51950424d",
+    "research-record.md": "ad8f9a92555463b030ad819b1f2cdb682b8b5aa806379d81f72fe866af1844b8",
+    "source-baseline.json": "d81a65cb11d3f62d20e5b180b17a06f68c5121f7842c65561d4b65b7c0d5a48f",
+    "stability-checks.json": "d8ddf5dfbd31f8f2b67d8e829d4a38c56635415bab4b6b8170ba55e601069f14",
+    "stability-example.md": "94785ac89fa85ee5fc6547ef87372adb4cc08d6095dbb06c1e941b67c03decbb"
+  },
+  "commit_or_publication": "not performed"
+}

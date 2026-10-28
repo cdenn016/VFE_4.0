@@ -1,0 +1,16 @@
+[
+  {
+    "source": "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\research\\2026-10-26-reciprocal-coupled-dynamics\\check_stability.py",
+    "sha256": "b2d36c10756c2953d9cb642ce6a00b4da521af47bfae21deaf8d6e586a9aa140",
+    "wall_seconds": 1.966,
+    "status": "passed",
+    "output_directory": "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-coupled-dynamics"
+  },
+  {
+    "source": "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\research\\2026-10-26-reciprocal-coupled-dynamics\\check_matrix_flow.py",
+    "sha256": "affc60eccccff04e4d05dbdd12e07b90945821a7b4727d1f3ed6f78c03185777",
+    "wall_seconds": 0.138,
+    "status": "passed",
+    "output_directory": "C:\\Users\\chris and christine\\.codex\\worktrees\\items123-publication\\VFE_4.0\\docs\\integration\\2026-10-28-coupled-dynamics"
+  }
+]

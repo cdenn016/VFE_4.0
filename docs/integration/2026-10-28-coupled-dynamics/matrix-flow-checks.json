@@ -1,0 +1,25 @@
+{
+  "seed": 20261026,
+  "step": 2e-06,
+  "dimension": 2,
+  "dictionary_dimension": 4,
+  "agents": 3,
+  "edges": 3,
+  "scope": "one finite-difference point; correlated prior; noncommuting matrices",
+  "checks": {
+    "full": {
+      "coordinates_checked": 58,
+      "maximum_matter_derivative_error": 2.3166942739183405e-09,
+      "row_derivative_error": 6.074356573293471e-10,
+      "dissipation_identity_residual": 5.684341886080802e-14,
+      "negative_energy_derivative": 152.4701481466282
+    },
+    "reduced": {
+      "coordinates_checked": 57,
+      "maximum_matter_derivative_error": 1.9244474902535558e-09,
+      "row_derivative_error": null,
+      "dissipation_identity_residual": 2.842170943040401e-14,
+      "negative_energy_derivative": 152.87867614749115
+    }
+  }
+}

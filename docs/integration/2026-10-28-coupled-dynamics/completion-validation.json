@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-28",
+  "status": "passed",
+  "protected_wip_files_byte_identical": 167,
+  "daily_log_in_protected_count": true,
+  "daily_log_original_prefix_byte_identical": true,
+  "unmodified_manuscript_files": 77,
+  "item7_files_byte_identical": 13,
+  "item7_backlog_section_byte_identical": true,
+  "original_research_inputs_byte_identical": 10,
+  "canonical_branches_heads_and_staged_paths_unchanged": true,
+  "authorized_manuscript_manifest": {
+    "AUTHORING.md": "f504bdd2f4786e8aeb2a6b55e1fa082e4ba290691172601a31c67514207ad553",
+    "MAgent_Theory_2.0.pdf": "e5e051e5f21a41c948e2e89575e681529234dc283ee782f1a7ab7abedeedc12b",
+    "MAgent_Theory_2.0_companion.pdf": "46edf331cf0ec3d1ef5fd98495aaf1d4597517ee3079f072f47a9354e550c8f0",
+    "README.md": "2d72c2516d848a8daebae94411366b176fc1ce7a2963da89ac98d67046cd79ad",
+    "chapters/18_link_dynamics.tex": "326dcdf6a9d635dab5064d9586616bd22583d5a6d45ef6ca604e24357f6f7553",
+    "companion/c18_link_dynamics.tex": "e7920514e7d6a0b8effce2d897d45d6dff995aee0f8179aaedaf00a79f41aad0",
+    "future_TODO.md": "6c4a15f7446281855068ba961dffc72f4a757122bbfa4b79ab68aa963ea445c2"
+  },
+  "source_preflight_matches_compiled_revision": true,
+  "pdfs": {
+    "main": {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\MAgent_Theory_2.0.pdf",
+      "sha256": "e5e051e5f21a41c948e2e89575e681529234dc283ee782f1a7ab7abedeedc12b",
+      "pages": 290,
+      "visual_pages_reviewed": 25,
+      "physical_text_bounds_violations": 0
+    },
+    "companion": {
+      "path": "C:\\Users\\chris and christine\\Desktop\\Research\\manuscripts\\MAgent_Theory_2.0\\MAgent_Theory_2.0_companion.pdf",
+      "sha256": "46edf331cf0ec3d1ef5fd98495aaf1d4597517ee3079f072f47a9354e550c8f0",
+      "pages": 117,
+      "visual_pages_reviewed": 14,
+      "physical_text_bounds_violations": 0
+    }
+  },
+  "git_diff_check": "passed for task targets; unrelated Research WIP excluded",
+  "local_document_links": "passed",
+  "new_file_whitespace": "passed",
+  "audit_and_validation_artifact_sha256": {
+    "docs/integration/2026-10-28-coupled-dynamics/baseline.json": "133da7cea8b7a609ee0accacdfd4df05676f36a0db531681a3fa55ff8b1c8da0",
+    "docs/integration/2026-10-28-coupled-dynamics/build-companion.json": "c8458eb0bed5eac2a34aa4cf5547f72cf002fa9d1c74d4f2e0e0af2d72e37d5a",
+    "docs/integration/2026-10-28-coupled-dynamics/build-main.json": "99254d70357bbe28979087e2193248c8ab5669078f0a1575949842839626f0f2",
+    "docs/integration/2026-10-28-coupled-dynamics/build-results.json": "290d42ae704a047dce2ede778aa806f25a9fbf16b5b6156da20361faa6ac2f05",
+    "docs/integration/2026-10-28-coupled-dynamics/check-runs.json": "84beff8ed5982ce36100104f3cafb2a33869f7ae7d7ab8e1ae1712f7087683ec",
+    "docs/integration/2026-10-28-coupled-dynamics/inspect_pdfs.py": "b6152b0904914331908a7cf099a12958643294070b74f8a35129aaf04a8837cf",
+    "docs/integration/2026-10-28-coupled-dynamics/matrix-flow-checks.json": "228ce67a805ad0b8fb37e8fb349c610599ab33479af1fabdcda2b7a5d79aa774",
+    "docs/integration/2026-10-28-coupled-dynamics/pdf-validation.json": "5222134f7d07c91a8cede6bed75db05fc6aa0186f690c668cba1676626aa641a",
+    "docs/integration/2026-10-28-coupled-dynamics/source-preflight.json": "e6f1963ec8e49c45703c291660d3e6f4046cddec8efe8ebe6c717c9ed0b8785e",
+    "docs/integration/2026-10-28-coupled-dynamics/stability-checks.json": "d8ddf5dfbd31f8f2b67d8e829d4a38c56635415bab4b6b8170ba55e601069f14",
+    "docs/reviews/2026-10-28-coupled-dynamics/geometry-dynamics-audit.md": "917d1ef2b7a99e4697fc921b2ebe29f85ec0f40292aa10d4bf016a09bc65b23f",
+    "docs/reviews/2026-10-28-coupled-dynamics/REPORT.md": "ca3ba234738ac402aed9a9964e1e74ca9e254ec9f3b1adc0abb13525b2739f12",
+    "docs/reviews/2026-10-28-coupled-dynamics/stability-audit.md": "7a6aeb5b6adbc9ad79950301f0b0f70d7eb0f6e4c03f6f3cc02af5bc4baa9e2c",
+    "docs/reviews/2026-10-28-coupled-dynamics/variational-audit.md": "137a7f82d9f49916324649715e1bcc27e5ec1620394527285f092eb21f4909f9"
+  },
+  "publication": "not performed"
+}

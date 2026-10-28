@@ -1,0 +1,161 @@
+{
+  "main": {
+    "exitCode": 0,
+    "pages": 290,
+    "overfull": [
+      "9.51393pt too wide",
+      "20.93712pt too wide",
+      "9.39738pt too wide"
+    ],
+    "underfull": [
+      "badness 1087"
+    ],
+    "warnings": [],
+    "chapter_toc": [
+      [
+        1,
+        "Finite Fusion with Exact Statistical Inheritance",
+        80
+      ],
+      [
+        1,
+        "Sufficient States for Smooth KL Evolution",
+        91
+      ],
+      [
+        1,
+        "State-Controlled Erasure and Persistent Source Preferences",
+        102
+      ],
+      [
+        1,
+        "Public compression and inherited responses",
+        111
+      ],
+      [
+        1,
+        "Boundary Closure and Recursive Composition",
+        120
+      ],
+      [
+        1,
+        "Two-Stage Selection with Exact Inheritance on a Wishart Family",
+        134
+      ],
+      [
+        1,
+        "Preferential Two-Stage Selection from Open Law Classes",
+        149
+      ],
+      [
+        1,
+        "Per-Agent Grouping with Persistent Records",
+        168
+      ],
+      [
+        1,
+        "Collective Compression and Conditional Local Parents",
+        179
+      ],
+      [
+        1,
+        "Contextual Coupling of Statistical Laws",
+        191
+      ],
+      [
+        1,
+        "Base Transport from Contextual Agent Data",
+        215
+      ],
+      [
+        1,
+        "Communication Codes and Learned Alignment",
+        225
+      ],
+      [
+        1,
+        "Learning Directed Links under Three Objectives",
+        243
+      ],
+      [
+        1,
+        "Curvature Costs and Supplied Hierarchies",
+        261
+      ],
+      [
+        1,
+        "Beyond the Existence Constructions",
+        270
+      ],
+      [
+        1,
+        "A Normalized Internal Record Process",
+        273
+      ],
+      [
+        1,
+        "Connections in a Moving Presentation",
+        276
+      ],
+      [
+        1,
+        "A Conditional Determinant Geometry",
+        279
+      ],
+      [
+        1,
+        "Notation",
+        282
+      ]
+    ]
+  },
+  "companion": {
+    "exitCode": 0,
+    "pages": 117,
+    "overfull": [],
+    "underfull": [],
+    "warnings": [],
+    "chapter_toc": [
+      [
+        1,
+        "Per-Agent Inference and Conditional Inheritance",
+        61
+      ],
+      [
+        1,
+        "A Collective Phase and Its Local Realization",
+        69
+      ],
+      [
+        1,
+        "Coupling Statistical Change Across Contexts",
+        77
+      ],
+      [
+        1,
+        "From Agent Links to Base Transport",
+        84
+      ],
+      [
+        1,
+        "Communication Codes and Learned Alignment",
+        90
+      ],
+      [
+        1,
+        "Learning Directed Links under Three Objectives",
+        98
+      ],
+      [
+        1,
+        "Curvature Costs and Supplied Hierarchies",
+        108
+      ],
+      [
+        1,
+        "Notation in Physical Terms",
+        113
+      ]
+    ]
+  }
+}
