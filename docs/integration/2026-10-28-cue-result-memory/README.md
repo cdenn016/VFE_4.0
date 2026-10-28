@@ -1,0 +1,9 @@
+# Cue/result memory integration and publication
+
+The user authorized the recommended theory integration followed by commit, push, merge, and canonical fast-forward. The work uses the existing isolated VFE_4.0 and Research checkouts, with branches based on freshly fetched main revisions b4b2214 and c3062ce respectively.
+
+The Research change adds a conditional-prediction section, a self-contained seven-page appendix, and a companion worked example. It updates the product-restriction scope, dynamics reference, appendix guide, bibliography, overview, authoring instructions, daily log, and the two compiled PDFs. The supplement is unchanged. The VFE_4.0 publication contains the cue/result relationship packet, these integration records, and only the corresponding daily-log paragraphs. The critical-mode investigation and its log paragraph remain local WIP.
+
+The final sequential builds produce a 299-page main manuscript and a 119-page companion. Both resolve references and citations. The main retains its three earlier overfull warnings and one earlier underfull warning; the companion has none. Poppler rendering and visual inspection covered 14 main pages and 4 companion pages. Physical text bounds were checked throughout both PDFs. The Research linter reports zero in all five categories. No numerical experiments, training, GPU queries, Lean work, or implementation changes were performed.
+
+`publication-baseline.json` records 118 protected canonical VFE_4.0 files, 34 protected canonical Research files, and eight protected critical-mode files in the working checkout. `pdf-validation.json` records PDF hashes and diagnostics. The build JSON files contain the compiler results. `inspect_pdfs.py` reproduces the bounded document inspection; rendered intermediates are ignored. The original relationship packet's validation is its pre-integration snapshot, preserved as provenance rather than re-pinned to edited sources.
