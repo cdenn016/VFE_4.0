@@ -1,0 +1,8 @@
+rows: max |beta_quadrature - beta_closed| = 1.1102230246251565e-16
+agent 0: natural-gradient field vs lp:field max residual 1.00e-10; min eig Cov 4.083e-02
+agent 1: natural-gradient field vs lp:field max residual 3.84e-10; min eig Cov 5.358e-02
+agent 2: natural-gradient field vs lp:field max residual 3.30e-10; min eig Cov 6.515e-02
+agent 0: presentation natural gradient -0.1898011049 vs lp:field -0.1898011049  diff 3.33e-12
+agent 1: presentation natural gradient +0.1435119585 vs lp:field +0.1435119585  diff 1.99e-11
+agent 2: presentation natural gradient -0.0732529900 vs lp:field -0.0732529899  diff 1.85e-11
+max content residual 3.8448821904069064e-10

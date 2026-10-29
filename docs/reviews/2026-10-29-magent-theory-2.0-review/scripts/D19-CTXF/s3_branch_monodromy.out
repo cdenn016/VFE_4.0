@@ -1,0 +1,21 @@
+(A) agreement p_u = p_v = (0.3 e1, diag(4, 1/4)); locked inertia k = 14.1525 > 0 (free: R mu = mu forces R = I)
+    local min theta = -3.141593, cost = 0.180000, Hessian = 13.9725, |grad| = 0.0e+00
+    local min theta = +0.000000, cost = 0.000000, Hessian = 14.1525, |grad| = 0.0e+00
+(B) loop closes in law space: max|S_v(pi) - S_v(0)| = 4.6e-16
+    continued branch: theta(0) = 0, theta(pi) = +3.141593; min Hessian along the loop = 13.9725
+    branch energy at the same law configuration: start 0.000000, end 0.180000
+(C) coupled flow, lambda = 0.1: first time the continued branch is not the global minimizer: t = 0.8200000000000005
+    t     angle(mu_v)  branch theta  branch Hessian  c_branch   min_U c    |mu_v|   k(p_v)  #local minima  F_total(branch)
+    0.00      0.000    +0.00000       14.1525   0.000000   0.000000  0.3000  14.1525  2    0.16794229
+    0.50     34.296    +0.00126       14.0874   0.023732   0.023732  0.1024  14.0730  2    0.06596101
+    1.00    113.667    +0.00202       14.0510   0.056928   0.034769  0.0995  14.0724  2    0.03170367
+    1.50    135.431    +0.00249       14.0315   0.081222   0.020400  0.1574  14.0872  2    0.02008283
+    2.00    141.696    +0.00278       14.0211   0.096385   0.015115  0.1964  14.1010  2    0.01610345
+    2.50    144.305    +0.00295       14.0156   0.105257   0.013173  0.2199  14.1107  2    0.01472858
+    3.00    145.584    +0.00306       14.0127   0.110293   0.012461  0.2338  14.1170  2    0.01424961
+    3.50    146.264    +0.00312       14.0111   0.113106   0.012200  0.2419  14.1209  2    0.01408149
+    4.00    146.642    +0.00316       14.0102   0.114665   0.012105  0.2468  14.1232  2    0.01402208
+    4.50    146.858    +0.00318       14.0098   0.115526   0.012070  0.2496  14.1246  2    0.01400095
+    5.00    146.982    +0.00320       14.0095   0.115999   0.012058  0.2513  14.1254  2    0.01399340
+    min branch Hessian over the run = 14.0095; min |mu_v| = 0.0777; max (c_branch - min_U c) = 0.103941
+    branch total energy F_* along the run: start 0.16794229, end 0.01399340, largest single-step change -8.75e-08 (negative: strictly decreasing at every step)

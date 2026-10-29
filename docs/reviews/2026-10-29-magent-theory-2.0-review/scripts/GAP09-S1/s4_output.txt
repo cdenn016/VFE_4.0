@@ -1,0 +1,4 @@
+(a) 15 random sparse preparations with zero patterns; 58 scalings reached the marginals of P; 58 of the limits are exact product tilts of lambda0, all equal to P (max |P' - P| = 9.87e-14); 0 limits are not exact product tilts
+(b) Sinkhorn from 100 random positive scalings returns P: max |limit - P| = 9.58e-16
+(c) roots for det D given marginal variances and fixed cross-precision c: [(1 - sqrt(4*c**2*s_x**2*s_y**2 + 1))/(2*s_x**2*s_y**2), (sqrt(4*c**2*s_x**2*s_y**2 + 1) + 1)/(2*s_x**2*s_y**2)]
+    product of roots = -c**2/(s_x**2*s_y**2) (negative for c != 0, so exactly one positive root)

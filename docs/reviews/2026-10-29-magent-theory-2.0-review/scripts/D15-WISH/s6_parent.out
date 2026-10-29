@@ -1,0 +1,15 @@
+blocks [[0, 1], [2, 3]]:
+   declared (primitive N, live channel, shapes n_I alpha0): max |A velocity - summed fine| = 1.87e-30, max |P velocity - fine| = 1.18e-30
+   current parent count in Lambda: max |A velocity - summed fine| = 1.38e-29, max |P velocity - fine| = 3.42e+00
+   frozen channel: max |A velocity - summed fine| = 8.87e-31, max |P velocity - fine| = 1.39e+00
+   parent target shape alpha0: max |A velocity - summed fine| = 2.00e+00, max |P velocity - fine| = 2.29e-01
+blocks [[0, 1, 2, 3]]:
+   declared (primitive N, live channel, shapes n_I alpha0): max |A velocity - summed fine| = 7.89e-31, max |P velocity - fine| = 3.55e-30
+   current parent count in Lambda: max |A velocity - summed fine| = 5.52e-30, max |P velocity - fine| = 1.04e+01
+   frozen channel: max |A velocity - summed fine| = 3.94e-30, max |P velocity - fine| = 1.39e+00
+   parent target shape alpha0: max |A velocity - summed fine| = 6.00e+00, max |P velocity - fine| = 3.43e-01
+blocks [[0], [1, 2], [3]]:
+   declared (primitive N, live channel, shapes n_I alpha0): max |A velocity - summed fine| = 2.37e-30, max |P velocity - fine| = 1.18e-30
+   current parent count in Lambda: max |A velocity - summed fine| = 1.18e-30, max |P velocity - fine| = 1.13e+00
+   frozen channel: max |A velocity - summed fine| = 7.89e-31, max |P velocity - fine| = 1.39e+00
+   parent target shape alpha0: max |A velocity - summed fine| = 2.00e+00, max |P velocity - fine| = 1.14e-01

@@ -1,0 +1,29 @@
+== s01 eq:s-chain-rule
+  residual: 5.551115123125783e-17
+  infinite case: lhs inf  rhs inf
+  max (x log x)^- on (0,1]: 0.36787944117101695  1/e = 0.36787944117144233
+== s01 eq:s-different-evaluators
+  trial 0: lhs=1.185970760169954 rhs=1.185970760169954 residual=0.00e+00
+  trial 1: lhs=0.883118293219834 rhs=0.883118293219834 residual=2.22e-16
+  equal model laws keep the evaluator term: 0.3250156340288364
+== s01 four-point reconstruction
+  KL(q||qhat) = 0.6931471805599453  log 2 = 0.6931471805599453
+  conditional KL at H=0,1: [0.6931471805599453, 0.6931471805599453]
+  prior with V=H reconstructs q exactly: 0.0
+  I-projection (grid) vs Jeffrey: 7.656879152551088e-05  values 0.0013964978769603967 0.0013964620498978751
+== s01 shared source and two routes
+  mark b=0: shared-source law of O [1. 0.], independent redraw [0.5 0.5]
+  mark b=1: shared-source law of O [0. 1.], independent redraw [0.5 0.5]
+== s01 predictive sufficiency
+  I(A;X|U) = 0.0  I(B;X|U) = 0.6931471805599453
+== record_process prop:registered-history
+  total mass: 0.9999999999999997  mass on histories with a record/readout mismatch: 0.0
+  record-marginal consistency residual: 2.7755575615628914e-17
+== record_process prop:bayesian-history
+  sequential product vs fixed-latent integral, max residual: 2.0816681711721685e-17
+== record_process Dirichlet (Beta) predictive step
+  predictive (alpha+c)/(A+n) vs quadrature, max residual: 1.2724377107531382e-11
+  step identity residual: 6.938893903907228e-17  TV step <= 1/(A+n) at every step: True
+== record_process prop:variational-history
+  KL(P_n||P~_n) = 0.000005309540482, chain sum = 0.000005309540482, residual = 5.46e-17, bound = 0.001595
+  binary registration budget n log 2 for n=4: 2.772588722239781

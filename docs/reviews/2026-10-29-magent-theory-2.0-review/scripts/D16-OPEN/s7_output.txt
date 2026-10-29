@@ -1,0 +1,7 @@
+[1] quotient metric min = I1*I2*dF**2/(I1 + I2) ; equals dF^2/(1/I1+1/I2): True ; slice (equal phase) = dF**2*(I1 + I2)/4 ; difference = dF**2*(I1 - I2)**2/(4*(I1 + I2))
+[2] H - c1c2(v1-v2)^2 = 0 ; sigma1-(v1+v2) = 0 ; sigma2 - v1v2 = 0
+    e^{psi/T} Z_I - sum b_j e^{v_j r} (relative) = -3.331e-16
+[3] generated-loss coefficient = 10.666666666667 (32/3 = 10.666666666667)
+[4] max |dR/deps - rho^2 Cov| = 1.510e-10 ; max ratio |c(1)-c(-1)| / (2 rho^2 M ||dl||) = 0.1881 (<= 1)
+[5] non-symmetric representative: phases [0.99555606 0.         0.         0.        ] vs after H_I rotation [0.99555606 0.         0.         0.        ]
+[6] first-stage contrast -> -0.5000 ; core-parent contrast vs third pair -> 0.0000 ; two-block rows -> 0.3333, 0.6667

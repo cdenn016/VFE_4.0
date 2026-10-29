@@ -1,0 +1,28 @@
+[  0.19s] Jacobian done
+[  0.48s] second and third directional derivatives done
+[  0.95s] mixed derivative done
+[  0.95s] a1 = -0.842144435273 (expected -0.842144435273); a3 = 0.022244212259 (expected 0.022244212259)
+[  0.96s] Part C done
+{
+ "flow": "full",
+ "Jq_zero": true,
+ "left_null_dim": 1,
+ "l_equals_Mfisher_q_over_norm": true,
+ "lT_D2F_qq": "0",
+ "bordered_multiplier": "0",
+ "a1": "-25593481/30390845",
+ "a3": "164383598397632368/7389949191287808945",
+ "a1_float": -0.8421444352731884,
+ "a3_float": 0.022244212259460213,
+ "a1_expected_-4/d": "-25593481/30390845",
+ "a3_expected_-c/d": "164383598397632368/7389949191287808945",
+ "a1_match": true,
+ "a3_match": true,
+ "d_used": "121563380/25593481",
+ "h2_matter_equals_X''(0)": true,
+ "second_order_row_coefficient": "0",
+ "kappa_s_of_u": "-21518582762348091501726208/224586800430303152037108525",
+ "Y_minus_X_s3_equals_(c/d)B": true,
+ "Y_minus_X_s3_over_B_first_nonzero": "-164383598397632368/7389949191287808945",
+ "wall_seconds": 0.96
+}

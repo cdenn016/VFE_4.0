@@ -1,0 +1,80 @@
+== 1. prop:int-mismatch: passive covariance in G = GL(3)
+  |Xi' - g_i Xi g_i^-1| = 4.3836801492791245e-12
+  reference change with equivariant generators: |Xi_ref - Xi| = 1.5650276597186943e-13
+  sender-side mismatch theta^-1 theta~ equals theta^-1 Xi theta: 1.0350041214554544e-14
+== 2. Non-faithful representations: Xi != e but one G-valued link realizes both displayed links
+  G = SO(2), rho_q charge 2, rho_s charge 3; Xi angle = 1.0471975511965976 (nonidentity)
+  |rho_q(theta*) - rho_q(theta)| = 3.463824224941973e-16  |rho_s(theta*) - rho_s(theta~)| = 3.4638242249419727e-16
+  nonidentity angles in ker(rho_q + rho_s) on grid: 0 (joint representation faithful)
+  Sym^2 congruence kernel: |sym2(R(pi)) - I| = 3.8726732145403874e-16
+== 3. prop:int-endpoint; channel-level versus generator-level reference consistency
+  passive: |Theta' - g_i Theta g_j^-1| = 6.993523870246153e-15
+  moment family reference equivariance |L' - h^-1 L h| = 7.93939883688944e-14
+  displayed link after reference change |Theta_ref - Theta| = 2.879910821929633e-14
+  constant rule 2piJ: |e^{L'} - h^-1 e^L h| = 1.0404259197416029e-15  |L' - h^-1 L h| = 20.973035108782618
+== 4. prop:int-rank
+  d=4 r=1: max|e^OT v - v| on ker T = 8.49e-16; rank[O, e^OT - I] = 1 rank O = 1
+  d=5 r=2: max|e^OT v - v| on ker T = 1.78e-15; rank[O, e^OT - I] = 2 rank O = 2
+  d=6 r=3: max|e^OT v - v| on ker T = 1.27e-14; rank[O, e^OT - I] = 3 rank O = 3
+== 5. Laplace example (exact, sympy)
+  Theta12 Theta21 = [[2, 1], [1, 1]]  N2 = [[1, 1], [1, 2]]
+  sqrt(N2)^2 - N2 = [[0, 0], [0, 0]]
+  Omega12 = [[2*sqrt(5)/5, sqrt(5)/5], [-sqrt(5)/5, 2*sqrt(5)/5]]  minus 5^-1/2[[2,1],[-1,2]]: [[0, 0], [0, 0]]
+  Omega21 Omega12 = [[1, 0], [0, 1]]  det Omega12 = 1  Omega12^T Omega12 = [[1, 0], [0, 1]]
+  Q12 = 3/2 ; Q21 = 3/2 ; Q(shear I+E12) = 1/2
+  Theta21 equals Theta12^{-1}? False
+== 6. prop:int-reciprocal: random pairs, covariance, balanced uniqueness
+  worst |Omega_ji Omega_ij - I| = 4.77e-13; worst covariance residual = 1.87e-11 over 60 pairs
+  balance |N_i^{1/2} - Omega_ij N_j^{1/2} Omega_ij^-1| = 8.00559528988088e-15
+  arbitrary Omega~: factorization residuals 1.4130832128153975e-15 1.7521222364188105e-15 ; |B_j^2 - N_j| = 16.858 (unbalanced factorizations exist)
+== 7. Domain of prop:int-reciprocal on the moment family (identity frames, Sigma = I, mu1 = e1, mu2 = e2)
+  lambda12*lambda21 = -3.0: N2 = [[1.0, 2.0], [-1.5, -2.0]], eigenvalues = [-0.5+0.866025j -0.5-0.866025j]
+  lambda12*lambda21 = -4.0: N2 = [[1.0, 2.0], [-2.0, -3.0]], eigenvalues = [-1. -1.]
+  lambda12*lambda21 = -5.0: N2 = [[1.0, 2.0], [-2.5, -4.0]], eigenvalues = [-0.381966 -2.618034]
+  product -4: Jordan form of N2 = [[-1, 1], [0, -1]]
+  product -5: real solutions of X^2 = N2 (symbols declared real): 0
+  product -4: real solutions of X^2 = N2: []
+== 8. Principal root versus representations: tied links lose the tie, Omega leaves rho(G)
+  charge 1 (fundamental): |Omega^sector - rho(Omega^G)| = 0.000
+  fundamental + Sym^2: |Omega^sector - rho(Omega^G)| = 3.126
+  fund + Sym^2: fundamental block of the principal root is a rotation by 0.4 pi; |Sym^2 block - Sym^2(fund block)| = 2.948
+  Omega^s in rho_s(SO(2))?  |Omega^s - rho_s(its fund block)| = 3.1264
+  charge 2 alone: Omega^s = rho_s(psi), psi = 0.1955 pi (mod pi); Omega^q angle = -0.3045 pi; mismatch of reciprocal parts (mod pi) = 0.5 pi
+  safe domain: n = exp(X) with spectrum of d rho_s(X) in |Im| < pi gives rho(n)^{1/2} = rho(exp(X/2)): max |Im spec dSym2(X)| / pi = 1.6 > 1 here
+== 9. prop:int-loop-blindness: stabilizers of centered Gaussians
+  Sigma=diag(1,3), rotation 0.7000: KL(nu || R#nu) = 0.276678; isotropic: 0.00e+00
+  Sigma=diag(1,3), rotation 1.5708: KL(nu || R#nu) = 0.666667; isotropic: 0.00e+00
+  Sigma=diag(1,3), rotation 3.1416: KL(nu || R#nu) = 0.000000; isotropic: 0.00e+00
+  Sigma=diag(1,1,3), rotation 0.7 in the (1,2)-plane: KL = 0.0
+  random SPD d=2: half-turn in an eigenplane, det +1, |R S R^T - S| = 1.0e-15
+  random SPD d=3: half-turn in an eigenplane, det +1, |R S R^T - S| = 2.6e-15
+  random SPD d=5: half-turn in an eigenplane, det +1, |R S R^T - S| = 7.8e-15
+  shared-sample pair separates H = -I from H = I: mean |HY - Y| = 3.4805 versus 0
+== 10. prop:int-loop-defect: invariance and the reference-consistency hypothesis
+  trace form minus Frobenius form: 1.4210854715202004e-14
+  passive change residual: -1.0658141036401503e-14
+  moment (equivariant): Q before = 2.481973, Q after common reference change = 2.481973
+  Euclidean (not equivariant): Q before = 7.526699, Q after common reference change = 145.931445
+  Q as half the expected Mahalanobis displacement of a centered shared sample: MC 26.6441 vs 26.5918
+== 11. Quiver invariants depend on the vertex group
+  open edge tr(Theta^T Theta): SO(3) vertex change residual -8.881784197001252e-15 ; GL(3) vertex change residual 5.4722
+== 12. Culver: real logarithms
+  J2(-1): det = +1.0, max |Im principal log| = 3.1416
+  diag(-1,-2): det = +2.0, max |Im principal log| = 3.1416
+  J1(-1)+J3(-1): det = +1.0, max |Im principal log| = 3.1416
+  -I2 = two J1(-1): det = +1.0, max |Im principal log| = 3.1416
+  -I2 has the real logarithm pi*J: |expm(pi J) + I| = 3.8110261480739053e-16
+== 13. Moment family: a mutual pair with independent means and nonzero coefficients is never reciprocal
+  min Q12 over 2000 random draws: 4.4312720662930026e-05
+  parallel means, equal covariances, lambda21 = -lambda12: |Theta12 Theta21 - I| = 7.609753912095995e-18
+== 14. Law-adjoint pairs: decomposition always exists and Omega is a congruence isometry
+  min real eigenvalue of N_j = 8.365e-04; worst |Omega^T M_i Omega - M_j| = 2.31e-11
+  moment family, lambda12 = lambda21, Sigma1 = Sigma2: |Theta21 - Sigma Theta12^T Sigma^-1| = 2.2520345592628635e-15
+  and |Omega12 Sigma Omega12^T - Sigma| = 3.223931677990803e-14
+  unequal covariances: |Theta21 - Sigma2 Theta12^T Sigma1^-1| = 9.2184
+== 15. Self-loop case of prop:int-reciprocal: Omega_ii = Theta_ii (Theta_ii^2)^{-1/2} = sign(Theta_ii)
+  |Omega_ii - sign(Theta_ii)| = 1.1934897514720433e-15 ; |Omega_ii^2 - I| = 2.339212245275474e-15 ; |Omega_ii - I| = 2.3144
+== 16. Exponential image versus loop holonomy
+  diag(-2,-1/2) in SL(2): trace -2.50, det +1.00, max |Im principal log| = 3.1416
+  -I + E12 in SL(2): trace -2.00, det +1.00, max |Im principal log| = 3.1416
+  every sampled A in GL+(2) equals e^X e^Y (polar): worst residual 1.50e-14; so two-cycle holonomies U_i e^{w_ij} e^{w_ji} U_i^-1 are unrestricted although single reference links are

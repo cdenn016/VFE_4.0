@@ -1,0 +1,26 @@
+C:\Users\chris and christine\AppData\Roaming\Python\Python314\site-packages\numpy\polynomial\hermite_e.py:1560: RuntimeWarning: divide by zero encountered in divide
+  w = 1 / (fm * fm)
+C:\Users\chris and christine\AppData\Roaming\Python\Python314\site-packages\numpy\polynomial\hermite_e.py:1560: RuntimeWarning: overflow encountered in divide
+  w = 1 / (fm * fm)
+C:\Users\chris and christine\AppData\Roaming\Python\Python314\site-packages\numpy\polynomial\hermite_e.py:1567: RuntimeWarning: invalid value encountered in multiply
+  w *= np.sqrt(2 * np.pi) / w.sum()
+== 1  Gaussian marginals q_i = N(mu_i, 1)
+  mu=(+0.0018,+0.4481)  rho=0.383775  E=0.180070574067  F(Q(x))=0.180070574067
+  mu=(-0.4112,-1.3359)  rho=0.703860  E=1.318857522658  F(Q(x))=1.318857522658
+  mu=(-0.6820,-1.4875)  rho=0.636314  E=1.598358144182  F(Q(x))=1.598358144182
+  mu=(+0.0902,+2.0103)  rho=0.973464  E=3.499493497012  F(Q(x))=3.499493497012
+  mu=(-0.7383,-0.9307)  rho=0.170824  E=0.720470902857  F(Q(x))=0.720470902857
+  max |E - F| = 8.881784197001252e-16
+== 2  Laplace marginals q_i = Laplace(m_i, b), Gaussian copula, quadrature
+  m=(+0.30,-0.40)  rho=0.662756  E=0.55896585  F(Q(x))=0.55697488  |E-F|=1.99e-03  copula MI=0.28923596 target=0.28923596
+  m=(+1.20,+0.10)  rho=0.840680  E=1.48308209  F(Q(x))=1.48079687  |E-F|=2.29e-03  copula MI=0.61335220 target=0.61335220
+  m=(-0.50,+0.90)  rho=0.912598  E=1.56911562  F(Q(x))=1.56685034  |E-F|=2.27e-03  copula MI=0.89438574 target=0.89438574
+  The 2D Gauss-Hermite residual comes from the kink of the Laplace log density at the median.
+  Convergence in the node count, and the decomposed evaluation MI(2D GH) + marginal KL (1D quad):
+    n=  60  |E - F_GH| = 3.363e-03
+    n= 120  |E - F_GH| = 1.991e-03
+    n= 240  |E - F_GH| = 1.082e-03
+    n= 480  |E - F_GH| = nan
+    decomposed: F = 0.558965847558, E = 0.558965847558, |E - F| = 4.441e-16
+  On finite alphabets the mutual information of a coupling is at most log|K|, which is why
+  part (a) of prop:dyn-no-global-vfe (finite variables) is not contradicted.

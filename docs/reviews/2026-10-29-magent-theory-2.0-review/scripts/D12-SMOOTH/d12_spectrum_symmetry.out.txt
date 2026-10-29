@@ -1,0 +1,16 @@
+(a) A = (0.3, 0.2, 0.1, 0.4)
+    A-preserving permutations: [(0, 1, 2, 3)]
+    kappa  = [0.45 0.2  0.15 0.2 ]  sum 1.0
+    kappa2 = [0.15 0.2  0.05 0.6 ]  sum 1.0
+    spectrum(kappa)  = [(np.float64(-0.69314718056), np.float64(0.4)), (np.float64(-0.0), np.float64(0.2)), (np.float64(0.405465108108), np.float64(0.4))]
+    spectrum(kappa2) = [(np.float64(-0.69314718056), np.float64(0.4)), (np.float64(-0.0), np.float64(0.2)), (np.float64(0.405465108108), np.float64(0.4))]
+    equal spectra: True ; distinct conditionals: True
+    kappa2 in the Aut(V,A)-orbit of kappa: False
+(b) fine Fisher flow, receiver reconstruction, 2 agents, public bit
+    public/rows max |X - Y| at T=0.5: 2.22e-16   control max |X - C|: 5.55e-03
+    spectra of agent 0 at z=0 and z=1 still equal at T: True
+(c) A = (1/2, 1/4, 1/4)
+    automorphisms: [(0, 1, 2), (0, 2, 1)]
+    equal spectra: True ; in orbit: False
+(d) finite criterion on random references
+    references with an equal-mass disjoint pair: 200; constructive noninjective pairs verified: 200

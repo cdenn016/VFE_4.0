@@ -1,0 +1,36 @@
+{
+ "script": "hopf_flow_check.py",
+ "lambda": 0.7,
+ "beta": 0.6,
+ "numpy": "2.4.4",
+ "d=1, N=256": {
+  "max|P_t(chart) - P_t(Cartesian)|": 3.5296210398882977e-12,
+  "max|P_t| (scale)": 1.6168636110608559,
+  "max|reduced density - h(du,du)|": 3.0253577421035516e-14,
+  "|dF*(P_t) + ||P_t||^2|": 1.7692514120426495e-11,
+  "|chart kinetic (first form) - Cartesian ||P_t||^2|": 0.0,
+  "|chart kinetic first form - second form|": 0.0,
+  "||P_t||^2": 2.3614751174027404,
+  "max|alpha_mu - (-p^*theta)_mu|": 1.4939438575112263e-14,
+  "oint alpha dx": 0.2235525583618558,
+  "|oint alpha + oint sin^2(theta/2) dpsi|": 5.551115123125783e-17,
+  "|oint alpha' - oint alpha| under periodic gauge": 0.0,
+  "d/dt oint alpha (finite difference)": -1.0414120810153804,
+  "|d/dt oint alpha - swept curvature flux|": 3.337485843246668e-11
+ },
+ "d=2, N=64": {
+  "max|P_t(chart) - P_t(Cartesian)|": 3.5560443478743764e-13,
+  "max|P_t| (scale)": 2.645676161066609,
+  "max|reduced density - h(du,du)|": 7.382983113757291e-15,
+  "|dF*(P_t) + ||P_t||^2|": 2.2028157076192656e-11,
+  "|chart kinetic (first form) - Cartesian ||P_t||^2|": 8.881784197001252e-16,
+  "|chart kinetic first form - second form|": 0.0,
+  "||P_t||^2": 3.1107567240727283,
+  "max|alpha_mu - (-p^*theta)_mu|": 5.051514762044462e-15,
+  "max|F_12 - (pulled-back monopole form)|": 6.733502644351574e-14,
+  "max|F_12| (curvature is nonzero)": 0.1567382436771539,
+  "|mean F_12| (zero total flux on the trivial bundle)": 0.0,
+  "max|flow(gP; gP_ref) - g flow(P; P_ref)|": 2.7267077484793845e-13
+ },
+ "runtime_s": 0.015
+}

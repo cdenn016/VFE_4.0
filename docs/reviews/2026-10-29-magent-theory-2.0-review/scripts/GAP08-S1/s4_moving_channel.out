@@ -1,0 +1,18 @@
+== (a) finite, two parameters, exact ==
+output score = E[l + b | Ybar]: exact at every output
+E[b | Y] for each y: [[0, 0], [0, 0], [0, 0]]
+I(Ybar) direct = [[54922025857/396006283200, -25252202743/108001713600], [-25252202743/108001713600, 43626114569/108001713600]]
+I(Y) + E I(K) - E Cov(l + b | Ybar) = [[54922025857/396006283200, -25252202743/108001713600], [-25252202743/108001713600, 43626114569/108001713600]]
+residual matrix: [[0, 0], [0, 0]]
+eigenvalues of I(Ybar) - I(Y): [-0.499483, -0.357337]
+
+== (b) linear-Gaussian moving channel, symbolic ==
+I(Ybar) direct = theta**2*(4*theta**2 + 6)/(theta**2 + 1)**2
+I(Y) + E I(K) - E Var(l + b | Ybar) = theta**2*(4*theta**2 + 6)/(theta**4 + 2*theta**2 + 1)
+residual = 0
+joint Fisher information E[(l + b)^2] = theta**2 + 2 ; I(Y) + E I(K) = theta**2 + 2
+I(Ybar) - I(Y) at theta = 0, 1, 3: [-1, 3/2, 139/50]
+
+== (c) logistic example and a fixed channel ==
+constant input, Bernoulli(sigmoid(theta)) output: I = 1/(4*cosh(theta/2)**2) ; minus e^-theta/(1+e^-theta)^2 = 0
+fixed unit-noise channel on N(theta, 1): I(Ybar) = 1/2 < I(Y) = 1 (negative change)

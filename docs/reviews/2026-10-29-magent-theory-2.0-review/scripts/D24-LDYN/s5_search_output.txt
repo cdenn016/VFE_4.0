@@ -1,0 +1,5 @@
+(a) plug-in: 1500 instances, fraction unstable 0.189, max Re +2.8863
+(a) law-level: 1500 instances, fraction unstable 0.007, max Re +0.0686
+   elapsed 2.3 s
+(b) K=1 with dictionaries, loops, grounding: 300 instances; max Re plug-in -0.0040, law-level -0.0124
+   elapsed 2.3 s

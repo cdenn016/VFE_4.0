@@ -1,0 +1,32 @@
+== DOI 10.1016/j.jmva.2017.10.005
+  CR authors: Letac, Gérard; Massam, Hélène
+  CR title:   The Laplace transform <mml:math xmlns:mml="http://www.w3.org/1998/Math/MathML" id="mml1" display="inline" overflow="scroll" altimg="si1.gif"><mml:msup><mml:mrow><mml:mrow><mml:mo>(</mml:mo><mml:mo class="qopname">det</mml:mo><mml:mi>s</mml:mi><mml:mo>)</mml:mo></mml:mrow></mml:mrow><mml:mrow><mml:mo>−</mml:mo><mml:mi>p</mml:mi></mml:mrow></mml:msup><mml:mo class="qopname">exp</mml:mo><mml:mi mathvariant="normal">tr</mml:mi><mml:mrow><mml:mo>(</mml:mo><mml:msup><mml:mrow><mml:mi>s</mml:mi></mml:mrow><mml:mrow><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msup><mml:mi>w</mml:mi><mml:mo>)</mml:mo></mml:mrow></mml:math> and the existence of non-central Wishart distributions
+  CR venue:   Journal of Multivariate Analysis
+  CR vol/iss/pages: 163/None/96-110  article-number: None
+  CR date: [2018, 1]
+== DOI 10.1023/A:1010388907793
+  CR authors: Shalizi, Cosma Rohilla; Crutchfield, James P.
+  CR title:   Computational Mechanics: Pattern and Prediction, Structure and Simplicity
+  CR venue:   Journal of Statistical Physics
+  CR vol/iss/pages: 104/3-4/817-879  article-number: None
+  CR date: [2001, 8]
+== DOI 10.1007/s00220-004-1191-7
+  CR authors: Massamba, Fortun�; Thompson, George
+  CR title:   The Universal Connection and Metrics on Moduli Spaces
+  CR venue:   Communications in Mathematical Physics
+  CR vol/iss/pages: 253/2/323-335  article-number: None
+  CR date: [2005, 2]
+== DOI 10.1007/s11023-026-09789-6
+  CR authors: Amornbunchornvej, Chainarong
+  CR title:   Interpretation as Linear Transformation: A Cognitive-Geometric Model of Concepts and Meaning
+  CR venue:   Minds and Machines
+  CR vol/iss/pages: 36/3/None  article-number: 36
+  CR date: [2026, 7, 6]
+== DOI 10.1090/memo/0211
+  CR authors: Shahshahani, S.
+  CR title:   A new mathematical framework for the study of linkage and selection
+  CR venue:   Memoirs of the American Mathematical Society
+  CR vol/iss/pages: 17/211/None  article-number: None
+  CR date: [1979]
+== DOI 10.1109/TMBMC.2016.2618913
+  CROSSREF ERROR <HTTPError 404: 'Not Found'>

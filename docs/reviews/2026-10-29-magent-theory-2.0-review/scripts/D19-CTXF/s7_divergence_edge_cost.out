@@ -1,0 +1,12 @@
+(i) GL(2), KL edge cost, 2 full-Gaussian agents: BFGS gradient norm 4.5e-08
+    dc(J_x xi, 0) at the minimizer, xi = E11,E12,E21,E22: ['+1.47e-08', '+2.31e-08', '+2.13e-08', '+7.69e-08']
+    same at a non-stationary U (baseline): ['-0.584', '-0.170', '-0.229', '-0.239']
+(ii) locked inertia eigenvalues [1.9435, 4.4771, 10.0366, 15.8148] (free action); A^F = [0.165279, 0.144112, 0.247667, 0.202062]
+     eps = 0.1: a(eps) = [0.163942, 0.125981, 0.251881, 0.187935], |a(eps) - A^F| = 2.34e-02, scaled-gradient norm 9.2e-07
+     eps = 0.05: a(eps) = [0.164673, 0.134933, 0.249914, 0.195228], |a(eps) - A^F| = 1.17e-02, scaled-gradient norm 1.3e-06
+     eps = 0.025: a(eps) = [0.164992, 0.139495, 0.248825, 0.198702], |a(eps) - A^F| = 5.83e-03, scaled-gradient norm 1.1e-05
+     eps = 0.0125: a(eps) = [0.165139, 0.141796, 0.248255, 0.200397], |a(eps) - A^F| = 2.92e-03, scaled-gradient norm 4.3e-06
+     eps = 0.001: a(eps) = [0.165265, 0.143923, 0.247718, 0.201932], |a(eps) - A^F| = 2.35e-04, scaled-gradient norm 1.0e-04
+     Richardson 2a(eps) - a(2 eps) at eps = 0.05: |. - A^F| = 5.97e-04
+     Richardson 2a(eps) - a(2 eps) at eps = 0.025: |. - A^F| = 1.46e-04
+     Richardson 2a(eps) - a(2 eps) at eps = 0.0125: |. - A^F| = 3.78e-05

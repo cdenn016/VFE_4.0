@@ -1,0 +1,4 @@
+1. row-gap identity: max |lhs-rhs| over 200 random rows = 1.78e-15
+2. log-odds law residual (symbolic): 0
+3. envelope derivative residuals: [0, 0, 0]
+4. operating map: adjoint residual 1.04e-17, kappa kappa^T - |c|^2 I residual 1.11e-16

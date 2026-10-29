@@ -1,0 +1,8 @@
+(a) mixed partials d2F1/dp1dp2 vs d2F2/dp2dp1 (Bernoulli coordinates):
+    p=(0.714,0.716): one-way -3.05562 vs +0.00000;  mutual -3.05562 vs -3.52295
+    p=(0.511,0.350): one-way -2.47423 vs +0.00000;  mutual -2.47423 vs -2.78987
+    p=(0.188,0.418): one-way -2.62654 vs +0.00000;  mutual -2.62654 vs -3.92236
+    p=(0.436,0.182): one-way -3.13393 vs +0.00000;  mutual -3.13393 vs -2.96304
+(b) per-agent stationary point: p = [0.630834 0.466877], residual own-block force 0.00e+00
+    source-role derivative of F_2 on p_1: +0.351709 (beta*(p_j-p_i)/(p_j(1-p_j)) = +0.351709); zero only if p_i = p_j
+    source-role derivative of F_1 on p_2: -0.328302 (beta*(p_j-p_i)/(p_j(1-p_j)) = -0.328302); zero only if p_i = p_j

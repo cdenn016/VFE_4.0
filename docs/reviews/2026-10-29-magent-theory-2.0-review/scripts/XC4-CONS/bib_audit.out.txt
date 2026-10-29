@@ -1,0 +1,105 @@
+references.bib: 141 entries
+item1_refs.bib: 15 entries
+item2_refs.bib: 4 entries
+item7_refs.bib: 16 entries
+
+== keys defined in more than one .bib file
+
+== possible same work under two keys (normalized title, DOI, or eprint match)
+  TITLE connections for general group actions: [('LewisNigamOlver2003', 'references.bib'), ('LewisNigamOlver2005', 'references.bib')]
+
+== same first-author surname and year under different keys (inspect by hand)
+
+== entries missing standard fields (doi absent listed separately)
+  references.bib:335 AbsilMahonyAndrews2005 [article] missing=[] no-doi
+  references.bib:384 BattistelliChisci2014 [article] missing=[] no-doi
+  references.bib:295 BissiriHolmesWalker2016 [article] missing=[] no-doi
+  references.bib:277 BleiEtAl2017 [article] missing=[] no-doi
+  references.bib:551 Csiszar1975 [article] missing=[] no-doi
+  references.bib:558 Csiszar1984 [article] missing=[] no-doi
+  references.bib:314 Davis1984 [article] missing=[] no-doi
+  references.bib:598 DeGroot1974 [article] missing=[] no-doi
+  references.bib:616 DiaconisZabell1982 [article] missing=[] no-doi
+  references.bib:640 DonskerVaradhan1975 [article] missing=[] no-doi
+  references.bib:257 FournelEtAl2014 [article] missing=[] no-doi
+  references.bib:267 Friston2010 [article] missing=[] no-doi
+  references.bib:727 Fritz2020 [article] missing=[] no-doi
+  references.bib:734 FruchartEtAl2021 [article] missing=[] no-doi
+  references.bib:752 GeshkovskiEtAl2025 [article] missing=[] no-doi
+  references.bib:199 Guichardet1984 [article] missing=[] no-doi
+  references.bib:806 HalmosSavage1949 [article] missing=[] no-doi
+  references.bib:813 Haynsworth1968 [article] missing=[] no-doi
+  references.bib:820 HegselmannKrause2002 [article] missing=['pages'] no-doi
+  references.bib:92 Hocking2011 [inproceedings] missing=[] no-doi
+  references.bib:844 JordanEtAl1999 [article] missing=[] no-doi
+  references.bib:1008 Lojasiewicz1963 [incollection] missing=[] no-doi
+  references.bib:1356 Minka2001EP [inproceedings] missing=[] no-doi
+  references.bib:1045 MondererShapley1996 [article] missing=[] no-doi
+  references.bib:1323 Narasimhan1962 [inproceedings] missing=[] no-doi
+  references.bib:1060 NealHinton1998 [incollection] missing=[] no-doi
+  references.bib:1122 Petz1988 [article] missing=[] no-doi
+  references.bib:1150 Prony1795 [article] missing=[] no-doi
+  references.bib:1366 Ruelle1973Symmetry [article] missing=[] no-doi
+  references.bib:131 ShaliziCrutchfield2001 [article] missing=[] no-doi
+  references.bib:52 Shannon1959 [article] missing=[] no-doi
+  references.bib:1201 Skibinsky1967 [article] missing=[] no-doi
+  references.bib:1218 SokalMichener1958 [article] missing=[] no-doi
+  item1_refs.bib:103 BandeiraSingerSpielman2013 [article] missing=[] no-doi
+  item1_refs.bib:113 Berk1966 [article] missing=[] no-doi
+  item1_refs.bib:55 FristonEtAl2020Language [article] missing=[] no-doi
+  item1_refs.bib:46 FristonFrith2015 [article] missing=[] no-doi
+  item1_refs.bib:1 HansenGhrist2021 [article] missing=[] no-doi
+  item1_refs.bib:83 Kalman1960 [article] missing=[] no-doi
+  item1_refs.bib:37 LahavNeemeh2022 [article] missing=[] no-doi
+  item1_refs.bib:123 Louis1982 [article] missing=[] no-doi
+  item1_refs.bib:74 Shannon1948 [article] missing=[] no-doi
+  item1_refs.bib:93 SingerWu2012 [article] missing=[] no-doi
+  item1_refs.bib:133 Vaswani2017 [inproceedings] missing=['pages'] no-doi
+  item1_refs.bib:27 WarglienGardenfors2013 [article] missing=[] no-doi
+  item1_refs.bib:64 ZaslavskyEtAl2018 [article] missing=[] no-doi
+  item1_refs.bib:18 vanEnk2006 [article] missing=[] no-doi
+  item2_refs.bib:1 Davidson1973 [article] missing=[] no-doi
+  item2_refs.bib:27 WeissFreeman1999 [inproceedings] missing=['pages'] no-doi
+  item7_refs.bib:123 KulisJordan2012 [inproceedings] missing=['pages'] no-doi
+  item7_refs.bib:70 Salzarulo2006 [article] missing=[] no-doi
+
+== arXiv-only or preprint entries (check for published versions)
+  references.bib:174 AyJostLeSchwachhofer2018 [article] journal='Bernoulli' note='' eprint=
+  references.bib:1313 CasselEtAl2024 [misc] journal='' note='Version 1' eprint=2408.15946
+  references.bib:238 ChanEtAl2016 [misc] journal='' note='' eprint=1605.01233
+  references.bib:504 ChenEtAl2023 [misc] journal='' note='' eprint=2310.03597
+  references.bib:151 ElderingKvalheimRevzen2018 [article] journal='Nonlinearity' note='' eprint=
+  references.bib:752 GeshkovskiEtAl2025 [article] journal='Bulletin of the American Mathematical Society' note='arXiv:2312.10794' eprint=
+  references.bib:1293 LeokMarsdenWeinstein2005 [misc] journal='' note='' eprint=math/0508338
+  references.bib:247 LetacMassam2017 [misc] journal='' note='Version 2' eprint=1108.2849
+  references.bib:210 LewisNigamOlver2003 [misc] journal='' note='' eprint=math/0309234
+  references.bib:1335 MassambaThompson2003 [misc] journal='' note='' eprint=math/0311198
+  references.bib:229 Ryabko2017 [misc] journal='' note='' eprint=1703.06700
+  references.bib:131 ShaliziCrutchfield2001 [article] journal='Journal of Statistical Physics' note='' eprint=
+  references.bib:74 Tishby1999 [misc] journal='' note='Manuscript dated September 30, 1999; arXiv:physics/0004057, posted 2000' eprint=
+  item1_refs.bib:11 Amornbunchornvej2025 [misc] journal='' note='' eprint=
+
+== author self-citations (Dennis) and links to unpublished work
+  LINK references.bib:1356 Minka2001EP url=https://tminka.github.io/papers/ep/minka-ep-uai.pdf
+
+== per-document citation resolution
+  main: 209 cite commands, 146 distinct keys; missing from driver bibs: []
+     keys resolved from item bibs: ['BandeiraSingerSpielman2013', 'Berk1966', 'HansenGhrist2021', 'Kalman1960', 'Louis1982', 'Pearl1988', 'SingerWu2012', 'Vaswani2017']
+  supplement: 6 cite commands, 6 distinct keys; missing from driver bibs: []
+     keys resolved from item bibs: []
+  companion: 61 cite commands, 51 distinct keys; missing from driver bibs: []
+     keys resolved from item bibs: ['BandeiraSingerSpielman2013', 'Berk1966', 'HansenGhrist2021', 'Kalman1960', 'Louis1982', 'Pearl1988', 'SingerWu2012']
+  item1: 24 cite commands, 23 distinct keys; missing from driver bibs: []
+     keys resolved from item bibs: ['Amornbunchornvej2025', 'BandeiraSingerSpielman2013', 'Berk1966', 'FristonEtAl2020Language', 'FristonFrith2015', 'HansenGhrist2021', 'Kalman1960', 'LahavNeemeh2022', 'Louis1982', 'Shannon1948', 'SingerWu2012', 'Vaswani2017', 'WarglienGardenfors2013', 'ZaslavskyEtAl2018', 'vanEnk2006']
+  item2: 3 cite commands, 3 distinct keys; missing from driver bibs: []
+     keys resolved from item bibs: ['Pearl1988']
+  item3: 1 cite commands, 1 distinct keys; missing from driver bibs: []
+     keys resolved from item bibs: ['HansenGhrist2021']
+  item7: 24 cite commands, 19 distinct keys; missing from driver bibs: []
+     keys resolved from item bibs: ['CzegelEtAl2019', 'FriedkinJohnsen1990', 'GershmanPouncyGweon2017', 'HellerGhahramani2005', 'KulisJordan2012', 'Lin1991', 'Lloyd1982', 'MacKay1992', 'Martins2009', 'Morris1982', 'MotschTadmor2014', 'OClery2013', 'PeronyEtAl2012', 'Salzarulo2006', 'SchaubEtAl2016', 'Wald1945']
+
+== entries never cited by any of the seven documents
+  references.bib: 1 unused: ['LewisNigamOlver2003']
+  item1_refs.bib: 0 unused: []
+  item2_refs.bib: 3 unused: ['Davidson1973', 'Quine1960', 'WeissFreeman1999']
+  item7_refs.bib: 0 unused: []

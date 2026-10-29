@@ -1,0 +1,368 @@
+===== main: 29 files, 1110 labels, 1269 ref commands, 1309 ref targets, 209 cite commands
+label kinds: {"definition": 43, "lemma": 11, "proposition": 148, "hypothesis": 5, "construction": 6, "openproblem": 22, "theorem": 41, "corollary": 22, "remark": 29, "chapter": 27, "equation": 662, "section": 55, "align": 37, "other": 2}
+duplicate labels: {}
+undefined ref targets: []
+unused labels: 488 of 1110
+unused by kind: {"lemma": 1, "definition": 18, "proposition": 67, "construction": 5, "corollary": 11, "remark": 19, "theorem": 5, "openproblem": 17, "hypothesis": 1, "equation": 291, "align": 17, "section": 34, "chapter": 2}
+  UNUSED lemma        lem:measurable-bundle                         chapters/01_foundations.tex:29  (Measurable structure of the statistical bundle)
+  UNUSED proposition  prop:bundle-morphism                          chapters/01_foundations.tex:58  (Statistical bundle morphisms)
+  UNUSED proposition  prop:record-covariance                        chapters/01_foundations.tex:148  (Covariant record laws)
+  UNUSED proposition  prop:content-law                              chapters/01_foundations.tex:214  (Consistency and projected free energy)
+  UNUSED proposition  prop:loop-blindness                           chapters/01_foundations.tex:236  (Law comparisons and shared samples)
+  UNUSED proposition  prop:int-kl-covariance                        chapters/02_interactions.tex:41  (Covariant law comparison)
+  UNUSED proposition  prop:int-mismatch                             chapters/02_interactions.tex:107  (The sector mismatch is covariant)
+  UNUSED proposition  prop:int-endpoint                             chapters/02_interactions.tex:120  (Endpoint covariance and reference consistency)
+  UNUSED proposition  prop:int-rank                                 chapters/02_interactions.tex:138  (Low-rank generator and invertible transport)
+  UNUSED proposition  prop:int-moment-equivariance                  chapters/02_interactions.tex:163  (Equivariance of the moment family)
+  UNUSED proposition  prop:int-reciprocal                           chapters/02_interactions.tex:192  (Reciprocal and backtrack parts of a directed pair)
+  UNUSED proposition  prop:int-loop-blindness                       chapters/02_interactions.tex:212  (Law-level comparisons and the stabilizer)
+  UNUSED proposition  geo:gauge-connection                          chapters/02_geometry.tex:86  (Gauge covariance and connection dependence)
+  UNUSED proposition  geo:transported-kl                            chapters/02_geometry.tex:116  (Transported relative entropy)
+  UNUSED proposition  geo:signed-comparison                         chapters/02_geometry.tex:356  (Signed comparison of base tensors)
+  UNUSED corollary    geo:minimal-contraction                       chapters/02_geometry.tex:405  (Exact contraction of the minimal tensor)
+  UNUSED proposition  prop:dyn-global-flow                          chapters/03_dynamics.tex:180  (Global flow for fixed channels)
+  UNUSED proposition  prop:dyn-gaussian-noninvariance               chapters/03_dynamics.tex:215  (Gaussian agents are not an invariant family)
+  UNUSED proposition  prop:dyn-chart-flow                           chapters/03_dynamics.tex:228  (Local well-posedness in charts)
+  UNUSED proposition  prop:dyn-nonreciprocal                        chapters/03_dynamics.tex:359  (Per-agent dynamics need not be a gradient flow)
+  UNUSED corollary    cor:dyn-frozen-source                         chapters/03_dynamics.tex:407  (Frozen-source episodes)
+  UNUSED corollary    cor:local-family-recovery                     chapters/04_prediction.tex:181  (Recovery without reading the exterior)
+  UNUSED theorem      thm:predictive-distortion                     chapters/04_prediction.tex:212  (Predictive distortion and the optimal decoder)
+  UNUSED proposition  inh:projectable                               chapters/05_inheritance.tex:130  (Projectable vector fields)
+  UNUSED proposition  inh:no-underdamped                            chapters/05_inheritance.tex:318  (Exact inheritance of a gradient flow creates no oscillatory mode)
+  UNUSED proposition  inh:canonical-lumping                         chapters/05_inheritance.tex:502  (The coarsest strongly lumpable refinement)
+  UNUSED proposition  inh:composition                               chapters/05_inheritance.tex:651  (Inheritance composes)
+  UNUSED proposition  inh:smooth-mixture-failure                    chapters/05_inheritance.tex:905  (The mixture retention fails the dynamical inheritance test)
+  UNUSED proposition  inh:smooth-boundary-failure                   chapters/05_inheritance.tex:962  (The same retention loses a boundary response)
+  UNUSED theorem      inh:causal-memory                             chapters/05_inheritance.tex:1036  (Information lost by a retained history)
+  UNUSED corollary    inh:conditional-partition                     chapters/05_inheritance.tex:1173  (Conditional independence partitions)
+  UNUSED proposition  inh:independence-discontinuity                chapters/05_inheritance.tex:1199  (Weak coupling can destroy every independent split)
+  UNUSED proposition  inh:scalar-additive                           chapters/05_inheritance.tex:1287  (Scalar additive closure fixes the membership order)
+  UNUSED proposition  inh:common-clock                              chapters/05_inheritance.tex:1329  (Shared targets give a common clock)
+  UNUSED corollary    fus:dyadic                                    chapters/06_fusion.tex:488  (Coalescence of any finite depth)
+  UNUSED proposition  smooth:mean-force-criterion                   chapters/07_smooth_closure.tex:18  (Conditional mean force)
+  UNUSED corollary    smooth:submersion                             chapters/07_smooth_closure.tex:44  (Pushforward as a Fisher submersion)
+  UNUSED proposition  smooth:peer-cancellation-rule                 chapters/07_smooth_closure.tex:75  (Exact cancellation of private peer information)
+  UNUSED proposition  smooth:feedback                               chapters/07_smooth_closure.tex:278  (Exact marked feedback)
+  UNUSED corollary    cor:public-gibbs-channel                      chapters/09_public_compression.tex:204  (Gibbs probes through a fixed channel)
+  UNUSED proposition  open:force                                    chapters/12_open_formation.tex:52  (Complete density force)
+  UNUSED proposition  open:quotient-gradient                        chapters/12_open_formation.tex:391  (The parent flow and the quotient metric)
+  UNUSED proposition  pa:four-transfer                              chapters/13_per_agent_inheritance.tex:60  (Transferred own-block and null fields)
+  UNUSED proposition  pa:four-grouping                              chapters/13_per_agent_inheritance.tex:96  (Interaction-dependent selection on a full open table class)
+  UNUSED proposition  pa:angular-flow                               chapters/13_per_agent_inheritance.tex:214  (Exact angular field)
+  UNUSED proposition  lp:native-field                               chapters/14_collective_local_parent.tex:43  (The exact transmitted-angle field)
+  UNUSED theorem      lp:local-realization                          chapters/14_collective_local_parent.tex:111  (Conditional evaluation-local realization)
+  UNUSED proposition  lp:generator                                  chapters/14_collective_local_parent.tex:184  (Conditional finite preparation-and-history realization)
+  UNUSED proposition  lp:profile-obstruction                        chapters/14_collective_local_parent.tex:337  (One regular finite encoding cannot hold arbitrary profiles)
+  UNUSED proposition  ctx:f:statement:1                             chapters/15_contextual_coupling.tex:107  (Auxiliary transport equation and endpoint forces)
+  UNUSED proposition  ctx:f:statement:3                             chapters/15_contextual_coupling.tex:136  (Local elimination and envelope)
+  UNUSED proposition  ctx:c:statement:2                             chapters/15_contextual_coupling.tex:527  (Reduced energy)
+  UNUSED proposition  ctx:c:statement:5                             chapters/15_contextual_coupling.tex:804  (Exact energy identity)
+  UNUSED proposition  ibt:frame                                     chapters/16_link_base_transport.tex:48  (A square frame selects flat local transport)
+  UNUSED proposition  ibt:reciprocal                                chapters/16_link_base_transport.tex:168  (Reciprocal displacement maps with the same derivative)
+  UNUSED proposition  ibt:group                                     chapters/16_link_base_transport.tex:264  (A selector in the declared Lie algebra)
+  UNUSED proposition  it1:kalman                                    chapters/17_communication_links.tex:86  (Reception of one message)
+  UNUSED proposition  it1:gaussian-reconstruction                   chapters/17_communication_links.tex:105  (Gaussian reconstruction)
+  UNUSED proposition  it1:stack-compatibility                       chapters/17_communication_links.tex:207  (Compatibility of stacked readings)
+  UNUSED corollary    it1:frustration                               chapters/17_communication_links.tex:240  (Frustration)
+  UNUSED corollary    it1:complete-exchange                         chapters/17_communication_links.tex:420  (Complete exchange)
+  UNUSED proposition  it1:pair                                      chapters/17_communication_links.tex:432  (Reciprocal pair)
+  UNUSED proposition  it2:split                                     chapters/18_link_dynamics.tex:80  (Persuasion and reinterpretation)
+  UNUSED corollary    it2:grounding                                 chapters/18_link_dynamics.tex:103  (Grounding turns reinterpretation into persuasion)
+  UNUSED proposition  it2:ring                                      chapters/18_link_dynamics.tex:141  (A directed ring)
+  UNUSED theorem      it2:separation                                chapters/18_link_dynamics.tex:158  (Separation in the grounded limit)
+  UNUSED proposition  it2:potential-forces                          chapters/18_link_dynamics.tex:267  (Forces in the reciprocal potential)
+  UNUSED proposition  it2:certainty                                 chapters/18_link_dynamics.tex:285  (Disagreement and certainty)
+  UNUSED corollary    it3:dissonance                                chapters/19_curvature_hierarchy.tex:166  (Equal gains cancel the linearized loop sum)
+  UNUSED proposition  it3:rigid                                     chapters/19_curvature_hierarchy.tex:192  (A normalized rigid restriction of a supplied hierarchy)
+  UNUSED proposition  it3:flat-wall                                 chapters/19_curvature_hierarchy.tex:228  (Flat wall walks and a common boundary dictionary)
+  UNUSED proposition  prop:registered-history                       appendices/record_process.tex:19  (Consistent finite histories)
+  UNUSED proposition  prop:bayesian-history                         appendices/record_process.tex:46  (The Bayesian history identity)
+  UNUSED proposition  prop:variational-history                      appendices/record_process.tex:61  (Departure from Bayesian assimilation)
+  UNUSED proposition  imem:calibration                              appendices/interacting_memory.tex:70  (Public calibration)
+  UNUSED proposition  imem:reduced-free-energy                      appendices/interacting_memory.tex:298  (Exact elimination in free energy)
+  UNUSED proposition  imem:gaussian-receiver                        appendices/interacting_memory.tex:484  (The first receiver likelihood for Gaussian banks)
+  UNUSED theorem      imem:gaussian-closure                         appendices/interacting_memory.tex:560  (Repeated affine Gaussian closure)
+  UNUSED proposition  imem:mixture-nonclosure                       appendices/interacting_memory.tex:584  (A two-presentation nonclosure example)
+  UNUSED proposition  imem:local-retention-failure                  appendices/interacting_memory.tex:619  (A reachable collision of local-only retention)
+  UNUSED proposition  prop:conn-curvature                           appendices/base_connection.tex:20  (Connection and curvature)
+  UNUSED proposition  prop:conn-patches                             appendices/base_connection.tex:52  (Compatibility under re-expression)
+  UNUSED proposition  geo:determinant-metric                        appendices/determinant_example.tex:21  (Determinant metric)
+  UNUSED proposition  geo:circle-completion                         appendices/determinant_example.tex:75  (Circle completion)
+label prefixes per file:
+  chapters/01_foundations.tex: {'def': 7, 'lem': 1, 'prop': 6, 'ch': 1, 'eq': 17, 'sec': 2}
+  chapters/02_interactions.tex: {'def': 4, 'prop': 8, 'hyp': 1, 'ch': 1, 'eq': 15}
+  chapters/02_geometry.tex: {'geo': 46, 'open': 1, 'ch': 1}
+  chapters/03_dynamics.tex: {'rem': 2, 'def': 7, 'prop': 13, 'thm': 2, 'cor': 1, 'op': 1, 'ch': 1, 'sec': 7, 'eq': 29}
+  chapters/04_prediction.tex: {'thm': 2, 'prop': 2, 'cor': 2, 'ch': 1, 'eq': 17, 'sec': 2}
+  chapters/05_inheritance.tex: {'inh': 67, 'ch': 1}
+  chapters/06_fusion.tex: {'fus': 38, 'ch': 1, 'sec': 1}
+  chapters/07_smooth_closure.tex: {'smooth': 40, 'ch': 1, 'sec': 1}
+  chapters/08_smooth_erasure.tex: {'erase': 26, 'ch': 1, 'sec': 1}
+  chapters/09_public_compression.tex: {'thm': 1, 'cor': 2, 'prop': 1, 'def': 1, 'ch': 1, 'sec': 5, 'eq': 26}
+  chapters/10_boundary_closure.tex: {'lem': 3, 'thm': 2, 'prop': 4, 'rem': 3, 'op': 1, 'ch': 1, 'sec': 6, 'eq': 26}
+  chapters/11_conditional_formation.tex: {'form': 37, 'ch': 1}
+  chapters/12_open_formation.tex: {'open': 53, 'ch': 1}
+  chapters/13_per_agent_inheritance.tex: {'pa': 44, 'ch': 1}
+  chapters/14_collective_local_parent.tex: {'lp': 44, 'ch': 1}
+  chapters/15_contextual_coupling.tex: {'ctx': 80, 'ch': 1}
+  chapters/16_link_base_transport.tex: {'ibt': 46, 'ch': 1}
+  chapters/17_communication_links.tex: {'it1': 76, 'ch': 1}
+  chapters/18_link_dynamics.tex: {'it2': 87, 'ch': 1}
+  chapters/19_curvature_hierarchy.tex: {'it3': 35, 'ch': 1}
+  appendices/record_process.tex: {'def': 1, 'prop': 3, 'app': 1, 'eq': 6}
+  appendices/conditional_memory.tex: {'cmem': 28, 'app': 1}
+  appendices/interacting_memory.tex: {'imem': 78, 'app': 1}
+  appendices/base_connection.tex: {'def': 1, 'prop': 2, 'open': 1, 'app': 1, 'eq': 3}
+  appendices/determinant_example.tex: {'geo': 8, 'app': 1}
+  chapters/06_outlook.tex: {'ch': 1}
+  appendices/notation.tex: {'app': 1}
+
+===== supplement: 5 files, 31 labels, 20 ref commands, 22 ref targets, 6 cite commands
+label kinds: {"lemma": 2, "proposition": 5, "chapter": 4, "equation": 20}
+duplicate labels: {}
+undefined ref targets: []
+unused labels: 16 of 31
+unused by kind: {"lemma": 2, "proposition": 5, "chapter": 4, "equation": 5}
+  UNUSED lemma        lem:sgeom-lowrank                             supplements/s02_geometry.tex:15  (Exponential through the message space)
+  UNUSED proposition  prop:sgeom-rankone                            supplements/s02_geometry.tex:28  (Rank-one closed form and determinant)
+  UNUSED lemma        lem:sgeom-frechet                             supplements/s02_geometry.tex:44  (Derivative of the matrix exponential)
+  UNUSED proposition  prop:sup-residual-cost                        supplements/s03_variation.tex:15  (Complete residual covariance)
+  UNUSED proposition  prop:sup-row-equivalence                      supplements/s03_variation.tex:48  (A restricted routing equivalence)
+  UNUSED proposition  sinh:linear-descent                           supplements/s04_inheritance.tex:11  (Descent through a surjective retention)
+  UNUSED proposition  sinh:filter                                   supplements/s04_inheritance.tex:70  (The terminal conditional law retains every future prediction)
+label prefixes per file:
+  supplements/s02_geometry.tex: {'lem': 2, 'prop': 1, 'supp': 1, 'eq': 3}
+  supplements/s03_variation.tex: {'prop': 2, 'ch': 1, 'eq': 9}
+  supplements/s04_inheritance.tex: {'sinh': 8, 's': 1}
+  supplements/s01_probability.tex: {'s': 1, 'eq': 2}
+
+===== companion: 25 files, 268 labels, 95 ref commands, 97 ref targets, 61 cite commands
+label kinds: {"hypothesis": 1, "theorem": 1, "chapter": 19, "equation": 227, "figure": 2, "section": 15, "other": 2, "subsection": 1}
+duplicate labels: {}
+undefined ref targets: []
+unused labels: 194 of 268
+unused by kind: {"theorem": 1, "chapter": 10, "equation": 164, "figure": 2, "section": 15, "other": 1, "subsection": 1}
+  UNUSED theorem      comp:ctx:local-theorem                        companion/c15_contextual_coupling.tex:166  (Local continuum evolution)
+label prefixes per file:
+  companion/c15_contextual_coupling.tex: {'comp': 27}
+  companion/c01_objects.tex: {'comp': 7}
+  companion/c02_links.tex: {'comp': 1, 'eq': 1, 'fig': 1}
+  companion/c06_geometry.tex: {'comp': 2}
+  companion/c03_dynamics.tex: {'comp': 1, 'eq': 8}
+  companion/c04_communication.tex: {'comp': 13, 'fig': 1}
+  companion/c04_interacting_memory.tex: {'comp': 16}
+  companion/c05_inheritance.tex: {'comp': 1, 'fig': 1}
+  companion/c07_fusion.tex: {'comp': 1}
+  companion/c08_smooth.tex: {'comp': 5}
+  companion/c09_public_compression.tex: {'comp': 7}
+  companion/c10_boundary.tex: {'comp': 3}
+  companion/c11_formation.tex: {'cf': 20}
+  companion/c12_open_formation.tex: {'cf': 1, 'co': 9}
+  companion/c13_per_agent_inheritance.tex: {'cf': 1, 'cp': 25}
+  companion/c14_collective_local_parent.tex: {'cf': 1, 'clp': 23}
+  companion/c16_link_base_transport.tex: {'comp': 9}
+  companion/c17_communication_links.tex: {'c17': 21}
+  companion/c18_link_dynamics.tex: {'c18': 50}
+  companion/c19_curvature_hierarchy.tex: {'c19': 12}
+
+===== item1: 1 files, 75 labels, 86 ref commands, 96 ref targets, 24 cite commands
+label kinds: {"definition": 5, "remark": 5, "proposition": 11, "corollary": 5, "theorem": 3, "openproblem": 4, "equation": 34, "chapter": 8}
+duplicate labels: {}
+undefined ref targets: []
+unused labels: 30 of 75
+unused by kind: {"definition": 5, "remark": 2, "proposition": 1, "corollary": 1, "openproblem": 2, "chapter": 7, "equation": 12}
+  UNUSED proposition  it1:stack-compatibility                       Item_1_communication_links.tex:228  (Compatibility of stacked readings)
+  UNUSED corollary    it1:frustration                               Item_1_communication_links.tex:277  (Frustration)
+label prefixes per file:
+  Item_1_communication_links.tex: {'it1': 75}
+
+===== item2: 1 files, 41 labels, 18 ref commands, 19 ref targets, 3 cite commands
+label kinds: {"definition": 4, "remark": 1, "theorem": 2, "proposition": 7, "corollary": 1, "openproblem": 5, "chapter": 7, "equation": 13, "other": 1}
+duplicate labels: {}
+undefined ref targets: []
+unused labels: 26 of 41
+unused by kind: {"definition": 3, "remark": 1, "proposition": 4, "corollary": 1, "theorem": 1, "openproblem": 5, "chapter": 7, "equation": 4}
+  UNUSED proposition  it2:split                                     Item_2_link_dynamics.tex:96  (Persuasion and reinterpretation)
+  UNUSED corollary    it2:grounding                                 Item_2_link_dynamics.tex:119  (Grounding turns reinterpretation into persuasion)
+  UNUSED proposition  it2:ring                                      Item_2_link_dynamics.tex:157  (A directed ring)
+  UNUSED theorem      it2:separation                                Item_2_link_dynamics.tex:174  (Separation in the grounded limit)
+  UNUSED proposition  it2:potential-forces                          Item_2_link_dynamics.tex:244  (Forces in the reciprocal potential)
+  UNUSED proposition  it2:certainty                                 Item_2_link_dynamics.tex:262  (Disagreement and certainty)
+label prefixes per file:
+  Item_2_link_dynamics.tex: {'it2': 41}
+
+===== item3: 1 files, 35 labels, 21 ref commands, 21 ref targets, 1 cite commands
+label kinds: {"definition": 1, "remark": 4, "theorem": 1, "proposition": 3, "corollary": 1, "openproblem": 4, "chapter": 5, "equation": 16}
+duplicate labels: {}
+undefined ref targets: []
+unused labels: 19 of 35
+unused by kind: {"definition": 1, "remark": 4, "corollary": 1, "proposition": 2, "openproblem": 4, "chapter": 5, "equation": 2}
+  UNUSED corollary    it3:dissonance                                Item_3_curvature_hierarchy.tex:178  (Equal gains cancel the linearized loop sum)
+  UNUSED proposition  it3:rigid                                     Item_3_curvature_hierarchy.tex:204  (A normalized rigid restriction of a supplied hierarchy)
+  UNUSED proposition  it3:flat-wall                                 Item_3_curvature_hierarchy.tex:240  (Flat wall walks and a common boundary dictionary)
+label prefixes per file:
+  Item_3_curvature_hierarchy.tex: {'it3': 35}
+
+===== item7: 1 files, 60 labels, 116 ref commands, 120 ref targets, 24 cite commands
+label kinds: {"definition": 4, "proposition": 10, "remark": 7, "theorem": 2, "corollary": 4, "openproblem": 7, "chapter": 8, "equation": 18}
+duplicate labels: {}
+undefined ref targets: []
+unused labels: 17 of 60
+unused by kind: {"definition": 2, "remark": 2, "corollary": 1, "openproblem": 5, "chapter": 4, "equation": 3}
+  UNUSED corollary    it7:type                                      Item_7_formation_feedback.tex:178  (Composition and type)
+label prefixes per file:
+  Item_7_formation_feedback.tex: {'it7': 60}
+
+===== label names defined in more than one document
+count: 151
+  SAME-TITLE it1:bandwidth: main:chapters/17_communication_links.tex:264 [proposition] Coded messages give Gibbs rows at temperature one over the m | item1:Item_1_communication_links.tex:293 [proposition] Coded messages give Gibbs rows at temperature one over the m
+  SAME-TITLE it1:bandwidth-eq: main:chapters/17_communication_links.tex:268 [equation]  | item1:Item_1_communication_links.tex:297 [equation] 
+  SAME-TITLE it1:bias: main:chapters/17_communication_links.tex:344 [equation]  | item1:Item_1_communication_links.tex:373 [equation] 
+  SAME-TITLE it1:ch-bandwidth: main:chapters/17_communication_links.tex:262 [section] Bandwidth and source rows | item1:Item_1_communication_links.tex:291 [chapter] Bandwidth and source rows
+  SAME-TITLE it1:ch-dissonance: main:chapters/17_communication_links.tex:223 [section] Curvature as dissonance | item1:Item_1_communication_links.tex:260 [chapter] Curvature as dissonance
+  SAME-TITLE it1:ch-identifiability: main:chapters/17_communication_links.tex:131 [section] What messages reveal about the dictionary | item1:Item_1_communication_links.tex:152 [chapter] What messages reveal about the dictionary
+  SAME-TITLE it1:ch-learning: main:chapters/17_communication_links.tex:278 [section] Learning the dictionaries | item1:Item_1_communication_links.tex:307 [chapter] Learning the dictionaries
+  SAME-TITLE it1:ch-modalities: main:chapters/17_communication_links.tex:168 [section] Several modalities | item1:Item_1_communication_links.tex:189 [chapter] Several modalities
+  DIFF-TITLE it1:ch-next: main:chapters/17_communication_links.tex:486 [section] Extensions beyond the declared experiments | item1:Item_1_communication_links.tex:515 [chapter] Next steps
+  SAME-TITLE it1:ch-objects: main:chapters/17_communication_links.tex:20 [section] Codes and dictionaries | item1:Item_1_communication_links.tex:36 [chapter] Codes and dictionaries
+  SAME-TITLE it1:ch-reception: main:chapters/17_communication_links.tex:53 [section] Reception through a code | item1:Item_1_communication_links.tex:68 [chapter] Reception through a code
+  SAME-TITLE it1:chain: main:chapters/17_communication_links.tex:15 [equation]  | item1:Item_1_communication_links.tex:18 [equation] 
+  SAME-TITLE it1:coboundaries: main:chapters/17_communication_links.tex:404 [equation]  | item1:Item_1_communication_links.tex:433 [equation] 
+  SAME-TITLE it1:code: main:chapters/17_communication_links.tex:22 [definition] Code of a modality | item1:Item_1_communication_links.tex:38 [definition] Code of a modality
+  SAME-TITLE it1:complementary: main:chapters/17_communication_links.tex:384 [proposition] Filling and detection are complementary | item1:Item_1_communication_links.tex:413 [proposition] Filling and detection are complementary
+  SAME-TITLE it1:complete-exchange: main:chapters/17_communication_links.tex:420 [corollary] Complete exchange | item1:Item_1_communication_links.tex:449 [corollary] Complete exchange
+  SAME-TITLE it1:consensus: main:chapters/17_communication_links.tex:232 [theorem] Consensus and holonomy invariance | item1:Item_1_communication_links.tex:269 [theorem] Consensus and holonomy invariance
+  SAME-TITLE it1:consensus-eq: main:chapters/17_communication_links.tex:228 [equation]  | item1:Item_1_communication_links.tex:265 [equation] 
+  SAME-TITLE it1:detectable: main:chapters/17_communication_links.tex:376 [definition] Detectable dissonance | item1:Item_1_communication_links.tex:405 [definition] Detectable dissonance
+  SAME-TITLE it1:detectable-eq: main:chapters/17_communication_links.tex:380 [equation]  | item1:Item_1_communication_links.tex:409 [equation] 
+  SAME-TITLE it1:dictionary: main:chapters/17_communication_links.tex:32 [definition] Dictionary | item1:Item_1_communication_links.tex:47 [definition] Dictionary
+  SAME-TITLE it1:dictionary-eq: main:chapters/17_communication_links.tex:37 [equation]  | item1:Item_1_communication_links.tex:52 [equation] 
+  SAME-TITLE it1:dissonance: main:chapters/17_communication_links.tex:248 [definition] Dissonance of a loop | item1:Item_1_communication_links.tex:285 [definition] Dissonance of a loop
+  SAME-TITLE it1:dressed-defect: main:chapters/17_communication_links.tex:255 [equation]  | item1:Item_1_communication_links.tex:521 [equation] 
+  SAME-TITLE it1:effective-code: main:chapters/17_communication_links.tex:44 [equation]  | item1:Item_1_communication_links.tex:59 [equation] 
+  SAME-TITLE it1:exact-flat: main:chapters/17_communication_links.tex:467 [proposition] Exact flat identification | item1:Item_1_communication_links.tex:496 [proposition] Exact flat identification
+  SAME-TITLE it1:exact-flat-eq: main:chapters/17_communication_links.tex:471 [equation]  | item1:Item_1_communication_links.tex:500 [equation] 
+  SAME-TITLE it1:exact-pair: main:chapters/17_communication_links.tex:453 [proposition] Exact reciprocal identification | item1:Item_1_communication_links.tex:482 [proposition] Exact reciprocal identification
+  SAME-TITLE it1:exact-pair-eq: main:chapters/17_communication_links.tex:458 [equation]  | item1:Item_1_communication_links.tex:487 [equation] 
+  SAME-TITLE it1:exponential: main:chapters/17_communication_links.tex:127 [remark] The link with a code-shaped generator | item1:Item_1_communication_links.tex:148 [remark] The link with a code-shaped generator
+  SAME-TITLE it1:fisher: main:chapters/17_communication_links.tex:148 [equation]  | item1:Item_1_communication_links.tex:169 [equation] 
+  SAME-TITLE it1:fisher-location: main:chapters/17_communication_links.tex:163 [equation]  | item1:Item_1_communication_links.tex:184 [equation] 
+  SAME-TITLE it1:frustration: main:chapters/17_communication_links.tex:240 [corollary] Frustration | item1:Item_1_communication_links.tex:277 [corollary] Frustration
+  SAME-TITLE it1:gain: main:chapters/17_communication_links.tex:90 [equation]  | item1:Item_1_communication_links.tex:111 [equation] 
+  SAME-TITLE it1:gaussian-reconstruction: main:chapters/17_communication_links.tex:105 [proposition] Gaussian reconstruction | item1:Item_1_communication_links.tex:126 [proposition] Gaussian reconstruction
+  SAME-TITLE it1:gaussian-reconstruction-eq: main:chapters/17_communication_links.tex:114 [equation]  | item1:Item_1_communication_links.tex:135 [equation] 
+  SAME-TITLE it1:grounded-model: main:chapters/17_communication_links.tex:136 [equation]  | item1:Item_1_communication_links.tex:157 [equation] 
+  SAME-TITLE it1:heads: main:chapters/17_communication_links.tex:219 [remark] Attention heads as modalities | item1:Item_1_communication_links.tex:240 [remark] Attention heads as modalities
+  SAME-TITLE it1:identifiability: main:chapters/17_communication_links.tex:140 [theorem] Identifiability up to the code stabilizer | item1:Item_1_communication_links.tex:161 [theorem] Identifiability up to the code stabilizer
+  SAME-TITLE it1:information-filter: main:chapters/17_communication_links.tex:303 [equation]  | item1:Item_1_communication_links.tex:332 [equation] 
+  SAME-TITLE it1:kalman: main:chapters/17_communication_links.tex:86 [proposition] Reception of one message | item1:Item_1_communication_links.tex:107 [proposition] Reception of one message
+  SAME-TITLE it1:learning: main:chapters/17_communication_links.tex:320 [theorem] Learning with a loop prior | item1:Item_1_communication_links.tex:349 [theorem] Learning with a loop prior
+  SAME-TITLE it1:learning-notation: main:chapters/17_communication_links.tex:314 [equation]  | item1:Item_1_communication_links.tex:343 [equation] 
+  SAME-TITLE it1:limit-error: main:chapters/17_communication_links.tex:365 [equation]  | item1:Item_1_communication_links.tex:394 [equation] 
+  SAME-TITLE it1:limit-mean: main:chapters/17_communication_links.tex:328 [equation]  | item1:Item_1_communication_links.tex:357 [equation] 
+  SAME-TITLE it1:location: main:chapters/17_communication_links.tex:159 [remark] Noise laws beyond the Gaussian | item1:Item_1_communication_links.tex:180 [remark] Noise laws beyond the Gaussian
+  SAME-TITLE it1:loop-prior: main:chapters/17_communication_links.tex:290 [equation]  | item1:Item_1_communication_links.tex:319 [equation] 
+  SAME-TITLE it1:loss: main:chapters/17_communication_links.tex:64 [corollary] Meaning lost through a noiseless code | item1:Item_1_communication_links.tex:79 [proposition] Meaning lost through a noiseless code
+  SAME-TITLE it1:loss-eq: main:chapters/17_communication_links.tex:68 [equation]  | item1:Item_1_communication_links.tex:83 [equation] 
+  SAME-TITLE it1:mean-update: main:chapters/17_communication_links.tex:123 [equation]  | item1:Item_1_communication_links.tex:144 [equation] 
+  SAME-TITLE it1:message: main:chapters/17_communication_links.tex:27 [equation]  | item1:Item_1_communication_links.tex:42 [equation] 
+  SAME-TITLE it1:modalities: main:chapters/17_communication_links.tex:170 [corollary] Pooling modalities through one dictionary | item1:Item_1_communication_links.tex:191 [corollary] Pooling modalities through one dictionary
+  SAME-TITLE it1:modalities-eq: main:chapters/17_communication_links.tex:174 [equation]  | item1:Item_1_communication_links.tex:195 [equation] 
+  SAME-TITLE it1:mutual-information: main:chapters/17_communication_links.tex:95 [equation]  | item1:Item_1_communication_links.tex:116 [equation] 
+  SAME-TITLE it1:noisy: main:chapters/17_communication_links.tex:74 [corollary] Noisy codes | item1:Item_1_communication_links.tex:95 [corollary] Noisy codes
+  SAME-TITLE it1:noisy-eq: main:chapters/17_communication_links.tex:78 [equation]  | item1:Item_1_communication_links.tex:99 [equation] 
+  SAME-TITLE it1:open-codes: main:chapters/17_communication_links.tex:491 [openproblem] Codes as part of the species model | item1:Item_1_communication_links.tex:525 [openproblem] Codes as part of the species model
+  SAME-TITLE it1:open-free-energy: main:chapters/17_communication_links.tex:494 [openproblem] Dictionaries in the free-energy pictures | item1:Item_1_communication_links.tex:528 [openproblem] Dictionaries in the free-energy pictures
+  SAME-TITLE it1:open-general: main:chapters/17_communication_links.tex:497 [openproblem] Beyond Gaussian codes | item1:Item_1_communication_links.tex:531 [openproblem] Beyond Gaussian codes
+  SAME-TITLE it1:open-learning: main:chapters/17_communication_links.tex:488 [openproblem] Learning the dictionaries beyond the tangent model | item1:Item_1_communication_links.tex:517 [openproblem] Learning the dictionaries beyond the tangent model
+  SAME-TITLE it1:owned: main:chapters/17_communication_links.tex:482 [remark] Ownership and the loop term | item1:Item_1_communication_links.tex:511 [remark] Ownership and the loop term
+  SAME-TITLE it1:pair: main:chapters/17_communication_links.tex:432 [proposition] Reciprocal pair | item1:Item_1_communication_links.tex:461 [proposition] Reciprocal pair
+  SAME-TITLE it1:pair-split: main:chapters/17_communication_links.tex:440 [equation]  | item1:Item_1_communication_links.tex:469 [equation] 
+  SAME-TITLE it1:projector: main:chapters/17_communication_links.tex:109 [equation]  | item1:Item_1_communication_links.tex:130 [equation] 
+  SAME-TITLE it1:query-dictionary: main:chapters/17_communication_links.tex:199 [proposition] A receiver's reading of a code is a dictionary modulo the st | item1:Item_1_communication_links.tex:220 [proposition] A receiver's reading of a code is a dictionary modulo the st
+  SAME-TITLE it1:reconstruction: main:chapters/17_communication_links.tex:60 [equation]  | item1:Item_1_communication_links.tex:75 [equation] 
+  SAME-TITLE it1:routed: main:chapters/17_communication_links.tex:185 [corollary] Routed modalities | item1:Item_1_communication_links.tex:206 [corollary] Routed modalities
+  SAME-TITLE it1:sheaf-count: main:chapters/17_communication_links.tex:412 [equation]  | item1:Item_1_communication_links.tex:441 [equation] 
+  SAME-TITLE it1:shrinkage: main:chapters/17_communication_links.tex:337 [equation]  | item1:Item_1_communication_links.tex:366 [equation] 
+  SAME-TITLE it1:stack-compatibility: main:chapters/17_communication_links.tex:207 [proposition] Compatibility of stacked readings | item1:Item_1_communication_links.tex:228 [proposition] Compatibility of stacked readings
+  SAME-TITLE it1:stack-relations: main:chapters/17_communication_links.tex:211 [equation]  | item1:Item_1_communication_links.tex:232 [equation] 
+  SAME-TITLE it1:tangent-message: main:chapters/17_communication_links.tex:295 [equation]  | item1:Item_1_communication_links.tex:324 [equation] 
+  SAME-TITLE it1:tangent-model: main:chapters/17_communication_links.tex:286 [definition] Tangent learning model | item1:Item_1_communication_links.tex:315 [definition] Tangent learning model
+  SAME-TITLE it1:unreachable: main:chapters/17_communication_links.tex:400 [proposition] The unreachable directions | item1:Item_1_communication_links.tex:429 [proposition] The unreachable directions
+  SAME-TITLE it1:why-group: main:chapters/17_communication_links.tex:49 [remark] Why the dictionary is group valued | item1:Item_1_communication_links.tex:64 [remark] Why the dictionary is group valued
+  SAME-TITLE it2:agent-energy: main:chapters/18_link_dynamics.tex:42 [other]  | item2:Item_2_link_dynamics.tex:58 [other] 
+  SAME-TITLE it2:certainty: main:chapters/18_link_dynamics.tex:285 [proposition] Disagreement and certainty | item2:Item_2_link_dynamics.tex:262 [proposition] Disagreement and certainty
+  SAME-TITLE it2:ch-confidence: main:chapters/18_link_dynamics.tex:182 [section] Confidence under ownership | item2:Item_2_link_dynamics.tex:198 [chapter] Confidence under ownership
+  SAME-TITLE it2:ch-flows: main:chapters/18_link_dynamics.tex:112 [section] The two flows | item2:Item_2_link_dynamics.tex:128 [chapter] The two flows
+  SAME-TITLE it2:ch-grounded: main:chapters/18_link_dynamics.tex:156 [section] The grounded limit | item2:Item_2_link_dynamics.tex:172 [chapter] The grounded limit
+  SAME-TITLE it2:ch-identification: main:chapters/18_link_dynamics.tex:57 [section] What conversation determines | item2:Item_2_link_dynamics.tex:73 [chapter] What conversation determines
+  SAME-TITLE it2:ch-model: main:chapters/18_link_dynamics.tex:10 [section] The tangent communication model | item2:Item_2_link_dynamics.tex:26 [chapter] The tangent communication model
+  SAME-TITLE it2:ch-next: main:chapters/18_link_dynamics.tex:626 [section] Scope and open problems | item2:Item_2_link_dynamics.tex:282 [chapter] Scope and open problems
+  SAME-TITLE it2:ch-reciprocal: main:chapters/18_link_dynamics.tex:208 [section] The reciprocal potential | item2:Item_2_link_dynamics.tex:224 [chapter] The reciprocal potential
+  SAME-TITLE it2:echo: main:chapters/18_link_dynamics.tex:186 [proposition] Echo around a loop | item2:Item_2_link_dynamics.tex:202 [proposition] Echo around a loop
+  SAME-TITLE it2:echo-eq: main:chapters/18_link_dynamics.tex:194 [equation]  | item2:Item_2_link_dynamics.tex:210 [equation] 
+  SAME-TITLE it2:gauge: main:chapters/18_link_dynamics.tex:62 [theorem] Belief and meaning are interdependent | item2:Item_2_link_dynamics.tex:78 [theorem] Belief and meaning are interdependent
+  SAME-TITLE it2:gauge-general: main:chapters/18_link_dynamics.tex:59 [remark] The interpretation gauge without linearization or Gaussian n | item2:Item_2_link_dynamics.tex:75 [remark] The interpretation gauge without linearization or Gaussian n
+  SAME-TITLE it2:gauge-space: main:chapters/18_link_dynamics.tex:68 [equation]  | item2:Item_2_link_dynamics.tex:84 [equation] 
+  SAME-TITLE it2:global: main:chapters/18_link_dynamics.tex:22 [definition] Global joint | item2:Item_2_link_dynamics.tex:38 [definition] Global joint
+  SAME-TITLE it2:global-energy: main:chapters/18_link_dynamics.tex:29 [equation]  | item2:Item_2_link_dynamics.tex:45 [equation] 
+  SAME-TITLE it2:global-flow: main:chapters/18_link_dynamics.tex:114 [proposition] The global flow | item2:Item_2_link_dynamics.tex:130 [proposition] The global flow
+  SAME-TITLE it2:grounding: main:chapters/18_link_dynamics.tex:103 [corollary] Grounding turns reinterpretation into persuasion | item2:Item_2_link_dynamics.tex:119 [corollary] Grounding turns reinterpretation into persuasion
+  SAME-TITLE it2:known: main:chapters/18_link_dynamics.tex:164 [equation]  | item2:Item_2_link_dynamics.tex:180 [equation] 
+  SAME-TITLE it2:known-per-agent: main:chapters/18_link_dynamics.tex:170 [equation]  | item2:Item_2_link_dynamics.tex:186 [equation] 
+  SAME-TITLE it2:message-laws: main:chapters/18_link_dynamics.tex:256 [equation]  | item2:Item_2_link_dynamics.tex:233 [equation] 
+  SAME-TITLE it2:model: main:chapters/18_link_dynamics.tex:14 [definition] Tangent communication model | item2:Item_2_link_dynamics.tex:30 [definition] Tangent communication model
+  SAME-TITLE it2:open-convergence: main:chapters/18_link_dynamics.tex:631 [openproblem] Convergence of per-agent flows | item2:Item_2_link_dynamics.tex:287 [openproblem] Convergence of per-agent flows
+  SAME-TITLE it2:open-general: main:chapters/18_link_dynamics.tex:637 [openproblem] General laws | item2:Item_2_link_dynamics.tex:293 [openproblem] General laws
+  SAME-TITLE it2:open-messages: main:chapters/18_link_dynamics.tex:640 [openproblem] What agents must exchange | item2:Item_2_link_dynamics.tex:296 [openproblem] What agents must exchange
+  SAME-TITLE it2:open-nonlinear: main:chapters/18_link_dynamics.tex:634 [openproblem] Beyond the tangent model | item2:Item_2_link_dynamics.tex:290 [openproblem] Beyond the tangent model
+  DIFF-TITLE it2:open-reciprocal: main:chapters/18_link_dynamics.tex:628 [openproblem] Coupled dynamics beyond the finite example | item2:Item_2_link_dynamics.tex:284 [openproblem] Rows and covariances in the reciprocal potential
+  SAME-TITLE it2:per-agent-flow: main:chapters/18_link_dynamics.tex:127 [proposition] The per-agent flow | item2:Item_2_link_dynamics.tex:143 [proposition] The per-agent flow
+  SAME-TITLE it2:per-agent-model: main:chapters/18_link_dynamics.tex:35 [definition] Per-agent tangent model | item2:Item_2_link_dynamics.tex:51 [definition] Per-agent tangent model
+  SAME-TITLE it2:potential: main:chapters/18_link_dynamics.tex:251 [definition] Tangent reciprocal potential | item2:Item_2_link_dynamics.tex:228 [definition] Tangent reciprocal potential
+  SAME-TITLE it2:potential-eq: main:chapters/18_link_dynamics.tex:261 [equation]  | item2:Item_2_link_dynamics.tex:238 [equation] 
+  SAME-TITLE it2:potential-forces: main:chapters/18_link_dynamics.tex:267 [proposition] Forces in the reciprocal potential | item2:Item_2_link_dynamics.tex:244 [proposition] Forces in the reciprocal potential
+  SAME-TITLE it2:record: main:chapters/18_link_dynamics.tex:18 [equation]  | item2:Item_2_link_dynamics.tex:34 [equation] 
+  SAME-TITLE it2:ring: main:chapters/18_link_dynamics.tex:141 [proposition] A directed ring | item2:Item_2_link_dynamics.tex:157 [proposition] A directed ring
+  SAME-TITLE it2:ring-w: main:chapters/18_link_dynamics.tex:146 [equation]  | item2:Item_2_link_dynamics.tex:162 [equation] 
+  SAME-TITLE it2:separation: main:chapters/18_link_dynamics.tex:158 [theorem] Separation in the grounded limit | item2:Item_2_link_dynamics.tex:174 [theorem] Separation in the grounded limit
+  SAME-TITLE it2:source-covariance: main:chapters/18_link_dynamics.tex:291 [equation]  | item2:Item_2_link_dynamics.tex:268 [equation] 
+  SAME-TITLE it2:split: main:chapters/18_link_dynamics.tex:80 [proposition] Persuasion and reinterpretation | item2:Item_2_link_dynamics.tex:96 [proposition] Persuasion and reinterpretation
+  SAME-TITLE it2:split-global: main:chapters/18_link_dynamics.tex:92 [equation]  | item2:Item_2_link_dynamics.tex:108 [equation] 
+  SAME-TITLE it2:split-notation: main:chapters/18_link_dynamics.tex:84 [equation]  | item2:Item_2_link_dynamics.tex:100 [equation] 
+  SAME-TITLE it2:widening: main:chapters/18_link_dynamics.tex:48 [equation]  | item2:Item_2_link_dynamics.tex:64 [equation] 
+  SAME-TITLE it3:affine-action: main:chapters/19_curvature_hierarchy.tex:70 [equation]  | item3:Item_3_curvature_hierarchy.tex:82 [equation] 
+  SAME-TITLE it3:anchor-bound: main:chapters/19_curvature_hierarchy.tex:96 [equation]  | item3:Item_3_curvature_hierarchy.tex:108 [equation] 
+  SAME-TITLE it3:cap: main:chapters/19_curvature_hierarchy.tex:185 [remark] Reinterpretation limits the effective top-down precision | item3:Item_3_curvature_hierarchy.tex:197 [remark] Reinterpretation limits the effective top-down precision
+  SAME-TITLE it3:ch-hierarchy: main:chapters/19_curvature_hierarchy.tex:183 [section] Rigid clusters and their boundary dictionaries | item3:Item_3_curvature_hierarchy.tex:195 [chapter] Rigid clusters and their boundary dictionaries
+  SAME-TITLE it3:ch-induced: main:chapters/19_curvature_hierarchy.tex:47 [section] The action induced by contents | item3:Item_3_curvature_hierarchy.tex:59 [chapter] The action induced by contents
+  SAME-TITLE it3:ch-next: main:chapters/19_curvature_hierarchy.tex:254 [section] Remaining extensions | item3:Item_3_curvature_hierarchy.tex:266 [chapter] Remaining extensions
+  SAME-TITLE it3:ch-setting: main:chapters/19_curvature_hierarchy.tex:8 [section] Contents, records, and supplied parents | item3:Item_3_curvature_hierarchy.tex:20 [chapter] Contents, records, and supplied parents
+  SAME-TITLE it3:ch-stationary: main:chapters/19_curvature_hierarchy.tex:139 [section] Stationary reinterpretation | item3:Item_3_curvature_hierarchy.tex:151 [chapter] Stationary reinterpretation
+  SAME-TITLE it3:dag-example: main:chapters/19_curvature_hierarchy.tex:118 [equation]  | item3:Item_3_curvature_hierarchy.tex:130 [equation] 
+  SAME-TITLE it3:dissonance: main:chapters/19_curvature_hierarchy.tex:166 [corollary] Equal gains cancel the linearized loop sum | item3:Item_3_curvature_hierarchy.tex:178 [corollary] Equal gains cancel the linearized loop sum
+  SAME-TITLE it3:energy: main:chapters/19_curvature_hierarchy.tex:23 [equation]  | item3:Item_3_curvature_hierarchy.tex:35 [equation] 
+  SAME-TITLE it3:flat-wall: main:chapters/19_curvature_hierarchy.tex:228 [proposition] Flat wall walks and a common boundary dictionary | item3:Item_3_curvature_hierarchy.tex:240 [proposition] Flat wall walks and a common boundary dictionary
+  SAME-TITLE it3:gain: main:chapters/19_curvature_hierarchy.tex:154 [equation]  | item3:Item_3_curvature_hierarchy.tex:166 [equation] 
+  SAME-TITLE it3:general-induced: main:chapters/19_curvature_hierarchy.tex:49 [remark] Evidence gives an induced action for general laws | item3:Item_3_curvature_hierarchy.tex:61 [remark] Evidence gives an induced action for general laws
+  SAME-TITLE it3:hierarchy: main:chapters/19_curvature_hierarchy.tex:37 [definition] A supplied hierarchy | item3:Item_3_curvature_hierarchy.tex:49 [definition] A supplied hierarchy
+  SAME-TITLE it3:holonomy-gain: main:chapters/19_curvature_hierarchy.tex:173 [equation]  | item3:Item_3_curvature_hierarchy.tex:185 [equation] 
+  SAME-TITLE it3:induced: main:chapters/19_curvature_hierarchy.tex:62 [theorem] The Gaussian action and its cohomological quadratic part | item3:Item_3_curvature_hierarchy.tex:74 [theorem] The Gaussian action and its cohomological quadratic part
+  SAME-TITLE it3:link-defect: main:chapters/19_curvature_hierarchy.tex:132 [equation]  | item3:Item_3_curvature_hierarchy.tex:144 [equation] 
+  SAME-TITLE it3:marginal: main:chapters/19_curvature_hierarchy.tex:75 [equation]  | item3:Item_3_curvature_hierarchy.tex:87 [equation] 
+  SAME-TITLE it3:observation: main:chapters/19_curvature_hierarchy.tex:126 [remark] Which experiment sees a dictionary | item3:Item_3_curvature_hierarchy.tex:138 [remark] Which experiment sees a dictionary
+  SAME-TITLE it3:open-fluctuation: main:chapters/19_curvature_hierarchy.tex:259 [openproblem] Fluctuations beyond the fixed tangent experiment | item3:Item_3_curvature_hierarchy.tex:271 [openproblem] Fluctuations beyond the fixed tangent experiment
+  SAME-TITLE it3:open-formation: main:chapters/19_curvature_hierarchy.tex:256 [openproblem] Formation with top-down feedback | item3:Item_3_curvature_hierarchy.tex:268 [openproblem] Formation with top-down feedback
+  SAME-TITLE it3:open-gains: main:chapters/19_curvature_hierarchy.tex:267 [openproblem] Learning gains from loop records | item3:Item_3_curvature_hierarchy.tex:279 [openproblem] Learning gains from loop records
+  SAME-TITLE it3:open-general: main:chapters/19_curvature_hierarchy.tex:264 [openproblem] General content laws | item3:Item_3_curvature_hierarchy.tex:276 [openproblem] General content laws
+  SAME-TITLE it3:parent-density: main:chapters/19_curvature_hierarchy.tex:201 [equation]  | item3:Item_3_curvature_hierarchy.tex:213 [equation] 
+  SAME-TITLE it3:parent-gaussian: main:chapters/19_curvature_hierarchy.tex:209 [equation]  | item3:Item_3_curvature_hierarchy.tex:221 [equation] 
+  SAME-TITLE it3:projection: main:chapters/19_curvature_hierarchy.tex:80 [equation]  | item3:Item_3_curvature_hierarchy.tex:92 [equation] 
+  SAME-TITLE it3:quotient: main:chapters/19_curvature_hierarchy.tex:86 [equation]  | item3:Item_3_curvature_hierarchy.tex:98 [equation] 
+  SAME-TITLE it3:rank-one: main:chapters/19_curvature_hierarchy.tex:141 [proposition] One operating content gives a rank-one stationary mean | item3:Item_3_curvature_hierarchy.tex:153 [proposition] One operating content gives a rank-one stationary mean
+  SAME-TITLE it3:rank-one-eq: main:chapters/19_curvature_hierarchy.tex:147 [equation]  | item3:Item_3_curvature_hierarchy.tex:159 [equation] 
+  SAME-TITLE it3:rigid: main:chapters/19_curvature_hierarchy.tex:192 [proposition] A normalized rigid restriction of a supplied hierarchy | item3:Item_3_curvature_hierarchy.tex:204 [proposition] A normalized rigid restriction of a supplied hierarchy
+  SAME-TITLE it3:rigid-normalizer: main:chapters/19_curvature_hierarchy.tex:196 [equation]  | item3:Item_3_curvature_hierarchy.tex:208 [equation] 
+  SAME-TITLE it3:top-down: main:chapters/19_curvature_hierarchy.tex:42 [equation]  | item3:Item_3_curvature_hierarchy.tex:54 [equation] 
+  SAME-TITLE it3:tower: main:chapters/19_curvature_hierarchy.tex:248 [remark] Repeating a supplied rigid restriction | item3:Item_3_curvature_hierarchy.tex:260 [remark] Repeating a supplied rigid restriction
+  SAME-TITLE it3:wall-residual: main:chapters/19_curvature_hierarchy.tex:237 [equation]  | item3:Item_3_curvature_hierarchy.tex:249 [equation] 

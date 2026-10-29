@@ -1,0 +1,6 @@
+Item_3_curvature_hierarchy.tex:179 -> it3:rank-one [proposition, Item_3_curvature_hierarchy.tex:153, same] 'One operating content gives a rank-one stationary mean'
+      ...al gains cancel the linearized loop sum}{it3:dissonance} Let the operating content be a common $c\ne0$, register $o=0$, and suppose the stationary equations of \cref{it3:rank-one} hold, with the effective noise of the chosen objective. The
+Item_3_curvature_hierarchy.tex:245 -> it3:rank-one [proposition, Item_3_curvature_hierarchy.tex:153, same] 'One operating content gives a rank-one stationary mean'
+      ...ondition is $\omega_e=D$, $\omega_g=-D$. For rigid clusters with common operating content $c$ and zero bridge records, if the free bridge dictionaries satisfy \cref{it3:rank-one}, the linearized wall loop acts on $c$ by $(F_e-F_g)(y_I-y_J
+Item_3_curvature_hierarchy.tex:274 -> it3:induced [theorem, Item_3_curvature_hierarchy.tex:74, same] 'The Gaussian action and its cohomological quadratic part'
+      ...lete action in a declared nonlinear communication model, including its off-topic directions and the signs of the resulting loop terms. The quadratic penalty of \cref{it3:induced} alone does not supply that calculation. \openproblemheadin

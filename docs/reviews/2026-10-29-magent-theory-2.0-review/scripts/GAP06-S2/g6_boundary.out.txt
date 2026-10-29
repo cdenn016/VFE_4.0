@@ -1,0 +1,29 @@
+(a) Kronecker condition
+  c = (sqrt2-1, 2-sqrt2): |F(x + c) - F(x)| max = 6.38e-16 (invariant, nonconstant: F ranges over -0.991..0.935)
+  c = (sqrt2-1, sqrt3-1): Birkhoff average of a mean-zero test function over 200000 steps = 1.68e-05
+
+(b) branching b = 3
+  d = 1, N = 3, |nodes| = 1, table size per agent = 12
+    class costs D_k(f) = [0.01323314] ; max |KL(q_i||q_j) - D_class| = 1.91e-17
+    max |fine velocity - lifted profile velocity| over agents and table = 3.33e-16
+    model-sector class-cost deviation = 2.78e-17
+    rows b = [1.] : contrast rates (m, measured, predicted) = [(1, np.float64(4.0), np.float64(4.0))]
+    rows b = [1.] : contrast rates (m, measured, predicted) = [(1, np.float64(4.0), np.float64(4.0))]
+    orbits of H on (leaf, theta): 3 (profile values per base point: b^d = 3)
+  d = 2, N = 9, |nodes| = 4, table size per agent = 2592
+    class costs D_k(f) = [0.12195615 0.11111687] ; max |KL(q_i||q_j) - D_class| = 4.16e-17
+    max |fine velocity - lifted profile velocity| over agents and table = 6.66e-16
+    model-sector class-cost deviation = 5.55e-17
+    rows b = [0.75 0.25] : contrast rates (m, measured, predicted) = [(1, np.float64(3.25), np.float64(3.25)), (2, np.float64(3.25), np.float64(3.25))]
+    rows b = [0.3 0.7] : contrast rates (m, measured, predicted) = [(1, np.float64(1.9), np.float64(1.9)), (2, np.float64(3.7), np.float64(3.7))]
+    orbits of H on (leaf, theta): 9 (profile values per base point: b^d = 9)
+  control, cyclic C_3 arrangements, d = 1: KL(q_0||q_1) = 0.099258, KL(q_0||q_2) = 0.092378 (siblings, unequal)
+
+(c) op:boundary-minimality, d = 1, two-point bases: exact Jacobian
+  J = 4/5: det enclosure = [[-0.00294447083768937366166049110828640411428693132, -0.00294447083768937366166049110828640411428693132], [-0.00294447083768937366166049110828640382376533922, -0.00294447083768937366166049110828640382376533922]] -> nonzero
+  J = 0: det enclosure = [[-0.00294447083768937366166049110828640410641490738, -0.00294447083768937366166049110828640410641490738], [-0.00294447083768937366166049110828640383090841891, -0.00294447083768937366166049110828640383090841891]] -> nonzero
+    J = 0 blocks: belief det in [[0.0314665464850479470489416434869040371514439747, 0.0314665464850479470489416434869040371514439747], [0.0314665464850479470489416434869040371655866411, 0.0314665464850479470489416434869040371655866411]], model det in [[-0.0935746424886031478232427088372931408431547585, -0.0935746424886031478232427088372931408431547585], [-0.0935746424886031478232427088372931408291039276, -0.0935746424886031478232427088372931408291039276]], max |cross entry| = 0.0e+00
+
+(b') group control: only the cyclic subgroup C_3 at the node (transitive on siblings), uniform S_3 realization, d = 1
+  orbits of C_3 on (leaf, theta): 6 (full S_3 gives 3 = b^d); extra invariant = parity of the arrangement
+  ordered sibling pairs: C_3 has 2 orbits on the 6 ordered pairs of distinct leaves (S_3 has 1)

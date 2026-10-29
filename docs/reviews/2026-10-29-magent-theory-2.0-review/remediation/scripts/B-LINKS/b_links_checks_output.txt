@@ -1,0 +1,8 @@
+(a) straight-line fourth derivative 6368971071507328/655026269697361 9.723229992668777  c_line = 1.6205383321114628  c = -0.10565509348640072
+(b) 3k^TH^{-1}k = 10.357160553587182  32 T_c = 10.338802134809251  relative gap 0.001772533956864505
+(c) q=0.25: max Re eig = -0.400000, predicted (2q-1)/(q+1) = -0.400000
+(c) q=0.5: max Re eig = -0.000000, predicted (2q-1)/(q+1) = +0.000000
+(c) q=0.75: max Re eig = +0.285714, predicted (2q-1)/(q+1) = +0.285714
+(c) q=1.0: max Re eig = +0.500000, predicted (2q-1)/(q+1) = +0.500000
+(c) q=4.0: max Re eig = +1.400000, predicted (2q-1)/(q+1) = +1.400000
+(d) |iterate from 0 - iterate from upper bound| = 0.0

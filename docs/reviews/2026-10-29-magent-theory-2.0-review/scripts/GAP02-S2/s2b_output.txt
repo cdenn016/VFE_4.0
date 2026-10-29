@@ -1,0 +1,6 @@
+eps=1.0: min (k - |f_a|/a) on face = 0.159804 at a = 0.8326
+   min Bdot on |B-1/10|<1e-3: 0.415614; crossing a range [1.04636, 1.12356]
+   min first-pair weight 0.119203, min contrast 0.079414
+eps=0.25: min (k - |f_a|/a) on face = 0.199029 at a = 0.8326
+   min Bdot on |B-1/10|<1e-3: 0.542040; crossing a range [1.04636, 1.05428]
+   min first-pair weight 0.391529, min contrast 0.176713

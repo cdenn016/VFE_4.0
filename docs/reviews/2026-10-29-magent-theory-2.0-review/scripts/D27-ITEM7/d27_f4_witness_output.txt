@@ -1,0 +1,16 @@
+base history: [(2.146, 3), (2.1487, 3), (2.177, 3), (2.1875, 3), (7.4681, 6), (7.7899, 6)] ; running candidate clocks at t*: {} at t**: {}
+singular values of D x(t*): [9.188 8.847 3.268 3.17  0.05  0.049 0.049 0.049 0.046 0.044 0.023 0.023]
+singular values of D x(t**): [3.186e+00 3.091e+00 1.074e+00 6.574e-01 3.285e-04 3.251e-04 3.244e-04
+ 3.222e-04 3.002e-04 2.887e-04 1.540e-04 1.481e-04]
+stage 1: Newton residual 4.53e-14; max|yw - o| = 0.00298 (< 0.005: True); history [(2.146, 3), (2.1487, 3), (2.177, 3), (2.1875, 3), (7.4681, 6), (7.7899, 6)]; running clocks {}; units equal True
+   max |x'(t) - x(t)| over agents = 6.797e-05; agent-level probe y_0: -2.802427071 vs -2.802427071
+stage 2: Newton residual 5.46e-14; max|yw - o| = 0.00318 (< 0.005: True); history [(2.146, 3), (2.1487, 3), (2.177, 3), (2.1875, 3), (7.4681, 6), (7.7899, 6)]; running clocks {}; units equal True
+   max |x'(t) - x(t)| over agents = 4.450e-07; agent-level probe y_0: -2.508298124 vs -2.508298569
+   first-stage parent means (L1, L2): base (-2.507501857, -2.493385855), witness (-2.507501857, -2.493385855); union mean -2.500443856325 vs -2.500443856325
+   relative coordinate ybar_L2 - ybar_L1: base 0.014116002, witness 0.014116002
+stage 2, retained = union means + all event times (8 constraints): largest sensitivity of the relative coordinate inside the fiber = 5.948e-06 (unrestricted: 8.772e-01)
+stage 2, retained = union means + first-stage times (6 constraints): largest sensitivity of the relative coordinate inside the fiber = 6.778e-01 (unrestricted: 8.772e-01)
+stage 2, retained = current union means only (2 constraints): largest sensitivity of the relative coordinate inside the fiber = 8.772e-01 (unrestricted: 8.772e-01)
+stage 2 witness (current union means only): residual 1.42e-14; max|yw - o| = 0.00246; history [(2.1439, 3), (2.1466, 3), (2.177, 3), (2.1875, 3), (7.4681, 6), (7.836, 6)]; running clocks {}
+   union means base -2.500443856325, 2.500524974496; witness -2.500443856325, 2.500524974496
+   relative coordinate ybar_L2 - ybar_L1: base 0.014116002, witness 0.014525352  (a receiver attending to A_L1 reads ybar_L1)

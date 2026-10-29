@@ -1,0 +1,15 @@
+exact minimum -log Z(o) = 0.6911491779
+(a) max |F(s,q) - F(block update) - KL(old||new)| over 1000 random points: 1.78e-15
+(b) all 99 runs monotone: True ; max sweeps used: 11
+(c) attracting fixed point s_1 = 0.0078816025, F = 1.1940965943, reached from s_1(0) in [0.01, 0.52] (52 starts)
+(c) attracting fixed point s_1 = 0.9822365849, F = 1.5897020901, reached from s_1(0) in [0.53, 0.99] (47 starts)
+    fixed point of the sweep map: s_1 = 0.0078816025, slope of sweep map = 0.0089 (attracting), F = 1.1940965943
+    fixed point of the sweep map: s_1 = 0.5257713657, slope of sweep map = 4.8794 (repelling), F = 2.2794642262
+    fixed point of the sweep map: s_1 = 0.9822365849, slope of sweep map = 0.0215 (attracting), F = 1.5897020901
+(d) max over 1000 random s of [normalizer - sum_a s_a Z_a(o)] = -2.389e-03 (<= 0 by AM-GM)
+    disjoint cue supports, interior s = (0.4, 0.6): q-normalizer = 0.0 (every q has sum_a s_a KL(q||mu_a) = +inf, so the structured family has finite F only at vertices of s)
+(e) cross-ratio range Lambda of the bimodal bank above: 9.170
+    weak bank mu = [[0.4, 0.3, 0.3], [0.3, 0.3, 0.4]]: Lambda = 0.575
+    min tangent-Hessian eigenvalue over 3000 random interior points: 1.7197 (>= 0: jointly convex)
+    weak bank: distinct limits of s_1 over 99 starts: [0.3986765344]
+    bimodal bank: min tangent-Hessian eigenvalue at the repelling fixed point: -2.0917

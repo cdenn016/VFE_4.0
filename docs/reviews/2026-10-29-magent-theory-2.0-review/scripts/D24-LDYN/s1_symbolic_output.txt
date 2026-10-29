@@ -1,0 +1,42 @@
+== it2:ring: block A_i, coupling C', A^{-1}C', det, w
+A_i matches: True
+C' = Matrix([[-qt, 0], [c*qt, 0]])
+det A_i = c**2*p*qt + p*s + qt*s
+A^{-1}C' = Matrix([[-qt*s/(c**2*p*qt + p*s + qt*s), 0], [c*p*qt/(c**2*p*qt + p*s + qt*s), 0]])
+first diagonal entry + w == 0: True  second column zero: True
+w == qeff/(p+qeff): True
+lim s->oo w = qt/(p + qt) ; lim s->0 w (c>0) = 0 ; w at c=0: qt/(p + qt)
+1 - w > 0: p*(c**2*qt + s) (numerator, positive)
+ell=3: max|eig - predicted| = 6.74e-16, max Re = -0.9536, max|Im| = 0.0402; global max|Im| = 0.0e+00, global max Re = -0.2066
+ell=4: max|eig - predicted| = 1.78e-15, max Re = -0.6269, max|Im| = 0.3731; global max|Im| = 0.0e+00, global max Re = -0.2653
+ell=5: max|eig - predicted| = 8.97e-16, max Re = -0.8767, max|Im| = 0.1172; global max|Im| = 0.0e+00, global max Re = -0.6466
+ell=7: max|eig - predicted| = 7.45e-16, max Re = -0.7477, max|Im| = 0.2460; global max|Im| = 0.0e+00, global max Re = -0.1831
+
+== law-level ring: symmetric content-variance fixed point Sigma = (A^{-1})_{11} with qt = 1/(R+Sigma)
+phi(Sigma) = (c**2 + s*(R + Sigma))/(c**2*p + p*s*(R + Sigma) + s)
+fixed-point numerator: -R*Sigma*p*s + R*s - Sigma**2*p*s - Sigma*c**2*p + c**2
+phi'(Sigma) = s**2/(R*p*s + Sigma*p*s + c**2*p + s)**2
+
+== it2:echo
+ell=2: exact==claim True; cavity==exact True; lim exact = sigma**2/2; fixed-point numerator proportional to quadratic: True
+    root at sigma=1, eps=1e-8: 9.99950001250e-5
+ell=3: exact==claim True; cavity==exact True; lim exact = 2*sigma**2/3; fixed-point numerator proportional to quadratic: True
+    root at sigma=1, eps=1e-8: -9.99999990000e-9
+    root at sigma=1, eps=1e-8: 0.500000005000
+ell=4: exact==claim True; cavity==exact True; lim exact = 3*sigma**2/4; fixed-point numerator proportional to quadratic: True
+    root at sigma=1, eps=1e-8: -4.99999998750e-9
+    root at sigma=1, eps=1e-8: 0.666666668333
+ell=5: exact==claim True; cavity==exact True; lim exact = 4*sigma**2/5; fixed-point numerator proportional to quadratic: True
+    root at sigma=1, eps=1e-8: -3.33333332963e-9
+    root at sigma=1, eps=1e-8: 0.750000000833
+ell=2 positive root asymptotics: v^2 + eps v - eps sigma^2 = 0 -> -epsilon/2 + sqrt(epsilon)*sigma + epsilon**(3/2)/(8*sigma) + O(epsilon**2)
+
+== it2:certainty (iii): f(v,d2) = p - 1/v + 1/(v+R) - (vk+R+d2)/(v+R)^2
+f == 2 dObj/dv: True
+df/dv = (R**3 + 3*R**2*v + 4*R*v**2 + 2*d2*v**2 + 2*v**2*v_k)/(v**2*(R + v)**3)
+f - [p - R/(v(v+R)) - (vk+R+d2)/(v+R)^2] = 0
+df/d(d2) = -1/(R + v)**2
+limits: v->0+: -oo  v->oo: p_j
+
+== loop-factor convolution (it2:widening), scalar check
+integral / exp(-Omega (u+a)^2/2) = (erf(sqrt(2)*(a + u)/(2*sqrt(V)*sqrt(V*W*lambda + 1))) + erfc(sqrt(2)*(a + u)/(2*sqrt(V)*sqrt(V*W*lambda + 1))) + 1)/(2*sqrt(V*W*lambda + 1))  (independent of u: True )

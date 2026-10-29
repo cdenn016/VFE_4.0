@@ -1,0 +1,59 @@
+== AbsilMahonyAndrews2005 [references.bib, @article]
+  bib author: Absil, P.-A. and Mahony, R. and Andrews, B.
+  bib title: Convergence of the Iterates of Descent Methods for Analytic Cost Functions
+  bib journal: SIAM Journal on Optimization
+  bib volume: 16
+  bib number: 2
+  bib pages: 531--547
+  bib year: 2005
+  -- candidate 1: DOI 10.1137/040605266
+  CR authors: Absil, P. A.; Mahony, R.; Andrews, B.
+  CR title:   Convergence of the Iterates of Descent Methods for Analytic Cost Functions
+  CR venue:   SIAM Journal on Optimization
+  CR vol/iss/pages: 16/2/531-547  article-number: None
+  CR date: [2005, 1]
+  -- candidate 2: DOI 10.1109/lcsys.2018.2854889
+  CR authors: Doan, Thinh T.; Bose, Subhonmesh; Nguyen, D. Hoa; Beck, Carolyn L.
+  CR title:   Convergence of the Iterates in Mirror Descent Methods
+  CR venue:   IEEE Control Systems Letters
+  CR vol/iss/pages: 3/1/114-119  article-number: None
+  CR date: [2019, 1]
+== Friston2010 [references.bib, @article]
+  bib author: Friston, Karl
+  bib title: The free-energy principle: a unified brain theory?
+  bib journal: Nature Reviews Neuroscience
+  bib volume: 11
+  bib number: 2
+  bib pages: 127--138
+  bib year: 2010
+  -- candidate 1: DOI 10.1038/nrn2787
+  CR authors: Friston, Karl
+  CR title:   The free-energy principle: a unified brain theory?
+  CR venue:   Nature Reviews Neuroscience
+  CR vol/iss/pages: 11/2/127-138  article-number: None
+  CR date: [2010, 2]
+  -- candidate 2: DOI 10.7551/mitpress/12441.003.0002
+  CR authors: Friston, Karl
+  CR title:   Preface
+  CR venue:   Active Inference
+  CR vol/iss/pages: None/None/vii-x  article-number: None
+  CR date: [2022, 3, 29]
+== BattistelliChisci2014 [references.bib, @article]
+  bib author: Battistelli, Giorgio and Chisci, Luigi
+  bib title: {K}ullback--{L}eibler Average, Consensus on Probability Densities, and Distributed State Estimation with Guaranteed Stability
+  bib journal: Automatica
+  bib volume: 50
+  bib number: 3
+  bib pages: 707--718
+  bib year: 2014
+  -- candidate 1: DOI None
+  CROSSREF ERROR <HTTPError 429: 'Too Many Requests'>
+== HegselmannKrause2002 [references.bib, @article]
+  bib author: Hegselmann, Rainer and Krause, Ulrich
+  bib title: Opinion dynamics and bounded confidence: models, analysis and simulation
+  bib journal: Journal of Artificial Societies and Social Simulation
+  bib volume: 5
+  bib number: 3
+  bib year: 2002
+  -- candidate 1: DOI None
+  CROSSREF ERROR <HTTPError 429: 'Too Many Requests'>

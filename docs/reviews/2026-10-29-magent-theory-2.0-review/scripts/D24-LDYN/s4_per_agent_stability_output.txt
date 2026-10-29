@@ -1,0 +1,14 @@
+symbolic loop gain eig(X0 X1) = 9*q**2/(q + 1)**2 ; per-agent flow eigenvalue -1 + sqrt(gain) = (2*q - 1)/(q + 1)
+unstable iff q > [1/2]
+q=1.0 c=0.0 sigma2=1.0 lam=0.0 grounded=False: loops [[0, 1]]; global max Re -0.4084; plug-in per-agent max Re +0.5000; min |sv(H)| 8.25e-02
+   law-level per-agent (covariance fixed point after 14 iterations): max Re -0.7321
+q=1.0 c=0.0 sigma2=1.0 lam=2.0 grounded=True: loops [[0, 1]]; global max Re -0.3192; plug-in per-agent max Re +0.5000; min |sv(H)| 8.25e-02
+   law-level per-agent (covariance fixed point after 23 iterations): max Re -0.4917
+q=1.0 c=1.0 sigma2=0.05 lam=2.0 grounded=True: loops [[0, 1]]; global max Re -0.3797; plug-in per-agent max Re +0.4652; min |sv(H)| 7.53e-02
+   RK4 plug-in per-agent flow, |mu(30) - mu*| / |mu(0) - mu*| = 591157.1157960359
+   RK4 global flow, |x(30) - x*| / |x(0) - x*| = 4.082956195361476e-06
+   law-level per-agent (covariance fixed point after 14 iterations): max Re -0.7335
+q=3.0 c=1.0 sigma2=0.2 lam=1.0 grounded=True: loops [[0, 1]]; global max Re -0.1932; plug-in per-agent max Re +1.0291; min |sv(H)| 2.30e-01
+   law-level per-agent (covariance fixed point after 15 iterations): max Re -0.7199
+q=0.5 c=0.0 sigma2=1.0 lam=1.0 grounded=False: loops [[0, 1]]; global max Re -0.3549; plug-in per-agent max Re -0.0000; min |sv(H)| 2.54e-16
+   law-level per-agent (covariance fixed point after 22 iterations): max Re -0.5160

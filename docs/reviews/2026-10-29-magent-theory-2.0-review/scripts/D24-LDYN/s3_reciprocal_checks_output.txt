@@ -1,0 +1,37 @@
+[it2:potential-forces (i)] MC average of KL over r_e: 2.4838698803913233 +- 0.0070323369152274755  closed form: 2.4851476788134863
+  E - E^S at 6 random mean configurations (fixed covariances): spread = 3.552713678800501e-14
+[it2:potential-forces (iii)] -M J^S: max|Im| = 0.0  max Re = -0.1888608907153702
+[it2:potential-forces (iv)] |content rows of J^S - sender - per-agent law-level| = 2.220446049250313e-16  |b rows| = 0.0
+  |dictionary rows of J^S - per-agent law-level with loops un-widened| = 1.7763568394002505e-15 ; with widening: 0.41769541729758686
+[it2:certainty (ii)] max |finite difference - tr(formula U)| over 5 symmetric U: 7.433884618990305e-10
+[V_e stationarity] max |directional derivative of E in V_e| at the displayed V_e: 2.8421709430404007e-08
+  dim N_e on edge 2: 2
+  grounded and record information on N_e: |G_e Z|, |record Z| = 4.100257940075152e-17 1.4134569559113164e-16
+[it2:certainty (iii)] d2=0.0: f strictly increasing on grid True, sign changes 1, root 1.018794
+[it2:certainty (iii)] d2=0.5: f strictly increasing on grid True, sign changes 1, root 1.198732
+[it2:certainty (iii)] d2=1.0: f strictly increasing on grid True, sign changes 1, root 1.365183
+[it2:certainty (iii)] d2=4.0: f strictly increasing on grid True, sign changes 1, root 2.172793
+[it2:certainty (iii)] d2=16.0: f strictly increasing on grid True, sign changes 1, root 4.198344
+  roots increase with d2: True
+[it2:row-gap] dE_T/dx (finite diff) - sum beta* dC = 2.6471047576137607e-12
+  E_T(beta) - [E_T,red + T KL(beta||beta*)] = 0.0
+  surrogate derivative - [sum beta* dC - Cov_beta*(C,dC)/T] = -2.7593372031731178e-11 ; surrogate gap size: 0.04369392713186515
+
+[it2:echo]
+  ell=2 lam=0.5: exact 0.932609 cavity 0.932609 factorized 0.7879 per-agent(low start) 0.897367 (high start) 0.897367; order fact<pa<exact True
+  ell=2 lam=5: exact 0.696429 cavity 0.696429 factorized 0.1733 per-agent(low start) 0.419615 (high start) 0.419615; order fact<pa<exact True
+  ell=2 lam=1e+06: exact 0.65 cavity 0.65 factorized 1e-06 per-agent(low start) 0.00113968 (high start) 0.00113968; order fact<pa<exact True
+    lam->oo limits: exact 0.65, per-agent 0 (ell=2: sigma lam^-1/2 = 0.00114)
+  ell=3 lam=0.5: exact 1.01356 cavity 1.01356 factorized 0.7879 per-agent(low start) 0.978527 (high start) 0.978527; order fact<pa<exact True
+  ell=3 lam=5: exact 0.887805 cavity 0.887805 factorized 0.1733 per-agent(low start) 0.728459 (high start) 0.728459; order fact<pa<exact True
+  ell=3 lam=1e+06: exact 0.866667 cavity 0.866667 factorized 1e-06 per-agent(low start) 0.65 (high start) 0.65; order fact<pa<exact True
+    lam->oo limits: exact 0.866667, per-agent 0.65
+  ell=4 lam=0.5: exact 1.06528 cavity 1.06528 factorized 0.7879 per-agent(low start) 1.0363 (high start) 1.0363; order fact<pa<exact True
+  ell=4 lam=5: exact 0.987037 cavity 0.987037 factorized 0.1733 per-agent(low start) 0.896655 (high start) 0.896655; order fact<pa<exact True
+  ell=4 lam=1e+06: exact 0.975 cavity 0.975 factorized 1e-06 per-agent(low start) 0.866667 (high start) 0.866667; order fact<pa<exact True
+    lam->oo limits: exact 0.975, per-agent 0.866667
+  ell=6 lam=0.5: exact 1.12755 cavity 1.12755 factorized 0.7879 per-agent(low start) 1.10892 (high start) 1.10892; order fact<pa<exact True
+  ell=6 lam=5: exact 1.08875 cavity 1.08875 factorized 0.1733 per-agent(low start) 1.04955 (high start) 1.04955; order fact<pa<exact True
+  ell=6 lam=1e+06: exact 1.08333 cavity 1.08333 factorized 1e-06 per-agent(low start) 1.04 (high start) 1.04; order fact<pa<exact True
+    lam->oo limits: exact 1.08333, per-agent 1.04
+  random asymmetric start converges to symmetric point: True 0.9136513578572221

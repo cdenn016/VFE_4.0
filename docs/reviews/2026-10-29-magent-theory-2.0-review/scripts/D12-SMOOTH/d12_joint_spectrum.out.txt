@@ -1,0 +1,8 @@
+t = 0: joint spectra X == X2: True ; X == X3: False
+t = 0: per-agent spectra X == X2 == X3: True
+t = 0: fine laws X vs X2 max |diff|: 0.206
+t = 0: public+row velocity X vs X3 max |diff| = 4.475e-02 (private data feed back)
+T = 0.5: public laws and rows  max |X - X2| = 2.22e-16   max |X - X3| = 3.27e-03
+T = 0.5: joint spectra X == X2: True
+T = 0.5: ell(v=1) == ell(v=3) preserved in X: True
+T = 0.5: fine laws X vs X2 still differ, max |diff| = 0.097

@@ -1,0 +1,30 @@
+[vector d=(1,2)] recursion == generic conditioning for t=0..3: True
+[vector d=(1,2)] Gamma_t == W lambda_t (joint mean and covariance)       : True
+[vector d=(1,2)] S_t positive definite at every step                    : True
+[vector] S_t identical for two different histories           : True
+
+Part B: local-only retention in the affine Gaussian family
+[vector] rank of local-mean map M_2 (m_t in R^3)              : 2
+[vector] kernel direction dm                                   : [0, -22/43, 1]
+[vector] rank Cov(m_2) = rank(Cov(D) - S_2)                     : 3  (3 = m_t has a density on R^3)
+[vector] equal local laws at t=2: M_t dm                         : [0, 0, 0, 0, 0, 0]
+[vector] receiver (agent 0) local-mean change after same H3     : [39451103320177188409584656397634905908269733903132328105195/7823436684346341668971164278147817928526919534036805855776814, 39451103320177188409584656397634905908269733903132328105195/3911718342173170834485582139073908964263459767018402927888407]
+[vector] sender  (agent 1) local-mean change after same H3      : [0, 0, 0, 0]
+[vector] histories h, h' differ (dh = [-73669/29541, -7040/9847, 0])
+[vector] lambda_2 means differ                               : True
+[vector] both local laws equal at t=2 (means and covariances) : True
+[vector] receiver local law after the same H3 differs         : True   difference: [-39451103320177188409584656397634905908269733903132328105195/7823436684346341668971164278147817928526919534036805855776814, -39451103320177188409584656397634905908269733903132328105195/3911718342173170834485582139073908964263459767018402927888407]
+[vector] sender local law after H3 unchanged and equal        : True
+[scalar d=(1,1)] recursion == generic conditioning for t=0..4: True
+[scalar d=(1,1)] Gamma_t == W lambda_t (joint mean and covariance)       : True
+[scalar d=(1,1)] S_t positive definite at every step                    : True
+[scalar] rank of local-mean map at t=0..4 (2 = injective)     : [2, 2, 2, 2, 2]
+
+[independent] generic-joint local laws equal at t=2 (both agents): True
+[independent] receiver mean after same H3 differs: True  float: [-0.005042681996661852, -0.010085363993323705]
+[independent] sender local law after H3 equal   : True
+[independent] recursion == generic conditioning on h' too   : True
+[independent] local laws from joint == local laws via W lambda (t=2,3): True
+
+[a.s.] rank of conditioning information (T2, H3)         : 4 of 8
+[a.s.] Var(receiver local mean after H3 | T2, H3), trace : 7.926135332903793e-05  rank: 1

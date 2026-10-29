@@ -1,0 +1,13 @@
+== gap07_tangent_search_found.json: obar 1.09331, r 0.34048, q_in 26.91578, q_br 0.00000, sigma^2 38.80320, y(0) [-0.439121, -0.419119, 0.419119, 0.439121]; parents {"p": 0.47749, "a": -0.08584, "tau": 1.20882, "sigA2": 8.04008, "cA": 1.21096, "owner": "parent"}
+   pre-handoff: J eigenvalues in [0.0980, 140.14]; first selection (RK4, grid 0.002) at t = 2.000: [(0, 1), (2, 3)]; |RK4 - exact| = 1.0e-14; handoff contents [-0.44001, -0.4388, 0.4388, 0.44001]
+   at the handoff: internal KL 0.0000, 0.0000 (< 0.05); smallest cross KL 2.3106 (> 0.5)
+   post-handoff: J eigenvalues in [0.1015, 141.09] (strictly convex); slowest rate of D^-1 J 0.0071; attractor parent gap 0.32864 (KL 0.3240 > 0.05); |RK4 - exact| = 2.9e-14
+   actual handoff (RK4): union selected at 5.11; min parent gap 0.10046 (radius 0.12910); longest coherent dwell 23.104
+   counterfactual sweep (Delta, walled, union time, min parent gap): [(-0.15, True, np.float64(3.62), 0.02777), (-0.1, True, np.float64(4.002), 0.05208), (-0.05, True, np.float64(4.462), 0.07631), (0.0, True, np.float64(5.11), 0.10046), (0.05, True, np.float64(6.614), 0.12456), (0.1, True, None, 0.14859), (0.15, True, None, 0.17256), (0.2, True, None, 0.19647), (0.25, True, None, 0.22033), (0.3, True, None, 0.24413), (0.35, True, None, 0.26785), (0.4, True, None, 0.29149), (0.45, True, None, 0.315), (0.5, True, None, 0.32925)]
+== gap07_tangent_search_found_same_side.json: obar 0.30576, r 0.69413, q_in 13.86203, q_br 0.00000, sigma^2 31.18984, y(0) [-0.244598, -0.209582, 0.209582, 0.244598]; parents {"p": 3.32857, "a": 0.04424, "tau": 0.18802, "sigA2": 0.85356, "cA": 0.12588, "owner": "parent"}
+   pre-handoff: J eigenvalues in [0.0467, 57.43]; first selection (RK4, grid 0.002) at t = 2.000: [(0, 1), (2, 3)]; |RK4 - exact| = 1.4e-14; handoff contents [-0.23355, -0.22978, 0.22978, 0.23355]
+   at the handoff: internal KL 0.0000, 0.0000 (< 0.05); smallest cross KL 0.6336 (> 0.5)
+   post-handoff: J eigenvalues in [0.0508, 57.62] (strictly convex); slowest rate of D^-1 J 0.0297; attractor parent gap 0.13110 (KL 0.0516 > 0.05); |RK4 - exact| = 8.5e-15
+   actual handoff (RK4): union selected at 7.122; min parent gap 0.12753 (radius 0.12910); longest coherent dwell 23.362
+   counterfactual sweep (Delta, walled, union time, min parent gap): [(-0.15, False, np.float64(2.722), 0.10058), (-0.1, False, np.float64(3.972), 0.1102), (-0.05, False, np.float64(5.05), 0.11909), (0.0, True, np.float64(7.122), 0.12753), (0.05, True, None, 0.1311), (0.1, True, None, 0.1311), (0.15, True, None, 0.1311), (0.2, True, None, 0.1311), (0.25, True, None, 0.1311), (0.3, True, None, 0.1311), (0.35, True, None, 0.1311), (0.4, True, None, 0.1311), (0.45, True, None, 0.1311), (0.5, True, None, 0.1311)]
+elapsed 2.4 s

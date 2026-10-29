@@ -1,0 +1,13 @@
+== (a) binary correlation example
+joint Fisher: -1/(rho**2 - 1)  residual vs 1/(1-rho^2): 0
+k-marginal: {-1: 1/2, 1: 1/2}  m-marginal: {-1: 1/2, 1: 1/2}
+marginal + integrated conditional Fisher residual: 0
+unweighted sum of squared scores: 4*(rho**2 + 1)/((rho - 1)**2*(rho + 1)**2)  (differs from Fisher; equals 4(1+rho^2)/(1-rho^2)^2): 0
+
+== (b) DQM location family with infinite KL
+normalization: 1.0  Fisher information I = 1.0
+h=0.1: H^2/(h^2 I/4) = 0.96728342; P_0(0<x<h) = 0.00015465 > 0, so KL(P_0||P_h) = +inf
+h=0.01: H^2/(h^2 I/4) = 0.99667291; P_0(0<x<h) = 1.6542e-7 > 0, so KL(P_0||P_h) = +inf
+h=0.001: H^2/(h^2 I/4) = 0.99966673; P_0(0<x<h) = 1.6654e-10 > 0, so KL(P_0||P_h) = +inf
+Interpretation: Hellinger (DQM) expansion holds with ratio -> 1 while KL is infinite;
+DQM alone does not justify the second-order KL expansion.

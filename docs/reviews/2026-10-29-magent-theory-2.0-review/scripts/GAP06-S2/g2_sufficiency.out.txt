@@ -1,0 +1,31 @@
+(1)-(3) Bernoulli children, n = 3
+  conditional law parameter free (p = 1/5 vs 2/3 vs symbolic): True
+  Fisher(Bin(n,p)) / Fisher(Ber(p)) = 3
+  restored message P(X_1 = 1) = sum_t Bin(t) * t/n = p
+
+(4)-(5) coupled evaluator; parent reference and KL residual
+  parent reference = Bin(n,rho)(S_m) x G_n(S_k|S_m) with G_n the inherited evaluator: True
+  KL residual n*KL(child) - KL(parent), n = 2, J = 0.7, rho = 0.4:
+    p = 0.50, p' = 0.50 : residual = 0.015009717081
+    p = 0.20, p' = 0.70 : residual = 0.008069223903
+    p = 0.05, p' = 0.05 : residual = 0.000541850787
+    p = 0.90, p' = 0.90 : residual = 0.001945259334
+    p = 0.50, p' = 0.10 : residual = 0.005403498149
+  lognormal control (fus:local-formulas): residual n*E_{0,1} - E_{0,n} for a = 2, c = 1:
+    mu = [ 0.3 -0.2], n = 2: residual = 0.450693855666, (n-1)C = 0.450693855666
+    mu = [ 0.3 -0.2], n = 5: residual = 1.802775422664, (n-1)C = 1.802775422664
+    mu = [1.5 0.7], n = 2: residual = 0.450693855666, (n-1)C = 0.450693855666
+    mu = [1.5 0.7], n = 5: residual = 1.802775422664, (n-1)C = 1.802775422664
+    mu = [-2.  3.], n = 2: residual = 0.450693855666, (n-1)C = 0.450693855666
+    mu = [-2.  3.], n = 5: residual = 1.802775422664, (n-1)C = 1.802775422664
+
+(6) semiconvexity of sqrt(2 KL(Ber(p1)||Ber(p2))) in arclength coordinates phi = 2 arcsin sqrt p
+  check: 2KL / (phi1-phi2)^2 -> 1 near the diagonal: 0.9999870261884952
+  compact interior box phi in [0.6, pi-0.6] (p in [0.087, 0.913]), off-diagonal: min Hessian eigenvalue = -0.8580
+  within 1e-2 of the diagonal on that box: min eigenvalue = -0.9727
+  p1 = 1/2 (phi1 = pi/2), p2 -> 0:
+    p2 = 1e-02 : min eigenvalue = -0.4229
+    p2 = 1e-04 : min eigenvalue = -0.6809
+    p2 = 1e-06 : min eigenvalue = -0.8662
+    p2 = 1e-09 : min eigenvalue = -1.0869
+    p2 = 1e-12 : min eigenvalue = -1.2699

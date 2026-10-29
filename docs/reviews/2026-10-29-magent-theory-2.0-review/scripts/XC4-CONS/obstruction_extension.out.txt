@@ -1,0 +1,2 @@
+finite-difference third derivative 0.425705; formula 0.425704; relative error 1.16e-07
+constant-in-input channel: formula gives 6.11e-32 (vanishes, so (b)'s argument does not apply)

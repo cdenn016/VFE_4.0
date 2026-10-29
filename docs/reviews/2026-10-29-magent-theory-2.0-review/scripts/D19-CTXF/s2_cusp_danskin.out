@@ -1,0 +1,10 @@
+(a) C = -epsilon, S = 0, cost - [base - C cos - S sin] has base = epsilon**2/2 + epsilon + 2
+    min_R cost - manuscript formula = 0
+    left slope at 0 = 2, right slope at 0 = 0
+(b) at eps=0: C = 0.0, S = 0.0; cost is constant on SO(2): [np.float64(2.0), np.float64(2.0), np.float64(2.0), np.float64(2.0)]
+    theta0 = +0.0000: initial slope -||grad c||^2 = -8.000000; at t = 0.020: global minimizer angle - branch angle = +0.00e+00, rho = 7.689e-02, x = [[1.0, 0.0], [0.0, 0.96079]]
+    theta0 = +1.0472: initial slope -||grad c||^2 = -8.000000; at t = 0.020: global minimizer angle - branch angle = +0.00e+00, rho = 7.689e-02, x = [[0.9902, 0.01698], [0.01698, 0.97059]]
+    theta0 = +2.0944: initial slope -||grad c||^2 = -8.000000; at t = 0.020: global minimizer angle - branch angle = +0.00e+00, rho = 7.689e-02, x = [[0.97059, 0.01698], [0.01698, 0.9902]]
+    theta0 = +3.1416: initial slope -||grad c||^2 = -8.000000; at t = 0.020: global minimizer angle - branch angle = +0.00e+00, rho = 7.689e-02, x = [[0.96079, 0.0], [0.0, 1.0]]
+    theta0 = -1.5708: initial slope -||grad c||^2 = -8.000000; at t = 0.020: global minimizer angle - branch angle = +0.00e+00, rho = 7.689e-02, x = [[0.98039, -0.01961], [-0.01961, 0.98039]]
+    min pairwise separation of the endpoint states at t = 0.020: 5.546e-02 (baseline displacement from start ~ 3.921e-02)

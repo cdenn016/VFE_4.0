@@ -1,0 +1,11 @@
+t = 0.00: interval minimizer blocks [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)], margin 1.8305
+t = 1.75: interval minimizer blocks [(0, 1, 2), (3, 4, 5), (6, 7, 8, 9, 10, 11)], margin 0.0197
+t = 1.77: interval minimizer blocks [(0, 1, 2, 3, 4, 5), (6, 7, 8, 9, 10, 11)], margin 0.0189
+smallest interval-minimizer margin on [0, 1.3]: 0.8618
+left gap below 0.958 from t = 0.96
+t = 0.0: side-respecting minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]; interval minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]
+t = 1.0: side-respecting minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]; interval minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]
+t = 1.74: side-respecting minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]; interval minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]
+t = 1.76: side-respecting minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8, 9, 10, 11)]; interval minimizer [(0, 1, 2), (3, 4, 5), (6, 7, 8, 9, 10, 11)]
+t = 1.78: side-respecting minimizer [(0, 1, 2, 3, 4, 5), (6, 7, 8, 9, 10, 11)]; interval minimizer [(0, 1, 2, 3, 4, 5), (6, 7, 8, 9, 10, 11)]
+right gap below 0.958 from t = 0.94

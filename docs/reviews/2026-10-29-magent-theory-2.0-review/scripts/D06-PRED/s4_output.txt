@@ -1,0 +1,33 @@
+cmem:projection 1D: max |KL(p||q) - KL(p||q_G) - KL(q_G||q)| over 6 random q = 8.881784197001252e-16
+cmem:projection-loss 1D residual = 6.744604874597826e-15  (I = 0.5564114313312818 , KL(p||q_G) = 0.10570969606390981 )
+cmem:projection-loss 2D residual = 1.1102230246251565e-16
+cmem:diagonal-loss 2D residual = 1.457167719820518e-16
+ a     KL(q_a||p_a)   bound      KL(N(a,1)||p_a)  min reverse KL over N(m,s2) [m*, s2*]
+0.25      0.000001   -0.17342      0.030311       0.000001 [0.0000, 1.0625]
+0.50      0.000156   -0.30760      0.111421       0.000156 [-0.0000, 1.2489]
+1.00      0.011178   -0.47495      0.336831       0.010888 [-0.0000, 1.9425]
+1.50      0.079210   -0.49694      0.526777       0.074233 [0.0000, 2.9378]
+2.00      0.247828   -0.37297      0.632720       0.226453 [-0.0000, 4.1910]
+2.50      0.533282   -0.11143      0.675943       0.480314 [0.0000, 5.7223]
+3.00      0.937980    0.27931      0.689298       0.688769 [2.9843, 1.0473]
+4.00      2.097617    1.42434      0.693054       0.693053 [3.9996, 1.0016]
+6.00      5.758646    5.07449      0.693147       0.693147 [6.0000, 1.0000]
+bound violations: 0
+GH vs adaptive quadrature check at a=2: 0.0001106663358506621 2.9732150075290065e-10
+bound exceeds log 2 for a > 3.411454709231731 ; exact KL(q_a||p_a) exceeds KL(N(a,1)||p_a) for a > 2.7033098913188196
+stationarity g(a) on a in [0.05, 8]: max = -1.026241980284226e-08  (negative means sigma^2 = 1+a^2 is not stationary)
+g(a) series (sympy, Gaussian moments) = -104*a**10/5 + 4*a**8 - 2*a**6/3
+  g(0.05) = -1.026242e-08, series = -1.026245e-08
+  g(0.1) = -6.286369e-07, series = -6.287467e-07
+  g(0.2) = -3.417319e-05, series = -3.455659e-05
+  g(0.3) = -3.062235e-04, series = -3.463819e-04
+d/dt log (p_t K_c)(0) + t^3/(1-t^2+c)^2 = 0
+phi_{p_t}(s)/phi_{N(0,1)}(s) series = -s**6*t**6/45 - s**4*t**4/12 + 1
+t=0.5, c=1.0: densities at 0: 0.280782 vs 0.282095;  P(|O|<0.1): 0.056111 vs 0.056372
+t=0.9, c=0.1: densities at 0: 0.183314 vs 0.380377;  P(|O|<0.1): 0.037039 vs 0.075960
+t=0.2, c=3.0: densities at 0: 0.199466 vs 0.199471;  P(|O|<0.1): 0.039877 vs 0.039878
+joint Fisher coefficient - (1+t^2)/(1-t^2)^2 = 0
+fourth moment = 3 - 2*t**4
+t=0.3: joint Fisher by quadrature 1.316266 vs formula 1.316266; result-marginal Fisher 0.002078; Gaussian carrier Fisher 0
+t=0.6: joint Fisher by quadrature 3.320313 vs formula 3.320312; result-marginal Fisher 0.258090; Gaussian carrier Fisher 0
+t=0.9: joint Fisher by quadrature 50.138504 vs formula 50.138504; result-marginal Fisher 41.589701; Gaussian carrier Fisher 0

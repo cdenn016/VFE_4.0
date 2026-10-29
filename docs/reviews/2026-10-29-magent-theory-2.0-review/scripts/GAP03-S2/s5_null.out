@@ -1,0 +1,38 @@
+[chapter example] full flow: [1]+[2]@0.3466 -> [3]+[4]@0.5493 -> [1, 2]+[3, 4]@1.0700
+[chapter example] kappa=0  null (a), N1: [1]+[2]@0.3466 -> [3]+[4]@0.5493 -> [1, 2]+[3, 4]@1.0700
+[chapter example] kappa=0  null (b), N1: [1]+[2]@0.5591 -> [3]+[4]@1.0253 -> [1, 2]+[3, 4]@1.7991
+[chapter example] kappa=0  null (a): belief precision spread max|x_i - x_j| at t=0.347: 0.000e+00
+[chapter example] kappa=1  null (a), N1: [1]+[2]@0.3466 -> [3]+[4]@0.5493 -> [1, 2]+[3, 4]@1.0700
+[chapter example] kappa=1  null (b), N1: [1]+[2]@0.6504 -> [3]+[4]@1.1113 -> [1, 2]+[3, 4]@2.0578
+[chapter example] kappa=1  null (a): belief precision spread max|x_i - x_j| at t=0.347: 6.591e-03
+[chapter example] kappa=0, P(0)=I, T=1, null (b), N2 (parent-level null): [1]+[2]@0.5591 -> [3]+[4]@1.0253 -> [1, 2]+[3, 4]@1.6798
+[gaps (0.30,0.60,0.29)] full flow: [3]+[4]@0.5324 -> [1]+[2]@0.5493 -> [3, 4]+[1, 2]@1.0958
+[gaps (0.30,0.60,0.29)] kappa=0  null (a), N1: [3]+[4]@0.5324 -> [1]+[2]@0.5493 -> [3, 4]+[1, 2]@1.0958
+[gaps (0.30,0.60,0.29)] kappa=0  null (b), N1: [1]+[2]@0.8900 -> [3]+[4]@1.0112 -> [1, 2]+[3, 4]@1.8544
+[gaps (0.30,0.60,0.29)] kappa=0  null (a): belief precision spread max|x_i - x_j| at t=0.532: 0.000e+00
+[gaps (0.30,0.60,0.29)] kappa=1  null (a), N1: [3]+[4]@0.5324 -> [1]+[2]@0.5493 -> [3, 4]+[1, 2]@1.0958
+[gaps (0.30,0.60,0.29)] kappa=1  null (b), N1: [1]+[2]@1.0411 -> [3]+[4]@1.0763 -> [1, 2]+[3, 4]@2.1213
+[gaps (0.30,0.60,0.29)] kappa=1  null (a): belief precision spread max|x_i - x_j| at t=0.532: 1.696e-02
+[gaps (0.30,0.60,0.29)] kappa=0, P(0)=I, T=1, null (b), N2 (parent-level null): [1]+[2]@0.8900 -> [3]+[4]@1.0112 -> [1, 2]+[3, 4]@1.7199
+[chapter example] kappa=0, P(0)=2I, null (b): precision spread at first join 1.087e-02 (parents not Wishart)
+Map: null (b), N1; d1 = 0.30, d2 = 0.60, u1 = 1; the full flow joins {3,4} first iff d3 < 0.30.
+     entry = d3* at which the null first join switches from {1,2} to {3,4}; the reversal set is d3 in (d3*, 0.30)
+     (or (0.30, d3*)); width |d3* - 0.30| measures it. an entry 0.3000 means |d3* - 0.30| < 2e-5 (bisection resolution; reversal not resolved).
+  kappa = 0
+    P(0) \ T             0.1       0.3         1         3        10
+    I                   0.2600    0.2360    0.2532    0.2793    0.2932
+    0.5I                0.2910    0.2672    0.2530    0.2691    0.2882
+    2I                  0.2634    0.2529    0.2765    0.2910    0.2972
+    diag(e^.3,e^-.3)    0.2675    0.2411    0.2538    0.2791    0.2930
+  kappa = 1
+    P(0) \ T             0.1       0.3         1         3        10
+    I                   0.3000    0.2997    0.2800    0.2631    0.2833
+    0.5I                0.3000    0.3000    0.2998    0.2893    0.2740
+    2I                  0.2778    0.2412    0.2511    0.2785    0.2929
+    diag(e^.3,e^-.3)    0.3000    0.2999    0.2855    0.2643    0.2826
+  kappa = 5
+    P(0) \ T             0.1       0.3         1         3        10
+    I                   0.3000    0.3000    0.3000    0.2988    0.2703
+    0.5I                0.3000    0.3000    0.3000    0.3000    0.2980
+    2I                  0.3000    0.3000    0.2920    0.2616    0.2815
+    diag(e^.3,e^-.3)    0.3000    0.3000    0.3000    0.2993    0.2717

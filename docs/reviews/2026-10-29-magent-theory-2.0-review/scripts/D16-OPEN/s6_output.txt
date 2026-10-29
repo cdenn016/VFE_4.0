@@ -1,0 +1,13 @@
+A=4096  L=8.35817  R=1.754569e+07
+full limit : [(0.59, [0, 1]), (0.59, [2, 3]), (0.59, [4, 5]), (8.214, [0, 1, 2, 3]), (15.998, [0, 1, 2, 3, 4, 5])]
+null limit : [(0.648, [0, 1]), (0.648, [2, 3]), (0.648, [4, 5]), (8.272, [0, 1, 2, 3]), (16.13, [0, 1, 2, 3, 4, 5])]
+h=1e-09 full exact : [(0.59, [0, 1]), (0.59, [2, 3]), (0.59, [4, 5]), (8.214, [0, 1, 2, 3]), (15.998, [0, 1, 2, 3, 4, 5])]
+h=1e-09 null exact : [(0.648, [0, 1]), (0.648, [2, 3]), (0.648, [4, 5]), (8.272, [0, 1, 2, 3]), (16.13, [0, 1, 2, 3, 4, 5])]
+   same partition sequence (full vs null, exact field): True
+   max |u_far(exact) - u_far(limit)| on [0,L]: 6.931e+02
+   null exact margins at parent event t=8.272: min first-pair weight 0.4497, max first-pair exterior 0.1006, core-third mass 0.00e+00, dB_P1P2/dt 0.3962
+h=2e-11 full exact : [(0.59, [0, 1]), (0.59, [2, 3]), (0.59, [4, 5]), (8.214, [0, 1, 2, 3]), (15.998, [0, 1, 2, 3, 4, 5])]
+h=2e-11 null exact : [(0.648, [0, 1]), (0.648, [2, 3]), (0.648, [4, 5]), (8.272, [0, 1, 2, 3]), (16.13, [0, 1, 2, 3, 4, 5])]
+   same partition sequence (full vs null, exact field): True
+   max |u_far(exact) - u_far(limit)| on [0,L]: 2.772e-01
+   null exact margins at parent event t=8.272: min first-pair weight 0.4497, max first-pair exterior 0.1006, core-third mass 0.00e+00, dB_P1P2/dt 0.3962

@@ -1,0 +1,6 @@
+(i) residual of the integrating-factor solution: 0
+(i) Wishart form at time t, residual (should be X-free): K0*exp(-2*t) + k(t)
+(i) P(t) = e^{-2t}P(0) + Chat satisfies P' = -2P + I + C: Matrix([[0, 0], [0, 0]])
+(ii) v-integrand at pi2 = 0: v**(a - 3/2) ; its integral over v in (1, oo) for a = 1: oo
+(ii) and for a = 2, pi2 = -1/5: oo
+(iii) log q_i - log q_j - e^{-2t}(l0 - l0j) = k(t) - kj(t) (sample independent)

@@ -1,0 +1,9 @@
+T =
+ [[0.736497 0.120245 0.100014 0.043243]
+ [0.055288 0.617637 0.027644 0.29943 ]
+ [0.168027 0.126021 0.620482 0.08547 ]
+ [0.368623 0.276467 0.184311 0.170599]]
+P1: |Lambda T - (Lambda T Phi) Lambda| = 1.11e-16, strongly lumpable = False, max deviation from homogeneous Markov (histories up to length 5) from p0 = 2.220e-16
+P2: |Lambda T - (Lambda T Phi) Lambda| = 1.11e-16, strongly lumpable = False, max deviation from homogeneous Markov (histories up to length 5) from p0 = 2.220e-16
+P3: |Lambda T - (Lambda T Phi) Lambda| = 1.19e-02, strongly lumpable = False, max deviation from homogeneous Markov (histories up to length 5) from p0 = 1.157e-02
+B0 = P1 v P2: |Lambda T - (Lambda T Phi) Lambda| = 1.67e-16, strongly lumpable = False, max deviation from homogeneous Markov (histories up to length 5) from p0 = 2.220e-16

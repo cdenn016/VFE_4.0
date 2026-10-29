@@ -1,0 +1,6 @@
+admitted (form:gaps): True
+ch13-convention null: t({1,2})=0.6406  t(({1,2},3))=1.1876  t((3,4))=1.2208
+full flow: t({1,2})=0.3466  t(({1,2},3))=0.6264  t((3,4))=0.6119
+perturbations in admitted class: 11, partition-order flips: 11
+null margins t(({1,2},3)) - t((3,4)) (negative = ({1,2},3) first): [-0.0371 -0.0456 -0.0248 -0.0467 -0.0402 -0.0311 -0.0222 -0.0304 -0.0171
+ -0.0534 -0.0291]

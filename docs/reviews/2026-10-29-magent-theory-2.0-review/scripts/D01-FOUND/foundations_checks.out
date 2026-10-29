@@ -1,0 +1,60 @@
+== A  prop:kl-coordinate
+  KL(mu||nu) = 0.12713798040945976  KL(f#mu||f#nu) = 0.12713798040945973
+  infinite case: inf inf
+== C  disintegration commutes with the diagonal Z3 action
+  max |cond(g#zeta)(.|m') - g# q(.|g^-1 m')| = 0.0
+== D  prop:bundle-morphism
+  equivariance residual of symmetrized kappa: 1.1102230246251565e-16
+  (g#zeta)kappa - phi(g)#(zeta kappa) residual: 5.551115123125783e-17
+  data processing: KL(zeta kappa||zeta' kappa) = 0.005147525796580711 <= KL(zeta||zeta') = 0.5860858466721764
+  non-equivariant kappa0 mismatch: 0.018333533389993106
+  content morphisms Phi, Phi~ well defined (intertwiners), residual: 3.3306690738754696e-15
+  non-intertwining A=diag(1,2) mismatch: 1.3952205522173828
+== E  prop:record-covariance
+  max |R(gamma x, A) - R(x, tau^-1 A)| = 0.0
+== E2  NEW: dressed readout passes passive covariance but depends on the common reference
+  readout before / after passive change (mu->g mu, U->g U): 1.0 1.0
+  readout before / after common reference change (U->U h), same bundle point: 1.0 0.0
+== F  prop:loop-blindness
+  KL(nu||H#nu) = 0.0  KL(nu||H'#nu) = 0.0
+  TV distance of graph laws (id,H)#nu vs (id,H')#nu: 1.0
+  rotation 0.7 rad: isotropic KL = 0.0  diag(1,3) KL = 0.27667761903325294
+== G  single edge with a stabilizing transport (passively removable control; see loop_dynamics_check.py) and self-loop variant
+  cost values at t=0: id 0.10644013528622318  shift 0.10644013528622318
+  receiver log-velocity difference: 0.0
+  source log-velocity, id   : [ 0.6  0.2 -0.2 -0.6]
+  source log-velocity, shift: [ 0.2 -0.2 -0.6  0.6]
+  t=1 source laws differ by (max abs): 0.05193387745460906  receiver: 5.551115123125783e-17
+  t=1 cost values: id 0.0003580085503429153  shift 0.0003580085503429968
+  Gaussian source mean velocity, rotation 0.0: [ 1. -0.]
+  Gaussian source mean velocity, rotation 0.7: [ 0.764842 -0.644218]
+  self-loop: loop-term velocity at uniform, id vs shift: 0.0
+  self-loop: t=1 laws differ by: 0.09070078895328537
+== H  eq:agent-free-energy: posterior form = split form
+  F_post = 0.5971996679921914  F_split = 0.5971996679921914  residual = 0.0
+  zeta charging a zero-likelihood cell: posterior form inf  split form inf
+== I  NEW: constant evaluator, m-dependent record kernel
+  model belief [1. 0.] -> predicted P(o=1) = 0.2
+  model belief [0.5 0.5] -> predicted P(o=1) = 0.5
+  model belief [0. 1.] -> predicted P(o=1) = 0.8
+  posterior over m after o=1 from uniform s: [0.2 0.8]
+== J  NEW: predictive equivalence without a shared generative model
+  composite kernels equal: 0.0
+  max model-posterior difference over histories: 0.0
+  any (phi, psi) satisfying eq:shared-model: False
+  content posteriors after o=1 from m=1: agent i [0. 1.]  agent j [1. 0.]
+  identical models, equal s, different q(.|m): recognition predictions [0.55 0.45] [0.5 0.5]
+== K  prop:content-law, eq:content-projected (finite coefficient space)
+  F(Q;o) direct = 1.6526172740888705  projected form = 1.652617274088871  residual = 4.440892098500626e-16
+  records read only F_D, yet the conditional term is 0.3086463443168913 (posterior conditional = prior conditional: 1.1102230246251565e-16 )
+== L  correlation section and companion examples
+  marginals [0.5 0.5] [0.5 0.5]  E[XY] prior 0.25  posterior 0.5  MI 0.6931471805599453
+  hard record: min over product laws of KL(Q||Pi) = 0.6931471805599453 at (np.float64(0.0), np.float64(0.0))  log2 = 0.6931471805599453
+  soft record J=0.5: |m_opt| (grid) = 0.000000, positive root of m=tanh(Jm) = 0.000000
+  soft record J=0.9: |m_opt| (grid) = 0.000000, positive root of m=tanh(Jm) = 0.000000
+  soft record J=1.0: |m_opt| (grid) = 0.000090, positive root of m=tanh(Jm) = 0.000000
+  soft record J=1.1: |m_opt| (grid) = 0.502939, positive root of m=tanh(Jm) = 0.502941
+  soft record J=2.0: |m_opt| (grid) = 0.957499, positive root of m=tanh(Jm) = 0.957504
+  J=2 unrestricted product optimum (m1, m2) = (-0.955, -0.955)
+  companion mixture s_iG_i(k=1) = 0.6200000000000001
+  product-restricted belief minimizer: geometric average [0.3178 0.6822]  brute force [0.3178 0.6822]  arithmetic mixture [0.38 0.62]

@@ -1,0 +1,76 @@
+== QUERY: Bando Kugo Yamawaki Nonlinear realization and hidden local symmetries Physics Reports 1988
+  -- hit 1: DOI 10.1016/0370-1573(88)90019-1
+  CR authors: Bando, Masako; Kugo, Taichiro; Yamawaki, Koichi
+  CR title:   Nonlinear realization and hidden local symmetries
+  CR venue:   Physics Reports
+  CR vol/iss/pages: 164/4-5/217-314  article-number: None
+  CR date: [1988, 7]
+  -- hit 2: DOI 10.1016/0550-3213(85)90647-9
+  CR authors: Bando, Masako; Kugo, Taichiro; Yamawaki, Koichi
+  CR title:   On the vector mesons as dynamical gauge bosons of hidden local symmetries
+  CR venue:   Nuclear Physics B
+  CR vol/iss/pages: 259/2-3/493-502  article-number: None
+  CR date: [1985, 9]
+  -- hit 3: DOI 10.1143/ptp.73.1541
+  CR authors: Bando, M.; Kugo, T.; Yamawaki, K.
+  CR title:   Composite Gauge Bosons and "Low Energy Theorems" of Hidden Local Symmetries
+  CR venue:   Progress of Theoretical Physics
+  CR vol/iss/pages: 73/6/1541-1559  article-number: None
+  CR date: [1985, 6, 1]
+== QUERY: Kamenica Gentzkow Bayesian persuasion American Economic Review 2011
+  -- hit 1: DOI 10.1257/aer.101.6.2590
+  CR authors: Kamenica, Emir; Gentzkow, Matthew
+  CR title:   Bayesian Persuasion
+  CR venue:   American Economic Review
+  CR vol/iss/pages: 101/6/2590-2615  article-number: None
+  CR date: [2011, 10, 1]
+  -- hit 2: DOI 10.1257/aer.p20161049
+  CR authors: Gentzkow, Matthew; Kamenica, Emir
+  CR title:   A Rothschild-Stiglitz Approach to Bayesian Persuasion
+  CR venue:   American Economic Review
+  CR vol/iss/pages: 106/5/597-601  article-number: None
+  CR date: [2016, 5, 1]
+  -- hit 3: DOI 10.1142/9789819802982_0001
+  CR authors: Kamenica, Emir; Gentzkow, Matthew
+  CR title:   Bayesian Persuasion
+  CR venue:   World Scientific Series in Economic Theory
+  CR vol/iss/pages: None/None/1-38  article-number: None
+  CR date: [2025, 5]
+== QUERY: Mossel Tamuz Opinion exchange dynamics Probability Surveys
+  -- hit 1: DOI 10.1214/14-ps230
+  CR authors: Mossel, Elchanan; Tamuz, Omer
+  CR title:   Opinion exchange dynamics
+  CR venue:   Probability Surveys
+  CR vol/iss/pages: 14/none/155-204  article-number: None
+  CR date: [2017, 1, 1]
+  -- hit 2: DOI 10.2139/ssrn.2541707
+  CR authors: Harel, Matan; Mossel, Elchanan; Strack, Philipp; Tamuz, Omer
+  CR title:   Rational Groupthink
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2014]
+  -- hit 3: DOI 10.2139/ssrn.3124385
+  CR authors: Mossel, Elchanan; Mueller-Frank, Manuel; Sly, Allan; Tamuz, Omer
+  CR title:   Social Learning Equilibria
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2018]
+== QUERY: Bizyaeva Franci Leonard Nonlinear opinion dynamics with tunable sensitivity
+  -- hit 1: DOI 10.1109/tac.2022.3159527
+  CR authors: Bizyaeva, Anastasia; Franci, Alessio; Leonard, Naomi Ehrich
+  CR title:   Nonlinear Opinion Dynamics With Tunable Sensitivity
+  CR venue:   IEEE Transactions on Automatic Control
+  CR vol/iss/pages: 68/3/1415-1430  article-number: None
+  CR date: [2023, 3]
+  -- hit 2: DOI 10.23919/acc50511.2021.9482811
+  CR authors: Bizyaeva, Anastasia; Matthews, Ayanna; Franci, Alessio; Leonard, Naomi Ehrich
+  CR title:   Patterns of Nonlinear Opinion Formation on Networks
+  CR venue:   2021 American Control Conference (ACC)
+  CR vol/iss/pages: None/None/2739-2744  article-number: None
+  CR date: [2021, 5, 25]
+  -- hit 3: DOI 10.1109/lcsys.2021.3138725
+  CR authors: Park, Shinkyu; Bizyaeva, Anastasia; Kawakatsu, Mari; Franci, Alessio; Leonard, Naomi Ehrich
+  CR title:   Tuning Cooperative Behavior in Games With Nonlinear Opinion Dynamics
+  CR venue:   IEEE Control Systems Letters
+  CR vol/iss/pages: 6/None/2030-2035  article-number: None
+  CR date: [2022]

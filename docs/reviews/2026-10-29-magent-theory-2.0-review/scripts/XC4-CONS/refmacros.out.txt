@@ -1,0 +1,4 @@
+main chapters/05_inheritance.tex: {'Cref': 5, 'eqref': 40, 'cref': 45}
+main chapters/12_open_formation.tex: {'cref': 105, 'Cref': 3, 'eqref': 1}
+main chapters/15_contextual_coupling.tex: {'cref': 12, 'eqref': 52, 'Cref': 1, 'ref': 3}
+supplement supplements/s04_inheritance.tex: {'eqref': 7}

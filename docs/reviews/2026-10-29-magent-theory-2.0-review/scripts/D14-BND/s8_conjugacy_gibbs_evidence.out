@@ -1,0 +1,8 @@
+(a) d=2, base point r=0: root-sign contrast of the root response at t=0: 2.22e-16; exact d/dt at t=0: -6.4668e-02
+(a) d=2, base point r=1: root-sign contrast of the root response at t=0: 0.00e+00; exact d/dt at t=0: 1.6423e-01
+(a) d=3, base point r=0: root-sign contrast of the root response at t=0: 2.22e-16; exact d/dt at t=0: 1.5422e-01
+(a) d=3, base point r=1: root-sign contrast of the root response at t=0: 0.00e+00; exact d/dt at t=0: -1.3772e-01
+(b) Gibbs-reduced flow d=2: sup|q - lift f| = 4.44e-16, sup|s - lift g| = 4.44e-16
+(b) Gibbs-reduced flow d=3: sup|q - lift f| = 6.66e-16, sup|s - lift g| = 8.88e-16
+(c) evidence-augmented potential d=2: sup|q - lift f| = 2.44e-15; rows 1.11e-16
+(c) evidence-augmented potential d=3: sup|q - lift f| = 8.88e-16; rows 8.33e-17

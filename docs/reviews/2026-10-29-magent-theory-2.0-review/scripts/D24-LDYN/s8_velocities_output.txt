@@ -1,0 +1,4 @@
+dictionary derivative rows: |gG - gP| = 0.0  |gG - gL| = 6.166994570025189
+dictionary velocities:      |vG - vP| = 0.4074265218406608  |vG - vL| = 0.4436645555873031  (scale |vG| = 3.071432363000754 )
+mobility blocks differ: max over agents |J_ii - A_i| = 4.665340508110139
+agent 0 (no outgoing edge): |J_00 - A_0| = 0.0 ; agent 2 (sender only): |J_22 - A_2| = 7.415190567543214

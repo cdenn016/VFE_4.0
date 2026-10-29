@@ -1,0 +1,6 @@
+kappa=  0.0: limit g_aa=4.0000 h_chichi=0.7419 F=-1.7164
+kappa=  0.5: limit g_aa=1.8041 h_chichi=0.3230 F=-1.6777
+kappa=  1.0: limit g_aa=1.1679 h_chichi=0.1992 F=-1.6887
+kappa=  2.0: limit g_aa=0.6766 h_chichi=0.1105 F=-1.7023
+kappa=  5.0: limit g_aa=0.2922 h_chichi=0.0462 F=-1.7135
+kappa= 20.0: limit g_aa=0.0737 h_chichi=0.0115 F=-1.7181

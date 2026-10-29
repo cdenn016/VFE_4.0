@@ -1,0 +1,14 @@
+(1) max |analytic - finite-difference| of -sigma' * field vs dE/dl: 5.33e-10
+(2) d/dt(l_1-l_2) = +3.3726  vs  -2(l_1-l_2) = +2.8000
+(2) d/dt(l_2-l_3) = +5.6467  vs  -2(l_2-l_3) = +3.0000
+(2) d/dt(l_1-l_3) = +9.0194  vs  -2(l_1-l_3) = +5.8000
+(3) l0 = [3.2743 4.4975 5.8038], delta = 0.15:
+     full events [(0.998, (1, 2)), (1.212, (0, 1, 2))]
+     null events [(2.1, (0, 1)), (2.55, (0, 1, 2))]
+(3) l0 = [3.2743 4.4975 5.8038], delta = 0.3:
+     full events [(0.654, (1, 2)), (0.866, (0, 1, 2))]
+     null events [(1.406, (0, 1)), (1.856, (0, 1, 2))]
+(3) l0 = [3.2743 4.4975 5.8038], delta = 0.5:
+     full events [(0.404, (1, 2)), (0.612, (0, 1, 2))]
+     null events [(0.896, (0, 1)), (1.346, (0, 1, 2))]
+(3) initial data with a different first join found: 3 (of the trials scanned)

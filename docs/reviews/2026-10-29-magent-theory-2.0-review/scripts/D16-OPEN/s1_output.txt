@@ -1,0 +1,11 @@
+[1] max |FD functional derivative - (h_closed+2)| over 6 agents x 2 x 16 = 3.843e-08
+    (scale of h: max|h| = 5.527)
+[2] max |rows from full D_ij - rows from KL(mu_i||mu_j)| = 1.388e-16
+[3] binary family: max |xdot(full field) - open:binary-field| = 2.220e-16  (|xdot| max 0.797)
+[4] correlated: max |dlog f/dt - (-2)(log f - E[log f|z])| = 1.776e-15
+    correlated: max |xdot - (binary field + forcing)|        = 3.331e-16
+[5] null reading R, binary family: max |xdot + (1-x^2) atanh x| = 1.439e-08
+    null reading R, correlated agent 0: fitted angular relaxation rate = 2.000000  (2 for R; 1+beta_ii = 1.055561 for Z)
+[5] null reading Z, binary family: max |xdot + (1-x^2) atanh x| = 4.517e-09
+    null reading Z, correlated agent 0: fitted angular relaxation rate = 1.055561  (2 for R; 1+beta_ii = 1.055561 for Z)
+[6] open:logit-bound: max(max logit - e^-t max0) = 0.000e+00, max(e^-t min0 - min logit) = 0.000e+00 (both <= 0 expected)

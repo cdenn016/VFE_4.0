@@ -1,0 +1,2 @@
+absorption construction: max |F(Q(x)) - E(x) - 2 log 2| over 121 interior points (logits in [-25, 25]): 6.88e-15
+largest absorbed target KL(Q''||pi_theta): 17.254

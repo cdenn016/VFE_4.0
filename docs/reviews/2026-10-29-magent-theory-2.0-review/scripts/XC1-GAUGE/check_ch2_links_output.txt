@@ -1,0 +1,18 @@
+(a) N2 = [[1.0, 1.0], [1.0, 2.0]]
+    |Omega12 - claimed| = 2.7755575615628914e-16  Omega21 Omega12 - I = 4.440892098500626e-16  Omega12 orthogonal residual = 6.661338147750939e-16
+    random directed pairs: max |Omega_ji Omega_ij - I| = 5.298380737392385e-14
+(b) Q12 for eq:int-nongaussian-loop = 1.5 (claimed 3/2)
+    shear I+E12 with Sigma=I: 0.5 (claimed 1/2)
+    passive/reference GL change residual: 2.220446049250313e-16
+(c) single-edge quiver, SO(2) vertex groups: Tr(Th^T Th), det Th over random gauges: [[3.99, 1.63], [3.99, 1.63], [3.99, 1.63], [3.99, 1.63], [3.99, 1.63]]
+    spread of invariants: 1.7763568394002505e-15 6.661338147750939e-16
+    a second link has different values: 4.09 0.5999999999999999  => nonconstant invariants exist although the quiver has no oriented cycle
+    under GL x GL the same function is not invariant: 3.9899999999999998 -> 12.78
+(d) bare rule L=mu_i mu_j^T: |L' - h^-1 L h| = 0.6056666666666668 (fails reference consistency)
+    same rule with supplied metric M re-expressed: |L' - h^-1 L h| = 2.220446049250313e-16 (passes: re-expressed background data dress the reference change)
+    moment family (Sigma_j^-1 from the law): |L' - h^-1 L h| = 4.440892098500626e-16
+(e) a=0.30 b=0.50 |a+b|=0.80: Omega^q angle -0.1000, Omega^s angle -0.2000, rho_s(Omega^q) angle -0.2000, mismatch angle -0.0000
+(e) a=1.20 b=0.90 |a+b|=2.10: Omega^q angle 0.1500, Omega^s angle -2.8416, rho_s(Omega^q) angle 0.3000, mismatch angle -3.1416
+(e) a=1.40 b=1.10 |a+b|=2.50: Omega^q angle 0.1500, Omega^s angle -2.8416, rho_s(Omega^q) angle 0.3000, mismatch angle -3.1416
+(f) x=(e,v,v^2) rotated by v is a cyclic relabeling: True
+    sum of common rotation by 2pi/n over n agents mod 2pi = 0.0

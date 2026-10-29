@@ -1,0 +1,9 @@
+(F3,D) centroid retention of {0,1}: max |DR B(x) - DR B(x')| over 200 fiber pairs: 3.55e-15
+(F3,B) averaging protocol: law N((x0+x1)/2, 1/2), a function of the retained centroid (direct)
+(F4) fiber points [0.2 0.8] and [0.4 0.6] share centroid 0.50; child-0 probe laws N(0.2,1) vs N(0.4,1) differ
+(F5) full flow events: [((0, 1), 0.045), ((2, 3), 0.095), ((0, 1, 2, 3), 0.91)]
+(F5) null flow events: []
+(F5) partition sequences differ in 15/15 random perturbations of size 0.01
+(F6a) inherited parent gap relaxes at rate 3.0 to 0.4417 < delta=0.5: union occurs from the actual handoff
+(F6b) every counterfactual handoff with |gap| > delta unites: True  -> (F6b) fails for the class {|gap| > delta}
+(F6b) 50 grid handoffs with |gap| < delta (same sign as target) never reach delta from above -> (F6b) holds if such handoffs are in the class

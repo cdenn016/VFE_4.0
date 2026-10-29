@@ -1,0 +1,57 @@
+== QUERY: Narasimhan Ramanan Existence of universal connections American Journal of Mathematics 1961
+  -- hit 1: DOI 10.2307/2372896
+  CR authors: Narasimhan, M. S.; Ramanan, S.
+  CR title:   Existence of Universal Connections
+  CR venue:   American Journal of Mathematics
+  CR vol/iss/pages: 83/3/563  article-number: None
+  CR date: [1961, 7]
+  -- hit 2: DOI 10.2307/2373211
+  CR authors: Narasimhan, M. S.; Ramanan, S.
+  CR title:   Existence of Universal Connections II
+  CR venue:   American Journal of Mathematics
+  CR vol/iss/pages: 85/2/223  article-number: None
+  CR date: [1963, 4]
+  -- hit 3: DOI 10.55937/sut/1506165771
+  CR authors: Kitada, Kensaku
+  CR title:   The existence of universal flat topological connections with discrete structure group
+  CR venue:   SUT Journal of Mathematics
+  CR vol/iss/pages: 53/1/1-18  article-number: None
+  CR date: [2017, 6, 1]
+== QUERY: Aumann Agreeing to disagree Annals of Statistics 1976
+  -- hit 1: DOI 10.1214/aos/1176343654
+  CR authors: Aumann, Robert J.
+  CR title:   Agreeing to Disagree
+  CR venue:   The Annals of Statistics
+  CR vol/iss/pages: 4/6/1236-1239  article-number: None
+  CR date: [1976, 11, 1]
+  -- hit 2: DOI 10.1007/978-3-319-20451-2_40
+  CR authors: Aumann, Robert J.
+  CR title:   Agreeing to Disagree
+  CR venue:   Readings in Formal Epistemology
+  CR vol/iss/pages: None/None/859-862  article-number: None
+  CR date: [2016]
+  -- hit 3: DOI 10.1142/9789811227332_0002
+  CR authors: Aumann, Robert J
+  CR title:   Agreeing to Disagree
+  CR venue:   World Scientific Series in Economic Theory
+  CR vol/iss/pages: None/None/19-24  article-number: None
+  CR date: [2024, 1]
+== QUERY: Geanakoplos Polemarchakis We can't disagree forever 1982
+  -- hit 1: DOI 10.1016/0022-0531(82)90099-0
+  CR authors: Geanakoplos, John D; Polemarchakis, Heraklis M
+  CR title:   We can't disagree forever
+  CR venue:   Journal of Economic Theory
+  CR vol/iss/pages: 28/1/192-200  article-number: None
+  CR date: [1982, 10]
+  -- hit 2: DOI 10.2139/ssrn.928075
+  CR authors: Geanakoplos, John D; Polemarchakis, Herakles
+  CR title:   Pareto Improving Taxes
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2006]
+  -- hit 3: DOI 10.7135/upo9781843318064.001
+  CR authors: 
+  CR title:   Can We Live Forever?
+  CR venue:   Can We Live Forever?
+  CR vol/iss/pages: None/None/xi-xii  article-number: None
+  CR date: [2009, 7, 1]

@@ -1,0 +1,4 @@
+(a) max relative |separated - direct quadrature| over 200 instances: 6.55e-16
+(b) max relative |closed-form P(o) - quadrature P(o)|: 6.31e-13; min of F + log P(o) = KL(Q||Pi_o): 5.564e-01 (>= 0 expected)
+(c) min over random rows of F(rows) - F(Gibbs rows): 1.448e-03 (>= 0 expected)
+(d) DV bound E_Q[(log l)^+] <= KL(Q||P0) + log(1+P(o)) held on all 200 narrow-record instances: True

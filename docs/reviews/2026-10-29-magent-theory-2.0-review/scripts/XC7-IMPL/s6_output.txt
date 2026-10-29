@@ -1,0 +1,13 @@
+stationarity of A at x*: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  C1, C2 at x*: 1/2 1/2
+g = [1, -1/2, -1/2, -1/2, -1/2, 0, -1/4, 1/4, 1/4, -1/4]
+H^-1 g * 5059 = [2400, -960, -960, -1600, -1600, 0, -716, 716, 2440, -2440]
+g^T H^-1 g = 6538/5059  T_c = 3269/10118  claimed 3269/10118: True
+H positive definite: True
+T_mean = 31/122  claimed 31/122: True
+D = 19189456/25593481  claimed 19189456/25593481: True
+A_xxxx[p^4] = 236914859731152/655026269697361  (claimed 236914859731152/655026269697361: True )
+Delta_xxx[p^3] = -31633266640/129477420379  (claimed -31633266640/129477420379: True )
+3 k^T H^-1 k = 21485600170644766720/2074468196131542287  (claimed: True )
+c = -657534393590529472/6223404588394626861  claimed: True  float -0.10565509348640072
+delta=2e-04: branch s=9.351358e-02 vs sqrt(-4delta/c)=8.701613e-02 (ratio 1.07467); unstable eig reduced 1.725834e-03 vs 8delta/D 2.133962e-03; full 2.756404e-04 vs 8delta/(D+4) 3.368578e-04
+delta=5e-05: branch s=4.415652e-02 vs sqrt(-4delta/c)=4.350807e-02 (ratio 1.01490); unstable eig reduced 5.130429e-04 vs 8delta/D 5.334905e-04; full 8.119744e-05 vs 8delta/(D+4) 8.421444e-05

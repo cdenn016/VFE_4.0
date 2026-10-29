@@ -1,0 +1,22 @@
+A: normal-equation residual K a_x - rhs_x = [0, 0, 0]
+A: normal-equation residual K a_y - rhs_y = [0, 0, 0]
+A: C_1^T V_1 (x-direction) = [0, 0, 0]
+A: C_2^T V_2 (y-direction) - w_b e3 = [0, 0, 0]
+A: det K = 256*t_b**2*t_x**2*t_y**2*(2*t_b**2*t_x**2 + t_b**2 + t_x**2)/((t_b**2 + 1)**2*(t_x**2 + 1)**2*(t_y**2 + 1)**2)
+A: F_xy e3-coefficient minus claim: 0
+B: first jet direction [1. 0.]: |jet + a(Y)| = 1.36e-08
+B: first jet direction [0. 1.]: |jet + a(Y)| = 1.99e-09
+B: first jet direction [ 0.6 -0.8]: |jet + a(Y)| = 1.22e-09
+B: reversal |t(c,c') t(c',c) - I| = 3.89e-09
+B: endpoint law |t' - h(c')^-1 t h(c)| = 5.87e-09
+B: |t(c',c) - I| at this separation = 5.940e-02
+B: side 0.04: (Hol - I)/area e3-component = -0.483808;  -F_xy e3-coefficient = -0.483844
+B: side 0.02: (Hol - I)/area e3-component = -0.483835;  -F_xy e3-coefficient = -0.483844
+B: side 0.01: (Hol - I)/area e3-component = -0.483842;  -F_xy e3-coefficient = -0.483844
+B: discrete holonomy (n=4 per side) vs exact: |diff| = 6.91e-09
+B: discrete holonomy (n=8 per side) vs exact: |diff| = 1.73e-09
+B: discrete holonomy (n=16 per side) vs exact: |diff| = 5.75e-10
+B: x=+0.10: min eig of locked form = 7.923e-03; a_y coefficient = -0.992226
+B: x=+0.01: min eig of locked form = 7.942e-05; a_y coefficient = -0.999922
+B: x=+0.00: min eig of locked form = 5.551e-17; a_y coefficient = -1.000000
+B: x=-0.01: min eig of locked form = 7.942e-05; a_y coefficient = -0.999922

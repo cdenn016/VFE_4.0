@@ -1,0 +1,2 @@
+F_x - claim through total degree 4: 0
+det through eps^5 minus claim: 0

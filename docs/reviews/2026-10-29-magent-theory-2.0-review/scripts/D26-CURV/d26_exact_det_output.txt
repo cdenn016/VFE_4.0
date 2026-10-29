@@ -1,0 +1,15 @@
+omega_e = E22 on every edge (omega c = 0) : tangent weak-anchor curvature (V w)^T Pi_H (V w) = 0.0
+   eps = 0.01 : determinant curvature at 0 = 120.299  predicted tr(P0^-1 G)/eps = 119.28  | at t = 10 sqrt(eps): exact increase 1.271  predicted 2.3949
+   eps = 0.001 : determinant curvature at 0 = 1193.757  predicted tr(P0^-1 G)/eps = 1192.803  | at t = 10 sqrt(eps): exact increase 1.9649  predicted 2.3949
+   eps = 0.0001 : determinant curvature at 0 = 11928.34  predicted tr(P0^-1 G)/eps = 11928.027  | at t = 10 sqrt(eps): exact increase 2.2508  predicted 2.3949
+random direction : tangent weak-anchor curvature (V w)^T Pi_H (V w) = 8.627722
+   eps = 0.01 : determinant curvature at 0 = 265.839  predicted tr(P0^-1 G)/eps = 264.279  | at t = 10 sqrt(eps): exact increase 5.3914  predicted 4.5798
+   eps = 0.001 : determinant curvature at 0 = 2644.123  predicted tr(P0^-1 G)/eps = 2642.792  | at t = 10 sqrt(eps): exact increase 4.7384  predicted 4.5798
+   eps = 0.0001 : determinant curvature at 0 = 26426.937  predicted tr(P0^-1 G)/eps = 26427.918  | at t = 10 sqrt(eps): exact increase 4.6172  predicted 4.5798
+small-noise regime, random direction, |c|^2 = 1.0
+   kappa = 1.0  rho = 0.01 : rho*tangent = 8.64017  (V w)^T Pi_H(Rbar) (V w) = 8.62772  determinant/tangent curvature ratio = 0.30771
+   kappa = 1.0  rho = 0.0001 : rho*tangent = 8.62785  (V w)^T Pi_H(Rbar) (V w) = 8.62772  determinant/tangent curvature ratio = 0.30646
+   kappa = 10.0  rho = 0.01 : rho*tangent = 8.75048  (V w)^T Pi_H(Rbar) (V w) = 8.62772  determinant/tangent curvature ratio = 0.03198
+   kappa = 10.0  rho = 0.0001 : rho*tangent = 8.62897  (V w)^T Pi_H(Rbar) (V w) = 8.62772  determinant/tangent curvature ratio = 0.03065
+   kappa = 100.0  rho = 0.01 : rho*tangent = 9.72611  (V w)^T Pi_H(Rbar) (V w) = 8.62772  determinant/tangent curvature ratio = 0.00413
+   kappa = 100.0  rho = 0.0001 : rho*tangent = 8.64017  (V w)^T Pi_H(Rbar) (V w) = 8.62772  determinant/tangent curvature ratio = 0.00308

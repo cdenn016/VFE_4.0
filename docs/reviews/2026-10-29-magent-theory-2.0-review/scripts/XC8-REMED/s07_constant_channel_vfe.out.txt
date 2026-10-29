@@ -1,0 +1,2 @@
+E - 2F over 200 random interior configurations: mean -3.215507198937, spread (max-min) 1.155e-14
+record probability check: sum_y P0(y) l(1|y) = 0.108288 (in (0,1], so the joint is normalized with o in {0,1})

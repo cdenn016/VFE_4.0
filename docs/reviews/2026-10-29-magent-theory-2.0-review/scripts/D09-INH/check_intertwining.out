@@ -1,0 +1,22 @@
+1. Lambda T == T^c Lambda: True
+   Lambda T Phi_R = [[Fraction(7, 10), Fraction(3, 10)], [Fraction(1, 2), Fraction(1, 2)]]  (should equal T^c)
+   fiber masses into {3}: row1 = 1/5  row2 = 2/5  -> lumpable: False
+   TV(path law of Z_0..Z_1 from delta_1, T^c chain) = 1/10 = 0.100000   [2 retained states, 1 transitions]
+   TV(path law of Z_0..Z_2 from delta_1, T^c chain) = 1/10 = 0.100000   [3 retained states, 2 transitions]
+   TV(path law of Z_0..Z_3 from delta_1, T^c chain) = 1/10 = 0.100000   [4 retained states, 3 transitions]
+   TV(path law of Z_0..Z_4 from delta_1, T^c chain) = 1/10 = 0.100000   [5 retained states, 4 transitions]
+   TV(path law of Z_0..Z_5 from delta_1, T^c chain) = 1/10 = 0.100000   [6 retained states, 5 transitions]
+   TV(path law of Z_0..Z_6 from delta_1, T^c chain) = 1/10 = 0.100000   [7 retained states, 6 transitions]
+   Rogers-Pitman residual (exact) under nu Lambda, nu = [Fraction(1, 1), Fraction(0, 1)] : 0
+   Rogers-Pitman residual (exact) under nu Lambda, nu = [Fraction(0, 1), Fraction(1, 1)] : 0
+   Rogers-Pitman residual (exact) under nu Lambda, nu = [Fraction(2, 7), Fraction(5, 7)] : 0
+4. next-retained-state kernel on fiber a: x=1 -> [Fraction(4, 5), Fraction(1, 5)]  x=2 -> [Fraction(3, 5), Fraction(2, 5)]  constant on fiber: False
+2. random intertwined chains (3 and 4 states):
+   fibers [2, 1]: |Lambda T - T^c Lambda| = 1.11e-16, strongly lumpable = False, RP residual over all histories of 6 states = 1.11e-16
+   fibers [2, 2]: |Lambda T - T^c Lambda| = 3.47e-18, strongly lumpable = False, RP residual over all histories of 6 states = 2.22e-16
+   fibers [3, 1]: |Lambda T - T^c Lambda| = 6.94e-18, strongly lumpable = False, RP residual over all histories of 6 states = 1.11e-16
+   fibers [1, 2, 1]: |Lambda T - T^c Lambda| = 1.11e-16, strongly lumpable = False, RP residual over all histories of 6 states = 1.11e-16
+3. strong lumpability vs Markov retained process (point-mass initial laws):
+   fibers [2, 1]: lumpable chain max Markov deviation 1.11e-16 (lumpable=True); generic chain one-step fiber discrepancy 0.172 (lumpable=False)
+   fibers [2, 2]: lumpable chain max Markov deviation 2.22e-16 (lumpable=True); generic chain one-step fiber discrepancy 0.194 (lumpable=False)
+   fibers [3, 1]: lumpable chain max Markov deviation 1.11e-16 (lumpable=True); generic chain one-step fiber discrepancy 0.459 (lumpable=False)

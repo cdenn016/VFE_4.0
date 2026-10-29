@@ -1,0 +1,23 @@
+(a) N=2: max |V(diag) - f| = 1.39e-16
+(a) N=3: max |V(diag) - f| = 1.53e-16
+(b) N=2, J=0.3, Tq=1.0, Ts=1.0: kappa_N=4.0000; difference subspace invariant to 1.8e-15
+    common-block eigenvalues [-1.3 -1.  -1.  -1.  -1.  -0.7]; max err vs {-1+J,-1-J,-1}: 8.5e-11
+    difference-block max err vs shifted spectrum: 5.5e-10; full spectrum max err: 5.5e-10
+    slowest common rate 0.7000000 (1-|J| = 0.7000000); slowest difference rate 4.7000000 (1+kappa_N-|J| = 4.7000000)
+(b) N=3, J=0.9, Tq=0.6, Ts=1.9: kappa_N=3.0000; difference subspace invariant to 1.8e-15
+    common-block eigenvalues [-1.9 -1.  -1.  -1.  -1.  -0.1]; max err vs {-1+J,-1-J,-1}: 4.3e-10
+    difference-block max err vs shifted spectrum: 7.6e-10; full spectrum max err: 7.6e-10
+    slowest common rate 0.1000000 (1-|J| = 0.1000000); slowest difference rate 3.1000000 (1+kappa_N-|J| = 3.1000000)
+(b) N=4, J=-0.6, Tq=0.3, Ts=2.5: kappa_N=2.6667; difference subspace invariant to 2.0e-10
+    common-block eigenvalues [-1.6 -1.  -1.  -1.  -1.  -0.4]; max err vs {-1+J,-1-J,-1}: 4.0e-10
+    difference-block max err vs shifted spectrum: 4.5e-10; full spectrum max err: 4.5e-10
+    slowest common rate 0.4000000 (1-|J| = 0.4000000); slowest difference rate 3.0666667 (1+kappa_N-|J| = 3.0666667)
+(b) N=3, J=0.99, Tq=5.0, Ts=0.05: kappa_N=3.0000; difference subspace invariant to 1.8e-15
+    common-block eigenvalues [-1.99 -1.   -1.   -1.   -1.   -0.01]; max err vs {-1+J,-1-J,-1}: 2.7e-10
+    difference-block max err vs shifted spectrum: 6.6e-10; full spectrum max err: 6.6e-10
+    slowest common rate 0.0100000 (1-|J| = 0.0100000); slowest difference rate 3.0100000 (1+kappa_N-|J| = 3.0100000)
+(c) max |inf-norm(Df) - (1 + |J| max(1-m_s^2, 1-m_q^2))| over 2000 samples: 4.44e-16; at the reference this is 1+|J|
+(d) N=2: gap 1+|J| < 1+kappa_N-|J| iff |J| < N/(N-1) = 2.0000; stability needs |J| < 1
+(d) N=3: gap 1+|J| < 1+kappa_N-|J| iff |J| < N/(N-1) = 1.5000; stability needs |J| < 1
+(d) N=5: gap 1+|J| < 1+kappa_N-|J| iff |J| < N/(N-1) = 1.2500; stability needs |J| < 1
+(d) N=50: gap 1+|J| < 1+kappa_N-|J| iff |J| < N/(N-1) = 1.0204; stability needs |J| < 1

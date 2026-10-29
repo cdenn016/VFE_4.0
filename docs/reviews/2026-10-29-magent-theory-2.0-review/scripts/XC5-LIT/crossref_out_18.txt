@@ -1,0 +1,250 @@
+# 87 bib entries carry a DOI; checking indices 18..36
+== Cortes2006 [references.bib, @article]
+  bib author: Cort{\'e}s, Jorge
+  bib title: Finite-Time Convergent Gradient Flows with Applications to Network Consensus
+  bib journal: Automatica
+  bib volume: 42
+  bib number: 11
+  bib pages: 1993--2000
+  bib year: 2006
+  bib doi: 10.1016/j.automatica.2006.06.015
+  CR authors: Cortés, Jorge
+  CR title:   Finite-time convergent gradient flows with applications to network consensus
+  CR venue:   Automatica
+  CR vol/iss/pages: 42/11/1993-2000  article-number: None
+  CR date: [2006, 11]
+== CourtadeWeissman2014 [references.bib, @article]
+  bib author: Courtade, Thomas A. and Weissman, Tsachy
+  bib title: Multiterminal Source Coding Under Logarithmic Loss
+  bib journal: IEEE Transactions on Information Theory
+  bib volume: 60
+  bib number: 1
+  bib pages: 740--761
+  bib year: 2014
+  bib doi: 10.1109/TIT.2013.2288257
+  CR authors: Courtade, Thomas A.; Weissman, Tsachy
+  CR title:   Multiterminal Source Coding Under Logarithmic Loss
+  CR venue:   IEEE Transactions on Information Theory
+  CR vol/iss/pages: 60/1/740-761  article-number: None
+  CR date: [2014, 1]
+== CrandallLiggett1971 [references.bib, @article]
+  bib author: Crandall, Michael G. and Liggett, Thomas M.
+  bib title: Generation of Semi-Groups of Nonlinear Transformations on General {B}anach Spaces
+  bib journal: American Journal of Mathematics
+  bib volume: 93
+  bib number: 2
+  bib pages: 265--298
+  bib year: 1971
+  bib doi: 10.2307/2373376
+  CR authors: Crandall, M. G.; Liggett, T. M.
+  CR title:   Generation of Semi-Groups of Nonlinear Transformations on General Banach Spaces
+  CR venue:   American Journal of Mathematics
+  CR vol/iss/pages: 93/2/265  article-number: None
+  CR date: [1971, 4]
+== Culver1966 [references.bib, @article]
+  bib author: Culver, Walter J.
+  bib title: On the Existence and Uniqueness of the Real Logarithm of a Matrix
+  bib journal: Proceedings of the American Mathematical Society
+  bib volume: 17
+  bib number: 5
+  bib pages: 1146--1151
+  bib year: 1966
+  bib doi: 10.1090/S0002-9939-1966-0202740-6
+  CR authors: Culver, Walter J.
+  CR title:   On the existence and uniqueness of the real logarithm of a matrix
+  CR venue:   Proceedings of the American Mathematical Society
+  CR vol/iss/pages: 17/5/1146-1151  article-number: None
+  CR date: [1966, 10]
+== CzegelEtAl2019 [item7_refs.bib, @article]
+  bib author: Cz{\'e}gel, D{\'a}niel and Zachar, Istv{\'a}n and Szathm{\'a}ry, E{\"o}rs
+  bib title: Multilevel selection as {B}ayesian inference, major transitions in individuality as structure learning
+  bib journal: Royal Society Open Science
+  bib volume: 6
+  bib number: 8
+  bib pages: 190202
+  bib year: 2019
+  bib doi: 10.1098/rsos.190202
+  CR authors: Czégel, Dániel; Zachar, István; Szathmáry, Eörs
+  CR title:   Multilevel selection as Bayesian inference, major transitions in individuality as structure learning
+  CR venue:   Royal Society Open Science
+  CR vol/iss/pages: 6/8/190202  article-number: None
+  CR date: [2019, 8]
+== DAddaLuscherDiVecchia1978 [references.bib, @article]
+  bib author: D'Adda, A. and L{\"u}scher, M. and Di Vecchia, P.
+  bib title: A $1/n$ Expandable Series of Non-Linear $\sigma$ Models with Instantons
+  bib journal: Nuclear Physics B
+  bib volume: 146
+  bib number: 1
+  bib pages: 63--76
+  bib year: 1978
+  bib doi: 10.1016/0550-3213(78)90432-7
+  CR authors: D'Adda, A.; Lüscher, M.; Di Vecchia, P.
+  CR title:   A expandable series of non-linear σ models with instantons
+  CR venue:   Nuclear Physics B
+  CR vol/iss/pages: 146/1/63-76  article-number: None
+  CR date: [1978, 12]
+== Dawid1979 [references.bib, @article]
+  bib author: Dawid, A. P.
+  bib title: Conditional Independence in Statistical Theory
+  bib journal: Journal of the Royal Statistical Society: Series B (Methodological)
+  bib volume: 41
+  bib number: 1
+  bib pages: 1--31
+  bib year: 1979
+  bib doi: 10.1111/j.2517-6161.1979.tb01052.x
+  CR authors: Dawid, A. P.
+  CR title:   Conditional Independence in Statistical Theory
+  CR venue:   Journal of the Royal Statistical Society Series B: Statistical Methodology
+  CR vol/iss/pages: 41/1/1-15  article-number: None
+  CR date: [1979, 9, 1]
+== DerisaviHermannsSanders2003 [references.bib, @article]
+  bib author: Derisavi, Salem and Hermanns, Holger and Sanders, William H.
+  bib title: Optimal State-Space Lumping in {M}arkov Chains
+  bib journal: Information Processing Letters
+  bib volume: 87
+  bib number: 6
+  bib pages: 309--315
+  bib year: 2003
+  bib doi: 10.1016/S0020-0190(03)00343-0
+  CR authors: Derisavi, Salem; Hermanns, Holger; Sanders, William H.
+  CR title:   Optimal state-space lumping in Markov chains
+  CR venue:   Information Processing Letters
+  CR vol/iss/pages: 87/6/309-315  article-number: None
+  CR date: [2003, 9]
+== DixonMortimer1996 [references.bib, @book]
+  bib author: Dixon, John D. and Mortimer, Brian
+  bib title: Permutation Groups
+  bib volume: 163
+  bib year: 1996
+  bib doi: 10.1007/978-1-4612-0731-3
+  CR authors: Dixon, John D.; Mortimer, Brian
+  CR title:   Permutation Groups
+  CR venue:   Graduate Texts in Mathematics
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [1996]
+== EellsSampson1964 [references.bib, @article]
+  bib author: Eells, James, Jr. and Sampson, J. H.
+  bib title: Harmonic Mappings of Riemannian Manifolds
+  bib journal: American Journal of Mathematics
+  bib volume: 86
+  bib number: 1
+  bib pages: 109--160
+  bib year: 1964
+  bib doi: 10.2307/2373037
+  CR authors: Eells, James; Sampson, J. H.
+  CR title:   Harmonic Mappings of Riemannian Manifolds
+  CR venue:   American Journal of Mathematics
+  CR vol/iss/pages: 86/1/109  article-number: None
+  CR date: [1964, 1]
+== ElderingKvalheimRevzen2018 [references.bib, @article]
+  bib author: Eldering, Jaap and Kvalheim, Matthew and Revzen, Shai
+  bib title: Global Linearization and Fiber Bundle Structure of Invariant Manifolds
+  bib journal: Nonlinearity
+  bib volume: 31
+  bib number: 9
+  bib pages: 4202--4245
+  bib year: 2018
+  bib doi: 10.1088/1361-6544/aaca8d
+  CR authors: Eldering, Jaap; Kvalheim, Matthew; Revzen, Shai
+  CR title:   Global linearization and fiber bundle structure of invariant manifolds
+  CR venue:   Nonlinearity
+  CR vol/iss/pages: 31/9/4202-4245  article-number: None
+  CR date: [2018, 9, 1]
+== EphraimMerhav2002 [references.bib, @article]
+  bib author: Ephraim, Yariv and Merhav, Neri
+  bib title: Hidden {M}arkov Processes
+  bib journal: IEEE Transactions on Information Theory
+  bib volume: 48
+  bib number: 6
+  bib pages: 1518--1569
+  bib year: 2002
+  bib doi: 10.1109/TIT.2002.1003838
+  CR authors: Ephraim, Y.; Merhav, N.
+  CR title:   Hidden Markov processes
+  CR venue:   IEEE Transactions on Information Theory
+  CR vol/iss/pages: 48/6/1518-1569  article-number: None
+  CR date: [2002, 6]
+== FelsOlver1998 [references.bib, @article]
+  bib author: Fels, Mark and Olver, Peter J.
+  bib title: Moving coframes: {I}. {A} practical algorithm
+  bib journal: Acta Applicandae Mathematicae
+  bib volume: 51
+  bib number: 2
+  bib pages: 161--213
+  bib year: 1998
+  bib doi: 10.1023/A:1005878210297
+  CR authors: Fels, Mark; Olver, Peter J.
+  CR title:   Moving Coframes: I. A Practical Algorithm
+  CR venue:   Acta Applicandae Mathematica
+  CR vol/iss/pages: 51/2/161-213  article-number: None
+  CR date: [1998, 4]
+== Fenichel1974 [references.bib, @article]
+  bib author: Fenichel, Neil
+  bib title: Asymptotic Stability with Rate Conditions
+  bib journal: Indiana University Mathematics Journal
+  bib volume: 23
+  bib number: 12
+  bib pages: 1109--1137
+  bib year: 1974
+  bib doi: 10.1512/iumj.1974.23.23090
+  CR authors: Fenichel, Neil
+  CR title:   
+  CR venue:   Indiana University Mathematics Journal
+  CR vol/iss/pages: 23/12/1109  article-number: None
+  CR date: [1974]
+== FriedkinJohnsen1990 [item7_refs.bib, @article]
+  bib author: Friedkin, Noah E. and Johnsen, Eugene C.
+  bib title: Social influence and opinions
+  bib journal: The Journal of Mathematical Sociology
+  bib volume: 15
+  bib number: 3--4
+  bib pages: 193--206
+  bib year: 1990
+  bib doi: 10.1080/0022250X.1990.9990069
+  CR authors: Friedkin, Noah E.; Johnsen, Eugene C.
+  CR title:   Social influence and opinions
+  CR venue:   The Journal of Mathematical Sociology
+  CR vol/iss/pages: 15/3-4/193-206  article-number: None
+  CR date: [1990, 1]
+== FristonEtAl2021 [references.bib, @article]
+  bib author: Friston, Karl J. and Fagerholm, Erik D. and Zarghami, Tahereh S. and Parr, Thomas and Hip{\'o}lito, In{\^e}s and Magrou, Lo{\"i}c and Razi, Adeel
+  bib title: Parcels and Particles: {M}arkov Blankets in the Brain
+  bib journal: Network Neuroscience
+  bib volume: 5
+  bib number: 1
+  bib pages: 211--251
+  bib year: 2021
+  bib doi: 10.1162/netn_a_00175
+  CR authors: Friston, Karl J.; Fagerholm, Erik D.; Zarghami, Tahereh S.; Parr, Thomas; Hipólito, Inês; Magrou, Loïc; Razi, Adeel
+  CR title:   Parcels and particles: Markov blankets in the brain
+  CR venue:   Network Neuroscience
+  CR vol/iss/pages: 5/1/211-251  article-number: None
+  CR date: [2021, 1]
+== GenestZidek1986 [references.bib, @article]
+  bib author: Genest, Christian and Zidek, James V.
+  bib title: Combining Probability Distributions: A Critique and an Annotated Bibliography
+  bib journal: Statistical Science
+  bib volume: 1
+  bib number: 1
+  bib pages: 114--135
+  bib year: 1986
+  bib doi: 10.1214/ss/1177013825
+  CR authors: Genest, Christian; Zidek, James V.
+  CR title:   Combining Probability Distributions: A Critique and an Annotated Bibliography
+  CR venue:   Statistical Science
+  CR vol/iss/pages: 1/1/114-135  article-number: None
+  CR date: [1986, 2, 1]
+== GershmanPouncyGweon2017 [item7_refs.bib, @article]
+  bib author: Gershman, Samuel J. and Pouncy, Hillard Thomas and Gweon, Hyowon
+  bib title: Learning the structure of social influence
+  bib journal: Cognitive Science
+  bib volume: 41
+  bib number: S3
+  bib pages: 545--575
+  bib year: 2017
+  bib doi: 10.1111/cogs.12480
+  CR authors: Gershman, Samuel J.; Pouncy, Hillard Thomas; Gweon, Hyowon
+  CR title:   Learning the Structure of Social Influence
+  CR venue:   Cognitive Science
+  CR vol/iss/pages: 41/S3/545-575  article-number: None
+  CR date: [2017, 4]

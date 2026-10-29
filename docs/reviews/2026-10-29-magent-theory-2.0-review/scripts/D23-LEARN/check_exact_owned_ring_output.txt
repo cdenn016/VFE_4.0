@@ -1,0 +1,28 @@
+=== E1: exact reciprocal identification (no linearization) ===
+ranks (r1,r0)=(1,1): dim ker(T1; T0 th*) = 1 -> residual dimension K*dim = 3
+   |T1 th01^-1 - T1 th*01^-1| = 1.3e-15, |T0 th10^-1 - T0 th*10^-1| = 8.9e-16, |th01 th10 - I| = 6.0e-16, max|th01 - th*01| = 2.032
+ranks (r1,r0)=(2,2): dim ker(T1; T0 th*) = 0 -> residual dimension K*dim = 0
+ranks (r1,r0)=(1,2): dim ker(T1; T0 th*) = 0 -> residual dimension K*dim = 0
+
+=== E2: exact flat identification, complete exchange of three agents ===
+message-law residual = 3.6e-15; max |H - I| over 12 based loops = 7.6e-15; max |theta - theta*| = 3.550
+pure-gauge reconstruction k_0 = I, k_i = theta_(i0): max residual = 2.7e-15
+dim of linear solution space for u = 15; minus K^2 for right multiplication = 6 (expected K(dim H0 - K) = 3*(5-3) = 6)
+
+=== O1: receiver-factorized Gaussian recognition (it1:owned) ===
+|CAVI mean - exact mean| = 7.8e-16; min eig(exact block cov - inv diag block) per receiver = [0.00595 0.00553 0.00216]; total variance exact 1.970 vs factorized 0.851
+
+=== G1: dressed norm and the absence of a conjugation-invariant form on gl(K) ===
+||X||_S^2 = 8.1232036437; ||h^-1 X h||^2 at h^-1 S h^-T = 8.1232036437
+diag(t,1,1) E12 diag(t,1,1)^-1 = 3.0 (= t);  h^-1 E12 h = 0.3333333333333333
+
+=== G2: second-order error of the linearized holonomy (directed triangle) ===
+eps=1e-02: |log H - eps sum X|/eps^2 = 4.1549; |log H - eps sum X - (1/2) sum_{a>b} [X_a,X_b]|/eps^3 = 6.547
+eps=1e-03: |log H - eps sum X|/eps^2 = 4.1941; |log H - eps sum X - (1/2) sum_{a>b} [X_a,X_b]|/eps^3 = 6.549
+
+=== R1: directed ring of it2:ring (K = 1) ===
+l=3, c=1.3: |spectrum - predicted| = 2.3e-16; w = 0.2555; max |Im| per-agent = 0.221; max |Im| global = 0.0e+00
+l=5, c=-0.8: |spectrum - predicted| = 2.0e-15; w = 0.6696; max |Im| per-agent = 0.637; max |Im| global = 0.0e+00
+l=4, c=0.0: |spectrum - predicted| = 4.5e-16; w = 0.5000; max |Im| per-agent = 0.500; max |Im| global = 0.0e+00
+c=1.0: w at s = 1e-6, 1e-3, 1, 1e3, 1e6 -> [1.00000e-06 9.99000e-04 4.00000e-01 6.66223e-01 6.66666e-01]; q/(p+q) = 0.666667
+c=0.0: w at s = 1e-6, 1e-3, 1, 1e3, 1e6 -> [0.666667 0.666667 0.666667 0.666667 0.666667]; q/(p+q) = 0.666667

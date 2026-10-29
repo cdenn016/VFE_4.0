@@ -1,0 +1,5 @@
+n=1 transitions: path-law TV = 1/10, marginal TV of Z_n = 1/10 = 0.10000, max single-path gap = 1/10
+n=2 transitions: path-law TV = 1/10, marginal TV of Z_n = 0 = 0.00000, max single-path gap = 1/20
+n=3 transitions: path-law TV = 1/10, marginal TV of Z_n = 1/250 = 0.00400, max single-path gap = 39/1000
+n=4 transitions: path-law TV = 1/10, marginal TV of Z_n = 0 = 0.00000, max single-path gap = 53/2000
+n=5 transitions: path-law TV = 1/10, marginal TV of Z_n = 1/6250 = 0.00016, max single-path gap = 1871/100000

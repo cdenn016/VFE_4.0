@@ -1,0 +1,46 @@
+1. sentence-initial lowercase \cref: 1
+   chapters/16_link_base_transport.tex:222: \cref{ibt:eq:metric-compatibility}
+2. British spellings: 7 in {'chapters/03_dynamics.tex': 1, 'chapters/05_inheritance.tex': 1, 'chapters/17_communication_links.tex': 2, 'companion/c17_communication_links.tex': 1, 'Item_1_communication_links.tex': 2}
+   chapters/03_dynamics.tex:370: characteristic ...act potential. Damped oscillation on directed cycles is the characteristic behavior of non-reciprocal in...
+   chapters/05_inheritance.tex:332: characteristic ...$L$ induces on $T_{x^*}\mathsf S/\ker DR$. The characteristic polynomial of...
+   chapters/17_communication_links.tex:154: characteristic ...lity law on $\R^r$ has no nonzero translation symmetry: its characteristic function is nonzero near the ...
+   chapters/17_communication_links.tex:160: characteristic ... on $\R^r$ differs from each of its nonzero translates: its characteristic function $\varphi$ is nonzero...
+   companion/c17_communication_links.tex:111: characteristic ... a probability law has no nonzero translation symmetry. Its characteristic function is nonzero near the ...
+   Item_1_communication_links.tex:175: characteristic ...lity law on $\R^r$ has no nonzero translation symmetry: its characteristic function is nonzero near the ...
+   Item_1_communication_links.tex:181: characteristic ... on $\R^r$ differs from each of its nonzero translates: its characteristic function $\varphi$ is nonzero...
+3. banned words: 0
+4. chapter titles in sentence case (a non-initial content word starts lowercase):
+   chapters/09_public_compression.tex:1: 'Public compression and inherited responses' lowercase words ['compression', 'inherited', 'responses']
+   supplements/s03_variation.tex:1: 'Gaussian comparison costs and repeated variables' lowercase words ['comparison', 'costs', 'repeated', 'variables']
+   companion/c09_public_compression.tex:1: 'A collective trajectory is not a complete interface' lowercase words ['collective', 'trajectory', 'complete', 'interface']
+   Item_1_communication_links.tex:11: 'Status and summary' lowercase words ['summary']
+   Item_1_communication_links.tex:35: 'Codes and dictionaries' lowercase words ['dictionaries']
+   Item_1_communication_links.tex:67: 'Reception through a code' lowercase words ['code']
+   Item_1_communication_links.tex:151: 'What messages reveal about the dictionary' lowercase words ['messages', 'reveal', 'about', 'dictionary']
+   Item_1_communication_links.tex:188: 'Several modalities' lowercase words ['modalities']
+   Item_1_communication_links.tex:259: 'Curvature as dissonance' lowercase words ['dissonance']
+   Item_1_communication_links.tex:290: 'Bandwidth and source rows' lowercase words ['source', 'rows']
+   Item_1_communication_links.tex:306: 'Learning the dictionaries' lowercase words ['dictionaries']
+   Item_1_communication_links.tex:514: 'Next steps' lowercase words ['steps']
+   Item_2_link_dynamics.tex:10: 'Status and summary' lowercase words ['summary']
+   Item_2_link_dynamics.tex:25: 'The tangent communication model' lowercase words ['tangent', 'communication', 'model']
+   Item_2_link_dynamics.tex:72: 'What conversation determines' lowercase words ['conversation', 'determines']
+   Item_2_link_dynamics.tex:127: 'The two flows' lowercase words ['two', 'flows']
+   Item_2_link_dynamics.tex:171: 'The grounded limit' lowercase words ['grounded', 'limit']
+   Item_2_link_dynamics.tex:197: 'Confidence under ownership' lowercase words ['ownership']
+   Item_2_link_dynamics.tex:223: 'The reciprocal potential' lowercase words ['reciprocal', 'potential']
+   Item_2_link_dynamics.tex:281: 'Scope and open problems' lowercase words ['open', 'problems']
+   Item_3_curvature_hierarchy.tex:9: 'Integration note' lowercase words ['note']
+   Item_3_curvature_hierarchy.tex:19: 'Contents, records, and supplied parents' lowercase words ['records', 'supplied', 'parents']
+   Item_3_curvature_hierarchy.tex:58: 'The action induced by contents' lowercase words ['action', 'induced', 'contents']
+   Item_3_curvature_hierarchy.tex:150: 'Stationary reinterpretation' lowercase words ['reinterpretation']
+   Item_3_curvature_hierarchy.tex:194: 'Rigid clusters and their boundary dictionaries' lowercase words ['clusters', 'their', 'boundary', 'dictionaries']
+   Item_3_curvature_hierarchy.tex:265: 'Remaining extensions' lowercase words ['extensions']
+   Item_7_formation_feedback.tex:9: 'Status and summary' lowercase words ['summary']
+   Item_7_formation_feedback.tex:59: 'What top-down feedback cannot do' lowercase words ['top-down', 'feedback', 'cannot', 'do']
+   Item_7_formation_feedback.tex:98: 'Shared labels' lowercase words ['labels']
+   Item_7_formation_feedback.tex:154: 'Exact parents in the Gaussian location family' lowercase words ['parents', 'location', 'family']
+   Item_7_formation_feedback.tex:195: 'An instance' lowercase words ['instance']
+   Item_7_formation_feedback.tex:245: 'The formation standard' lowercase words ['formation', 'standard']
+   Item_7_formation_feedback.tex:283: 'A derived selector' lowercase words ['derived', 'selector']
+   Item_7_formation_feedback.tex:397: 'Prior work and open problems' lowercase words ['work', 'open', 'problems']

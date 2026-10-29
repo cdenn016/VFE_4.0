@@ -1,0 +1,3 @@
+mode own_anchor: anchors a >= 0 only: False; anchors at the own cluster record means with bridges always present: True
+trials 18640; reachable first stage {I, J} 9024; post-handoff attractor inside S (union from every handoff): 1; union from the actual handoff with attractor outside S: 0; (F6b) instances found: 0; elapsed 24.0 s
+owners among instances: {}

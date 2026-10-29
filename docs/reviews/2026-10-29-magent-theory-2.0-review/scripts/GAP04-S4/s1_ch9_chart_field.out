@@ -1,0 +1,16 @@
+(a) first variation vs complex-step directional derivative of E_red
+  R=0.30  complex-step=+0.170348636871975  pairing=+0.170348636871975  rel.diff=1.11e-16
+  R=0.80  complex-step=+0.014114281244297  pairing=+0.014114281244297  rel.diff=2.26e-17
+  R=1.50  complex-step=-1.063762577935472  pairing=-1.063762577935472  rel.diff=0.00e+00
+  R=0.50  complex-step=+0.101301323197510  pairing=+0.101301323197510  rel.diff=6.94e-17
+  R=1.00  complex-step=-0.289637943044813  pairing=-0.289637943044813  rel.diff=1.11e-16
+  worst relative residual: 1.11e-16
+(b) DV(0) against A h_i - kappa_N (h_i - hbar)
+  max |DV(0)h - prediction| = 1.78e-15
+(c) field on the diagonal against f(u,v)
+  max |V - f| on the diagonal = 3.61e-16
+(d) sampled Lipschitz quotients on B_R (sup norm) against L(R)
+  R=0.25  max sampled quotient=   4.3112  max sampled |DV d|=   5.7224  bound L(R)=    167.0336  ok=True
+  R=0.50  max sampled quotient=   4.9024  max sampled |DV d|=   6.8137  bound L(R)=    514.9246  ok=True
+  R=1.00  max sampled quotient=   8.0080  max sampled |DV d|=  11.5315  bound L(R)=   4767.7864  ok=True
+  R=2.00  max sampled quotient=  30.6131  max sampled |DV d|=  55.8208  bound L(R)= 388846.5835  ok=True

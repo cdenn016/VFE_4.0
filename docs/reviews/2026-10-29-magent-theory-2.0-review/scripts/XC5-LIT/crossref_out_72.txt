@@ -1,0 +1,208 @@
+# 87 bib entries carry a DOI; checking indices 72..90
+== Pollard2013 [references.bib, @incollection]
+  bib author: Pollard, David
+  bib title: A Note on Insufficiency and the Preservation of {Fisher} Information
+  bib booktitle: From Probability to Statistics and Back: High-Dimensional Models and Processes
+  bib volume: 9
+  bib pages: 266--275
+  bib year: 2013
+  bib doi: 10.1214/12-IMSCOLL919
+  CR authors: Pollard, David
+  CR title:   A note on insufficiency and the preservation of Fisher information
+  CR venue:   Institute of Mathematical Statistics Collections
+  CR vol/iss/pages: None/None/266-275  article-number: None
+  CR date: [2013]
+== Price1970 [references.bib, @article]
+  bib author: Price, George R.
+  bib title: Selection and Covariance
+  bib journal: Nature
+  bib volume: 227
+  bib pages: 520--521
+  bib year: 1970
+  bib doi: 10.1038/227520a0
+  CR authors: PRICE, GEORGE R.
+  CR title:   Selection and Covariance
+  CR venue:   Nature
+  CR vol/iss/pages: 227/5257/520-521  article-number: None
+  CR date: [1970, 8]
+== Procesi1976 [references.bib, @article]
+  bib author: Procesi, Claudio
+  bib title: The Invariant Theory of $n\times n$ Matrices
+  bib journal: Advances in Mathematics
+  bib volume: 19
+  bib number: 3
+  bib pages: 306--381
+  bib year: 1976
+  bib doi: 10.1016/0001-8708(76)90027-X
+  CR authors: Procesi, C
+  CR title:   The invariant theory of n × n matrices
+  CR venue:   Advances in Mathematics
+  CR vol/iss/pages: 19/3/306-381  article-number: None
+  CR date: [1976, 3]
+== Reinhart1959 [references.bib, @article]
+  bib author: Reinhart, Bruce L.
+  bib title: Foliated Manifolds with Bundle-Like Metrics
+  bib journal: Annals of Mathematics
+  bib volume: 69
+  bib number: 1
+  bib pages: 119--132
+  bib year: 1959
+  bib doi: 10.2307/1970097
+  CR authors: Reinhart, Bruce L.
+  CR title:   Foliated Manifolds with Bundle-Like Metrics
+  CR venue:   The Annals of Mathematics
+  CR vol/iss/pages: 69/1/119  article-number: None
+  CR date: [1959, 1]
+== RogersPitman1981 [references.bib, @article]
+  bib author: Rogers, L. C. G. and Pitman, J. W.
+  bib title: Markov Functions
+  bib journal: The Annals of Probability
+  bib volume: 9
+  bib number: 4
+  bib pages: 573--582
+  bib year: 1981
+  bib doi: 10.1214/aop/1176994363
+  CR authors: Rogers, L. C. G.; Pitman, J. W.
+  CR title:   Markov Functions
+  CR venue:   The Annals of Probability
+  CR vol/iss/pages: 9/4/573-582  article-number: None
+  CR date: [1981, 8, 1]
+== RowleyEtAl2003 [references.bib, @article]
+  bib author: Rowley, Clarence W. and Kevrekidis, Ioannis G. and Marsden, Jerrold E. and Lust, Kurt
+  bib title: Reduction and reconstruction for self-similar dynamical systems
+  bib journal: Nonlinearity
+  bib volume: 16
+  bib number: 4
+  bib pages: 1257--1275
+  bib year: 2003
+  bib doi: 10.1088/0951-7715/16/4/304
+  CR authors: Rowley, Clarence W; Kevrekidis, Ioannis G; Marsden, Jerrold E; Lust, Kurt
+  CR title:   Reduction and reconstruction for self-similar dynamical systems
+  CR venue:   Nonlinearity
+  CR vol/iss/pages: 16/4/1257-1275  article-number: None
+  CR date: [2003, 7, 1]
+== SchaubEtAl2016 [item7_refs.bib, @article]
+  bib author: Schaub, Michael T. and O'Clery, Neave and Billeh, Yazan N. and Delvenne, Jean-Charles and Lambiotte, Renaud and Barahona, Mauricio
+  bib title: Graph partitions and cluster synchronization in networks of oscillators
+  bib journal: Chaos: An Interdisciplinary Journal of Nonlinear Science
+  bib volume: 26
+  bib number: 9
+  bib pages: 094821
+  bib year: 2016
+  bib doi: 10.1063/1.4961065
+  CR authors: Schaub, Michael T.; O'Clery, Neave; Billeh, Yazan N.; Delvenne, Jean-Charles; Lambiotte, Renaud; Barahona, Mauricio
+  CR title:   Graph partitions and cluster synchronization in networks of oscillators
+  CR venue:   Chaos: An Interdisciplinary Journal of Nonlinear Science
+  CR vol/iss/pages: 26/9/None  article-number: 094821
+  CR date: [2016, 9, 1]
+== Smale1970 [references.bib, @article]
+  bib author: Smale, Stephen
+  bib title: Topology and mechanics. {I}
+  bib journal: Inventiones Mathematicae
+  bib volume: 10
+  bib pages: 305--331
+  bib year: 1970
+  bib doi: 10.1007/BF01418778
+  CR authors: Smale, S.
+  CR title:   Topology and mechanics. I
+  CR venue:   Inventiones Mathematicae
+  CR vol/iss/pages: 10/4/305-331  article-number: None
+  CR date: [1970, 12]
+== Vorobev1962 [references.bib, @article]
+  bib author: Vorob'ev, N. N.
+  bib title: Consistent Families of Measures and Their Extensions
+  bib journal: Theory of Probability and Its Applications
+  bib volume: 7
+  bib number: 2
+  bib pages: 147--163
+  bib year: 1962
+  bib doi: 10.1137/1107014
+  CR authors: Vorob’ev, N. N.
+  CR title:   Consistent Families of Measures and Their Extensions
+  CR venue:   Theory of Probability &amp; Its Applications
+  CR vol/iss/pages: 7/2/147-163  article-number: None
+  CR date: [1962, 1]
+== Wald1945 [item7_refs.bib, @article]
+  bib author: Wald, Abraham
+  bib title: Sequential tests of statistical hypotheses
+  bib journal: The Annals of Mathematical Statistics
+  bib volume: 16
+  bib number: 2
+  bib pages: 117--186
+  bib year: 1945
+  bib doi: 10.1214/aoms/1177731118
+  CR authors: Wald, A.
+  CR title:   Sequential Tests of Statistical Hypotheses
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 16/2/117-186  article-number: None
+  CR date: [1945, 6]
+== WeiKuo1969 [references.bib, @article]
+  bib author: Wei, James and Kuo, James C. W.
+  bib title: A Lumping Analysis in Monomolecular Reaction Systems: Analysis of the Exactly Lumpable System
+  bib journal: Industrial \& Engineering Chemistry Fundamentals
+  bib volume: 8
+  bib number: 1
+  bib pages: 114--123
+  bib year: 1969
+  bib doi: 10.1021/i160029a019
+  CR authors: Wei, James; Kuo, J. C. W.
+  CR title:   Lumping Analysis in Monomolecular Reaction Systems. Analysis of the Exactly Lumpable System
+  CR venue:   Industrial &amp; Engineering Chemistry Fundamentals
+  CR vol/iss/pages: 8/1/114-123  article-number: None
+  CR date: [1969, 2]
+== Wilson1974 [references.bib, @article]
+  bib author: Wilson, Kenneth G.
+  bib title: Confinement of Quarks
+  bib journal: Physical Review D
+  bib volume: 10
+  bib number: 8
+  bib pages: 2445--2459
+  bib year: 1974
+  bib doi: 10.1103/PhysRevD.10.2445
+  CR authors: Wilson, Kenneth G.
+  CR title:   Confinement of quarks
+  CR venue:   Physical Review D
+  CR vol/iss/pages: 10/8/2445-2459  article-number: None
+  CR date: [1974, 10, 15]
+== WynerZiv1976 [references.bib, @article]
+  bib author: Wyner, Aaron D. and Ziv, Jacob
+  bib title: The Rate-Distortion Function for Source Coding with Side Information at the Decoder
+  bib journal: IEEE Transactions on Information Theory
+  bib volume: 22
+  bib number: 1
+  bib pages: 1--10
+  bib year: 1976
+  bib doi: 10.1109/TIT.1976.1055508
+  CR authors: Wyner, A.; Ziv, J.
+  CR title:   The rate-distortion function for source coding with side information at the decoder
+  CR venue:   IEEE Transactions on Information Theory
+  CR vol/iss/pages: 22/1/1-10  article-number: None
+  CR date: [1976, 1]
+== Zamir1998 [references.bib, @article]
+  bib author: Zamir, Ram
+  bib title: A Proof of the {F}isher Information Inequality via a Data Processing Argument
+  bib journal: IEEE Transactions on Information Theory
+  bib volume: 44
+  bib number: 3
+  bib pages: 1246--1250
+  bib year: 1998
+  bib doi: 10.1109/18.669301
+  CR authors: Zamir, R.
+  CR title:   A proof of the Fisher information inequality via a data processing argument
+  CR venue:   IEEE Transactions on Information Theory
+  CR vol/iss/pages: 44/3/1246-1250  article-number: None
+  CR date: [1998, 5]
+== vanErvenHarremoes2014 [references.bib, @article]
+  bib author: van Erven, Tim and Harremo{\"e}s, Peter
+  bib title: R{\'e}nyi Divergence and {K}ullback--{L}eibler Divergence
+  bib journal: IEEE Transactions on Information Theory
+  bib volume: 60
+  bib number: 7
+  bib pages: 3797--3820
+  bib year: 2014
+  bib doi: 10.1109/TIT.2014.2320500
+  CR authors: van Erven, Tim; Harremoes, Peter
+  CR title:   Rényi Divergence and Kullback-Leibler Divergence
+  CR venue:   IEEE Transactions on Information Theory
+  CR vol/iss/pages: 60/7/3797-3820  article-number: None
+  CR date: [2014, 7]

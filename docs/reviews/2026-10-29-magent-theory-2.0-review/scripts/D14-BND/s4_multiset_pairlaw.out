@@ -1,0 +1,23 @@
+(a) same multiset of profile values at every base point, different unordered trees
+   D_k(fA) = [0.30155326 0.20493775],  D_k(fB) = [0.22925632 0.34953162]
+   F(fA) - F(fB) = -0.014459
+   root-response velocity d f_0/dt at t=0: A [-0.12564476  0.12564476], B [-0.13849755  0.13849755]
+   root response f_0(1): A [1.05148082 0.94851918], B [1.05158559 0.94841441]; sup diff 1.048e-04
+   multisets at t=1 equal? False
+(b) base-dependent automorphism image: sup|f_0^A(1) - f_0^C(1)| = 0.00e+00; rows 0.00e+00; unordered trees equal at t=1: True
+(c) pair-law form and Jensen gap
+   d=2: max |KL(J_k||J_k^rev) - D_k| = 1.11e-16; (D_k - KL(f||P_k f), Jensen term) = (0.1741,0.1741), (0.0000,0.0000)
+      k=0: gap for profile in bits 1..1: 0.0e+00; after adding bit-2 dependence: 0.0472
+      k=1: gap for profile in bits 1..2: 0.0e+00; after adding bit-3 dependence: nan
+   d=3: max |KL(J_k||J_k^rev) - D_k| = 1.11e-16; (D_k - KL(f||P_k f), Jensen term) = (0.2281,0.2281), (0.1872,0.1872), (0.0000,0.0000)
+      k=0: gap for profile in bits 1..1: 0.0e+00; after adding bit-2 dependence: 0.0472
+      k=1: gap for profile in bits 1..2: 0.0e+00; after adding bit-3 dependence: 0.0472
+      k=2: gap for profile in bits 1..3: 0.0e+00; after adding bit-4 dependence: nan
+   d=4: max |KL(J_k||J_k^rev) - D_k| = 1.11e-16; (D_k - KL(f||P_k f), Jensen term) = (0.2443,0.2443), (0.2004,0.2004), (0.1727,0.1727), (0.0000,0.0000)
+      k=0: gap for profile in bits 1..1: 2.1e-17; after adding bit-2 dependence: 0.0472
+      k=1: gap for profile in bits 1..2: 0.0e+00; after adding bit-3 dependence: 0.0472
+      k=2: gap for profile in bits 1..3: 0.0e+00; after adding bit-4 dependence: 0.0472
+      k=3: gap for profile in bits 1..4: 0.0e+00; after adding bit-5 dependence: nan
+   exact instance f = 1 + u_2/2, k = 0: D_0 = log(3)/4 = 0.274653, KL(f||P_0 f) = 0.130812, gap = -log(3)/2 + log(2) = 0.143841
+(d) d=3, k=0: centered first variations differ: sup |grad D_0 - grad KL(f||P_0 f)| (centered) = 1.4110
+    FD check of the averaged-source first variation: 2.51e-11

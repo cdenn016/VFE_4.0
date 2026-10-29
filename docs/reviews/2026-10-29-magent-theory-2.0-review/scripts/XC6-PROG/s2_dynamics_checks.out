@@ -1,0 +1,13 @@
+(a) force finite-difference error along tangent directions: 2.02e-09
+    c_min = 4.740e-04; C = 12.497; m(0) = -3.890; floor min(m(0),-C) = -12.497
+    min over sampled times of min log q = -3.890 (>= floor: True)
+    E monotone along samples: True; E(0) = 11.19654, E(T) = 1.74792
+    dissipated variance at T = 3.523e-07; |field| at T = 2.840e-04
+(b) three-cycle spectrum error: 6.68e-16; eigenvalues [-1.20588235-0.3565987j -1.20588235+0.3565987j -0.58823529+0.j       ]
+(c) mixed derivative of beta KL: numeric 8.67199, formula 8.67187; mean-field ELBO: -2.22e-07
+(d) registered agreement n=6: (i) error 1.25e-16; (ii) |posterior - Gibbs| 5.55e-17; (iii) |T F - E - C_n| 2.22e-16
+(e) label-model identity residual: 0.00e+00
+(f) compensation residual -2.22e-16; |Fisher velocity - W q_j (K(qbar/nu)-1)| 1.39e-16; E_q_j K(qbar/nu) - 1 = 0.00e+00
+    EM/Richardson-Lucy: KL(qbar||q_j K) 0.313281 -> 0.029343, monotone True
+(g) generic q_j: S = 1.191584 > KL = 0.964678;  source-stationary interior point (rank-2 channel, min q_j = 0.021, |K y| = 2.8e-17): S = 0.0225173110, KL = 0.0225173110, max|K(q_i/nu)-1| = 0.00e+00
+(a') start m(0) = -20.000 below -C = -12.497: min_t m(t) = -20.000, m nondecreasing while below -C: True, m(10) = -3.554

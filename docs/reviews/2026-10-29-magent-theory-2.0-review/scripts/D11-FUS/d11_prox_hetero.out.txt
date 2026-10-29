@@ -1,0 +1,5 @@
+HETERO convex single-well references; stationary partition vs lambda (persistent blocks?)
+  lam=0.05: final partition ((0,), (1,), (2,), (3,), (4,), (5,)) | argmin-F partition ((0,), (1,), (2,), (3,), (4,), (5,)) | events 0 | last event t=None
+  lam=0.2: final partition ((0, 1, 2), (3, 4), (5,)) | argmin-F partition ((0, 1, 2), (3, 4), (5,)) | events 3 | last event t=1.5180000000000011
+  lam=0.6: final partition ((0, 1, 2, 3, 4), (5,)) | argmin-F partition ((0, 1, 2, 3, 4), (5,)) | events 4 | last event t=2.0619999999999945
+  lam=2.0: final partition ((0, 1, 2, 3, 4, 5),) | argmin-F partition ((0, 1, 2, 3, 4, 5),) | events 5 | last event t=0.8240000000000006

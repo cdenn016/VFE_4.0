@@ -1,0 +1,18 @@
+draw  0: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (52.25, 2, 6), (56.85, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.9020 R 0.8982; all-coarsening == interval at every evaluation: True
+draw  1: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (43.1, 2, 6), (55.05, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8891 R 0.9006; all-coarsening == interval at every evaluation: True
+draw  2: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (50.25, 2, 6), (53.85, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8996 R 0.8964; all-coarsening == interval at every evaluation: True
+draw  3: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (45.4, 2, 6), (53.6, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8916 R 0.8993; all-coarsening == interval at every evaluation: True
+draw  4: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (46.4, 2, 6), (50.35, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8926 R 0.8965; all-coarsening == interval at every evaluation: True
+draw  5: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (44.3, 2, 6), (49.5, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8957 R 0.8904; all-coarsening == interval at every evaluation: True
+draw  6: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (39.85, 2, 6), (46.75, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8930 R 0.8853; all-coarsening == interval at every evaluation: True
+draw  7: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (40.4, 2, 6), (44.25, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8904 R 0.8860; all-coarsening == interval at every evaluation: True
+draw  8: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (59.15, 2, 6), (60.9, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.9038 R 0.9051; all-coarsening == interval at every evaluation: True
+draw  9: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (36.5, 2, 6), (49.25, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8810 R 0.8954; all-coarsening == interval at every evaluation: True
+draw 10: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (46.2, 2, 6), (53.3, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.8925 R 0.8991; all-coarsening == interval at every evaluation: True
+draw 11: full [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (52.0, 2, 6), (60.1, 2, 6)]; null [(1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3), (1.3, 1, 3)]; gaps at t=1.30 L 0.9045 R 0.8980; all-coarsening == interval at every evaluation: True
+(24) distinct (shared-label, null) partition sequences over 12 draws: 1
+      (((1, (0, 1, 2)), (1, (3, 4, 5)), (1, (6, 7, 8)), (1, (9, 10, 11)), (2, (0, 1, 2, 3, 4, 5)), (2, (6, 7, 8, 9, 10, 11))), ((1, (0, 1, 2)), (1, (3, 4, 5)), (1, (6, 7, 8)), (1, (9, 10, 11))))
+     union times in [36.50, 60.90]  (stored [36.50, 60.90])
+     all-coarsening minimizer equals the interval minimizer at every evaluation of all 24 runs: True; smallest all-coarsening margin on [0, 1.30] over the 12 full runs: 0.8234
+     gaps at the handoff t = 1.30 in [0.8810, 0.9051]; all below 0.958: True; all above the radius d_*(3) = 0.7685: True
+elapsed 16.2 s

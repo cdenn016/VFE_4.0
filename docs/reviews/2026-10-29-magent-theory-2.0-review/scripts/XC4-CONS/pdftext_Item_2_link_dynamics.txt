@@ -1,0 +1,724 @@
+MAgent Theory 2.0
+
+              Link Dynamics:
+Dictionaries in the Two Free Energies
+
+             Robert C. Dennis
+
+                Independent Researcher
+
+                       October 2026
+Status and summary
+
+This working document preserves the standalone derivation of receiver-owned link dynamics. Its
+supported results are integrated into the main manuscript's chapter on learning directed links and
+its explanatory companion. The calculations distinguish a normalized global model, normalized
+per-agent models with peers held as data, and a reciprocal potential on laws.
+The dictionary derivatives agree with the global derivatives only in the plug-in per-agent model.
+Integrating the peers' laws instead widens both record noise and loop factors. Equality of objective
+derivatives does not imply equality of Fisher velocities unless the recognition metrics also agree.
+The linear mean-flow results hold with the stated Gaussian covariances and source rows fixed. The
+grounded-limit theorem covers the global and plug-in models; it does not cover coupled law-level
+covariance updates.
+Comparison records confound changes in content with changes in the dictionary. Gaussian condi-
+tioning resolves a discrepancy among receiver adjustment, sender adjustment, and reinterpretation
+according to their prior covariances. A directed ring gives a non-gradient per-agent flow; its weak-
+anchor coupling vanishes only at nonzero operating content. A single loop gives an exact example
+of overconfidence from factorization and recycled peer information. The reciprocal potential has a
+source-role covariance derivative, but increasing stationary variance with disagreement is proved
+only in the stated scalar regime. General-law extensions and the joint mean, covariance, and row
+dynamics remain open.
+
+                                                                i
+Contents
+
+Status and summary                     i
+
+1 The tangent communication model      1
+
+2 What conversation determines         3
+
+3 The two flows                        5
+
+4 The grounded limit                   8
+
+5 Confidence under ownership           9
+
+6 The reciprocal potential             11
+
+7 Scope and open problems              14
+
+                                   ii
+Chapter 1
+
+The tangent communication model
+
+Two agents who exchange messages about something they both represent can register whether
+
+a message matches what the receiver expected. A comparison record is a noisy linear function
+
+Aiyi - Bijyj +  of the two agents' contents. With codes and receiver-owned dictionaries the natural
+choice is Bij = T¯e, the sender's code, and Ai = T¯e¯e-1, the receiver's prediction of the message
+from its own content translated into the sender's coordinates. The following construction linearizes
+
+that record and places it in the two free energies.
+
+Definition 1.1 (Tangent communication model). Let V be a finite set of agents and E a set of
+
+directed edges e : j  i with receiver i and sender j, and write in(i) for the edges received by i.
+
+Agent i has content yi  RK in its reference coordinates. Edge e carries the receiver's dictionary
+¯e = ee with e  g = gl(K, R), the sender's attending code T¯e : RK  He = Rre of full row rank
+
+re  K and a positive-definite noise covariance Re. Fix operating contents ci  RK and write
+
+i = ci. The dictionary is a receiver-owned hypothesis about the sender's coordinates; the
+independently owned opposite dictionary need not be its inverse. Define Ne = {  g : T¯e = 0},
+
+the directions invisible to grounded referents that span the content space. These can be fewer than
+the directions invisible at a single operating content, which satisfy only T¯eci = 0. The comparison
+
+record of e is
+
+                               oe = T¯e yi - yj - ie + e, e  N (0, Re),                                        (1.1)
+
+the first-order form of T¯e¯e-1yi - T¯eyj + e at ¯e = I and yi = ci. Each agent has a self term
+
+N (mi, Pi-1) with Pi positive definite, the Gaussian form at the operating point of its own generative
+
+model  and  its  own  records.     Each  edge    has  a  grounded    term  exp(-  1  e  -  ^eG2 e )  with  Ge  positive
+                                                                                  2
+
+semidefinite, the information of grounded messages, with ker Ge = Ne when their referents identify
+
+every coded direction. The dictionaries have an anchored loop prior with anchor -2I on each
+
+edge, a finite set L of simple directed loops containing every two-cycle, linearized holonomy
+
+(B) = e e, positive-definite forms W and weight   0. Put W =  W and use
+vA2 = vT Av. All codes, operating contents, grounding data, and prior forms are fixed. The
+
+Frobenius anchor and loop forms are declared reference-coordinate data, not an assertion of a
+
+positive-definite conjugation-invariant form on gl(K, R).
+
+Definition 1.2 (Global joint). Write x = (y, ) and Lex = T¯e(yi - yj - ie). The global joint has
+posterior density proportional to e-E(x) with
+
+       E(x) =               1  yi  -  miP2 i  +      1   e  2  +  1  e  -  ^e2Ge  +  1  oe  -  Lex2Re-1
+                            2                       22            2                  2
+
+                      i                          e                                                             (1.2)
+
+                      +            (B) 2W .
+                         2
+
+                            L
+
+                                                         1
+1. The tangent communication model                                                                     MAgent Theory 2.0
+
+Its precision J is positive definite because the self terms and the anchor are, so the joint is
+normalized for every value of the registered records. Write  for its information vector and x = J-1
+for the posterior mean.
+
+The linearization drops the product e(yi - ci), which is of second order in the deviations from the
+operating point. Registering oe = 0 registers agreement. The record is invariant under passive
+changes of frame when the displayed contents, codes, and dictionaries are transformed together,
+because the dictionary sits in the receiver's matrix.
+
+Definition 1.3 (Per-agent tangent model). Fix agent i and the current peer laws, qk = N (µk, k)
+for contents and rf = N (af , Vf ) for the dictionaries that i does not own. Agent i's model has the
+variables xi = (yi, in(i)) and negative log density, up to a constant,
+
+Ei  =  1  yi  - miP2 i  +             1   e2       +   1  e  -  ^eG2 e   +   1  oe - T¯e(yi - µj - ie)     2
+       2                             22                2                     2                             R~e-1
+
+                           ein(i)                                                                                     (1.3)
+
+              1                                        2
+              2
+       +                     e +                   af     ,
+
+          Li      ein(i)             f \in(i)          i
+
+where Li is the set of loops through an edge of i and
+
+                     R~e = Re + T¯ejT¯eT ,                i = (W)-1 +                              -1                 (1.4)
+
+                                                                                             Vf .
+
+                                                                                f \in(i)
+
+For  > 0, these are the record eq. (1.1) and the loop factor integrated against the peers' laws;
+
+we call this the law-level model. At  = 0 the loop terms are omitted, equivalently i = 0 by
+continuity. The convolution uses the declared product of peer dictionary marginals for each loop
+factor. Replacing R~e by Re and i by W gives the plug-in model, in which peers enter only
+through their means.
+
+The integration is Gaussian convolution: N (o; T¯(yi - yj - i), R)qj(dyj) = N (o; T¯(yi - µj -
+
+i), R~), and  e-     u+sW 2  N  (s;  a¯,  V¯  )ds  is  proportional  to  e-  1  u+a¯2  with    =  ((W )-1  + V¯ )-1.  The
+                  2                                                          2
+
+model is normalized for every value of the peer laws, which are parameters of i's model and not
+
+variables over which it infers, as in a per-agent generative model. The records with peers enter
+
+through the record term of the per-agent free energy, and the loop factors enter i's prior over its
+
+own dictionaries. Agent i's model contains no record in which i is the sender; such records belong
+
+to the receivers' models.
+
+The recognition laws are Gaussian. In the global picture they are factorized by agent, Q = i Qi(xi),
+each agent's factor holding its content and the dictionaries it owns; each local update varies one
+
+factor of a single global free energy. In the per-agent picture agent i holds a Gaussian Qi on xi and
+lowers its own free energy Fi.
+
+                                                             2
+Chapter 2
+
+What conversation determines
+
+Remark 2.1 (The interpretation gauge without linearization or Gaussian noise). Let the
+records be oe = T¯e(¯e-1yi - yj) + e with noise of any law, independent of everything else, or more
+generally let each record kernel read (y, ¯) only through the coded discrepancy T¯e(¯e-1yi - yj). Let
+K  2 and let G contain GL+(K, R). For every configuration (y, ¯) and every belief displacement
+y  y with yi = 0 and ve = ¯e-1yi + yj - yj = 0 on every edge e : j  i, there are dictionaries
+¯e  GL+(K, R) with ¯e ve = yi, because GL+(K, R) acts transitively on RK \ {0} for K  2. Then
+¯e-1yi - yj = ve - yj = ¯e-1yi - yj, so (y, ¯) gives every record the same law as (y, ¯). The
+interdependence of belief and meaning is therefore not a feature of the Gaussian tangent model: it
+
+holds pointwise, without linearization, for every record kernel of this form, and only terms other than
+
+the records can separate the two readings.
+
+Theorem 2.2 (Belief and meaning are interdependent). In the tangent communication model
+the law of the comparison records depends on (y, ) only through the coded discrepancies Lex =
+T¯e(yi - yj - ie).
+
+   (i) The displacements (y, ) that leave the law of every record unchanged form the subspace
+
+G = (y, ) : T¯e(yi - yj - ie) = 0 for every edge e : j  i .  (2.1)
+
+     If ci = 0 for every receiver, the projection of G onto belief displacements is all of (RK)V : for
+     every y, the choice e = (yi - yj)ciT /|ci|2 completes it to an element of G.
+
+(ii) The Fisher information of the records about (y, ) vanishes exactly on G, so along every
+     direction of G the posterior precision is the sum of the contributions of the self terms, the
+     grounded terms and the dictionary prior.
+
+(iii) Among the displacements with e  Ne for every edge, the belief components of G are
+     exactly the sections {y : T¯e(yi - yj) = 0 for every edge} of the code sheaf, whose edge
+     condition is the displayed equality. They contain the common shifts yi = v.
+
+Proof. (i) Each record is Lex plus independent noise, so its law is unchanged exactly when Le
+
+annihilates the displacement. For the stated choice, ie = (yi - yj)cTi ci/|ci|2 = yi - yj. (ii)
+The Fisher information of Gaussian records with fixed covariances is e LeT Re-1Le, whose kernel is
+
+  e ker Le = G; the posterior precision is J, the sum of this form and of the other terms of eq. (1.2).
+(iii) For e  Ne, T¯eie = T¯eeci = 0, so the condition reduces to T¯e(yi - yj) = 0.
+
+An exchange that disagrees with the receiver's belief can be explained by changing the belief or by
+changing the dictionary. The comparison record alone does not choose between these responses.
+The self terms, grounded records, and anchored prior supply distinct information. Even when
+
+3
+2. What conversation determines                                   MAgent Theory 2.0
+
+grounding removes dictionary freedom modulo Ne, common content shifts remain invisible to every
+pairwise discrepancy.
+
+Proposition 2.3 (Persuasion and reinterpretation). Take one edge e : j  i, independent
+Gaussian priors yi  N (mi, 0i ), yj  N (mj, 0j ) and e  N (¯e, Ve), and one record oe. Put
+
+r = oe - T¯e(mi - mj - i¯e),                         C = iVeTi .                          (2.2)
+
+(i) In the global joint, with S = T¯e(0i + j0 + C)T¯eT + Re, the posterior mean moves by
+
+yi = 0i T¯eT S-1r,               yj = -j0T¯eT S-1r,  ie = -CT¯eT S-1r.                    (2.3)
+
+  (ii) In the per-agent model of the receiver, with the sender's law N (mj, j0) as data and S =
+       T¯e(i0 + C)T¯eT + Re + T¯ej0T¯eT , the receiver's mean moves by yi = 0i T¯eT S-1r and ie =
+       -CT¯eT S-1r, and the sender does not move.
+
+  (iii) For the isotropic anchor Ve = 2I, C = 2|ci|2I.
+
+Proof. The quantity u = yi-yj -ie has prior mean mi-mj -i¯e and covariance 0i +j0+C, and
+oe = T¯eu + e. The covariances of yi, yj and ie with oe are 0i T¯eT , -j0T¯eT and -CT¯eT , and that
+of oe is S, so Gaussian conditioning gives (i). In (ii) the term T¯eyj is distributed as N (T¯emj, T¯e0j T¯eT )
+and is absorbed into the noise, which gives S. For (iii), iT v = vcTi and i(vcTi ) = |ci|2v.
+
+The Gaussian conditional update assigns a discrepancy to receiver adjustment, sender adjustment,
+and reinterpretation through the three cross-covariances in eq. (2.3). Observation noise leaves
+a residual gap, so these adjustments need not reproduce the record exactly. In the per-agent
+model the sender's uncertainty widens the receiver's likelihood while the sender remains fixed. The
+interpretation variance grows as |ci|2 under the isotropic anchor; at ci = 0 the first-order dictionary
+term cannot absorb a discrepancy. These linear shares are features of the Gaussian family.
+
+Corollary 2.4 (Grounding turns reinterpretation into persuasion). Let e be the orthogonal
+projection of g onto Ne. Then T¯eCT¯eT = T¯eieVeeTi T¯eT , so only the uncertainty of the identified
+part of the dictionary can absorb a disagreement. If the grounded information on edge e is gG¯e with
+ker G¯e = Ne, then eVee = O(1/g) and the reinterpretation share of a record is O(1/g).
+
+Proof. For   Ne, T¯ei = T¯eci = 0, so T¯ei = T¯eie. With a positive-definite prior precision 
+on e and grounded precision gG¯e, block inversion in the orthonormal bases of Ne and Ne shows,
+by taking the Schur complement of the fixed invisible block, that the covariance restricted to Ne is
+O(1/g).
+
+Grounding therefore suppresses the part of the response attributable to uncertainty about the
+identified dictionary coordinates.
+
+                                 4
+Chapter 3
+
+The two flows
+
+Proposition 3.1 (The global flow). Let the global recognition be Q = i N (µi, Si) on the agent
+blocks xi = (yi, in(i)), let Jii be the diagonal blocks of J and D = i Jii.
+
+(i)  Up   to a constant,     FG(Q)  =       1  (µ  -  x)T  J (µ  -   x)  +  1    i[tr(JiiSi) - log det Si], which is
+                                            2                               2
+     minimized by Si = Ji-i 1 and µ = x.
+
+(ii) At these covariances the Fisher-metric gradient flow of the means is µ = -D-1J(µ - x).
+
+     The matrix D-1J is similar to the positive-definite matrix D-1/2JD-1/2, so its spectrum is real
+
+     and positive, FG decreases strictly away from x, and µ  x exponentially.
+
+(iii) Each agent's block of the force is the gradient of its local free energy, the global free energy
+     as a function of its own factor. A record therefore moves the receiver's content, the sender's
+     content and the receiver's dictionary through one functional.
+
+Proof.  (i) Since  the factors are independent,       EQ[E] =     1  (µ  -  x)T  J  (µ  -  x)  +  1     i tr(JiiSi) + const,
+                                                                  2                               2
+                          1  i log det Si + const. (ii) The Fisher metric of N (µi, Si) in µi is Si-1 =
+and  the  entropy     is  2
+
+Jii, and µFG       =  J(µ - x).     The similarity is D-1J           = D-1/2(D-1/2J D-1/2)D1/2, and                d   FG  =
+                                                                                                                   dt
+-FGT D-1FG. (iii) follows by varying one factor in the same global functional; every incident
+
+likelihood contributes to that variation.
+
+The optimized factor means equal the Gaussian posterior mean, whereas Ji-i 1 is no larger in the
+Loewner order than the exact marginal covariance. Indeed, the exact marginal precision is the
+Schur complement Jii - Ji,-iJ--i1,-iJ-i,i  Jii. Exact factor means are a Gaussian property; the
+coordinate-descent identity holds more generally, without implying exact moments [1].
+
+Proposition 3.2 (The per-agent flow). Hold the peers' covariances at a fixed point of the per-agent
+
+covariance updates, and let agent i hold N (µi, Si) on xi.
+
+(i)  Up to a constant, Fi    =   1  (µi  -  xi)T   Ai(µi  -  xi)  +  1  [tr(AiSi)   -   log  det  Si],  where  Ai  = 2xi Ei
+                                 2                                   2
+     depends on the peers' covariances but not on their means, and Aixi = bi + k=i Cikµk is
+
+     affine in the peers' means.
+
+(ii) At Si = A-i 1 the Fisher flow of the means is µ = -A-1(Hµ-b) with A = i Ai and H = A-C.
+    Its fixed points solve Hµ = b.
+
+(iii) In the plug-in model, the rows of H and b that belong to dictionaries equal the corresponding
+
+     rows of J and . This equality concerns objective derivatives before Fisher preconditioning.
+
+     The rows that belong to the content of agent i equal those of J and  minus the contributions
+     LTe Re-1Le and LTe Re-1oe of the records e in which i is the sender. In the law-level model Re is
+     in addition replaced by R~e and W by i.
+
+                                                           5
+3. The two flows                                                                                       MAgent Theory 2.0
+
+ (iv) For an edge e : j  i the block Hyiyj contains -T¯eT R~e-1T¯e, while e contributes nothing to
+       Hyjyi. Hence H need not be symmetric, and its fixed point need not equal x.
+
+Proof. (i) and (ii) follow as in proposition 3.1, with the peers' means as data in Ei. For (iii), compare
+the terms of eqs. (1.2) and (1.3). A dictionary e appears in the anchor, in its grounded term, in the
+record of e and in the loop factors, and all of these belong to the model of its owner, with the same
+precisions in the plug-in model; the loop factor of  in the owner's model has the same gradient
+in e as the single loop term of the global energy. The content yi appears in its self term, in the
+records of in(i), which are in i's model, and in the records in which i is the sender, which are in the
+receivers' models only. (iv) is read off from (iii).
+
+Ownership removes sender-role content derivatives from the per-agent update. The equality
+of dictionary derivative rows holds only in the plug-in model: the law-level model uses both R~e
+and i. These derivatives are covectors. Their Fisher velocities are obtained using the block
+mobilities Ji-i 1 and A-i 1, which can differ and mix content with owned dictionary coordinates. Equal
+dictionary derivative rows consequently do not establish equal dictionary velocities. The dependency
+statement survives for general laws whenever the declared model contains only received records
+and the dictionary appears only in its owner's factors; equality of derivatives after marginalizing
+peers does not follow from ownership.
+
+Proposition 3.3 (A directed ring). Let K = 1 and let   3 agents form a directed ring in which
+agent i receives from agent i + 1, indices modulo , with T¯e = 1, record precision q~, self precision p,
+anchor precision s = -2, common operating content c, and no grounded or loop term. With the
+own-block Gaussian covariances held at their optima, the per-agent mean flow has the eigenvalue
+-1 with multiplicity  and the eigenvalues -(1 - w) for the -th roots of unity , where
+
+                                          q~s           =     q~eff                   1 c2 -1                         (3.1)
+                     w      =            pq~c2                + q~eff  ,     q~eff =    +          .
+                                ps  +           +  q~s     p                          q~ s
+
+The eigenvalues with  / R are not real, so the per-agent flow is not a gradient flow for any
+Riemannian metric, whereas the global flow of the same ring has real spectrum. As s  ,
+w  q~/(p + q~); as s  0 with c = 0, w  0. If c = 0, then w = q~/(p + q~) for every s > 0.
+
+Proof.  Agent  i's  energy  is  1  p(yi  -  mi)2   +    1  si2  +  1  q~(oi  - yi + yi+1  + ci)2.  In  the variables  (yi, i)
+                                2                       2          2
+                     p+q~ -q~c
+its Hessian is Ai =  -q~c s+q~c2         with det Ai = ps + pq~c2 + q~s, and its coupling to (yi+1, i+1) is
+
+C =     -q~ 0  . The flow matrix is block circulant, so on the vectors xk = kv it acts as -(I + A-i 1C).
+        q~c 0
+
+The matrix A-i 1C has zero second column, and its first diagonal entry is det Ai-1[(s + q~c2)(-q~) +
+
+(q~c)2] = -w. Hence the eigenvalues are -1 and -(1 - w). The linearization of a gradient flow
+
+at an equilibrium is self-adjoint for the metric there and has real spectrum, since its Jacobian
+
+is the negative metric inverse times the symmetric objective Hessian. The global statement is
+
+proposition 3.1(ii). The second form of w and the limits are algebra.
+
+For c = 0, uncertainty about the dictionary acts in the mean equations as additional record noise
+of variance c2/s. The directed oscillatory modes retain angular frequency w Im , while 0 < w < 1
+keeps every mode stable. In the limit s  0 the receiver can absorb the discrepancy through
+reinterpretation and the coupling vanishes. At c = 0 the dictionary does not enter the tangent
+
+                                                                6
+3. The two flows     MAgent Theory 2.0
+
+record, so weakening its anchor does not weaken persuasion. Here q~ = R-1 in the plug-in model
+and q~ = (R + )-1 in the law-level model at a fixed symmetric content variance . The complex
+spectrum is one explicit instance of non-reciprocal dynamics [2]; it rules out a general gradient-flow
+interpretation of the per-agent picture.
+
+                  7
+Chapter 4
+
+The grounded limit
+
+Theorem 4.1 (Separation in the grounded limit). Let Ge = gG¯e with G¯e positive semidefinite and
+ker G¯e = Ne for every edge, keep the grounded centers ^e fixed, and let g  .
+
+   (i) In the global joint the posterior mean converges to (yG, ), where yG minimizes
+
+Eknown(y) =       1  yi            -  mi2Pi  +        1  oe + T¯ei^e - T¯e(yi - yj)  2     ,  (4.1)
+                  2                                   2                              Re-1
+
+               i                                e
+
+    the identified part of e is that of ^e, and the invisible part minimizes the dictionary prior on
+    the coset ^ + e Ne. In the limit the beliefs do not depend on the dictionary prior.
+
+(ii) In the plug-in per-agent model, if the content equations
+
+Pi(yi - mi) -                      T¯eT Re-1 oe + T¯ei^e - T¯e(yi - yj) = 0  (i  V)           (4.2)
+
+               ein(i)
+
+     have a unique solution yP , the fixed point converges to it in the contents, and the identified
+     dictionary parts converge to those of ^e.
+
+(iii) In both cases the error is O(1/g).
+
+Proof. Write e = ^e + Yee + Zee in orthonormal bases Ye of Ne and Ze of Ne. Since T¯eiZe = 0,
+
+the records depend on (y, ) only.  The energy is   g     e eT ee + E~(y, , ) with e = YeT G¯eYe
+                                                   2
+positive definite and E~ independent of g. In both pictures the stationarity equations are linear and
+
+have the block form (g + H) + Hzz = b and Hz + Hzzz = bz with z = (y, ) and H, b
+independent of g. Eliminating  = (g + H)-1(b - Hzz) = O(1/g) gives (Hzz + O(1/g))z =
+bz + O(1/g), so z  Hz-z1bz at rate 1/g whenever Hzz is invertible. At  = 0 the records involve
+y alone and the dictionary prior involves  alone, so Hzz is block diagonal. Its content block
+
+gives eq. (4.1) in the global joint, where J is positive definite, and eq. (4.2) in the plug-in model,
+
+invertible by hypothesis. Its invisible-dictionary block is the restriction of the dictionary prior precision
+
+-2I+BT W B to the invisible directions, positive definite, in both pictures by proposition 3.2(iii).
+
+The theorem identifies two different known-dictionary limits. The global mean minimizes a symmetric
+quadratic comparison energy, while the plug-in per-agent fixed point solves receiver-only equations.
+The identified dictionaries agree in the limit, but the contents need not. The theorem makes no
+claim about law-level covariance updates that vary with g; controlling those updates is an additional
+obligation.
+
+                                             8
+Chapter 5
+
+Confidence under ownership
+
+Mean agreement does not imply agreement about uncertainty. The following example isolates one
+coordinate that records and grounding do not read, so all information coupling it to other dictionaries
+comes from one declared loop factor.
+
+Proposition 5.1 (Echo around a loop). Let  > 0 and let   2 edges form one loop, with
+
+distinct receivers and one coordinate ze per edge that no record or grounded term reads, with
+
+anchor  N  (0,  2)  and  loop  factor  exp(-     (  e ze)2). Every recognition below has mean zero, and the
+                                              2
+
+variances of ze are as follows.
+
+(i) Exact joint posterior: 2(1 + ( - 1)2)/(1 + 2), which tends to 2( - 1)/ as   .
+
+(ii) Receiver-factorized global recognition: (-2 + )-1, which tends to zero.
+
+(iii) Per-agent law-level recognition at its symmetric covariance fixed point: the unique positive
+
+solution v of
+
+                                       v-1 = -2 + -1 + ( - 1)v -1,            (5.1)
+
+     which tends to 2( - 2)/( - 1) for   3 and satisfies v = -1/2(1 + o(1)) for  = 2.
+
+(iv) Cavity recognition, in which each receiver's loop source uses its partners' laws with its own
+     contribution removed, so that those laws are the anchors: (-2 + (-1 + ( - 1)2)-1)-1,
+     which equals (i) for every .
+
+Proof. All terms are even in z, so the means vanish. (i) The precision is -2I + 11T , and the
+Sherman­Morrison formula gives the diagonal entry 2 - 4/(1 + 2). (ii) The factorized
+
+covariance is the inverse of the diagonal of the precision. (iii) By symmetry each receiver's loop
+
+source is the convolution of the loop factor with  - 1 partner laws of variance v, which gives
+eq. (5.1). With  = -1, clearing denominators gives ( - 1)-2v2 + (-2 + 2 - )v -  = 0, whose
+roots have product -2/( - 1) < 0, so exactly one is positive. As   0 it tends to 2( - 2)/( - 1)
+for   3, and for  = 2 it satisfies v2 + v - 2 = 0, so v = 1/2(1 + o(1)). (iv) With  = -1,
+(-2 + ( + ( - 1)2)-1)-1 = 2( + ( - 1)2)/( + 2), which is (i) after multiplying numerator
+
+and denominator by .
+
+All four constructions have the same zero mean and different variances. Factorized reverse-KL
+recognition suppresses the correlations by which the exact law satisfies the sum constraint. The
+per-agent update instead treats a partner's current marginal as new independent information, even
+though that marginal already contains information received from the same loop. For a two-cycle
+its fixed-point variance tends to zero while the exact marginal tends to 2/2. Removing the loop
+contribution from the peer messages gives the anchor laws and restores the exact marginal here.
+This is belief propagation on the tree consisting of one factor connected to  variables [3]; it is not a
+general exactness theorem for overlapping loop factors.
+
+                                                    9
+5. Confidence under ownership      MAgent Theory 2.0
+
+The recycled-information mechanism can occur for non-Gaussian laws as well. The displayed fixed
+points, rates, and equality of factor means are conclusions only for this Gaussian single-loop model.
+
+                               10
+Chapter 6
+
+The reciprocal potential
+
+The reciprocal potential is a function of agent laws. It moves each source through the costs of
+receivers that attend to it. The following extension includes dictionary laws as configuration variables.
+Registered comparison records are absent from this potential; adding persistent likelihood terms
+would define another objective.
+
+Definition 6.1 (Tangent reciprocal potential). Let a configuration consist of content laws qi =
+N (µi, i) and a factorized dictionary law r = e N (ae, Ve). For an edge e : j  i put Si,e =
+T¯eiT¯eT + Re and Sj,e = T¯ejT¯eT + Re, and define the message laws
+
+                     merec(e) = N T¯e(µi - ie), Si,e ,    mserc = N T¯eµj , Sj,e ,                (6.1)
+
+the law of the message the receiver would send about its own content read in the sender's
+coordinates, and the law of the sender's message. With fixed positive rows e, the tangent
+reciprocal potential is
+
+         E = DKL qiN (mi, Pi-1) + eEr DKL mreec(e)mserc + DKL(r),                                 (6.2)
+
+                  i                          e
+
+where      is  the   normalized  dictionary  prior  with  density  proportional  to  exp(-  1  T  (-2I  +
+                                                                                            2
+BT             1     e e - ^e2Ge ).
+    W  B)  -   2
+
+The receiver's law comes first and the source's second, as in a directed peer divergence, and the
+
+costs are divergences between message laws, rather than comparisons between independent
+
+content samples. The self term replaces the local term E0 by its tangent form. The last term makes
+
+the dictionary laws configuration variables whose part of the potential is a recognition free energy
+
+over dictionaries. With Gibbs rows in place of fixed rows, the Gibbs envelope identity gives the
+
+same derivatives with the rows evaluated at their Gibbs values, so the derivative statements below
+
+apply pointwise with those weights inserted. State-dependent Gibbs weights do not preserve the
+
+constant-coefficient mean-flow theorem.
+
+Proposition 6.2 (Forces in the reciprocal potential). Hold the covariances i and Ve fixed. Let
+ES be the global energy eq. (1.2) with every Re replaced by Sj,e/e and every registered value oe
+by zero, with precision JS and information vector S.
+
+   (i) E = ES(µ, a) + c(, V ), where c does not depend on the means.
+
+  (ii) The force on a dictionary mean ae comes only from the cost of its own edge and from ,
+       because no other cost contains e. There is no additional sender-role edge derivative for the
+       dictionary. The force on a content mean contains the terms of the edges on which the agent
+       is the sender, as in the global joint.
+
+                                                    11
+6. The reciprocal potential                                                                                   MAgent Theory 2.0
+
+   (iii) The Fisher gradient flow of the means is (µ , a ) = -M JS (µ, a) - xS with M = ( i i) 
+        ( e Ve) and xS = (JS)-1S. Its spectrum is real and negative, and its stationary point is the
+        posterior mean of the global joint in which every record has noise Sj,e/e and registered value
+        zero.
+
+   (iv) For e = 1, the content rows of JS minus the sender terms are the content rows of the
+        per-agent law-level model with oe = 0 at the same covariances. The dictionary rows of JS
+        differ from the per-agent law-level ones only in that the loop sources of the latter are widened
+
+        as in eq. (1.4).
+
+Proof.    (i)  For  Gaussian      laws    DKL(N (, A)N (, B))         =     1   [tr(B-1A)  -  r  +  (      -  )T  B-1  (  -  )  +
+                                                                            2
+log det B - log det A]. Under r the mean of merec is T¯e(µi - iae) - T¯ei(e - ae), so the averaged
+
+cost is
+
+               1  tr(Sj-,e1Si,e) - re + deT Sj-,e1de + tr(Sj-,e1T¯eiVeTi T¯eT ) + log det Sj,e - log det Si,e                (6.3)
+               2
+
+with  de  =    T¯e(µi  -   µj  -  iae)    =     Le(µ, a).  The  self  term  is  1  (µi  -  mi)T Pi(µi  -   mi)  plus  covariance
+                                                                                2
+                                                Er[T A]       aT Aa+tr(AV                         1    aT  (-2I  +BT W B)a+
+terms.    Since     r  is  a  product  and                 =                    ),  DKL (r )  is  2
+
+1     e(ae - ^e)T Ge(ae - ^e) plus covariance terms and a constant. The mean-dependent terms
+2
+sum to ES. (ii) In eq. (6.2) the variable e appears only in the cost of e and in . (iii) The
+
+Fisher metric of qi in µi is -i 1 and that of N (ae, Ve) in ae is Ve-1, so the Fisher gradient is
+M ES = M J S((µ, a) - xS), and M J S is similar to M 1/2JSM 1/2, which is positive definite because
+
+the self terms and the anchor are. (iv) In the per-agent law-level model R~e = Re + T¯ejT¯eT = Sj,e;
+
+the rest is proposition 3.2(iii).
+
+At fixed covariances and fixed rows, the reciprocal potential has the same mean-dependent
+quadratic as a particular widened Gaussian global model. This identity does not identify their
+covariance objectives, their recognition families, or their full dynamics. A dictionary occurs only
+in its own edge cost and in the declared prior, so other dictionary means enter its derivative only
+through the loop term. This locality is a dependency property of the declared fixed codes and
+prior; it persists for other laws with the same factor structure. The explicit quadratic and spectral
+conclusions use Gaussian laws and fixed covariances.
+
+Proposition 6.3 (Disagreement and certainty).
+
+   (i) In the Gaussian tangent forms of the global joint and of both per-agent models, the optimizing
+       recognition covariances do not depend on the registered records or on any mean. This is a
+       feature of linear-Gaussian models, whose posterior covariance never depends on the data,
+       and not a property of the free energies.
+
+  (ii) In the tangent reciprocal potential, the derivative of the unweighted cost of an edge e : j  k
+       with respect to the sender's covariance j is
+
+                                       1  T¯eT  Sj-,e1  Sj,e - Sk,e - dedTe - T¯ekVeTk T¯eT  Sj-,e1T¯e,                      (6.4)
+                                       2
+
+      so the source-role force on the sender's covariance vanishes exactly when the sender's
+      message covariance equals the receiver's predicted message covariance plus the outer
+      product of the coded disagreement and the reinterpretation covariance.
+
+                                                                12
+6. The reciprocal potential                                                                                   MAgent Theory 2.0
+
+(iii) Let K = 1, T¯e = 1, e = 1, and hold the dictionary deterministic, so Ve = 0. Hold the means,
+
+     R > 0, and receiver variance vk fixed, and let the sender's variance-dependent objective
+
+     consist only of its self term with precision pj and one outgoing edge cost. The stationary
+     sender variance v solves pj - v-1 + (v + R)-1 - (vk + R + d2)(v + R)-2 = 0, and at a
+     nondegenerate minimum it increases strictly with d2.
+
+Proof. (i) The global covariances are Ji-i 1 and the per-agent ones are Ai-1; these matrices depend
+
+on the precisions and on the peers' covariances only. (ii) The terms of the averaged cost that
+
+contain  Sj,e  are  1  [tr(Sj-,e1C  )    +  log  det  Sj,e]     with  C   =  Sk,e  + dedTe    + T¯ekVekT T¯eT ;  their   derivative
+                    2
+                             1  (Sj-,e1     Sj-,e1 C Sj-,e1 ),                 T¯e j T¯eT
+with  respect  to  Sj,e  is  2           -                      and   Sj,e  =              +  Re  gives  eq.  (6.4)  by  the  chain
+
+rule. (iii) The displayed function is twice the derivative of E in v; its derivative with respect to d2
+
+is -(v + R)-2 < 0, and at a nondegenerate minimum its derivative in v is positive, so the implicit
+
+function theorem gives dv/d(d2) > 0.
+
+For a regular exponential-family source q with sufficient statistic t, differentiation gives
+DKL(pq) = Eq t - Ept whenever the moments and derivatives exist. Thus source-role
+stationarity is a moment-matching condition. The Gaussian covariance formula is its second-
+moment instance, including the squared discrepancy about the sender's mean. Its contribution
+is multiplied by e in the full potential. The scalar result proves increasing stationary variance
+with disagreement only while the other specified quantities are frozen. Competing self terms,
+receiver roles, other source roles, moving means, and changing rows determine the full covariance
+velocity, so no monotone loss of certainty is asserted for that flow. General non-Gaussian Bayesian
+posteriors may also change their uncertainty when records change.
+
+For product dictionary laws in definition 6.1, covariance stationarity gives Ve-1 = -2I +
+(BT W B)ee + Ge + eTi T¯eT Sj-,e1T¯ei. The grounded and record information vanish on Ne. When
+W = I, the loop diagonal block is the number of simple loops containing e times the identity, so
+Ne is invariant under this precision. In the single-loop setting of proposition 5.1, the variance on
+an unread coordinate is (-2 + )-1, the same value as factorized global recognition. No general
+marginal-variance formula for overlapping loops is implied.
+
+                                                                      13
+Chapter 7
+
+Scope and open problems
+
+Open problem 7.1 (Rows and covariances in the reciprocal potential). With Gibbs rows the
+costs select sources and also affect sender covariances. Determine the stationary points and
+stability of the coupled restricted-family dynamics of means, covariances, and rows. The constant-
+coefficient mean-flow results do not settle this problem, and the scalar certainty result does not
+establish grouping or formation.
+Open problem 7.2 (Convergence of per-agent flows). Find conditions on the self, record, and
+loop precisions under which the per-agent fixed point is unique and its mean flow converges.
+Determine whether the law-level covariance updates have a unique fixed point. The directed ring
+supplies one stable non-gradient example, not a general convergence theorem.
+Open problem 7.3 (Beyond the tangent model). Keep the product e(yi-ci) and let the operating
+contents follow the beliefs. Factorized recognition then acquires second-moment terms, and the
+interpretation gauge of theorem 2.2 becomes a nonlinear orbit. Determine whether grounding still
+separates belief from meaning at the nonlinear level.
+Open problem 7.4 (General laws). The Gaussian tangent model is a computational simplification.
+Extend its conclusions to general laws, with record kernels that read the coded discrepancy and
+location-family noise. Four parts are open: the attribution of a coded disagreement among receiver
+persuasion, sender persuasion and reinterpretation when contents and dictionary priors are not
+Gaussian; the grounded limit, in which the reinterpretation share should vanish as grounding
+identifies the dictionaries; whether disagreement changes certainty in the two free energies, and
+how that Bayesian effect compares with the source-role moment matching of the reciprocal potential;
+and the echo and cavity statements for non-Gaussian loop factors, where cavity messages are
+belief propagation without Gaussian closure and the factorized means are no longer exact.
+Open problem 7.5 (What agents must exchange). A receiver using a loop prior needs information
+about dictionaries owned elsewhere. An echo-free protocol must specify which prior contributions
+are removed from each transmitted law. Formulate that exchange through declared codes and
+record kernels, and determine the loop information it makes observable.
+
+                                                               14
+Bibliography
+
+[1] Christopher M. Bishop. Pattern Recognition and Machine Learning. Springer, New York, 2006.
+[2] Michel Fruchart, Ryo Hanai, Peter B. Littlewood, and Vincenzo Vitelli. Non-reciprocal phase transitions.
+
+     Nature, 592:363­369, 2021.
+[3] Judea Pearl. Probabilistic Reasoning in Intelligent Systems: Networks of Plausible Inference. Morgan
+
+     Kaufmann, San Mateo, CA, 1988.
+
+                                                               15
+

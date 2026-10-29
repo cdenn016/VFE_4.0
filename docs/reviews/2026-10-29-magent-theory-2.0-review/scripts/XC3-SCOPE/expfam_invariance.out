@@ -1,0 +1,8 @@
+block-constant family, 3 blocks on 6 points (d=2) | max outside fraction at t=0: 0.0 | sup log-distance from family at t=4: 8.24e-15
+one-parameter family T=t on 6 points (d=1) | max outside fraction at t=0: 0.042744 | sup log-distance from family at t=4: 4.16e-03
+two-parameter family T=(t,t^2) on 6 points (d=2) | max outside fraction at t=0: 0.084176 | sup log-distance from family at t=4: 2.29e-04
+one-parameter family T=t on 3 points (d=1) | max outside fraction at t=0: 0.287086 | sup log-distance from family at t=4: 9.65e-04
+binary alphabet (full family) | max outside fraction at t=0: 0.0 | sup log-distance from family at t=4: 1.39e-16
+eta 0.5 | residual e^{2 eta} - (a + 2 b) = 4.208e-01 | (e^eta - 1)^2 = 4.208e-01
+eta 0.1 | residual e^{2 eta} - (a + 2 b) = 1.106e-02 | (e^eta - 1)^2 = 1.106e-02
+eta 0.01 | residual e^{2 eta} - (a + 2 b) = 1.010e-04 | (e^eta - 1)^2 = 1.010e-04

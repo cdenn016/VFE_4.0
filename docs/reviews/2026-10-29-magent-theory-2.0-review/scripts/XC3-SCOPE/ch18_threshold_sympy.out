@@ -1,0 +1,6 @@
+matter gradient at x_* (should be zero): [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  C1-C2 = 0
+g = [1, -1/2, -1/2, -1/2, -1/2, 0, -1/4, 1/4, 1/4, -1/4]
+H positive definite: True
+g^T H^-1 g = 6538/5059  T_c = 3269/10118  (manuscript 3269/10118): True
+H^-1 g * 5059 = [2400, -960, -960, -1600, -1600, 0, -716, 716, 2440, -2440]
+frozen-variance T_mean = 31/122  (manuscript 31/122): True

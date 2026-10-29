@@ -1,0 +1,14 @@
+(1) LOR(R) = -0.956465; max abs(LOR(zeta_t) - LOR(R)(1 - e^-t)) = 1.95e-14
+(2) pdot + p(1-p)(l - l0) = p*(p - 1)*(-log((p - 1)/(p0 - 1)) - log(-1/(p - 1)) + log(-1/(p0 - 1))); ldot + (l - l0) = log((p - 1)/(p0 - 1)) + log(-1/(p - 1)) - log(-1/(p0 - 1))
+(3) joint Fisher norm 60.775651041550 vs sum of factor norms 60.775651041550
+(4) directed three-cycle, (1+w) l_i' = -(l_i - rho_i) - w (l_i - l_{i+1})
+  w = 0.5: eigenvalues [-1.166667+0.288675j -1.166667-0.288675j -0.666667+0.j      ] (error vs stated 2.2e-16); eigenvalues of the symmetric part [-1.166667 -1.166667 -0.666667]
+     => d/dt |l - l*|^2 <= 2 * (-0.6667) |l - l*|^2: |l - l*|^2 is a strict global Lyapunov function
+  w = 2.0: eigenvalues [-1.333333+0.57735j -1.333333-0.57735j -0.333333+0.j     ] (error vs stated 7.4e-16); eigenvalues of the symmetric part [-1.333333 -1.333333 -0.333333]
+     => d/dt |l - l*|^2 <= 2 * (-0.3333) |l - l*|^2: |l - l*|^2 is a strict global Lyapunov function
+  w = 10.0: eigenvalues [-1.454545+0.787296j -1.454545-0.787296j -0.090909+0.j      ] (error vs stated 1.4e-15); eigenvalues of the symmetric part [-1.454545 -1.454545 -0.090909]
+     => d/dt |l - l*|^2 <= 2 * (-0.0909) |l - l*|^2: |l - l*|^2 is a strict global Lyapunov function
+(2, numeric on a 50x50 grid in (0,1)^2) max residuals 2.2e-16, 2.4e-15
+(5) per-agent Bernoulli dynamics with fixed rows and identity channels on random directed graphs
+  2000 graphs: max log-norm mu_inf(A) = -0.0000 (< 0 means max_i |l_i - l*_i| is a strict Lyapunov function)
+  min eigenvalue of the Lyapunov solution P (A'P + PA = -I) = 0.2504 (> 0: quadratic Lyapunov function); max imaginary part of spectrum 0.764

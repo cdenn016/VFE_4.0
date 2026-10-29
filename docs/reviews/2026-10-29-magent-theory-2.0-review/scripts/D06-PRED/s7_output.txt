@@ -1,0 +1,11 @@
+(a) min eigenvalue of Cov(Y|xi) - D I^-1 D^T over 200 records (>= 0): 0.2507237912834403
+(a) companion scalar example: D^2/I = 2.0 <= Var(Y|xi) = 2.25 ; gap = Q = 0.25
+(b) exclusive carrier: w' = [0.8159 0.1841 0.    ], mean -0.8397, var 0.6660;  moment carrier: w = [0.5 0.3 0.2], mean 0.2100, var 2.6229
+    KL(w'xq_MF||Pi) = 0.51394 vs KL(w x q_G||Pi) = 2.83789
+    KL(Pi||w x q_G) = 0.66212 vs KL(Pi||w'x q_MF) = 4.87576
+    at w' = w the exclusive variance (sum w_a/P_a)^-1 = 0.6393 <= sum w_a P_a = 0.7700 <= S = 2.6229
+(c) Fisher flow vs closed form and vs tempered posterior (t, err_closed, err_tempered): [(0.5, '1.5e-13', '1.5e-13'), (1.0, '3.8e-13', '3.8e-13'), (2.0, '5.3e-13', '5.3e-13'), (3.0, '6.0e-13', '6.0e-13')]
+(c) N(xi;u,C)^beta / N(xi;u,C/beta) constant in u: spread = 1.3322676295501878e-15
+(d) canonical correlations [0.842  0.7488 0.5967]; D(top-2) = 0.220034, formula -1/2 sum_(k>r) log(1-rho^2) = 0.220034; best of 2000 random rank-2 encoders 0.227659
+(e) per-label evidence: Kalman vs stacked joint, max |diff| = 1.7763568394002505e-15
+(e) exact label posterior (parallel Kalman filters) = [0.125211 0.874789] ; fresh-emission filter = [0.275212 0.724788]

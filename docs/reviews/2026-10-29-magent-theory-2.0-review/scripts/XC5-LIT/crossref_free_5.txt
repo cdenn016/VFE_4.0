@@ -1,0 +1,57 @@
+== QUERY: Davidson Radical interpretation Dialectica 1973
+  -- hit 1: DOI 10.1111/j.1746-8361.1973.tb00623.x
+  CR authors: Davidson, Donald
+  CR title:   Radical Interpretation
+  CR venue:   Dialectica
+  CR vol/iss/pages: 27/3/4/313-328  article-number: None
+  CR date: [1973]
+  -- hit 2: DOI 10.1111/j.1746-8361.1973.tb01588.x
+  CR authors: Mehra, Jagdish
+  CR title:   The Quantum Principle: Its Interpretation and Epistemology
+  CR venue:   Dialectica
+  CR vol/iss/pages: 27/2/75-158  article-number: None
+  CR date: [1973]
+  -- hit 3: DOI 10.1017/upo9781844653027.004
+  CR authors: 
+  CR title:   Radical interpretation
+  CR venue:   Donald Davidson
+  CR vol/iss/pages: None/None/48-76  article-number: None
+  CR date: [2004, 3, 31]
+== QUERY: Davidson Belief and the basis of meaning Synthese 1974
+  -- hit 1: DOI 10.1007/bf00484597
+  CR authors: Davidson, Donald
+  CR title:   Belief and the basis of meaning
+  CR venue:   Synthese
+  CR vol/iss/pages: 27/3-4/309-323  article-number: None
+  CR date: [1974]
+  -- hit 2: DOI 10.1093/0199246297.005.0001
+  CR authors: Davidson, Donald
+  CR title:   Belief and the Basis of Meaning (1974)
+  CR venue:   Inquiries into Truth and Interpretation
+  CR vol/iss/pages: None/None/281-286  article-number: None
+  CR date: [2001, 9, 27]
+  -- hit 3: DOI 10.1093/0199246297.003.0010
+  CR authors: Davidson, Donald
+  CR title:   Belief and the Basis of Meaning
+  CR venue:   Inquiries into Truth and Interpretation
+  CR vol/iss/pages: None/None/141-154  article-number: None
+  CR date: [2001, 9, 27]
+== QUERY: Weiss Freeman Correctness of belief propagation in Gaussian graphical models of arbitrary topology
+  -- hit 1: DOI 10.21236/ada603879
+  CR authors: Weiss, Yair; Freeman, William T.
+  CR title:   Correctness of Belief Propogation in Gaussian Graphical Models of Arbitrary Topology
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [1999, 6, 1]
+  -- hit 2: DOI 10.1162/089976601750541769
+  CR authors: Weiss, Yair; Freeman, William T.
+  CR title:   Correctness of Belief Propagation in Gaussian Graphical Models of Arbitrary Topology
+  CR venue:   Neural Computation
+  CR vol/iss/pages: 13/10/2173-2200  article-number: None
+  CR date: [2001, 10, 1]
+  -- hit 3: DOI 10.7551/mitpress/3349.003.0018
+  CR authors: Weiss, Yair
+  CR title:   Correctness of Local Probability Propagation in Graphical Models with Loops
+  CR venue:   Graphical Models
+  CR vol/iss/pages: None/None/367-408  article-number: None
+  CR date: [2001, 10, 12]

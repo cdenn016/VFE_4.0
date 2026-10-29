@@ -1,0 +1,12 @@
+lattice size |X_n| = 16, n = 9
+(i)   max relative error of |T_p| exp(-n[H + D]) vs brute force = 3.49e-15
+      0 <= c_n(p) <= |supp p| log(n+1)/n on every registered target: True
+(ii)  max abs(label posterior - Gibbs row at T = 1/n) = 3.89e-16
+(iii) max abs(T F - [E + C_n + T log|X_n|]) over 16 configurations x 5 random rows = 1.33e-15
+(iv)  max abs(E_red - [-T log P(o|x) - C_n]) = 1.11e-15; min over x of E_red + C_n + T log|X_n| + T log P(o) = 0.0891 (nonnegative)
+== cor:dyn-frozen-source by brute force (N = 3, ternary alphabet) ==
+  abs(T KL(beta x q^N || pi nu_J^N) - [sum beta D + T KL(beta||pi)]) = 4.44e-16
+  posterior of J for a sequence of type (2/3,1/3,0) vs Gibbs row at T = 1/N: 1.11e-16
+== remark after thm:dyn-registered: multinomial covariance equals T times the inverse Fisher metric ==
+  max abs(Cov(empirical freq) - (diag p - p p^T)/n) = 2.08e-17
+  (diag p - p p^T) h equals the Fisher gradient p (h - E_p h): 2.78e-17

@@ -1,0 +1,107 @@
+0.60 KullbackLeibler1951 [references.bib] 'On Information and Sufficiency' (1951) <> Kullback1959 [references.bib] 'Information Theory and Statistics' (1959)
+0.76 Kallenberg2021 [references.bib] 'Foundations of Modern Probability' (2021) <> Dieudonne1960 [references.bib] 'Foundations of Modern Analysis' (1960)
+0.30 Shannon1959 [references.bib] 'Coding Theorems for a Discrete Source with a Fidelity Criter' (1959) <> Shannon1948 [item1_refs.bib] 'A mathematical theory of communication' (1948)
+0.36 AyJostLeSchwachhofer2015 [references.bib] 'Information Geometry and Sufficient Statistics' (2015) <> AyJostLeSchwachhofer2018 [references.bib] 'Parametrized Measure Models' (2018)
+0.78 AyJostLeSchwachhofer2015 [references.bib] 'Information Geometry and Sufficient Statistics' (2015) <> Kullback1959 [references.bib] 'Information Theory and Statistics' (1959)
+1.00 LewisNigamOlver2003 [references.bib] 'Connections for General Group Actions' (2003) <> LewisNigamOlver2005 [references.bib] 'Connections for General Group Actions' (2005)
+0.77 Gray1990 [references.bib] 'Entropy and Information Theory' (1990) <> CoverThomas2006 [references.bib] 'Elements of Information Theory' (2006)
+0.18 Friston2010 [references.bib] 'The free-energy principle: a unified brain theory?' (2010) <> FristonEtAl2021 [references.bib] 'Parcels and Particles: {M}arkov Blankets in the Brain' (2021)
+0.23 Friston2010 [references.bib] 'The free-energy principle: a unified brain theory?' (2010) <> FristonFrith2015 [item1_refs.bib] 'A duet for one' (2015)
+0.36 Friston2010 [references.bib] 'The free-energy principle: a unified brain theory?' (2010) <> FristonEtAl2020Language [item1_refs.bib] 'Generative models, linguistic communication and active infer' (2020)
+0.80 BairdWood2003 [references.bib] 'Harmonic Morphisms Between {R}iemannian Manifolds' (2003) <> EellsSampson1964 [references.bib] 'Harmonic Mappings of Riemannian Manifolds' (1964)
+0.39 Csiszar1975 [references.bib] '{I}-Divergence Geometry of Probability Distributions and Min' (1975) <> Csiszar1984 [references.bib] 'Sanov Property, Generalized {I}-Projection and a Conditional' (1984)
+0.25 FristonEtAl2021 [references.bib] 'Parcels and Particles: {M}arkov Blankets in the Brain' (2021) <> FristonFrith2015 [item1_refs.bib] 'A duet for one' (2015)
+0.34 FristonEtAl2021 [references.bib] 'Parcels and Particles: {M}arkov Blankets in the Brain' (2021) <> FristonEtAl2020Language [item1_refs.bib] 'Generative models, linguistic communication and active infer' (2020)
+0.26 GolubitskyStewart2002 [references.bib] 'The Symmetry Perspective: From Equilibrium to Chaos in Phase' (2002) <> GolubitskyStewartSchaeffer1988 [references.bib] 'Singularities and Groups in Bifurcation Theory, Volume {II}' (1988)
+0.26 FristonFrith2015 [item1_refs.bib] 'A duet for one' (2015) <> FristonEtAl2020Language [item1_refs.bib] 'Generative models, linguistic communication and active infer' (2020)
+
+== titles whose capitalized words are unbraced and will be lowercased by plainnat (article/inproceedings/incollection/misc)
+  references.bib:1 KullbackLeibler1951 [article]: unbraced capitals ['Information', 'Sufficiency'] in 'On Information and Sufficiency'
+  references.bib:22 Amari1998 [article]: unbraced capitals ['Gradient', 'Works', 'Efficiently', 'Learning'] in 'Natural Gradient Works Efficiently in Learning'
+  references.bib:33 Wilson1974 [article]: unbraced capitals ['Quarks'] in 'Confinement of Quarks'
+  references.bib:44 Tong2018 [misc]: unbraced capitals ['Theory'] in 'Gauge Theory'
+  references.bib:52 Shannon1959 [article]: unbraced capitals ['Theorems', 'Discrete', 'Source', 'Fidelity', 'Criterion'] in 'Coding Theorems for a Discrete Source with a Fidelity Criterion'
+  references.bib:63 WynerZiv1976 [article]: unbraced capitals ['Rate-Distortion', 'Function', 'Source', 'Coding', 'Side', 'Information', 'Decoder'] in 'The Rate-Distortion Function for Source Coding with Side Information at the Decoder'
+  references.bib:74 Tishby1999 [misc]: unbraced capitals ['Information', 'Bottleneck', 'Method'] in 'The Information Bottleneck Method'
+  references.bib:92 Hocking2011 [inproceedings]: unbraced capitals ['An', 'Algorithm', 'Clustering', 'Using', 'Convex', 'Fusion', 'Penalties'] in 'Clusterpath: An Algorithm for Clustering Using Convex Fusion Penalties'
+  references.bib:101 Cortes2006 [article]: unbraced capitals ['Convergent', 'Gradient', 'Flows', 'Applications', 'Network', 'Consensus'] in 'Finite-Time Convergent Gradient Flows with Applications to Network Consensus'
+  references.bib:111 AyJostLeSchwachhofer2015 [article]: unbraced capitals ['Geometry', 'Sufficient', 'Statistics'] in 'Information Geometry and Sufficient Statistics'
+  references.bib:121 BarnettSeth2023 [article]: unbraced capitals ['Independence', 'Discovering', 'Emergent', 'Macroscopic', 'Processes', 'Complex', 'Dynamical', 'Systems'] in 'Dynamical Independence: Discovering Emergent Macroscopic Processes in Complex Dynamical Sy'
+  references.bib:131 ShaliziCrutchfield2001 [article]: unbraced capitals ['Mechanics', 'Pattern', 'Prediction', 'Structure', 'Simplicity'] in 'Computational Mechanics: Pattern and Prediction, Structure and Simplicity'
+  references.bib:141 HorstmeyerAtay2016 [article]: unbraced capitals ['Exact', 'Lumpability', 'Vector', 'Fields', 'Smooth', 'Manifolds'] in 'Characterization of Exact Lumpability for Vector Fields on Smooth Manifolds'
+  references.bib:151 ElderingKvalheimRevzen2018 [article]: unbraced capitals ['Linearization', 'Fiber', 'Bundle', 'Structure', 'Invariant', 'Manifolds'] in 'Global Linearization and Fiber Bundle Structure of Invariant Manifolds'
+  references.bib:163 HermannKrener1977 [article]: unbraced capitals ['Controllability', 'Observability'] in 'Nonlinear Controllability and Observability'
+  references.bib:174 AyJostLeSchwachhofer2018 [article]: unbraced capitals ['Measure', 'Models'] in 'Parametrized Measure Models'
+  references.bib:186 Pollard2013 [incollection]: unbraced capitals ['Note', 'Insufficiency', 'Preservation', 'Information'] in 'A Note on Insufficiency and the Preservation of {Fisher} Information'
+  references.bib:199 Guichardet1984 [article]: unbraced capitals ['Rotation', 'Vibration', 'Motions', 'Molecules'] in 'On Rotation and Vibration Motions of Molecules'
+  references.bib:210 LewisNigamOlver2003 [misc]: unbraced capitals ['General', 'Group', 'Actions'] in 'Connections for General Group Actions'
+  references.bib:229 Ryabko2017 [misc]: unbraced capitals ['Clustering', 'Without', 'Matrix'] in 'Independence Clustering (Without a Matrix)'
+  references.bib:238 ChanEtAl2016 [misc]: unbraced capitals ['A', 'Mathematical', 'Theory', 'Data', 'Clustering'] in 'Info-Clustering: A Mathematical Theory for Data Clustering'
+  references.bib:247 LetacMassam2017 [misc]: unbraced capitals ['Non-Existence', 'Non-Central', 'Distributions'] in 'Existence and Non-Existence of the Non-Central {Wishart} Distributions'
+  references.bib:324 Abbas2009 [article]: unbraced capitals ['View', 'Linear', 'Log-Linear', 'Pools'] in 'A {K}ullback-{L}eibler View of Linear and Log-Linear Pools'
+  references.bib:335 AbsilMahonyAndrews2005 [article]: unbraced capitals ['Iterates', 'Descent', 'Methods', 'Analytic', 'Cost', 'Functions'] in 'Convergence of the Iterates of Descent Methods for Analytic Cost Functions'
+  references.bib:373 BatesLuZeng2000 [article]: unbraced capitals ['Foliations', 'Normally', 'Hyperbolic', 'Invariant', 'Manifolds', 'Semiflows'] in 'Invariant Foliations near Normally Hyperbolic Invariant Manifolds for Semiflows'
+  references.bib:384 BattistelliChisci2014 [article]: unbraced capitals ['Average', 'Consensus', 'Probability', 'Densities', 'Distributed', 'State', 'Estimation', 'Guaranteed'] in '{K}ullback--{L}eibler Average, Consensus on Probability Densities, and Distributed State E'
+  references.bib:391 BaumPetrie1966 [article]: unbraced capitals ['Inference', 'Probabilistic', 'Functions', 'Finite', 'State', 'Chains'] in 'Statistical Inference for Probabilistic Functions of Finite State {M}arkov Chains'
+  references.bib:413 Blackwell1953 [article]: unbraced capitals ['Comparisons', 'Experiments'] in 'Equivalent Comparisons of Experiments'
+  references.bib:424 BonaschiEtAl2015 [article]: unbraced capitals ['Gradient', 'Flows', 'Entropy', 'Solutions', 'Singular', 'Nonlocal', 'Interaction', 'Equations'] in 'Equivalence of Gradient Flows and Entropy Solutions for Singular Nonlocal Interaction Equa'
+  references.bib:445 Buchholz1994 [article]: unbraced capitals ['Ordinary', 'Lumpability', 'Finite', 'Chains'] in 'Exact and Ordinary Lumpability in Finite {M}arkov Chains'
+  references.bib:466 BurkeRosenblatt1958 [article]: unbraced capitals ['Function', 'Chain'] in 'A {M}arkovian Function of a {M}arkov Chain'
+  references.bib:486 CarrilloEtAl2011 [article]: unbraced capitals ['Weak', 'Measure', 'Solutions', 'Finite-Time', 'Aggregation', 'Nonlocal', 'Interaction', 'Equations'] in 'Global-in-Time Weak Measure Solutions and Finite-Time Aggregation for Nonlocal Interaction'
+  references.bib:504 ChenEtAl2023 [misc]: unbraced capitals ['Gradient', 'Flows', 'Space', 'Probability', 'Measures'] in 'Sampling via Gradient Flows in the Space of Probability Measures'
+  references.bib:532 CourtadeWeissman2014 [article]: unbraced capitals ['Source', 'Coding', 'Under', 'Logarithmic', 'Loss'] in 'Multiterminal Source Coding Under Logarithmic Loss'
+  references.bib:540 CrandallLiggett1971 [article]: unbraced capitals ['Semi-Groups', 'Nonlinear', 'Transformations', 'General', 'Spaces'] in 'Generation of Semi-Groups of Nonlinear Transformations on General {B}anach Spaces'
+  references.bib:551 Csiszar1975 [article]: unbraced capitals ['Geometry', 'Probability', 'Distributions', 'Minimization', 'Problems'] in '{I}-Divergence Geometry of Probability Distributions and Minimization Problems'
+  references.bib:558 Csiszar1984 [article]: unbraced capitals ['Property', 'Generalized', 'Projection', 'Conditional', 'Limit', 'Theorem'] in 'Sanov Property, Generalized {I}-Projection and a Conditional Limit Theorem'
+  references.bib:565 Culver1966 [article]: unbraced capitals ['Existence', 'Uniqueness', 'Real', 'Logarithm', 'Matrix'] in 'On the Existence and Uniqueness of the Real Logarithm of a Matrix'
+  references.bib:576 DAddaLuscherDiVecchia1978 [article]: unbraced capitals ['Expandable', 'Series', 'Non-Linear', 'Models', 'Instantons'] in 'A $1/n$ Expandable Series of Non-Linear $\\sigma$ Models with Instantons'
+  references.bib:587 Dawid1979 [article]: unbraced capitals ['Independence', 'Statistical', 'Theory'] in 'Conditional Independence in Statistical Theory'
+  references.bib:598 DeGroot1974 [article]: unbraced capitals ['Consensus'] in 'Reaching a Consensus'
+  references.bib:605 DerisaviHermannsSanders2003 [article]: unbraced capitals ['State-Space', 'Lumping', 'Chains'] in 'Optimal State-Space Lumping in {M}arkov Chains'
+  references.bib:616 DiaconisZabell1982 [article]: unbraced capitals ['Subjective', 'Probability'] in 'Updating Subjective Probability'
+  references.bib:640 DonskerVaradhan1975 [article]: unbraced capitals ['Evaluation', 'Certain', 'Process', 'Expectations', 'Large', 'Time'] in 'Asymptotic Evaluation of Certain {M}arkov Process Expectations for Large Time, {I}'
+  references.bib:663 EphraimMerhav2002 [article]: unbraced capitals ['Processes'] in 'Hidden {M}arkov Processes'
+  references.bib:685 Fenichel1974 [article]: unbraced capitals ['Stability', 'Rate', 'Conditions'] in 'Asymptotic Stability with Rate Conditions'
+  references.bib:716 FristonEtAl2021 [article]: unbraced capitals ['Particles', 'Blankets', 'Brain'] in 'Parcels and Particles: {M}arkov Blankets in the Brain'
+  references.bib:727 Fritz2020 [article]: unbraced capitals ['Synthetic', 'Approach', 'Kernels', 'Conditional', 'Independence', 'Theorems', 'Sufficient', 'Statistics'] in 'A Synthetic Approach to {M}arkov Kernels, Conditional Independence and Theorems on Suffici'
+  references.bib:734 FruchartEtAl2021 [article]: unbraced capitals ['Phase', 'Transitions'] in 'Non-Reciprocal Phase Transitions'
+  references.bib:741 GenestZidek1986 [article]: unbraced capitals ['Probability', 'Distributions', 'A', 'Critique', 'Annotated', 'Bibliography'] in 'Combining Probability Distributions: A Critique and an Annotated Bibliography'
+  references.bib:795 Guckenheimer1975 [article]: unbraced capitals ['Phaseless', 'Sets'] in 'Isochrons and Phaseless Sets'
+  references.bib:806 HalmosSavage1949 [article]: unbraced capitals ['Theorem', 'Theory', 'Sufficient', 'Statistics'] in 'Application of the {R}adon--{N}ikodym Theorem to the Theory of Sufficient Statistics'
+  references.bib:813 Haynsworth1968 [article]: unbraced capitals ['Inertia', 'Partitioned', 'Matrix'] in 'Determination of the Inertia of a Partitioned {H}ermitian Matrix'
+  references.bib:844 JordanEtAl1999 [article]: unbraced capitals ['Introduction', 'Variational', 'Methods', 'Graphical', 'Models'] in 'An Introduction to Variational Methods for Graphical Models'
+  references.bib:851 KaganShepp2005 [article]: unbraced capitals ['Sufficiency', 'Paradox', 'An', 'Insufficient', 'Statistic', 'Preserving', 'Information'] in 'A Sufficiency Paradox: An Insufficient Statistic Preserving the {F}isher Information'
+  references.bib:872 KirchhoffEtAl2018 [article]: unbraced capitals ['Blankets', 'Life', 'Autonomy', 'Active', 'Inference', 'Free', 'Energy', 'Principle'] in 'The {M}arkov Blankets of Life: Autonomy, Active Inference and the Free Energy Principle'
+  references.bib:899 LaSalle1960 [article]: unbraced capitals ['Extensions', 'Second', 'Method'] in "Some Extensions of {L}iapunov's Second Method"
+  references.bib:921 LarsenSkou1991 [article]: unbraced capitals ['Probabilistic', 'Testing'] in 'Bisimulation through Probabilistic Testing'
+  references.bib:942 LeBruynProcesi1990 [article]: unbraced capitals ['Representations', 'Quivers'] in 'Semisimple Representations of Quivers'
+  references.bib:975 LewisNigamOlver2005 [article]: unbraced capitals ['General', 'Group', 'Actions'] in 'Connections for General Group Actions'
+  references.bib:986 LiRabitz1989 [article]: unbraced capitals ['General', 'Analysis', 'Exact', 'Lumping', 'Chemical', 'Kinetics'] in 'A General Analysis of Exact Lumping in Chemical Kinetics'
+  references.bib:997 LittlejohnReinsch1997 [article]: unbraced capitals ['Fields', 'Separation', 'Rotations', 'Internal', 'Motions', 'Body', 'Problem'] in 'Gauge Fields in the Separation of Rotations and Internal Motions in the $n$-Body Problem'
+  references.bib:1024 MauroyMezicMoehlis2013 [article]: unbraced capitals ['Isochrons', 'Spectrum', 'Action-Angle', 'Representation', 'Stable', 'Fixed', 'Point', 'Dynamics'] in 'Isostables, Isochrons, and {K}oopman Spectrum for the Action-Angle Representation of Stabl'
+  references.bib:1045 MondererShapley1996 [article]: unbraced capitals ['Games'] in 'Potential Games'
+  references.bib:1060 NealHinton1998 [incollection]: unbraced capitals ['View', 'Algorithm', 'Justifies', 'Incremental', 'Sparse', 'Other', 'Variants'] in 'A View of the {EM} Algorithm that Justifies Incremental, Sparse, and Other Variants'
+  references.bib:1079 PadenSastry1987 [article]: unbraced capitals ['Calculus', 'Computing', 'Differential', 'Inclusion', 'Application', 'Variable', 'Structure', 'Control'] in "A Calculus for Computing {F}ilippov's Differential Inclusion with Application to the Varia"
+  references.bib:1090 PalaciosEtAl2020 [article]: unbraced capitals ['Blankets', 'Hierarchical', 'Self-Organisation'] in 'On {M}arkov Blankets and Hierarchical Self-Organisation'
+  references.bib:1111 PappasLafferriereSastry2000 [article]: unbraced capitals ['Consistent', 'Control', 'Systems'] in 'Hierarchically Consistent Control Systems'
+  references.bib:1122 Petz1988 [article]: unbraced capitals ['Channels', 'Algebras'] in 'Sufficiency of Channels over von {N}eumann Algebras'
+  references.bib:1129 Price1970 [article]: unbraced capitals ['Covariance'] in 'Selection and Covariance'
+  references.bib:1139 Procesi1976 [article]: unbraced capitals ['Invariant', 'Theory', 'Matrices'] in 'The Invariant Theory of $n\\times n$ Matrices'
+  references.bib:1160 Reinhart1959 [article]: unbraced capitals ['Manifolds', 'Bundle-Like', 'Metrics'] in 'Foliated Manifolds with Bundle-Like Metrics'
+  references.bib:1171 RogersPitman1981 [article]: unbraced capitals ['Functions'] in 'Markov Functions'
+  references.bib:1201 Skibinsky1967 [article]: unbraced capitals ['Subfields', 'Sufficiency'] in 'Adequate Subfields and Sufficiency'
+  references.bib:1238 Vorobev1962 [article]: unbraced capitals ['Families', 'Measures', 'Their', 'Extensions'] in 'Consistent Families of Measures and Their Extensions'
+  references.bib:1259 WeiKuo1969 [article]: unbraced capitals ['Lumping', 'Analysis', 'Monomolecular', 'Reaction', 'Systems', 'Analysis', 'Exactly', 'Lumpable'] in 'A Lumping Analysis in Monomolecular Reaction Systems: Analysis of the Exactly Lumpable Sys'
+  references.bib:1270 Zamir1998 [article]: unbraced capitals ['Proof', 'Information', 'Inequality', 'Data', 'Processing', 'Argument'] in 'A Proof of the {F}isher Information Inequality via a Data Processing Argument'
+  references.bib:1281 vanErvenHarremoes2014 [article]: unbraced capitals ['Divergence', 'Divergence'] in "R{\\'e}nyi Divergence and {K}ullback--{L}eibler Divergence"
+  references.bib:1293 LeokMarsdenWeinstein2005 [misc]: unbraced capitals ['Discrete', 'Theory', 'Connections', 'Principal', 'Bundles'] in 'A Discrete Theory of Connections on Principal Bundles'
+  references.bib:1302 EellsSampson1964 [article]: unbraced capitals ['Mappings', 'Riemannian', 'Manifolds'] in 'Harmonic Mappings of Riemannian Manifolds'
+  references.bib:1313 CasselEtAl2024 [misc]: unbraced capitals ['Flows', 'Image', 'Data', 'Labeling', 'Learning', 'Structured', 'Prediction'] in 'Sigma Flows for Image and Data Labeling and Learning Structured Prediction'
+  references.bib:1323 Narasimhan1962 [inproceedings]: unbraced capitals ['Universal', 'Connections'] in 'Existence of Universal Connections'
+  references.bib:1335 MassambaThompson2003 [misc]: unbraced capitals ['Universal', 'Connection', 'Metrics', 'Moduli', 'Spaces'] in 'The Universal Connection and Metrics on Moduli Spaces'
+  references.bib:1344 Calinon2016 [article]: unbraced capitals ['Tutorial', 'Task-Parameterized', 'Movement', 'Learning', 'Retrieval'] in 'A Tutorial on Task-Parameterized Movement Learning and Retrieval'
+  references.bib:1356 Minka2001EP [inproceedings]: unbraced capitals ['Propagation', 'Approximate', 'Bayesian', 'Inference'] in 'Expectation Propagation for Approximate Bayesian Inference'
+  references.bib:1366 Ruelle1973Symmetry [article]: unbraced capitals ['Presence', 'Symmetry', 'Group'] in 'Bifurcations in the Presence of a Symmetry Group'
+  references.bib:1376 Nayyar2013CommonInformation [article]: unbraced capitals ['Stochastic', 'Control', 'Partial', 'History', 'Sharing', 'A', 'Common', 'Information'] in 'Decentralized Stochastic Control with Partial History Sharing: A Common Information Approa'
+  item1_refs.bib:11 Amornbunchornvej2025 [misc]: unbraced capitals ['Linear', 'Transformation', 'A', 'Cognitive-Geometric', 'Model', 'Belief', 'Meaning'] in 'Interpretation as Linear Transformation: A Cognitive-Geometric Model of Belief and Meaning'
+  item7_refs.bib:123 KulisJordan2012 [inproceedings]: unbraced capitals ['New'] in 'Revisiting $k$-means: New algorithms via {B}ayesian nonparametrics'

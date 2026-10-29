@@ -1,0 +1,3 @@
+L =   50: log density range at t=0 [-3.6908, 1.3092], over [0,30] [-3.6908, 1.3248]; max abs velocity at t=30 3.6e-04; status 0
+L =  200: log density range at t=0 [-3.6908, 1.3091], over [0,30] [-3.6908, 1.3255]; max abs velocity at t=30 3.6e-04; status 0
+L =  800: log density range at t=0 [-3.6908, 1.3092], over [0,30] [-3.6908, 1.3255]; max abs velocity at t=30 3.6e-04; status 0

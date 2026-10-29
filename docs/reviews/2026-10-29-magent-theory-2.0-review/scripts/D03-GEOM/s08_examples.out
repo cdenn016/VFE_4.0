@@ -1,0 +1,7 @@
+(a) k = c**2 + epsilon**2 ; A^F = -epsilon/(c**2 + epsilon**2) ; int A^F dc = -pi ; d/dc(-atan(c/eps)) - A^F = 0 ; h^min = c**2/(c**2 + epsilon**2) ; 1 - h^min = epsilon**2/(c**2 + epsilon**2)
+(b) locked inertia for 5 agents at common mean e1: 5.0
+(c) A^F = -dm ; h^min = 2*dd**2
+(d) Bernoulli pullback residual: 0
+(e) Aff(1) on one Gaussian: rank J = 2 = dim N = 2
+(e) Aff(2) on one Gaussian: rank J = 5 = dim N = 5
+(f) labeled-family contextual Fisher - (sum w dmu^2 + sum dw^2/w): 2.2e-16 ; weight-score pairing with orbit score: 0.0e+00

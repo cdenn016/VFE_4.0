@@ -1,0 +1,12 @@
+(a) local energy closed form, max residual over 20 random points: 4.34e-165
+(b) q_x K_x - q_f(x) residuals: [0, 0]; min entry - 1/4 = -(x - 1)*(x + 1)/8
+(c) Fisher information of (1+kx)/2: -1/(x**2 - 1)
+(d) max |d_x d - (atanh x - atanh z)| over 20 random points: 2.22e-16; d_z d - (z-x)/(1-z^2) simplifies to 0
+(e,f) mixture defect and model-sector formulas, max residual over 10 random (a,c): 2.2959e-41
+(e) at a=1/2,c=1/4: xbar_dot(A)=0.125 (1/8), xbar_dot(B)=0.09375 (3/32); ybar_dot(A)-ybar_dot(B)=0.0
+(e) averaged joint laws A=[[3/16, 5/16], [3/16, 5/16]], B=[[3/16, 5/16], [3/16, 5/16]], equal: True
+(g) b(m+a,m-a)-b(m,m)-3/4 m a^2 = 0; means at m=a=1/4: 20.0000000000000/256, 17/256
+(h) exchange equivariance residual: 2.2959e-41
+(i) identity sum_j w_j KL(p_j||q) = sum_j w_j KL(p_j||pool) + KL(pool||q): max residual 4.44e-16 over 200 random q; min gap 1.345e-02 > 0
+(j) restricted Gaussian peer-KL, moment projection (mean,var) of pool: retained A=(0, 1), B=(0, 1); velocities A=(0, 0), B=(0, -19/16)
+(j) linear location consensus: d/dt centroid = -7*s1/6 - 7*s2/6 + 2*s3/3 + 2*s4/3; d/dt spread = -11*(s1 - s2)**2/6 (spread = (s1-s2)^2/4)

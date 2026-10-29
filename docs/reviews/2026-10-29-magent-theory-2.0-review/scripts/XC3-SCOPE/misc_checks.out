@@ -1,0 +1,14 @@
+(a) exact means vs mean-field means (non-Gaussian target): ((0.15637343040414003, 0.011776297978968658), (0.44419217860011556, 0.1971571159629146))
+(b) k_{1,0}(1|0), k_{1,0}(1|1): 5/8 3/8
+    P(H1=1) = 1/2
+    P(X0=1 | D0=1, H1=1) = 45/62
+    P(X0=1 | D0=0, H1=1) = 5/22
+    reply k_{0,1}(1|D0=0,H1=1), k_{0,1}(1|D0=1,H1=1): 7/11 12/31
+    lambda0 = [Fraction(9, 32), Fraction(7, 32), Fraction(7, 32), Fraction(9, 32)]  lambda1 = [Fraction(45, 128), Fraction(21, 128), Fraction(35, 128), Fraction(27, 128)]  P(H2=1|H1=1) = 33/64  lambda2 = [Fraction(105, 242), Fraction(49, 242), Fraction(70, 341), Fraction(54, 341)]
+    P(D0=1|D1=0,H1=H2=1) = 44/137  P(X1=1|D1=0,H1=H2=1) = 437/1918
+    P(H1=H2=1 | X1=0) = 21/64
+    P(H1=H2=1 | X1=1) = 13/64
+    P(X0=1 | D0=1, H1=H2=1) = 45/64
+    squared once-marginalized likelihood gives P(X0=1|D0=1) = 171/244
+    parity C=0: P(H=1|C)=1/2 P(X0=1|C,H=1)=7/16 P(A0=1|C,H=1)=15/32 P(Y0=1|C,H=1)=17/32
+    parity C=1: P(H=1|C)=1/2 P(X0=1|C,H=1)=9/16 P(A0=1|C,H=1)=17/32 P(Y0=1|C,H=1)=15/32

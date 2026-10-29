@@ -1,0 +1,18 @@
+(a) global joint
+    global, o != 0, per-receiver c_i : max |omega_e - closed form| = 3.3306690738754696e-16  max second singular value = 6.376259741451872e-17
+(b) per-agent
+    plug-in, o = 0 : max |omega_e - closed form| = 2.411265631607762e-16  max second singular value = 1.344306925606196e-16
+    plug-in, o != 0 : max |omega_e - closed form| = 8.881784197001252e-16  max second singular value = 1.800687817138278e-16
+    law-level, o = 0 : max |omega_e - closed form| = 5.551115123125783e-16  max second singular value = 6.368219618330311e-17
+    law-level, o != 0 : max |omega_e - closed form| = 4.440892098500626e-16  max second singular value = 1.3305538046852042e-16
+(c) reciprocal potential, BFGS success: False  gradient norm: 1.0392424925662694e-06
+    reciprocal, R to (R + T Sigma_j T^T)/beta, o = 0 : max |omega_e - closed form| = 1.8276426122509903e-07  max second singular value = 6.538441254826775e-08
+(d) loop [0, 1] : |(H - I) c_perp| = 1.141545811072894e-16  |H - I| = 0.88027  |sum omega c| = 0.430263
+(d) loop [0, 2, 4] : |(H - I) c_perp| = 7.140589053232932e-17  |H - I| = 0.987524  |sum omega c| = 0.510934
+(d) loop [5, 3, 1] : |(H - I) c_perp| = 1.2273279382385633e-16  |H - I| = 3.365469  |sum omega c| = 1.914614
+(c') exact quadratic solve of the reciprocal potential
+    reciprocal (exact solve), R to (R + T Sigma_j T^T)/beta, o = 0 : max |omega_e - closed form| = 8.43769498715119e-15  max second singular value = 4.649346088481619e-15
+    equal gains, self-mean scale 1.0 : |sum omega| = 1.3877787807814457e-16  |H - I| = 0.05112293  max|omega_e|^2 = 0.31508505  |(H - I) c_perp| = 1.2687702906586754e-16
+    equal gains, self-mean scale 0.5 : |sum omega| = 6.938893903907228e-17  |H - I| = 0.01364558  max|omega_e|^2 = 0.07877126  |(H - I) c_perp| = 1.8905596114951026e-16
+    equal gains, self-mean scale 0.25 : |sum omega| = 3.469446951953614e-17  |H - I| = 0.00352956  max|omega_e|^2 = 0.01969282  |(H - I) c_perp| = 7.43779363707687e-17
+    equal gains, self-mean scale 0.125 : |sum omega| = 1.734723475976807e-17  |H - I| = 0.00089784  max|omega_e|^2 = 0.0049232  |(H - I) c_perp| = 5.908332035639667e-17

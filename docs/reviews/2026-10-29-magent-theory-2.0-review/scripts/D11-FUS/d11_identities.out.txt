@@ -1,0 +1,18 @@
+1  precision - nA (should be zero matrix): Matrix([[0, 0], [0, 0]])
+2  E_{0,n} - (C + nU): log(sqrt(a**2 - c**2)*sqrt(1/(a**2 - c**2)))
+3  Var(log k) - h/n: 0
+4  G_n B_n^h vs B_n G_1 variance residual: 0 ; equals h-(c/a)^2/n: 0
+4b predictive square: h/n + h(1-1/n) - h = 0
+5  d^2 - (mi-mj)^2: 0
+6  dE/dv at v=1/n: n*(a - 1)  (text: n(a-1))
+7  2*D_unrestored - [(1/n_i - 1 + log n_i) + (1-chi)^2 (mi-mj)^2]: 0
+7b derivative of unrestored cost at mu_i=mu_j: 0 (smooth: no corner, no sticking)
+7c value at n_i=2, chi=0.3, gap 0:  0.6278359017371438  vs at chi=0.6: 1.0987128280400016 (chi-dependent)
+8  n=2: ||cond - (I-11^T/n)||=0.0e+00, ||Cov(resid, Zbar)||=0.0e+00, one-child var=0.500000 (1-1/n=0.500000)
+8  n=3: ||cond - (I-11^T/n)||=0.0e+00, ||Cov(resid, Zbar)||=3.4e-17, one-child var=0.666667 (1-1/n=0.666667)
+8  n=5: ||cond - (I-11^T/n)||=1.1e-16, ||Cov(resid, Zbar)||=1.3e-17, one-child var=0.800000 (1-1/n=0.800000)
+9  n=2: full - stat - (n-1)C = 3.33e-16
+9  n=3: full - stat - (n-1)C = 6.66e-16
+9  n=5: full - stat - (n-1)C = 4.44e-16
+10 weighted log-average variance - 1/n_I: 0.0 ; evaluator noise - 1/(a n_I): 6.938893903907228e-18
+11 peer-term bookkeeping residual: -7.105427357601002e-15

@@ -1,0 +1,15 @@
+{
+ "A_mean_is_quadratic": true,
+ "Delta_mean_is_quadratic": true,
+ "T_mean": "31/122",
+ "Phi_ssss_mean": "-42160/85583",
+ "c_mean": "-21080/256749",
+ "c_mean_float": -0.08210353302252395,
+ "type": "subcritical",
+ "Phi_series_s4_coeff_times_24": "-42160/85583",
+ "Tb_initial_trend": "increasing",
+ "Tb_max": 0.25431319946777664,
+ "Tb_monotone_decreasing": false,
+ "T_mean_float": 0.2540983606557377,
+ "wall_seconds": 0.46
+}

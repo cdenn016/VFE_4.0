@@ -1,0 +1,23 @@
+== def:dyn-potential ordering E >= E_red >= E_0 >= 0, and eq:dyn-row-gap ==
+  max abs(E - E_red - row KL gap) over 200 points = 1.78e-15
+  min of (E-E_red, E_red-E_0, E_0) over 200 points = 1.283e-01 (must be nonnegative)
+== prop:dyn-gibbs uniqueness: Gibbs row vs random interior and boundary competitors ==
+  min over 5000 competitors of f(beta)-f(beta*) = 1.969e-05; f(beta*) + T log Z = 1.39e-17
+== eq:dyn-envelope with law-dependent channels (complex step, step 1e-30) ==
+  max relative error of dE_red - (dE_0 + sum beta* dD) over 20 directions = 4.44e-16
+== first variation: all roles (receiver, source, channel derivative) ==
+  max relative error, analytic vs complex step (50 directions) = 2.00e-15
+  max relative error, analytic vs central difference, t=1e-5  = 5.98e-05
+  channel derivative omitted: median relative error = 0.020, max = 0.122
+== self channel: receiver and source roles cancel exactly ==
+  self receiver+source contribution = 0.0e+00
+== line 54 pooling rule: receiver stationarity with sources, rows, channels frozen ==
+  centered receiver gradient at the pooled law: 4.44e-16
+  objective at pooled law 0.627259; best of 20000 random laws 0.628700
+== rem:dyn-self-sources: bounds and eq:dyn-prior-learning ==
+  bound violations over 2000 random rows: 0
+  max abs(pidot - T(beta - pi)) = 6.94e-18
+  max abs(T(beta* - pi) - (T/Z) pi (exp(-D/T) - Z)) = 1.39e-17; self rate 0.0694 (nonnegative)
+== central differences: step refinement and Richardson extrapolation ==
+  error ratio (t=1e-4)/(t=1e-5): median 100.0 (second order gives 100)
+  Richardson-extrapolated central difference, max relative error = 2.70e-08

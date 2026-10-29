@@ -1,0 +1,12 @@
+beta_ii at uniform: 1/2
+sign linearization: [[-1, 1/2, 3/4, 0], [1/2, -1, 0, 3/4], [3/4, 0, -1, 1/2], [0, 3/4, 1/2, -1]] eigenvalues: [-9/4, -5/4, -3/4, 1/4]
+m(t) at log 4: [3*sqrt(2)/2, sqrt(2)/2, 3*sqrt(2)/2, sqrt(2)/2] (claim 3/sqrt2, 1/sqrt2)
+agent-2 zero crossing time: [log(2)]
+eig M: {-1/5: 1, -7/5: 2}  u_* = Matrix([[15/7, 15/7, 5/7]])  min ratio: 1/3
+72e^2+1/25+18e^6 = 0.0472000000180 < log2 = 0.693147180560 : True
+2|eta-eta_G|^2 upper bound expansion: True
+beta0 at D=log2: 1/9  beta0 at D=0: 1/5
+A-face derivative bound eps - 1/90 at eps=1/100: -1/900
+|L-l| bound 2*2e^3*(1/10+2e^3) = 50001/125000000000  vs eps/8 = 1/800 : True
+r-face: 1 - beta0/4 >=  19/20 ; 1 - 12 beta0 <=  -1/3
+curvature formula residual: 0

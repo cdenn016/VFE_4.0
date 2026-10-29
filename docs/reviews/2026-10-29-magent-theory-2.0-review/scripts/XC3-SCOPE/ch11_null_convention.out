@@ -1,0 +1,17 @@
+full flow (= convention A shape law): events at t=0.5 log(D/delta)
+  chapter 11 example: 0.5log2=0.3466 0.5log3=0.5493 0.5log(17/2)=1.0700
+T=0.1 example u=(1,6/5,9/5,21/10): self weights b_i(0) under B: [0. 0. 0. 0.]
+   A (ch11 null): [(np.float64(0.3466), [0, 1]), (np.float64(0.5493), [2, 3]), (np.float64(1.07), [0, 1, 2, 3])]
+   B (ch13 null): [(np.float64(0.6931), [0, 1]), (np.float64(1.0986), [2, 3]), (np.float64(2.1401), [0, 1, 2, 3])]
+T=1 example u=(1,6/5,9/5,21/10): self weights b_i(0) under B: [0.0914 0.0474 0.0038 0.0009]
+   A (ch11 null): [(np.float64(0.3466), [0, 1]), (np.float64(0.5493), [2, 3]), (np.float64(1.07), [0, 1, 2, 3])]
+   B (ch13 null): [(np.float64(0.6504), [0, 1]), (np.float64(1.1113), [2, 3]), (np.float64(2.0578), [0, 1, 2, 3])]
+T=10 example u=(1,6/5,9/5,21/10): self weights b_i(0) under B: [0.2282 0.216  0.1756 0.1564]
+   A (ch11 null): [(np.float64(0.3466), [0, 1]), (np.float64(0.5493), [2, 3]), (np.float64(1.07), [0, 1, 2, 3])]
+   B (ch13 null): [(np.float64(0.5657), [0, 1]), (np.float64(0.9383), [2, 3]), (np.float64(1.7618), [0, 1, 2, 3])]
+T=0.1 near-boundary u=[1.0, 1.2, 1.45, 1.79]: b_i(0) under B: [0. 0. 0. 0.]
+   A (ch11 null): [(np.float64(0.3466), [0, 1]), (np.float64(0.6119), [2, 3]), (np.float64(0.8243), [0, 1, 2, 3])]
+   B (ch13 null): [(np.float64(0.6931), [0, 1]), (np.float64(1.2238), [2, 3]), (np.float64(1.6487), [0, 1, 2, 3])]
+T=1 near-boundary u=[1.0, 1.2, 1.45, 1.79]: b_i(0) under B: [0.109  0.0606 0.0245 0.0062]
+   A (ch11 null): [(np.float64(0.3466), [0, 1]), (np.float64(0.6119), [2, 3]), (np.float64(0.8243), [0, 1, 2, 3])]
+   B (ch13 null): [(np.float64(0.6406), [0, 1]), (np.float64(1.1876), [0, 1, 2]), (np.float64(1.6769), [0, 1, 2, 3])]

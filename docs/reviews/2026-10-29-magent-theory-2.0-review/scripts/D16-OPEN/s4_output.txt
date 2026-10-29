@@ -1,0 +1,11 @@
+von Mises (kappa=1.7, chi=0.9): phase at rho=1,0.5,0.1,0.01: [0.9 0.9 0.9 0.9]
+profile log f0 = cos(theta) + 2 cos(2 theta - 1):
+   rho=1.00  t=-0.0000  phase=+0.392924  |u|=6.2029e-01  rotation inertia=6.2936e+00
+   rho=0.70  t=0.1783  phase=+0.346367  |u|=4.4531e-01  rotation inertia=3.5755e+00
+   rho=0.50  t=0.3466  phase=+0.291316  |u|=3.1025e-01  rotation inertia=1.9793e+00
+   rho=0.30  t=0.6020  phase=+0.205553  |u|=1.7452e-01  rotation inertia=7.5325e-01
+   rho=0.10  t=1.1513  phase=+0.079258  |u|=5.2782e-02  rotation inertia=8.5395e-02
+   rho=0.03  t=1.7533  phase=+0.024824  |u|=1.5246e-02  rotation inertia=7.6685e-03
+   rho=0.01  t=2.3026  phase=+0.008369  |u|=5.0271e-03  rotation inertia=8.5077e-04
+   phase change between t=0 and t=1.15 (rho=0.1): -0.3137 rad
+profile log f0 = -0.3cos + 2.5cos2 + 1.2cos3 (axially symmetric, u real): Re u at rho=1: 3.7089e-01, at rho=0.01: -1.4433e-03; sign changes at rho ~ [0.236] (anchor moment vanishes at a finite time)

@@ -1,0 +1,7 @@
+t=0.0: b/I = -0.395740 (Moebius formula -0.395740); X alpha(t) = -0.223106, X alpha0 = -0.223106
+t=0.3: b/I = -0.340864 (Moebius formula -0.340864); X alpha(t) = -0.223106, X alpha0 = -0.223106
+t=1.0: b/I = -0.254900 (Moebius formula -0.254900); X alpha(t) = -0.223106, X alpha0 = -0.223106
+t=2.5: b/I = -0.224071 (Moebius formula -0.224071); X alpha(t) = -0.223106, X alpha0 = -0.223106
+max |b/I - Moebius| = 1.1102230246251565e-16
+d f/dr = -(P*T - Q*R)/(R + T*r)**2  (zero on an interval iff Q R - P T = 0)
+value when Q R = P T (T != 0): P/R  = P/R = X alpha0

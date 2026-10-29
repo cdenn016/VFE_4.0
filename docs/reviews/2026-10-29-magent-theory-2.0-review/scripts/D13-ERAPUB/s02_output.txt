@@ -1,0 +1,55 @@
+C:\Users\chris and christine\Desktop\VFE_4.0\docs\reviews\2026-10-29-magent-theory-2.0-review\scripts\D13-ERAPUB\s02_erasure_switching.py:38: RuntimeWarning: overflow encountered in exp
+  out[m] = 1.0 / (1.0 + np.exp(1 / rm - 1 / (1 - rm)))
+(1) analytic vs finite-difference gradient of E_red, max |diff| = 7.07e-10 (gate alpha = 0.7554)
+(1) analytic vs finite-difference gradient of E_red, max |diff| = 7.46e-10 (gate alpha = 0.8313)
+(2) full: initial map (1, 0, 3, 2); gate closes at t ~ 0.01634
+    t = 0.01071446: agent 2 switches 3 -> 0; map (1, 0, 0, 2); involution: False; alpha = 3.153e-02
+    t = 0.01071746: agent 3 switches 2 -> 1; map (1, 0, 0, 1); involution: False; alpha = 3.145e-02
+    t = 0.01076034: agent 0 switches 1 -> 2; map (2, 0, 0, 1); involution: False; alpha = 3.028e-02
+    t = 0.01076606: agent 1 switches 0 -> 3; map (2, 3, 0, 1); involution: True; alpha = 3.013e-02
+    grid times with a third-source argmin: 0
+    mutual-pair partition sequence: [((0, 1), (2, 3)), ((0, 1), (2,), (3,)), ((0, 2), (1,), (3,)), ((0, 2), (1, 3))]
+    component partition sequence:   [((0, 1), (2, 3)), ((0, 1, 2, 3),), ((0, 2), (1, 3))]
+(2) null: initial map (1, 0, 3, 2); gate closes at t ~ 0.03315
+    t = 0.02189250: agent 2 switches 3 -> 0; map (1, 0, 0, 2); involution: False; alpha = 3.156e-02
+    t = 0.02189855: agent 3 switches 2 -> 1; map (1, 0, 0, 1); involution: False; alpha = 3.147e-02
+    t = 0.02198492: agent 0 switches 1 -> 2; map (2, 0, 0, 1); involution: False; alpha = 3.030e-02
+    t = 0.02199645: agent 1 switches 0 -> 3; map (2, 3, 0, 1); involution: True; alpha = 3.015e-02
+    grid times with a third-source argmin: 0
+    mutual-pair partition sequence: [((0, 1), (2, 3)), ((0, 1), (2,), (3,)), ((0, 2), (1,), (3,)), ((0, 2), (1, 3))]
+    component partition sequence:   [((0, 1), (2, 3)), ((0, 1, 2, 3),), ((0, 2), (1, 3))]
+(3) scan eta (shift of x_0 = y_0): order of first two switching agents, full vs null
+    eta=-0.0080: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0075: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0070: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0065: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0060: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0055: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0050: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0045: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0040: full order (2, 3, 1, 0), null order (2, 3, 1, 0); mutual-pair sequences equal: True
+    eta=-0.0035: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=-0.0030: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=-0.0025: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=-0.0020: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=-0.0015: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=-0.0010: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=-0.0005: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0000: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0005: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0010: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0015: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0020: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0025: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0030: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0035: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0040: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0045: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0050: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0055: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0060: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0065: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0070: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0075: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+    eta=+0.0080: full order (2, 3, 0, 1), null order (2, 3, 0, 1); mutual-pair sequences equal: True
+(3) 0 of 33 scanned preparations have different switch orders along the two flows

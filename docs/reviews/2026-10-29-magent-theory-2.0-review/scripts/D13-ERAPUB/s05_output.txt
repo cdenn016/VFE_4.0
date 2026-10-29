@@ -1,0 +1,19 @@
+(a) mdot - f_b(m) through order 5: a**2*m*(-9*J + 6*a**2 + 16*m**2 + 18)/3
+(a) adot through order 2: J*a - 5*a
+(b) coupled J=0.2: c(J)=0.562500; (pbar-m)/(m a^2) at s=.02,.01,.005: ['0.562875', '0.562594', '0.562523']; |Pi_6-Pi_4| = 1.7e-18; |Pi_6(rho_c=0.3) - Pi_6(mean)| = 2.3e-13
+(b) coupled J=0.5: c(J)=0.500000; (pbar-m)/(m a^2) at s=.02,.01,.005: ['0.500355', '0.500089', '0.500022']; |Pi_6-Pi_4| = 8.7e-18; |Pi_6(rho_c=0.3) - Pi_6(mean)| = 2.3e-13
+(b) coupled J=0.9: c(J)=0.402439; (pbar-m)/(m a^2) at s=.02,.01,.005: ['0.402778', '0.402524', '0.402460']; |Pi_6-Pi_4| = 2.8e-17; |Pi_6(rho_c=0.3) - Pi_6(mean)| = 2.3e-13
+(b) coupled J=0.99: c(J)=0.377805; (pbar-m)/(m a^2) at s=.02,.01,.005: ['0.378144', '0.377890', '0.377827']; |Pi_6-Pi_4| = 4.7e-17; |Pi_6(rho_c=0.3) - Pi_6(mean)| = 2.3e-13
+(c) h(phi_t x) - e^(-lam t) h(x) at x=0.04, t=0.5: 3.12e-17
+(c) h(phi_t x) - e^(-lam t) h(x) at x=0.04, t=2.0: 7.11e-17
+(c) null flow, c=0.0: intertwining residual Pi0_c(Phi0_t x) - phi_t(Pi0_c x) at t=1.0: -5.55e-17; Pi0_c(x) = 0.0200070057
+(c) null flow, c=0.0: intertwining residual Pi0_c(Phi0_t x) - phi_t(Pi0_c x) at t=3.0: -4.12e-18; Pi0_c(x) = 0.0200070057
+(c) null flow, c=0.3: intertwining residual Pi0_c(Phi0_t x) - phi_t(Pi0_c x) at t=1.0: -3.47e-18; Pi0_c(x) = 0.0320053794
+(c) null flow, c=0.3: intertwining residual Pi0_c(Phi0_t x) - phi_t(Pi0_c x) at t=3.0: -4.77e-18; Pi0_c(x) = 0.0320053794
+(c) null flow fiber: Pi0_0(0.04, 0) = 0.0200070057 = Pi0_0(0.03, 0.0100105123) = 0.0200070057
+(c) null flow truncation T=8.0: phi_-T(mean) - Pi0_0 = -1.935e-11; phi_-T(rho_0.3) - Pi0_0.3 = -1.485e-11
+(c) null flow truncation T=16.0: phi_-T(mean) - Pi0_0 = +3.053e-16; phi_-T(rho_0.3) - Pi0_0.3 = +4.996e-16
+(c) null flow truncation T=24.0: phi_-T(mean) - Pi0_0 = +5.412e-16; phi_-T(rho_0.3) - Pi0_0.3 = +9.645e-16
+(c) null flow truncation T=32.0: phi_-T(mean) - Pi0_0 = +6.661e-16; phi_-T(rho_0.3) - Pi0_0.3 = +1.152e-15
+(c) coupled flow at the same x: Pi (mean) = 0.0200045030, Pi (rho_0.3) = 0.0200045030, difference 4.5e-13
+(c) null flow:                 Pi0 (mean) = 0.0200070057, Pi0 (rho_0.3) = 0.0320053794

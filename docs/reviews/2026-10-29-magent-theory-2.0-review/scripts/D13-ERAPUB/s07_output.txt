@@ -1,0 +1,12 @@
+J=0.5, Tq=0.8, Ts=1.5, N=4, kappa_N=2.6667; S_I invariant to 8.9e-16, normal space invariant to 1.8e-15
+   tangential decay rates on S_I: [0.5      1.       1.       1.       1.       1.5      3.166667 3.166667
+ 3.666667 3.666667 3.666667 3.666667 3.666667 3.666667 3.666667 3.666667
+ 4.166667 4.166667]
+   normal (intra-block) decay rates: [3.166667 3.666667 3.666667 3.666667 3.666667 4.166667]
+   slowest normal rate 3.166667 vs fastest tangential rate 4.166667: rate condition holds: False
+J=0.0, Tq=1.0, Ts=1.0, N=4, kappa_N=2.6667; S_I invariant to 8.9e-16, normal space invariant to 1.8e-15
+   tangential decay rates on S_I: [1.       1.       1.       1.       1.       1.       3.666667 3.666667
+ 3.666667 3.666667 3.666667 3.666667 3.666667 3.666667 3.666667 3.666667
+ 3.666667 3.666667]
+   normal (intra-block) decay rates: [3.666667 3.666667 3.666667 3.666667 3.666667 3.666667]
+   slowest normal rate 3.666667 vs fastest tangential rate 3.666667: rate condition holds: False

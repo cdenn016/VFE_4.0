@@ -1,0 +1,15 @@
+(1) composition defect |C(c2,c1)C(c1,c0)-C(c2,c0)| = 1.415e-02
+(1) reversal defect |C(c0,c1)C(c1,c0)-I| = 1.721e-02
+(1) T reversal defect |T(c0,c1)T(c1,c0)-I| = 8.006e-16
+(1) T composition defect |T(c2,c1)T(c1,c0)-T(c2,c0)| = 1.008e-02
+(2) eps= 0.100  |C-Tex|/eps^2 = 0.3992   |T-Tex|/eps^2 = 0.0000  |T-Tex|/eps^3 = 0.0000
+(2) eps= 0.050  |C-Tex|/eps^2 = 0.3998   |T-Tex|/eps^2 = 0.0000  |T-Tex|/eps^3 = 0.0000
+(2) eps= 0.025  |C-Tex|/eps^2 = 0.4000   |T-Tex|/eps^2 = 0.0000  |T-Tex|/eps^3 = 0.0000
+(3) C: errors ['1.89e-02', '9.49e-03', '4.75e-03', '2.38e-03', '1.19e-03']  observed orders ['1.00', '1.00', '1.00', '1.00']
+(3) T: errors ['1.51e-04', '3.76e-05', '9.41e-06', '2.35e-06', '5.88e-07']  observed orders ['2.00', '2.00', '2.00', '2.00']
+(4) corner path, odd n (corner not a node), C: errors ['3.44e-02', '1.86e-02', '9.68e-03', '4.94e-03', '2.50e-03']
+(4) corner path, odd n (corner not a node), T: errors ['1.70e-03', '4.69e-04', '1.24e-04', '3.17e-05', '8.03e-06']
+(5) |Hol - I| = 8.455e-01 (nontrivial holonomy)
+(5) |Hol^T M0 Hol - M0| = 1.459e-13  (M0 = H_X(c0)^-1)
+(5) det Hol = 1.000000000000093
+(5) eigenvalue moduli of Hol = [1. 1.]

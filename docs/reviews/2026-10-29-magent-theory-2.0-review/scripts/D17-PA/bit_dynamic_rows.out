@@ -1,0 +1,4 @@
+eps=0.05 sample full [(0.0, ((1,), (2,), (3,))), (0.35, ((1, 2), (3,))), (3.9, ((1, 2, 3),))] | null [(0.0, ((1,), (2,), (3,))), (1.0, ((1, 2), (3,)))]
+eps=0.05 dynamic rows: start singletons 12/12; singletons -> pair -> full block, persisting to t=120: 12/12; null ever full block 0/12
+eps=0.30 sample full [(0.0, ((1,), (2,), (3,))), (0.2, ((1, 2), (3,))), (4.75, ((1, 2, 3),))] | null [(0.0, ((1,), (2,), (3,))), (0.5, ((1, 2), (3,)))]
+eps=0.30 dynamic rows: start singletons 12/12; singletons -> pair -> full block, persisting to t=120: 12/12; null ever full block 0/12

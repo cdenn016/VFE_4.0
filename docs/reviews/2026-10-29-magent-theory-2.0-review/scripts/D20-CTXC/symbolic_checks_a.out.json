@@ -1,0 +1,75 @@
+{
+ "script": "symbolic_checks.py",
+ "part": "a",
+ "sympy": "1.14.0",
+ "runtime_s": 0.83,
+ "all_zero": true,
+ "results": [
+  {
+   "check": "block inversion: first block row of M z_t + dF = 0",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "block inversion: second block row of M z_t + dF = 0",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "dissipation first form = pairing dF(z_t)",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "dissipation second form = first form",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "grad V has u-part h^{-1}(V_u - C^T V_r) (horizontal derivative H_a V)",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0], [0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "zero coupling: u_t = -(u - a r)",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "zero coupling: r_t = -(r - a u)",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "correlated reference precision = [[1,-a],[-a,1]]",
+   "zero_residual": "True",
+   "residual": "Matrix([[0, 0], [0, 0]])",
+   "note": ""
+  },
+  {
+   "check": "f'(a) = 1 - 2 e^{-a}(1 - e^{-a})",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "max over y of 2y(1-y) is 1/2 < 1, so (1-e^{-a})^2 <= a",
+   "zero_residual": "True",
+   "residual": "True",
+   "note": ""
+  },
+  {
+   "check": "|k|^2 >= (1+|k|^2)/2 for |k|^2 >= 1 (difference at kk=1+z)",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  }
+ ]
+}

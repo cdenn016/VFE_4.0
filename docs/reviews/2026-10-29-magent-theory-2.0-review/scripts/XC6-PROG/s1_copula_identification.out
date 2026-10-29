@@ -1,0 +1,12 @@
+(a) two Gaussian agents, 340 random instances (skipped 60 with beta*KL > 5): max |F(Q(x)) - E(x)| = 2.522e-12
+(b) two non-Gaussian agents (mixture, logistic), grid quadrature:
+    mass of Q = 0.99999736; marginal errors: 1.61e-06, 1.92e-13
+    E0 = 0.40191715, beta*KL(q1||q2) = 0.23671523, rho = 0.614116
+    copula MI numeric = 0.23670318  vs  -1/2 log(1-rho^2) = 0.23671523
+    F(Q(x)) = KL(Q||r1 x r2) = 0.63862013  vs  E(x) = 0.63863238;  diff = -1.23e-05
+(c) four Gaussian agents, fixed rows, 100 instances: max |F(Q(x)) - E(x)| = 4.578e-07
+(d) binary alphabets: TC of any coupling <= min(H(q1),H(q2)) <= log 2 = 0.693147,
+    t = 0.9: KL(q1||q2) = 2.6500, H(q1) = 0.1985
+    t = 0.99: KL(q1||q2) = 5.2404, H(q1) = 0.0315
+    t = 0.999: KL(q1||q2) = 7.5928, H(q1) = 0.0043
+    t = 0.9999: KL(q1||q2) = 9.9024, H(q1) = 0.0005

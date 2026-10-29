@@ -1,0 +1,230 @@
+=== replace old[1:3] new[1:3]
+- Dennis},pdfsubject={Alignment links, lossy codes, identifiability, and dissonance for communicating agents}} \newcommand{\Stab}{\operatorname{Stab}} \newcommand{\Fix}{\operatorname{Fix}} \begin{document} \hypersetup{pageanchor=false} \magenttitle{MAgent Theory 2.0}{Communication Links:\\Alignment, Codes, and Dissonance} \hypersetup{pageanchor=true} \pagenumbering{roman} \chapter*{Status and summary} \addcontentsline{toc}{chapter}{Status and summary} This is a working document for the first item of the future-work list.
+- It is not part of the main manuscript and is not cited by it.
++ Dennis},pdfsubject={Alignment links, lossy codes, identifiability, and dissonance for communicating agents}} \newcommand{\Stab}{\operatorname{Stab}} \newcommand{\Fix}{\operatorname{Fix}} \begin{document} \hypersetup{pageanchor=false} \magenttitle{MAgent Theory 2.0}{Communication Links:\\Alignment, Codes, and Dissonance} \hypersetup{pageanchor=true} \pagenumbering{roman} \chapter*{Status and summary} \addcontentsline{toc}{chapter}{Status and summary} The supported results of this working document, with the rank, compatibility, integrability, and observational-scope corrections below, are integrated into the main manuscript chapter \emph{Communication Codes and Learned Alignment} and its explanatory companion.
++ This standalone source retains the derivations and open obligations.
+=== replace old[32:33] new[32:33]
+- Public messages therefore do not depend on the sender's frame, and the reference code $\bar T_j^c$ is a frame-independent property of the sender.
++ Public messages therefore do not depend on the sender's frame, and the reference code $\bar T_j^c$ is unchanged by passive display changes at fixed reference coordinates.
+=== replace old[35:37] new[35:41]
+- \definitionheading{Dictionary}{it1:dictionary} Receiver $i$'s dictionary for sender $j$ is \begin{equation} \theta_{ij}=U_i\exp(\omega_{ij})U_j^{-1}\in G,\qquad \bar\theta_{ij}=\exp(\omega_{ij}),\qquad\omega_{ij}\in\mathfrak g.
+- \label{it1:dictionary-eq} \end{equation} It is owned by the receiver: it is $i$'s hypothesis about how $j$'s internal reference coordinates sit relative to its own.
++ \definitionheading{Dictionary}{it1:dictionary} Receiver $i$'s dictionary for sender $j$ is \begin{equation} \theta_{ij}=U_i\bar\theta_{ij}U_j^{-1}\in G,\qquad \bar\theta_{ij}\in G.
++ \label{it1:dictionary-eq} \end{equation} The general dictionary is unrestricted in $G$.
++ The local parameterization $\bar\theta_{ij}=\exp(\omega_{ij})$ with $\omega_{ij}\in\mathfrak g$ is used for tangent learning.
++ It can cover less than $G$: a single real matrix exponential need not cover even $\GL^+(K,\R)$ \citep{Culver1966}.
++ The global coset and exact-identification results below concern the stated group, and a restriction to the exponential image retains only the solutions lying in that image.
++ It is owned by the receiver: it is $i$'s hypothesis about how $j$'s internal reference coordinates sit relative to its own.
+=== replace old[48:50] new[52:54]
+- Third, invertibility is used: the consensus theorem \cref{it1:consensus} needs inverses to show that transported beliefs are well defined along different paths, and holonomy has conjugacy-class invariants only for invertible links.
+- Fourth, $i$'s knowledge of $j$ is a probability law over $G$, a recognition law of $\omega_{ij}$, not a point; uncertainty about the dictionary is carried by that law.
++ Third, invertibility is used: the consensus theorem \cref{it1:consensus} needs inverses to show that transported beliefs are well defined along different paths, and group-valued holonomy composes invertible links; singular path products can still have trace invariants, but do not define transport by group elements.
++ Fourth, $i$'s knowledge of $j$ is a probability law over $G$, or over $\omega_{ij}$ in a declared exponential chart; uncertainty about the dictionary is carried by that law.
+=== insert old[55:55] new[59:77]
++ A conditional law decodes a message under a receiver prior.
++ Reconstructing an entire sender law uses that decoder for every possible message.
++ For a measurable code $T$ and laws $q,p$ on a standard Borel space, choose a regular conditional law $p(dy\mid h)$ of $p$ given $T=h$, and define the reconstruction \begin{equation} \hat q(dy)=\int p(dy\mid h)(T_\#q)(dh).
++ \label{it1:reconstruction} \end{equation} It keeps exactly what the code transmits, the message law $T_\#q$, and fills every discarded direction with the receiver's own conditional belief.
++ \propositionheading{Meaning lost through a noiseless code}{it1:loss} If $\KL(q\Vert p)<\infty$, then \begin{equation} \KL(q\Vert\hat q)=\KL(q\Vert p)-\KL(T_\#q\Vert T_\#p).
++ \label{it1:loss-eq} \end{equation} \begin{proof} For laws on standard Borel spaces and a measurable map $T$, the chain rule for relative entropy gives \begin{equation} \KL(\mu\Vert\nu)=\KL(T_\#\mu\Vert T_\#\nu)+\int\KL\bigl(\mu(\cdot\mid h)\Vert\nu(\cdot\mid h)\bigr)(T_\#\mu)(dh) \end{equation} in $[0,\infty]$, with regular conditional laws given $T$ \citep{CoverThomas2006,Kallenberg2021}.
++ Apply it to $(q,p)$.
++ Apply it also to $(q,\hat q)$: by construction $T_\#\hat q=T_\#q$ and $\hat q(\cdot\mid h)=p(\cdot\mid h)$ for $T_\#q$-almost every $h$, so the first term vanishes and the second is the same integral.
++ Since $\KL(T_\#q\Vert T_\#p)\leq\KL(q\Vert p)<\infty$, subtraction is legitimate.
++ \end{proof} In words, the meaning lost when a belief is sent through a code and rebuilt by a receiver equals the full disagreement between sender and receiver minus the disagreement that the code makes visible.
++ It vanishes exactly when the code is sufficient for the pair, that is, when the sender's conditional belief given the message already equals the receiver's.
++ \corollaryheading{Noisy codes}{it1:noisy} Let a noisy code be a Markov kernel $\mathcal K$ from the content space to a standard Borel message space, for example the Gaussian kernel $\mathcal K(\bar y,\cdot)=\mathcal N(A\bar y,R)$.
++ Let $p^h$ and $q^h$ be regular versions of the posteriors of $p$ and $q$ given $h$, and define the reconstruction $\hat q=\int p^h(q\mathcal K)(dh)$.
++ If $\KL(q\Vert p)<\infty$, then \begin{equation} \KL(q\Vert\hat q)\leq\KL(q\Vert p)-\KL(q\mathcal K\Vert p\mathcal K).
++ \label{it1:noisy-eq} \end{equation} \begin{proof} The chain rule applied to the joint laws of $(\bar y,h)$ under $q\otimes\mathcal K$ and $p\otimes\mathcal K$, which share the kernel, gives $\KL(q\Vert p)=\KL(q\mathcal K\Vert p\mathcal K)+\int\KL(q^h\Vert p^h)(q\mathcal K)(dh)$.
++ Since $q=\int q^h(q\mathcal K)(dh)$, joint convexity of relative entropy bounds $\KL(q\Vert\hat q)$ by the integral.
++ \end{proof} The proof uses only the chain rule and joint convexity, so the bound holds for every kernel and every pair of laws with $\KL(q\Vert p)<\infty$.
++ For $q=\mathcal N(a,\Sigma_q)$, $p=\mathcal N(m,\Sigma_p)$, and the Gaussian kernel, $\hat q$ has mean $m+OA(a-m)$ and covariance $\Sigma_p-OA\Sigma_p+O(A\Sigma_qA^T+R)O^T$ with $O$ from \cref{it1:gain}; at the tested instance the bound holds with slack $3.4\times10^{-3}$.
+=== replace old[64:65] new[86:87]
+- The proposition is the Gaussian instance of a general fact: for any prior law and any message kernel, the receiver's decoder is the conditional law of the content given the message, which is the reconstruction \cref{it1:reconstruction} below in the noiseless case.
++ The proposition is the Gaussian instance of a general fact: for any prior law and any message kernel, the receiver's decoder is the conditional law of the content given the message, as in \cref{it1:reconstruction} in the noiseless case.
+=== delete old[66:76] new[88:88]
+- The next statement concerns the reconstruction of a whole belief rather than the response to one message.
+- For a measurable code $T$ and laws $q,p$ on a standard Borel space, choose a regular conditional law $p(dy\mid h)$ of $p$ given $T=h$, and define the reconstruction \begin{equation} \hat q(dy)=\int p(dy\mid h)\,(T_\#q)(dh).
+- \label{it1:reconstruction} \end{equation} It keeps exactly what the code transmits, the message law $T_\#q$, and fills every discarded direction with the receiver's own conditional belief.
+- \propositionheading{Meaning lost through a noiseless code}{it1:loss} If $\KL(q\Vert p)<\infty$, then \begin{equation} \KL(q\Vert\hat q)=\KL(q\Vert p)-\KL(T_\#q\Vert T_\#p).
+- \label{it1:loss-eq} \end{equation} \begin{proof} For laws on standard Borel spaces and a measurable map $T$, the chain rule for relative entropy gives \begin{equation} \KL(\mu\Vert\nu)=\KL(T_\#\mu\Vert T_\#\nu)+\int\KL\bigl(\mu(\cdot\mid h)\Vert\nu(\cdot\mid h)\bigr)(T_\#\mu)(dh) \end{equation} in $[0,\infty]$, with regular conditional laws given $T$ \citep{CoverThomas2006,Kallenberg2021}.
+- Apply it to $(q,p)$.
+- Apply it also to $(q,\hat q)$: by construction $T_\#\hat q=T_\#q$ and $\hat q(\cdot\mid h)=p(\cdot\mid h)$ for $T_\#q$-almost every $h$, so the first term vanishes and the second is the same integral.
+- Since $\KL(T_\#q\Vert T_\#p)\leq\KL(q\Vert p)<\infty$, subtraction is legitimate.
+- \end{proof} In words, the meaning lost when a belief is sent through a code and rebuilt by a receiver equals the full disagreement between sender and receiver minus the disagreement that the code makes visible.
+- It vanishes exactly when the code is sufficient for the pair, that is, when the sender's conditional belief given the message already equals the receiver's.
+=== delete old[89:96] new[101:101]
+- \corollaryheading{Noisy codes}{it1:noisy} Let a noisy code be a Markov kernel $\mathcal K$ from the content space to a standard Borel message space, for example the Gaussian kernel $\mathcal K(\bar y,\cdot)=\mathcal N(A\bar y,R)$.
+- Let $p^h$ and $q^h$ be regular versions of the posteriors of $p$ and $q$ given $h$, and define the reconstruction $\hat q=\int p^h\,(q\mathcal K)(dh)$.
+- If $\KL(q\Vert p)<\infty$, then \begin{equation} \KL(q\Vert\hat q)\leq\KL(q\Vert p)-\KL(q\mathcal K\Vert p\mathcal K).
+- \label{it1:noisy-eq} \end{equation} \begin{proof} The chain rule applied to the joint laws of $(\bar y,h)$ under $q\otimes\mathcal K$ and $p\otimes\mathcal K$, which share the kernel, gives $\KL(q\Vert p)=\KL(q\mathcal K\Vert p\mathcal K)+\int\KL(q^h\Vert p^h)(q\mathcal K)(dh)$.
+- Since $q=\int q^h(q\mathcal K)(dh)$, joint convexity of relative entropy bounds $\KL(q\Vert\hat q)$ by the integral.
+- \end{proof} The proof uses only the chain rule and joint convexity, so the bound holds for every kernel and every pair of laws with $\KL(q\Vert p)<\infty$.
+- For Gaussian laws and the Gaussian kernel, $\hat q$ has mean $m+OA(a-m)$ and covariance $\Sigma_p-OA\Sigma_p+O(A\Sigma_qA^T+R)O^T$ with $O$ from \cref{it1:gain}; at the tested instance the bound holds with slack $3.4\times10^{-3}$.
+=== replace old[98:99] new[103:105]
+- Reconstruction is the affine use $(I-P)m+Pa$ of the projector, and it is not invertible.
++ Reconstruction is the affine use $(I-P)m+Pa$ of the projector; as a map of the sender mean $a$ with fixed receiver mean $m$, it is noninvertible when $r<K$.
++ For a square full-rank code, $P=I$ and this particular loss disappears.
+=== replace old[104:108] new[110:116]
+- \begin{enumerate} \item[(i)] Two dictionaries $\bar\theta',\bar\theta''$ give the same conditional message law for every referent if and only if $\bar\theta'^{-1}\bar\theta''\in\Stab_G(\bar T)$.
+- \item[(ii)] For the perturbation $\bar\theta e^{\delta}$, $\delta\in\mathfrak g$, the Fisher information of \cref{it1:grounded-model}, averaged over $\rho$, is \begin{equation} F(\delta,\delta)=\Tr\bigl(R^{-1}\bar T\delta C\delta^T\bar T^T\bigr),\qquad C=\bar\theta^{-1}M\bar\theta^{-T}, \label{it1:fisher} \end{equation} and its kernel is $\{\delta\in\mathfrak g:\bar T\delta=0\}$, the Lie algebra of $\Stab_G(\bar T)$.
+- \item[(iii)] For $G=\GL(K,\R)$ and $\bar T$ of rank $r$, $\Stab_G(\bar T)$ has dimension $K(K-r)$, and the identifiable part of the dictionary has dimension $Kr$.
+- \end{enumerate} \begin{proof} (i) Gaussian laws with a common covariance agree exactly when their means agree, and $\bar T\bar\theta'^{-1}\bar y=\bar T\bar\theta''^{-1}\bar y$ for every $\bar y$ means $\bar T\bar\theta'^{-1}=\bar T\bar\theta''^{-1}$, that is, $\bar T\bar\theta'^{-1}\bar\theta''=\bar T$.
++ For parts (i) and (iii), allow any fixed additive-noise law on $\R^r$, independent of the referent; part (ii) assumes the Gaussian noise of \cref{it1:grounded-model}.
++ \textup{(i)} Two dictionaries $\bar\theta',\bar\theta''$ give the same conditional message law for every referent if and only if $\bar\theta'^{-1}\bar\theta''\in\Stab_G(\bar T)$.
++ \textup{(ii)} For the perturbation $\bar\theta e^{\delta}$, $\delta\in\mathfrak g$, the Fisher information of \cref{it1:grounded-model}, averaged over $\rho$, is \begin{equation} F(\delta,\delta)=\Tr\bigl(R^{-1}\bar T\delta C\delta^T\bar T^T\bigr),\qquad C=\bar\theta^{-1}M\bar\theta^{-T}, \label{it1:fisher} \end{equation} and its kernel is $\{\delta\in\mathfrak g:\bar T\delta=0\}$, the Lie algebra of $\Stab_G(\bar T)$.
++ \textup{(iii)} For $G=\GL(K,\R)$ and $\bar T$ of rank $r$, $\Stab_G(\bar T)$ has dimension $K(K-r)$, and the identifiable part of the dictionary has dimension $Kr$.
++ \begin{proof} (i) A probability law on $\R^r$ has no nonzero translation symmetry: its characteristic function is nonzero near the origin, where translation by $a$ would require $e^{\mathrm i\langle t,a\rangle}=1$ and hence $a=0$.
++ Thus two translates of the same noise law agree exactly when their locations agree, and $\bar T\bar\theta'^{-1}\bar y=\bar T\bar\theta''^{-1}\bar y$ for every $\bar y$ means $\bar T\bar\theta'^{-1}=\bar T\bar\theta''^{-1}$, that is, $\bar T\bar\theta'^{-1}\bar\theta''=\bar T$.
+=== replace old[114:115] new[122:124]
+- Without shared referents nothing is identified: if the receiver had only the mean of $\rho$, the data would determine $\bar T\bar\theta^{-1}$ only on one vector.
++ The stated full identification uses shared referents with a positive-definite second moment.
++ If only one referent vector were supplied, the conditional means would determine $\bar T\bar\theta^{-1}$ only on one vector.
+=== insert old[126:126] new[135:136]
++ Assume the messages are conditionally independent given their referents and dictionary.
+=== replace old[127:128] new[137:140]
+- For $G=\GL(K,\R)$ the identifiable dimension is \begin{equation} K\dim\Bigl(\sum_c\operatorname{row}\bar T^c\Bigr)\leq K\min\Bigl(K,\sum_cr_c\Bigr), \label{it1:modalities-eq} \end{equation} with equality on the right exactly when the row spaces of the codes are independent, and the dictionary is fully identified exactly when the row spaces span the dual of $V$.
++ For $G=\GL(K,\R)$ the identifiable dimension is \begin{equation} K\dim\Bigl(\sum_c\operatorname{row}\bar T^c\Bigr)\leq K\min\Bigl(K,\sum_cr_c\Bigr), \label{it1:modalities-eq} \end{equation} If $\sum_c r_c\leq K$, equality in the bound holds exactly when the row spaces form a direct sum.
++ If $\sum_c r_c\geq K$, equality holds exactly when their sum is $V^*$; independence of the row spaces is then unnecessary.
++ The dictionary is fully identified exactly when the row spaces span $V^*$.
+=== replace old[140:144] new[152:156]
+- \begin{enumerate} \item[(i)] If the labels are observed, the Fisher information about $\delta$ per exchange is $\sum_c\beta^{(c)}_{ij}F_c^{(j)}$.
+- \item[(ii)] If the labels are latent, the Fisher information is at most $\sum_c\beta^{(c)}_{ij}F_c^{(j)}$ in the Loewner order.
+- \item[(iii)] With observed labels the information vanishes exactly on $\{\delta\in\mathfrak g:\bar T_j^c\delta=0\text{ for every }c\text{ with }\beta^{(c)}_{ij}>0\}$.
+- \end{enumerate} \begin{proof} (i) Given $\bar y$ and the labels, the messages of different modalities are independent, so the complete-data log likelihood is a sum over $c$.
++ \textup{(i)} If the labels are observed, the Fisher information about $\delta$ per exchange is $\sum_c\beta^{(c)}_{ij}F_c^{(j)}$.
++ \textup{(ii)} If the labels are latent, the Fisher information is at most $\sum_c\beta^{(c)}_{ij}F_c^{(j)}$ in the Loewner order.
++ \textup{(iii)} With observed labels the information vanishes exactly on $\{\delta\in\mathfrak g:\bar T_j^c\delta=0\text{ for every }c\text{ with }\beta^{(c)}_{ij}>0\}$.
++ \begin{proof} (i) Given $\bar y$ and the labels, the messages of different modalities are independent, so the complete-data log likelihood is a sum over $c$.
+=== replace old[159:161] new[171:185]
+- Sharing constrains the readings only when the total width exceeds $K$ or the two stacks have different ranks.
+- It constrains them substantively when one dictionary must serve two roles, as in \cref{it1:heads}.
++ For arbitrary stacks, equal ranks alone do not establish compatibility.
++ \propositionheading{Compatibility of stacked readings}{it1:stack-compatibility} Let $T_*,S_*$ be $m\times K$ matrices, with no full-rank assumption.
++ There is a dictionary $\theta\in\GL(K,\R)$ satisfying $T_*\theta^{-1}=S_*$ exactly when \begin{equation} \ker(T_*^T)=\ker(S_*^T).
++ \label{it1:stack-relations} \end{equation} When this holds, the solution set is $\theta_0\operatorname{Stab}_{\GL(K,\R)}(T_*)$ for any one solution $\theta_0$.
++ If the common rank is less than $K$, the solution set meets $\GL^+(K,\R)$.
++ \begin{proof} Right multiplication by an invertible matrix preserves every linear relation among rows, proving necessity.
++ Conversely, equality of the kernels makes the map $a^TT_*\mapsto a^TS_*$ a well-defined linear isomorphism between the row spaces.
++ Extend bases of these row spaces to bases of $(\R^K)^*$.
++ Extending that isomorphism to the full dual space gives right multiplication by an invertible matrix $A$, with $T_*A=S_*$.
++ Put $\theta=A^{-1}$.
++ The coset statement follows as in \cref{it1:query-dictionary}.
++ When the common rank is less than $K$, the extension can reverse one unused basis vector, changing the determinant sign without changing the rows of $S_*$.
++ \end{proof} For example, $T_1=T_2=(1,0)$, $S_1=(1,0)$, and $S_2=(2,0)$ give two rank-one stacks but no common dictionary: the relation $T_1-T_2=0$ fails for the readings.
++ Sharing also constrains the readings when one dictionary must serve routing and content roles, as discussed in \cref{it1:heads}.
+=== replace old[175:190] new[199:218]
+- \theoremheading{Consensus is the fixed space of holonomy}{it1:consensus} Let $\Gamma$ be strongly connected and fix $i_0$.
+- The map $(\mu_i)_i\mapsto\mu_{i_0}$ is a linear bijection from the solutions of \cref{it1:consensus-eq} onto $\bigcap_\gamma\Fix(H_\gamma)$, the intersection over directed closed walks based at $i_0$ of the fixed spaces of their holonomies.
+- \begin{proof} If $(\mu_i)$ solves \cref{it1:consensus-eq}, composing the edge relations along $\gamma$ gives $\mu_{i_0}=H_\gamma\mu_{i_0}$.
+- Conversely let $v$ be fixed by every $H_\gamma$.
+- For each $i$ choose a directed walk $p$ from $i_0$ to $i$ and set $\mu_i=\Pi(p)v$, where $\Pi(p)$ is the composite of dictionaries along $p$.
+- If $p'$ is another such walk, choose a directed walk $s$ from $i$ back to $i_0$, which exists by strong connectivity.
+- Then $\Pi(s)\Pi(p)$ and $\Pi(s)\Pi(p')$ are holonomies of closed walks at $i_0$, so both fix $v$, and since $\Pi(s)$ is invertible, $\Pi(p)v=\Pi(p')v$.
+- The definition is therefore independent of the walk, and appending an edge $j\to i$ to a walk to $j$ gives $\mu_i=\bar\theta_{ij}\mu_j$.
+- The two constructions are mutually inverse and linear.
+- \end{proof} The proof uses the invertibility of the dictionaries, which is one of the reasons recorded in \cref{it1:why-group}.
+- A directed closed walk of length two is admitted, so the two-cycle holonomy $\bar\theta_{ij}\bar\theta_{ji}$ constrains consensus as much as any longer loop.
+- If the holonomies have no common nonzero fixed vector, the only consensus is the zero mean in reference coordinates, which is a convention rather than an agreement; the community cannot share a common reference, although each pair can communicate.
+- The theorem is stated for means, but the same proof applies to laws of any kind.
+- Transported laws are in consensus, $q_i=(\bar\theta_{ij})_\#q_j$ on every edge, exactly when $q_{i_0}$ is invariant under the pushforward by the holonomy of every closed walk at $i_0$: compose pushforwards along walks instead of matrices.
+- For Gaussian laws this constrains both the mean and the covariance; for general laws it constrains every feature of $q_{i_0}$ that the holonomies move.
++ \theoremheading{Consensus and holonomy invariance}{it1:consensus} Let $\Gamma$ be strongly connected and fix $i_0$.
++ Suppose the dictionaries act as bimeasurable bijections on a standard Borel content space.
++ The map $(q_i)_i\mapsto q_{i_0}$ is a bijection from transported consensus laws, satisfying $q_i=(\bar\theta_{ij})_\#q_j$ on every edge, onto laws invariant under every directed closed-walk holonomy based at $i_0$.
++ In the linear realization, the map $(\mu_i)_i\mapsto\mu_{i_0}$ is a linear bijection from the solutions of \cref{it1:consensus-eq} onto $\bigcap_\gamma \Fix(H_\gamma)$.
++ \begin{proof} Composing the edge relations around a closed walk proves that a consensus base law is invariant under its holonomy.
++ Conversely, let $q_0$ have that invariance.
++ For each vertex $i$, choose a directed path $p$ from $i_0$ to $i$ and set $q_i=\Pi(p)_\#q_0$, where $\Pi(p)$ is the ordered product of the dictionaries.
++ If $p'$ is another such path, strong connectivity supplies a directed return path $s$ from $i$ to $i_0$.
++ Both $\Pi(s)\Pi(p)$ and $\Pi(s)\Pi(p')$ are loop holonomies and preserve $q_0$.
++ Pushforward by the bimeasurable inverse $\Pi(s)^{-1}$ gives $\Pi(p)_\#q_0=\Pi(p')_\#q_0$.
++ The definition is independent of the path.
++ Appending an edge to a path gives the required edge relation, and the base law determines the entire family.
++ For vectors, replace pushforward by matrix multiplication in the same argument.
++ This gives path-independent values $\mu_i=\Pi(p)v$ for every common fixed vector $v$, and both directions are linear.
++ \end{proof} The theorem uses the invertibility of the dictionaries and the directed return paths.
++ A two-cycle is included among its loops and constrains consensus alongside longer loops.
++ If the matrix holonomies have no common nonzero fixed vector, the only consensus mean is zero.
++ This does not exclude a nontrivial invariant law: a centered isotropic Gaussian, for example, is invariant under rotation holonomies.
++ For Gaussian laws, consensus constrains both mean and covariance; for general laws, it constrains every feature moved by the holonomies.
+=== replace old[201:204] new[229:237]
+- Two limits on what dissonance can affect follow from the earlier chapters.
+- Agents test agreement only through codes, so the consensus they can detect is the weaker condition $\bar T_j^c(\mu_j-\bar\theta_{ij}^{-1}\mu_i)=0$ for every edge and modality, and dissonance in directions that no code reads is never detected; \cref{it1:complementary} makes this precise for learned dictionaries.
+- And a law that is invariant under part of a holonomy, such as an isotropic belief under a rotation, cannot register that part; the main manuscript's loop-blindness proposition states this at the level of laws.
++ Observability depends on the record experiment.
++ Comparing coded means tests the weaker condition $\bar T_j^c(\mu_j-\bar\theta_{ij}^{-1}\mu_i)=0$ on each edge and modality.
++ Grounded messages with a positive-definite referent second moment instead identify the whole effective code, modulo its stabilizer, as in \cref{it1:identifiability}.
++ The tangent statement \cref{it1:complementary} concerns this latter experiment.
++ A perturbation can fix one operating content while changing the code on other referents, so invisibility at one content does not imply invisibility to grounded messages.
++ Separately, the law-comparison cost $\KL(q\Vert H_\#q)$ is blind to any holonomy stabilizing $q$.
++ The covariance-dressed link defect \cref{it1:dressed-defect} is an observable of the link and covariance together and vanishes only at identity.
++ These are different comparisons.
+=== replace old[206:210] new[239:248]
+- Then, almost surely, \begin{equation} \frac1n\log\frac{\mathbb P(J=j\mid h_{1:n})}{\mathbb P(J=k\mid h_{1:n})}\longrightarrow\KL(\nu\Vert\nu_k)-\KL(\nu\Vert\nu_j).
+- \label{it1:bandwidth-eq} \end{equation} \begin{proof} By Bayes' rule the left side is $\frac1n\log(\pi_j/\pi_k)+\frac1n\sum_{t\leq n}[\log\nu_j(h_t)-\log\nu_k(h_t)]$.
+- The strong law of large numbers sends the average to $\E_\nu\log\nu_j-\E_\nu\log\nu_k$, which equals the right side because the entropy of $\nu$ cancels.
+- \end{proof} To leading exponential order, the posterior over who was heard is the Gibbs row $\pi_je^{-\KL(\nu\Vert\nu_j)/T}/Z$ at temperature $T=1/n$, the posterior concentration of a possibly misspecified model \citep{Berk1966}.
++ Then, almost surely, \begin{equation} \frac1n\log\frac{\mathbb P(J=j\mid h_{1:n})}{\mathbb P(J=k\mid h_{1:n})}\longrightarrow\E_\nu[\log\nu_j-\log\nu_k].
++ \label{it1:bandwidth-eq} \end{equation} If both $\KL(\nu\Vert\nu_j)$ and $\KL(\nu\Vert\nu_k)$ are finite, this limit is $\KL(\nu\Vert\nu_k)-\KL(\nu\Vert\nu_j)$.
++ Integrability of $\log\nu$ under $\nu$, in addition to the candidate-log assumptions, is a sufficient condition for that representation for every pair.
++ \begin{proof} By Bayes' rule the left side is $\frac1n\log(\pi_j/\pi_k)+\frac1n\sum_{t\leq n}[\log\nu_j(h_t)-\log\nu_k(h_t)]$.
++ The strong law of large numbers sends the average to the integrable expected log-likelihood ratio in \cref{it1:bandwidth-eq}.
++ If both relative entropies are finite, subtract their defining logarithmic integrals; the common $\log\nu$ term cancels.
++ Without that finiteness, subtracting two infinite relative entropies is undefined.
++ \end{proof} The finite-sample posterior is exactly the Gibbs row $\pi_j\exp(-nC_{j,n})/Z_n$, with empirical cost $C_{j,n}=-n^{-1}\sum_{t=1}^n\log\nu_j(h_t)$.
++ When all candidate relative entropies are finite, its limiting relative exponential rates are those of $\pi_je^{-\KL(\nu\Vert\nu_j)/T}/Z$ at temperature $T=1/n$, the posterior concentration of a possibly misspecified model \citep{Berk1966}.
+=== replace old[242:244] new[280:282]
+- \begin{enumerate} \item[(i)] For every set of messages the likelihood is constant on each coset $\omega+N$, so the density of the recognition law relative to the prior depends on $\omega$ only through $Y^T\omega$.
+- \item[(ii)] Almost surely, as $n\to\infty$, the mean of the recognition law converges to \begin{equation} \omega_\infty=(I-\Pi_N)\,\omega^\star, \label{it1:limit-mean} \end{equation} its covariance is $ZS^{-1}Z^T+O(1/n)$, and $n$ times its covariance in the coordinates $Y^T\omega$ converges to $(Y^TF_\kappa Y)^{-1}$ with $F_\kappa=\bigoplus_e\kappa_e\bar F_e$.
++ \textup{(i)} For every set of messages the likelihood is constant on each coset $\omega+N$, so the density of the recognition law relative to the prior depends on $\omega$ only through $Y^T\omega$.
++ \textup{(ii)} Almost surely, as $n\to\infty$, the mean of the recognition law converges to \begin{equation} \omega_\infty=(I-\Pi_N)\omega^\star, \label{it1:limit-mean} \end{equation} its covariance is $ZS^{-1}Z^T+O(1/n)$, and $n$ times its covariance in the coordinates $Y^T\omega$ converges to $(Y^TF_\kappa Y)^{-1}$ with $F_\kappa=\bigoplus_e\kappa_e\bar F_e$.
+=== replace old[245:247] new[283:285]
+- It concentrates on the coset at rate $n$ in the identified directions, and within the coset it is the loop prior restricted to the coset.
+- \item[(iii)] Let $\Pi_0=\sigma^{-2}I$.
++ Its precision grows at rate $n$ in the identified directions, and within the coset it is the loop prior restricted to the coset.
++ \textup{(iii)} Let $\Pi_0=\sigma^{-2}I$.
+=== replace old[250:251] new[288:289]
+- \item[(iv)] If in addition the truth is flat, $B\omega^\star=0$, then \begin{equation} Z^T(\omega_\infty-\omega^\star)=-(I+\lambda\sigma^2L_N)^{-1}z^\star.
++ \textup{(iv)} If in addition the truth is flat, $B\omega^\star=0$, then \begin{equation} Z^T(\omega_\infty-\omega^\star)=-(I+\lambda\sigma^2L_N)^{-1}z^\star.
+=== replace old[252:254] new[290:292]
+- \item[(v)] For a general truth, as $\lambda\to\infty$, \begin{equation} Z^T(\omega_\infty-\omega^\star)\longrightarrow-P_{\ker}z^\star-L_N^+Z^TB^TWB\omega^\star, \label{it1:bias} \end{equation} with $P_{\ker}$ the orthogonal projection onto $\ker L_N$ and $L_N^+$ the pseudoinverse.
+- \end{enumerate} \begin{proof} (i) By \cref{it1:tangent-message} the law of a message on edge $e$ depends on $\omega$ only through $\bar T_e^c\omega_e$ for attending modalities $c$, which does not change when $\omega_e$ changes by an element of $N_e$.
++ \textup{(v)} For a general truth, as $\lambda\to\infty$, \begin{equation} Z^T(\omega_\infty-\omega^\star)\longrightarrow-P_{\ker}z^\star-L_N^+Z^TB^TWB\omega^\star, \label{it1:bias} \end{equation} with $P_{\ker}$ the orthogonal projection onto $\ker L_N$ and $L_N^+$ the pseudoinverse.
++ \begin{proof} (i) By \cref{it1:tangent-message} the law of a message on edge $e$ depends on $\omega$ only through $\bar T_e^c\omega_e$ for attending modalities $c$, which does not change when $\omega_e$ changes by an element of $N_e$.
+=== replace old[267:268] new[305:307]
+- \end{proof} Without the loop term the recognition law on the invisible directions stays at the prior: messages never move it there, as \cref{it1:identifiability} requires.
++ \end{proof} With an isotropic anchor and no loop term, the recognition law on the invisible coordinates stays at its anchor marginal.
++ For a general anchor, messages can condition these coordinates through prior correlations, while leaving their conditional law given the identified coordinates unchanged.
+=== replace old[273:274] new[312:313]
+- \begin{enumerate} \item[(i)] $\mathcal D(\omega)=\Vert QB\omega\Vert_W^2$.
++ \textup{(i)} $\mathcal D(\omega)=\Vert QB\omega\Vert_W^2$.
+=== replace old[275:277] new[314:316]
+- \item[(ii)] With $\Pi_0=\sigma^{-2}I$, as $\lambda\to\infty$ the limit mean $\omega_\infty$ satisfies $B\omega_\infty\to QB\omega^\star$, so its loop energy tends to $\mathcal D(\omega^\star)$.
+- \item[(iii)] The loop space $B(X)$ is the $W$-orthogonal sum of $B(N)$, of dimension $\dim N-\dim(N\cap\ker B)$, and of $B(X)\cap B(N)^{\perp_W}$, of dimension $\operatorname{rank}B-\dim B(N)$.
++ \textup{(ii)} With $\Pi_0=\sigma^{-2}I$, as $\lambda\to\infty$ the limit mean $\omega_\infty$ satisfies $B\omega_\infty\to QB\omega^\star$, so its loop energy tends to $\mathcal D(\omega^\star)$.
++ \textup{(iii)} The loop space $B(X)$ is the $W$-orthogonal sum of $B(N)$, of dimension $\dim N-\dim(N\cap\ker B)$, and of $B(X)\cap B(N)^{\perp_W}$, of dimension $\operatorname{rank}B-\dim B(N)$.
+=== replace old[279:280] new[318:319]
+- \end{enumerate} \begin{proof} (i) Since $B(\omega+Zz)=B\omega+BZz$, the minimum over $z$ leaves the $W$-orthogonal residual of $B\omega$ from the range of $BZ$, which is $B(N)$; this residual is $QB\omega$.
++ \begin{proof} (i) Since $B(\omega+Zz)=B\omega+BZz$, the minimum over $z$ leaves the $W$-orthogonal residual of $B\omega$ from the range of $BZ$, which is $B(N)$; this residual is $QB\omega$.
+=== replace old[305:306] new[344:345]
+- If the pairs with $\ker\bar T_{j\to i}\cap\ker\bar T_{i\to j}=0$ connect all agents, then $H^0$ consists of constant sections, $N\cap\ker B=0$, and for a flat truth the recognition law recovers every dictionary in the limits $n\to\infty$ and then $\lambda\to\infty$.
++ If the pairs with $\ker\bar T_{j\to i}\cap\ker\bar T_{i\to j}=0$ connect all agents, then $H^0$ consists of constant sections, $N\cap\ker B=0$, and for a flat truth in the Gaussian tangent model the recognition law recovers every dictionary in the limits $n\to\infty$ and then $\lambda\to\infty$.
+=== replace old[329:330] new[368:371]
+- \section{Without linearization} The tangent model is exact about which configurations remain consistent with the messages and with flat loops.
++ \section{Without linearization} The next results use unrestricted group-valued dictionaries and are exact without linearization.
++ They identify the configurations consistent with grounded messages and exactly flat loops.
++ Restricting dictionaries to a single-exponential image requires intersecting the stated solution sets with that image.
+=== replace old[362:366] new[403:411]
+- Three parts remain.
+- First, for the full grounded model \cref{it1:grounded-model} with a prior on $\omega$, show that the recognition law converges to the prior conditioned on the fiber $\prod_e\bar\theta^\star_e\Stab(\bar T_e)$, which is not linear in the coordinates $\omega$, and determine the selection within the fiber for a dissonant truth and a finite loop weight.
+- Second, replace the positive-definite loop forms by the law-based loop defects of the main manuscript.
+- These are only semidefinite and do not register holonomy that fixes the base law, so more directions should remain unreachable.
++ The remaining questions have separate scopes.
++ First, for the full grounded model \cref{it1:grounded-model} with a prior on $G$ or on a declared exponential chart, establish the limiting conditional law on the identified fiber $\prod_e\bar\theta^\star_e\Stab(\bar T_e)$, or on its preimage in the chart, and determine the selection within the fiber for a dissonant truth and a finite loop weight.
++ Second, compare two distinct nonlinear loop penalties.
++ The covariance-dressed defect \begin{equation} Q(H;\Sigma)=\tfrac12\Vert\Sigma^{-1/2}(I-H)\Sigma^{1/2}\Vert_F^2,\qquad \Sigma>0, \label{it1:dressed-defect} \end{equation} vanishes only at $H=I$ and has a positive-definite tangent form on every matrix Lie algebra.
++ Its nonlinear use does not introduce law-stabilizer directions.
++ In contrast, the law-comparison penalty $\KL(q\Vert H_\#q)$ vanishes whenever $H_\#q=q$ and can have a larger null space.
++ Analyze that alternative only with its specific law and regularity assumptions.
++ For a quarter-turn $H$ and $q=\mathcal N(0,I_2)$, the law-comparison penalty is zero while $Q(H;I_2)=2$.

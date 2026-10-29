@@ -1,0 +1,57 @@
+== QUERY: Martini Egerstedt Bicchi Controllability analysis of multi-agent systems using relaxed equitable partitions 2010
+  -- hit 1: DOI 10.1504/ijscc.2010.031160
+  CR authors: Martini, Simone; Egerstedt, Magnus; Bicchi, Antonio
+  CR title:   Controllability analysis of multi-agent systems using relaxed equitable partitions
+  CR venue:   International Journal of Systems, Control and Communications
+  CR vol/iss/pages: 2/1/2/3/100  article-number: 31160
+  CR date: [2010]
+  -- hit 2: DOI 10.1109/cdc.2010.5717400
+  CR authors: Franceschelli, Mauro; Martini, Simone; Egerstedt, Magnus; Bicchi, Antonio; Giua, Alessandro
+  CR title:   Observability and controllability verification in multi-agent systems through decentralized Laplacian spectrum estimation
+  CR venue:   49th IEEE Conference on Decision and Control (CDC)
+  CR vol/iss/pages: None/None/5775-5780  article-number: None
+  CR date: [2010, 12]
+  -- hit 3: DOI 10.1504/ijscc.2012.045932
+  CR authors: Camlibel, M.K.; Zhang, S.; Cao, M.
+  CR title:   Comments on 'Controllability analysis of multi-agent systems using relaxed equitable partitions'
+  CR venue:   International Journal of Systems, Control and Communications
+  CR vol/iss/pages: 4/1/2/72  article-number: 45932
+  CR date: [2012]
+== QUERY: Egerstedt Martini Cao Camlibel Bicchi Interacting with networks how does structure relate to controllability 2012
+  -- hit 1: DOI 10.1109/mcs.2012.2195411
+  CR authors: 
+  CR title:   Interacting with Networks: How Does Structure Relate to Controllability in Single-Leader, Consensus Networks?
+  CR venue:   IEEE Control Systems
+  CR vol/iss/pages: 32/4/66-73  article-number: None
+  CR date: [2012, 8]
+  -- hit 2: DOI 10.1109/cdc.2008.4739213
+  CR authors: Martini, Simone; Egerstedt, Magnus; Bicchi, Antonio
+  CR title:   Controllability decompositions of networked systems through quotient graphs
+  CR venue:   2008 47th IEEE Conference on Decision and Control
+  CR vol/iss/pages: None/None/5244-5249  article-number: None
+  CR date: [2008, 12]
+  -- hit 3: DOI 10.1109/cdc.2010.5717400
+  CR authors: Franceschelli, Mauro; Martini, Simone; Egerstedt, Magnus; Bicchi, Antonio; Giua, Alessandro
+  CR title:   Observability and controllability verification in multi-agent systems through decentralized Laplacian spectrum estimation
+  CR venue:   49th IEEE Conference on Decision and Control (CDC)
+  CR vol/iss/pages: None/None/5775-5780  article-number: None
+  CR date: [2010, 12]
+== QUERY: Cardoso Delorme Rama Laplacian eigenvectors and eigenvalues and almost equitable partitions 2007
+  -- hit 1: DOI 10.1016/j.ejc.2005.03.006
+  CR authors: Cardoso, Domingos M.; Delorme, Charles; Rama, Paula
+  CR title:   Laplacian eigenvectors and eigenvalues and almost equitable partitions
+  CR venue:   European Journal of Combinatorics
+  CR vol/iss/pages: 28/3/665-673  article-number: None
+  CR date: [2007, 4]
+  -- hit 2: DOI 10.1016/s0012-365x(03)00307-8
+  CR authors: Delorme, C.
+  CR title:   Laplacian eigenvalues and fixed size multisection
+  CR venue:   Discrete Mathematics
+  CR vol/iss/pages: 276/1-3/149-159  article-number: None
+  CR date: [2004, 2]
+  -- hit 3: DOI 10.1109/acc.2016.7524912
+  CR authors: Aguilar, Cesar O.; Gharesifard, Bahman
+  CR title:   On almost equitable partitions and network controllability
+  CR venue:   2016 American Control Conference (ACC)
+  CR vol/iss/pages: None/None/179-184  article-number: None
+  CR date: [2016, 7]

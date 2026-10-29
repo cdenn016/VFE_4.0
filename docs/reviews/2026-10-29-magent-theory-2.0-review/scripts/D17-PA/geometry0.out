@@ -1,0 +1,10 @@
+(a) Bessel identities
+  max residual 1.39e-08
+(b) eps=0 nonflat limit: numeric vs closed form
+  a=0.040 chi=0.30 t=0.0  A=(1.236e-13, -0.511975) closed (0, -0.511975) | F=-12.490335 closed -12.490333 | h_aa=4.9970e-01 closed 4.9970e-01 | h_cc=3.9034e-04 closed 3.9034e-04 | h_ac=-1.0e-15
+  a=0.040 chi=0.30 t=1.0  A=(-1.951e-13, -0.511997) closed (0, -0.511997) | F=-12.492468 closed -12.492466 | h_aa=6.7662e-02 closed 6.7662e-02 | h_cc=5.2834e-05 closed 5.2834e-05 | h_ac=-6.4e-15
+  a=0.020 chi=-0.50 t=3.0  A=(-2.768e-13, -0.207792) closed (0, -0.207792) | F=-16.461360 closed -16.461460 | h_aa=1.2394e-03 closed 1.2394e-03 | h_cc=3.9274e-07 closed 3.9274e-07 | h_ac=8.2e-17
+    eps=0, t to infinity: A_chi -> -0.207792 (=-a^2/(a^2+D)), F -> -16.4615 (=-2aD/(a^2+D)^2), tensor -> 0
+(c) context-varying erased phase theta_2(c) = 0.7 a + 0.4 chi, hidden concentration b=0.05
+  X=[1. 0.]: minimizing xi fine -0.00000000 parent -0.00000000 | h_min fine 6.827446e-02 parent 6.766215e-02 | difference 6.123087e-04 vs I(b) dtheta^2 = 6.123087e-04
+  X=[0. 1.]: minimizing xi fine -0.51199656 parent -0.51199656 | h_min fine 2.527714e-04 parent 5.283384e-05 | difference 1.999375e-04 vs I(b) dtheta^2 = 1.999375e-04

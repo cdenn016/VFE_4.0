@@ -1,0 +1,23 @@
+== 1  single edge i <- j, source uniform: passive equivalence check
+  receivers differ by: 0.0
+  source(shift) - shift^{-1}# source(id): 0.0
+  (passive change by the shift at j maps one configuration to the other; no physical response)
+== 2  self-loop at one agent, Theta_ii = id versus shift, nu(0) uniform (in both stabilizers)
+  t=0 log-velocity difference: 0.0
+  t=1 laws: id [0.404212 0.260809 0.188837 0.146142]  shift [0.313511 0.268036 0.213495 0.204958]
+  gauge-invariant KL(nu(1)||r): id 0.024003278816313617  shift 0.09477688947256453
+  gauge-invariant entropy H(nu(1)): id 1.3124841973409143  shift 1.3710680079043354
+  loop comparison KL(nu(1)||Theta#nu(1)): id 0.0  shift 0.03431081747176367
+== 3  two-cycle i <- j <- i; B: (Theta_ij, Theta_ji) = (id, id); A: (shift, id); nu_j(0) uniform
+  t=0 B: edge costs [0.10644014 0.12177727]
+  t=0 A: edge costs [0.10644014 0.12177727]
+  t=0 source (j) log-velocity B: [-1.394513 -0.301366  0.504099  1.191781]  A: [-0.994513  0.098634  0.904099 -0.008219]
+  t=1 B: edge costs [0.004646 0.004741], local terms [0.066948 0.000831], loop comparison at j 0.000000
+  t=1 A: edge costs [0.008422 0.006414], local terms [0.062735 0.000369], loop comparison at j 0.000738
+== 4  second-order mechanism for the self-loop: KL(nu(t)||H#nu(t)) = (t^2/2) sum nu0 (v - v o H^-1)^2 + O(t^3)
+  t=0.02: KL(nu(t)||shift#nu(t)) / t^2 = 0.408222   predicted coefficient = 0.437011
+  t=0.01: KL(nu(t)||shift#nu(t)) / t^2 = 0.422342   predicted coefficient = 0.437011
+  t=0.005: KL(nu(t)||shift#nu(t)) / t^2 = 0.429606   predicted coefficient = 0.437011
+== 5  first-order separation in the two-cycle: d/dt of the gauge-invariant edge costs at t=0
+  B: dD_ij/dt(0) = -1.216687, dD_ji/dt(0) = -1.485988
+  A: dD_ij/dt(0) = -0.979978, dD_ji/dt(0) = -1.249281

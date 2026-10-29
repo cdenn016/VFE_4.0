@@ -1,0 +1,14 @@
+(a) t=0.0: A_chi fine -0.536585365819 parent -0.536585365819 formula -0.536585365854 | A_a fine -1.72e-12 parent -1.72e-12
+        h_chichi fine 0.756336206977 parent 0.756336206977 formula 0.756336207076 | h_aa fine 4.400000000124 parent 4.400000000124 | h_achi -7.48e-12 -7.48e-12
+        curvature fine (finite differences) = -1.70717986
+        curvature parent (finite differences) = -1.70717986
+        curvature closed form -(d_a I1) I2/(I1+I2)^2 = -1.70717986
+(a) t=0.6: A_chi fine -0.466718771263 parent -0.466718771263 formula -0.466718771288 | A_a fine 1.50e-12 parent 1.50e-12
+        h_chichi fine 0.004612466799 parent 0.004612466799 formula 0.004612466800 | h_aa fine 0.033031485428 parent 0.033031485428 | h_achi -5.61e-13 -5.61e-13
+        curvature fine (finite differences) = -1.77323840
+        curvature parent (finite differences) = -1.77323840
+        curvature closed form -(d_a I1) I2/(I1+I2)^2 = -1.77323835
+(b) d alpha/da = [ 0.3 -0.1]: A_a fine -1.722e-12 parent -1.722e-12; A_chi fine -0.536585365819 parent -0.536585365819; h_aa defect 0.5785439040, predicted shape Fisher loss 0.5785439040
+(b) d alpha/da = [0.2 0.2]: A_a fine -1.722e-12 parent -1.722e-12; A_chi fine -0.536585365819 parent -0.536585365819; h_aa defect 0.2086600106, predicted shape Fisher loss 0.2086600106
+(b) d alpha/da = [ 1. -1.]: A_a fine -1.722e-12 parent -1.722e-12; A_chi fine -0.536585365819 parent -0.536585365819; h_aa defect 10.6811626295, predicted shape Fisher loss 10.6811626295
+(c) Delta(v, J xi) max over 200 random v (with shape parts): 3.55e-15 ; Delta on precision directions: 1.42e-14 ; min Delta(v,v)/|d alpha|^2 on shape directions: 0.640257 (> 0)

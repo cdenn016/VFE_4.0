@@ -1,0 +1,13 @@
+chapter 14 grouping, r0=0.05, |A(0)|<=0.05, |C(0)|<=eps^3, |B_i(0)| = delta|b_i| <= dB:
+   eps=0.005 dB=0.00: Rbar=5.590e-04 ball invariant=True explicit T=4.4848
+   eps=0.005 dB=0.02: Rbar=4.827e-03 ball invariant=True explicit T=5.1269
+   eps=0.005 dB=0.05: Rbar=2.729e-02 ball invariant=True explicit T=12.1015
+   eps=0.005 dB=0.08: Rbar=6.926e-02 ball invariant=True explicit T=inf
+   eps=0.005 dB=0.10: Rbar=1.083e-01 ball invariant=True explicit T=inf
+   eps=0.005: sup of delta*bmax with finite explicit T = 0.0564 (null box additionally needs <= 0.1)
+   eps=0.010 dB=0.00: Rbar=2.242e-03 ball invariant=True explicit T=4.7257
+   eps=0.010 dB=0.02: Rbar=6.511e-03 ball invariant=True explicit T=5.4112
+   eps=0.010 dB=0.05: Rbar=2.898e-02 ball invariant=True explicit T=13.4089
+   eps=0.010 dB=0.08: Rbar=7.096e-02 ball invariant=True explicit T=inf
+   eps=0.010 dB=0.10: Rbar=1.100e-01 ball invariant=True explicit T=inf
+   eps=0.010: sup of delta*bmax with finite explicit T = 0.0550 (null box additionally needs <= 0.1)

@@ -1,0 +1,7 @@
+(1) passive covariance residual: Matrix([[0, 0]])
+    h' - h: 0
+(2) connection-change residual: 0
+(3) structure identity residual: Matrix([[0, 0]])  |V([X,Y])| = [36.5409, 26.8042]
+(4) V(Z) = Matrix([[0, 0]])
+    basic-criterion residual: 0  L_Z h(X,Y) = -0.11795645
+(5) contact: V(d_x) = 0  V(d_y + x d_z) = 0  V([.,.]) = 1  -F(N1,N2) = -(-dx^dy)(N1,N2) = 1

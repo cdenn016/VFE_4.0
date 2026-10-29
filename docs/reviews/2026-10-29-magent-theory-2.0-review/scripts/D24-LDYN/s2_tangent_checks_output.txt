@@ -1,0 +1,49 @@
+loops (edge indices): [[0, 1], [0, 2, 3], [3, 4]]  ranks: [1, 2, 1, 1, 2]
+J positive definite: True
+
+[it2:gauge] dim G = 19  rank of belief projection = 6 of 6
+  constructed completion: max |L_e d| = 4.440892098500626e-16
+  null(F) == G: dims 19 19  rank[G,nullF] = 19
+  for v in G: v'Jv - v'(J-F)v = -1.4210854715202004e-14
+  (iii) dim belief part with omega in N = 2  dim code-sheaf H0 = 2  same subspace: True
+  common shift in H0: |delta shift| = 2.7755575615628914e-17
+
+[it2:split]
+  trial 0 (n=1): global residuals 5.6e-17 1.1e-16 2.2e-16; per-agent 3.5e-18 5.6e-17; |S'-S| = 0.0e+00; |per-agent dy_i - global dy_i| = 5.6e-17
+  trial 1 (n=2): global residuals 5.6e-17 2.8e-17 5.6e-17; per-agent 1.1e-16 1.1e-16; |S'-S| = 3.6e-15; |per-agent dy_i - global dy_i| = 0.0e+00
+  trial 2 (n=3): global residuals 4.4e-16 7.8e-16 1.2e-15; per-agent 2.8e-16 9.4e-16; |S'-S| = 3.6e-15; |per-agent dy_i - global dy_i| = 3.3e-16
+  (iii) isotropic: |sigma^2 kappa kappa^T - sigma^2|c|^2 I| = 0.0
+
+[it2:grounding]
+  g=1e+01: |T C T' - T k Pi V Pi k' T'| = 6.9e-18; g*|Pi V Pi| = 0.1473; g*|kappa V kappa' T'| = 0.1300
+  g=1e+03: |T C T' - T k Pi V Pi k' T'| = 5.7e-17; g*|Pi V Pi| = 0.1513; g*|kappa V kappa' T'| = 0.1331
+  g=1e+05: |T C T' - T k Pi V Pi k' T'| = 2.1e-17; g*|Pi V Pi| = 0.1514; g*|kappa V kappa' T'| = 0.1331
+
+[it2:global-flow]
+  F_G(direct) - F_G(claimed) over 4 random (mu,S): spread = 1.4210854715202004e-14
+  -D^{-1}J: max|Im| = 0.0  max Re = -0.1576151553607096
+  min eig of (exact marginal cov - J_ii^{-1}) per block: [np.float64(0.002046), np.float64(0.001023), np.float64(0.069473)]
+
+[it2:per-agent-flow] plug-in
+  dictionary rows: |H - J| = 0.0  |b - eta| = 0.0
+  content rows: |H - (J - sender)| = 8.881784197001252e-16  |b - (eta - sender)| = 2.220446049250313e-16
+  |H - H^T| = 5.182372581520822   |mu_pa - x*| = 1.0403955282140944
+  -A^{-1}H: max Re = -0.30807473281171815  max|Im| = 0.03885382681634155
+  edge 1->0: |H_{y0 y1} + T'R^{-1}T| = 0.0 ; H_{y1 y0} equals the opposite edge's own term only: 0.0
+
+[law-level covariance fixed point]
+  iterations 22 22  max diff between limits from low and high starts: 3.26405569239796e-14
+  min eig of Phi(tX) - t Phi(X), 20 draws (claim > 0): 0.004215765715758687
+  min eig of Phi(Y) - Phi(X) for Y >= X, 20 draws (claim >= 0): -2.0643209364124004e-16
+  law-level dictionary rows: |H - J| = 3.207547219696747 (nonzero expected)
+  law-level content rows: |H - (J[R->R~] - sender)| = 4.440892098500626e-16
+  law-level -A^{-1}H: max Re = -0.46738113794161357  max|Im| = 0.03258933600916573
+
+[it2:separation]
+  g=1e+02: global |y-yG|=1.04e-02 (g*err 1.039) |alpha|=4.72e-01 |nu-lim|=2.29e-01; plug-in |y-yP|=3.45e-02 (g*err 3.447) |alpha|=4.71e-01 |nu-lim|=2.30e-01
+  g=1e+04: global |y-yG|=1.26e-04 (g*err 1.258) |alpha|=2.20e-02 |nu-lim|=6.81e-03; plug-in |y-yP|=4.06e-04 (g*err 4.063) |alpha|=2.20e-02 |nu-lim|=6.82e-03
+  g=1e+06: global |y-yG|=1.26e-06 (g*err 1.265) |alpha|=2.27e-04 |nu-lim|=6.99e-05; plug-in |y-yP|=4.08e-06 (g*err 4.079) |alpha|=2.27e-04 |nu-lim|=7.00e-05
+  |yG - yP| = 1.0413917418926275  (limits differ)
+
+[companion example] scalar edge T=c=R=Sigma_j=1, o=0, mu_i-mu_j=1, a=0
+  global record derivative in dictionary: -1.0  law-level: -0.5

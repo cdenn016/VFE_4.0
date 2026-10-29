@@ -1,0 +1,48 @@
+(1a) |T G - I|        = 2.220446049250313e-16
+(1b) |P^2 - P|        = 1.1102230246251565e-16
+(1c) covariance forms = 3.552713678800501e-15
+(1d) T-marginal kept  = 4.440892098500626e-16 7.105427357601002e-15
+(1e) KL(q||qhat) - [KL(q||p) - KL(Tq||Tp)] = -4.440892098500626e-16
+(1f) fiber average - KL(q||qhat) = 8.881784197001252e-16
+(2a) noisy loss, bound, slack = 1.054614701810678 1.058034685905353 0.0034199840946751436
+(2b) posterior precision update = 3.3306690738754696e-15
+(2c) mutual information forms   = 4.440892098500626e-16
+(3)  |e^{OT} - I - O phi1(TO) T| = 8.881784197001252e-16
+(4a) rank F, K*r, K*K = 10 10 25
+(4b) |T e^{-delta} - T| for delta in stabilizer algebra = 1.3322676295501878e-15
+(4c) F(delta,delta) = -1.5335905447153487e-15
+(5)  rank F12, K*rank(stack), stack rank, r1+r2 = 15 15 3 4
+(6a) triangle, holonomy angle 0.0 : kernel dim, lambda_min = (2, np.float64(-4.564281269829131e-16))
+(6a) triangle, holonomy angle 0.7 : kernel dim, lambda_min = (0, np.float64(0.05419787583709912))
+(6b) two-cycle, inverse links : kernel dim, lambda_min = (2, np.float64(0.0))
+(6c) two-cycle, holonomy 0.3  : kernel dim, lambda_min = (0, np.float64(0.022457844127915516))
+(7a) complete-data info vs sum_c b_c F_c, relative error = 0.006355937634407831
+(7b) min eigenvalue of (complete - observed) = -6.755167885557589e-16
+(7c) rank of complete info, K*rank(stacked codes) = 6 6
+(8a) |T theta0^{-1} - S| = 2.220446049250313e-16
+(8b) |T (theta0 s)^{-1} - S| for s in Stab(T) = 8.881784197001252e-16
+(9a) kron vs trace Fisher = 0.0  kernel dim = 3 expected 3
+(9b) n = 1000 : |mean - limit| = 0.04684273058361493  |cov - Z S^-1 Z^T| = 0.0019929227482601564  rel |n Y^T cov Y - (Y^T F Y)^-1| = 0.03059211336049203
+(9b) n = 100000 : |mean - limit| = 0.004407281283142078  |cov - Z S^-1 Z^T| = 1.9649451403896956e-05  rel |n Y^T cov Y - (Y^T F Y)^-1| = 0.003838652849452662
+(9c) lam = 0: |mean - (I - ZZ^T)w*| = 8.326672684688674e-17  |cov - s2 ZZ^T| = 3.3306690738754696e-16
+(9d) flat truth: |B w*| = 2.7755575615628914e-17
+     lam = 2.0 : |err - shrinkage formula| = 1.942890293094024e-16  |err| = 0.33536313901813497
+     lam = 10000000.0 : |err - shrinkage formula| = 2.4626285236831365e-14  |err| = 1.3499738056719433e-05
+(9e) lam = 1000000.0 : |Z^T(w_lim - w*) - (-P_ker z* - M^+ Z^T B^T W B w*)| = 0.0012163729483276597
+(9e) lam = 100000000.0 : |Z^T(w_lim - w*) - (-P_ker z* - M^+ Z^T B^T W B w*)| = 1.2170583647996835e-05
+     D(w*) = -6.8833827526759706e-15  D(w* + nu) = -1.5631940186722204e-13  |B w_lim|_W^2 = 4.127541719643338e-12  |B w*|_W^2 = 1.020835695668529
+(9f) complete exchange, rank-1 codes: {'dimN': 36, 'rankB': np.int64(36), 'filled': np.int64(36), 'unreach': np.int64(0), 'detect': np.int64(0)}  ker B dim = 18 coboundary dim = 18  sheaf K(dim H0 - K) = 0
+     two-cycles only: {'dimN': 36, 'rankB': np.int64(27), 'filled': np.int64(27), 'unreach': np.int64(9), 'detect': np.int64(0)}  sum over pairs K dim(ker_i cap ker_j) = 9
+     common unread direction: {'dimN': 36, 'rankB': np.int64(36), 'filled': np.int64(30), 'unreach': np.int64(6), 'detect': np.int64(6)}  sheaf K(dim H0 - K) = 6
+     directed triangle, rank-1 codes: {'dimN': 18, 'rankB': np.int64(9), 'filled': np.int64(9), 'unreach': np.int64(9), 'detect': np.int64(0)}  sheaf K(dim H0 - K) = 9
+(9g) rank 2 : {'dimN': 6, 'rankB': np.int64(9), 'filled': np.int64(6), 'unreach': np.int64(0), 'detect': np.int64(3)}  predicted filled, unreach, detect = 6 0 3
+     D(w*) = 3.3310396084240885  D(w* + nu) = 3.3310396084241027  |P_(row cap row)(w01 + w10)|_F^2 = 3.331039608424082
+(9g) rank 1 : {'dimN': 12, 'rankB': np.int64(9), 'filled': np.int64(9), 'unreach': np.int64(3), 'detect': np.int64(0)}  predicted filled, unreach, detect = 9 3 0
+(9h) rank 2 : dim of residual Lie algebra K dim ker(T1; T0 theta*) = 0
+(9h) rank 1 : dim of residual Lie algebra K dim ker(T1; T0 theta*) = 3
+     |T1 th01^-1 - T1 th*^-1| = 1.1102230246251565e-16  |T0 th10^-1 - T0 th*| = 4.440892098500626e-16  |th01 th10 - I| = 1.1102230246251565e-16  |th01 - th*| = 0.26127309985333336
+(9i) max message-law change = 6.661338147750939e-16  max |H - I| = 6.907707726746306e-16  max |theta - theta*| = 1.7403127921888863
+(9j) |mean-field mean - exact mean| = 5.7870375158586285e-15  min eig(exact block cov - MF cov) = 4.1523788988094836e-10  trace exact, MF = 7.750724698573304 4.588722309018912
+(9k) eps = 0.01 : |log H - sum x| / eps^2 = 2.3038045727418606
+(9k) eps = 0.001 : |log H - sum x| / eps^2 = 2.30757362806866
+(10) Student-t location family: Monte Carlo Fisher 29.753429695582472  formula 29.829848398695926  relative difference 0.002561820029792535

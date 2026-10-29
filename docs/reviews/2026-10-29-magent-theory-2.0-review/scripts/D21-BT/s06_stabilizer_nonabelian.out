@@ -1,0 +1,6 @@
+(a) at x=0: |value change| = 0.0e+00; max |first-derivative change| = 1.1e-10; |second x-derivative change| = 1.765
+(a) required connection shift |n df(c0)| = 0.762
+(b) original: rank of span of a-values at 3 points = 1
+(b) variant: rank of span of a-values at 3 points = 3
+(b) original: |H1 - I| = 5.412e-02, |H2 - I| = 6.677e-02, |[H1, H2]| = 3.807e-13
+(b) variant: |H1 - I| = 4.409e-11, |H2 - I| = 3.537e-11, |[H1, H2]| = 7.317e-22

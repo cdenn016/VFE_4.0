@@ -1,0 +1,13 @@
+(a) (C,S,rho)=(8.0,0.0,8.0), c*=3.0, |Xdot - claimed| = 0.0e+00
+    cusp eps=-0.1: numerical min 1.80500000, formula 1.80500000
+    cusp eps=+0.0: numerical min 2.00000000, formula 2.00000000
+    cusp eps=+0.1: numerical min 2.00500000, formula 2.00500000
+(b) without dealiasing (N=64): rel error at t=0.3 = 2.64e-01  [aliasing instability in the undamped gauge direction]
+    off-family component, t = 0.025..0.175 (no dealiasing): ['6.7e-15', '6.3e-12', '2.9e-09', '6.6e-07', '8.6e-05', '6.5e-03', '9.6e-02']
+    resolution dependence at t=0.3, dt=2.5e-4 (no dealias / 2/3 dealias): [(32, '4.9e-10', '2.0e-05'), (64, '2.7e-01', '4.2e-14'), (128, '4.7e-01', '4.2e-14')]
+    with 2/3 dealiasing, N=64, dt=0.001: max rel error vs ctx:c:eq:exact at T=1.0: 1.88e-11; F_*(T) numerical 2.000950866045 vs exact 2.000950866045
+    halving dt changes P by 3.79e-12 (RK4 time error)
+(c) generic field: (F(dt)-F(0))/dt = -414.047261; -int||P_t||^2 at t=0: -415.020373, at dt/2: -414.046867; min ||P||_F over x: 4.163
+    max |<P_t, JP>_F| = 4.70e-14 (horizontal vector field)
+(d) ctx:c:eq:nonbasic at (u,r)=(0.7,0.2): |p_t + (p - a e1)| = 1.1e-16
+(d) ctx:c:eq:nonbasic at (u,r)=(2.0,-1.1): |p_t + (p - a e1)| = 2.2e-16

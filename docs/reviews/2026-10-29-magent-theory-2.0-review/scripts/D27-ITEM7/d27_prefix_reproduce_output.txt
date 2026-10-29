@@ -1,0 +1,11 @@
+SAME | (1a) |compensation identity residual| = 2.220446049250313e-16
+SAME | (1b) |shared row - pooled row at temperature 1/n|, |row change at fixed pool| = 1.1102230246251565e-16 1.11022
+SAME | (1c) |KL(qbar||p) - KL(qbar||p*) - KL(p*||p)| over family sources = 2.220446049250313e-16 ; |E_p* t - mubar| =
+SAME | (2a) |beta'_j - (1 - beta'_A) beta_j| = 2.7755575615628914e-17
+SAME | (2b) |v' - [(1 - beta'_A) v_rows + v_record]| = 1.1796119636642288e-16 ; |v' - (1 - beta'_A) v| = 0.1008014445
+SAME | (3a) d/dt (sum P_i y_i + P_A y_A) at tau = 0, 3, 30: [5.48049907 5.48049907 5.48049907]
+SAME | (3b) mean-field bridges, pooled parent: |block sums(tau=0) - block sums(tau=10)| at t=3 = 5.551115123125783e-1
+SAME | (3b) sparse bridges, pooled parent: |block sums(tau=0) - block sums(tau=10)| at t=3 = 0.013291471454762949
+SAME | (3c) mean-field bridges, own-state star: |block J sum(tau=0) - block J sum(tau=10)| at t=3 = 0.000232885041171
+SAME | (4) d/dt pbar at p = (0.5, 0.5) and (0.2, 0.8): 0.25 0.16000000000000003
+SAME | (5) mean Bernoulli variance at p = (0.5, 0.5), (0.2, 0.8): 0.25 0.16

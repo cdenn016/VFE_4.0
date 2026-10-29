@@ -1,0 +1,246 @@
+# 87 bib entries carry a DOI; checking indices 54..72
+== LiRabitz1989 [references.bib, @article]
+  bib author: Li, Genyuan and Rabitz, Herschel
+  bib title: A General Analysis of Exact Lumping in Chemical Kinetics
+  bib journal: Chemical Engineering Science
+  bib volume: 44
+  bib number: 6
+  bib pages: 1413--1430
+  bib year: 1989
+  bib doi: 10.1016/0009-2509(89)85014-6
+  CR authors: Li, Genyuan; Rabitz, Herschel
+  CR title:   A general analysis of exact lumping in chemical kinetics
+  CR venue:   Chemical Engineering Science
+  CR vol/iss/pages: 44/6/1413-1430  article-number: None
+  CR date: [1989]
+== Lin1991 [item7_refs.bib, @article]
+  bib author: Lin, Jianhua
+  bib title: Divergence measures based on the {S}hannon entropy
+  bib journal: IEEE Transactions on Information Theory
+  bib volume: 37
+  bib number: 1
+  bib pages: 145--151
+  bib year: 1991
+  bib doi: 10.1109/18.61115
+  CR authors: Lin, J.
+  CR title:   Divergence measures based on the Shannon entropy
+  CR venue:   IEEE Transactions on Information Theory
+  CR vol/iss/pages: 37/1/145-151  article-number: None
+  CR date: [1991]
+== LittlejohnReinsch1997 [references.bib, @article]
+  bib author: Littlejohn, Robert G. and Reinsch, Matthias
+  bib title: Gauge Fields in the Separation of Rotations and Internal Motions in the $n$-Body Problem
+  bib journal: Reviews of Modern Physics
+  bib volume: 69
+  bib number: 1
+  bib pages: 213--275
+  bib year: 1997
+  bib doi: 10.1103/RevModPhys.69.213
+  CR authors: Littlejohn, Robert G.; Reinsch, Matthias
+  CR title:   Gauge fields in the separation of rotations andinternal motions in the n-body problem
+  CR venue:   Reviews of Modern Physics
+  CR vol/iss/pages: 69/1/213-276  article-number: None
+  CR date: [1997, 1, 1]
+== Lloyd1982 [item7_refs.bib, @article]
+  bib author: Lloyd, Stuart P.
+  bib title: Least squares quantization in {PCM}
+  bib journal: IEEE Transactions on Information Theory
+  bib volume: 28
+  bib number: 2
+  bib pages: 129--137
+  bib year: 1982
+  bib doi: 10.1109/TIT.1982.1056489
+  CR authors: Lloyd, S.
+  CR title:   Least squares quantization in PCM
+  CR venue:   IEEE Transactions on Information Theory
+  CR vol/iss/pages: 28/2/129-137  article-number: None
+  CR date: [1982, 3]
+== MacKay1992 [item7_refs.bib, @article]
+  bib author: MacKay, David J. C.
+  bib title: Bayesian interpolation
+  bib journal: Neural Computation
+  bib volume: 4
+  bib number: 3
+  bib pages: 415--447
+  bib year: 1992
+  bib doi: 10.1162/neco.1992.4.3.415
+  CR authors: MacKay, David J. C.
+  CR title:   Bayesian Interpolation
+  CR venue:   Neural Computation
+  CR vol/iss/pages: 4/3/415-447  article-number: None
+  CR date: [1992, 5]
+== Martins2009 [item7_refs.bib, @article]
+  bib author: Martins, Andr{\'e} C. R.
+  bib title: Bayesian updating rules in continuous opinion dynamics models
+  bib journal: Journal of Statistical Mechanics: Theory and Experiment
+  bib volume: 2009
+  bib number: 02
+  bib pages: P02017
+  bib year: 2009
+  bib doi: 10.1088/1742-5468/2009/02/P02017
+  CR authors: Martins, André C R
+  CR title:   Bayesian updating rules in continuous opinion dynamics models
+  CR venue:   Journal of Statistical Mechanics: Theory and Experiment
+  CR vol/iss/pages: 2009/02/P02017  article-number: None
+  CR date: [2009, 2, 4]
+== MauroyMezicMoehlis2013 [references.bib, @article]
+  bib author: Mauroy, Alexandre and Mezi{\'c}, Igor and Moehlis, Jeff
+  bib title: Isostables, Isochrons, and {K}oopman Spectrum for the Action-Angle Representation of Stable Fixed Point Dynamics
+  bib journal: Physica D: Nonlinear Phenomena
+  bib volume: 261
+  bib pages: 19--30
+  bib year: 2013
+  bib doi: 10.1016/j.physd.2013.06.004
+  CR authors: Mauroy, A.; Mezić, I.; Moehlis, J.
+  CR title:   Isostables, isochrons, and Koopman spectrum for the action–angle representation of stable fixed point dynamics
+  CR venue:   Physica D: Nonlinear Phenomena
+  CR vol/iss/pages: 261/None/19-30  article-number: None
+  CR date: [2013, 10]
+== Molino1988 [references.bib, @book]
+  bib author: Molino, Pierre
+  bib title: Riemannian Foliations
+  bib volume: 73
+  bib year: 1988
+  bib doi: 10.1007/978-1-4684-8670-4
+  CR authors: Molino, Pierre
+  CR title:   Riemannian Foliations
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [1988]
+== Morris1982 [item7_refs.bib, @article]
+  bib author: Morris, Carl N.
+  bib title: Natural exponential families with quadratic variance functions
+  bib journal: The Annals of Statistics
+  bib volume: 10
+  bib number: 1
+  bib pages: 65--80
+  bib year: 1982
+  bib doi: 10.1214/aos/1176345690
+  CR authors: Morris, Carl N.
+  CR title:   Natural Exponential Families with Quadratic Variance Functions
+  CR venue:   The Annals of Statistics
+  CR vol/iss/pages: 10/1/65-80  article-number: None
+  CR date: [1982, 3, 1]
+== MotschTadmor2014 [item7_refs.bib, @article]
+  bib author: Motsch, Sebastien and Tadmor, Eitan
+  bib title: Heterophilious dynamics enhances consensus
+  bib journal: SIAM Review
+  bib volume: 56
+  bib number: 4
+  bib pages: 577--621
+  bib year: 2014
+  bib doi: 10.1137/120901866
+  CR authors: Motsch, Sebastien; Tadmor, Eitan
+  CR title:   Heterophilious Dynamics Enhances Consensus
+  CR venue:   SIAM Review
+  CR vol/iss/pages: 56/4/577-621  article-number: None
+  CR date: [2014, 1]
+== Nayyar2013CommonInformation [references.bib, @article]
+  bib author: Nayyar, Ashutosh and Mahajan, Aditya and Teneketzis, Demosthenis
+  bib title: Decentralized Stochastic Control with Partial History Sharing: A Common Information Approach
+  bib journal: IEEE Transactions on Automatic Control
+  bib volume: 58
+  bib number: 7
+  bib pages: 1644--1658
+  bib year: 2013
+  bib doi: 10.1109/TAC.2013.2239000
+  CR authors: Nayyar, Ashutosh; Mahajan, Aditya; Teneketzis, Demosthenis
+  CR title:   Decentralized Stochastic Control with Partial History Sharing: A Common Information Approach
+  CR venue:   IEEE Transactions on Automatic Control
+  CR vol/iss/pages: 58/7/1644-1658  article-number: None
+  CR date: [2013, 7]
+== OClery2013 [item7_refs.bib, @article]
+  bib author: O'Clery, Neave and Yuan, Ye and Stan, Guy-Bart and Barahona, Mauricio
+  bib title: Observability and coarse graining of consensus dynamics through the external equitable partition
+  bib journal: Physical Review E
+  bib volume: 88
+  bib number: 4
+  bib pages: 042805
+  bib year: 2013
+  bib doi: 10.1103/PhysRevE.88.042805
+  CR authors: O’Clery, Neave; Yuan, Ye; Stan, Guy-Bart; Barahona, Mauricio
+  CR title:   Observability and coarse graining of consensus dynamics through the external equitable partition
+  CR venue:   Physical Review E
+  CR vol/iss/pages: 88/4/None  article-number: 042805
+  CR date: [2013, 10, 11]
+== ONeill1966 [references.bib, @article]
+  bib author: O'Neill, Barrett
+  bib title: The fundamental equations of a submersion
+  bib journal: Michigan Mathematical Journal
+  bib volume: 13
+  bib number: 4
+  bib pages: 459--469
+  bib year: 1966
+  bib doi: 10.1307/mmj/1028999604
+  CR authors: O'Neill, Barrett
+  CR title:   The fundamental equations of a submersion.
+  CR venue:   Michigan Mathematical Journal
+  CR vol/iss/pages: 13/4/459-469  article-number: None
+  CR date: [1966, 12, 1]
+== PadenSastry1987 [references.bib, @article]
+  bib author: Paden, Brad E. and Sastry, Shankar S.
+  bib title: A Calculus for Computing {F}ilippov's Differential Inclusion with Application to the Variable Structure Control of Robot Manipulators
+  bib journal: IEEE Transactions on Circuits and Systems
+  bib volume: 34
+  bib number: 1
+  bib pages: 73--82
+  bib year: 1987
+  bib doi: 10.1109/TCS.1987.1086038
+  CR authors: Paden, B.; Sastry, S.
+  CR title:   A calculus for computing Filippov's differential inclusion with application to the variable structure control of robot manipulators
+  CR venue:   IEEE Transactions on Circuits and Systems
+  CR vol/iss/pages: 34/1/73-82  article-number: None
+  CR date: [1987, 1]
+== PalaciosEtAl2020 [references.bib, @article]
+  bib author: Palacios, Ensor Rafael and Razi, Adeel and Parr, Thomas and Kirchhoff, Michael and Friston, Karl
+  bib title: On {M}arkov Blankets and Hierarchical Self-Organisation
+  bib journal: Journal of Theoretical Biology
+  bib volume: 486
+  bib pages: 110089
+  bib year: 2020
+  bib doi: 10.1016/j.jtbi.2019.110089
+  CR authors: Palacios, Ensor Rafael; Razi, Adeel; Parr, Thomas; Kirchhoff, Michael; Friston, Karl
+  CR title:   On Markov blankets and hierarchical self-organisation
+  CR venue:   Journal of Theoretical Biology
+  CR vol/iss/pages: 486/None/110089  article-number: 110089
+  CR date: [2020, 2]
+== Palais1979 [references.bib, @article]
+  bib author: Palais, Richard S.
+  bib title: The principle of symmetric criticality
+  bib journal: Communications in Mathematical Physics
+  bib volume: 69
+  bib number: 1
+  bib pages: 19--30
+  bib year: 1979
+  bib doi: 10.1007/BF01941322
+  CR authors: Palais, Richard S.
+  CR title:   The principle of symmetric criticality
+  CR venue:   Communications in Mathematical Physics
+  CR vol/iss/pages: 69/1/19-30  article-number: None
+  CR date: [1979, 10]
+== PappasLafferriereSastry2000 [references.bib, @article]
+  bib author: Pappas, George J. and Lafferriere, Gerardo and Sastry, Shankar
+  bib title: Hierarchically Consistent Control Systems
+  bib journal: IEEE Transactions on Automatic Control
+  bib volume: 45
+  bib number: 6
+  bib pages: 1144--1160
+  bib year: 2000
+  bib doi: 10.1109/9.863598
+  CR authors: Pappas, G.J.; Lafferriere, G.; Sastry, S.
+  CR title:   Hierarchically consistent control systems
+  CR venue:   IEEE Transactions on Automatic Control
+  CR vol/iss/pages: 45/6/1144-1160  article-number: None
+  CR date: [2000, 6]
+== PeronyEtAl2012 [item7_refs.bib, @inproceedings]
+  bib author: Perony, Nicolas and Pfitzner, Ren{\'e} and Scholtes, Ingo and Tessone, Claudio J. and Schweitzer, Frank
+  bib title: Hierarchical consensus formation reduces the influence of opinion bias
+  bib booktitle: Proceedings of the 26th European Conference on Modelling and Simulation (ECMS 2012)
+  bib pages: 662--668
+  bib year: 2012
+  bib doi: 10.7148/2012-0662-0668
+  CR authors: Perony, Nicolas; Pfitzner, Rene; Scholtes, Ingo; Tessone, Claudio J.; Schweitzer, Frank
+  CR title:   Hierarchical Consensus Formation Reduces The Influence Of Opinion Bias
+  CR venue:   ECMS 2012 Proceedings edited by: K. G. Troitzsch, M. Moehring, U. Lotzmann
+  CR vol/iss/pages: None/None/662-668  article-number: None
+  CR date: [2012, 5, 29]

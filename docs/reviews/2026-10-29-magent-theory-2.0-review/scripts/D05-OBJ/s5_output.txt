@@ -1,0 +1,22 @@
+(a) Monderer-Shapley test on Bernoulli laws (probability coordinates x1, x2)
+   d2 KL(q1||q2)/dx1dx2 = 1/(x2*(x2 - 1))  ; d2 KL(q2||q1)/dx1dx2 = 1/(x1*(x1 - 1))
+   equality set: [x2, 1 - x2]  (includes x1 = 1 - x2, not only q1 = q2)
+
+(b) linear Gaussian, unit variances, references a, b; weights beta
+   mutual edges: reciprocal gap (a - b)/(4*beta + 1) | agent-wise (additive local) gap (a - b)/(2*beta + 1) | per-agent mixture gap (-a*beta + a + b*beta - b)/(beta + 1) | global gap (a - b)/(2*tau + 1)
+   at beta = 1: reciprocal a/5 - b/5  agent-wise a/3 - b/3
+   directed edge 2->1: reciprocal source mean m2 = (a*beta + b*beta + b)/(2*beta + 1)  ; per-agent source mean m2 = b
+
+(c) bistable local term KL(q (x) s || R), R diagonal 0.49, off-diagonal 0.01; reciprocal Fisher flow + one record
+   minimum A: q(1) = 0.9760, s(1) = 0.9760, E = 0.669229
+   record on the state sector only: after assimilation q(1) = 0.2911, s(1) = 0.9760, E = 2.716961 (change +2.047732)
+      flow then converges to q(1) = 0.9760, s(1) = 0.9760, E = 0.669229: minimum A (record effect transient)
+   records on both sectors: after assimilation q(1) = 0.2911, s(1) = 0.2911, E = 1.113276 (change +0.444047)
+      flow then converges to q(1) = 0.0240, s(1) = 0.0240, E = 0.669229: the other minimum B (record effect persistent)
+
+(d) global free energy with streaming records (finite model, Bayes-optimal recognition)
+   jumps of F at the current recognition when a record arrives: [1.4295, 1.0637, 0.4474, 0.5831]
+   optimized free energy -log P(o_1:k): [1.0685, 2.0369, 2.468, 2.9503]  (nondecreasing, discrete records)
+
+(e) per-agent flows: unit-mobility rows versus Gibbs-reduced rows, identity channels, Bernoulli agents
+   equilibria compared: 119  stability disagreements found: 0

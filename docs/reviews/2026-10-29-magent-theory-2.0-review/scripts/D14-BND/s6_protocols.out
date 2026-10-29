@@ -1,0 +1,30 @@
+(a) fresh responses under a rotation of the phase at node L by 2 grid steps (pi/2)
+   TV root response 0.00e+00; TV node-L response 0.00e+00
+   sup|root - f_0| = 2.22e-16; sup|node L - f_1(r, sigma_0)| = 0.00e+00
+   control: rotating the root phase changes the node-L response by TV 0.1678 (retained at level 1)
+   fresh independent two-draw law at node L: TV 0.00e+00
+(b) reused hidden child at node L, two draws
+   TV under the node-L rotation: 0.0974
+   sup|reuse law - eq:boundary-tree-reuse| = 4.44e-16
+(c) shared belief/model child label at node L under a model-sector rotation at node L
+   shared-label TV 0.0650; separate fresh labels TV 0.00e+00
+(d) base-only broadcast record L(o|r)
+   component normalizers Z_i: [0.58798339 0.58798339 0.58798339 0.58798339]; Z_o = 0.587983393987
+   sup|posterior - lift(L f / Z_o)| = 0.00e+00
+   record law (root response readout): [0.41201661 0.58798339] vs rotated [0.41201661 0.58798339]
+   after update + flow to t=0.5: sup|q - lift f| = 4.44e-16
+(e) records that read a public coordinate, or reach one root branch only
+   before: TV root responses (root phase rotated) 3.05e-17
+   after the theta_0-reading record: TV root responses 0.0083
+   base-only record delivered to the left root branch only: TV root responses 0.0329
+   base-only record broadcast to every agent:               TV root responses 1.84e-17
+(f) phase-loss geometry for one child-parent response (d = 1 response at the root, two-point base)
+   delta=0.0628: TV=0.00640000 formula=0.00640000; H^2=0.00131425 formula=0.00131425; d_FR=0.102549 in [0.102538, 0.161066]
+   delta=0.7854: TV=0.08000000 formula=0.08000000; H^2=0.01642808 formula=0.01642808; d_FR=0.363023 in [0.362525, 0.569453]
+   delta=1.5708: TV=0.16000000 formula=0.16000000; H^2=0.03285615 formula=0.03285615; d_FR=0.514102 in [0.512688, 0.805329]
+   delta=3.1416: TV=0.32000000 formula=0.32000000; H^2=0.06571230 formula=0.06571230; d_FR=0.729081 in [0.725051, 1.138907]
+   delta=4.7124: TV=0.16000000 formula=0.16000000; H^2=0.03285615 formula=0.03285615; d_FR=0.514102 in [0.512688, 0.805329]
+   chord sum of the phase path over [0, pi/2], n=10: 1.62171; chord/sqrt(n) = 0.51283
+   chord sum of the phase path over [0, pi/2], n=40: 3.24275; chord/sqrt(n) = 0.51272
+   chord sum of the phase path over [0, pi/2], n=160: 6.48516; chord/sqrt(n) = 0.51270
+   chord sum of the phase path over [0, pi/2], n=640: 12.97016; chord/sqrt(n) = 0.51269

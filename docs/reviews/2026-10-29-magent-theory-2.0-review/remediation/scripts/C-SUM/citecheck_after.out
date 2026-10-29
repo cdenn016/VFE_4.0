@@ -1,0 +1,8 @@
+== MAgent_Theory_2.0.tex: 30 files, bibs ['references', 'item1_refs', 'item2_refs'], 202 cited keys
+== MAgent_Theory_2.0_supplement.tex: 6 files, bibs ['references'], 8 cited keys
+== MAgent_Theory_2.0_companion.tex: 27 files, bibs ['references', 'item1_refs', 'item2_refs'], 71 cited keys
+== Item_1_communication_links.tex: 2 files, bibs ['references', 'item1_refs'], 23 cited keys
+== Item_2_link_dynamics.tex: 2 files, bibs ['references', 'item1_refs', 'item2_refs'], 3 cited keys
+== Item_3_curvature_hierarchy.tex: 2 files, bibs ['references', 'item1_refs', 'item2_refs'], 2 cited keys
+== Item_7_formation_feedback.tex: 2 files, bibs ['references', 'item1_refs', 'item2_refs', 'item7_refs'], 21 cited keys
+   DUPLICATE FriedkinJohnsen1990: ['references', 'item7_refs']

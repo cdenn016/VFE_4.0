@@ -1,0 +1,15 @@
+trial 0 : iterations 34  |lower limit - upper limit| = 9.409140133698202e-15  min eig(2 Phi(S) - Phi(2S)) = 0.08485819677987609
+trial 1 : iterations 37  |lower limit - upper limit| = 1.0880185641326534e-14  min eig(2 Phi(S) - Phi(2S)) = 0.04111221386348936
+trial 2 : iterations 33  |lower limit - upper limit| = 7.605027718682322e-15  min eig(2 Phi(S) - Phi(2S)) = 0.06431757256352853
+trial 3 : iterations 20  |lower limit - upper limit| = 2.0539125955565396e-15  min eig(2 Phi(S) - Phi(2S)) = 0.03174251481434385
+trial 4 : iterations 35  |lower limit - upper limit| = 6.494804694057166e-15  min eig(2 Phi(S) - Phi(2S)) = 0.07834506208927187
+trial 5 : iterations 26  |lower limit - upper limit| = 3.3584246494910985e-15  min eig(2 Phi(S) - Phi(2S)) = 0.03403171937056521
+trial 6 : iterations 22  |lower limit - upper limit| = 1.582067810090848e-15  min eig(2 Phi(S) - Phi(2S)) = 0.06783685417201947
+trial 7 : iterations 22  |lower limit - upper limit| = 1.1102230246251565e-15  min eig(2 Phi(S) - Phi(2S)) = 0.031894040036016376
+trial 8 : iterations 27  |lower limit - upper limit| = 7.188694084447889e-15  min eig(2 Phi(S) - Phi(2S)) = 0.07519039966358045
+trial 9 : iterations 22  |lower limit - upper limit| = 5.245803791353865e-15  min eig(2 Phi(S) - Phi(2S)) = 0.06512960123073401
+trial 10 : iterations 31  |lower limit - upper limit| = 5.800915303666443e-15  min eig(2 Phi(S) - Phi(2S)) = 0.054493183492825586
+trial 11 : iterations 24  |lower limit - upper limit| = 2.0539125955565396e-15  min eig(2 Phi(S) - Phi(2S)) = 0.03326364797349178
+worst gap between the two limits = 1.0880185641326534e-14
+worst monotonicity value (>= -1e-12 means the lower sequence increased and the upper decreased) = -4.95495309953089e-16
+smallest strict-subhomogeneity margin = 0.03174251481434385

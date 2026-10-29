@@ -1,0 +1,11 @@
+(a) A_chi: -0.5929356826801376  closed: -0.5929356826801377  A_a: 1.6855814371010357e-17
+    h_aa: 0.14259233422003104  closed: 0.142592334220031
+    h_chichi: 0.029497469145002543  closed: 0.029497469145002533  h_achi: 5.23298613327773e-18
+    F_{a chi} (FD of dA): -0.6772670732339677  closed: -0.6772670732144764
+    I'(v) = 0.37049960642521196  = I1/I0 + v Var: 0.370499606420701
+(b)(i) row tangent along passive marked action: 2.775557561562891e-12 ; along physical rotation: 2.775557561562891e-12
+(b)(ii) <physical, marked orbit> = -8.871540222140102e-19
+     I_phys = 0.8380713625835097  closed sum I(|B_i|): 0.8380713625835097
+     b(X) = <u_X, physical> = 0.2390132608578441  closed sum (X arg B_i) I(|B_i|): 0.23901326085770597
+(b)(iii) phase-field parent: max |hbar - (h - 2 lam b + lam^2 I)|, |Abar - A| over lam = 2.220446049250313e-16
+     reflection value X Theta = 2 b/I = 0.5703888034571224  gives hbar - h = 5.551115123125783e-17

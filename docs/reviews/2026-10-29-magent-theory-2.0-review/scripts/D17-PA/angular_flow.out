@@ -1,0 +1,16 @@
+(d) null box checks
+  max (D_ii - 2|eta-eta_G|^2) = 0.00e+00 (must be <= 0); beta0 range [0.1991, 0.2000] (claim [1/9,1/5]=[0.1111,0.2000])
+  max |L-l|/(eps/8) = 1.11e-04 (must be < 1); bound chain consistent: True
+(e) three-agent angular parameter flows
+  eps=0.01 sample full history [(0.0, ((1,), (2,), (3,))), (0.24, ((1, 2), (3,))), (4.56, ((1, 2, 3),))]
+           sample null history [(0.0, ((1,), (2,), (3,))), (0.8, ((1, 2), (3,)))]
+           final b (full) [0. 0. 0.], final theta (full) [ 0.9     1.3274 -1.5754]
+  eps=0.01: full singletons-to-full-block 6/6; null ever full block 0/6
+  eps=0.05 sample full history [(0.0, ((1,), (2,), (3,))), (0.32, ((1, 2), (3,))), (5.0, ((1, 2, 3),))]
+           sample null history [(0.0, ((1,), (2,), (3,))), (0.8, ((1, 2), (3,)))]
+           final b (full) [0. 0. 0.], final theta (full) [-0.0268  1.6572  2.664 ]
+  eps=0.05: full singletons-to-full-block 6/6; null ever full block 0/6
+  eps=0.20 sample full history [(0.0, ((1,), (2,), (3,))), (0.36, ((1, 2), (3,))), (4.0, ((1, 2, 3),))]
+           sample null history [(0.0, ((1,), (2,), (3,))), (1.0, ((1, 2), (3,)))]
+           final b (full) [0. 0. 0.], final theta (full) [-2.0573  0.3066 -1.2933]
+  eps=0.20: full singletons-to-full-block 6/6; null ever full block 0/6

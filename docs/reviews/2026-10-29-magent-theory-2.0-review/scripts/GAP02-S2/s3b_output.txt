@@ -1,0 +1,9 @@
+core p12  : min dO/dt on band = 0.5156, band times [0.5700, 0.6060]
+core p21  : min dO/dt on band = 0.5156, band times [0.5700, 0.6060]
+far pair p: min dO/dt on band = 0.5156, band times [0.5700, 0.6060]
+parent B  : min dO/dt on band = 0.5174, band times [3.4040, 3.4390]
+first-pair contrast - 1/20 on [entry, L]: min = -0.0232
+first-pair weight - 1/10 on [entry, L]: min = 0.0105
+parent contrast (B - 1/20) after band exit, before L: min = 0.0605 (six-agent exterior < 1e-3 not included)
+far-pair contrast after entry: min = 0.0605
+L = 3.7096; first-pair band ends 0.6070; parent band ends 3.4400

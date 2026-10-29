@@ -1,0 +1,6 @@
+x^2 + (xi-x)^2 - [2(x - xi/2)^2 + xi^2/2] = 0
+so p(x|xi) propto exp[-(x - xi/2)^2] = exp[-(x-m)^2/(2*v)] with v = 1/2
+route 1: E[Y|xi] = -xi , Var(Y|xi) = 9/4
+route 2: E[Y|xi] = -xi , Var(Y|xi) = 9/4
+route 3: m_X = xi/2 , P_X = 1/2 , m_Y = -xi , P_Y = 9/4 , response F L/(L+C) = -1 , cue slope L/(L+C) = 1/2 , Fisher I_xi = P_X/C^2 = 1/2
+variance arithmetic 4(1/2) + 1/4 = 9/4

@@ -1,0 +1,2 @@
+mpmath 1.3.0 backend python
+per (2 exp + 6 arith) block: 19.7 us

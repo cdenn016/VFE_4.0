@@ -1,0 +1,76 @@
+== QUERY: Griffiths Kalish Language evolution by iterated learning with Bayesian agents Cognitive Science 2007
+  -- hit 1: DOI 10.1080/15326900701326576
+  CR authors: Griffiths, Thomas L.; Kalish, Michael L.
+  CR title:   Language Evolution by Iterated Learning With Bayesian Agents
+  CR venue:   Cognitive Science
+  CR vol/iss/pages: 31/3/441-480  article-number: None
+  CR date: [2007, 5, 6]
+  -- hit 2: DOI 10.1142/9789812776129_0075
+  CR authors: KALISH, MICHAEL
+  CR title:   ITERATED LEARNING WITH SELECTION: CONVERGENCE TO SATURATION
+  CR venue:   The Evolution of Language
+  CR vol/iss/pages: None/None/447-448  article-number: None
+  CR date: [2008, 2]
+  -- hit 3: DOI 10.1111/j.1551-6709.2009.01045.x
+  CR authors: Lewandowsky, Stephan; Griffiths, Thomas L.; Kalish, Michael L.
+  CR title:   The Wisdom of Individuals: Exploring People's Knowledge About Everyday Events Using Iterated Learning
+  CR venue:   Cognitive Science
+  CR vol/iss/pages: 33/6/969-998  article-number: None
+  CR date: [2009, 8]
+== QUERY: Forman Determinants of Laplacians on graphs Topology 1993
+  -- hit 1: DOI 10.1016/0040-9383(93)90035-t
+  CR authors: Forman, Robin
+  CR title:   Determinants of Laplacians on graphs
+  CR venue:   Topology
+  CR vol/iss/pages: 32/1/35-46  article-number: None
+  CR date: [1993, 1]
+  -- hit 2: DOI 10.1016/0040-9383(89)90003-7
+  CR authors: Forman, Robin
+  CR title:   Difference operators, covering spaces and determinants
+  CR venue:   Topology
+  CR vol/iss/pages: 28/4/413-438  article-number: None
+  CR date: [1989]
+  -- hit 3: DOI 10.2139/ssrn.7346909
+  CR authors: Zhao, Peng; Zeng, Ting; hu, feng
+  CR title:   Topology-Invariant Message Routing via Forman Curvature for OOD Generalization on Heterophilic Graphs
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2026]
+== QUERY: Kenyon Spanning forests and the vector bundle Laplacian Annals of Probability 2011
+  -- hit 1: DOI 10.1214/10-aop596
+  CR authors: Kenyon, Richard
+  CR title:   Spanning forests and the vector bundle Laplacian
+  CR venue:   The Annals of Probability
+  CR vol/iss/pages: 39/5/1983-2017  article-number: None
+  CR date: [2011, 9, 1]
+  -- hit 2: DOI 10.1214/18-aop1276
+  CR authors: Kenyon, Richard
+  CR title:   Determinantal spanning forests on planar graphs
+  CR venue:   The Annals of Probability
+  CR vol/iss/pages: 47/2/952-988  article-number: None
+  CR date: [2019, 3, 1]
+  -- hit 3: DOI 10.1214/15-aop1078
+  CR authors: Kassel, Adrien; Kenyon, Richard
+  CR title:   Random curves on surfaces induced from the Laplacian determinant
+  CR venue:   The Annals of Probability
+  CR vol/iss/pages: 45/2/932-964  article-number: None
+  CR date: [2017, 3, 1]
+== QUERY: DeMarzo Vayanos Zwiebel Persuasion bias social influence unidimensional opinions
+  -- hit 1: DOI 10.2139/ssrn.293139
+  CR authors: DeMarzo, Peter M.; Zwiebel, Jeffrey H.; Vayanos, Dimitri
+  CR title:   Persuasion Bias, Social Influence, and Uni-Dimensional Opinions
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2001]
+  -- hit 2: DOI 10.1162/00335530360698469
+  CR authors: DeMarzo, P. M.; Vayanos, D.; Zwiebel, J.
+  CR title:   Persuasion Bias, Social Influence, and Unidimensional Opinions
+  CR venue:   The Quarterly Journal of Economics
+  CR vol/iss/pages: 118/3/909-968  article-number: None
+  CR date: [2003, 8, 1]
+  -- hit 3: DOI 10.2139/ssrn.2610768
+  CR authors: Foerster, Manuel
+  CR title:   Strategic Communication under Persuasion Bias in Social Networks
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2015]

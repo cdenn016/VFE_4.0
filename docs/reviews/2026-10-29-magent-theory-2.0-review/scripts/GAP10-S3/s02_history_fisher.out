@@ -1,0 +1,36 @@
+trajectories done (1.4 s)
+Fisher blocks done (1.4 s)
+
+branch probabilities P(d,o): {(2, -1): np.float64(0.231867), (2, 1): np.float64(0.224251), (3, -1): np.float64(0.240699), (3, 1): np.float64(0.303183)}  sum = 1.000000000000000
+history block G_hist (s1, s2):
+ [[ 0.00122  -0.001305]
+ [-0.001305  0.003037]]
+current block E_h[G_cur] over (s1, s2, l_m, l_p):
+ [[ 0.022849 -0.00354   0.021982  0.042756]
+ [-0.00354   0.018212  0.01099   0.024602]
+ [ 0.021982  0.01099   0.130408  0.      ]
+ [ 0.042756  0.024602  0.        0.375948]]
+marked-physical cross E[l_m l_p] = 0.000e+00 (Fisher block-diagonal (z,phi) vs psi)
+history score along common physical rotation (should vanish): max |d/dkappa log Pi| = 8.94e-17
+equivariance: |dB/dkappa - J B| at T = 3.33e-16; other blocks |d/dkappa| = 3.74e-18
+E_Q[T - E T] = 0 by construction; cov positive: min eig F(agent 1) = 0.2010
+
+fine      : connection a(e1), a(e2) = -0.1685666242, -0.0842711026;  h = [[0.0203633457, -0.0066967229], [-0.0066967229, 0.0203237284]]
+reference : connection a(e1), a(e2) = -0.1685666242, -0.0842711026;  h = [[0.0203633457, -0.0066967229], [-0.0066967229, 0.0203237284]]
+pointwise : connection a(e1), a(e2) = -0.1685666242, -0.0842711026;  h = [[0.0155079344, -0.0094997891], [-0.0094997891, 0.0187172790]]
+causal    : connection a(e1), a(e2) = -0.1685666242, -0.0842711026;  h = [[0.0155008412, -0.0094955271], [-0.0094955271, 0.0187173610]]
+  max |G_reference - G_fine| over (s1,s2,l_m): 2.78e-17;  history block diff 8.67e-19;  connection diff 2.78e-17
+  max |G_pointwise - G_fine| over (s1,s2,l_m): 4.86e-03;  history block diff 4.34e-19;  connection diff 0.00e+00
+  max |G_causal - G_fine| over (s1,s2,l_m): 4.86e-03;  history block diff 4.34e-19;  connection diff 0.00e+00
+
+closed-form defect check, Theta = parent rotation angle:
+  pointwise: h_parent - h_fine = [[-0.0048554113, -0.0028030662], [-0.0028030662, -0.0016064494]]
+             closed form     = [[-0.0048554113, -0.0028030662], [-0.0028030662, -0.0016064494]]   max residual 5.20e-18
+  causal   : h_parent - h_fine = [[-0.0048625044, -0.0027988041], [-0.0027988041, -0.0016063674]]
+             closed form     = [[-0.0048625044, -0.0027988041], [-0.0027988041, -0.0016063674]]   max residual 7.16e-18
+
+conditioning on {cos Delta >= 0}:
+  fine     : P(d=3) = 0.543882563059; normalizer score d log P(d=3) = [-0.010821  0.030645]; conditional history Fisher (centered) diag = [0.001023 0.002903]; uncentered diag = [0.00114  0.003842]
+  reference: P(d=3) = 0.543882563059; normalizer score d log P(d=3) = [-0.010821  0.030645]; conditional history Fisher (centered) diag = [0.001023 0.002903]; uncentered diag = [0.00114  0.003842]
+
+runtime 1.5 s

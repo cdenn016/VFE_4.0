@@ -1,0 +1,1191 @@
+MAgent Theory 2.0
+
+         Communication Links:
+Alignment, Codes, and Dissonance
+
+            Robert C. Dennis
+
+              Independent Researcher
+
+                     October 2026
+Status and summary
+
+The supported results of this working document, with the rank, compatibility, integrability, and
+observational-scope corrections below, are integrated into the main manuscript chapter Commu-
+nication Codes and Learned Alignment and its explanatory companion. This standalone source
+retains the derivations and open obligations. It uses the main manuscript's conventions: one
+structure group G acts on the belief and model sectors through two representations, an agent's
+frame is Ui  G, and statements are made at one context in reference coordinates unless they say
+otherwise. To keep the formulas short, the belief sector is written with V = RK and G  GL(K, R)
+acting by matrix multiplication; the model sector is analogous with its own representation.
+
+The motivating picture is the following. When agent j communicates a belief to agent i, most of
+what the belief means to j is lost: j projects it into a low-dimensional public package, a sentence, a
+drawing or a signal, and i rebuilds it inside its own, larger internal space using its own conceptual
+structure. In the manuscript's index convention, with receiver i and sender j, the chain is
+
+qj - (Tj)#qj - noise - decoding by i - qi.  (1)
+
+Two different objects are built from the same maps. The composite of a sending and a receiving
+map has rank at most the width of the message space and is lossy. An exponentiated link with a
+generator of the same form is invertible and loses nothing. This document keeps them apart: each
+directed edge carries an invertible dictionary, which is the gauge field, and each modality carries a
+lossy code.
+
+The main results are these. The receiver's decoder is not a free map: for linear Gaussian codes
+it is the gain computed from the receiver's own prior covariance, and the reconstructed belief
+adopts the sender's belief along the communicated directions while keeping the receiver's own
+belief along the discarded ones (proposition 2.4). For general laws and a noiseless code, the
+meaning lost in transmission equals the total disagreement minus the disagreement visible through
+the code (proposition 2.1). Coded messages identify the dictionary only up to the subgroup that
+leaves the code unchanged, a subgroup of dimension K(K - r) in GL(K, R) for a code of rank
+r (theorem 3.1); several modalities sharing one dictionary identify it up to the intersection of their
+stabilizers, so overlapping modalities help less than independent ones (corollary 4.1). Exact
+consensus of transported beliefs is possible exactly on the common fixed space of the holonomies
+of the communication graph, so nontrivial holonomy on a loop is an obstruction to agreement, a
+dissonance (theorem 5.1). Finally, with n coded messages per exchange the posterior over who was
+heard behaves as a Gibbs row at temperature 1/n whose costs are divergences between message
+laws, not between full beliefs (proposition 6.1). Learning the dictionaries from grounded messages
+under a prior that penalizes holonomy concentrates the recognition law on the identified coset, and
+within it the loop term fills exactly those invisible directions that create holonomy (theorem 7.2).
+These are the same directions in which a true dissonance would go undetected and be absorbed
+into the dictionaries (proposition 7.4). A pair detects its mutual misunderstanding only in what both
+
+i
+                                                                                                                    MAgent Theory 2.0
+can say and repairs its dictionaries through reciprocity in what at least one can say (proposition 7.7),
+and loops through third agents can fix directions that no pair can (proposition 7.5 and corollary 7.6).
+The theory is meant for general probability laws, and Gaussian laws are a computational simpli-
+fication in this document. The results split as follows. The meaning-loss identity, the noisy-code
+bound, the bandwidth proposition, the query-map proposition and the consensus theorem hold for
+general laws; identifiability, the modality and routing corollaries, the structural parts of the learning
+chapter and the exact identification results hold for every location family of noise (remark 3.2); the
+decoder as a Kalman gain, the Gaussian reconstruction, and the limit laws, shrinkage formulas and
+receiver-owned variances of the learning chapter are Gaussian, and their linearity, data-independent
+covariances and exact factorized means are features of that family. Extensions to general laws are
+posed in open problems 8.1 and 8.4.
+Every identity was also checked numerically at small sizes; the checks support the instances tested
+and are not proofs.
+
+                                                                ii
+Contents
+
+Status and summary                                i
+
+1 Codes and dictionaries                          1
+
+2 Reception through a code                        3
+
+3 What messages reveal about the dictionary       6
+
+4 Several modalities                              8
+
+5 Curvature as dissonance                         11
+
+6 Bandwidth and source rows                       13
+
+7 Learning the dictionaries                       14
+
+7.1 The tangent model . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+7.2 Concentration and selection . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+
+7.3 Filling and detection . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+
+7.4 Which directions loops cannot reach . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+
+7.5 Without linearization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+
+7.6 Receiver-owned recognition laws . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+8 Next steps                                      22
+
+                                             iii
+Chapter 1
+
+Codes and dictionaries
+
+Definition 1.1 (Code of a modality). A modality c, such as speech, drawing or gesture, has a
+public message space Hc = Rrc and a noise covariance Rc, either positive definite or zero for
+
+a noiseless code. The message space carries no frame of its own: its coordinates are public
+conventions. Sender j's code in modality c is a linear map T¯jc : V  Hc of rank rc  K on reference
+coordinates. Its displayed form is Tjc = T¯jcUj-1. A message produced from displayed content yj is
+
+h = Tjcyj + ,   N (0, Rc).                                            (1.1)
+
+Under a passive change Uj  gjUj the displayed content becomes gjyj and the displayed code
+becomes Tjcgj-1, so the message is unchanged. Public messages therefore do not depend on
+the sender's frame, and the reference code T¯jc is unchanged by passive display changes at fixed
+reference coordinates. Codes are agent specific. A shared language is part of a shared generative
+
+model in the sense of the main manuscript: members of a species use codes related by the frame
+
+map of their shared model.
+
+Definition 1.2 (Dictionary). Receiver i's dictionary for sender j is
+
+ij = Ui¯ij Uj-1  G,     ¯ij  G.                                       (1.2)
+
+The general dictionary is unrestricted in G. The local parameterization ¯ij = exp(ij) with ij  g is
+used for tangent learning. It can cover less than G: a single real matrix exponential need not cover
+even GL+(K, R) [7]. The global coset and exact-identification results below concern the stated
+group, and a restriction to the exponential image retains only the solutions lying in that image.
+
+It is owned by the receiver: it is i's hypothesis about how j's internal reference coordinates sit
+relative to its own. Content with reference coordinates y¯ for i corresponds, according to i, to ¯i-j1y¯
+for j. The effective code that i attributes to j is therefore
+
+A^icj = T¯jc¯i-j1.                                                    (1.3)
+
+The dictionary ji is j's hypothesis about i. It is an independent datum, learned by a different
+agent, so ji need not equal i-j1. The product ¯ij¯ji is the holonomy of the two-cycle i  j  i:
+the composite of what i thinks j means with what j thinks i means. It is the identity exactly when
+
+the two agents' translations of each other are mutually inverse; otherwise it measures mutual
+
+misunderstanding. The main manuscript's decision not to impose the inverse convention is, in this
+
+reading, the statement that two agents learn their dictionaries of each other separately.
+
+1
+1. Codes and dictionaries     MAgent Theory 2.0
+
+Remark 1.3 (Why the dictionary is group valued). A model that i holds of j need not in
+general be a group element, and the group-valued form is a hypothesis with a stated scope. Four
+considerations support it within a species. First, the two agents' internal spaces are copies of
+one G-space, and the relative position of two frames of one principal bundle at a context is a
+group element; partial access is carried by the code, not by the dictionary. Second, one dictionary
+serves every modality, which is what lets several codes pool their evidence in corollary 4.1. Third,
+invertibility is used: the consensus theorem theorem 5.1 needs inverses to show that transported
+beliefs are well defined along different paths, and group-valued holonomy composes invertible links;
+singular path products can still have trace invariants, but do not define transport by group elements.
+Fourth, i's knowledge of j is a probability law over G, or over ij in a declared exponential chart;
+uncertainty about the dictionary is carried by that law. For agents of different kinds, whose internal
+spaces differ in dimension or representation, an invertible dictionary does not exist. The natural
+replacement is a linear or Markov map between different spaces, with consistency measured by
+global sections of a sheaf rather than by holonomy [10].
+
+                           2
+Chapter 2
+
+Reception through a code
+
+Fix a receiver i, a sender j and one modality, and suppress the indices. In i's reference coordinates
+
+let p be i's prior law of the content and let q = (¯)#q¯j be the sender's belief carried into i's
+coordinates by the dictionary. Write A = A^ for the effective code.
+
+A conditional law decodes a message under a receiver prior. Reconstructing an entire sender
+
+law uses that decoder for every possible message. For a measurable code T and laws q, p on a
+
+standard Borel space, choose a regular conditional law p(dy | h) of p given T = h, and define the
+
+reconstruction
+
+                q^(dy) = p(dy | h)(T#q)(dh).                         (2.1)
+
+It keeps exactly what the code transmits, the message law T#q, and fills every discarded direction
+with the receiver's own conditional belief.
+
+Proposition 2.1 (Meaning lost through a noiseless code). If DKL(qp) < , then
+
+                DKL(qq^) = DKL(qp) - DKL(T#qT#p).                    (2.2)
+
+Proof. For laws on standard Borel spaces and a measurable map T , the chain rule for relative
+entropy gives
+
+                DKL(µ) = DKL(T#µT#) + DKL µ(· | h)(· | h) (T#µ)(dh)  (2.3)
+
+in [0, ], with regular conditional laws given T [6, 12]. Apply it to (q, p). Apply it also to (q, q^): by
+construction T#q^ = T#q and q^(· | h) = p(· | h) for T#q-almost every h, so the first term vanishes
+and the second is the same integral. Since DKL(T#qT#p)  DKL(qp) < , subtraction is
+legitimate.
+
+In words, the meaning lost when a belief is sent through a code and rebuilt by a receiver equals the
+full disagreement between sender and receiver minus the disagreement that the code makes visible.
+It vanishes exactly when the code is sufficient for the pair, that is, when the sender's conditional
+belief given the message already equals the receiver's.
+
+Corollary 2.2 (Noisy codes). Let a noisy code be a Markov kernel K from the content space
+to a standard Borel message space, for example the Gaussian kernel K(y¯, ·) = N (Ay¯, R). Let
+ph and qh be regular versions of the posteriors of p and q given h, and define the reconstruction
+q^ = ph(qK)(dh). If DKL(qp) < , then
+
+                DKL(qq^)  DKL(qp) - DKL(qKpK).                       (2.4)
+
+                3
+2. Reception through a code                                                                       MAgent Theory 2.0
+
+Proof. The chain rule applied to the joint laws of (y¯, h) under q  K and p  K, which share the
+kernel, gives DKL(qp) = DKL(qKpK) + DKL(qhph)(qK)(dh). Since q = qh(qK)(dh), joint
+convexity of relative entropy bounds DKL(qq^) by the integral.
+
+The proof uses only the chain rule and joint convexity, so the bound holds for every kernel and
+every pair of laws with DKL(qp) < . For q = N (a, q), p = N (m, p), and the Gaussian kernel,
+q^ has mean m + OA(a - m) and covariance p - OAp + O(AqAT + R)OT with O from eq. (2.5);
+at the tested instance the bound holds with slack 3.4 × 10-3.
+
+Proposition 2.3 (Reception of one message). Let p = N (m, p) with p positive definite, let A
+have full row rank r, and let R be positive definite. Given a message h from the model h = Ay¯ + ,
+the posterior of y¯ is N (m + O(h - Am), p - OAp) with
+
+                                         O = pAT (ApAT + R)-1.                                                   (2.5)
+
+The posterior precision is p-1 + AT R-1A, a correction of rank at most r, and the information carried
+
+by one message is
+
+                                    I(y¯; h)  =  1  log det  Ir + R-1ApAT        .                               (2.6)
+                                                 2
+
+Proof. The pair (y¯, h) is jointly Gaussian with Cov(y¯, h) = pAT and Cov(h) = ApAT + R, and
+
+Gaussian conditioning gives the posterior [13]. The precision form follows from the Woodbury
+
+identity.  The  mutual  information  is  the  difference     of  the  entropies  of  y¯  and  y¯  given   h,  1  log det p  -
+                                                                                                              2
+1
+2  log  det(p   -  OAp),  and  the  matrix    determinant        lemma  turns  this  into  eq.    (2.6).
+
+The receiving map is therefore derived. It is the gain O, fixed by the receiver's own uncertainty p
+and by its model A of the sender's code. The rank bound makes precise the loss in the motivating
+picture: one message changes the receiver's precision in at most r directions, however large K is.
+
+The proposition is the Gaussian instance of a general fact: for any prior law and any message
+kernel, the receiver's decoder is the conditional law of the content given the message, as in eq. (2.1)
+in the noiseless case. That the decoder is a linear map, that the posterior covariance does not
+depend on the message received, and that one message changes the precision in at most r
+directions are features of the Gaussian family, not of decoding in general.
+
+Proposition 2.4 (Gaussian reconstruction). Let q = N (a, q), p = N (m, p) with positive-
+definite covariances, and let A have full row rank. Put
+
+                                    G = pAT (ApAT )-1, P = GA.                                                   (2.7)
+
+Then AG = Ir, P 2 = P , ker P = ker A, the range of P is the range of pAT , and the reconstruction
+through the noiseless code A is
+
+                        q^ = N (I - P )m + P a, (I - P )p(I - P )T + P qP T .                                    (2.8)
+
+Proof. The identities for G and P are immediate. Conditioning p on Ay¯ = h gives N (m + G(h -
+Am), p - GAp). Mixing over h  N (Aa, AqAT ) gives mean m + GA(a - m) = (I - P )m +
+P a and covariance p - P p + GAqAT GT . The last term is P qP T . The matrix P p =
+
+                                                          4
+2. Reception through a code                                 MAgent Theory 2.0
+
+pAT (ApAT )-1Ap is symmetric and satisfies P pP T = P p, so p - P p = (I - P )p(I -
+P )T .
+
+The reconstructed belief adopts the sender's belief along the communicated directions and keeps
+the receiver's own belief along the discarded ones. Its update of the mean,
+
+                             µi = µi + GA^ij ¯ijµ¯j - µi ,  (2.9)
+
+is a projected message of the kind computed by attention. The direction in which a communicated
+coordinate is lifted, the range of pAT , is set by the receiver's own correlations: two receivers with
+different priors read the same message as meaning different things. This is the formal content of
+the statement that the receiver internalizes the message through its own conceptual structure. The
+loss eq. (2.2) evaluates in closed form for eq. (2.8).
+
+Remark 2.5 (The link with a code-shaped generator). For matrices O of size K × r and T of size
+r × K, eOT = I + O1(T O)T with 1(z) = (ez - 1)/z [11, Section 1.8], and det eOT = etr(OT ) > 0.
+With the gain of eq. (2.7), AG = Ir gives eP = I + (e - 1)P : the invertible link whose generator is
+the reconstruction projector is a dilation along the communicated directions, not the reconstruction.
+Reconstruction is the affine use (I - P )m + P a of the projector; as a map of the sender mean a
+with fixed receiver mean m, it is noninvertible when r < K. For a square full-rank code, P = I and
+this particular loss disappears. This is the precise sense in which no group element factors through
+a lossy code and the two are related only through the Lie algebra.
+
+                             5
+Chapter 3
+
+What messages reveal about the
+dictionary
+
+A dictionary can be tested only against something both agents refer to. Let a referent have law 
+on V in i's reference coordinates, with positive-definite second moment M = E[y¯y¯T ]. The sender
+encodes the referent in its own coordinates, and the receiver models the message as
+
+h | y¯  N T¯¯-1y¯, R ,                    (3.1)
+
+with R positive definite.
+
+Theorem 3.1 (Identifiability up to the code stabilizer). Let StabG(T¯) = {g  G : T¯g = T¯}. For
+parts (i) and (iii), allow any fixed additive-noise law on Rr, independent of the referent; part (ii)
+assumes the Gaussian noise of eq. (3.1).
+
+(i) Two dictionaries ¯, ¯ give the same conditional message law for every referent if and only if
+¯-1¯  StabG(T¯).
+(ii) For the perturbation ¯e,   g, the Fisher information of eq. (3.1), averaged over , is
+
+F (, ) = tr R-1T¯CT T¯T , C = ¯-1M ¯-T ,  (3.2)
+
+and its kernel is {  g : T¯ = 0}, the Lie algebra of StabG(T¯).
+(iii) For G = GL(K, R) and T¯ of rank r, StabG(T¯) has dimension K(K - r), and the identifiable part
+of the dictionary has dimension Kr.
+
+Proof. (i) A probability law on Rr has no nonzero translation symmetry: its characteristic function is
+nonzero near the origin, where translation by a would require eit,a = 1 and hence a = 0. Thus two
+translates of the same noise law agree exactly when their locations agree, and T¯¯-1y¯ = T¯¯-1y¯
+for every y¯ means T¯¯-1 = T¯¯-1, that is, T¯¯-1¯ = T¯. The set StabG(T¯) is a subgroup because
+T¯g1g2 = T¯g2 = T¯. (ii) The mean T¯e-¯-1y¯ has derivative -T¯¯-1y¯ at  = 0, and the Fisher
+information of a Gaussian mean with fixed covariance R is E[(T¯¯-1y¯)T R-1(T¯¯-1y¯)], which is
+eq. (3.2). Since C and R-1 are positive definite, F (, ) = 0 exactly when R-1/2T¯C1/2 = 0, that is,
+when T¯ = 0. For such  every power of  is annihilated by T¯, so T¯et = T¯ for all t. (iii) T¯g = T¯
+means that g - I maps V into ker T¯, which has dimension K - r; such g form an open subset of an
+
+affine space of dimension K(K - r) containing the identity.
+
+Messages never test the part of the dictionary that the code discards. Relative to the observable
+algebra of coded messages that part is gauge in the sense of the main manuscript's definition of
+active transformations: no message distinguishes two dictionaries that differ by an element of the
+
+6
+3. What messages reveal about the dictionary     MAgent Theory 2.0
+
+stabilizer. This is the precise form of the statement that words cannot carry what a belief means
+to its holder. The stated full identification uses shared referents with a positive-definite second
+moment. If only one referent vector were supplied, the conditional means would determine T¯¯-1
+only on one vector. Noise rescales the Fisher information but does not change its kernel. At K = 5
+and r = 2 the numerical check gives Fisher rank 10 = Kr out of 25.
+
+Remark 3.2 (Noise laws beyond the Gaussian). Gaussian noise is a computational simplification
+
+here. Let the grounded model be the location family h = T¯¯-1y¯ +  with  independent of y¯ and
+
+of a fixed law  on Rr. Parts (i) and (iii) of theorem 3.1 hold for every , because a probability law
+
+on Rr differs from each of its nonzero translates: its characteristic function  is nonzero near the
+
+origin, and eit,a(t) = (t) there forces a = 0. If  has a continuously differentiable density f with
+
+finite Fisher information Jf = E[ log f () log f ()T ], positive definite, then part (ii) holds with R-1
+
+replaced by Jf ,
+
+                  F (, ) = tr Jf T¯CT T¯T ,      (3.3)
+
+with the same kernel, since the score of the perturbation is  log f ()T T¯¯-1y¯ and  is independent
+of y¯. Corollaries 4.1 and 4.2 and the structural results of chapter 7 therefore hold for every such
+noise law. The Gaussian value Jf = R-1 is the instance with the least Fisher information at a
+given covariance, by the Cramér­Rao inequality for location families. In the numerical check with
+
+independent Student-t noise of five degrees of freedom, a Monte Carlo estimate of the Fisher form
+agrees with eq. (3.3) to 0.3 percent. Codes whose messages are not a location family, such as
+codes into finite alphabets, are open problem 8.4.
+
+                                              7
+Chapter 4
+
+Several modalities
+
+Corollary 4.1 (Pooling modalities through one dictionary). Let modalities c = 1, . . . , C have
+codes T¯c and noises Rc, all read through the same dictionary ¯. Assume the messages are
+
+conditionally independent given their referents and dictionary. Then the dictionary is identified up
+to c StabG(T¯c), and the Fisher information is c Fc with kernel {  g : T¯c = 0 for all c}. For
+G = GL(K, R) the identifiable dimension is
+
+K dim row T¯c  K min K, rc ,  (4.1)
+
+c                      c
+
+If c rc  K, equality in the bound holds exactly when the row spaces form a direct sum. If
+   c rc  K, equality holds exactly when their sum is V ; independence of the row spaces is then
+
+unnecessary. The dictionary is fully identified exactly when the row spaces span V .
+
+Proof. Identity of the conditional laws of all messages requires identity for each modality, which
+
+gives the intersection by theorem 3.1. Fisher information adds over conditionally independent
+
+messages, and a sum of positive-semidefinite forms vanishes exactly where each does. For
+GL(K, R), T¯c = 0 for all c means that the range of  lies in c ker T¯c, whose dimension is K minus
+the dimension of the sum of the row spaces.
+
+Modalities that overlap, in the sense that their row spaces share directions, add less than their
+widths suggest; complementary modalities, such as speech and drawing when they convey different
+aspects, add fully. The numerical check uses two codes of widths 2 and 2 that share one direction:
+the identifiable dimension is 15 = 5 × 3, not 20. The corollary depends on the dictionary being
+shared across modalities. Without it each modality would have its own effective code to learn, and
+the modalities could not pool their evidence about the other agent.
+
+Corollary 4.1 assumes that receiver i hears sender j in every modality. A receiver with several
+senders instead chooses, separately in each modality, whom to listen to. Let i(jc) be the probability
+that modality c of receiver i carries a message from j, and let Fc(j) denote the form eq. (3.2) for the
+code T¯jc, the noise Rc and the dictionary ¯ij.
+
+Corollary 4.2 (Routed modalities). In each exchange let a referent y¯   be drawn, and for each
+modality c independently let a source label Jc be drawn with P(Jc = k) = i(kc) and a message with
+law N (T¯kc¯i-k1y¯, Rc) given Jc = k and y¯. Consider the dictionary ¯ije of one edge j  i.
+(i) If the labels are observed, the Fisher information about  per exchange is c i(jc)Fc(j).
+
+(ii) If the labels are latent, the Fisher information is at most c i(jc)Fc(j) in the Loewner order.
+
+                    8
+4. Several modalities                        MAgent Theory 2.0
+
+(iii) With observed labels the information vanishes exactly on {  g : T¯jc = 0 for every c with i(jc) >
+0}.
+
+Proof. (i) Given y¯ and the labels, the messages of different modalities are independent, so the
+complete-data log likelihood is a sum over c. A term with Jc = k = j does not depend on ¯ij and
+contributes nothing. A term with Jc = j contributes the information of theorem 3.1. Averaging the
+indicator of Jc = j gives the weight i(jc). (ii) By the missing-information principle [15], the information
+of the observed data equals the complete-data information minus the expected information about
+
+ carried by the conditional law of the labels given the messages, which is positive semidefinite.
+
+(iii) A sum of positive-semidefinite forms with positive weights vanishes exactly where every form
+
+vanishes, and theorem 3.1 identifies the kernel of each.
+
+A modality that never listens to j teaches i nothing about its dictionary for j, and the directions that
+the attending modalities' codes discard stay invisible. When the receiver must infer who was heard,
+it learns less than the routing-weighted sum. In the numerical check, with two modalities attending
+to the target sender with probabilities 0.7 and 0.2, a Monte Carlo estimate of the complete-data
+information agrees with c i(jc)Fc(j) to 0.6 percent, and the latent-label information is smaller in the
+Loewner order.
+
+Proposition 4.3 (A receiver's reading of a code is a dictionary modulo the stabilizer). Let T¯
+and S be r × K matrices of full row rank r. Then {  GL(K, R) : T¯-1 = S} is a single left coset
+0 StabGL(K,R)(T¯), and for r < K it meets GL+(K, R).
+
+Proof. Complete the rows of T¯ to a basis of the dual space and let P be the invertible matrix whose
+first r rows are those of T¯; define Q likewise from S. With E = (Ir 0), T¯ = EP and S = EQ, so
+0-1 = P -1Q satisfies T¯0-1 = S. For r < K, changing the sign of a completing row of Q changes
+the sign of det 0 without changing EQ. Finally T¯-1 = T¯0-1 exactly when T¯0-1 = T¯, that is,
+when 0-1  Stab(T¯).
+
+A receiver that reads a sender's code through an arbitrary full-rank map S therefore holds exactly
+
+the identifiable part of a dictionary, a point of the rK-dimensional quotient of theorem 3.1. The
+proposition also applies to the stacked code (T¯1; . . . ; T¯C) and the stacked readings (S1; . . . ; SC).
+When both stacks have full row rank c rc  K, there is one dictionary ¯ with Sc = T¯c¯-1 for
+every c, unique modulo c Stab(T¯c): readings learned independently for each modality are then
+automatically readings of one shared dictionary. For arbitrary stacks, equal ranks alone do not
+
+establish compatibility.
+
+Proposition 4.4 (Compatibility of stacked readings). Let T, S be m × K matrices, with no
+full-rank assumption. There is a dictionary   GL(K, R) satisfying T-1 = S exactly when
+
+                       ker(TT ) = ker(ST ).  (4.2)
+
+When this holds, the solution set is 0 StabGL(K,R)(T) for any one solution 0. If the common rank
+is less than K, the solution set meets GL+(K, R).
+
+Proof. Right multiplication by an invertible matrix preserves every linear relation among rows,
+proving necessity. Conversely, equality of the kernels makes the map aT T  aT S a well-defined
+
+                       9
+4. Several modalities                                             MAgent Theory 2.0
+
+linear isomorphism between the row spaces. Extend bases of these row spaces to bases of (RK).
+Extending that isomorphism to the full dual space gives right multiplication by an invertible matrix A,
+with TA = S. Put  = A-1. The coset statement follows as in proposition 4.3. When the common
+rank is less than K, the extension can reverse one unused basis vector, changing the determinant
+sign without changing the rows of S.
+
+For example, T1 = T2 = (1, 0), S1 = (1, 0), and S2 = (2, 0) give two rank-one stacks but no common
+dictionary: the relation T1 - T2 = 0 fails for the readings. Sharing also constrains the readings when
+one dictionary must serve routing and content roles, as discussed in remark 4.5.
+
+Remark 4.5 (Attention heads as modalities). Multi-head attention [20] has the structure of routed
+modalities. The correspondence is collected below, with modality c written as head h.
+
+Communication links                         Multi-head attention
+
+modality c                                  head h
+sender's code T¯jc into Hc of width rc      key map, and the value map that sends content, of
+                                            width dh
+receiver's reading Sc = T¯c¯-1 of the code  query map
+decoder, the gain of proposition 2.3        output map of the head
+routing i(jc)
+frames Ui                                   attention weights of head h
+                                            per-token frames, when present
+
+Standard attention is a special case of the construction here in three respects. All tokens share
+every code, which is one species with one language. The output map is learned rather than derived
+from the receiver's covariance. The query and key maps are shared by all tokens, so the dictionary
+is the same on every edge; a closed walk of length k then has holonomy ¯k in reference coordinates,
+the self-loop included, so holonomy can be nontrivial but cannot depend on which edges a loop
+uses. When the heads' total width is K and the stacked maps are invertible, the stacked form
+of proposition 4.3 shows that the independently learned query maps are readings of one shared
+dictionary, so the heads already pool their evidence as in corollaries 4.1 and 4.2; the stacked code
+is then invertible, the condition for full identification. What standard attention does not impose is one
+dictionary for routing and content. The query and key maps decide whom to listen to, the value and
+output maps carry and decode the content, and the two are learned independently. Requiring the
+receiver to use the same dictionary both to choose its sources and to interpret what it hears, with
+the decoder derived from that reading as in proposition 2.3, is a substantive constraint. A readout
+in which the key map is also the sending map and the output map is the gain built from the query
+map satisfies it.
+
+                                            10
+Chapter 5
+
+Curvature as dissonance
+
+Let the communication graph  have a directed edge j  i when i receives from j, with dictionaries
+¯ij. For a directed closed walk  = (i0  i1  · · ·  ik = i0) define its holonomy H =
+¯ikik-1 · · · ¯i1i0, the composite of the receivers' dictionaries along the walk. Reference belief means
+
+(µi)i are in consensus when
+
+µi = ¯ijµj for every edge j  i,  (5.1)
+
+so that every receiver, translating each sender's belief through its dictionary, finds agreement.
+
+Theorem 5.1 (Consensus and holonomy invariance). Let  be strongly connected and fix i0.
+Suppose the dictionaries act as bimeasurable bijections on a standard Borel content space. The
+map (qi)i  qi0 is a bijection from transported consensus laws, satisfying qi = (¯ij)#qj on every
+edge, onto laws invariant under every directed closed-walk holonomy based at i0. In the linear
+realization, the map (µi)i  µi0 is a linear bijection from the solutions of eq. (5.1) onto  Fix(H).
+
+Proof. Composing the edge relations around a closed walk proves that a consensus base law is
+invariant under its holonomy. Conversely, let q0 have that invariance. For each vertex i, choose
+a directed path p from i0 to i and set qi = (p)#q0, where (p) is the ordered product of the
+dictionaries. If p is another such path, strong connectivity supplies a directed return path s from
+i to i0. Both (s)(p) and (s)(p) are loop holonomies and preserve q0. Pushforward by the
+bimeasurable inverse (s)-1 gives (p)#q0 = (p)#q0. The definition is independent of the path.
+Appending an edge to a path gives the required edge relation, and the base law determines the
+entire family. For vectors, replace pushforward by matrix multiplication in the same argument. This
+gives path-independent values µi = (p)v for every common fixed vector v, and both directions are
+linear.
+
+The theorem uses the invertibility of the dictionaries and the directed return paths. A two-cycle is
+included among its loops and constrains consensus alongside longer loops. If the matrix holonomies
+have no common nonzero fixed vector, the only consensus mean is zero. This does not exclude
+a nontrivial invariant law: a centered isotropic Gaussian, for example, is invariant under rotation
+holonomies. For Gaussian laws, consensus constrains both mean and covariance; for general laws,
+it constrains every feature moved by the holonomies.
+
+Corollary 5.2 (Frustration). For positive weights wij, the consensus energy E(µ) = ji wijµi-
+¯ijµj2 is a positive-semidefinite quadratic form whose kernel is the solution set of eq. (5.1). Its
+least eigenvalue on configurations of unit norm is positive exactly when the holonomies have no
+common nonzero fixed vector.
+
+11
+5. Curvature as dissonance      MAgent Theory 2.0
+
+Proof. E(µ) = Bµ2 for the weighted incidence operator B with blocks wij(I, -¯ij), so E =
+µT BT Bµ and its kernel is ker B. The least eigenvalue of BT B is positive exactly when ker B = 0,
+and theorem 5.1 identifies ker B.
+
+For orthogonal links on undirected graphs with the inverse convention this is the connection
+Laplacian, and its least eigenvalue as a measure of frustration was studied by Singer and Wu [17]
+and Bandeira et al. [2]. The directed version above admits independent opposite dictionaries. In
+the numerical check, three agents with planar rotation dictionaries whose triangle holonomy is the
+identity have a two-dimensional consensus space; with holonomy angle 0.7 the consensus space
+is zero and the least eigenvalue is 0.054. Two agents with mutually inverse dictionaries have a
+two-dimensional consensus space; with two-cycle holonomy angle 0.3 it is zero.
+
+Definition 5.3 (Dissonance of a loop). The dissonance of a directed closed walk  is the
+conjugacy class of H. A plaquette, a shortest cycle of , is consonant when its holonomy is the
+identity and dissonant otherwise. A quantitative label is any conjugation-invariant defect of H,
+for example H - IF for orthogonal dictionaries; for general dictionaries the main manuscript's
+law-dressed loop defect supplies an invariant measure.
+
+Observability depends on the record experiment. Comparing coded means tests the weaker
+condition T¯jc(µj - ¯i-j1µi) = 0 on each edge and modality. Grounded messages with a positive-
+definite referent second moment instead identify the whole effective code, modulo its stabilizer, as in
+theorem 3.1. The tangent statement proposition 7.4 concerns this latter experiment. A perturbation
+can fix one operating content while changing the code on other referents, so invisibility at one
+content does not imply invisibility to grounded messages. Separately, the law-comparison cost
+DKL(qH#q) is blind to any holonomy stabilizing q. The covariance-dressed link defect eq. (8.1) is
+an observable of the link and covariance together and vanishes only at identity. These are different
+comparisons.
+
+                            12
+Chapter 6
+
+Bandwidth and source rows
+
+Proposition 6.1 (Coded messages give Gibbs rows at temperature one over the message
+count). Let receiver i consider finitely many candidate sources j with prior j > 0, each modeled
+as emitting independent messages with density j on the message space. Let h1, h2, . . . be
+independent with density , and suppose E| log j| <  for every j. Then, almost surely,
+
+                            1     log  P(J  =  j  |  h1:n)  -   E [log j  -  log k].                          (6.1)
+                            n          P(J  =  k  |  h1:n)
+
+If both DKL(j) and DKL(k) are finite, this limit is DKL(k)-DKL(j). Integrability of log 
+under , in addition to the candidate-log assumptions, is a sufficient condition for that representation
+for every pair.
+
+Proof.  By Bayes' rule the left side is     1  log(j /k )   +   1  tn[log j(ht) - log k(ht)]. The strong law
+                                            n                   n
+
+of large numbers sends the average to the integrable expected log-likelihood ratio in eq. (6.1). If
+
+both relative entropies are finite, subtract their defining logarithmic integrals; the common log  term
+
+cancels. Without that finiteness, subtracting two infinite relative entropies is undefined.
+
+The finite-sample posterior is exactly the Gibbs row j exp(-nCj,n)/Zn, with empirical cost Cj,n =
+
+-n-1    n    log  j (ht ).  When  all  candidate  relative  entropies  are  finite,  its  limiting  relative  exponential
+        t=1
+
+rates are those of je-DKL(j)/T /Z at temperature T = 1/n, the posterior concentration of a
+
+possibly misspecified model [4]. The costs are divergences between message laws, which are
+
+code-visible divergences: by data processing they are at most the corresponding divergences
+
+between full beliefs, with equality exactly when the code is sufficient. The law-level peer costs of
+
+the main manuscript's reciprocal potential therefore arise in the limit of many messages through an
+
+injective, noiseless code; its registered-agreement theorem gives an exact finite-n version for type
+
+registration. Finite bandwidth means both a finite temperature and a selective cost.
+
+                                                            13
+Chapter 7
+
+Learning the dictionaries
+
+The receiver owns its dictionaries and has to learn them. Theorem 3.1 says what messages can
+teach: a coset of the stabilizer of the code. This chapter asks what a prior that rewards agreement
+around loops adds to that, and answers the question exactly in the tangent model, the linearization
+at the identity dictionaries. The identity is the natural prior mean. Before any exchange the receiver
+assumes that the sender means what it would mean itself.
+
+The tangent model is a computational simplification in two respects: it linearizes at the identity
+dictionaries, and it takes Gaussian noise and a Gaussian anchor. Its conclusions split accordingly.
+The invisible directions, the unreachable directions and their sheaf count, the split of the loop
+space into filled and detectable directions as a dimension count, and the exact identification results
+propositions 7.8 and 7.9 depend only on the identifiability kernel and on the loops; by remark 3.2
+they hold for every location family of noise and every prior. The limiting law as a conditioned
+Gaussian, the shrinkage and bias formulas, and the variances of remark 7.10 are features of the
+Gaussian family.
+
+7.1 The tangent model
+
+Definition 7.1 (Tangent learning model). Let  be a finite communication graph with vertex set
+
+V and edge set E, and let the edge e : j  i carry receiver i's generator e = ij  g  gl(K, R),
+so that  = (e)e  X = gE . Write T¯e for the stacked code of the modalities with i(jc) > 0 in
+corollary 4.2. Let L be a finite set of directed closed walks of  that contains every two-cycle, and
+define the linearized holonomy B : X  gL by (B) = e e, an edge being counted as often
+as  traverses it. The tangent learning model consists of the prior law with density proportional to
+
+exp                    -  1  T  0  -        (B) W 2  ,  (7.1)
+                          2           2
+
+                                         L
+
+where 0 is positive definite on X,   0, and each W is a positive-definite quadratic form on g, with
+
+W =  W; and of the messages that i attributes to j, with observed labels as in corollary 4.2(i),
+each produced from a referent y¯   with second moment M positive definite as
+
+h = T¯ec(I - e)y¯ + ,   N (0, Rc).                      (7.2)
+
+The prior is Gaussian with precision 0 = 0 + BT W B, which is positive definite, so the prior is
+normalized for every   0. The message model is the first-order form of eq. (3.1) at ¯e = ee, and
+
+(B) is the first-order form of log H. By the Baker­Campbell­Hausdorff formula both errors are
+of second order in ; for a fixed triangle the numerical check finds | log H - (B)|/2 = 2.31 at
+
+                                   14
+7. Learning the dictionaries                                MAgent Theory 2.0
+
+ = 10-2 and at  = 10-3. Inside the tangent model the likelihood is Gaussian and linear in . The
+recognition law, here the exact posterior, is therefore Gaussian after any number of messages and
+is updated one message at a time by the information filter
+
+   + JtT Rc-1Jt,                 + JtT Rc-1 ht - T¯ecy¯t ,  Jt = -T¯ecey¯t,  (7.3)
+
+started at (0, 0), with mean -1 and covariance -1.
+
+A change of the common reference coordinates by h  G acts by e  h-1eh under ref-
+erence consistency, and then (B)  h-1(B)h. The loop term is invariant when each
+W is. The Frobenius norm is invariant under orthogonal h. For GL(K, R) the dressed norm
+X2 = tr(XT -1X), with  the reference covariance of the belief of the agent at which  is
+based, satisfies h-1Xh2h-1h-T = X2. A law is needed here because gl(K, R) carries no
+conjugation-invariant positive-definite form for K  2: conjugation by diag(t, 1, . . . , 1) multiplies E12
+by t. The anchor 0 need not be invariant, since it expresses the receiver's expectation in its own
+reference coordinates.
+
+For the statements below, let Ne = {  g : T¯e = 0}, the Lie algebra of the stabilizer of the stacked
+code, and let N = e Ne  X, the invisible directions. Let Z be a matrix whose columns form an
+orthonormal basis of N for the Frobenius inner product on X, and Y one for N . Put
+
+S = ZT 0Z, N = ZS-1ZT 0, LN = ZT BT W BZ,                                    (7.4)
+
+so that N is the 0-orthogonal projection of X onto N and LN is the loop operator on the invisible
+directions. Let F¯e = c i(jc)Fc(j) be the information per exchange of corollary 4.2(i), evaluated at
+¯e = I, where C = M .
+
+7.2 Concentration and selection
+
+Theorem 7.2 (Learning with a loop prior). In the tangent learning model let the truth be   X,
+let each edge e receive ne = en independent exchanges with e > 0, and write z = ZT .
+
+(i) For every set of messages the likelihood is constant on each coset  + N , so the density of the
+recognition law relative to the prior depends on  only through Y T .
+
+(ii) Almost surely, as n  , the mean of the recognition law converges to
+
+                               = (I - N ),                                   (7.5)
+
+its covariance is ZS-1ZT + O(1/n), and n times its covariance in the coordinates Y T  converges to
+(Y T FY )-1 with F = e eF¯e. Equivalently, the recognition law converges to the prior conditioned
+on the coset  + N . Its precision grows at rate n in the identified directions, and within the coset it
+
+is the loop prior restricted to the coset.
+
+(iii) Let 0 = -2I. In the coordinates ZT  the limiting covariance is 2(I + 2LN )-1. It equals
+the prior covariance on ker LN = ZT (N  ker B), is strictly smaller on the orthogonal complement,
+and tends to zero there as   . The rank of LN is dim B(N ) = dim N - dim(N  ker B).
+
+                                 15
+7. Learning the dictionaries                                                               MAgent Theory 2.0
+
+(iv) If in addition the truth is flat, B = 0, then
+
+                                   ZT ( - ) = -(I + 2LN )-1z.                                          (7.6)
+
+The loop term recovers the invisible part of the truth along an eigenvector of LN with eigenvalue
+µ > 0 up to the factor 2µ/(1 + 2µ), and as    it recovers all of it except the component in
+ker LN , which stays at the prior mean zero.
+
+(v) For a general truth, as   ,
+
+                              ZT ( - ) - -Pkerz - LN+ ZT BT W B,                                       (7.7)
+
+with Pker the orthogonal projection onto ker LN and L+N the pseudoinverse.
+
+Proof. (i) By eq. (7.2) the law of a message on edge e depends on  only through T¯ece for attending
+modalities c, which does not change when e changes by an element of Ne. Bayes' rule gives the
+second statement.
+
+(ii) After the messages the precision is n = 0+nFn with nFn = t JtT Rc-1Jt, and since ht-T¯ecy¯t =
+Jt + t, the information vector is n = nFn + n with n = t JtT Rc-1t. Every Jt vanishes on N ,
+so Fn = Y FY,nY T and ZT n = 0. By the strong law of large numbers FY,n  Y T FY almost surely,
+and this limit is positive definite because the kernel of F is N by corollary 4.2(iii). In the basis (Y, Z)
+the matrix n has blocks An = Y T 0Y + nFY,n, D = Y T 0Z and S, and block inversion gives
+
+               -n 1 = ZS-1ZT + (Y - ZS-1DT )(An - DS-1DT )-1(Y - ZS-1DT )T ,                           (7.8)
+
+with n(An - DS-1DT )-1  (Y T FY )-1. This proves the statements about the covariance, since
+Y T n-1Y = (An - DS-1DT )-1. For the mean, nFn = n - 0 gives
+
+                                   -n 1n =  - -n 10 + -n 1n.                                           (7.9)
+
+The second term converges to ZS-1ZT 0 = N . Because ZT n = 0, the third term equals
+
+(Y - ZS-1DT )(An - DS-1DT )-1Y T n, which tends to zero since n/n  0 almost surely by the
+
+strong law. Finally, the Gaussian law with precision 0 conditioned on the affine set  + N , in the
+
+coordinate  z  of    +  Zz,   has  precision  S  and  the  mean  that  minimizes  1  (  +  Zz)T 0(  +  Z z ),
+                                                                                  2
+which is z = -S-1ZT 0. Its mean is  and its covariance is ZS-1ZT .
+
+(iii) Here S = -2I + LN , and the eigenvalues of S-1 are 2/(1 + 2µ) for the eigenvalues µ  0
+of LN . Since W is positive definite, LN z = 0 exactly when BZz = 0, so ker LN = ZT (N  ker B)
+
+and the rank of LN is that of BZ.
+
+(iv) From (ii) and ZT 0 = -2z + ZT BT W B,
+
+                             ZT ( - ) = -S-1 -2z + ZT BT W B ,                                      (7.10)
+
+which is eq. (7.6) when B = 0.
+
+(v) The vector ZT BT W B lies in the range of (W 1/2BZ)T , which is the range of LN =
+(W 1/2BZ)T (W 1/2BZ). As   , S-1  L+N and S-1  0 on the range of LN , while
+-2S-1 = I on ker LN . Applying this to eq. (7.10) gives eq. (7.7).
+
+                                                      16
+7. Learning the dictionaries                                MAgent Theory 2.0
+
+With an isotropic anchor and no loop term, the recognition law on the invisible coordinates stays
+at its anchor marginal. For a general anchor, messages can condition these coordinates through
+prior correlations, while leaving their conditional law given the identified coordinates unchanged.
+The loop term changes the geometry in which the identified part of the truth is completed, from the
+anchor to the anchor plus the loop energy, and eq. (7.5) is the resulting projection. In the numerical
+check, a directed triangle with codes of rank two in K = 3 and 103 or 105 noisy messages per
+edge, streamed through eq. (7.3), gives mean errors 0.047 and 0.0044 relative to , covariance
+errors 2.0 × 10-3 and 2.0 × 10-5 relative to ZS-1ZT , and relative errors 3.1 and 0.38 percent in the
+identified block. With  = 0 the limit equals the prior on N to 3 × 10-16, and eqs. (7.6) and (7.7)
+hold to 2 × 10-14 and to order 1/ with a dressed W .
+
+7.3 Filling and detection
+
+Definition 7.3 (Detectable dissonance). The detectable dissonance of a configuration  is
+
+                              D()  =  min  B(  +   )W 2  ,  (7.11)
+
+                                      N
+
+the least linearized loop energy among the configurations that no message distinguishes from .
+
+Proposition 7.4 (Filling and detection are complementary). In the tangent learning model let Q
+be the W -orthogonal projection of gL onto the W -orthogonal complement of B(N ).
+
+(i) D() = QBW 2 . In particular D is constant on cosets of N , so messages determine it.
+(ii) With 0 = -2I, as    the limit mean  satisfies B  QB, so its loop energy tends
+to D().
+
+(iii) The loop space B(X) is the W -orthogonal sum of B(N ), of dimension dim N - dim(N  ker B),
+and of B(X)  B(N )W , of dimension rank B - dim B(N ). The loop energy splits as B2W =
+(I - Q)BW 2 + QBW 2 . The first term is the only one that depends on the invisible coordinates,
+and a dissonance in B(N ) is not detectable; the second is a function of the identified coordinates
+alone.
+
+Proof. (i) Since B( + Zz) = B + BZz, the minimum over z leaves the W -orthogonal residual
+
+of B from the range of BZ, which is B(N ); this residual is QB. For   N , QB = 0. (ii)
+By eq. (7.7),  -  tends to -Z(Pkerz + L+N ZT BT W B). Since BZPker = 0, B tends to
+(I - BZLN+ (BZ)T W )B, and BZ((BZ)T W BZ)+(BZ)T W is the W -orthogonal projection onto
+the range of BZ, which is I - Q. (iii) The dimension of B(N ) is the rank of BZ, computed in
+
+theorem 7.2(iii). The energy splits because Q is a W -orthogonal projection, and QB does not
+
+depend on the component of  in N by (i).
+
+The proposition states the cost of the loop prior. Every loop direction in which agreement around
+loops completes a dictionary is a direction in which the community assumes an agreement it cannot
+check. If the truth is dissonant there, the recognition law with a strong loop term reports consonance
+and moves the dissonance into the unread parts of the dictionaries, as the bias term of eq. (7.7).
+Dissonance is detectable only in the loop directions that the invisible directions cannot reach. In
+the complete exchange of three agents with codes of rank one in K = 3, the invisible directions
+
+                                      17
+7. Learning the dictionaries                                       MAgent Theory 2.0
+
+reach the whole loop space: with a dressed W , the numerical check finds D() = 0 to 10-13 for a
+random dissonant truth whose linearized loop energy is 1.02, and the limit mean at  = 108 has
+loop energy 4 × 10-12.
+
+7.4 Which directions loops cannot reach
+
+Proposition 7.5 (The unreachable directions). Let  be connected, and suppose that the chains
+of the walks in L span the cycle space of , regarded as an undirected multigraph in which the
+edge e : j  i is oriented from j to i. Then
+
+                              ker B = (ai - aj)e:ji : a  gV ,                     (7.12)
+
+and N  ker B consists of the configurations in eq. (7.12) with T¯e(ai - aj) = 0 on every edge
+e : j  i. For g = gl(K, R),
+
+     dim(N  ker B) = K dim H0 - K ,                                               (7.13)
+                     H0 = u  (RK )V : T¯e(ui - uj) = 0 for every edge e : j  i .
+
+Proof. The value (B) is the pairing of , read as a g-valued cochain on edges, with the chain of
+, and that chain is a cycle because a closed walk leaves each vertex as often as it enters it. If
+
+these chains span the cycle space,   ker B exactly when  vanishes on every cycle. Choose a
+
+spanning tree and a root, let av be the sum of  along the tree path from the root to v, each edge
+taken with the sign of its orientation, and put a equal to zero at the root. Then e - (ai - aj) vanishes
+on tree edges and, on any other edge, equals the value of  on its fundamental cycle, which is
+
+zero. Conversely every configuration of the form eq. (7.12) vanishes on cycles. The condition for
+membership in N is the definition of Ne. For gl(K, R) the condition T¯e(ai - aj) = 0 holds column by
+column, so a  (ai - aj)e maps the families whose K columns lie in H0, a space of dimension
+K dim H0, onto N  ker B. Its kernel consists of the constant families, of dimension K2, because 
+
+is connected.
+
+The configurations in eq. (7.12) are the infinitesimal pure-gauge configurations, what the dictionaries
+would become if each agent's reference coordinates were moved by eav . The space N  ker B
+consists of the re-readings of this kind that no attending code registers. They create no holonomy,
+so no loop term reaches them, and no message reveals them. The space H0 is the space of global
+sections of a cellular sheaf on  whose stalk at an agent is RK, whose stalk at an edge is the
+message space, and whose two restriction maps at an edge are both the attending code; it is a
+sheaf of the kind that Hansen and Ghrist [10] use for discourse, arising here from identifiability.
+
+Corollary 7.6 (Complete exchange). Let every pair of agents exchange in both directions, and let
+
+L contain every two-cycle and every directed triangle. Then the hypothesis of proposition 7.5 holds
+
+and
+
+     H0 = u : ui - uj  ker T¯ji  ker T¯ij for every pair {i, j} ,                 (7.14)
+
+where T¯ji is the code on the edge j  i. If the pairs with ker T¯ji  ker T¯ij = 0 connect all
+agents, then H0 consists of constant sections, N  ker B = 0, and for a flat truth in the Gaussian
+
+tangent model the recognition law recovers every dictionary in the limits n   and then   .
+
+                              18
+7. Learning the dictionaries                 MAgent Theory 2.0
+
+Proof. Fix an agent 0. The edges 0  i form a spanning tree. The fundamental cycle of i  0 is
+
+the two-cycle through 0 and i, and that of j  i with i, j = 0 is the directed triangle 0  j  i  0
+minus the two-cycle through 0 and i. The two edges between i and j give T¯ji(ui - uj) = 0 and
+T¯ij(uj - ui) = 0. If the pairs with trivial intersection connect the agents, u is constant along each
+
+of them, hence constant. The last statement is theorem 7.2(iv).
+
+The sufficient condition is not necessary: loops through a third agent can fix what no pair can. In
+K = 3 with codes of rank one, the kernels of every pair meet in a line, and the numerical check
+finds that the three two-cycles alone leave 9 = pairs K dim(ker  ker) unreachable dimensions out
+of 36. Adding the two directed triangles leaves none, because u1 - u0, u2 - u1 and u0 - u2 would
+have to lie on three lines in general position and sum to zero. If one direction k is read by no code,
+the count is K(dim H0 - K) = 6, from the shifts of each agent along k. A directed triangle alone, in
+which each agent hears one other through a code of rank one, leaves 9 of 18. Every count agrees
+with eq. (7.13).
+
+Proposition 7.7 (Reciprocal pair). Let two agents exchange in both directions with L the two-
+cycle, W the Frobenius norm and g = gl(K, R). Write T¯1 for the code on 1  0 and T¯0 for the code
+on 0  1, Ka = ker T¯a, Ra = Ka for the row space of T¯a, and P for the orthogonal projection onto
+R0  R1. Then
+
+            dim B(N ) = K dim(K0 + K1),      dim(N  ker B) = K dim(K0  K1),  (7.15)
+rank B - dim B(N ) = K dim(R0  R1),
+
+and D() = P(01 + 10)2F .
+
+Proof. N consists of the pairs (01, 10) with the range of 01 in K1 and the range of 10 in K0,
+and B = 01 + 10. Hence B(N ) is the set of matrices with range in K0 + K1, of dimension
+K dim(K0 + K1). Its Frobenius-orthogonal complement in B(X) = gl(K, R) is the set of matrices
+with range in (K0 + K1) = R0  R1, and the orthogonal projection onto it is X  PX. Thus
+Q = P and proposition 7.4(i) gives D. The space N  ker B consists of the pairs with 01 = -10
+and range in K0  K1.
+
+A pair detects its mutual misunderstanding only in what both can say, repairs its dictionaries through
+reciprocity in what at least one of them can say, and leaves what neither can say at the prior.
+When the two row spaces are independent and together have dimension K, everything invisible
+is repaired and no misunderstanding is detectable: complete repair costs complete trust. The
+numerical check at K = 3 gives the predicted triples (6, 0, 3) of filled, unreachable and detectable
+dimensions for two codes of rank two and (9, 3, 0) for two codes of rank one, and D agrees with the
+projection formula to 10-14.
+
+7.5 Without linearization
+
+The next results use unrestricted group-valued dictionaries and are exact without linearization. They
+identify the configurations consistent with grounded messages and exactly flat loops. Restricting
+dictionaries to a single-exponential image requires intersecting the stated solution sets with that
+
+                                         19
+7. Learning the dictionaries                                                  MAgent Theory 2.0
+
+image. The following two statements hold for the grounded model eq. (3.1) itself, in the constraint
+form of the loop term.
+
+Proposition 7.8 (Exact reciprocal identification). Let G = GL(K, R) and let the true dictionaries
+of two agents be reciprocal, ¯10 = (¯01)-1. The pairs (¯01, ¯10) that reproduce the message laws of
+both edges for every referent and satisfy ¯01¯10 = I are exactly
+
+¯01 = ¯01s,                   ¯10 = s-1¯10,      s  Stab(T¯1)  Stab(T¯0¯01).      (7.16)
+
+The pair is determined uniquely exactly when the stacked map (T¯1; T¯0¯01) is injective; otherwise the
+solutions form a set of dimension K dim ker(T¯1; T¯0¯01).
+
+Proof. By theorem 3.1(i), the edge 1  0 reproduces its law exactly when ¯01 = ¯01s with s 
+Stab(T¯1). Reciprocity forces ¯10 = s-1¯10, and the edge 0  1 reproduces its law exactly when
+(¯10)-1s-1¯10 = ¯01s-1(¯01)-1  Stab(T¯0), that is, when T¯0¯01s-1 = T¯0¯01. The intersection of the
+two stabilizers is the stabilizer of the stacked map, the set of s with s - I mapping RK into its kernel,
+
+which is open in an affine space of dimension K times the dimension of that kernel.
+
+The map T¯0¯01 is agent 0's code expressed in agent 1's reference coordinates, so the pair is
+identified exactly when, between them, the two agents can say everything. In the numerical check,
+with codes of rank one in K = 3 and a true dictionary far from the identity, a finite element of the
+residual set reproduces both message laws to 7 × 10-16, is reciprocal to 4 × 10-16, and differs from
+the truth by 1.86 in the largest entry.
+
+Proposition 7.9 (Exact flat identification). Let G = GL(K, R) and  be connected, and suppose
+that every configuration whose holonomies on L are the identity is pure gauge, ¯ij = kikj-1 for
+some k  GV . Let the truth be pure gauge, ¯ij = gigj-1, and put T¯e = T¯egj for e : j  i. The
+configurations that reproduce every message law and have identity holonomy on L are exactly
+
+¯ij = giuiu-j 1gj-1,          u  GV ,  T¯e(ui - uj) = 0 for every edge e : j  i,  (7.17)
+
+and two families u, u give the same configuration exactly when uv = uvc for all v and one c  G.
+The truth is the only such configuration exactly when the space H0 of eq. (7.13), formed with the
+codes T¯e, consists of constant sections. The hypothesis holds for the complete exchange with every
+
+two-cycle and every directed triangle.
+
+Proof. By hypothesis ¯ij = kikj-1; write kv = gvuv. By theorem 3.1(i), the edge e reproduces its
+law exactly when (¯ij)-1¯ij = gjuiuj-1gj-1  Stab(T¯e), that is, when T¯euiuj-1 = T¯e, that is, when
+T¯eui = T¯euj. Two families give the same configuration exactly when (ui )-1ui = (uj)-1uj on every
+edge, which on a connected graph means u = uc. If H0 consists of constant sections, every
+
+column of u is constant, so uv = u0 for all v and the configuration is the truth. If s  H0 is not
+constant, uv = I + tsvwT with w = 0 and small t = 0 is an invertible family satisfying the condition,
+
+and it is not of the form (c)v, so its configuration differs from the truth. For the complete exchange
+put k0 = I and ki = ¯i0. The two-cycle through 0 and i gives ¯0i = ki-1, and the directed triangle
+0  j  i  0, whose holonomy is ¯0i¯ij¯j0, gives ¯ij = ¯0-i1¯j-01 = kikj-1.
+
+                                             20
+7. Learning the dictionaries      MAgent Theory 2.0
+
+The residual set of eq. (7.17) has dimension K(dim H0 -K) at the truth, the count of proposition 7.5.
+In the numerical check, the complete exchange of three agents with a direction read by no code in
+the gauge of the truth, and a truth far from the identity, has a finite element of the residual set that
+reproduces all six message laws to 7 × 10-15, has holonomy equal to the identity to 4 × 10-15 on all
+five loops, and differs from the truth by 3.7 in the largest entry.
+
+7.6 Receiver-owned recognition laws
+
+Remark 7.10 (Ownership and the loop term). In the per-agent picture of the main manuscript
+each receiver infers only its own dictionaries, so its recognition law is one factor qi(i·) of a law
+factorized over receivers. A two-cycle couples two receivers and a directed triangle three, so the
+loop term couples the factors. In the tangent model the factorized law closest to the posterior in
+DKL(qposterior) has the exact posterior means and, as covariances, the inverses of the diagonal
+blocks of the posterior precision [5, Section 10.1.2]. These are smaller in the Loewner order than
+the exact marginal covariances. In the Gaussian tangent model, ownership therefore leaves the
+estimates of the dictionaries unchanged and makes each receiver overconfident about them. Exact
+means are a feature of Gaussian targets: for a non-Gaussian posterior a factorized law generally
+has means different from the exact ones, so for general laws ownership can change the estimates
+as well. To update its factor, receiver i needs the current means of the dictionaries that other agents
+hold along its loops: a loop prior can be used only if agents communicate about how they read each
+other, in addition to communicating about the world. In the numerical check, coordinate ascent over
+the three receivers of the complete exchange reproduces the exact means to 10-14, the differences
+between exact and factorized block covariances are positive semidefinite, and the total variance is
+4.59 against the exact 7.75.
+
+                              21
+Chapter 8
+
+Next steps
+
+Open problem 8.1 (Learning the dictionaries beyond the tangent model). Theorem 7.2
+and proposition 7.4 settle the learning problem in the tangent model, and propositions 7.8 and 7.9
+settle the constraint form of the loop term for a flat truth without linearization. The remaining
+questions have separate scopes. First, for the full grounded model eq. (3.1) with a prior on G
+or on a declared exponential chart, establish the limiting conditional law on the identified fiber
+
+  e ¯e Stab(T¯e), or on its preimage in the chart, and determine the selection within the fiber for a
+dissonant truth and a finite loop weight. Second, compare two distinct nonlinear loop penalties.
+The covariance-dressed defect
+
+Q(H; )      =  1  -1/2(I  -  H)1/22F ,   > 0,  (8.1)
+               2
+
+vanishes only at H = I and has a positive-definite tangent form on every matrix Lie algebra.
+Its nonlinear use does not introduce law-stabilizer directions. In contrast, the law-comparison
+penalty DKL(qH#q) vanishes whenever H#q = q and can have a larger null space. Analyze
+that alternative only with its specific law and regularity assumptions. For a quarter-turn H and
+q = N (0, I2), the law-comparison penalty is zero while Q(H; I2) = 2. Third, treat latent routing
+labels, which lower the information below the routed sum of corollary 4.2, and loop weights built
+from the routing weights. Fourth, replace the Gaussian anchor and noise by general laws: for a
+location family of noise and a non-Gaussian prior on , determine the limit of the recognition law
+on the fiber, which is no longer a conditioned Gaussian, and whether the filled directions are still
+recovered exactly as the loop weight grows.
+
+Open problem 8.2 (Codes as part of the species model). Let codes be learned as well, so
+that a shared language is a joint fixed point of code and dictionary learning. The expression-map
+dynamics of Hansen and Ghrist [10] is the vector-valued analogue on a sheaf. Determine when the
+learned codes of a species become related by its frame map, and when learning drives code-visible
+dissonance to zero while leaving dissonance in unread directions.
+
+Open problem 8.3 (Dictionaries in the free-energy pictures). Place receiver-owned dictionaries
+and codes in the per-agent generative model of the main manuscript, where each receiver infers its
+own dictionaries, and in a global joint, where all dictionaries are variables of one model. Compare
+the resulting dynamics with the reciprocal flow, and decide whether consensus dynamics reduces
+visible dissonance and pushes holonomies toward the stabilizers of the codes.
+
+Open problem 8.4 (Beyond Gaussian codes). Propositions 2.1 and 6.1 and corollary 2.2 already
+hold for general laws and measurable codes, including codes into finite alphabets such as words,
+and the consensus theorem holds for laws as well as means. Remark 3.2 extends identifiability to
+every location family of noise. Extend the identifiability, learning and dissonance results to codes
+
+                          22
+8. Next steps      MAgent Theory 2.0
+
+whose message laws are not a location family, such as codes into finite alphabets, where the
+Fisher form is replaced by the information in the induced discrete channel and the stabilizer by the
+subgroup that leaves the channel unchanged, and to agents of different kinds, whose dictionaries
+are not invertible.
+
+Related work
+
+The ingredients appear separately in the literature; their combination was not found in a standard
+search, which is not exhaustive. Opinion dynamics on discourse sheaves [10] gives agents private
+opinion spaces and linear expression maps into shared discourse spaces, with dynamics that can
+also evolve the expression maps; opinions are vectors, and there is no receiver reconstruction,
+gauge group or holonomy. A cognitive-geometric model of interpretation [1] uses linear interpretation
+maps between agents' value spaces, with beliefs lost in their null spaces and composite maps
+along chains. Communication without a shared reference frame treats unknown frame changes as
+gauge data [3, 19]. The meeting of minds in conceptual spaces models meaning as maps between
+individual spaces with agreement as a fixed point [21]. The relativistic theory of consciousness
+[14] holds that an observer reading another system's representation measures only its physical
+coordinates and constructs a new representation of its own; the code-then-reconstruction chain
+eq. (1) is a formal version of that measurement, and the identity dictionary between equivalent
+systems is the transformation it uses for that case. Communication as active inference with a
+shared generative model is developed by Friston and Frith [8] and Friston et al. [9], and language
+as efficient compression by Zaslavsky et al. [23], in the tradition of Shannon [16], the information
+bottleneck [18] and coding with side information [22].
+
+               23
+Bibliography
+
+ [1] Chainarong Amornbunchornvej. Interpretation as linear transformation: A cognitive-geometric model of
+      belief and meaning. arXiv:2512.09831, 2025.
+
+ [2] Afonso S. Bandeira, Amit Singer, and Daniel A. Spielman. A Cheeger inequality for the graph connection
+      Laplacian. SIAM Journal on Matrix Analysis and Applications, 34(4):1611­1630, 2013.
+
+ [3] Stephen D. Bartlett, Terry Rudolph, and Robert W. Spekkens. Reference frames, superselection rules,
+      and quantum information. Reviews of Modern Physics, 79(2):555­609, 2007. doi: 10.1103/RevModPhys.
+      79.555.
+
+ [4] Robert H. Berk. Limiting behavior of posterior distributions when the model is incorrect. Annals of
+      Mathematical Statistics, 37(1):51­58, 1966.
+
+ [5] Christopher M. Bishop. Pattern Recognition and Machine Learning. Springer, New York, 2006.
+ [6] Thomas M. Cover and Joy A. Thomas. Elements of Information Theory. Wiley, Hoboken, NJ, second
+
+      edition, 2006.
+ [7] Walter J. Culver. On the existence and uniqueness of the real logarithm of a matrix. Proceedings of the
+
+      American Mathematical Society, 17(5):1146­1151, 1966. doi: 10.1090/S0002-9939-1966-0202740-6.
+ [8] Karl Friston and Christopher Frith. A duet for one. Consciousness and Cognition, 36:390­405, 2015.
+ [9] Karl J. Friston, Thomas Parr, Yan Yufik, Noor Sajid, Catherine J. Price, and Emma Holmes. Generative
+
+      models, linguistic communication and active inference. Neuroscience and Biobehavioral Reviews, 118:
+      42­64, 2020.
+[10] Jakob Hansen and Robert Ghrist. Opinion dynamics on discourse sheaves. SIAM Journal on Applied
+      Mathematics, 81(5):2033­2060, 2021.
+[11] Nicholas J. Higham. Functions of Matrices: Theory and Computation. Society for Industrial and Applied
+      Mathematics, Philadelphia, 2008. doi: 10.1137/1.9780898717778.
+[12] Olav Kallenberg. Foundations of Modern Probability. Springer, Cham, 3 edition, 2021. doi: 10.1007/
+      978-3-030-61871-1.
+[13] R. E. Kalman. A new approach to linear filtering and prediction problems. Journal of Basic Engineering,
+      82(1):35­45, 1960.
+[14] Nir Lahav and Zachariah A. Neemeh. A relativistic theory of consciousness. Frontiers in Psychology,
+      12:704270, 2022.
+[15] Thomas A. Louis. Finding the observed information matrix when using the EM algorithm. Journal of the
+      Royal Statistical Society: Series B, 44(2):226­233, 1982.
+[16] Claude E. Shannon. A mathematical theory of communication. Bell System Technical Journal, 27:
+      379­423, 623­656, 1948.
+[17] Amit Singer and Hau-Tieng Wu. Vector diffusion maps and the connection Laplacian. Communications
+      on Pure and Applied Mathematics, 65(8):1067­1144, 2012.
+[18] Naftali Tishby, Fernando C. Pereira, and William Bialek. The information bottleneck method,
+      1999. URL https://arxiv.org/abs/physics/0004057. Manuscript dated September 30, 1999;
+      arXiv:physics/0004057, posted 2000.
+[19] S. J. van Enk. Quantum communication, reference frames, and gauge theory. Physical Review A, 73:
+      042306, 2006.
+
+                                                               24
+Bibliography      MAgent Theory 2.0
+
+[20] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz
+      Kaiser, and Illia Polosukhin. Attention is all you need. In Advances in Neural Information Processing
+      Systems, volume 30, 2017.
+
+[21] Massimo Warglien and Peter Gärdenfors. Semantics, conceptual spaces, and the meeting of minds.
+      Synthese, 190(12):2165­2193, 2013.
+
+[22] Aaron D. Wyner and Jacob Ziv. The rate-distortion function for source coding with side information at the
+      decoder. IEEE Transactions on Information Theory, 22(1):1­10, 1976. doi: 10.1109/TIT.1976.1055508.
+
+[23] Noga Zaslavsky, Charles Kemp, Terry Regier, and Naftali Tishby. Efficient compression in color naming
+      and its evolution. Proceedings of the National Academy of Sciences, 115(31):7937­7942, 2018.
+
+              25
+

@@ -1,0 +1,8 @@
+F_12 at c0 = -0.382571; A^F(c0) = (-0.536451, 0.307865)
+eps = 0.2     holonomy = +1.778781e-02, -eps^2 F_12(center) = +1.782921e-02, relative error = -2.32e-03
+eps = 0.1     holonomy = +4.163815e-03, -eps^2 F_12(center) = +4.166087e-03, relative error = -5.45e-04, error ratio vs previous eps = 18.22
+eps = 0.05    holonomy = +1.000214e-03, -eps^2 F_12(center) = +1.000341e-03, relative error = -1.27e-04, error ratio vs previous eps = 17.89
+eps = 0.025   holonomy = +2.446684e-04, -eps^2 F_12(center) = +2.446758e-04, relative error = -3.02e-05, error ratio vs previous eps = 17.19
+eps = 0.0125  holonomy = +6.047722e-05, -eps^2 F_12(center) = +6.047766e-05, relative error = -7.33e-06, error ratio vs previous eps = 16.66
+edge (symmetric about c0, direction e1), eps = 0.1: angle/eps = +0.53632534, -A^F_1(c0) = +0.53645078
+edge (symmetric about c0, direction e1), eps = 0.01: angle/eps = +0.53644953, -A^F_1(c0) = +0.53645078

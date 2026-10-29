@@ -1,0 +1,1 @@
+max |z(tau) - clusterpath(lam*tau)| over 2000 random weighted configurations: 9.10e-15

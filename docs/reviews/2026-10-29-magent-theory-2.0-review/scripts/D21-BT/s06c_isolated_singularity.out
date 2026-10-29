@@ -1,0 +1,8 @@
+r=  0.100: max |a(unit tangent)| on circle = 1.0000e+01;  r * max = 1.0000
+r=  0.010: max |a(unit tangent)| on circle = 1.0000e+02;  r * max = 1.0000
+r=  0.001: max |a(unit tangent)| on circle = 1.0000e+03;  r * max = 1.0000
+r= 0.10: holonomy rotation angle = 2.2949e-10 rad (mod 2 pi);  |Hol - I| = 3.620e-10
+r= 0.03: holonomy rotation angle = 8.3442e-11 rad (mod 2 pi);  |Hol - I| = 2.002e-10
+r= 0.01: holonomy rotation angle = 1.6184e-10 rad (mod 2 pi);  |Hol - I| = 2.801e-10
+r= 0.10: circulation of the e1-component of a = -6.2832  (2 pi = 6.2832)
+r= 0.01: circulation of the e1-component of a = -6.2832  (2 pi = 6.2832)

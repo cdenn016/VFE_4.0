@@ -1,0 +1,188 @@
+===== Item_1_communication_links.tex vs chapters/17_communication_links.tex: shared 33, only in item [], only in chapter ['it1:loop-comparisons']
+  it1:code: item[definition] chapter[definition] ratio=0.808  <-- differs
+     insert: ITEM<<  >> CHAP<< For general laws, a modality is a normalized Markov kernel from a standard Borel content space to a standard Borel message space. A noiseless modality is a measurable map. The linear realization used for identifiability below is more restrictive. >>
+     insert: ITEM<<  >> CHAP<< Under a common reference rechoice $U_j\mapsto U_jh$, the reference code becomes $\bar T_j^c h$ and the reference dictionary becomes $h^{-1}\bar\theta_{ij}h$. Re-expressing these constitutive data is the reference-consistency requirement. >>
+     replace: ITEM<< the main manuscript: >> CHAP<< \cref{sec:generative-models}: >>
+  it1:dictionary: item[definition] chapter[definition] ratio=0.940  <-- differs
+     replace: ITEM<< The main manuscript's decision not to impose >> CHAP<< Geometric reversal of one particular dictionary is its inverse; >>
+     replace: ITEM<< inverse convention is, in this reading, the statement that two agents learn their dictionaries of each other separately. >> CHAP<< separately learned opposite attending edge is independent. >>
+  it1:why-group: item[remark] chapter[remark] ratio=0.998
+  it1:loss: item[proposition] chapter[corollary] ratio=0.569  <-- differs
+     heading: item 'proposition: Meaning lost through a noiseless code' / chapter 'corollary: Meaning lost through a noiseless code'
+     replace: ITEM<< \begin{proof} For laws on standard Borel spaces and a measurable map $T$, >> CHAP<< This is >>
+     replace: ITEM<< chain rule >> CHAP<< conditional-lift construction of \cref{prop:conditional-lift} after transporting the sender into the receiver's reference coordinates. The decisive proof is the chain-rule argument in \cref{cor:pythagorean}: its two nonnegative terms are finite under the hypothesis here, so subtraction gives \cref{it1:loss-eq}. The code is sufficient >>
+     replace: ITEM<< relative entropy gives \begin{equation} \KL(\mu\Vert\nu)=\KL(T_\#\mu\Vert T_\#\nu)+\int\KL\bigl(\mu(\cdot\mid h)\Vert\nu(\cdot\mid h)\bigr)(T_\#\mu)(dh) \end{equation} in $[0,\infty]$, with regular >> CHAP<< the pair precisely when the discarded >>
+     replace: ITEM<< given $T$ \citep{CoverThomas2006,Kallenberg2021}. Apply it to $(q,p)$. Apply it also to $(q,\hat q)$: by construction $T_\#\hat q=T_\#q$ and $\hat q(\cdot\mid h)=p(\cdot\mid h)$ for $T_\#q$-almost every $h$, so the first term vanishes and the second is the same integral. Since $\KL(T_\#q\Vert T_\#p)\leq\KL(q\Vert p)<\infty$, subtraction is legitimate. \end{proof} >> CHAP<< agree. >>
+  it1:noisy: item[corollary] chapter[corollary] ratio=0.972  <-- differs
+     replace: ITEM<< \cref{it1:gain}; at the tested instance the bound holds with slack $3.4\times10^{-3}$. >> CHAP<< \cref{it1:gain}. >>
+  it1:kalman: item[proposition] chapter[proposition] ratio=0.948  <-- differs
+     replace: ITEM<< The proposition >> CHAP<< This >>
+     delete: ITEM<< a general fact: for any prior law and any message kernel, the receiver's decoder is the >> CHAP<<  >>
+     replace: ITEM<< law of the content given the message, as in \cref{it1:reconstruction} in the noiseless case. >> CHAP<< decoding. >>
+  it1:gaussian-reconstruction: item[proposition] chapter[proposition] ratio=1.000
+  it1:exponential: item[remark] chapter[remark] ratio=1.000
+  it1:identifiability: item[theorem] chapter[theorem] ratio=0.949  <-- differs
+     replace: ITEM<< $\Stab_G(\bar >> CHAP<< $\operatorname{Stab}_G(\bar >>
+     replace: ITEM<< $\bar\theta'^{-1}\bar\theta''\in\Stab_G(\bar >> CHAP<< $\bar\theta'^{-1}\bar\theta''\in\operatorname{Stab}_G(\bar >>
+     replace: ITEM<< $\Stab_G(\bar >> CHAP<< $\operatorname{Stab}_G(\bar >>
+     replace: ITEM<< $\Stab_G(\bar >> CHAP<< $\operatorname{Stab}_G(\bar >>
+     replace: ITEM<< $\Stab_G(\bar >> CHAP<< $\operatorname{Stab}_G(\bar >>
+     replace: ITEM<< main manuscript's definition >> CHAP<< observable-algebra convention >>
+     replace: ITEM<< active transformations: >> CHAP<< \cref{ch:foundations}: >>
+     delete: ITEM<< This is the precise form of the statement that words cannot carry what a belief means to its holder. >> CHAP<<  >>
+     delete: ITEM<< At $K=5$ and $r=2$ the numerical check gives Fisher rank $10=Kr$ out of $25$. >> CHAP<<  >>
+  it1:location: item[remark] chapter[remark] ratio=0.940  <-- differs
+     delete: ITEM<< In the numerical check with independent Student-$t$ noise of five degrees of freedom, a Monte Carlo estimate of the Fisher form agrees with \cref{it1:fisher-location} to $0.3$ percent. >> CHAP<<  >>
+  it1:modalities: item[corollary] chapter[corollary] ratio=0.967  <-- differs
+     replace: ITEM<< $\bigcap_c\Stab_G(\bar >> CHAP<< $\bigcap_c\operatorname{Stab}_G(\bar >>
+     delete: ITEM<< numerical check uses two codes of widths $2$ and $2$ that share one direction: the identifiable dimension is $15=5\times3$, not $20$. The >> CHAP<<  >>
+  it1:routed: item[corollary] chapter[corollary] ratio=0.927  <-- differs
+     delete: ITEM<< In the numerical check, with two modalities attending to the target sender with probabilities $0.7$ and $0.2$, a Monte Carlo estimate of the complete-data information agrees with $\sum_c\beta^{(c)}_{ij}F_c^{(j)}$ to $0.6$ percent, and the latent-label information is smaller in the Loewner order. >> CHAP<<  >>
+  it1:query-dictionary: item[proposition] chapter[proposition] ratio=0.986  <-- differs
+     replace: ITEM<< $\theta_0\Stab_{\GL(K,\R)}(\bar >> CHAP<< $\theta_0\operatorname{Stab}_{\GL(K,\R)}(\bar >>
+     replace: ITEM<< $\theta_0^{-1}\theta\in\Stab(\bar >> CHAP<< $\theta_0^{-1}\theta\in\operatorname{Stab}(\bar >>
+     replace: ITEM<< $\bigcap_c\Stab(\bar >> CHAP<< $\bigcap_c\operatorname{Stab}(\bar >>
+  it1:stack-compatibility: item[proposition] chapter[proposition] ratio=1.000
+  it1:heads: item[remark] chapter[remark] ratio=0.180  <-- differs
+     replace: ITEM<< Multi-head >> CHAP<< The separation of a sending map, a receiver reading, a decoder, and a routing row provides a structural comparison with multi-head >>
+     replace: ITEM<< \citep{Vaswani2017} has >> CHAP<< \citep{Vaswani2017}. A head reads a finite-width code and routes sources, but >>
+     replace: ITEM<< structure of routed modalities. The correspondence is collected below, with modality $c$ written as head $h$. \begin{center} \small \begin{tabular}{@{}p{0.42\textwidth}p{0.5\textwidth}@{}} \toprule Communication links & Multi-head attention\\ \midrule modality $c$ & head $h$\\ sender's code $\bar T_j^c$ into $H_c$ of width $r_c$ & key map, and the value map that sends content, of width $d_h$\\ receiver's reading $S_c=\bar T^c\bar\theta^{-1}$ of the code & query map\\ decoder, the gain of \cref{i >> CHAP<< usual query, key, value, >>
+     replace: ITEM<< carry >> CHAP<< are independently parameterized. Such an architecture is not automatically the Bayesian message model above. Under the full-row-rank hypothesis of \cref{it1:query-dictionary}, a reading map can be expressed as a dictionary modulo its stabilizer; several readings share a dictionary precisely under \cref{it1:stack-relations}. Requiring that same dictionary for source selection >>
+     replace: ITEM<< decode >> CHAP<< content interpretation, and deriving >>
+     replace: ITEM<< content, and the two are learned independently. Requiring >> CHAP<< decoder from >>
+     replace: ITEM<< to use the same dictionary both to choose its sources and to interpret what it hears, with the decoder derived from that reading >> CHAP<< prior >>
+     replace: ITEM<< \cref{it1:kalman}, is a substantive constraint. >> CHAP<< \cref{it1:gain}, imposes additional restrictions. >>
+     replace: ITEM<< readout in which the key map is also the sending map and the >> CHAP<< learned >>
+     replace: ITEM<< map is the gain built from the query map satisfies it. >> CHAP<< matrix alone does not establish those restrictions. >>
+  it1:consensus: item[theorem] chapter[theorem] ratio=0.997
+  it1:frustration: item[corollary] chapter[corollary] ratio=0.836  <-- differs
+     delete: ITEM<< In the numerical check, three agents with planar rotation dictionaries whose triangle holonomy is the identity have a two-dimensional consensus space; with holonomy angle $0.7$ the consensus space is zero and the least eigenvalue is $0.054$. Two agents with mutually inverse dictionaries have a two-dimensional consensus space; with two-cycle holonomy angle $0.3$ it is zero. >> CHAP<<  >>
+  it1:dissonance: item[definition] chapter[definition] ratio=0.449  <-- differs
+     insert: ITEM<<  >> CHAP<< declared elementary cycle, or >>
+     delete: ITEM<< a shortest cycle of $\Gamma$, >> CHAP<<  >>
+     replace: ITEM<< main manuscript's law-dressed >> CHAP<< covariance-dressed >>
+     insert: ITEM<<  >> CHAP<< of \cref{prop:int-loop-defect} >>
+     delete: ITEM<< Observability depends on the record experiment. Comparing coded means tests the weaker condition $\bar T_j^c(\mu_j-\bar\theta_{ij}^{-1}\mu_i)=0$ on each edge and modality. Grounded messages with a positive-definite referent second moment instead identify the whole effective code, modulo its stabilizer, as in \cref{it1:identifiability}. The tangent statement \cref{it1:complementary} concerns this latter experiment. A perturbation can fix one operating content while changing the code on other refe >> CHAP<<  >>
+  it1:bandwidth: item[proposition] chapter[proposition] ratio=0.885  <-- differs
+     replace: ITEM<< The law-level peer costs >> CHAP<< When a common noiseless injective code is used, its message-law divergences equal the full-law divergences by invariance under a measurable injection. This identifies a cost, not a population dynamics: the normalized global model, the per-agent model, and the reciprocal potential remain distinct objectives. Finite message count and selective coding control different aspects >>
+     replace: ITEM<< main manuscript's reciprocal potential therefore arise in the limit of many messages through an injective, noiseless code; its registered-agreement theorem gives an exact finite-$n$ version for type registration. Finite bandwidth means both a finite temperature and a selective cost. >> CHAP<< source posterior. >>
+  it1:tangent-model: item[definition] chapter[definition] ratio=0.980  <-- differs
+     insert: ITEM<<  >> CHAP<< finite >>
+     replace: ITEM<< $\omega$; for a fixed triangle the numerical check finds $\vert\log H_\gamma-(B\omega)_\gamma\vert/\epsilon^2=2.31$ at $\epsilon=10^{-2}$ and at $\epsilon=10^{-3}$. >> CHAP<< $\omega$. >>
+  it1:learning: item[theorem] chapter[theorem] ratio=0.951  <-- differs
+     delete: ITEM<< In the numerical check, a directed triangle with codes of rank two in $K=3$ and $10^3$ or $10^5$ noisy messages per edge, streamed through \cref{it1:information-filter}, gives mean errors $0.047$ and $0.0044$ relative to $\omega_\infty$, covariance errors $2.0\times10^{-3}$ and $2.0\times10^{-5}$ relative to $ZS^{-1}Z^T$, and relative errors $3.1$ and $0.38$ percent in the identified block. With $\lambda=0$ the limit equals the prior on $N$ to $3\times10^{-16}$, and \cref{it1:shrinkage,it1:bias} >> CHAP<<  >>
+  it1:detectable: item[definition] chapter[definition] ratio=1.000
+  it1:complementary: item[proposition] chapter[proposition] ratio=0.893  <-- differs
+     delete: ITEM<< the recognition law with >> CHAP<<  >>
+     replace: ITEM<< term reports consonance and moves the dissonance into the unread parts >> CHAP<< prior can select a flat representative >>
+     replace: ITEM<< dictionaries, >> CHAP<< same message laws, >>
+     insert: ITEM<<  >> CHAP<< quantified by >>
+     delete: ITEM<< In the complete exchange of three agents with codes of rank one in $K=3$, the invisible directions reach the whole loop space: with a dressed $W$, the numerical check finds $\mathcal D(\omega^\star)=0$ to $10^{-13}$ for a random dissonant truth whose linearized loop energy is $1.02$, and the limit mean at $\lambda=10^8$ has loop energy $4\times10^{-12}$. >> CHAP<<  >>
+  it1:unreachable: item[proposition] chapter[proposition] ratio=1.000
+  it1:complete-exchange: item[corollary] chapter[corollary] ratio=0.776  <-- differs
+     replace: ITEM<< necessary: loops through a third agent can fix what no pair can. >> CHAP<< necessary. >>
+     replace: ITEM<< $K=3$ with codes >> CHAP<< $K=3$, suppose the pairwise intersections >>
+     delete: ITEM<< rank one, the kernels of every pair meet in a line, and the numerical check finds that the three two-cycles alone leave $9=\sum_{\text{pairs}}K\dim(\ker\cap\ker)$ unreachable dimensions out of $36$. Adding >> CHAP<<  >>
+     replace: ITEM<< directed >> CHAP<< code kernels are three linearly independent lines. A section in $H^0$ has its three successive vertex differences on those lines, and their sum is zero. Linear independence forces every difference to vanish, although no pairwise kernel intersection is zero. Thus >>
+     replace: ITEM<< leaves none, because $u_1-u_0$, $u_2-u_1$ and $u_0-u_2$ would have to lie on three lines in general position and sum to zero. If one direction $k$ is read by no code, the count is $K(\dim H^0-K)=6$, from the shifts of >> CHAP<< can remove invisible flat directions that remain for >>
+     replace: ITEM<< agent along $k$. A directed triangle alone, in which each agent hears one other through a code of rank one, leaves $9$ of $18$. Every count agrees with \cref{it1:sheaf-count}. >> CHAP<< pair separately. >>
+  it1:pair: item[proposition] chapter[proposition] ratio=0.883  <-- differs
+     replace: ITEM<< everything >> CHAP<< the >>
+     replace: ITEM<< is repaired and no misunderstanding is detectable: complete repair costs complete trust. The numerical check at $K=3$ gives >> CHAP<< flat-truth coordinates are recovered as >>
+     replace: ITEM<< predicted triples $(6,0,3)$ of filled, unreachable and detectable dimensions for two codes of rank two and $(9,3,0)$ for two codes of rank one, and $\mathcal D$ agrees with >> CHAP<< loop weight grows, while every tangent loop discrepancy can also be absorbed by an invisible change. Recovery under >>
+     replace: ITEM<< projection formula to $10^{-14}$. >> CHAP<< flat-truth hypothesis therefore differs from detecting whether that hypothesis holds. >>
+  it1:exact-pair: item[proposition] chapter[proposition] ratio=0.907  <-- differs
+     replace: ITEM<< s\in\Stab(\bar T_1)\cap\Stab(\bar >> CHAP<< s\in\operatorname{Stab}(\bar T_1)\cap\operatorname{Stab}(\bar >>
+     replace: ITEM<< $s\in\Stab(\bar >> CHAP<< $s\in\operatorname{Stab}(\bar >>
+     replace: ITEM<< $(\bar\theta^\star_{10})^{-1}s^{-1}\bar\theta^\star_{10}=\bar\theta^\star_{01}s^{-1}(\bar\theta^\star_{01})^{-1}\in\Stab(\bar >> CHAP<< $(\bar\theta^\star_{10})^{-1}s^{-1}\bar\theta^\star_{10}=\bar\theta^\star_{01}s^{-1}(\bar\theta^\star_{01})^{-1}\in\operatorname{Stab}(\bar >>
+     delete: ITEM<< In the numerical check, with codes of rank one in $K=3$ and a true dictionary far from the identity, a finite element of the residual set reproduces both message laws to $7\times10^{-16}$, is reciprocal to $4\times10^{-16}$, and differs from the truth by $1.86$ in the largest entry. >> CHAP<<  >>
+  it1:exact-flat: item[proposition] chapter[proposition] ratio=0.918  <-- differs
+     replace: ITEM<< $(\bar\theta^\star_{ij})^{-1}\bar\theta_{ij}=g_ju_iu_j^{-1}g_j^{-1}\in\Stab(\bar >> CHAP<< $(\bar\theta^\star_{ij})^{-1}\bar\theta_{ij}=g_ju_iu_j^{-1}g_j^{-1}\in\operatorname{Stab}(\bar >>
+     delete: ITEM<< In the numerical check, the complete exchange of three agents with a direction read by no code in the gauge of the truth, and a truth far from the identity, has a finite element of the residual set that reproduces all six message laws to $7\times10^{-15}$, has holonomy equal to the identity to $4\times10^{-15}$ on all five loops, and differs from the truth by $3.7$ in the largest entry. >> CHAP<<  >>
+  it1:owned: item[remark] chapter[remark] ratio=0.834  <-- differs
+     replace: ITEM<< In the per-agent picture of the main manuscript >> CHAP<< Under a variational restriction with factors owned by receivers, >>
+     delete: ITEM<< only >> CHAP<<  >>
+     insert: ITEM<<  >> CHAP<< dictionary >>
+     replace: ITEM<< $q_i(\omega_{i\cdot})$ >> CHAP<< $\mathfrak q_i(\omega_{i\cdot})$ >>
+     replace: ITEM<< $\KL(q\Vert\text{posterior})$ >> CHAP<< $\KL(\mathfrak q\Vert\text{posterior})$ >>
+     replace: ITEM<< In >> CHAP<< For this one Gaussian target, >>
+     replace: ITEM<< Gaussian tangent model, ownership >> CHAP<< factorization >>
+     replace: ITEM<< ownership >> CHAP<< the factorization >>
+     delete: ITEM<< In the numerical check, coordinate ascent over the three receivers of the complete exchange reproduces the exact means to $10^{-14}$, the differences between exact and factorized block covariances are positive semidefinite, and the total variance is $4.59$ against the exact $7.75$. >> CHAP<<  >>
+  it1:open-learning: item[openproblem] chapter[openproblem] ratio=0.737  <-- differs
+     replace: ITEM<< First, for >> CHAP<< For >>
+     replace: ITEM<< $\prod_e\bar\theta^\star_e\Stab(\bar >> CHAP<< $\prod_e\bar\theta^\star_e\operatorname{Stab}(\bar >>
+     replace: ITEM<< Second, compare two distinct >> CHAP<< The >>
+     delete: ITEM<< loop penalties. The >> CHAP<<  >>
+     delete: ITEM<< \begin{equation} Q(H;\Sigma)=\tfrac12\Vert\Sigma^{-1/2}(I-H)\Sigma^{1/2}\Vert_F^2,\qquad \Sigma>0, \label{it1:dressed-defect} \end{equation} vanishes only at $H=I$ >> CHAP<<  >>
+     delete: ITEM<< has a positive-definite tangent form on every matrix Lie algebra. Its nonlinear use does not introduce law-stabilizer directions. In contrast, >> CHAP<<  >>
+     replace: ITEM<< $\KL(q\Vert H_\#q)$ vanishes whenever $H_\#q=q$ >> CHAP<< defined above lead to different learning problems; the latter requires its own regularity >>
+     replace: ITEM<< can have a larger null space. Analyze that alternative only with its specific law and regularity assumptions. For a quarter-turn $H$ and $q=\mathcal N(0,I_2)$, the law-comparison penalty is zero while $Q(H;I_2)=2$. Third, treat >> CHAP<< stabilizer analysis. Another extension treats >>
+     replace: ITEM<< Fourth, replace the Gaussian anchor and noise by general laws: for a location family of >> CHAP<< For location-family >>
+     replace: ITEM<< prior on $\omega$, >> CHAP<< anchor, >>
+  it1:open-codes: item[openproblem] chapter[openproblem] ratio=1.000
+  it1:open-free-energy: item[openproblem] chapter[openproblem] ratio=0.349  <-- differs
+     replace: ITEM<< Place >> CHAP<< The Gaussian tangent learning calculation fixes a normalized likelihood and an anchored loop prior. Extending it to fully nonlinear >>
+     insert: ITEM<<  >> CHAP<< learned >>
+     insert: ITEM<<  >> CHAP<< requires separate global, per-agent, and reciprocal objectives, with every law dependence differentiated >>
+     replace: ITEM<< per-agent generative >> CHAP<< chosen objective. Whether those dynamics reduce code-visible dissonance is a further dynamical question; posterior conditioning within the tangent >>
+     replace: ITEM<< of the main manuscript, where each receiver infers its own dictionaries, and in a global joint, where all dictionaries are variables of one model. Compare the resulting dynamics with the reciprocal flow, and decide whether consensus dynamics reduces visible dissonance and pushes holonomies toward the stabilizers of the codes. >> CHAP<< alone does not establish it. >>
+  it1:open-general: item[openproblem] chapter[openproblem] ratio=0.734  <-- differs
+     insert: ITEM<<  >> CHAP<< The relation to discourse sheaves is the use of private content spaces and restriction maps into shared message spaces \citep{HansenGhrist2021}. The reconstruction step additionally specifies a receiver conditional law, while invertible dictionaries supply loop products. Unknown frame conventions have also been studied as communication constraints \citep{BartlettRudolphSpekkens2007}. These comparisons do not identify graph loops at one context with transport between contexts. >>
+===== Item_2_link_dynamics.tex vs chapters/18_link_dynamics.tex: shared 20, only in item [], only in chapter ['it2:law-potential', 'it2:coupled-flow', 'it2:coupled-global', 'it2:coupled-critical-structure', 'it2:coupled-threshold', 'it2:critical-pitchfork']
+  it2:model: item[definition] chapter[definition] ratio=0.996
+  it2:global: item[definition] chapter[definition] ratio=1.000
+  it2:per-agent-model: item[definition] chapter[definition] ratio=0.986  <-- differs
+     replace: ITEM<< $x_i=(y_i,\omega_{\inn(i)})$ >> CHAP<< $x_i=(y_i,\omega_{\operatorname{in}(i)})$ >>
+     replace: ITEM<< y_i-m_i\Vert_{P_i}^2+\sum_{e\in\inn(i)}\Bigl(\tfrac1{2\sigma^2}\Vert\omega_e\Vert^2+\tfrac12\Vert\omega_e-\hat\omega_e\Vert_{G_e}^2+\tfrac12\bigl\Vert >> CHAP<< y_i-m_i\Vert_{P_i}^2+\sum_{e\in\operatorname{in}(i)}\Bigl(\tfrac1{2\sigma^2}\Vert\omega_e\Vert^2+\tfrac12\Vert\omega_e-\hat\omega_e\Vert_{G_e}^2+\tfrac12\bigl\Vert >>
+     replace: ITEM<< L_i}\tfrac12\Bigl\Vert\sum_{e\in\gamma\cap\inn(i)}\omega_e+\sum_{f\in\gamma\setminus\inn(i)}a_f\Bigr\Vert_{\Omega_{i\gamma}}^2, >> CHAP<< L_i}\tfrac12\Bigl\Vert\sum_{e\in\gamma\cap\operatorname{in}(i)}\omega_e+\sum_{f\in\gamma\setminus\operatorname{in}(i)}a_f\Bigr\Vert_{\Omega_{i\gamma}}^2, >>
+     replace: ITEM<< W_\gamma)^{-1}+\sum_{f\in\gamma\setminus\inn(i)}V_f\Bigr)^{-1}. >> CHAP<< W_\gamma)^{-1}+\sum_{f\in\gamma\setminus\operatorname{in}(i)}V_f\Bigr)^{-1}. >>
+  it2:gauge-general: item[remark] chapter[remark] ratio=1.000
+  it2:gauge: item[theorem] chapter[theorem] ratio=1.000
+  it2:split: item[proposition] chapter[proposition] ratio=1.000
+  it2:grounding: item[corollary] chapter[corollary] ratio=1.000
+  it2:global-flow: item[proposition] chapter[proposition] ratio=0.996
+  it2:per-agent-flow: item[proposition] chapter[proposition] ratio=0.997
+  it2:ring: item[proposition] chapter[proposition] ratio=1.000
+  it2:separation: item[theorem] chapter[theorem] ratio=0.997
+  it2:echo: item[proposition] chapter[proposition] ratio=1.000
+  it2:potential: item[definition] chapter[definition] ratio=0.926  <-- differs
+     replace: ITEM<< With >> CHAP<< For normalized variable rows, use $\mathcal E_T=\mathcal E+\sum_iT_i\KL(\beta_i\Vert\pi_i)$ from \cref{it2:row-objectives}. Its >>
+     replace: ITEM<< rows in place of fixed rows, >> CHAP<< reduction has >>
+     replace: ITEM<< Gibbs envelope identity gives the same derivatives with the rows evaluated at their Gibbs values, >> CHAP<< pointwise derivative \cref{it2:row-gap}, >>
+     delete: ITEM<< pointwise >> CHAP<<  >>
+     replace: ITEM<< those >> CHAP<< the current Gibbs >>
+     delete: ITEM<< Gibbs >> CHAP<<  >>
+  it2:potential-forces: item[proposition] chapter[proposition] ratio=1.000
+  it2:certainty: item[proposition] chapter[proposition] ratio=1.000
+  it2:open-reciprocal: item[openproblem] chapter[openproblem] ratio=0.390  <-- differs
+     heading: item 'openproblem: Rows and covariances in the reciprocal potential' / chapter 'openproblem: Coupled dynamics beyond the finite example'
+     replace: ITEM<< With Gibbs rows >> CHAP<< \Cref{it2:coupled-flow,it2:coupled-global} give >>
+     replace: ITEM<< costs select sources >> CHAP<< complete Gaussian tangent flow >>
+     replace: ITEM<< also affect sender covariances. Determine >> CHAP<< global forward existence, and \cref{it2:critical-pitchfork} resolves >>
+     replace: ITEM<< stationary points and stability >> CHAP<< local critical mode >>
+     replace: ITEM<< coupled restricted-family dynamics of means, covariances, >> CHAP<< three-agent example as a subcritical pitchfork with nearby asymmetric saddles. Determine its distant stationary branches >>
+     replace: ITEM<< rows. The constant-coefficient mean-flow results do not settle this problem, >> CHAP<< long-time destinations, the corresponding behavior on graphs with cycles, >>
+     insert: ITEM<<  >> CHAP<< well-posedness beyond regular finite-dimensional law families. Neither >>
+     replace: ITEM<< does not establish >> CHAP<< nor this local instability establishes >>
+  it2:open-convergence: item[openproblem] chapter[openproblem] ratio=1.000
+  it2:open-nonlinear: item[openproblem] chapter[openproblem] ratio=1.000
+  it2:open-general: item[openproblem] chapter[openproblem] ratio=1.000
+  it2:open-messages: item[openproblem] chapter[openproblem] ratio=0.933  <-- differs
+     delete: ITEM<< \begingroup \small \setlength{\bibsep}{3pt} >> CHAP<<  >>
+===== Item_3_curvature_hierarchy.tex vs chapters/19_curvature_hierarchy.tex: shared 14, only in item [], only in chapter []
+  it3:hierarchy: item[definition] chapter[definition] ratio=1.000
+  it3:general-induced: item[remark] chapter[remark] ratio=1.000
+  it3:induced: item[theorem] chapter[theorem] ratio=1.000
+  it3:observation: item[remark] chapter[remark] ratio=1.000
+  it3:rank-one: item[proposition] chapter[proposition] ratio=1.000
+  it3:dissonance: item[corollary] chapter[corollary] ratio=1.000
+  it3:cap: item[remark] chapter[remark] ratio=1.000
+  it3:rigid: item[proposition] chapter[proposition] ratio=1.000
+  it3:flat-wall: item[proposition] chapter[proposition] ratio=1.000
+  it3:tower: item[remark] chapter[remark] ratio=1.000
+  it3:open-formation: item[openproblem] chapter[openproblem] ratio=1.000
+  it3:open-fluctuation: item[openproblem] chapter[openproblem] ratio=1.000
+  it3:open-general: item[openproblem] chapter[openproblem] ratio=1.000
+  it3:open-gains: item[openproblem] chapter[openproblem] ratio=0.942  <-- differs
+     delete: ITEM<< \begingroup \small \setlength{\bibsep}{3pt} >> CHAP<<  >>

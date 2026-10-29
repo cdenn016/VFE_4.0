@@ -1,0 +1,13 @@
+prop:sup-residual-cost (Gaussian joint, d=3): formula 30.7698735236, quadrature 30.7698735236, diff 2.5e-14
+  non-Gaussian 7-point joint with the same formula: diff 0.0e+00
+eq:sup-peer-score: closed form 3.9524758215 vs quadrature of the log ratio 3.9524758215, diff 4.4e-16
+  receiver quadratic expectation 2.0000000000 (d = 2); source quadratic 9.3244672037 vs tr(W^-1V)+(a-b)'W^-1(a-b) = 9.3244672037
+prop:sup-row-equivalence: max abs(C_j - D_j/T - eq:sup-row-constant) over 5 sources = 8.9e-16
+  eq:sup-covariance-difference: FD 0.0012317511 vs tr(V^-1 dV)/(2T) = 0.0012317519
+  receiver-mean derivative of C_j - D_j/T (any V): 4.4e-10
+  T = 1: C_j - D_j = 4.1294186512 vs H(N(a,V)) + d/2 = 4.1294186512
+eq:sup-self-cost: 8.3354336561 vs c_R + o'R^-1 o/2 = 8.3354336561
+independent snapshots: cost 5.9215863345 vs c_R + d/T = 5.9215863345; odds exp(d/T) = 148.413159 vs exp(cost difference) = 148.413159
+W positive definite: eq:sup-integrated-score diff 1.8e-15; Jensen gap closed form 7.1211407061 vs Mexp - integrated 7.1211407061; first line vs eigen form 4.4e-16; min eig of R^-1-(W+R)^-1 = 2.45e-01
+W rank one: eq:sup-integrated-score diff 0.0e+00; Jensen gap closed form 0.5218624608 vs Mexp - integrated 0.5218624608; first line vs eigen form 1.7e-16; min eig of R^-1-(W+R)^-1 = 0.00e+00
+W = 0: eq:sup-integrated-score diff 3.6e-15; Jensen gap closed form 0.0000000000 vs Mexp - integrated 0.0000000000; first line vs eigen form 0.0e+00; min eig of R^-1-(W+R)^-1 = 0.00e+00

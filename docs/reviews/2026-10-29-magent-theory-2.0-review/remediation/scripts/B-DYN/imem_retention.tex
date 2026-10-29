@@ -1,0 +1,33 @@
+The sufficient state for an agent includes the fixed preparation, reconstruction and encoders, its private value, the joint $\lambda_t$, and the time index with the fixed schedule. When queries of actual past records are admitted, take the retained state to be
+\begin{equation}
+ \mathcal R_{i,t}
+ =\bigl(P_0,L_0,L_1,W,C_0,C_1,(j_s)_s,d_i,\lambda_t,t,H_{1:t}\bigr).
+ \label{imem:retention}
+\end{equation}
+Equality of these states gives the same current private posterior and, by \cref{imem:reduction}, the same joint conditional laws for all future protocol messages and represented-variable readouts, for the policy versions chosen as functions of the reduced state in \cref{imem:reduced-readouts}. The last coordinate preserves the literal transcript; its values need not be recoverable from $\lambda_t$. This separates inferential sufficiency from persistence of the full admitted record interface.
+
+The changing part of this state is smaller than a general law on $\mathsf D_0\times\mathsf D_1$, because each message factor reads only its speaker's private record. In the dominated case write, at a fixed history,
+\begin{equation}
+ \mathcal L_t(d;h)=\prod_{s=1}^tk_{j_s,s-1}(h_s\mid d_{j_s};h_{1:s-1}),\qquad
+ F_i^t(d_i)=\prod_{s\leq t:\ j_s=i}k_{i,s-1}(h_s\mid d_i;h_{1:s-1}).
+ \label{imem:evidence-factors}
+\end{equation}
+
+\propositionheading{Product-tilt representation}{imem:product-tilt}
+Under the dominated hypotheses of \cref{imem:history-theorem}, at every history with $0<Z_t=\int\mathcal L_t\,d\lambda_0<\infty$,
+\begin{equation}
+ \mathcal L_t(d;h)=F_0^t(d_0)F_1^t(d_1),\qquad
+ \lambda_t(dd)=\frac{F_0^t(d_0)F_1^t(d_1)}{Z_t}\lambda_0(dd).
+ \label{imem:product-tilt-formula}
+\end{equation}
+Consequently: (i) the private posterior of agent $i$ depends on the transcript only through the peer factor $F_{1-i}^t$, the own factor cancelling; (ii) a message from agent $j$ multiplies $F_j^t$ and leaves $F_{1-j}^t$ unchanged; (iii) the cross-agent dependence of $\lambda_t$ is that of $\lambda_0$: on finite tables every cross-ratio $\lambda_t(a,b)\lambda_t(a',b')/(\lambda_t(a,b')\lambda_t(a',b))$ equals that of $\lambda_0$, and in the nondegenerate Gaussian case of \cref{imem:gaussian-closure} the off-diagonal block of the precision of $\lambda_t$ equals that of $\lambda_0$. Moreover, two product tilts $P=f_0f_1\lambda_0/Z$ and $P'=g_0g_1\lambda_0/Z'$ with the same two marginals coincide whenever the private-record alphabets are finite, or more generally whenever $\log(g_0/f_0)$ and $\log(g_1/f_1)$ are integrable under the marginals.
+\begin{proof}
+Each factor of $\mathcal L_t$ depends on $d$ only through $d_{j_s}$, since the speaker's policy reads its own record and the common transcript; grouping the factors by speaker gives the first identity, and Bayes' formula the second. Conditioning $\lambda_t$ on $D_i=d_i$ divides out $F_i^t(d_i)$, which proves (i); (ii) is the grouping itself, together with (i) for the speaker's kernel. A product tilt multiplies each cross-ratio by $f_0(a)f_1(b)f_0(a')f_1(b')/(f_0(a)f_1(b')f_0(a')f_1(b))=1$, and in the Gaussian case each message adds $A_t^TR_t^{-1}A_t$ to the precision with $A_t$ supported on the speaker coordinate, which proves (iii). For uniqueness, let $S_i=\{f_i>0\}$. Since $P'(S_0^c\times\mathsf D_1)=P(S_0^c\times\mathsf D_1)=0$ and likewise for $S_1$, and $P$ has a positive density with respect to $\lambda_0$ on $S_0\times S_1$, $P'\ll P$, and symmetrically $P\ll P'$. Then $dP'/dP=a(d_0)b(d_1)$ with $a,b$ positive and finite almost everywhere, and under the integrability hypothesis, automatic on finite alphabets, $\KL(P'\Vert P)=\E_{\mu_0}\log a+\E_{\mu_1}\log b=-\KL(P\Vert P')$ because the marginals agree. Both divergences are nonnegative, so both vanish and $P'=P$.
+\end{proof}
+
+The factorization of the history likelihood is the rectangle property of two-party private-coin protocols \citep[Lemma 6.7]{BarYossefEtAl2004}. On the reachable family the exact changing state can therefore be taken as the pair of evidence classes $[F_0^t],[F_1^t]$, up to reciprocal positive scaling, with $\lambda_0$ and the other fixed data of \cref{imem:retention}. Equivalently, the two private-record marginals of $\lambda_t$ together with the fixed $\lambda_0$ determine $\lambda_t$ and every conditional pair law in \cref{imem:reduced-readouts} in all cases treated in this appendix, including the Gaussian case, where the log tilts are quadratic and integrable. The product of the two marginals alone does not, since it discards the fixed cross-agent dependence. Whether a smaller state serves a particular admitted interface is a separate minimality question, which this appendix does not settle.
+
+On the family $\{W\lambda\}$, the map $W\lambda\mapsto\lambda$ is invertible by the fixed reconstruction. It is the sample compression of the common posterior by the coordinate channel $E\mapsto D$, and as a configuration retention in the sense of \cref{inh:two-retentions} it is injective on this family, so it removes redundant changing coordinates and is not a lossy retention. The fixed $W$ can be large, and a law on continuous private-record spaces need not have a finite description.
+
+The supplied coupling has a separate role. At a fixed transcript the history likelihood is always a product of a function of $D_0$ and a function of $D_1$, by \cref{imem:product-tilt}. If the preparation also factorizes across $(Z_0,D_0)$ and $(Z_1,D_1)$, the common posterior consequently remains a product across the two agents. After conditioning on its own private record, an agent's own represented-state posterior cannot change when its peer speaks. It may learn about the peer, but information transfer to its own target requires a cross-agent relation supplied by the model.
+

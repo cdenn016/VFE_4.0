@@ -1,0 +1,41 @@
+alpha0=1.0 eta0=1.0 kappa=1.0: p*=1.414214 2*lambda=6.343146 model 2*lambda_tilde=6.343146 fitted g_aa rate (t=8..12) 6.343146
+   t= 0.0000  g_aa=4.4000e+00  h_chichi=7.5634e-01  A_chi=-0.53659  F=-1.70718  g_aa/g_aa(0)=1.000e+00
+   t= 1.0000  g_aa=2.6925e-03  h_chichi=3.5734e-04  A_chi=-0.47119  F=-1.79768  g_aa/g_aa(0)=6.119e-04
+   t= 1.0700  g_aa=1.7427e-03  h_chichi=2.3006e-04  A_chi=-0.47226  F=-1.79992  g_aa/g_aa(0)=3.961e-04
+   t= 2.0000  g_aa=5.1959e-06  h_chichi=6.6496e-07  A_chi=-0.48171  F=-1.81023  g_aa/g_aa(0)=1.181e-06
+   t= 4.0000  g_aa=1.6464e-11  h_chichi=2.0943e-12  A_chi=-0.48447  F=-1.81132  g_aa/g_aa(0)=3.742e-12
+   t= 6.0000  g_aa=5.0953e-17  h_chichi=6.4807e-18  A_chi=-0.48453  F=-1.81133  g_aa/g_aa(0)=1.158e-17
+   t= 8.0000  g_aa=1.5761e-22  h_chichi=2.0046e-23  A_chi=-0.48453  F=-1.81133  g_aa/g_aa(0)=3.582e-23
+   t=12.0000  g_aa=1.5081e-33  h_chichi=1.9181e-34  A_chi=-0.48453  F=-1.81133  g_aa/g_aa(0)=3.427e-34
+alpha0=1.0 eta0=2.0 kappa=1.0: p*=1.414214 2*lambda=6.343146 model 2*lambda_tilde=7.319654 fitted g_aa rate (t=8..12) 6.343146
+   t= 0.0000  g_aa=4.4000e+00  h_chichi=7.5634e-01  A_chi=-0.53659  F=-1.70718  g_aa/g_aa(0)=1.000e+00
+   t= 1.0000  g_aa=2.6925e-03  h_chichi=2.2296e-04  A_chi=-0.67006  F=-1.59501  g_aa/g_aa(0)=6.119e-04
+   t= 1.0700  g_aa=1.7427e-03  h_chichi=1.3532e-04  A_chi=-0.68958  F=-1.54592  g_aa/g_aa(0)=3.961e-04
+   t= 2.0000  g_aa=5.1959e-06  h_chichi=1.7247e-07  A_chi=-0.86557  F=-0.84367  g_aa/g_aa(0)=1.181e-06
+   t= 4.0000  g_aa=1.6464e-11  h_chichi=8.4316e-14  A_chi=-0.97924  F=-0.14740  g_aa/g_aa(0)=3.742e-12
+   t= 6.0000  g_aa=5.0953e-17  h_chichi=3.7655e-20  A_chi=-0.99700  F=-0.02166  g_aa/g_aa(0)=1.158e-17
+   t= 8.0000  g_aa=1.5761e-22  h_chichi=1.6564e-26  A_chi=-0.99957  F=-0.00309  g_aa/g_aa(0)=3.582e-23
+   t=12.0000  g_aa=1.5081e-33  h_chichi=3.1901e-39  A_chi=-0.99999  F=-0.00006  g_aa/g_aa(0)=3.427e-34
+alpha0=1.0 eta0=1.0 kappa=0.0: p*=1.000000 2*lambda=4.000000 model 2*lambda_tilde=4.000000 fitted g_aa rate (t=8..12) 4.000000
+   t= 0.0000  g_aa=4.4000e+00  h_chichi=7.5634e-01  A_chi=-0.53659  F=-1.70718  g_aa/g_aa(0)=1.000e+00
+   t= 1.0000  g_aa=8.3556e-02  h_chichi=1.3489e-02  A_chi=-0.50506  F=-1.69857  g_aa/g_aa(0)=1.899e-02
+   t= 1.0700  g_aa=6.3430e-02  h_chichi=1.0201e-02  A_chi=-0.50440  F=-1.70058  g_aa/g_aa(0)=1.442e-02
+   t= 2.0000  g_aa=1.5816e-03  h_chichi=2.4857e-04  A_chi=-0.50069  F=-1.71363  g_aa/g_aa(0)=3.595e-04
+   t= 4.0000  g_aa=5.3357e-07  h_chichi=8.3484e-08  A_chi=-0.50001  F=-1.71632  g_aa/g_aa(0)=1.213e-07
+   t= 6.0000  g_aa=1.7901e-10  h_chichi=2.8006e-11  A_chi=-0.50000  F=-1.71637  g_aa/g_aa(0)=4.068e-11
+   t= 8.0000  g_aa=6.0052e-14  h_chichi=9.3950e-15  A_chi=-0.50000  F=-1.71637  g_aa/g_aa(0)=1.365e-14
+   t=12.0000  g_aa=6.7579e-21  h_chichi=1.0573e-21  A_chi=-0.50000  F=-1.71637  g_aa/g_aa(0)=1.536e-21
+12 - 4 sqrt 2 = 6.343145750507619 ; f(sqrt2,1) = -4.440892098500626e-16 ; f_p(sqrt2,1)+6-2sqrt2 = 0.0
+
+anisotropic t=  0.0: g_aa=4.4000 h_chichi=0.7563 A_chi=-0.5366 F=-1.7072
+anisotropic t=  1.0: g_aa=1.0622 h_chichi=0.1821 A_chi=-0.4918 F=-1.6926
+anisotropic t=  2.0: g_aa=1.1544 h_chichi=0.1972 A_chi=-0.4994 F=-1.6884
+anisotropic t=  4.0: g_aa=1.1678 h_chichi=0.1992 A_chi=-0.5000 F=-1.6887
+anisotropic t=  8.0: g_aa=1.1679 h_chichi=0.1992 A_chi=-0.5000 F=-1.6887
+anisotropic t= 16.0: g_aa=1.1679 h_chichi=0.1992 A_chi=-0.5000 F=-1.6887
+   fixed point gamma=exp(1a): p*=1.685744
+   fixed point gamma=exp(-1a): p*=1.231135
+
+brute force t=0.6 block [0, 1] fine children: A_a=-2.81e-11 A_chi=-0.4667187713 h_aa=0.0330314854 h_chichi=0.0046124668 h_achi=-1.5e-12
+brute force t=0.6 block [0, 1] parent: A_a=-2.81e-11 A_chi=-0.4667187713 h_aa=0.0330314854 h_chichi=0.0046124668 h_achi=-1.5e-12
+formulas   t=0.6: A_chi=-0.4667187713 g_aa=0.0330314854 h_chichi=0.0046124668

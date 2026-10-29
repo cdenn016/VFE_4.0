@@ -1,0 +1,4 @@
+(4) lp:frozen-local-initial-frame: max |R_theta xbar - R_{U(S(x(c,0)))} x(c,t)| = 1.2155831896620839e-12 ; max |S_y(slice)| = 1.6653345369377348e-16
+    (non-coherent preparation) max |causal parent - reference parent| = 0.13696681856379847 (differ, as expected)
+(5) lp:causal-phase-jets (first order): max |theta_c(jet) - FD| = 1.0163102130700263e-09 ; theta_c(t=2) = -0.012631117681262112
+(6) lp:initial-phase-datum: max |alpha(c,t)-alpha_0(c)-theta(c,t)| = 4.826347654862673e-14

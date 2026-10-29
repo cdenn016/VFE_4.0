@@ -1,0 +1,9 @@
+[declared, Tp=2] lp: fixed draw events []
+    distinct partition sequences over 13 states: 1; event-time range (None, None)
+[declared, Tp=2] rn: fixed draw events [(5.55, 1, 12)]
+    distinct partition sequences over 13 states: 1; event-time range (5.55, 5.55)
+[declared, Tp=2] fr: fixed draw events [(2.15, 1, 3), (2.2, 1, 3), (2.25, 1, 3), (2.3, 1, 3)]
+    fr fixed draw: final left pools [-2.9364 -2.0662] gap 0.8702
+    distinct partition sequences over 13 states: 1; event-time range (2.15, 2.35)
+[declared, Tp=2] full: fixed draw events [(2.15, 1, 3), (2.2, 1, 3), (2.25, 1, 3), (2.3, 1, 3), (6.95, 2, 6), (7.6, 2, 6)]
+    distinct partition sequences over 13 states: 1; event-time range (2.15, 7.9)

@@ -1,0 +1,31 @@
+== (a) thm:dyn-finite-flow, law-dependent channels: dissipation identity ==
+  E(0) = 3.684006, E(8) = 0.842041; nonincreasing: True
+  max abs(E(t) - E(0) + int_0^t sum Var) = 6.10e-11; max mass drift 7.0e-12
+== (b) prop:dyn-row-relaxation at frozen costs ==
+  T = 0.05: measured rates of l_0 - l_1 per unit time = [0.05 0.05 0.05]
+  T = 0.25: measured rates of l_0 - l_1 per unit time = [0.25 0.25 0.25]
+  T = 1.7: measured rates of l_0 - l_1 per unit time = [1.7 1.7 1.7]
+== (c) prop:dyn-global-flow: fixed channels, no null column, tiny initial entries ==
+  c_min (belief) = 0.2, c_min (model) = 0.7; proof constants C_q = 8.538, C_s = 7.356
+  tiny = 1e-09: m_q(0) = -20.72, min_t m_q = -20.72, bound min(m(0),-C_q) = -20.72
+     model: m_s(0) = -20.72, min_t m_s = -20.72, bound -20.72; rows: l(0) = -20.72, min_t l = -21.55
+     E(0) = 52.3499, E(150) = 0.858414, int Var = 51.4915; squared Fisher speed at t=150: 8.71e-17; status 0
+     final minimum log entry -4.291
+     proof row bound with Dbar = -log c_min - m_* = 22.33: min(l(0), -Dbar/T - log(1/min pi)) = -77.50; satisfied: True
+  tiny = 1e-12: m_q(0) = -27.63, min_t m_q = -27.63, bound min(m(0),-C_q) = -27.63
+     model: m_s(0) = -27.63, min_t m_s = -27.63, bound -27.63; rows: l(0) = -27.63, min_t l = -28.99
+     E(0) = 66.1655, E(150) = 0.858414, int Var = 65.3070; squared Fisher speed at t=150: 1.16e-16; status 0
+     final minimum log entry -4.291
+     proof row bound with Dbar = -log c_min - m_* = 29.24: min(l(0), -Dbar/T - log(1/min pi)) = -100.52; satisfied: True
+== (d) prop:dyn-global-flow when the energy pulls entries down (peaked evaluators) ==
+  C_q = 19.52, C_s = 28.69; min_t m_q = -13.826 (bound -19.52), min_t m_s = -18.526 (bound -28.69); status 0
+== (e) law-dependent channel leaving the interior in finite time (hypotheses of thm:dyn-finite-flow) ==
+  force check: (h1_0 - h1_1) = -2.958229 vs FD -2.958229; (h2_0 - h2_1) = 1.596450 vs FD 1.596450; dD/deps = 1.0420
+  q_1(0) initial 1e-03: first times log q_1(0) reaches [-30.0, -60.0, -120.0, -240.0, -480.0]: [0.90835475 0.90835637        nan        nan        nan]
+     successive differences [1.618116e-06          nan          nan          nan] (geometric decay means a finite exit time); q_2(0) at exit 0.0076
+     solver status -1: Required step size is less than spacing between numbers.; last t = 0.908356372, last log q_1(0) = -64.40
+     at the last point d(log q)/dt * sqrt(q) = -0.3781; predicted -kap dD/deps / 2 = -0.3781
+  q_1(0) initial 1e-05: first times log q_1(0) reaches [-30.0, -60.0, -120.0, -240.0, -480.0]: [0.01879188 0.01879352        nan        nan        nan]
+     successive differences [1.639118e-06          nan          nan          nan] (geometric decay means a finite exit time); q_2(0) at exit 0.0194
+     solver status -1: Required step size is less than spacing between numbers.; last t = 0.018793520, last log q_1(0) = -71.39
+     at the last point d(log q)/dt * sqrt(q) = -0.3733; predicted -kap dD/deps / 2 = -0.3733

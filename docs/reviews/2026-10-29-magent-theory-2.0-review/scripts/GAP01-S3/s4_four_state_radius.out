@@ -1,0 +1,15 @@
+(a) linearization at the uniform table in a u-orthonormal basis:
+    asymmetry ||A-A^T||_max = 0.00e+00; eigenvalues [-2.25 -1.25 -1.25 -1.25 -1.25 -1.25 -0.75 -0.75 -0.75 -0.75 -0.75  0.25]
+    r=1e-03: sampled max ||N(x)||/||x||^2 = 0.334 ; analytic bound/||x||^2 = 8.040
+    r=1e-02: sampled max ||N(x)||/||x||^2 = 0.296 ; analytic bound/||x||^2 = 8.404
+    r=5e-02: sampled max ||N(x)||/||x||^2 = 0.319 ; analytic bound/||x||^2 = 10.092
+    r=2e-01: sampled max ||N(x)||/||x||^2 = 0.280 ; analytic bound/||x||^2 = 17.547
+(b) explicit Gronwall window (all eight conditionals > eta/(8 sqrt2)), null cone needs 2 r0 < atanh(eta):
+    eta=1e-03: r0=1.00e-04 (=0.10 eta), h=1.0e-05: selection guaranteed for t in [1.700, 3.000] (grid end 3.000); E(t*)=2.29e-04
+    eta=5e-04: r0=1.00e-04 (=0.20 eta), h=5.0e-06: selection guaranteed for t in [1.880, 3.000] (grid end 3.000); E(t*)=6.70e-05
+    eta=2e-04: r0=4.00e-05 (=0.20 eta), h=2.0e-06: selection guaranteed for t in [1.550, 3.000] (grid end 3.000); E(t*)=1.46e-05
+(c) exact-flow radius test, eta=0.02, h=2e-4, kappa=0.5: random centered perturbations of u-norm r
+    r=0.002 (= 0.10 eta; inside 2r<atanh(eta): True): full selects on [0,3] in 8/8; null ever selects in 0/8
+    r=0.005 (= 0.25 eta; inside 2r<atanh(eta): True): full selects on [0,3] in 8/8; null ever selects in 0/8
+    r=0.010 (= 0.50 eta; inside 2r<atanh(eta): True): full selects on [0,3] in 8/8; null ever selects in 0/8
+    r=0.020 (= 1.00 eta; inside 2r<atanh(eta): False): full selects on [0,3] in 8/8; null ever selects in 0/8

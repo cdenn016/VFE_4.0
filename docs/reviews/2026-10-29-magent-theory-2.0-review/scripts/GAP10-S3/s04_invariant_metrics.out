@@ -1,0 +1,70 @@
+=== A. free but non-proper SL(2) pairs ===
+  z=(A,E12): singular values of J_z = [2.       1.732051 1.      ]  (injective: True)
+  z'=(A,E21): singular values of J_z = [2.       1.732051 1.      ]  (injective: True)
+  t=1e-01: |z_n - z| = 1.0e-02, |g_n z_n - z'| = 1.0e-02, |g_n| = 1.0e+01, min sv J(z_n) = 1.000, g_n.z -> (A, 1.0e-02 E12)
+  t=1e-02: |z_n - z| = 1.0e-04, |g_n z_n - z'| = 1.0e-04, |g_n| = 1.0e+02, min sv J(z_n) = 1.000, g_n.z -> (A, 1.0e-04 E12)
+  t=1e-03: |z_n - z| = 1.0e-06, |g_n z_n - z'| = 1.0e-06, |g_n| = 1.0e+03, min sv J(z_n) = 1.000, g_n.z -> (A, 1.0e-06 E12)
+  t=1e-04: |z_n - z| = 1.0e-08, |g_n z_n - z'| = 1.0e-08, |g_n| = 1.0e+04, min sv J(z_n) = 1.000, g_n.z -> (A, 1.0e-08 E12)
+  group-valued version in SL(2)^2: z = (D, I+E12), z' = (D, I+E21), D = diag(2, 1/2)
+    z : dets [np.float64(1.0), np.float64(1.0)], singular values of J_z = [2.061553 2.       1.5     ]
+    z': dets [np.float64(1.0), np.float64(1.0)], singular values of J_z = [2.061553 2.       1.5     ]
+    t=1e-01: det K_n = 1.000000000000, |K_n - (I+E12)| = 1.4e-02, |g K_n g^-1 - (I+E21)| = 1.4e-02, g D g^-1 = D, g (I+E12) g^-1 = I + 1.0e-02 E12 -> I (not I+E21)
+    t=1e-02: det K_n = 1.000000000000, |K_n - (I+E12)| = 1.4e-04, |g K_n g^-1 - (I+E21)| = 1.4e-04, g D g^-1 = D, g (I+E12) g^-1 = I + 1.0e-04 E12 -> I (not I+E21)
+    t=1e-03: det K_n = 1.000000000000, |K_n - (I+E12)| = 1.4e-06, |g K_n g^-1 - (I+E21)| = 1.4e-06, g D g^-1 = D, g (I+E12) g^-1 = I + 1.0e-06 E12 -> I (not I+E21)
+
+=== B. KN-dressed invariant metric on the absolutely irreducible locus ===
+  K=2: |S_(h^-1 z h) - h^-1 S_z h^-T| (det-normalized) = 3.70e-16; G invariance |G_zh(h^-1 dz h) - G_z(dz)| = 3.55e-15 (G = 10.960463); grad norm 1.3e-15
+        moment map at the balanced representative |sum [B,B^T]| = 2.40e-15
+  K=3: |S_(h^-1 z h) - h^-1 S_z h^-T| (det-normalized) = 2.36e-15; G invariance |G_zh(h^-1 dz h) - G_z(dz)| = 0.00e+00 (G = 16.442593); grad norm 2.5e-15
+        moment map at the balanced representative |sum [B,B^T]| = 2.36e-15
+  blow-up toward the reducible pair (A, E12): z_eps = (A, E12 + eps E21)
+    eps=1e-01: cond(S) = 1.000e+01  (predicted 1/eps = 1.0e+01)
+    eps=1e-02: cond(S) = 1.000e+02  (predicted 1/eps = 1.0e+02)
+    eps=1e-03: cond(S) = 1.000e+03  (predicted 1/eps = 1.0e+03)
+    eps=1e-04: cond(S) = 1.000e+04  (predicted 1/eps = 1.0e+04)
+
+=== C. alignment connection with the KN metric is metric for S^{-1} ===
+  loop: radius 0.2 about [ 0.05 -0.05]; min |det[K1,K2]| = 0.539 (absolutely irreducible iff != 0), max cond(S_KN) = 1.432
+  KN metric, weights (1,1), self-balanced:
+     |dS + aS + Sa^T| at c0 = 2.10e-10, 8.36e-11  (|a(e1)|=0.364, |a(e2)|=0.313)
+     holonomy: eigenvalues [1.+0.j 1.-0.j], moduli [1. 1.], det 1.0000000000, |Hol - I| = 7.868e-11, isometry defect |Hol^T S0^-1 Hol - S0^-1| = 4.93e-11
+  metric weights (1,10) dressed by KN point of weights (1,1): NOT self-balanced:
+     |dS + aS + Sa^T| at c0 = 2.74e-02, 1.63e-03  (|a(e1)|=0.375, |a(e2)|=0.313)
+     holonomy: eigenvalues [1.000727 0.999274], moduli [1.000727 0.999274], det 1.0000000000, |Hol - I| = 1.030e-03, isometry defect |Hol^T S0^-1 Hol - S0^-1| = 2.11e-03
+  metric weights (1,10) dressed by KN point of weights (1,10): self-balanced:
+     |dS + aS + Sa^T| at c0 = 2.19e-10, 1.38e-10  (|a(e1)|=0.397, |a(e2)|=0.318)
+     holonomy: eigenvalues [1.+0.j 1.-0.j], moduli [1. 1.], det 1.0000000000, |Hol - I| = 1.033e-10, isometry defect |Hol^T S0^-1 Hol - S0^-1| = 5.09e-11
+  (0.8 s)
+
+=== D. ibt:group with g = sl(K): traceless part of -dX Q_X when M = H_X^{-1} ===
+  M = H_X^{-1}: |a_sl - traceless(a_gl)| = 6.84e-16 (direction 1), 7.47e-17 (direction 2)
+  M = I: |a_sl - traceless(a_gl)| = 4.65e-01 (direction 1), 7.58e-02 (direction 2)
+
+runtime 0.8 s
+
+=== E. SL(2) pairs: balanced branches and curvature of the KN-dressed alignment connection ===
+  branch I (det[K1,K2] > 0): balanced links both symmetric; branch II (det < 0): skew parts nonzero,
+  traceless-symmetric parts parallel.  Prediction: connection flat on branch II, curved on branch I.
+  det[K1,K2] = -0.628: |F_12| = 2.42e-07 (|a| = 2.03); balanced reps: skew parts 4.71e-01, 1.20e-01; T-part parallelism defect 1.39e-17
+  det[K1,K2] =  0.530: |F_12| = 9.21e-02 (|a| = 0.48); balanced reps: skew parts 1.37e-16, 0.00e+00; T-part parallelism defect 3.64e-01
+  det[K1,K2] = -0.329: |F_12| = 8.24e-07 (|a| = 1.71); balanced reps: skew parts 2.61e-01, 5.57e-01; T-part parallelism defect 5.55e-17
+  det[K1,K2] =  0.224: |F_12| = 1.72e-01 (|a| = 0.53); balanced reps: skew parts 0.00e+00, 1.96e-16; T-part parallelism defect 2.37e-01
+  det[K1,K2] =  0.238: |F_12| = 7.21e-02 (|a| = 0.39); balanced reps: skew parts 7.07e-16, 7.85e-17; T-part parallelism defect 2.44e-01
+  det[K1,K2] = -0.153: |F_12| = 6.71e-06 (|a| = 3.75); balanced reps: skew parts 6.49e-01, 2.82e-01; T-part parallelism defect 5.90e-17
+  det[K1,K2] =  0.108: |F_12| = 1.27e-01 (|a| = 1.09); balanced reps: skew parts 2.16e-16, 0.00e+00; T-part parallelism defect 1.64e-01
+  det[K1,K2] = -0.408: |F_12| = 6.60e-07 (|a| = 1.16); balanced reps: skew parts 4.58e-01, 3.45e-01; T-part parallelism defect 5.55e-17
+  det[K1,K2] = -0.946: |F_12| = 6.48e-07 (|a| = 1.27); balanced reps: skew parts 6.25e-01, 1.08e-01; T-part parallelism defect 1.94e-16
+  det[K1,K2] =  0.247: |F_12| = 4.02e-03 (|a| = 0.37); balanced reps: skew parts 4.91e-17, 0.00e+00; T-part parallelism defect 2.49e-01
+  det[K1,K2] =  0.433: |F_12| = 1.50e-01 (|a| = 0.45); balanced reps: skew parts 0.00e+00, 3.14e-16; T-part parallelism defect 3.29e-01
+  det[K1,K2] =  0.468: |F_12| = 7.00e+00 (|a| = 7.12); balanced reps: skew parts 4.71e-16, 7.85e-17; T-part parallelism defect 3.42e-01
+  det[K1,K2] =  0.125: |F_12| = 2.34e-01 (|a| = 0.54); balanced reps: skew parts 3.93e-17, 5.89e-17; T-part parallelism defect 1.77e-01
+  det[K1,K2] =  2.917: |F_12| = 4.00e-02 (|a| = 0.52); balanced reps: skew parts 7.85e-17, 2.36e-16; T-part parallelism defect 8.54e-01
+
+runtime 0.9 s
+
+=== F. nontrivial holonomy on branch I (det[K1,K2] > 0), self-balanced vs not ===
+  field found on branch I along the whole loop: True (trial 0)
+  self-balanced KN (1,1): eigenvalues [0.999977+0.006763j 0.999977-0.006763j], moduli [1. 1.], |Hol - I| = 1.014e-02, isometry defect 1.48e-10
+  weights (1,10) with KN point of (1,1): eigenvalues [0.999998+0.001961j 0.999998-0.001961j], moduli [1. 1.], |Hol - I| = 2.941e-03, isometry defect 8.85e-11
+
+runtime 1.4 s

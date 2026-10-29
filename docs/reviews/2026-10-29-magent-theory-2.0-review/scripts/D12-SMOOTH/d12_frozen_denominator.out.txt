@@ -1,0 +1,3 @@
+instantaneous Fisher velocity, live vs frozen-at-current kappa: max |diff| = 7.77e-16
+second variation along a tangent direction: |d.H_live.d| = 7.0536, |d.H_frozen.d| = 10.7802, diff = 3.73e+00
+after displacement with the snapshot held: max |diff| = 9.39e-02

@@ -1,0 +1,19 @@
+eps = 1: PASS   (6.9 s)
+  (I)   face (eps/4)f_a - f_b > 0: True; 4064 boxes; min lower bound of Phi_I/a = 0.0387111, so k - |f_a|/a >= 0.154845 (k - |f_a|/a = (4/eps) Phi_I/a on the face); closed form vs generic field |diff| = 2.0e-20
+  (IV)  start B(4,b) < 1/10 for b<=eps: True; max upper bound 1.28685e-14
+        exit  B(a_*,b) > 1/10 for b<=eps a_*/4: True; min lower bound 0.199352
+  (III) Bdot > 0 on crossing boxes: True; 2258 boxes evaluated, 425 crossing boxes; min Bdot >= 0.409095; crossing a in [1.04676, 1.12332]
+  (III') Bdot > 0 on band |B-1/10| <= 0.01: True; 9754 band boxes; min Bdot >= 0.371422; band a in [1.02124, 1.15734]
+        crossing within log(4/a_min) = 1.3406 of t_A; exit within log(4/a_*) = 1.56955
+  (V)   first-pair p >= 0.102 and contrast >= 0.052 on Omega: True; 4064 boxes; min margin 0.0172029
+  (K)   sup |f_a|/a <= 1.85478; window after crossing >= log(a_min/a_*)/K = 0.123441
+eps = 0.25: PASS   (2.9 s)
+  (I)   face (eps/4)f_a - f_b > 0: True; 4064 boxes; min lower bound of Phi_I/a = 0.0112107, so k - |f_a|/a >= 0.179372 (k - |f_a|/a = (4/eps) Phi_I/a on the face); closed form vs generic field |diff| = 1.4e-20
+  (IV)  start B(4,b) < 1/10 for b<=eps: True; max upper bound 1.28685e-14
+        exit  B(a_*,b) > 1/10 for b<=eps a_*/4: True; min lower bound 0.199675
+  (III) Bdot > 0 on crossing boxes: True; 542 boxes evaluated, 94 crossing boxes; min Bdot >= 0.538626; crossing a in [1.04676, 1.05372]
+  (III') Bdot > 0 on band |B-1/10| <= 0.01: True; 2284 band boxes; min Bdot >= 0.501532; band a in [1.02124, 1.08078]
+        crossing within log(4/a_min) = 1.3406 of t_A; exit within log(4/a_*) = 1.56955
+  (V)   first-pair p >= 0.102 and contrast >= 0.052 on Omega: True; 4064 boxes; min margin 0.124665
+  (K)   sup |f_a|/a <= 1.84571; window after crossing >= log(a_min/a_*)/K = 0.124047
+total time 9.7 s; mpmath 1.3.0, iv.prec = 64

@@ -1,0 +1,232 @@
+# 87 bib entries carry a DOI; checking indices 36..54
+== Gindikin1975 [references.bib, @article]
+  bib author: Gindikin, S. G.
+  bib title: Invariant generalized functions in homogeneous domains
+  bib journal: Functional Analysis and Its Applications
+  bib volume: 9
+  bib number: 1
+  bib pages: 50--52
+  bib year: 1975
+  bib doi: 10.1007/BF01078179
+  CR authors: Gindikin, S. G.
+  CR title:   Invariant generalized functions in homogeneous domains
+  CR venue:   Functional Analysis and Its Applications
+  CR vol/iss/pages: 9/1/50-52  article-number: None
+  CR date: [1975, 1]
+== GolubitskyStewart2002 [references.bib, @book]
+  bib author: Golubitsky, Martin and Stewart, Ian
+  bib title: The Symmetry Perspective: From Equilibrium to Chaos in Phase Space and Physical Space
+  bib volume: 200
+  bib year: 2002
+  bib doi: 10.1007/978-3-0348-8167-8
+  CR authors: Golubitsky, Martin; Stewart, Ian
+  CR title:   The Symmetry Perspective
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2002]
+== Guckenheimer1975 [references.bib, @article]
+  bib author: Guckenheimer, John
+  bib title: Isochrons and Phaseless Sets
+  bib journal: Journal of Mathematical Biology
+  bib volume: 1
+  bib number: 3
+  bib pages: 259--273
+  bib year: 1975
+  bib doi: 10.1007/BF01273747
+  CR authors: Guckenheimer, J.
+  CR title:   Isochrons and phaseless sets
+  CR venue:   Journal of Mathematical Biology
+  CR vol/iss/pages: 1/3/259-273  article-number: None
+  CR date: [1975, 9]
+== HellerGhahramani2005 [item7_refs.bib, @inproceedings]
+  bib author: Heller, Katherine A. and Ghahramani, Zoubin
+  bib title: Bayesian hierarchical clustering
+  bib booktitle: Proceedings of the 22nd International Conference on Machine Learning (ICML 2005)
+  bib pages: 297--304
+  bib year: 2005
+  bib doi: 10.1145/1102351.1102389
+  CR authors: Heller, Katherine A.; Ghahramani, Zoubin
+  CR title:   Bayesian hierarchical clustering
+  CR venue:   Proceedings of the 22nd international conference on Machine learning  - ICML '05
+  CR vol/iss/pages: None/None/297-304  article-number: None
+  CR date: [2005]
+== HermannKrener1977 [references.bib, @article]
+  bib author: Hermann, Robert and Krener, Arthur J.
+  bib title: Nonlinear Controllability and Observability
+  bib journal: IEEE Transactions on Automatic Control
+  bib volume: 22
+  bib number: 5
+  bib pages: 728--740
+  bib year: 1977
+  bib doi: 10.1109/TAC.1977.1101601
+  CR authors: Hermann, R.; Krener, A.
+  CR title:   Nonlinear controllability and observability
+  CR venue:   IEEE Transactions on Automatic Control
+  CR vol/iss/pages: 22/5/728-740  article-number: None
+  CR date: [1977, 10]
+== Higham2008 [references.bib, @book]
+  bib author: Higham, Nicholas J.
+  bib title: Functions of Matrices: Theory and Computation
+  bib year: 2008
+  bib doi: 10.1137/1.9780898717778
+  CR authors: Higham, Nicholas J.
+  CR title:   Functions of Matrices
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2008, 1, 1]
+== HorstmeyerAtay2016 [references.bib, @article]
+  bib author: Horstmeyer, Leonhard and Atay, Fatihcan M.
+  bib title: Characterization of Exact Lumpability for Vector Fields on Smooth Manifolds
+  bib journal: Differential Geometry and its Applications
+  bib volume: 48
+  bib pages: 46--60
+  bib year: 2016
+  bib doi: 10.1016/j.difgeo.2016.06.001
+  CR authors: Horstmeyer, Leonhard; Atay, Fatihcan M.
+  CR title:   Characterization of exact lumpability for vector fields on smooth manifolds
+  CR venue:   Differential Geometry and its Applications
+  CR vol/iss/pages: 48/None/46-60  article-number: None
+  CR date: [2016, 10]
+== KaganShepp2005 [references.bib, @article]
+  bib author: Kagan, Abram and Shepp, Lawrence A.
+  bib title: A Sufficiency Paradox: An Insufficient Statistic Preserving the {F}isher Information
+  bib journal: The American Statistician
+  bib volume: 59
+  bib number: 1
+  bib pages: 54--56
+  bib year: 2005
+  bib doi: 10.1198/000313005X21041
+  CR authors: Kagan, Abram; Shepp, Lawrence A
+  CR title:   A Sufficiency Paradox
+  CR venue:   The American Statistician
+  CR vol/iss/pages: 59/1/54-56  article-number: None
+  CR date: [2005, 2]
+== Kallenberg2021 [references.bib, @book]
+  bib author: Kallenberg, Olav
+  bib title: Foundations of Modern Probability
+  bib year: 2021
+  bib doi: 10.1007/978-3-030-61871-1
+  CR authors: Kallenberg, Olav
+  CR title:   Foundations of Modern Probability
+  CR venue:   Probability Theory and Stochastic Modelling
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2021]
+== KirchhoffEtAl2018 [references.bib, @article]
+  bib author: Kirchhoff, Michael and Parr, Thomas and Palacios, Ensor and Friston, Karl and Kiverstein, Julian
+  bib title: The {M}arkov Blankets of Life: Autonomy, Active Inference and the Free Energy Principle
+  bib journal: Journal of the Royal Society Interface
+  bib volume: 15
+  bib number: 138
+  bib pages: 20170792
+  bib year: 2018
+  bib doi: 10.1098/rsif.2017.0792
+  CR authors: Kirchhoff, Michael; Parr, Thomas; Palacios, Ensor; Friston, Karl; Kiverstein, Julian
+  CR title:   The Markov blankets of life: autonomy, active inference and the free energy principle
+  CR venue:   Journal of The Royal Society Interface
+  CR vol/iss/pages: 15/138/20170792  article-number: None
+  CR date: [2018, 1]
+== KullbackLeibler1951 [references.bib, @article]
+  bib author: Kullback, Solomon and Leibler, Richard A.
+  bib title: On Information and Sufficiency
+  bib journal: The Annals of Mathematical Statistics
+  bib volume: 22
+  bib number: 1
+  bib pages: 79--86
+  bib year: 1951
+  bib doi: 10.1214/aoms/1177729694
+  CR authors: Kullback, S.; Leibler, R. A.
+  CR title:   On Information and Sufficiency
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 22/1/79-86  article-number: None
+  CR date: [1951, 3]
+== LaSalle1960 [references.bib, @article]
+  bib author: LaSalle, Joseph P.
+  bib title: Some Extensions of {L}iapunov's Second Method
+  bib journal: IRE Transactions on Circuit Theory
+  bib volume: 7
+  bib number: 4
+  bib pages: 520--527
+  bib year: 1960
+  bib doi: 10.1109/TCT.1960.1086720
+  CR authors: LaSalle, J.
+  CR title:   Some Extensions of Liapunov's Second Method
+  CR venue:   IRE Transactions on Circuit Theory
+  CR vol/iss/pages: 7/4/520-527  article-number: None
+  CR date: [1960]
+== LanceWilliams1967 [references.bib, @article]
+  bib author: Lance, G. N. and Williams, W. T.
+  bib title: A general theory of classificatory sorting strategies. {I}. {H}ierarchical systems
+  bib journal: The Computer Journal
+  bib volume: 9
+  bib number: 4
+  bib pages: 373--380
+  bib year: 1967
+  bib doi: 10.1093/comjnl/9.4.373
+  CR authors: Lance, G. N.; Williams, W. T.
+  CR title:   A General Theory of Classificatory Sorting Strategies: 1. Hierarchical Systems
+  CR venue:   The Computer Journal
+  CR vol/iss/pages: 9/4/373-380  article-number: None
+  CR date: [1967, 2, 1]
+== LarsenSkou1991 [references.bib, @article]
+  bib author: Larsen, Kim G. and Skou, Arne
+  bib title: Bisimulation through Probabilistic Testing
+  bib journal: Information and Computation
+  bib volume: 94
+  bib number: 1
+  bib pages: 1--28
+  bib year: 1991
+  bib doi: 10.1016/0890-5401(91)90030-6
+  CR authors: Larsen, Kim G.; Skou, Arne
+  CR title:   Bisimulation through probabilistic testing
+  CR venue:   Information and Computation
+  CR vol/iss/pages: 94/1/1-28  article-number: None
+  CR date: [1991, 9]
+== LeBruynProcesi1990 [references.bib, @article]
+  bib author: Le Bruyn, Lieven and Procesi, Claudio
+  bib title: Semisimple Representations of Quivers
+  bib journal: Transactions of the American Mathematical Society
+  bib volume: 317
+  bib number: 2
+  bib pages: 585--598
+  bib year: 1990
+  bib doi: 10.1090/S0002-9947-1990-0958897-0
+  CR authors: Le Bruyn, Lieven; Procesi, Claudio
+  CR title:   Semisimple representations of quivers
+  CR venue:   Transactions of the American Mathematical Society
+  CR vol/iss/pages: 317/2/585-598  article-number: None
+  CR date: [1990]
+== LeCamYang2000 [references.bib, @book]
+  bib author: Le Cam, Lucien and Yang, Grace Lo
+  bib title: Asymptotics in Statistics: Some Basic Concepts
+  bib year: 2000
+  bib doi: 10.1007/978-1-4612-1166-2
+  CR authors: Le Cam, Lucien; Lo Yang, Grace
+  CR title:   Asymptotics in Statistics
+  CR venue:   Springer Series in Statistics
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2000]
+== Lee2013 [references.bib, @book]
+  bib author: Lee, John M.
+  bib title: Introduction to Smooth Manifolds
+  bib volume: 218
+  bib year: 2013
+  bib doi: 10.1007/978-1-4419-9982-5
+  CR authors: Lee, John M.
+  CR title:   Introduction to Smooth Manifolds
+  CR venue:   Graduate Texts in Mathematics
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2012]
+== LewisNigamOlver2005 [references.bib, @article]
+  bib author: Lewis, Debra and Nigam, Nilima and Olver, Peter J.
+  bib title: Connections for General Group Actions
+  bib journal: Communications in Contemporary Mathematics
+  bib volume: 7
+  bib number: 3
+  bib pages: 341--374
+  bib year: 2005
+  bib doi: 10.1142/S0219199705001787
+  CR authors: LEWIS, DEBRA; NIGAM, NILIMA; OLVER, PETER J.
+  CR title:   CONNECTIONS FOR GENERAL GROUP ACTIONS
+  CR venue:   Communications in Contemporary Mathematics
+  CR vol/iss/pages: 07/03/341-374  article-number: None
+  CR date: [2005, 6]

@@ -1,0 +1,24 @@
+== (0) quadrature convergence ==
+E: N=256 1.895032247545071  N=512 1.895032247545071  diff 0.0e+00
+C_e: N=256 0.343696292762532  N=512 0.343696292762531  diff 3.9e-16
+== (a) it2:law-cost-variation along parameter directions ==
+  mu_0 (receiver)        complex step +0.162284769479  formula +0.162284769479
+  kap_0 (receiver)       complex step +0.060566823879  formula +0.060566823879
+  mu_1 (sender)          complex step -0.162284769479  formula -0.162284769479
+  kap_1 (sender)         complex step +0.105204341827  formula +0.105204341827
+  alpha_e (dictionary)   complex step -0.162284769479  formula -0.162284769479
+  k_e (dictionary)       complex step -0.144769491759  formula -0.144769491759
+max residual 5.55e-17
+== (b) own-block first variation of E in the vM chart of r_e ==
+  alpha_e (dictionary)   dE complex step +0.163524834405  int dr g +0.163524834405  diff 8.3e-17  (independent-prior version +0.210854)
+  k_e (dictionary)       dE complex step -0.057541880999  int dr g -0.057541880999  diff 1.4e-16  (independent-prior version +0.006038)
+== (c) Fisher tensor of vM(alpha, k) ==
+  k=2      g_aa=1.395549e+00 (quad 1.395549e+00)  g_kk=1.642232e-01 (quad 1.642232e-01)  g_ak quad 0.0e+00
+  k=0.5    g_aa=1.212498e-01 (quad 1.212498e-01)  g_kk=4.561947e-01 (quad 4.561947e-01)  g_ak quad 0.0e+00
+  k=0.05   g_aa=1.249610e-03 (quad 1.249610e-03)  g_kk=4.995316e-01 (quad 4.995316e-01)  g_ak quad 0.0e+00
+  k=0.005  g_aa=1.249996e-05 (quad 1.249996e-05)  g_kk=4.999953e-01 (quad 4.999953e-01)  g_ak quad -8.5e-20
+  natural chart at k=0.005: Fisher = Cov(t) = [[0.5000, 0.0000], [-0.0000, 0.5000]]
+  natural chart at k=0: Fisher = Cov(t) = [[0.5000, 0.0000], [0.0000, 0.5000]]
+g_aa = k A1(k) -> 0 as k -> 0: the polar chart (alpha, k) is singular at the uniform law,
+while the natural chart has Fisher matrix I/2 there; a parametric Fisher flow must use a chart
+with positive-definite Fisher tensor, as it2:law-cost-variation requires.

@@ -1,0 +1,5 @@
+VFE_4.0 evaluate_vfe total = 153.3963728304
+independent global free energy KL(Q||P0) - E_Q log l = 153.3963728304   difference 2.84e-14
+Monte Carlo E_Q[log Q - log P] = 153.3329 +- 0.1433
+colours: [[0], [1], [2], [3]]
+|dF/dmu| for last-colour agents: [np.float64(0.0)]  first-colour agents: [np.float64(0.217854534412254)]

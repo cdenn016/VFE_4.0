@@ -1,0 +1,7 @@
+normalizer c = 1.78238023431
+X = 1e+02: int_0^X h A = 1.2557359   int_0^X h log h A = 1.639743   int_0^X h^1.1 A = 1.4470578
+X = 1e+04: int_0^X h A = 1.4474387   int_0^X h log h A = 2.8655357   int_0^X h^1.1 A = 1.8134922
+X = 1e+08: int_0^X h A = 1.544194   int_0^X h log h A = 4.1009428   int_0^X h^1.1 A = 2.1725128
+X = 1e+16: int_0^X h A = 1.5925739   int_0^X h log h A = 5.3363947   int_0^X h^1.1 A = 2.8881177
+X = 1e+32: int_0^X h A = 1.6167598   int_0^X h log h A = 6.571828   int_0^X h^1.1 A = 9.8924043
+E_A h converges; E_A h log h grows like log log X; E_A h^1.1 grows like a power of X.

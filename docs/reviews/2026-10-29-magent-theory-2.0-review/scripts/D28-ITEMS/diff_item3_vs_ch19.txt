@@ -1,0 +1,27 @@
+=== replace old[0:5] new[0:7]
+- \documentclass[11pt,letterpaper]{report} \input{preamble} \hypersetup{pdftitle={MAgent Theory 2.0 Working Document: Curvature and Hierarchy},pdfauthor={Robert C.
+- Dennis},pdfsubject={Coded evidence costs and supplied rigid hierarchies}} \begin{document} \hypersetup{pageanchor=false} \magenttitle{MAgent Theory 2.0}{Curvature Costs and Supplied Hierarchies} \hypersetup{pageanchor=true} \pagenumbering{roman} \chapter*{Integration note} \addcontentsline{toc}{chapter}{Integration note} The corrected results in this working document are integrated into the main manuscript's chapter on curvature costs and supplied hierarchies, with an explanatory chapter in the companion.
+- This standalone account retains the definitions and decisive proofs.
+- The induced Gaussian action, stationary tangent identities, and supplied rigid restrictions have distinct hypotheses; none establishes endogenous selection or recursive formation.
+- \begingroup \small \tableofcontents \endgroup \clearpage \pagenumbering{arabic} \chapter{Contents, records, and supplied parents} \label{it3:ch-setting} Work in one linear sector with reference content space $\R^K$.
++ % !TeX root = ../MAgent_Theory_2.0.tex \chapter{Curvature Costs and Supplied Hierarchies} \label{ch:curvature-hierarchy} Integrating out contents can couple dictionaries even when the model contains no loop prior.
++ The resulting action is the negative log evidence of the observed records at fixed dictionaries.
++ In a Gaussian tangent model its quadratic part measures coded reinterpretations that changes of contents cannot absorb.
++ Its linear part depends on the records, so this calculation does not imply that flat dictionaries are always preferred.
++ A second construction restricts a supplied hierarchy to rigid clusters.
++ It gives a parent density under explicit normalization hypotheses and a Gaussian minimizer limit, without selecting the clusters or establishing inherited responses and dynamics.
++ \section{Contents, records, and supplied parents} \label{it3:ch-setting} Work in one linear sector with reference content space $\R^K$.
+=== replace old[33:34] new[35:36]
+- \chapter{The action induced by contents} \label{it3:ch-induced} \remarkheading{Evidence gives an induced action for general laws}{it3:general-induced} Let $\pi(d\omega)$ be a dictionary prior, let $p(dy)$ be a content law on a standard Borel space, and let $\ell(o\mid y,\omega)$ be a chosen density of the record kernel at the registered record $o$.
++ \section{The action induced by contents} \label{it3:ch-induced} \remarkheading{Evidence gives an induced action for general laws}{it3:general-induced} Let $\pi(d\omega)$ be a dictionary prior, let $p(dy)$ be a content law on a standard Borel space, and let $\ell(o\mid y,\omega)$ be a chosen density of the record kernel at the registered record $o$.
+=== replace old[95:96] new[97:98]
+- \chapter{Stationary reinterpretation} \label{it3:ch-stationary} \propositionheading{One operating content gives a rank-one stationary mean}{it3:rank-one} At a stationary point of \cref{it3:energy}, each dictionary satisfies \begin{equation} \omega_e=\sigma^2\bar T_e^T \bigl(R_e+\sigma^2|c_i|^2\bar T_e\bar T_e^T\bigr)^{-1} (\bar T_e\Delta_e-o_e)c_i^T.
++ \section{Stationary reinterpretation} \label{it3:ch-stationary} \propositionheading{One operating content gives a rank-one stationary mean}{it3:rank-one} At a stationary point of \cref{it3:energy}, each dictionary satisfies \begin{equation} \omega_e=\sigma^2\bar T_e^T \bigl(R_e+\sigma^2|c_i|^2\bar T_e\bar T_e^T\bigr)^{-1} (\bar T_e\Delta_e-o_e)c_i^T.
+=== replace old[126:127] new[128:129]
+- \chapter{Rigid clusters and their boundary dictionaries} \label{it3:ch-hierarchy} \remarkheading{Reinterpretation limits the effective top-down precision}{it3:cap} Integrating out the free Gaussian cross-scale dictionary in \cref{it3:top-down} leaves a factor in $y_i-y_A$ with precision \begin{equation} (\tau^{-1}+\sigma^2|c_A|^2)^{-1}I.
++ \section{Rigid clusters and their boundary dictionaries} \label{it3:ch-hierarchy} \remarkheading{Reinterpretation limits the effective top-down precision}{it3:cap} Integrating out the free Gaussian cross-scale dictionary in \cref{it3:top-down} leaves a factor in $y_i-y_A$ with precision \begin{equation} (\tau^{-1}+\sigma^2|c_A|^2)^{-1}I.
+=== replace old[196:197] new[198:199]
+- \chapter{Remaining extensions} \label{it3:ch-next} \openproblemheading{Formation with top-down feedback}{it3:open-formation} Determine whether a specified dynamics can select persistent blocks and create parents whose feedback supports further selection.
++ \section{Remaining extensions} \label{it3:ch-next} \openproblemheading{Formation with top-down feedback}{it3:open-formation} Determine whether a specified dynamics can select persistent blocks and create parents whose feedback supports further selection.
+=== delete old[209:210] new[211:211]
+- \begingroup \small \setlength{\bibsep}{3pt} \bibliographystyle{plainnat} \bibliography{references,item1_refs,item2_refs} \endgroup \end{document}

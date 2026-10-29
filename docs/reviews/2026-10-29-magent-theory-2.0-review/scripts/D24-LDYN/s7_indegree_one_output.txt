@@ -1,0 +1,3 @@
+two-cycle: 400 instances; plug-in unstable fraction 0.037 (max Re +0.6030); law-level max Re -0.08920, max spectral radius of A^-1 C 0.91080
+3-ring: 400 instances; plug-in unstable fraction 0.022 (max Re +0.7981); law-level max Re -0.15570, max spectral radius of A^-1 C 0.84430
+elapsed 1.7 s

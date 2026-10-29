@@ -1,0 +1,8 @@
+1. Fisher quadratic form: finite difference 2.16950538, formula 2.16950536, rel. residual 8.56e-09
+2. alpha_1, alpha_2 | psi_2'(A) | harmonic combination | ratio (1 means conformal)
+     0.8   0.8 | 2.291731 | 7.272419 | 0.315126
+     2.0   2.0 | 0.614181 | 0.789868 | 0.777574
+     2.0   7.0 | 0.242350 | 0.265980 | 0.911159
+    10.0  10.0 | 0.103890 | 0.108082 | 0.961219
+    50.0  80.0 | 0.015474 | 0.015564 | 0.994201
+   ratios g_c(DR u, DR u) / g(u, u) over random horizontal u at (2, 7): [0.911159 1.       0.999155 0.986572 0.999115]

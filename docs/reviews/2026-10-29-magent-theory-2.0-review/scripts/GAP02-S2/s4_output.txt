@@ -1,0 +1,12 @@
+[1]-[2] moving representative (block {0,1}, singleton {2}):
+  t=0.10: residual 1.26e-10 (without moving term 9.83e-01); omega(x~) - omega(x) = 2.5e-16; omega = [-0.2682  0.1349 -0.2893]; d/dt arg u~_I = [-0.06663 -0.06663] vs omegabar = -0.066630
+  t=0.40: residual 2.31e-11 (without moving term 2.33e-01); omega(x~) - omega(x) = 3.9e-16; omega = [-0.1567  0.0888 -0.1746]; d/dt arg u~_I = [-0.033974 -0.033974] vs omegabar = -0.033974
+  t=0.80: residual 4.74e-12 (without moving term 3.95e-02); omega(x~) - omega(x) = 1.8e-15; omega = [-0.075   0.0423 -0.0883]; d/dt arg u~_I = [-0.016366 -0.016366] vs omegabar = -0.016366
+  t=1.10: residual 1.69e-12 (without moving term 1.18e-02); omega(x~) - omega(x) = 1.4e-15; omega = [-0.043   0.0238 -0.0538]; d/dt arg u~_I = [-0.00957 -0.00957] vs omegabar = -0.009570
+[3] orthogonality and dissipation:
+  t=0.00: g(V, J_i) = [ 0. -0.  0.]; |V|_g^2 = 8.700623; dE/dt = -8.689548 (difference 1.1e-02); g(J eta, J eta) = 2.387e-01
+  t=0.60: g(V, J_i) = [ 0. -0. -0.]; |V|_g^2 = 1.097780; dE/dt = -1.097783 (difference 2.7e-06); g(J eta, J eta) = 3.393e-03
+[4] D16-OPEN-06 anchor moment along the angular flow of an axially symmetric profile:
+  u(1) = 0.37089, u(0.05) = -0.00604; root rho* = 0.235144, t* = 0.723779; imag part identically 0 (even profile): 6.9e-18
+[5] open:open-laws covariance estimate:
+  300 random profiles x rho in {1, 0.5, 0.1}: max ratio to stated bound rho^2 M ||dl||_inf = 0.085; to sharper rho^2 (M/2) osc(dl) = 0.141

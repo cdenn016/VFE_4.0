@@ -1,0 +1,11 @@
+1. next-retained-state kernel rows on fiber a: [0.8 0.2] [0.6 0.4] -> any joint kernel with this marginal is non-constant on the fiber; (B) fails for every response
+2. (a) fiber-measurable response: output-intertwining residual max|Lambda T_o - T^c_o Lambda| = 0.000e+00; TV(true joint law of (Z0,O0,Z1,O1,Z2), Lambda-parent prediction) = 1.063e-17
+2. (b) revealing response: output-intertwining residual max|Lambda T_o - T^c_o Lambda| = 5.000e-02; TV(true joint law of (Z0,O0,Z1,O1,Z2), Lambda-parent prediction) = 6.000e-02
+3. coarsest strongly lumpable refinement of the label partition: [[0], [1], [2], [3], [4], [5], [6]]
+   future label-sequence laws from x and x' (4 steps) equal: True -> {('A', 'B', 'C', 'C', 'C'): np.float64(0.5), ('A', 'B', 'D', 'D', 'D'): np.float64(0.5)}
+   x and x' in the same refinement block: False
+4. inh:canonical-lumping on the (u,v) chain with interface (u, response kernel): [[0, 1], [2, 3]]
+   refinement by the joint (response, next block) kernel required by clause (B): [[0], [1], [2], [3]]
+5. strongly lumpable: True
+   lambda in [0,1] with Lambda T = T^c Lambda (Lambda(a,.) = (lambda, 1-lambda, 0), Lambda(b,.) = delta_3): [np.float64(1.0)]
+   initial law delta_2 is not nu Lambda for these Lambda, yet the retained process is Markov (strong lumpability)

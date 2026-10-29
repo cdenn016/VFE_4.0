@@ -1,0 +1,295 @@
+=== replace old[1:27] new[1:15]
+- Dennis},pdfsubject={Receiver-owned dictionaries in the global and per-agent free energies}} \newcommand{\inn}{\operatorname{in}} \begin{document} \hypersetup{pageanchor=false} \magenttitle{MAgent Theory 2.0}{Link Dynamics:\\Dictionaries in the Two Free Energies} \hypersetup{pageanchor=true} \pagenumbering{roman} \chapter*{Status and summary} \addcontentsline{toc}{chapter}{Status and summary} This is a working document for the second item of the future-work list.
+- It is not part of the main manuscript and is not cited by it.
+- It uses the notation of the Item~1 working document on communication links (codes $\bar T$, receiver-owned dictionaries $\bar\theta_e=e^{\omega_e}$, invisible directions $N_e$, the anchored loop prior) and the two free energies of chapter~3 of the main manuscript: the global free energy of one normalized joint, whose local free energies drive a mean-field coordinate descent, and the per-agent free energies, in which each agent has its own normalized model and its peers' laws are data.
+- The question is how the dictionaries evolve when they are latent variables in each of the two pictures, how the two resulting flows compare, and what happens under the third objective of chapter~3.
+- All are derived in the tangent communication model, the linearization at the identity dictionaries and at fixed operating contents, where every law is Gaussian and every flow is linear; this model is a computational simplification.
+- The main results are these.
+- Comparison records see beliefs and dictionaries only through coded discrepancies, so every change of belief can be offset by a change of dictionary (\cref{it2:gauge}).
+- Conversation alone determines no belief; beliefs are pinned by the agents' own models, and dictionaries by grounded messages and the prior.
+- With grounded dictionaries, conversation fixes beliefs only relative to one another, modulo the sections of the code sheaf of Item~1.
+- A coded disagreement is resolved in three shares, by the receiver's belief, by the sender's belief and by reinterpretation, in proportion to the corresponding uncertainties read through the code; the per-agent picture has no sender share (\cref{it2:split}), and grounding shrinks the reinterpretation share at rate $1/g$ (\cref{it2:grounding}).
+- The global flow is a gradient flow with real spectrum that converges to the exact posterior mean (\cref{it2:global-flow}).
+- In the per-agent flow the forces on dictionaries equal the global ones, while the forces on contents lack exactly the terms of the records in which the agent is the sender (\cref{it2:per-agent-flow}).
+- The per-agent flow is not a gradient flow in general: on a directed ring its spectrum is $-(1-\zeta w)$ over the roots of unity $\zeta$, and reinterpretation lowers the coupling $w$ (\cref{it2:ring}).
+- In the grounded limit reinterpretation disappears and both pictures reduce to consensus with known dictionaries, but to different consensus points (\cref{it2:separation}).
+- Finally, ownership distorts confidence around loops: on a loop of length $\ell$ with unread coordinates the exact marginal variance tends to $\sigma^2(\ell-1)/\ell$, the receiver-factorized recognition reports variance near zero, and per-agent recognition with peers' laws as data reports $\sigma^2(\ell-2)/(\ell-1)$, collapsing on two-cycles by echo; cavity messages restore the exact value (\cref{it2:echo}).
+- The third objective of chapter~3, the reciprocal law potential, is treated with the dictionary laws as configuration variables (\cref{it2:potential}).
+- Links acquire no reciprocal force: a dictionary appears only in its own edge's cost and in the dictionary prior, so in all three objectives the dictionaries are owner-local and feel one another only through loops (\cref{it2:potential-forces}).
+- For the means, the potential is the global joint at law level, reciprocal for contents and with each record's noise widened by the sender's uncertainty; its mean flow is a gradient flow with real spectrum.
+- The potential also has a mechanism for certainty that the free energies lack: its source-role force matches a sender's message law to its receivers' predicted message laws, disagreement included, so in the Gaussian model a contradicted sender becomes less certain (\cref{it2:certainty}).
+- In the Gaussian forms of the free energies certainty does not depend on what was heard, but that is a feature of linear-Gaussian models and not a property of the free energies.
+- The theory is meant for general probability laws, and the linear-Gaussian tangent model is a computational simplification.
+- The conclusions split as follows.
+- The interdependence of belief and meaning holds pointwise for every record kernel that reads the coded discrepancy, without linearization (\cref{it2:gauge-general}); the absence of sender terms from the per-agent content force, the absence of a reciprocal force on links under the potential, and the echo mechanism are structural and do not depend on the laws; and the directed ring is a Gaussian counterexample, which suffices to show that the per-agent picture is not a gradient flow in general.
+- The linear persuasion and reinterpretation shares, the exact factorized means, the data-independent covariances of the free energies, and the closed-form fixed points, spectra and variances are features of the Gaussian family.
+- Extensions to general laws are posed in \cref{it2:open-general}.
+- Every identity was also checked numerically at small sizes, in \texttt{item2\_checks/checks.py}; the checks support the instances tested and are not proofs.
++ Dennis},pdfsubject={Receiver-owned dictionaries in the global and per-agent free energies}} \newcommand{\inn}{\operatorname{in}} \begin{document} \hypersetup{pageanchor=false} \magenttitle{MAgent Theory 2.0}{Link Dynamics:\\Dictionaries in the Two Free Energies} \hypersetup{pageanchor=true} \pagenumbering{roman} \chapter*{Status and summary} \addcontentsline{toc}{chapter}{Status and summary} This working document preserves the standalone derivation of receiver-owned link dynamics.
++ Its supported results are integrated into the main manuscript's chapter on learning directed links and its explanatory companion.
++ The calculations distinguish a normalized global model, normalized per-agent models with peers held as data, and a reciprocal potential on laws.
++ The dictionary derivatives agree with the global derivatives only in the plug-in per-agent model.
++ Integrating the peers' laws instead widens both record noise and loop factors.
++ Equality of objective derivatives does not imply equality of Fisher velocities unless the recognition metrics also agree.
++ The linear mean-flow results hold with the stated Gaussian covariances and source rows fixed.
++ The grounded-limit theorem covers the global and plug-in models; it does not cover coupled law-level covariance updates.
++ Comparison records confound changes in content with changes in the dictionary.
++ Gaussian conditioning resolves a discrepancy among receiver adjustment, sender adjustment, and reinterpretation according to their prior covariances.
++ A directed ring gives a non-gradient per-agent flow; its weak-anchor coupling vanishes only at nonzero operating content.
++ A single loop gives an exact example of overconfidence from factorization and recycled peer information.
++ The reciprocal potential has a source-role covariance derivative, but increasing stationary variance with disagreement is proved only in the stated scalar regime.
++ General-law extensions and the joint mean, covariance, and row dynamics remain open.
+=== replace old[28:29] new[16:17]
+- In the main manuscript this is a comparison record: a noisy linear function $A_ik_i-B_{ij}k_j+\epsilon$ of the two agents' contents.
++ A comparison record is a noisy linear function $A_iy_i-B_{ij}y_j+\epsilon$ of the two agents' contents.
+=== replace old[30:31] new[18:19]
+- This chapter linearizes that record and places it in the two free energies.
++ The following construction linearizes that record and places it in the two free energies.
+=== replace old[33:34] new[21:22]
+- Edge $e$ carries the receiver's dictionary $\bar\theta_e=e^{\omega_e}$ with $\omega_e\in\mathfrak g=\mathfrak{gl}(K,\R)$, the attending code $\bar T_e:\R^K\to H_e$ of the sender and a positive-definite noise covariance $R_e$.
++ Edge $e$ carries the receiver's dictionary $\bar\theta_e=e^{\omega_e}$ with $\omega_e\in\mathfrak g=\mathfrak{gl}(K,\R)$, the sender's attending code $\bar T_e:\R^K\to H_e=\R^{r_e}$ of full row rank $r_e\leq K$ and a positive-definite noise covariance $R_e$.
+=== insert old[35:35] new[23:26]
++ The dictionary is a receiver-owned hypothesis about the sender's coordinates; the independently owned opposite dictionary need not be its inverse.
++ Define $N_e=\{\delta\in\mathfrak g:\bar T_e\delta=0\}$, the directions invisible to grounded referents that span the content space.
++ These can be fewer than the directions invisible at a single operating content, which satisfy only $\bar T_e\delta c_i=0$.
+=== replace old[37:39] new[28:33]
+- Each edge has a grounded term $\exp(-\frac12\Vert\omega_e-\hat\omega_e\Vert_{G_e}^2)$ with $G_e$ positive semidefinite, the information of the grounded messages of Item~1, which in the tangent model is exactly Gaussian with kernel $N_e$ once grounding has occurred.
+- The dictionaries have the anchored loop prior of Item~1 with anchor $\sigma^{-2}I$ on each edge, loop set $\mathcal L$ containing every two-cycle, linearized holonomy $(B\omega)_\gamma=\sum_{e\in\gamma}\omega_e$, forms $W_\gamma$ and weight $\lambda\geq0$.
++ Each edge has a grounded term $\exp(-\frac12\Vert\omega_e-\hat\omega_e\Vert_{G_e}^2)$ with $G_e$ positive semidefinite, the information of grounded messages, with $\ker G_e=N_e$ when their referents identify every coded direction.
++ The dictionaries have an anchored loop prior with anchor $\sigma^{-2}I$ on each edge, a finite set $\mathcal L$ of simple directed loops containing every two-cycle, linearized holonomy $(B\omega)_\gamma=\sum_{e\in\gamma}\omega_e$, positive-definite forms $W_\gamma$ and weight $\lambda\geq0$.
++ Put $W=\bigoplus_\gamma W_\gamma$ and use $\|v\|_A^2=v^TAv$.
++ All codes, operating contents, grounding data, and prior forms are fixed.
++ The Frobenius anchor and loop forms are declared reference-coordinate data, not an assertion of a positive-definite conjugation-invariant form on $\mathfrak{gl}(K,\R)$.
+=== replace old[45:46] new[39:40]
+- The record is invariant under passive changes of frame exactly as the main manuscript's comparison records are, because the dictionary sits in the receiver's matrix.
++ The record is invariant under passive changes of frame when the displayed contents, codes, and dictionaries are transformed together, because the dictionary sits in the receiver's matrix.
+=== replace old[48:49] new[42:45]
+- \label{it2:widening} \end{equation} These are the record \cref{it2:record} and the loop factor integrated against the peers' laws; we call this the law-level model.
++ \label{it2:widening} \end{equation} For $\lambda>0$, these are the record \cref{it2:record} and the loop factor integrated against the peers' laws; we call this the law-level model.
++ At $\lambda=0$ the loop terms are omitted, equivalently $\Omega_{i\gamma}=0$ by continuity.
++ The convolution uses the declared product of peer dictionary marginals for each loop factor.
+=== replace old[50:52] new[46:48]
+- The integration is Gaussian convolution: $\int\mathcal N(o;\bar T(y_i-y_j-\kappa_i\omega),R)\,q_j(dy_j)=\mathcal N(o;\bar T(y_i-\mu_j-\kappa_i\omega),\tilde R)$, and $\int e^{-\frac\lambda2\Vert u+s\Vert_W^2}\mathcal N(s;\bar a,\bar V)\,ds$ is proportional to $e^{-\frac12\Vert u+\bar a\Vert_\Omega^2}$ with $\Omega=((\lambda W)^{-1}+\bar V)^{-1}$.
+- The model is normalized for every value of the peer laws, which are parameters of $i$'s model and not variables over which it infers, as in the main manuscript's per-agent mixture-source model.
++ The integration is Gaussian convolution: $\int\mathcal N(o;\bar T(y_i-y_j-\kappa_i\omega),R)q_j(dy_j)=\mathcal N(o;\bar T(y_i-\mu_j-\kappa_i\omega),\tilde R)$, and $\int e^{-\frac\lambda2\Vert u+s\Vert_W^2}\mathcal N(s;\bar a,\bar V)ds$ is proportional to $e^{-\frac12\Vert u+\bar a\Vert_\Omega^2}$ with $\Omega=((\lambda W)^{-1}+\bar V)^{-1}$.
++ The model is normalized for every value of the peer laws, which are parameters of $i$'s model and not variables over which it infers, as in a per-agent generative model.
+=== replace old[55:56] new[51:52]
+- In the global picture they are factorized by agent, $Q=\bigotimes_iQ_i(x_i)$, each agent's factor holding its content and the dictionaries it owns; this is the factorization in which the main manuscript's local free energies of a global model apply.
++ In the global picture they are factorized by agent, $Q=\bigotimes_iQ_i(x_i)$, each agent's factor holding its content and the dictionaries it owns; each local update varies one factor of a single global free energy.
+=== replace old[57:71] new[53:54]
+- \chapter{What conversation determines} \label{it2:ch-identification} \theoremheading{Belief and meaning are interdependent}{it2:gauge} In the tangent communication model the law of the comparison records depends on $(y,\omega)$ only through the coded discrepancies $L_ex=\bar T_e(y_i-y_j-\kappa_i\omega_e)$.
+- \begin{enumerate} \item[(i)] The displacements $(\delta y,\delta\omega)$ that leave the law of every record unchanged form the subspace \begin{equation} \mathcal G=\bigl\{(\delta y,\delta\omega):\bar T_e(\delta y_i-\delta y_j-\kappa_i\delta\omega_e)=0\text{ for every edge }e:j\to i\bigr\}.
+- \label{it2:gauge-space} \end{equation} If $c_i\neq0$ for every receiver, the projection of $\mathcal G$ onto belief displacements is all of $(\R^K)^{\mathcal V}$: for every $\delta y$, the choice $\delta\omega_e=(\delta y_i-\delta y_j)c_i^T/\vert c_i\vert^2$ completes it to an element of $\mathcal G$.
+- \item[(ii)] The Fisher information of the records about $(y,\omega)$ vanishes exactly on $\mathcal G$, so along every direction of $\mathcal G$ the posterior precision is the sum of the contributions of the self terms, the grounded terms and the dictionary prior.
+- \item[(iii)] Among the displacements with $\delta\omega_e\in N_e$ for every edge, the belief components of $\mathcal G$ are exactly the sections $\{\delta y:\bar T_e(\delta y_i-\delta y_j)=0\text{ for every edge}\}$ of the code sheaf of Item~1.
+- They contain the common shifts $\delta y_i=v$.
+- \end{enumerate} \begin{proof} (i) Each record is $L_ex$ plus independent noise, so its law is unchanged exactly when $L_e$ annihilates the displacement.
+- For the stated choice, $\kappa_i\delta\omega_e=(\delta y_i-\delta y_j)c_i^Tc_i/\vert c_i\vert^2=\delta y_i-\delta y_j$. (ii) The Fisher information of Gaussian records with fixed covariances is $\sum_eL_e^TR_e^{-1}L_e$, whose kernel is $\bigcap_e\ker L_e=\mathcal G$; the posterior precision is $J$, the sum of this form and of the other terms of \cref{it2:global-energy}. (iii) For $\delta\omega_e\in N_e$, $\bar T_e\kappa_i\delta\omega_e=\bar T_e\delta\omega_ec_i=0$, so the condition reduces to $\bar T_e(\delta y_i-\delta y_j)=0$.
+- \end{proof} An exchange that disagrees with the receiver's belief can be read as evidence of a different belief or of a different meaning, and the records of the exchange alone do not decide between them.
+- This is a formal counterpart, in the tangent model, of the interdependence of belief and meaning in radical interpretation \citep{Davidson1973} and of the indeterminacy of translation \citep{Quine1960}; the correspondence is interpretive.
+- In the model the anchor of the dictionary prior, the identity dictionary with precision $\sigma^{-2}$, plays the role of the principle of charity, the presumption that the speaker means what the interpreter would mean, and the grounded messages play the role of shared objects.
+- Part (iii) states that once meanings are grounded, conversation fixes beliefs relative to one another and never absolutely: a common shift of all beliefs is invisible to comparison.
+- In the numerical check, three agents in complete exchange with codes of rank one in $K=2$ have a gauge space of dimension $24$ whose belief projection has full rank $6$, and with dictionaries fixed modulo $N$ the belief part has dimension $2$, the dimension of the code-sheaf sections.
+- \remarkheading{The interpretation gauge without linearization or Gaussian noise}{it2:gauge-general} Let the records be $o_e=\bar T_e(\bar\theta_e^{-1}y_i-y_j)+\varepsilon_e$ with noise of any law, independent of everything else, or more generally let each record kernel read $(y,\bar\theta)$ only through the coded discrepancy $\bar T_e(\bar\theta_e^{-1}y_i-y_j)$.
++ \chapter{What conversation determines} \label{it2:ch-identification} \remarkheading{The interpretation gauge without linearization or Gaussian noise}{it2:gauge-general} Let the records be $o_e=\bar T_e(\bar\theta_e^{-1}y_i-y_j)+\varepsilon_e$ with noise of any law, independent of everything else, or more generally let each record kernel read $(y,\bar\theta)$ only through the coded discrepancy $\bar T_e(\bar\theta_e^{-1}y_i-y_j)$.
+=== insert old[75:75] new[58:70]
++ \theoremheading{Belief and meaning are interdependent}{it2:gauge} In the tangent communication model the law of the comparison records depends on $(y,\omega)$ only through the coded discrepancies $L_ex=\bar T_e(y_i-y_j-\kappa_i\omega_e)$.
++ \begin{enumerate} \item[(i)] The displacements $(\delta y,\delta\omega)$ that leave the law of every record unchanged form the subspace \begin{equation} \mathcal G=\bigl\{(\delta y,\delta\omega):\bar T_e(\delta y_i-\delta y_j-\kappa_i\delta\omega_e)=0\text{ for every edge }e:j\to i\bigr\}.
++ \label{it2:gauge-space} \end{equation} If $c_i\neq0$ for every receiver, the projection of $\mathcal G$ onto belief displacements is all of $(\R^K)^{\mathcal V}$: for every $\delta y$, the choice $\delta\omega_e=(\delta y_i-\delta y_j)c_i^T/\vert c_i\vert^2$ completes it to an element of $\mathcal G$.
++ \item[(ii)] The Fisher information of the records about $(y,\omega)$ vanishes exactly on $\mathcal G$, so along every direction of $\mathcal G$ the posterior precision is the sum of the contributions of the self terms, the grounded terms and the dictionary prior.
++ \item[(iii)] Among the displacements with $\delta\omega_e\in N_e$ for every edge, the belief components of $\mathcal G$ are exactly the sections $\{\delta y:\bar T_e(\delta y_i-\delta y_j)=0\text{ for every edge}\}$ of the code sheaf, whose edge condition is the displayed equality.
++ They contain the common shifts $\delta y_i=v$.
++ \end{enumerate} \begin{proof} (i) Each record is $L_ex$ plus independent noise, so its law is unchanged exactly when $L_e$ annihilates the displacement.
++ For the stated choice, $\kappa_i\delta\omega_e=(\delta y_i-\delta y_j)c_i^Tc_i/\vert c_i\vert^2=\delta y_i-\delta y_j$. (ii) The Fisher information of Gaussian records with fixed covariances is $\sum_eL_e^TR_e^{-1}L_e$, whose kernel is $\bigcap_e\ker L_e=\mathcal G$; the posterior precision is $J$, the sum of this form and of the other terms of \cref{it2:global-energy}. (iii) For $\delta\omega_e\in N_e$, $\bar T_e\kappa_i\delta\omega_e=\bar T_e\delta\omega_ec_i=0$, so the condition reduces to $\bar T_e(\delta y_i-\delta y_j)=0$.
++ \end{proof} An exchange that disagrees with the receiver's belief can be explained by changing the belief or by changing the dictionary.
++ The comparison record alone does not choose between these responses.
++ The self terms, grounded records, and anchored prior supply distinct information.
++ Even when grounding removes dictionary freedom modulo $N_e$, common content shifts remain invisible to every pairwise discrepancy.
+=== replace old[84:89] new[79:84]
+- \end{proof} The coded gap is closed in three shares: the receiver is persuaded in proportion to $\Sigma_i^0$, the sender in proportion to $\Sigma_j^0$, and the remainder is explained away by reinterpretation in proportion to $C_\rho$.
+- In the per-agent picture the sender's uncertainty becomes noise instead of a share.
+- Reinterpretation grows with $\vert c_i\vert^2$: dictionaries are linear, so contents near the reference origin are hard to reinterpret.
+- In the numerical check both formulas hold to $6\times10^{-16}$.
+- The shares are linear in the uncertainties because the family is Gaussian; for general laws the attribution of a coded gap among the three sources depends on the full laws, and only the qualitative form, that a source absorbs more of the gap the less certain it is, is expected to persist.
++ \end{proof} The Gaussian conditional update assigns a discrepancy to receiver adjustment, sender adjustment, and reinterpretation through the three cross-covariances in \cref{it2:split-global}.
++ Observation noise leaves a residual gap, so these adjustments need not reproduce the record exactly.
++ In the per-agent model the sender's uncertainty widens the receiver's likelihood while the sender remains fixed.
++ The interpretation variance grows as $|c_i|^2$ under the isotropic anchor; at $c_i=0$ the first-order dictionary term cannot absorb a discrepancy.
++ These linear shares are features of the Gaussian family.
+=== replace old[93:96] new[88:90]
+- With a positive-definite prior precision $\Lambda$ on $\omega_e$ and grounded precision $g\bar G_e$, block inversion in the orthonormal bases of $N_e^\perp$ and $N_e$ shows, as in the learning theorem of Item~1, that the covariance restricted to $N_e^\perp$ is $O(1/g)$.
+- \end{proof} Grounding separates the two readings that conversation confounds.
+- In the numerical check $g\vert\bar T_e\kappa_i\delta\omega_e\vert$ is $0.083$, $0.218$ and $0.223$ at $g=10$, $10^3$ and $10^5$.
++ With a positive-definite prior precision $\Lambda$ on $\omega_e$ and grounded precision $g\bar G_e$, block inversion in the orthonormal bases of $N_e^\perp$ and $N_e$ shows, by taking the Schur complement of the fixed invisible block, that the covariance restricted to $N_e^\perp$ is $O(1/g)$.
++ \end{proof} Grounding therefore suppresses the part of the response attributable to uncertainty about the identified dictionary coordinates.
+=== replace old[103:107] new[97:101]
+- The similarity is $D^{-1}J=D^{-1/2}(D^{-1/2}JD^{-1/2})D^{1/2}$, and $\frac d{dt}\mathcal F_G=-\nabla\mathcal F_G^TD^{-1}\nabla\mathcal F_G$. (iii) is the main manuscript's identity for local free energies of a global model.
+- \end{proof} The means are exact and the covariances $J_{ii}^{-1}$ are smaller in the Loewner order than the exact marginal covariances \citep[Section~10.1.2]{Bishop2006}.
+- Exact factorized means are a feature of Gaussian targets; for general laws the coordinate-descent structure of (iii) remains, by the main manuscript's identity, but the factorized means need not be exact.
+- In the numerical check, three agents in complete exchange with $K=2$ and both loop types give a spectrum with no imaginary part, largest eigenvalue $-0.167$, and a free energy that decreases monotonically along the flow.
++ The similarity is $D^{-1}J=D^{-1/2}(D^{-1/2}JD^{-1/2})D^{1/2}$, and $\frac d{dt}\mathcal F_G=-\nabla\mathcal F_G^TD^{-1}\nabla\mathcal F_G$. (iii) follows by varying one factor in the same global functional; every incident likelihood contributes to that variation.
++ \end{proof} The optimized factor means equal the Gaussian posterior mean, whereas $J_{ii}^{-1}$ is no larger in the Loewner order than the exact marginal covariance.
++ Indeed, the exact marginal precision is the Schur complement $J_{ii}-J_{i,-i}J_{-i,-i}^{-1}J_{-i,i}\preceq J_{ii}$.
++ Exact factor means are a Gaussian property; the coordinate-descent identity holds more generally, without implying exact moments \citep{Bishop2006}.
+=== insert old[112:112] new[106:107]
++ This equality concerns objective derivatives before Fisher preconditioning.
+=== replace old[115:116] new[110:111]
+- Hence $H$ is not symmetric in general, and its fixed point differs from $x^\star$.
++ Hence $H$ need not be symmetric, and its fixed point need not equal $x^\star$.
+=== replace old[120:126] new[115:121]
+- \end{proof} Ownership changes the forces on contents and leaves the forces on dictionaries unchanged in the plug-in model, because a dictionary has one owner, which is its receiver.
+- The per-agent content force omits the source-role terms, as the main manuscript states for agent laws.
+- This part of the comparison is structural and holds for any laws and record kernels: an agent's model contains the records it receives and not those it sends, and a dictionary appears only in terms of its owner's model.
+- In the numerical check the dictionary rows agree exactly and the content rows differ from the global ones by the sender terms to $3\times10^{-16}$.
+- For the complete exchange the per-agent fixed points differ from the global posterior mean by $0.14$ in the plug-in model and $0.15$ in the law-level model.
+- Over $40$ random complete exchanges, in both models, every eigenvalue of the per-agent flow has real part at most $-0.086$, and imaginary parts reach $0.28$.
++ \end{proof} Ownership removes sender-role content derivatives from the per-agent update.
++ The equality of dictionary derivative rows holds only in the plug-in model: the law-level model uses both $\tilde R_e$ and $\Omega_{i\gamma}$.
++ These derivatives are covectors.
++ Their Fisher velocities are obtained using the block mobilities $J_{ii}^{-1}$ and $A_i^{-1}$, which can differ and mix content with owned dictionary coordinates.
++ Equal dictionary derivative rows consequently do not establish equal dictionary velocities.
++ The dependency statement survives for general laws whenever the declared model contains only received records and the dictionary appears only in its owner's factors; equality of derivatives after marginalizing peers does not follow from ownership.
+=== replace old[127:128] new[122:123]
+- The per-agent mean flow has the eigenvalue $-1$ with multiplicity $\ell$ and the eigenvalues $-(1-\zeta w)$ for the $\ell$-th roots of unity $\zeta$, where \begin{equation} w=\frac{\tilde qs}{ps+p\tilde qc^2+\tilde qs}=\frac{\tilde q_{\mathrm{eff}}}{p+\tilde q_{\mathrm{eff}}},\qquad \tilde q_{\mathrm{eff}}=\Bigl(\frac1{\tilde q}+\frac{c^2}s\Bigr)^{-1}.
++ With the own-block Gaussian covariances held at their optima, the per-agent mean flow has the eigenvalue $-1$ with multiplicity $\ell$ and the eigenvalues $-(1-\zeta w)$ for the $\ell$-th roots of unity $\zeta$, where \begin{equation} w=\frac{\tilde qs}{ps+p\tilde qc^2+\tilde qs}=\frac{\tilde q_{\mathrm{eff}}}{p+\tilde q_{\mathrm{eff}}},\qquad \tilde q_{\mathrm{eff}}=\Bigl(\frac1{\tilde q}+\frac{c^2}s\Bigr)^{-1}.
+=== replace old[129:130] new[124:126]
+- As $s\to\infty$, $w\to\tilde q/(p+\tilde q)$; as $s\to0$, $w\to0$.
++ As $s\to\infty$, $w\to\tilde q/(p+\tilde q)$; as $s\to0$ with $c\neq0$, $w\to0$.
++ If $c=0$, then $w=\tilde q/(p+\tilde q)$ for every $s>0$.
+=== replace old[135:136] new[131:132]
+- The linearization of a gradient flow at an equilibrium is self-adjoint for the metric there and has real spectrum, as in the main manuscript's proposition on non-gradient per-agent dynamics.
++ The linearization of a gradient flow at an equilibrium is self-adjoint for the metric there and has real spectrum, since its Jacobian is the negative metric inverse times the symmetric objective Hessian.
+=== replace old[138:144] new[134:140]
+- \end{proof} Reinterpretation weakens persuasion exactly as additional record noise of variance $c^2/s$ would, and the damped oscillation of directed persuasion survives with the lower frequency $w\sin(2\pi/\ell)$.
+- Without charity, $s\to0$, a receiver explains every disagreement by reinterpretation and is never persuaded.
+- The record precision is $\tilde q=R^{-1}$ in the plug-in model and $(R+\Sigma)^{-1}$ in the law-level model at a symmetric covariance fixed point $\Sigma$.
+- Damped oscillation on directed cycles is the characteristic behavior of non-reciprocal interactions \citep{FruchartEtAl2021}.
+- In the numerical check with $\ell=3$, $p=1.3$, $\tilde q=2.1$, $s=0.8$ and $c=0.9$, the computed spectrum matches the formula to $10^{-15}$, with $w=0.341$ against $0.618$ for rigid dictionaries.
+- As a counterexample the ring applies beyond the Gaussian family: one Gaussian instance of the per-agent picture that is not a gradient flow shows that the per-agent picture is not a gradient flow in general.
++ \end{proof} For $c\neq0$, uncertainty about the dictionary acts in the mean equations as additional record noise of variance $c^2/s$.
++ The directed oscillatory modes retain angular frequency $w\operatorname{Im}\zeta$, while $0<w<1$ keeps every mode stable.
++ In the limit $s\downarrow0$ the receiver can absorb the discrepancy through reinterpretation and the coupling vanishes.
++ At $c=0$ the dictionary does not enter the tangent record, so weakening its anchor does not weaken persuasion.
++ Here $\tilde q=R^{-1}$ in the plug-in model and $\tilde q=(R+\Sigma)^{-1}$ in the law-level model at a fixed symmetric content variance $\Sigma$.
++ The complex spectrum is one explicit instance of non-reciprocal dynamics \citep{FruchartEtAl2021}; it rules out a general gradient-flow interpretation of the per-agent picture.
+=== replace old[145:146] new[141:142]
+- \begin{enumerate} \item[(i)] In the global joint the posterior mean converges to $(y^G,\omega^\infty)$, where $y^G$ minimizes \begin{equation} E_{\mathrm{known}}(y)=\sum_i\tfrac12\Vert y_i-m_i\Vert_{P_i}^2+\sum_e\tfrac12\bigl\Vert o_e+\bar T_e\kappa_i\hat\omega_e-\bar T_e(y_i-y_j)\bigr\Vert_{R_e^{-1}}^2, \label{it2:known} \end{equation} the identified part of $\omega^\infty_e$ is that of $\hat\omega_e$, and the invisible part minimizes the dictionary prior on the coset $\hat\omega+\bigoplus_eN_e$, as in the learning theorem of Item~1.
++ \begin{enumerate} \item[(i)] In the global joint the posterior mean converges to $(y^G,\omega^\infty)$, where $y^G$ minimizes \begin{equation} E_{\mathrm{known}}(y)=\sum_i\tfrac12\Vert y_i-m_i\Vert_{P_i}^2+\sum_e\tfrac12\bigl\Vert o_e+\bar T_e\kappa_i\hat\omega_e-\bar T_e(y_i-y_j)\bigr\Vert_{R_e^{-1}}^2, \label{it2:known} \end{equation} the identified part of $\omega^\infty_e$ is that of $\hat\omega_e$, and the invisible part minimizes the dictionary prior on the coset $\hat\omega+\bigoplus_eN_e$.
+=== replace old[157:165] new[153:160]
+- \end{proof} Grounding removes the difference between the pictures for the identified dictionaries and removes reinterpretation, but not the difference for beliefs.
+- The global beliefs minimize a symmetric consensus energy in which every record moves both contents; the per-agent beliefs solve receiver-only equations.
+- In the numerical check, for the complete exchange with $K=2$ and codes of rank one, the global, plug-in and law-level contents approach their known-dictionary limits with errors $4.7\times10^{-4}$, $7.7\times10^{-4}$ and $6.3\times10^{-4}$ at $g=10^3$ and $4.7\times10^{-6}$, $7.8\times10^{-6}$ and $6.4\times10^{-6}$ at $g=10^5$, while the limits themselves differ: the global limit is $0.39$ from the plug-in limit and $0.49$ from the law-level limit.
+- The law-level statement was checked numerically and is not covered by the proof, because its covariances also depend on $g$.
+- The theorem is Gaussian; for general laws and location-family noise the expected analogue, in which the reinterpretation share vanishes as grounding identifies the dictionaries and the two pictures reach different consensus states, is part of \cref{it2:open-general}.
+- \chapter{Confidence under ownership} \label{it2:ch-confidence} The previous chapters concern means.
+- Ownership also changes how certain the agents are, and the change is largest in the directions that only loops can reach, which are the directions in which Item~1 found the loop prior doing its work.
+- \propositionheading{Echo around a loop}{it2:echo} Let $\ell\geq2$ edges form one loop, each owned by a different receiver, each carrying one coordinate $z_e$ that no record or grounded term reads, with anchor $\mathcal N(0,\sigma^2)$ and loop factor $\exp(-\frac\lambda2(\sum_ez_e)^2)$.
++ \end{proof} The theorem identifies two different known-dictionary limits.
++ The global mean minimizes a symmetric quadratic comparison energy, while the plug-in per-agent fixed point solves receiver-only equations.
++ The identified dictionaries agree in the limit, but the contents need not.
++ The theorem makes no claim about law-level covariance updates that vary with $g$; controlling those updates is an additional obligation.
++ \chapter{Confidence under ownership} \label{it2:ch-confidence} Mean agreement does not imply agreement about uncertainty.
++ The following example isolates one coordinate that records and grounding do not read, so all information coupling it to other dictionaries comes from one declared loop factor.
++ \propositionheading{Echo around a loop}{it2:echo} Let $\lambda>0$ and let $\ell\geq2$ edges form one loop, with distinct receivers and one coordinate $z_e$ per edge that no record or grounded term reads, with anchor $\mathcal N(0,\sigma^2)$ and loop factor $\exp(-\frac\lambda2(\sum_ez_e)^2)$.
+=== replace old[168:169] new[163:164]
+- \item[(iii)] Per-agent law-level recognition at its covariance fixed point: the unique positive solution $v$ of \begin{equation} v^{-1}=\sigma^{-2}+\bigl(\lambda^{-1}+(\ell-1)v\bigr)^{-1}, \label{it2:echo-eq} \end{equation} which tends to $\sigma^2(\ell-2)/(\ell-1)$ for $\ell\geq3$ and satisfies $v=\sigma\lambda^{-1/2}(1+o(1))$ for $\ell=2$.
++ \item[(iii)] Per-agent law-level recognition at its symmetric covariance fixed point: the unique positive solution $v$ of \begin{equation} v^{-1}=\sigma^{-2}+\bigl(\lambda^{-1}+(\ell-1)v\bigr)^{-1}, \label{it2:echo-eq} \end{equation} which tends to $\sigma^2(\ell-2)/(\ell-1)$ for $\ell\geq3$ and satisfies $v=\sigma\lambda^{-1/2}(1+o(1))$ for $\ell=2$.
+=== replace old[173:187] new[168:180]
+- \end{proof} All four recognitions agree on the point estimate and disagree on the confidence.
+- The receiver-factorized recognition, whose means are exact, is certain about a coordinate that nothing reads and that the loop does not determine.
+- The per-agent law-level recognition treats each partner's law as independent evidence, although that law already contains the receiver's own influence.
+- On a two-cycle this echo makes the pair confident, at variance of order $\sigma\lambda^{-1/2}$, about a direction in which the exact marginal variance is $\sigma^2/2$ and the pair has no data.
+- Removing each receiver's own contribution from the messages it receives restores the exact value, because the factor graph of one loop factor with $\ell$ variables is a tree and belief propagation is exact on trees \citep{Pearl1988}.
+- On graphs with several overlapping loops the cavity messages are Gaussian belief propagation, whose means are exact whenever it converges while its variances are approximate \citep{WeissFreeman1999}.
+- The numerical check confirms (i) to (iii) for $\ell=2,3,4$ at $\lambda=10^6$ and $\sigma^2=1$, and shows the same ordering with codes.
+- With $K=3$, codes of rank one, grounded information $g=10^5$ and $\lambda=10^3$, the directed triangle has nine unreachable directions, where the exact per-edge marginal variance is $0.66\sigma^2$, the law-level variance $0.13\sigma^2$ and the receiver-factorized variance $0.001\sigma^2$.
+- The reciprocal pair has three, with $0.50\sigma^2$, $0.031\sigma^2=\sigma\lambda^{-1/2}$ and $0.001\sigma^2$.
+- The invisible-part means of the exact and law-level recognitions agree to $0.002$.
+- In the complete exchange every invisible direction is reachable and all three recognitions report small variances.
+- The mechanism, a partner's law that already contains the receiver's influence being treated as independent evidence, does not depend on the laws; the variance formulas and the exactness of the factorized means do.
+- \chapter{The reciprocal potential} \label{it2:ch-reciprocal} The third objective of chapter~3 of the main manuscript is the reciprocal law potential, a function of the agent laws with no recognition law and no record, whose gradient moves a source toward the receivers that attend to it.
+- This chapter adds the dictionaries to it as configuration variables, each with a law, and asks whether they acquire a reciprocal force: whether a dictionary responds to costs other than its owner's.
++ \end{proof} All four constructions have the same zero mean and different variances.
++ Factorized reverse-KL recognition suppresses the correlations by which the exact law satisfies the sum constraint.
++ The per-agent update instead treats a partner's current marginal as new independent information, even though that marginal already contains information received from the same loop.
++ For a two-cycle its fixed-point variance tends to zero while the exact marginal tends to $\sigma^2/2$.
++ Removing the loop contribution from the peer messages gives the anchor laws and restores the exact marginal here.
++ This is belief propagation on the tree consisting of one factor connected to $\ell$ variables \citep{Pearl1988}; it is not a general exactness theorem for overlapping loop factors.
++ The recycled-information mechanism can occur for non-Gaussian laws as well.
++ The displayed fixed points, rates, and equality of factor means are conclusions only for this Gaussian single-loop model.
++ \chapter{The reciprocal potential} \label{it2:ch-reciprocal} The reciprocal potential is a function of agent laws.
++ It moves each source through the costs of receivers that attend to it.
++ The following extension includes dictionary laws as configuration variables.
++ Registered comparison records are absent from this potential; adding persistent likelihood terms would define another objective.
+=== replace old[190:191] new[183:184]
+- The receiver's law comes first and the source's second, as in the main manuscript's peer costs, and the costs are divergences between message laws, as in the bandwidth proposition of Item~1.
++ The receiver's law comes first and the source's second, as in a directed peer divergence, and the costs are divergences between message laws, rather than comparisons between independent content samples.
+=== replace old[193:194] new[186:188]
+- With Gibbs rows in place of fixed rows, the envelope identity of chapter~3 gives the same derivatives with the rows evaluated at their Gibbs values, so (i) and (ii) below hold pointwise at Gibbs rows as well.
++ With Gibbs rows in place of fixed rows, the Gibbs envelope identity gives the same derivatives with the rows evaluated at their Gibbs values, so the derivative statements below apply pointwise with those weights inserted.
++ State-dependent Gibbs weights do not preserve the constant-coefficient mean-flow theorem.
+=== replace old[198:199] new[192:193]
+- Links therefore acquire no reciprocal force.
++ There is no additional sender-role edge derivative for the dictionary.
+=== replace old[209:216] new[203:209]
+- \end{proof} For the means, then, the reciprocal potential is the global joint at law level: reciprocal for contents like the global joint, with the record noise widened by the sender's uncertainty like the per-agent law-level model.
+- Links are owner-local in all three objectives.
+- A dictionary is read only by its owner's predicted message; neither the sender's code nor any third agent's cost contains it, and loops are the only route by which one dictionary feels another.
+- In the numerical check the gradient of the potential, computed by finite differences of the Gaussian divergences, agrees with $J^Sx-\eta^S$ to $7\times10^{-9}$, the mean flow has real spectrum, and the content-row identity of (iv) holds to $2\times10^{-16}$.
+- Part (ii) is structural and holds for any laws: in a potential whose costs are divergences between message laws, a dictionary enters only its own edge's cost and its prior.
+- Parts (i), (iii) and (iv) are Gaussian.
+- \propositionheading{Disagreement and certainty}{it2:certainty} \begin{enumerate} \item[(i)] In the Gaussian tangent forms of the global joint and of both per-agent models, the recognition covariances do not depend on the registered records or on any mean.
++ \end{proof} At fixed covariances and fixed rows, the reciprocal potential has the same mean-dependent quadratic as a particular widened Gaussian global model.
++ This identity does not identify their covariance objectives, their recognition families, or their full dynamics.
++ A dictionary occurs only in its own edge cost and in the declared prior, so other dictionary means enter its derivative only through the loop term.
++ This locality is a dependency property of the declared fixed codes and prior; it persists for other laws with the same factor structure.
++ The explicit quadratic and spectral conclusions use Gaussian laws and fixed covariances.
++ \propositionheading{Disagreement and certainty}{it2:certainty} \begin{enumerate} \item[(i)] In the Gaussian tangent forms of the global joint and of both per-agent models, the optimizing recognition covariances do not depend on the registered records or on any mean.
+=== replace old[217:219] new[210:213]
+- \item[(ii)] In the tangent reciprocal potential, the derivative of the cost of an edge $e:j\to k$ with respect to the sender's covariance $\Sigma_j$ is \begin{equation} \tfrac12\bar T_e^TS_{j,e}^{-1}\bigl[S_{j,e}-S_{k,e}-d_ed_e^T-\bar T_e\kappa_kV_e\kappa_k^T\bar T_e^T\bigr]S_{j,e}^{-1}\bar T_e, \label{it2:source-covariance} \end{equation} so the source-role force on the sender's covariance vanishes exactly when the sender's message covariance equals the receiver's predicted message covariance plus the outer product of the coded disagreement and the reinterpretation covariance.
+- \item[(iii)] Let $K=1$, $\bar T_e=1$ and $V_e=0$, and let a sender with self precision $p_j$ have one outgoing edge to a receiver of variance $v_k$.
++ \item[(ii)] In the tangent reciprocal potential, the derivative of the unweighted cost of an edge $e:j\to k$ with respect to the sender's covariance $\Sigma_j$ is \begin{equation} \tfrac12\bar T_e^TS_{j,e}^{-1}\bigl[S_{j,e}-S_{k,e}-d_ed_e^T-\bar T_e\kappa_kV_e\kappa_k^T\bar T_e^T\bigr]S_{j,e}^{-1}\bar T_e, \label{it2:source-covariance} \end{equation} so the source-role force on the sender's covariance vanishes exactly when the sender's message covariance equals the receiver's predicted message covariance plus the outer product of the coded disagreement and the reinterpretation covariance.
++ \item[(iii)] Let $K=1$, $\bar T_e=1$, $\beta_e=1$, and hold the dictionary deterministic, so $V_e=0$.
++ Hold the means, $R>0$, and receiver variance $v_k$ fixed, and let the sender's variance-dependent objective consist only of its self term with precision $p_j$ and one outgoing edge cost.
+=== replace old[221:235] new[215:233]
+- \end{proof} Part (i) must not be read as a property of the free energies.
+- In a non-Gaussian model the recognition law depends on the data in every moment, so disagreement can change certainty there as well, through ordinary Bayesian updating.
+- Part (ii) is a different mechanism, special to the potential: the source-role force.
+- For general laws its form is moment matching.
+- If a source's message laws form an exponential family $q_\eta$ with sufficient statistic $t$ and natural parameter $\eta$, then $\partial_\eta\KL(p\Vert q_\eta)=\E_{q_\eta}t-\E_pt$, so the source-role force moves the expected statistics of the sender's message law toward those of each receiver's predicted message law; \cref{it2:source-covariance} is the Gaussian instance, in which the statistics are the first two moments and the receiver's second moment about the sender's mean contains the disagreement.
+- In the Gaussian model an agent whose receivers disagree with it therefore becomes less certain in the potential and not in the free energies.
+- For general laws both mechanisms are present, and their comparison is part of \cref{it2:open-general}.
+- In the numerical check the derivative \cref{it2:source-covariance} agrees with finite differences to $4\times10^{-11}$, and with $p_j=1$, $R=0.5$ and $v_k=0.3$ the stationary sender variance is $0.774$, $1.090$ and $1.832$ at $d^2=0$, $1$ and $4$.
+- The dictionary covariances follow from the terms of \cref{it2:potential-eq} that contain $V_e$: stationarity gives $V_e^{-1}=\sigma^{-2}I+\lambda(B^TWB)_{ee}+G_e+\beta_e\kappa_i^T\bar T_e^TS_{j,e}^{-1}\bar T_e\kappa_i$, with $(B^TWB)_{ee}$ the diagonal block of edge $e$.
+- On the invisible directions the last two terms vanish, and for $W_\gamma=I$ the diagonal block is $\lambda$ times the number of loops through $e$, so the variance there is that of the receiver-factorized recognition of \cref{it2:echo}: the potential is as certain as mean field about the directions that only loops reach.
+- \chapter{Comparison and next steps} \label{it2:ch-next} \begin{center} \small \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}@{}} \toprule & Global joint, agent-factorized & Per-agent models & Reciprocal potential\\ \midrule objective & one free energy $\mathcal F_G$ & one free energy $\mathcal F_i$ per agent, peers as data & one potential on laws, no records\\ force on a dictionary & its edge, anchor, grounding, loops & the same (plug-in); widened records and loop sources (law level) & its edge with widened noise, anchor, grounding, loops\\ force on a content & as receiver and as sender & as receiver only & as receiver and as sender\\ flow of the means & gradient flow, real spectrum & not a gradient flow in general; damped oscillation on directed rings & gradient flow, real spectrum\\ fixed point & exact posterior mean & differs from it & posterior mean of the widened joint with agreement registered\\ grounded limit & symmetric consensus with known dictionaries & receiver-only consensus with known dictionaries & symmetric consensus with widened noise, at frozen covariances\\ certainty, Gaussian model & independent of disagreement, a feature of the family & independent of disagreement, a feature of the family & senders lose certainty under disagreement, by source-role moment matching\\ confidence on unreachable directions & near certainty (factorized), honest (joint) & echo; exact with cavity messages & as the factorized global recognition\\ \bottomrule \end{tabular} \end{center} \openproblemheading{Rows and covariances in the reciprocal potential}{it2:open-reciprocal} With Gibbs rows the costs select sources, and by \cref{it2:certainty} the costs also change the senders' covariances, so the joint dynamics of means, covariances and rows is nonlinear even in the tangent model.
+- Determine its stationary points, and decide whether the loss of certainty under disagreement produces multistability or a grouping mechanism, which would bear on the formation program of chapter~5.
+- \openproblemheading{Convergence of per-agent flows}{it2:open-convergence} Every tested per-agent flow converged, including those with complex spectra.
+- Find a general condition, for example on the self precisions relative to the record precisions, under which the per-agent fixed point is unique and the flow converges, and decide whether the law-level covariance updates always have a unique fixed point.
++ \end{proof} For a regular exponential-family source $q_\eta$ with sufficient statistic $t$, differentiation gives $\partial_\eta\KL(p\Vert q_\eta)=\E_{q_\eta}t-\E_pt$ whenever the moments and derivatives exist.
++ Thus source-role stationarity is a moment-matching condition.
++ The Gaussian covariance formula is its second-moment instance, including the squared discrepancy about the sender's mean.
++ Its contribution is multiplied by $\beta_e$ in the full potential.
++ The scalar result proves increasing stationary variance with disagreement only while the other specified quantities are frozen.
++ Competing self terms, receiver roles, other source roles, moving means, and changing rows determine the full covariance velocity, so no monotone loss of certainty is asserted for that flow.
++ General non-Gaussian Bayesian posteriors may also change their uncertainty when records change.
++ For product dictionary laws in \cref{it2:potential}, covariance stationarity gives $V_e^{-1}=\sigma^{-2}I+\lambda(B^TWB)_{ee}+G_e+\beta_e\kappa_i^T\bar T_e^TS_{j,e}^{-1}\bar T_e\kappa_i$.
++ The grounded and record information vanish on $N_e$.
++ When $W_\gamma=I$, the loop diagonal block is the number of simple loops containing $e$ times the identity, so $N_e$ is invariant under this precision.
++ In the single-loop setting of \cref{it2:echo}, the variance on an unread coordinate is $(\sigma^{-2}+\lambda)^{-1}$, the same value as factorized global recognition.
++ No general marginal-variance formula for overlapping loops is implied.
++ \chapter{Scope and open problems} \label{it2:ch-next} \openproblemheading{Rows and covariances in the reciprocal potential}{it2:open-reciprocal} With Gibbs rows the costs select sources and also affect sender covariances.
++ Determine the stationary points and stability of the coupled restricted-family dynamics of means, covariances, and rows.
++ The constant-coefficient mean-flow results do not settle this problem, and the scalar certainty result does not establish grouping or formation.
++ \openproblemheading{Convergence of per-agent flows}{it2:open-convergence} Find conditions on the self, record, and loop precisions under which the per-agent fixed point is unique and its mean flow converges.
++ Determine whether the law-level covariance updates have a unique fixed point.
++ The directed ring supplies one stable non-gradient example, not a general convergence theorem.
+=== replace old[239:240] new[237:238]
+- Extend its conclusions to general laws, with record kernels that read the coded discrepancy and location-family noise as in Item~1.
++ Extend its conclusions to general laws, with record kernels that read the coded discrepancy and location-family noise.
+=== replace old[241:243] new[239:242]
+- \openproblemheading{What agents must exchange}{it2:open-messages} To use a loop prior, a receiver needs the dictionaries that other agents hold along its loops, and to avoid echo it needs them with its own contribution removed.
+- Formulate this exchange as communication about dictionaries through codes, in the sense of Item~1, and relate it to the observable holonomy of the third future-work item.
++ \openproblemheading{What agents must exchange}{it2:open-messages} A receiver using a loop prior needs information about dictionaries owned elsewhere.
++ An echo-free protocol must specify which prior contributions are removed from each transmitted law.
++ Formulate that exchange through declared codes and record kernels, and determine the loop information it makes observable.
