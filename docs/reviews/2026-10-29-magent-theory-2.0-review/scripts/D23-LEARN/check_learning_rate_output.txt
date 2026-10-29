@@ -1,0 +1,4 @@
+seed 0: n=1000: err=5.09e-02 sqrt(n)*err=1.61; n=10000: err=1.33e-02 sqrt(n)*err=1.33; n=100000: err=6.45e-03 sqrt(n)*err=2.04
+seed 1: n=1000: err=3.27e-02 sqrt(n)*err=1.03; n=10000: err=1.60e-02 sqrt(n)*err=1.60; n=100000: err=5.95e-03 sqrt(n)*err=1.88
+seed 2: n=1000: err=1.95e-02 sqrt(n)*err=0.62; n=10000: err=1.78e-02 sqrt(n)*err=1.78; n=100000: err=1.98e-03 sqrt(n)*err=0.63
+seed 3: n=1000: err=5.63e-02 sqrt(n)*err=1.78; n=10000: err=1.22e-02 sqrt(n)*err=1.22; n=100000: err=8.56e-03 sqrt(n)*err=2.71

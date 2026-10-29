@@ -1,0 +1,22 @@
+(a) channel identities
+  max residual of row sums, pK[p]=pW, D(pK[p])[v]=vW : 5.100009303760089e-11
+  det K[p] = -0.032400000000000005  expected -alpha^2 kappa^2 = -0.0324
+(b) own-block and null potentials vs finite differences of the reduced per-agent free energy
+  max directional-derivative residual  full: 2.29e-10   null: 2.84e-10
+(c) full linearization spectrum at uniform: [-2.25 -1.3  -1.3  -1.3  -1.3  -1.25 -0.75 -0.7  -0.7  -0.7  -0.7   0.25]
+    expected                               : [-2.25 -1.3  -1.3  -1.3  -1.3  -1.25 -0.75 -0.7  -0.7  -0.7  -0.7   0.25]  max residual 5.0e-11
+    null linearization spectrum           : [-1.25 -1.25 -0.5  -0.5  -0.5  -0.5  -0.5  -0.5  -0.5  -0.5   0.25  0.25]
+(d) conditional cone ODE pa:four-cone vs null replicator
+  max residual 9.14e-10
+(e) eta=0.02, h=0.0002, threshold=0.00177
+  conditional means at t*=log4 in units of eta: [2.13389 2.13389 2.13397 2.13397 0.69981 0.69981 0.69983 0.69983]
+  linear prediction: agent1 2.1213, agent2 0.7071
+  full flow: first selected at t=0.7740; selected at t=8: True
+  null flow on [0,200]: ever selected=False; min agent-1 cond=6.000e-02; max agent-2 cond=-2.000e-02
+  null final conditional means: [ 0.9032  0.9032  0.9926  0.9926 -0.9032 -0.9032 -0.9926 -0.9926]
+  random log-table perturbations (size 5 percent of eta): full selected 30/30, null selected 0/30
+(f) full flow on [0,120]: selected from t=0.780; selected at every later sample: True
+    final conditional means: [0.90315 0.90315 0.9926  0.9926  0.90309 0.90309 0.99259 0.99259]
+    final m1,n1,m2,n2 = [0.903149 0.992596 0.903092 0.992592]
+    max |field| at t=120: 3.51e-16
+    max real eigenvalue of the Jacobian at the final state: -0.2997

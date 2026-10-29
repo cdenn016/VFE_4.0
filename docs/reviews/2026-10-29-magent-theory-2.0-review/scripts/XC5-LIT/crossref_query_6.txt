@@ -1,0 +1,70 @@
+== AbsilMahonyAndrews2005 [references.bib, @article]
+  bib author: Absil, P.-A. and Mahony, R. and Andrews, B.
+  bib title: Convergence of the Iterates of Descent Methods for Analytic Cost Functions
+  bib journal: SIAM Journal on Optimization
+  bib volume: 16
+  bib number: 2
+  bib pages: 531--547
+  bib year: 2005
+  -- candidate 1: DOI None
+  CROSSREF ERROR <HTTPError 429: 'Too Many Requests'>
+== FournelEtAl2014 [references.bib, @article]
+  bib author: Fournel, C{\'e}dric and Fran{\c{c}}ois, Jordan and Lazzarini, Serge and Masson, Thierry
+  bib title: Gauge invariant composite fields out of connections, with examples
+  bib journal: International Journal of Geometric Methods in Modern Physics
+  bib volume: 11
+  bib number: 1
+  bib pages: 1450016
+  bib year: 2014
+  -- candidate 1: DOI 10.1142/s0219887814500169
+  CR authors: Fournel, C.; François, J.; Lazzarini, S.; Masson, T.
+  CR title:   Gauge invariant composite fields out of connections, with examples
+  CR venue:   International Journal of Geometric Methods in Modern Physics
+  CR vol/iss/pages: 11/03/1450016  article-number: None
+  CR date: [2014, 3]
+  -- candidate 2: DOI 10.70675/c184fbccz6704z47d4za7f7zdee3fa8295aa
+  CR authors: Fournel, Cedric
+  CR title:   Gauge theories and generalized connections on transitive Lie algebroids
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [None]
+== Friston2010 [references.bib, @article]
+  bib author: Friston, Karl
+  bib title: The free-energy principle: a unified brain theory?
+  bib journal: Nature Reviews Neuroscience
+  bib volume: 11
+  bib number: 2
+  bib pages: 127--138
+  bib year: 2010
+  -- candidate 1: DOI None
+  CROSSREF ERROR <HTTPError 429: 'Too Many Requests'>
+== BattistelliChisci2014 [references.bib, @article]
+  bib author: Battistelli, Giorgio and Chisci, Luigi
+  bib title: {K}ullback--{L}eibler Average, Consensus on Probability Densities, and Distributed State Estimation with Guaranteed Stability
+  bib journal: Automatica
+  bib volume: 50
+  bib number: 3
+  bib pages: 707--718
+  bib year: 2014
+  -- candidate 1: DOI None
+  CROSSREF ERROR <HTTPError 429: 'Too Many Requests'>
+== Davis1984 [references.bib, @article]
+  bib author: Davis, M. H. A.
+  bib title: Piecewise-deterministic {M}arkov processes: a general class of non-diffusion stochastic models
+  bib journal: Journal of the Royal Statistical Society: Series B
+  bib volume: 46
+  bib number: 3
+  bib pages: 353--388
+  bib year: 1984
+  -- candidate 1: DOI 10.1111/j.2517-6161.1984.tb01308.x
+  CR authors: Davis, M. H. A.
+  CR title:   Piecewise-Deterministic Markov Processes: A General Class of Non-Diffusion Stochastic Models
+  CR venue:   Journal of the Royal Statistical Society Series B: Statistical Methodology
+  CR vol/iss/pages: 46/3/353-376  article-number: None
+  CR date: [1984, 7, 1]
+  -- candidate 2: DOI 10.1201/9780203748039-2
+  CR authors: Davis, M.H.A.
+  CR title:   Piecewise-deterministic Markov processes
+  CR venue:   Markov Models and Optimization
+  CR vol/iss/pages: None/None/35-80  article-number: None
+  CR date: [2018, 2, 19]

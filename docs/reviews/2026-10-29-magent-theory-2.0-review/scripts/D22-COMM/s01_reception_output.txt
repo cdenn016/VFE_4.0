@@ -1,0 +1,24 @@
+(a) max abs(AG-I) = 3.9324091670896705e-16
+(a) max abs(P^2-P) = 2.3592239273284576e-16
+(a) max abs(P kerA) = 6.417486747856897e-17  rank P = 2
+(a) range P vs range(Sp A^T): max abs((I-RA RA^T) P) = 3.0516883125360495e-16
+(a) mean residual = 4.440892098500626e-16
+(a) cov residual  = 1.7763568394002505e-15
+(a) max abs(Sp - P Sp - (I-P)Sp(I-P)^T) = 8.881784197001252e-16
+(a) min eig of reconstruction covariance = 0.5047139992737698
+(b) KL(q||qhat) = 11.4479449439224  KL(q||p)-KL(Aq||Ap) = 11.4479449439224  residual = 0.0
+(c) noisy qhat mean/cov residual = 2.220446049250313e-16 0.0
+(c) KL(q||qhat) = 11.452785787823487  bound = 11.56609410487345  slack = 0.11330831704996314
+(c) minimum slack over 2000 random Gaussian instances = 0.00041699196110212
+(d) full row rank : max abs(inv(post cov) - precision form) = 7.105427357601002e-14  MI formula - entropy diff = -1.7763568394002505e-15  rank of precision correction = 2
+(d) rank-deficient : max abs(inv(post cov) - precision form) = 1.191295950775384e-10  MI formula - entropy diff = 1.652011860642233e-12  rank of precision correction = 1
+(e) max rel residual e^{OT} - (I + O phi1(TO) T) over 200 draws = 1.1614708046033778e-12
+(e) max rel residual det e^{OT} - e^{tr OT} = 7.105635858523534e-13
+(e) max abs(e^P - (I + (e-1)P)) = 8.881784197001252e-16
+(e) rank(e^P - I) = 2  rank P = 2
+(f) independent prior : qhat mean = [0.7 0. ]  cov = [[1.0, 0.0], [0.0, 1.0]]  KL(q||qhat) = 0.8450000000000002
+(f) correlated prior r=0.4 : qhat mean = [0.7  0.28]  cov = [[1.0, 0.4], [0.4, 1.0]]  KL(q||qhat) = 1.5892518778561826
+(f) companion predicts b^2/2 = 0.8450000000000001  and mean (a, r a) = (0.7, 0.27999999999999997)
+(g) max abs(Tbar s - Tbar) = 2.220446049250313e-16  det s = 0.5951902289160599
+(g) dictionary theta : effective code row0 = [ 0.87234091  0.78728378 -0.95693751  1.04429125 -0.60595959]  message mean = [-1.5589069   0.02556866]  loss KL(q||qhat) = 9.3084709472478
+(g) dictionary theta s : effective code row0 = [ 0.87234091  0.78728378 -0.95693751  1.04429125 -0.60595959]  message mean = [-1.5589069   0.02556866]  loss KL(q||qhat) = 13.939535598678603

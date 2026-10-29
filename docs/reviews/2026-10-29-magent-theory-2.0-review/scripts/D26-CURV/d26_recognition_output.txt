@@ -1,0 +1,3 @@
+p = 1.0 : |Sigma_exact - Lambda^-1| = 1.1102230246251565e-16  exact Var(loop sum) = 1.5  factorized Var(loop sum) = 1.8  exact cross-owner covariance = -0.1
+p = 0.1 : |Sigma_exact - Lambda^-1| = 2.220446049250313e-16  exact Var(loop sum) = 1.5  factorized Var(loop sum) = 1.96875  exact cross-owner covariance = -0.15625
+p = 0.01 : |Sigma_exact - Lambda^-1| = 9.992007221626409e-16  exact Var(loop sum) = 1.5  factorized Var(loop sum) = 1.996689  exact cross-owner covariance = -0.165563

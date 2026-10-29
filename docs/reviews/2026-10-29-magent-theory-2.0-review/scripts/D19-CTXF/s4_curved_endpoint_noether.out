@@ -1,0 +1,5 @@
+(i) endpoint gradients at fixed U (5 random curved configurations): max |FD - formula| = 4.78e-10 (target), 8.14e-10 (source); typical |derivative| = 3.06e+00
+(ii) at the minimizing U: max |G_z(Log_z x, J_z)| = 9.67e-11, max |G_x(Log_x z, J_x)| = 9.67e-11
+     at U rotated by 0.7 rad from the minimizer: (G_z(Log_z x,J_z), G_x(Log_x z,J_x)) = (-4.3717,+4.3717), (-2.2390,+2.2390), (-4.1989,+4.1989), (-3.9577,+3.9577), (-3.6706,+3.6706)
+(iii) momentum <gamma'(t), xi*> at t = 0, .25, .5, .75, 1: [5.4867468623, 5.4867468623, 5.4867468623, 5.4867468623, 5.4867468623]
+(iv) envelope: max |FD of C_* - formula| = 2.05e-08; typical |dC_*| = 3.44e+00

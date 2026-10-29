@@ -1,0 +1,3 @@
+[derived, Tp=2.0] lp: fixed draw events [(2.05, 1, 3), (2.05, 1, 3), (2.05, 1, 3), (2.05, 1, 3)]
+[derived, Tp=2.0] rn: fixed draw events [(2.4, 1, 6), (2.4, 1, 6), (4.6, 2, 12)]
+[derived, Tp=2.0] fr: fixed draw events [(2.05, 1, 3), (2.05, 1, 3), (2.05, 1, 3), (2.05, 1, 3)]

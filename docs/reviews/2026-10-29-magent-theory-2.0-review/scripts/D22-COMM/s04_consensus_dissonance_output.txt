@@ -1,0 +1,12 @@
+(a) holonomy rotation angle = 1.4750692183060454  dim ker B = 1  dim Fix(H) = 1
+(b) least eigenvalue = 0.054197875837098605  predicted 2-2cos(0.7/3) = 0.054197875837098675
+(b) flat triangle: dim ker B = 2
+(c) acyclic graph: closed walks = none (common fixed space of an empty family = R^2), dim ker B = 0 , least eigenvalue of B^T B = 0.0027149081881947825
+(d) quarter turn: Q(H;I) = 2.0 ; H H^T = I so KL(N(0,I)||H#N(0,I)) = 0: True
+(d) Q formula vs trace form: -3.552713678800501e-15 ; joint re-expression residual: 3.907985046680551e-14
+(d) unipotent conjugate by diag(1.0,1): entries [1. 1. 0. 1.], tr = 2.0, det = 1.0, Q(Hc;I) = 5.000e-01
+(d) unipotent conjugate by diag(0.01,1): entries [1.   0.01 0.   1.  ], tr = 2.0, det = 1.0, Q(Hc;I) = 5.000e-05
+(d) unipotent conjugate by diag(0.0001,1): entries [1.e+00 1.e-04 0.e+00 1.e+00], tr = 2.0, det = 1.0, Q(Hc;I) = 5.000e-09
+(d) Q(I+E12; I) = 0.5 ; Q(I+E12; diag(1,4)) = 2.0  (same H, different Sigma: not a class function of H alone)
+(e) T1 s1 - T1 = [0. 0.]  T0 s0 - T0 = [0. 0.]
+(e) effective codes unchanged: True True ; holonomy true = I, alternative = [[0.6, -0.4], [0.42, 1.22]]  Q(H_alt;I) = 0.27240000000000003

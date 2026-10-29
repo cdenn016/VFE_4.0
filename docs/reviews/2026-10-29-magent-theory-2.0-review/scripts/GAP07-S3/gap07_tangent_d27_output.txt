@@ -1,0 +1,22 @@
+(a/b) metric D27 diag(20,20,20,20,6,6): actual (block gap 0.5): union selected at 3.782; min parent gap 0.1175; longest coherent dwell 4.812; attractor gap 0.1667 (coherence needs < 0.1291)
+(a/b) metric D27 diag(20,20,20,20,6,6): counterfactual (block gap 0.7): union selected at None; min parent gap 0.1502; longest coherent dwell 0.000; attractor gap 0.1667 (coherence needs < 0.1291)
+(a/b) metric joint D = blockdiag(J) = diag(np.float64(2.0), np.float64(2.0), np.float64(2.0), np.float64(2.0), np.float64(10.0), np.float64(10.0)): actual (block gap 0.5): union selected at None; min parent gap 0.1667; longest coherent dwell 0.000; attractor gap 0.1667 (coherence needs < 0.1291)
+(a/b) metric joint D = blockdiag(J) = diag(np.float64(2.0), np.float64(2.0), np.float64(2.0), np.float64(2.0), np.float64(10.0), np.float64(10.0)): counterfactual (block gap 0.7): union selected at None; min parent gap 0.1667; longest coherent dwell 0.000; attractor gap 0.1667 (coherence needs < 0.1291)
+     2x2 reduction, joint metric, v0 = 0.25: u* = 0.0833, v* = 0.4167, slow-mode coefficient alpha = 0.0306 (monotone approach from above, no undershoot)
+     2x2 reduction, joint metric, v0 = 0.35: u* = 0.0833, v* = 0.4167, slow-mode coefficient alpha = 0.1123 (monotone approach from above, no undershoot)
+(c) cross-scale dictionaries active (c_A != 0), joint metric:
+    owner child  c_A 0.25 sigma_A^2   0.1: union (actual, counterfactual) = (None, None); min gaps (0.1662, 0.1662); attractor gap 0.1662
+    owner child  c_A 0.25 sigma_A^2   1.0: union (actual, counterfactual) = (None, None); min gaps (0.1622, 0.1622); attractor gap 0.1622
+    owner child  c_A 0.25 sigma_A^2  10.0: union (actual, counterfactual) = (None, None); min gaps (0.1304, 0.1304); attractor gap 0.1304
+    owner child  c_A 0.75 sigma_A^2   0.1: union (actual, counterfactual) = (None, None); min gaps (0.1626, 0.1626); attractor gap 0.1626
+    owner child  c_A 0.75 sigma_A^2   1.0: union (actual, counterfactual) = (None, None); min gaps (0.1333, 0.1333); attractor gap 0.1333
+    owner child  c_A 0.75 sigma_A^2  10.0: union (actual, counterfactual) = (4.308, 4.9510000000000005); min gaps (0.0476, 0.0476); attractor gap 0.0476
+    owner parent c_A 0.25 sigma_A^2   0.1: union (actual, counterfactual) = (None, None); min gaps (0.1662, 0.1662); attractor gap 0.1662
+    owner parent c_A 0.25 sigma_A^2   1.0: union (actual, counterfactual) = (None, None); min gaps (0.1622, 0.1622); attractor gap 0.1622
+    owner parent c_A 0.25 sigma_A^2  10.0: union (actual, counterfactual) = (6.208, None); min gaps (0.1284, 0.1304); attractor gap 0.1304
+    owner parent c_A 0.75 sigma_A^2   0.1: union (actual, counterfactual) = (None, None); min gaps (0.1626, 0.1626); attractor gap 0.1626
+    owner parent c_A 0.75 sigma_A^2   1.0: union (actual, counterfactual) = (None, None); min gaps (0.1315, 0.1333); attractor gap 0.1333
+    owner parent c_A 0.75 sigma_A^2  10.0: union (actual, counterfactual) = (3.5500000000000003, 3.962); min gaps (0.0443, 0.0459); attractor gap 0.0476
+(d) no-edge family, joint metric, handoff states produced by the joint's own pre-handoff flow:
+    1440 parameter/handoff combinations with a reachable first stage; 668 with the attractor outside S; longest transient coherent dwell of the parents 0.000 (tau_p = 2) at (obar, f0, r, tau, p, t_handoff, g*) = None
+elapsed 2.4 s

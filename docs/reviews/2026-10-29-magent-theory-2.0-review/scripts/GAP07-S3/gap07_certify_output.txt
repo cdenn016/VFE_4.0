@@ -1,0 +1,54 @@
+== Gap equation, exact Bayes (a = 3n) ==
+[check (9)/(13) n=3] n=3, s=1.1, a=9: F(0)=0.0055>0, F(s)=-6.15226e-5<0, F<0 on [s,inf); zeros in (0,inf): exactly 3 (31 boxes)
+    zero in [0.00456465633265, 0.00456465633315], F' there in [-1.20473, -1.20473], crossing down
+    zero in [0.963036186873, 0.963036186873], F' there in [0.00615577, 0.00615577], crossing up
+    zero in [1.08311946304, 1.08311946304], F' there in [-0.00343246, -0.00343246], crossing down
+[check (13) n=2] n=2, s=1.1, a=6: F(0)=0.0055>0, F(s)=-0.00308933<0, F<0 on [s,inf); zeros in (0,inf): exactly 1 (7 boxes)
+    zero in [0.00410972735017, 0.00410972735067], F' there in [-1.3382, -1.3382], crossing down
+[check (13) n=4] n=4, s=1.1, a=12: F(0)=0.0055>0, F(s)=-1.45012e-6<0, F<0 on [s,inf); zeros in (0,inf): exactly 3 (23 boxes)
+    zero in [0.00479210052663, 0.00479210052713], F' there in [-1.14745, -1.14745], crossing down
+    zero in [0.770747038692, 0.770747038693], F' there in [0.023284, 0.023284], crossing up
+    zero in [1.09970780719, 1.09970780719], F' there in [-0.00496277, -0.00496277], crossing down
+[check (13) n=6] n=6, s=1.1, a=18: F(0)=0.0055>0, F(s)=-9.17635e-10<0, F<0 on [s,inf); zeros in (0,inf): exactly 3 (19 boxes)
+    zero in [0.00501969461416, 0.00501969461466], F' there in [-1.09523, -1.09523], crossing down
+    zero in [0.592923517107, 0.592923517108], F' there in [0.0447266, 0.0447266], crossing up
+    zero in [1.09999981647, 1.09999981647], F' there in [-0.00499996, -0.00499996], crossing down
+[check (14) s=1.2] n=3, s=1.2, a=9: F(0)=0.006>0, F(s)=-8.46924e-6<0, F<0 on [s,inf); zeros in (0,inf): exactly 3 (23 boxes)
+    zero in [0.00497969581738, 0.00497969581793], F' there in [-1.20468, -1.20468], crossing down
+    zero in [0.917321345054, 0.917321345054], F' there in [0.0167789, 0.0167789], crossing up
+    zero in [1.19824326767, 1.19824326767], F' there in [-0.00481788, -0.00481788], crossing down
+[check (14) s=1.3] n=3, s=1.3, a=9: F(0)=0.0065>0, F(s)=-9.67042e-7<0, F<0 on [s,inf); zeros in (0,inf): exactly 3 (21 boxes)
+    zero in [0.00539475376017, 0.00539475376077], F' there in [-1.20462, -1.20462], crossing down
+    zero in [0.893361889262, 0.893361889262], F' there in [0.0253817, 0.0253817], crossing up
+    zero in [1.2998057395, 1.2998057395], F' there in [-0.00497802, -0.00497802], crossing down
+[s=1.0 (not claimed)] n=3, s=1.0, a=9: F(0)=0.005>0, F(s)=-0.000370161<0, F<0 on [s,inf); zeros in (0,inf): exactly 1 (13 boxes)
+    zero in [0.00414963376534, 0.00414963376625], F' there in [-1.20478, -1.20478], crossing down
+== Trapping certificates for the depth-one claims at s = 1.2, 1.3 (check (14) handoff gaps 0.996, 1.226) ==
+  s=1.2: handoff gap 0.996 > d_u + 0.005 = 0.92232135: True; F > 0 on [d_u+0.005, d_s): True; F < 0 on (d_s, s]: True; F > 1e-5 on [d_u+0.005, d_s-0.005]; F < -n/a: d_s + 0.005 > s, and F < 0 on [s, inf) by sign on [d_s+0.005, s]
+  s=1.3: handoff gap 1.2256 > d_u + 0.005 = 0.89836189: True; F > 0 on [d_u+0.005, d_s): True; F < 0 on (d_s, s]: True; F > 1e-5 on [d_u+0.005, d_s-0.005]; F < -n/a: d_s + 0.005 > s, and F < 0 on [s, inf) by sign on [d_s+0.005, s]
+== Control without feedback at synchrony (a = 3, prior ratio n = 3): only the merged zero? ==
+[off/tempered s=1.1] n=3, s=1.1, a=3: F(0)=0.0055>0, F(s)=-0.0841562<0, F<0 on [s,inf); zeros in (0,inf): exactly 1 (5 boxes)
+    zero in [0.00456442899422, 0.00456442899472], F' there in [-1.20491, -1.20491], crossing down
+[off/tempered s=1.2] n=3, s=1.2, a=3: F(0)=0.006>0, F(s)=-0.0469431<0, F<0 on [s,inf); zeros in (0,inf): exactly 1 (5 boxes)
+    zero in [0.00497940065161, 0.00497940065216], F' there in [-1.20489, -1.20489], crossing down
+[off/tempered s=1.3] n=3, s=1.3, a=3: F(0)=0.0065>0, F(s)=-0.0242727<0, F<0 on [s,inf); zeros in (0,inf): exactly 1 (5 boxes)
+    zero in [0.00539437845846, 0.00539437845905], F' there in [-1.20487, -1.20487], crossing down
+== Large-n approximation it7:capture-distance: d^2 = (2T/(n lam)) log(2 n d / ((n-1) rho (s - d))) ==
+  n=3: approximation 0.963076; certified middle root in [0.96303619, 0.96303619]; d_u sqrt(n) = 1.668
+  n=4: approximation 0.770822; certified middle root in [0.77074704, 0.77074704]; d_u sqrt(n) = 1.5415
+  n=6: approximation 0.593045; certified middle root in [0.59292352, 0.59292352]; d_u sqrt(n) = 1.4524
+== Radius it7:radius ==
+  n=2: (2n-1) pi_p in [0.25909091, 0.25909091] < 1; Gamma_n(0) in [1.3505763, 1.3505763]; d_*(n) in [1.08696312242, 1.08696312242]
+  n=3: (2n-1) pi_p in [0.43181818, 0.43181818] < 1; Gamma_n(0) in [0.83975065, 0.83975065]; d_*(n) in [0.768496146945, 0.768496146946]
+  n=4: (2n-1) pi_p in [0.60454545, 0.60454545] < 1; Gamma_n(0) in [0.50327842, 0.50327842]; d_*(n) in [0.600405643956, 0.600405643957]
+  n=6: (2n-1) pi_p in [0.95, 0.95] < 1; Gamma_n(0) in [0.051293294, 0.051293294]; d_*(n) in [0.410368973107, 0.410368973108]
+  -log(1 - pi_s) = [0.051293294387550533426196144254641824, 0.051293294387550533426196144254752757]
+  Gamma_3 < -2.5 on [1.09, 1.11]: True
+  d_m < d_*(3) < d_u - 0.005: True
+  n=4: d_*(n) < d_u(n) - 0.005: True
+  n=6: d_*(n) < d_u(n) - 0.005: True
+== Saddle-node of the n = 3 gap equation in the record gap s (gap07_window.py locates s_c near 1.0722) ==
+  s = 1.07: exactly 1 zero(s) of F in (0, inf)
+  s = 1.0722: exactly 1 zero(s) of F in (0, inf)
+  s = 1.0723: exactly 3 zero(s) of F in (0, inf)
+  s = 1.075: exactly 3 zero(s) of F in (0, inf)

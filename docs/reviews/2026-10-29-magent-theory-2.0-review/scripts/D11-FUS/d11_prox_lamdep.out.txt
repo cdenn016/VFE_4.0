@@ -1,0 +1,6 @@
+LAMDEP three agents, q=(0,2,12), s=(0,10,11); u=(q+s)/2=(0,6,11.5), u-gaps (6,5.5)
+  lam=50.0: [(0.0683, ((0, 1), (2,))), (0.0714, ((0, 1, 2),))]
+  lam=10.0: [(0.313, ((0, 1), (2,))), (0.3234, ((0, 1, 2),))]
+  lam=0.02: [(8.52, ((0,), (1, 2))), (8.63, ((0, 1, 2),))]
+  null flow, threshold delta=0.1: first pair reaching delta: [((1, 2), np.float64(8.708)), ((0, 1), np.float64(8.882))]
+  null flow, threshold delta=0.001: first pair reaching delta: [((1, 2), np.float64(17.919)), ((0, 1), np.float64(18.093))]

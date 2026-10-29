@@ -1,0 +1,9 @@
+K=2 n=1: dim gl(K) =  4; dim ker J at consensus = 0 (predicted (K-1)(K-2)/2 = 0); generic distinct agents: 0; smallest nonzero singular value at consensus = 6.761e-01
+K=2 n=2: dim gl(K) =  4; dim ker J at consensus = 0 (predicted (K-1)(K-2)/2 = 0); generic distinct agents: 0; smallest nonzero singular value at consensus = 1.495e+00
+K=2 n=5: dim gl(K) =  4; dim ker J at consensus = 0 (predicted (K-1)(K-2)/2 = 0); generic distinct agents: 0; smallest nonzero singular value at consensus = 2.847e+00
+K=3 n=1: dim gl(K) =  9; dim ker J at consensus = 1 (predicted (K-1)(K-2)/2 = 1); generic distinct agents: 1; smallest nonzero singular value at consensus = 2.749e-01
+K=3 n=2: dim gl(K) =  9; dim ker J at consensus = 1 (predicted (K-1)(K-2)/2 = 1); generic distinct agents: 0; smallest nonzero singular value at consensus = 8.117e-01
+K=3 n=5: dim gl(K) =  9; dim ker J at consensus = 1 (predicted (K-1)(K-2)/2 = 1); generic distinct agents: 0; smallest nonzero singular value at consensus = 9.398e-01
+K=4 n=1: dim gl(K) = 16; dim ker J at consensus = 3 (predicted (K-1)(K-2)/2 = 3); generic distinct agents: 3; smallest nonzero singular value at consensus = 5.045e-02
+K=4 n=2: dim gl(K) = 16; dim ker J at consensus = 3 (predicted (K-1)(K-2)/2 = 3); generic distinct agents: 0; smallest nonzero singular value at consensus = 3.741e-01
+K=4 n=5: dim gl(K) = 16; dim ker J at consensus = 3 (predicted (K-1)(K-2)/2 = 3); generic distinct agents: 0; smallest nonzero singular value at consensus = 2.255e+00

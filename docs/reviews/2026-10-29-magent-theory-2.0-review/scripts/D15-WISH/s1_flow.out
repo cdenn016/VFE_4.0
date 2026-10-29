@@ -1,0 +1,8 @@
+(a) det = u*v ; trace = u + v + z**2 ; Jacobian = sqrt(u)
+    normalizer / Gamma_2(7/5) - 1 = 0
+    congruence Jacobian / det(B)^3 = 1
+(b) KL MC = 1.41392 +- 0.00309; closed form = 1.41726
+    mean MC - a P^-1 (max abs) = 2.31e-03
+(c) kappa=0.0: shape residual 4.6e-41, precision residual 2.3e-41 (velocity scale 1.200); frozen-target field differs by 0.0000
+(c) kappa=1.0: shape residual 3.7e-40, precision residual 2.3e-40 (velocity scale 3.537); frozen-target field differs by 1.2799
+(c) kappa=5.0: shape residual 5.3e-40, precision residual 5.5e-40 (velocity scale 16.629); frozen-target field differs by 7.7441

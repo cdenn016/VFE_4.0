@@ -1,0 +1,12 @@
+{
+  "runs": 300,
+  "max_abs_difference_four_weight_vs_two_ratio_filter": 2.4424906541753444e-15,
+  "mean_public_mass_on_true_private_pair": {
+    "10": 0.3825,
+    "50": 0.7236,
+    "200": 0.9797,
+    "1000": 1.0
+  },
+  "wall_seconds": 1.996,
+  "scope": "Monte Carlo illustration on one finite model; not evidence for a general theorem."
+}

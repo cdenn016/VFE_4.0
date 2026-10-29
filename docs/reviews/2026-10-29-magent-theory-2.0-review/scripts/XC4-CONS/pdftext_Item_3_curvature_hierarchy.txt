@@ -1,0 +1,495 @@
+  MAgent Theory 2.0
+
+Curvature Costs and Supplied Hierarchies
+                Robert C. Dennis
+
+                    Independent Researcher
+
+                            October 2026
+Integration note
+
+The corrected results in this working document are integrated into the main manuscript's chapter
+on curvature costs and supplied hierarchies, with an explanatory chapter in the companion. This
+standalone account retains the definitions and decisive proofs. The induced Gaussian action, sta-
+tionary tangent identities, and supplied rigid restrictions have distinct hypotheses; none establishes
+endogenous selection or recursive formation.
+
+                                                                i
+Contents
+
+Integration note                                  i
+
+1 Contents, records, and supplied parents         1
+
+2 The action induced by contents                  3
+
+3 Stationary reinterpretation                     6
+
+4 Rigid clusters and their boundary dictionaries  8
+
+5 Remaining extensions                            11
+
+                                           ii
+Chapter 1
+
+Contents, records, and supplied parents
+
+Work in one linear sector with reference content space RK. The graph has finite vertex set V and
+directed edge set E. An edge e : j  i has receiver-owned dictionary generator e  gl(K, R), code
+T¯e : RK  He, and positive-definite noise covariance Re on the finite-dimensional message space
+He. Fix operating contents ci and put i = ci. The contents yi  RK have independent self laws
+N (mi, Pi-1) with Pi positive definite. These self laws summarize the declared local models and
+records in this Gaussian example. They are not general definitions of an agent.
+
+The comparison records and global posterior energy are
+
+                          oe = T¯e(yi - yj - ie) + e, e  N (0, Re),                                   (1.1)
+
+                                           1     yi  -  miP2 i  +   1     e2F
+                             E(y, ) =                              22
+                                              i                        e
+                                           2
+
+                                      1                                                               (1.2)
+                                   +
+                                                    oe - T¯e(yi - yj - ie)2Re-1 ,
+                                      2
+                                                 e
+
+where  > 0 and the noises are independent. The matrix anchor is isotropic for the declared
+reference inner product. Coordinate changes carry this metric with the other constitutive data.
+There are no grounded dictionary factors and no explicit loop factor: the loop weight is  = 0.
+The tangent approximation drops the product e(yi - ci) in T¯e(e-eyi - yj). Its operating contents
+remain fixed.
+
+Let Y = (RK )V, X = gl(K, R)E, and H = e He. Define
+
+(y)e = T¯e(yi - yj),               (V)e = T¯eeci,                  P = Pi,         R = Re.            (1.3)
+
+                                                                              i               e
+
+The record term is  1  o  -  y  +  V R2 -1 .     The map   :Y      H   is the coboundary of the code  sheaf:
+                    2
+the two restrictions to the edge stalk He are the same code T¯e. Its first cohomology on the graph,
+
+which has no two-cells, is H1 = H/ im  [1].
+
+For a directed closed walk , let (B) = e e, counting traversals with multiplicity. The
+corresponding product of dictionaries ¯e = ee is ordered along the walk, and B is its first-order
+term at the identity. Opposite attending edges remain independent; traversing a particular transport
+
+in geometric reverse would instead use its inverse. Write e = yi - yj. Then e e = 0 on a
+directed closed walk.
+
+                                                        1
+1. Contents, records, and supplied parents                             MAgent Theory 2.0
+
+Definition 1.1 (A supplied hierarchy). Partition the child agents into clusters I, introduce a parent
+A for each cluster, and give it a self law N (mA, PA-1). Add the cross-scale comparison factor
+
+exp       yi  -  yA                         -  iAcA2  ,  i  I,   > 0,  (1.4)
+     -
+
+       2
+
+with an isotropic dictionary anchor of variance 2. This is the tangent form of the conditional
+law yi | yA, iA  N (eiAyA,  -1I) at yA = cA. It is a comparison factor with identity code and
+fixed operating vector cA. Edges between different child clusters are called bridges. The partition,
+parents, and cross-scale factors are supplied model data.
+
+                                               2
+Chapter 2
+
+The action induced by contents
+
+Remark 2.1 (Evidence gives an induced action for general laws). Let (d) be a dictionary
+prior, let p(dy) be a content law on a standard Borel space, and let (o | y, ) be a chosen density
+of the record kernel at the registered record o. Suppose
+
+         Z() = (o | y, )p(dy), 0 < Z()(d) < .                                                   (2.1)
+
+Disintegration of the joint density gives the posterior
+
+                                        Z ()(d)                                                 (2.2)
+                      (d | o) = Z()(d) .
+
+Where 0 < Z() < , the contents induce the action - log Z(). This identity requires no Gaussian
+family. If the record kernels use the dictionaries only through coded discrepancies, that dependence
+is inherited by Z. Neither monotonicity in a loop defect nor invariance under arbitrary re-readings of
+contents follows: the content law and the registered records also enter the integral.
+
+Theorem 2.2 (The Gaussian action and its cohomological quadratic part). In the model of
+eq. (1.2), integrating out y leaves the complete dictionary action
+
+Smarg()  =   1  2  +  1   +  V  -  m2CP-1                +  const,    CP = R + P -1T .          (2.3)
+            22         o
+
+                      2
+
+Thus the dictionary marginal is Gaussian with precision
+
+                       = -2I + VT CP-1V.                                                        (2.4)
+
+If P = P¯ with fixed positive-definite P¯ and   0, its record precision tends to VT H V, where
+
+                H = R-1 - R-1(T R-1)+T R-1.                                                     (2.5)
+
+The superscript + denotes the Moore­Penrose inverse. For every ,
+
+                   (V )T  H V   =  min  V                -  aR2 -1 .                            (2.6)
+
+                                   aY
+
+This is the squared quotient norm of the class of V in H1. It vanishes exactly when T¯eeci =
+T¯e(ai - aj) for one a  Y on every edge.
+
+Suppose in addition that every code is injective, the underlying undirected multigraph is connected,
+all operating contents equal one c = 0, and the chains of the declared directed closed walks span
+its real cycle space. Opposite attending edges count as separate edges of that multigraph. Then
+
+                                   3
+2. The action induced by contents                                                                MAgent Theory 2.0
+
+the limiting quadratic part vanishes exactly when (B)c = 0 for every declared walk, and its rank
+on X is K(|E| - |V| + 1). For positive P , an absorbable reinterpretation obeys
+
+                                           (a)T CP-1a  aT P a.                                               (2.7)
+
+Proof. Under the content prior, y +  has mean m and covariance CP . The registered value in
+that Gaussian experiment is o + V. Its density gives eq. (2.3), including the affine term, and hence
+eq. (2.4). The determinant of CP is independent of  in this tangent model.
+Set A = R-1/2P¯-1/2. Then CP-1 = R-1/2(I + -1AAT )-1R-1/2. On the range of A the middle
+factor tends to zero; on its orthogonal complement it is identity. The limit is eq. (2.5), the residual
+quadratic form for weighted least squares. Minimizing over a proves eq. (2.6) and its zero criterion.
+
+For injective codes that criterion becomes ec = ai - aj. A vector-valued edge cochain has this
+form exactly when it pairs to zero with every cycle. To see the converse directly, choose a spanning
+tree and define ai by signed sums along its paths from a root. Each remaining edge closes a
+fundamental cycle, whose zero sum gives its required difference. The cycle-spanning hypothesis
+makes the declared directed-walk tests sufficient for these signed cycle tests; it does not identify an
+opposite attending edge with geometric reversal. Since e  ec is onto RK for c = 0, the rank is
+the edge-cochain dimension K|E| minus the coboundary dimension K(|V| - 1).
+
+Finally, Gaussian elimination, or completion of the square, gives uT CP-1u = miny[yT P y + u -
+yR2 -1]. Set u = a and evaluate the right side at y = a to obtain eq. (2.7).
+
+The cycle-spanning hypothesis is stronger than connectedness. Strong connectivity, with all directed
+closed walks admitted, is sufficient: a strictly positive circulation is obtained by summing directed
+cycles containing each edge. Adding a sufficiently large multiple of that circulation to any signed
+cycle makes it nonnegative. Both nonnegative circulations decompose into directed cycles, so their
+difference lies in the directed-cycle span.
+
+For a connected graph where the hypothesis fails, take scalar edges 1  2, 2  3, 1  3, unit
+codes and noise, c = 1, and V = (0, 0, 1). There is no nonconstant directed closed walk, but
+
+                 y = (y2 - y1, y3 - y2, y3 - y1),          min (0, 0, 1)        -  a2  =     1               (2.8)
+                                                                                              .
+                                                                  a                          3
+
+Indeed, (1, 1, -1) spans the orthogonal complement of im , and the squared projection onto it is
+1/3. The coded obstruction exists even though this directed graph has no loop product that detects
+it.
+
+The theorem describes the Hessian of an evidence cost, not a record-independent preference for
+
+flatness.  With  weak  anchors  the  full  record  action  tends  to  1  (o  +  V)T H (o  +  V ).  At  zero  records
+                                                                      2
+
+it charges the cohomology class of the coded reinterpretation. At nonzero records it can prefer
+
+a nonzero class that compensates the observed residual. For finite anchors, the shift by m in
+
+eq. (2.3) must also be retained.
+
+Remark 2.3 (Which experiment sees a dictionary). The matter term at one fixed operating
+
+content is blind to a perturbation A when T¯eAci = 0. Grounded messages with a referent law of
+positive-definite second moment instead test T¯eA, as their means range over the referents. These
+are different kernels. With K = 2, T¯ = I2, c = (1, 0)T , and A = E22, the first experiment sees no
+
+                                                   4
+2. The action induced by contents                                  MAgent Theory 2.0
+
+change, whereas grounded referents identify A. A loop prior can constrain directions left free by
+a particular matter experiment, but those directions need not be untestable in another admitted
+experiment.
+
+There is a further distinction between law comparisons and link observables. For a loop map H
+
+and law q, DKL(qH#q) vanishes whenever H preserves q. For positive-definite , the covariance-
+
+dressed link defect                           1 -1/2(I
+                                              2
+                                   Q(H; )  =            - H)1/22F  (2.9)
+
+vanishes exactly at H = I, since the similarity transform is invertible. A quarter-turn preserves
+
+q = N (0, I2), giving zero law divergence, while Q(H; I2) = 2. The choice of defect therefore does
+not inherit the law stabilizer automatically.
+
+A shared-sample relay around a loop is one way to probe its action. Another is to identify the
+constituent dictionaries from sufficiently informative grounded edge records and compose them. The
+evidence calculation requires neither direct loop observations nor such an identification procedure.
+Its conclusion is that records couple dictionaries through shared contents in the declared joint.
+
+                                              5
+Chapter 3
+
+Stationary reinterpretation
+
+Proposition 3.1 (One operating content gives a rank-one stationary mean). At a stationary
+point of eq. (1.2), each dictionary satisfies
+
+                     e = 2T¯eT Re + 2|ci|2T¯eT¯eT -1(T¯ee - oe)ciT .                  (3.1)
+
+It has rank at most one. For registered agreement, oe = 0,
+
+                     eci = Fee,      Fe = 2|ci|2T¯eT Re + 2|ci|2T¯eT¯eT -1T¯e.        (3.2)
+
+These are also equations for the stationary Gaussian recognition means. In the plug-in per-agent
+
+model the same equation holds with e = µi - µj. In its law-level version, with peer covariance
+j fixed at the considered state, replace Re by Re = Re + T¯ejT¯eT . For the tangent reciprocal
+potential at fixed positive covariances and positive row weights e, use oe = 0 and replace Re by
+(Re + T¯ejT¯eT )/e. In all cases the operating contents are fixed, the anchor is isotropic, and there
+are no loop or grounded terms. The replacements do not assert equality of dictionary forces across
+
+these objectives.
+
+Proof. Only the anchor and the edge record depend on e. Its normal equation is
+
+                     (-2I + Ti T¯eT Re-1T¯ei)e = Ti T¯eT Re-1(T¯ee - oe).             (3.3)
+
+The adjoint is Ti v = vcTi for the Frobenius inner product, and iiT = |ci|2I. Applying the push-
+through identity gives eq. (3.1); multiplication by ci gives eq. (3.2). A quadratic Gaussian free energy
+
+has the same mean normal equation as its energy. In the per-agent objectives only the owner's
+
+record and anchor contain this dictionary, with the stated convolution covariance in the law-level case.
+
+In  the  reciprocal  objective  its  mean-dependent  edge  cost  is  e  T¯e(µi  - µj  - eci)(2Re+T¯ej T¯eT )-1 ,
+                                                                     2
+
+which gives the last replacement.
+
+Corollary 3.2 (Equal gains cancel the linearized loop sum). Let the operating content be a
+common c = 0, register o = 0, and suppose the stationary equations of proposition 3.1 hold, with
+the effective noise of the chosen objective. Then (B) = gcT for a vector g, and
+
+                                     (B)c = Fee = (Fe - F¯)e                          (3.4)
+
+                                     e                  e
+
+for every fixed matrix F¯. Thus the linearized loop map annihilates c. It vanishes when all gains on
+the loop agree, or when every disagreement on the loop is zero. On a two-cycle e : j  i, e : i  j,
+its action on c is (Fe - Fe)e.
+
+                                                     6
+3. Stationary reinterpretation     MAgent Theory 2.0
+
+Proof. Every term of eq. (3.1) has right factor cT . Summing the equations and applying them to c
+gives the first equality in eq. (3.4). The second uses  e = 0. A matrix gcT with c = 0 is zero
+exactly when its action on c is zero, which proves the cancellation statements.
+
+Nonzero stationary loop action therefore requires both disagreement and variation of the gains in
+this fixed-topic tangent experiment; those conditions are not sufficient. The gains depend on code,
+noise, and anchor strength. If all self means coincide and all records register agreement, the strictly
+convex global energy has the common-content, zero-dictionary minimizer. Conflicting self means or
+other registered records change this conclusion. For general laws the evidence depends on the
+complete content distributions, and one operating vector need not determine a stationary dictionary.
+Even within the Gaussian example, cancellation of B is a first-order statement: higher terms in
+the ordered product of exponentials are not removed by this argument.
+
+                                7
+Chapter 4
+
+Rigid clusters and their boundary
+dictionaries
+
+Remark 4.1 (Reinterpretation limits the effective top-down precision). Integrating out the free
+Gaussian cross-scale dictionary in eq. (1.4) leaves a factor in yi - yA with precision
+
+( -1 + 2|cA|2)-1I.                                             (4.1)
+
+This follows because iAcA has covariance 2|cA|2I and adds to the cross-scale record noise.
+For cA = 0 the precision is bounded above by (2|cA|2)-1I as  increases. For cA = 0 it equals
+ I and there is no such finite cap. Pinning the cross-scale dictionaries removes this source of
+reinterpretation. This elimination identity alone does not prove that disagreement concentrates on a
+cluster boundary.
+
+Proposition 4.2 (A normalized rigid restriction of a supplied hierarchy). Let child and parent
+contents lie in one standard Borel space E with a common sigma-finite reference measure µ,
+and let G be a measurable dictionary group with identity I. Specify measurable self densities
+pi, pA with respect to µ. Let the record likelihoods have the form e(oe | de(zi, zj, e)), where
+de : E × E × G  He is a declared measurable discrepancy with de(z, z, I) = 0. Fix internal
+and cross-scale dictionaries at the identity. Suppose every internal or cross-scale likelihood at
+its registered record and zero discrepancy is a finite positive constant. For every supplied cluster
+require
+
+0 < ZA = pA(z) pi(z)µ(dz) < .                                  (4.2)
+
+E                        iI
+
+Evaluate the joint density on yi = yA and use µ once for each parent coordinate, together with the
+declared bridge-dictionary prior. Assume that the remaining bridge factors have a finite positive
+normalizer against this product measure. Then the resulting normalized rigid restriction is a
+communication model with parent self density
+
+pA(z) = ZA-1pA(z) pi(z)                                        (4.3)
+
+                                 iI
+
+and one record factor for each original bridge, retaining its code, dictionary, and registered value.
+For the Gaussian tangent family its parent self parameters are
+
+PA = PA + Pi,            PA mA = PAmA + Pimi.                  (4.4)
+
+                     iI                                    iI
+
+                         8
+4. Rigid clusters and their boundary dictionaries                                                       MAgent Theory 2.0
+
+A bridge retains its fixed operating vector ci; these vectors can be bridge dependent at the parent
+level unless they are common within each receiving cluster. With positive-definite self precisions,
+identity internal and cross-scale dictionaries, and the Gaussian cross-scale factors of precision  ,
+the global stationary minimizer tends to the minimizer of this rigid parent model at rate O( -1).
+
+Proof. On equal contents an internal discrepancy is zero, and the hypotheses replace each internal
+
+and cross-scale record by a finite positive constant. The self factors at a cluster multiply at their
+
+common argument. Dividing by ZA gives eq. (4.3); the assumed remaining normalizer makes the
+entire parent law a probability law. Each bridge retains its original likelihood evaluated at the two
+parent contents. In the tangent model this argument is T¯e(yA(i) - yA(j) - eci). Completing the
+square in the Gaussian self factors gives eq. (4.4).
+
+For the minimizer limit collect all free Gaussian variables, including bridge dictionaries, in x. The
+
+energy   is  E (x)  =      C  x2  +  1  xT  H  x  -  hT  x  +  const,  where  Cx  lists  the  child-parent  differences  and
+                        2            2
+
+H is positive definite. Choose orthonormal bases U for ker C and V for its orthogonal complement,
+
+and write x = U a + V b. With Haa = U T HU and the analogous blocks, the first normal equation
+
+gives a = a0 - Ha-a1Habb, where a0 = Ha-a1U T h is the constrained minimizer. The second gives
+
+                                 V T CT CV + Hbb - HbaHa-a1Hab b = V T h - Hbaa0.                                      (4.5)
+
+Both the first coefficient and the Schur complement are positive definite on the b space. Hence
+b = O( -1) and a - a0 = O( -1), proving the claim.
+
+The reference measure and normalizers are part of this restriction. It is neither conditioning
+
+a continuous law on a probability-zero diagonal without a specified convention nor integrating
+
+out children. Individually normalized self densities do not guarantee eq. (4.2): two copies of
+
+p(z)  =  1   z-2/3  on  (0, 1)  have    a  product   proportional      to  z-4/3,  whose      integral  is  infinite.  Disjoint
+         3
+
+supports can instead make the product integral zero. The Gaussian minimizer theorem does not
+
+establish convergence of normalized soft hierarchy laws to the rigid restriction for arbitrary laws.
+
+Proposition 4.3 (Flat wall walks and a common boundary dictionary). Consider two clusters
+I, J whose internal dictionaries are identity. Assume that bridges exist in both directions. For every
+bridge e : j  i from J to I and every bridge g : i  j from I to J, require directed internal paths
+i  i in I and j  j in J. Internal strong connectivity is sufficient. Cross-scale edges may be
+included only when they supply the required directed paths. Let the bridge dictionaries be arbitrary
+elements of a group G.
+
+Every directed walk that uses e, such internal paths, and g has holonomy ¯g¯e. All these walks are
+flat exactly when there is one ¯D  G such that all bridges J  I carry ¯D and all bridges I  J
+carry ¯D-1. At first order the corresponding condition is e = D, g = -D.
+
+For rigid clusters with common operating content c and zero bridge records, if the free bridge
+dictionaries satisfy proposition 3.1, the linearized wall loop acts on c by (Fe - Fg)(yI - yJ ). More
+generally, with identity internal dictionaries but nonzero internal disagreements, that action is
+
+                                  (e + g)c = (Fe - Fg)e + Fg(e + g).                                                   (4.6)
+
+                                                               9
+4. Rigid clusters and their boundary dictionaries      MAgent Theory 2.0
+
+Proof. The internal factors are identity, so the ordered product is ¯g¯e. The path hypothesis realizes
+every opposite bridge pair as a walk of this kind. Fix one bridge in each direction, which is possible
+by nonemptiness. The equations ¯g¯e = I for all pairs imply that every forward bridge is the inverse
+of the fixed backward bridge, and every backward bridge is the inverse of that common forward
+value. The converse follows by multiplication. Replacing products by their first-order sums gives
+the generator condition. The stationary bridge equations give ec + gc = Fee + Fgg, which is
+eq. (4.6); rigidity makes g = -e.
+
+Without the path hypothesis, separate reciprocal bridge pairs can each be flat while carrying
+different dictionaries. For I = {a1, a2} and J = {b1, b2} with no internal directed paths, let b1  a1
+carry scalar dictionaries 1, 1 and b2  a2 carry 2, 1/2. Every available directed loop is flat, but the
+bridges from J to I disagree. Parent-to-child edges alone supply no return paths between these
+pairs.
+
+When the proposition applies, all records in one bridge direction read a common dictionary through
+their own codes. Grounded referents with positive-definite second moment identify it up to the
+intersection of those code stabilizers; an injective stacked code identifies it completely for the
+location-family experiments. The group-level flatness statement is independent of Gaussianity.
+Its stationary gain formula is a Gaussian tangent statement. Neither licenses replacing distinct
+dictionaries by one merely because a single-topic experiment fails to distinguish them.
+
+Remark 4.4 (Repeating a supplied rigid restriction). The density factorization can be repeated
+along a supplied hierarchy whenever the required measures and normalizers exist. In the Gaussian
+family the parent self term pools child information through eq. (4.4), while the bridge factors retain
+the boundary records. At finite coupling, integrating out children instead gives a Schur complement;
+representing it within the prescribed comparison-record family is an additional closure requirement.
+
+These statements do not select a partition, prove its persistence, or construct an inherited response
+and update kernel for a predeclared probe class. They also do not establish compression on a
+post-handoff invariant set, interaction necessity against a null flow, or a second selection depending
+on the first. Those are separate requirements of the formation standard. A supplied rigid parent
+density therefore does not by itself establish recursive formation or complete dynamical inheritance.
+
+                                                   10
+Chapter 5
+
+Remaining extensions
+
+Open problem 5.1 (Formation with top-down feedback). Determine whether a specified dynam-
+ics can select persistent blocks and create parents whose feedback supports further selection. The
+construction must retain the laws, records, evaluators, and complete response and update data
+required by its admitted protocols, and must meet the compression, null-flow, and counterfactual-
+recursion conditions. The supplied partitions and minimizer limits above do not settle these
+questions.
+
+Open problem 5.2 (Fluctuations beyond the fixed tangent experiment). In the present tangent
+
+model CP is dictionary independent, so its determinant contributes no dictionary force. For a
+
+nonlinear link model with Gaussian conditional content precision J(), information vector b(),
+
+and  scalar  energy  term  k(),  Gaussian  integration  gives  k()  -  1  b()T  J ()-1b()  +  1  log  det  J ()
+                                                                       2                      2
+
+up to a constant, provided J() is positive definite. Determine the complete action in a declared
+
+nonlinear communication model, including its off-topic directions and the signs of the resulting loop
+
+terms. The quadratic penalty of theorem 2.2 alone does not supply that calculation.
+
+Open problem 5.3 (General content laws). Identify hypotheses under which the evidence action
+for general laws admits a useful decomposition into absorbable reinterpretations and residual
+incompatibility. Such a result must preserve record dependence and distinguish an invariance of the
+likelihood from an invariance of the content measure. Establishing a normalized soft-to-rigid limit
+also requires more than the finite product normalizers used for the static restriction. The stationary
+rank-one and gain formulas are not claimed outside the Gaussian tangent family.
+
+Open problem 5.4 (Learning gains from loop records). For a declared grounded or relay
+experiment, determine which combinations of code, noise, and dictionary-anchor strength can be
+inferred from observed loop effects. The gain-weighted formula is an identity at a stationary tangent
+state; an identifiability theorem requires the full admitted record experiment and cannot be inferred
+from that identity alone.
+
+                                           11
+Bibliography
+
+[1] Jakob Hansen and Robert Ghrist. Opinion dynamics on discourse sheaves. SIAM Journal on Applied
+     Mathematics, 81(5):2033­2060, 2021.
+
+                                                               12
+

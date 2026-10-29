@@ -1,0 +1,6 @@
+grid spacing 5.50e-07, derivative bound L = 1.808, L*h = 9.94e-07
+sign changes on (0, s]: 3; roots = [0.00456, 0.96304, 1.08312]
+F'(roots) = [np.float64(-1.2047), np.float64(0.0062), np.float64(-0.0034)]
+grid points with |F| < L*h (possible unresolved roots): 1645 (all within 1e-5 of a located root: False)
+F on (s, 3]: max = -6.152e-05 (negative)
+Gamma_3(0) = 0.8398 > 0; zero d* = 0.7685

@@ -1,0 +1,26 @@
+A1 compensation residual (general laws, n=5, 6 sources): 4.440892098500626e-16
+A2 |shared row - Gibbs row of n KL(qbar||nu) at temperature T|: 2.220446049250313e-16
+A3 Pythagoras residual KL(qbar||p) - KL(qbar||P*) - KL(P*||p), d=3 family: 1.7763568394002505e-15 ; moment match 0.0
+A4 family sources: change of summed-cost differences at fixed pooled mean parameter (should be 0): 3.552713678800501e-15 ; pools differ by 4.163336342344337e-17
+B1 capture rows residual: 2.7755575615628914e-17 ; relative weights unchanged: 2.220446049250313e-16
+C1 summed cost = spread + n lam/2 (ybar-m)^2 for every source: True
+C2 pooled-velocity identity (iii) residual: 0
+C3 deviation identity (iv) residual: 0
+C4 d beta_V / d t along (y1,y2) -> (u+t, u-t) at fixed y3 (should be 0): 0
+D1 union mean: primitive 1.3333333333333333 ; unweighted parent average 1.0
+D2 |primitive row - unweighted-parent row|: 0.22199401309799555 ; |primitive row - evidence-weighted parent row|: 0.0
+D3 prior: |primitive - unweighted parent average|: 0.03743143629589721 ; |primitive - mass-weighted|: 2.7755575615628914e-17
+E1 Bernoulli pooled velocities at equal pools (c = 1): 0.25 0.16000000000000003
+E2 lognormal (t = log y): |pooled velocity - (sigma^2 c - mubar)| max over 200 draws: 8.881784197001252e-16
+F1 null-row bound at |y|=1.795: 3.3367476623595583e-06 ; max evaluator term on [1.795, 3.205]: 5.989442068678587e-06 ; record term at the box edge: 2.5e-05
+F2 coherence and wall radii: 0.12909944487358055 0.408248290463863 ; KL at separation 0.14: 0.058800000000000005
+F3 evaluator weight bound pi_s/(2 pi_p) e^{-9*1.7^2}: 1.4642310571389957e-12 ; cross-side weight 1.5 e^{-9*3.4^2} / e^{-100}: 0.0263962086234353
+F4 deviation limits rho/(1+rho)*0.3 and *1.4: 0.001492537313432836 0.006965174129353234
+G1 (F(sep)-F(union))/T - Gamma_n (symbolic, should be 0): 0
+G2 n=2: d* = 1.08696, Gamma_n(0) = 1.3506, (2n-1) pp = 0.2591
+G2 n=3: d* = 0.76850, Gamma_n(0) = 0.8398, (2n-1) pp = 0.4318
+G2 n=4: d* = 0.60041, Gamma_n(0) = 0.5033, (2n-1) pp = 0.6045
+G2 n=6: d* = 0.41037, Gamma_n(0) = 0.0513, (2n-1) pp = 0.9500
+G3 second term of structure-split / free energy at T/n of the pooled receiver: 2.9999999999999987
+H1 min slack of mutual-bound over 3000 draws: 0.043670390229744005 ; of outsider-bound with Markov channel: 6.145527037601468e-05
+I1 structure-free-energy gain of merging two isolated agents at separation 0.5, 2, 5, 10: [np.float64(1.176), np.float64(18.051), np.float64(112.551), np.float64(450.051)]

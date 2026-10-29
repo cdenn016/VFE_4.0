@@ -1,0 +1,4 @@
+R=0.1: sampled max Lipschitz ratio 1.008  vs bound 8+32R+32R^2 = 11.5 ; max ||P||/(2max(J,R)+3eps) = 0.332
+R=0.5: sampled max Lipschitz ratio 1.009  vs bound 8+32R+32R^2 = 32.0 ; max ||P||/(2max(J,R)+3eps) = 0.147
+R=1.0: sampled max Lipschitz ratio 1.009  vs bound 8+32R+32R^2 = 72.0 ; max ||P||/(2max(J,R)+3eps) = 0.065
+R=2.0: sampled max Lipschitz ratio 1.011  vs bound 8+32R+32R^2 = 200.0 ; max ||P||/(2max(J,R)+3eps) = 0.035

@@ -1,0 +1,27 @@
+(a) reduced model vs D17-PA brute force at c0=(0.04,0.3), amplitudes d=0.03, d3=0.025:
+   t=1 eps=0.20: F_reduced=-12.1273  F_D17PA=-12.1292  F_eps0=-12.4925  | orbit without history rotation: -0.2223
+   t=1 eps=0.10: F_reduced=-12.4687  F_D17PA=-12.4687  F_eps0=-12.4925  | orbit without history rotation: -0.8567
+   t=1 eps=0.05: F_reduced=-12.4910  F_D17PA=-12.4910  F_eps0=-12.4925  | orbit without history rotation: -2.9651
+   t=1 eps=0.02: F_reduced=-12.4924  F_D17PA=-12.4924  F_eps0=-12.4925  | orbit without history rotation: -9.1185
+   t=5 eps=0.20: F_reduced=-0.4309  F_D17PA=-0.4257  F_eps0=-12.4928  | orbit without history rotation: -0.0000
+   t=5 eps=0.05: F_reduced=-12.3913  F_D17PA=-12.3914  F_eps0=-12.4928  | orbit without history rotation: -0.0005
+(b) small-amplitude law F ~ -2a e^{-2t}(e^{-2t}D+kappa)/(e^{-2t}(a^2+D)+kappa)^2, kappa = 3 eps^6 (1-e^{-t})^2/25:
+   t=1 eps=0.20: F_small=-12.4965  F_D17PA=-12.1292
+   t=1 eps=0.10: F_small=-12.4929  F_D17PA=-12.4687
+   t=1 eps=0.05: F_small=-12.4928  F_D17PA=-12.4910
+   t=1 eps=0.02: F_small=-12.4928  F_D17PA=-12.4924
+   t=5 eps=0.20: F_small=-0.4661  F_D17PA=-0.4257
+   t=5 eps=0.05: F_small=-12.4985  F_D17PA=-12.3914
+(c) leading-order threshold eps*(T+) with |F_eps|>=|F_0|/2 on the patch a in [0.02,0.045], chi in {0,1.5,3}, t in [0,T+]:
+   T+=4: eps* = 0.1391   (scaling check eps*/e^{-T+/3} = 0.5276)
+   T+=5: eps* = 0.0993   (scaling check eps*/e^{-T+/3} = 0.5256)
+   T+=6: eps* = 0.0710   (scaling check eps*/e^{-T+/3} = 0.5248)
+   T+=8: eps* = 0.0364   (scaling check eps*/e^{-T+/3} = 0.5244)
+(d) reduced-model |F_eps|/|F_0| at a=0.02 (smallest marked amplitude), chi=0.3, t=5:
+   eps=0.02: ratio 0.9996 (small-amplitude law 0.9999)
+   eps=0.05: ratio 0.9733 (small-amplitude law 0.9846)
+   eps=0.08: ratio 0.7436 (small-amplitude law 0.7887)
+   eps=0.12: ratio 0.2194 (small-amplitude law 0.2399)
+(e) reduced-model curvature at fixed eps as t grows (c0=(0.04,0.3)); eps=0 closed form for comparison:
+   eps=0.05: t=5: -12.39 (eps0 -12.4928); t=8: -3.566 (eps0 -12.4928); t=11: -0.01185 (eps0 -12.4928); t=14: -2.945e-05 (eps0 -12.4928)
+   eps=0.02: t=5: -12.49 (eps0 -12.4928); t=8: -12.44 (eps0 -12.4928); t=11: -2.438 (eps0 -12.4928); t=14: -0.007192 (eps0 -12.4928)

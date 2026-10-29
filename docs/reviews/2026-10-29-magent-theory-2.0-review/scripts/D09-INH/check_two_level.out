@@ -1,0 +1,18 @@
+nu_a(1): {0: Fraction(1, 2), 1: Fraction(5, 8)}  claimed 1/2 + a/8: {0: Fraction(1, 2), 1: Fraction(5, 8)}
+q_a(1): {0: Fraction(1, 4), 1: Fraction(3, 4)}  s_a(1): {0: Fraction(1, 2), 1: Fraction(3, 4)}
+R10 strongly lumpable: True  |image| = 8
+R20 = R21 o R10 strongly lumpable: True  |image| = 4
+T^1 matches (inh:first-finite-parent): True
+T^2 matches stated closed form: True
+T^1 lumps to T^2 under R21 (inh:composition): True
+R10: exact max |fine retained path law - parent path law| over 4-state histories = 0; record-history residual = 0
+R20: exact max |fine retained path law - parent path law| over 4-state histories = 0; record-history residual = 0
+Lumpable coordinate projections (subsets of {a,b,c}, r always kept):
+   keep r -> False
+   keep ar -> True
+   keep br -> False
+   keep cr -> False
+   keep abr -> True
+   keep acr -> False
+   keep bcr -> False
+   keep abcr -> True

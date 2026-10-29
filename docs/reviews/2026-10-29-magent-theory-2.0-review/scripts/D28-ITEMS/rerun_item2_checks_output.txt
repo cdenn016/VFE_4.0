@@ -1,0 +1,35 @@
+(1a) |records of the constructed gauge displacement| = 2.220446049250313e-16  dim gauge = 24  rank of its belief projection = 6 of 6
+(1b) dictionaries fixed modulo N: belief part of the gauge has dim 2  code-sheaf dim H0 = 2
+(2a) global: |dy_i - formula|, |dy_j - formula|, |omega c - formula| = 3.191891195797325e-16 3.608224830031759e-16 1.5265566588595902e-16
+(2b) per-agent: |dy_i - formula|, |omega c - formula| = 5.967448757360216e-16 1.1102230246251565e-16
+(3) g = 10.0 : |T omega c| = 0.00834023846203592  g |T omega c| = 0.0834023846203592
+(3) g = 1000.0 : |T omega c| = 0.00021844604740947062  g |T omega c| = 0.21844604740947063
+(3) g = 100000.0 : |T omega c| = 2.2281712274719642e-06  g |T omega c| = 0.22281712274719642
+(4) global: max |Im eig| = 0.0  max Re eig = -0.16679040626363775  F monotone: True  |mu(20) - mu*| = 0.021287936396596874
+(5) plug : cov iterations 1  |H - H^T| = 1.6427710405888547  max |Im eig| = 1.041481514324134e-15  max Re eig = -0.19999999999999993  |mu_pa - mu_global| = 0.1368694029432712
+(5) law : cov iterations 25  |H - H^T| = 1.2035552835131433  max |Im eig| = 0.004910792713482008  max Re eig = -0.32398128869348225  |mu_pa - mu_global| = 0.15190320046583106
+(6) |dictionary rows J - H_pa| = 0.0  |content rows (J - H_pa) - sender terms| = 2.5587171270657905e-16 3.3306690738754696e-16
+(7) ring: |eig - prediction| = 9.992007221626409e-16  w = 0.3406809563401132  rigid-dictionary w = 0.6176470588235293  global max |Im eig| = 0.0
+(8) g = 1000.0 : |y - known|: global 0.0004663997394384056  plug-in 0.0007728657439657338  law 0.0006303376384532156  |identified omega - centre|: global 0.001717643115591371  plug-in 0.0017503577965516206
+(8) g = 100000.0 : |y - known|: global 4.6987290530653425e-06  plug-in 7.784206405569982e-06  law 6.3534948349097675e-06  |identified omega - centre|: global 1.7351560778779936e-05  plug-in 1.7685837093769326e-05
+    limits differ: |global - plug-in| = 0.3920598869787648  |global - law| = 0.48528312805058116
+(9) complete exchange : dim N = 36  joint exact eigenvalues > 0.75 s2: 0
+     largest per-edge marginal variances / s2: exact [0.027 0.027 0.027 0.027]  receiver-factorized [0.0005 0.0005 0.0005 0.0005]  per-agent law [0.002 0.002 0.002 0.002]  (iterations 48 )
+     invisible-part mean error: exact 0.021920399960886225  per-agent law 0.01998202188349875  truth size 0.4418896909510208
+(9) directed triangle : dim N = 18  joint exact eigenvalues > 0.75 s2: 9
+     largest per-edge marginal variances / s2: exact [0.659 0.659 0.659 0.644]  receiver-factorized [0.001 0.001 0.001 0.001]  per-agent law [0.133 0.133 0.133 0.083]  (iterations 318 )
+     invisible-part mean error: exact 0.6155590926221643  per-agent law 0.6139829142068461  truth size 0.5266731208550641
+(9) reciprocal pair : dim N = 12  joint exact eigenvalues > 0.75 s2: 3
+     largest per-edge marginal variances / s2: exact [0.5 0.5 0.5 0.5]  receiver-factorized [0.001 0.001 0.001 0.001]  per-agent law [0.031 0.031 0.031 0.031]  (iterations 376 )
+     invisible-part mean error: exact 0.39675337038124003  per-agent law 0.3976100879047842  truth size 0.4372680005383235
+(10) l = 2 : exact marginal 0.500000249999875 (matrix 0.5000002500020286 ) factorized 9.99999000001e-07  law 0.0009995001254997297  law asymptote 0.001
+(10) l = 3 : exact marginal 0.6666667777777407 (matrix 0.6666667777880232 ) factorized 9.99999000001e-07  law 0.5000004999990018  law asymptote 0.5
+(10) l = 4 : exact marginal 0.7500000624999844 (matrix 0.7500000625193496 ) factorized 9.99999000001e-07  law 0.6666668333332094  law asymptote 0.6666666666666666
+(11) 40 random complete exchanges, both modes: largest real part -0.08636182336533468  largest imaginary part 0.2797541007870067
+(12) |grad of the reciprocal potential in the means - (J^S x - eta^S)| = 6.882166392330191e-09  gradient size 3.305551565802034
+(13) reciprocal flow: max |Im eig| = 0.0  max Re eig = -0.7613782321307585
+     |content rows of J^S minus sender terms - per-agent law-level content rows| = 2.220446049250313e-16
+(14) sender-covariance derivative: |numeric - trace(formula E)| = 4.242650675223558e-11
+     scalar sender: d^2 = 0.0  stationary variance 0.7739734987839768  f'(v*) = 1.8270298282607733
+     scalar sender: d^2 = 1.0  stationary variance 1.0903709531900996  f'(v*) = 1.3407052873448677
+     scalar sender: d^2 = 4.0  stationary variance 1.8316283096499335  f'(v*) = 0.8714767862905148

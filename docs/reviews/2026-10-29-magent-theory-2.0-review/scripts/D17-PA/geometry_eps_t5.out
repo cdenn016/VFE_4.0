@@ -1,0 +1,3 @@
+t=5.0  eps=0 closed form: A_chi=-0.512000 F=-12.4928 h_aa=2.2700e-05 h_cc=1.7724e-08 K=7.0937e-08
+   eps=0.20: A=(-7.42e-02, -0.018454) F=-0.4257 h_aa=2.2463e-05 h_cc=3.4584e-08 h_ac=-5.6e-09 K=4.0576e-06 | history orbit Fisher 3.8e-10 | label tensor max 1.9e-11 | 12.2s
+   eps=0.05: A=(-1.67e-02, -0.503457) F=-12.3914 h_aa=2.2686e-05 h_cc=1.7945e-08 h_ac=-6.1e-10 K=7.2407e-08 | history orbit Fisher 3.6e-16 | label tensor max 3.3e-16 | 25.3s

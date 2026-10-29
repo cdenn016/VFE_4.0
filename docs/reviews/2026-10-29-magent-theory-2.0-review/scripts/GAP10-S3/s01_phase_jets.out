@@ -1,0 +1,37 @@
+=== Part A: symbolic chain-rule identities ===
+  phase-jet chain rule (a,b)=(1,1) [generic cubic omega, quadratic x]: residual = 0
+  phase-jet chain rule (a,b)=(1,2) [generic cubic omega, quadratic x]: residual = 0
+  phase-jet chain rule (a,b)=(2,1) [generic cubic omega, quadratic x]: residual = 0
+  phase-jet chain rule (a,b)=(2,2) [generic cubic omega, quadratic x]: residual = 0
+  law-jet formula (a,b)=(1,1): residual = [0, 0]
+  law-jet formula (a,b)=(1,2): residual = [0, 0]
+  first law jet (a=1): residual = [0, 0]
+  law-jet formula (a,b)=(2,1): residual = [0, 0]
+  law-jet formula (a,b)=(2,2): residual = [0, 0]
+  first law jet (a=2): residual = [0, 0]
+  Part A all exact: True
+
+=== Part B: numerics on the chapter 14 field ===
+  trajectories computed: 11  (2.4 s)
+  symmetry of FD second jets: |th_12 - th_21|_max = 5.92e-12  scale 2.756e-03
+  zeroth order: theta(T) = 0.000531674374, int omega_loc dt = 0.000531674374, diff 1.01e-14
+  first-order jet a=1: FD theta_a(T) = -0.002782051564, jet ODE = -0.002782051564, diff 1.04e-13
+  first-order jet a=2: FD theta_a(T) = -0.000196897524, jet ODE = -0.000196897524, diff 3.45e-14
+  second-order jet (a,b)=(1,1): FD theta_ab(T) = -0.009644565149, jet ODE = -0.009644565160, abs diff 1.16e-11, rel 1.20e-09
+      term integrals: Dw.x_ab -4.124803e-04, D2w[x_a,x_b] -9.162165e-03, D(w_a)x_b -2.040127e-05, D(w_b)x_a -2.040127e-05, w_ab -2.911713e-05
+      without explicit-partial terms (T3+T4+T5) the jet would be -9.574645e-03
+  second-order jet (a,b)=(1,2): FD theta_ab(T) =  0.002755848155, jet ODE =  0.002755848160, abs diff 5.20e-12, rel 1.89e-09
+      term integrals: Dw.x_ab -4.363647e-04, D2w[x_a,x_b]  3.130259e-03, D(w_a)x_b  4.535436e-05, D(w_b)x_a  1.449564e-05, w_ab  2.104305e-06
+      without explicit-partial terms (T3+T4+T5) the jet would be  2.693894e-03
+  second-order jet (a,b)=(2,2): FD theta_ab(T) = -0.000130886035, jet ODE = -0.000130886038, abs diff 2.33e-12, rel 1.78e-08
+      term integrals: Dw.x_ab  1.011140e-04, D2w[x_a,x_b] -1.528494e-04, D(w_a)x_b -3.222547e-05, D(w_b)x_a -3.222547e-05, w_ab -1.469971e-05
+      without explicit-partial terms (T3+T4+T5) the jet would be -5.173540e-05
+  slice second jet prolongation (a,b)=(1,2): max |Delta x_ab - int RHS| = 5.79e-12, scale 5.312e-02
+  law jet (a,b)=(1,1) at T: max |B~_ab(FD) - formula| = 1.00e-11, scale 9.702e-02
+  law jet (a,b)=(1,2) at T: max |B~_ab(FD) - formula| = 4.79e-13, scale 4.675e-02
+  law jet (a,b)=(2,2) at T: max |B~_ab(FD) - formula| = 2.62e-13, scale 3.328e-02
+  identity x~ = R_theta xbar along trajectory: max residual 2.22e-16
+  min_t S_x(x(c_e,t)) = 1.530 (analytic arg branch valid), |S(T)| = 1.530
+
+max relative discrepancy of second-order phase jet: 1.78e-08
+runtime 3.7 s

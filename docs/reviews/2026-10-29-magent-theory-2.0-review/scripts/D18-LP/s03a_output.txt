@@ -1,0 +1,2 @@
+(1) lp:cone: min over c, t>0, i of v.B_i(t) - e^{-t} v.B_i(0) = 0.18791677586781486 (must be >= 0)
+(2) lp:closed-reference: max |closed - R_U(native)| = 1.4146461779773745e-12 ; max |S_y(anchor)| = 1.6653345369377348e-16

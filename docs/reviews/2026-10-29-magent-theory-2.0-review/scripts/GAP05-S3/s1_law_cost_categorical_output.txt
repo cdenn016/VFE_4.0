@@ -1,0 +1,13 @@
+== (a) it2:law-cost-variation, complex step vs formula ==
+max |complex-step - formula| over 12 directions = 5.52e-16
+== (b) own-block first variation of the variable-row potential ==
+max |complex-step - (log r_e - E_r-e log pi + beta_e Delta_e)| = 7.22e-16
+same with pi replaced by the product of its marginals: 1.263e+00 (nonzero, so the correlations matter)
+== (c) it2:row-gap identities with these non-Gaussian costs ==
+E_var - E_red - sum T KL(beta||beta*) = 5.20e-17
+max |dE_T - (dF0 + sum beta* dC)| over 6 directions = 8.88e-16
+last direction: dE_T = -1.266642, entropy-free surrogate derivative = -1.266637
+== (d) replicator (Fisher) velocity of r_0 and its dissipation ==
+dE/dt along replicator velocity = -0.176373542386; -Var_r(g) = -0.176373542386; diff = 3.61e-16
+Interior finite tables: positive message entries and finite sums, so the dominated-chart
+and envelope hypotheses of it2:law-cost-variation hold trivially in this instance.

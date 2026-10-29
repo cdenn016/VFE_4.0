@@ -1,0 +1,15 @@
+(a) E22 c = [0. 0.]  T E22 with T = I_2 nonzero: True
+(b) KL(q || H#q) = 0.0  Q(H; I_2) = 2.0
+(c) ring, identity background : rank = 2  predicted K(|E|-|V|) + dim H^0 = 2  dim ker(Hol - I) = 2
+(c) ring, pure gauge g_i g_j^-1 : rank = 2  predicted K(|E|-|V|) + dim H^0 = 2  dim ker(Hol - I) = 2
+(c) ring, holonomy rotation 0.7 (no fixed vector) : rank = 0  predicted K(|E|-|V|) + dim H^0 = 0  dim ker(Hol - I) = 0
+(c) ring, holonomy diag(1, 2) (one fixed vector) : rank = 1  predicted K(|E|-|V|) + dim H^0 = 1  dim ker(Hol - I) = 1
+(c) ring, holonomy unipotent I + E12 (one fixed vector) : rank = 1  predicted K(|E|-|V|) + dim H^0 = 1  dim ker(Hol - I) = 1
+    five-edge graph, identity : rank = 6  predicted K(|E|-|V|) + dim H^0 = 6
+    five-edge graph, generic nonflat : rank = 4  predicted K(|E|-|V|) + dim H^0 = 4
+(d) slope of (1/2) log det J in log eps, ring with K = 2
+    identity background : slope = 1.0  predicted h0/2 = 1.0
+    pure gauge g_i g_j^-1 : slope = 1.0  predicted h0/2 = 1.0
+    holonomy rotation 0.7 (no fixed vector) : slope = 0.0001  predicted h0/2 = 0.0
+    holonomy diag(1, 2) (one fixed vector) : slope = 0.5  predicted h0/2 = 0.5
+    holonomy unipotent I + E12 (one fixed vector) : slope = 0.5  predicted h0/2 = 0.5

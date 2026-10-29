@@ -1,0 +1,21 @@
+A. criterion residual (any W): 0
+   with W(s) = -s^2/4:  E = (x1 + x2)**2/4 ; E - E_c(R(x)) = 0
+   W'(s) = -s/2 (not identically zero), yet E = E_c o R exactly
+   d/dt (x1 - x2) under W = -s^2/4: 0
+B. E_c(v) = inf_u E = v**2/2 ; dE(d_v) - dE_c = -u + v ; pushed field = u - 2*v
+C. DR grad_g(E_c o R) - (M g^{-1} M^T) dE_c = 6.217248937900877e-15 (equals g_c^{-1} dE_c for all dE_c iff g_c^{-1} = M g^{-1} M^T)
+D. stated conclusion, 200 random g-self-adjoint L with invariant ker M: max(dist(spec L^c, spec L) + |Im|) = 3.55e-15
+D1. co-metric Schur complement G_yy - |G_zy|^2 = 9*z1**2*exp(2*y) + 9*z2**2*exp(2*y) + 1 (> 0, so G and g = G^{-1} are positive definite on R^3)
+    fine field B = [-z1/2 - 3*z2, 3*z1 - z2/2, (18*(z1**2 + z2**2)*exp(2*y) + 1)*exp(-y)]
+    dB_z/dy = [0, 0] (zero: R(z,y) = z is projectable)
+    parent linearization at z = 0: Matrix([[-1/2, -3], [3, -1/2]])  eigenvalues: [-1/2 - 3*I, -1/2 + 3*I]
+    dE/dy = -exp(-y) never vanishes: the fiber over z = 0 has no critical point of E; E >= 0
+    RK4 to t=8: max increment of E = -1.17e-05 (<= 0 means descent); final z = [ 0.00038846 -0.00082931], y = 2.223; winding of z about 0 = 3.82 turns
+D2. parent field in z (should not contain a3): [-3*Z1/5 - Z2*(Z1*Z2 - 4)/2, Z1*(Z1*Z2 - 4)/2 - Z2/10]  free symbols: {Z2, Z1}
+    d^2E/da1 da3 = -a1*sin(2*a3)/2 - a2*cos(2*a3)/2 (not identically zero: the agents (a1,a2) and a3 are energetically coupled)
+    parent linearization at 0: Matrix([[-3/5, 2], [-2, -1/10]])  eigenvalues: [-7/20 - 3*sqrt(7)*I/4, -7/20 + 3*sqrt(7)*I/4]
+E. (p1,p2)=(0.8,0.2): law of K1+K2 = (0.16, 0.68, 0.16), d/dt E = -1.20
+E. (p1,p2)=(0.2,0.8): law of K1+K2 = (0.16, 0.68, 0.16), d/dt E = -1.80
+D3. fine field (block-diagonal metric diag(1,1,exp(-y)/k)): [-zz1/2, -zz2/2, 2]
+    parent field in w (no y): [-W1/2 - 3*W2, 3*W1 - W2/2]  free symbols: {W1, W2}
+    parent linearization: Matrix([[-1/2, -3], [3, -1/2]])  eigenvalues: [-1/2 - 3*I, -1/2 + 3*I]

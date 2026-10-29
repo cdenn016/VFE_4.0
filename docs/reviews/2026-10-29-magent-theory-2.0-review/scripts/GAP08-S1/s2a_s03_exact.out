@@ -1,0 +1,25 @@
+== (a) prop:sup-residual-cost, non-Gaussian 7-point joint, exact ==
+weights: [1/5, 1/10, 7/30, 1/30, 1/15, 3/10, 1/15]
+exact residual E[quadratic] - (delta^T R^-1 delta + Tr R^-1 V_ij)/2 = 0
+third central moment of first coordinate of A X_i - B X_j (nonzero => non-Gaussian): 25286992/2460375
+
+== (b) visible cross covariance ==
+dependent, uncorrelated (Z1 = Y1^2): joint cost 17/64 ; product-of-marginals cost 17/64 ; equal: True
+Cov(Z1, (Y1, Y2)) = Matrix([[0, 2]]) (Y2 = Z1 is fully dependent); A Cov B^T = 0 ; joint cost 131/192 = product cost 131/192 : True
+equal marginals, couplings Z1 = Y1 and Z1 = -Y1: costs 1/64 and 131/192
+
+== (c) prop:sup-row-equivalence, d = 2 symbolic ==
+C - D/T - [c_TW + d/T - log(detW/detV)/(2T)] = 0
+contains a or b_j: False
+d/dv1: d_V C - d_V(D/T) - Tr(V^-1 dV)/(2T) = 0
+d/dv2: d_V C - d_V(D/T) - Tr(V^-1 dV)/(2T) = 0
+d/dv3: d_V C - d_V(D/T) - Tr(V^-1 dV)/(2T) = 0
+d/da1 of (C - D/T): 0
+d/da2 of (C - D/T): 0
+d/db1 of (C - D/T): 0
+d/db2 of (C - D/T): 0
+
+== (d) T = 1 entropy identity, self-comparison, independent snapshots ==
+at T = 1: (C - D) - (H(N(a,V)) + d/2) = 0
+self comparison V_ii = [[0, 0], [0, 0]]
+independent snapshot excess cost (1/2) Tr((T I)^-1 2 I) = d/T ; odds exp(cost_indep - cost_self) = exp(d/T)

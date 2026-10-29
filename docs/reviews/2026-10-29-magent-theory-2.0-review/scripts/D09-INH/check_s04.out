@@ -1,0 +1,6 @@
+1. sinh:filter: max residual over all histories of length 2..5 = 2.22e-16
+2. descending case: |C_i M - M^c C_j| = 8.88e-16
+   generic case: best |C_i M - M^c C_j| = 1.15e+00 (> 0: no factorization)
+3. additive noise, descending M: retained laws equal on a fiber: True ; non-descending M: False
+   retained law equals law of M^c C_j v + C_i eps: True
+4. sinh:conditional-tower residual = 0.00e+00

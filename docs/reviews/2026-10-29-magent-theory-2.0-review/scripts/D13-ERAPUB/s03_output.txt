@@ -1,0 +1,36 @@
+eps=0.015  T=1      : zeros in Q found 1; box-mate diff 2.8e-16, box opposition 5.6e-17, x_eps-1/2 = -2.210e-03, y_eps-x_eps = +0.0e+00; max Re eig -0.1741, min Re eig -1.8281, max |Im| 0.0e+00
+eps=0.015  T=0.01   : zeros in Q found 1; box-mate diff 6.1e-16, box opposition 4.4e-16, x_eps-1/2 = -2.199e-03, y_eps-x_eps = +5.6e-17; max Re eig -0.1741, min Re eig -1.8281, max |Im| 0.0e+00
+eps=0.015  T=0.001  : zeros in Q found 1; box-mate diff 3.3e-16, box opposition 5.6e-17, x_eps-1/2 = -2.100e-03, y_eps-x_eps = +0.0e+00; max Re eig -0.1741, min Re eig -1.8278, max |Im| 0.0e+00
+eps=0.015  T=0.0001 : zeros in Q found 1; box-mate diff 6.7e-16, box opposition 5.6e-16, x_eps-1/2 = -1.043e-03, y_eps-x_eps = +0.0e+00; max Re eig -0.1748, min Re eig -1.8257, max |Im| 0.0e+00
+eps=0.015  T=1e-05  : zeros in Q found 1; box-mate diff 5.6e-16, box opposition 3.3e-16, x_eps-1/2 = -2.468e-09, y_eps-x_eps = +0.0e+00; max Re eig -0.1760, min Re eig -1.8249, max |Im| 0.0e+00
+eps=0.015  T=1e-06  : zeros in Q found 1; box-mate diff 2.2e-16, box opposition 1.1e-16, x_eps-1/2 = +2.220e-16, y_eps-x_eps = +0.0e+00; max Re eig -0.1760, min Re eig -1.8249, max |Im| 0.0e+00
+   (c) eps=0.015, T=1       eps^2/T= 0.000225: sup|V_peer|/eps^2 = 1.794, sup||D V_peer||_inf/eps^2 = 7.020
+   (c) eps=0.015, T=0.01    eps^2/T=   0.0225: sup|V_peer|/eps^2 = 1.785, sup||D V_peer||_inf/eps^2 = 6.943
+   (c) eps=0.015, T=0.001   eps^2/T=    0.225: sup|V_peer|/eps^2 = 1.700, sup||D V_peer||_inf/eps^2 = 6.231
+   (c) eps=0.015, T=0.0003  eps^2/T=     0.75: sup|V_peer|/eps^2 = 1.468, sup||D V_peer||_inf/eps^2 = 4.442
+   (c) eps=0.015, T=0.0001  eps^2/T=     2.25: sup|V_peer|/eps^2 = 0.830, sup||D V_peer||_inf/eps^2 = 2.122
+   (c) eps=0.015, T=3e-05   eps^2/T=      7.5: sup|V_peer|/eps^2 = 0.072, sup||D V_peer||_inf/eps^2 = 3.933
+   (c) eps=0.015, T=1e-05   eps^2/T=     22.5: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+   (c) eps=0.015, T=1e-06   eps^2/T=      225: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+   (c) eps=0.015, T=1e-08   eps^2/T= 2.25e+04: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+eps=0.05   T=1      : zeros in Q found 0
+eps=0.05   T=0.01   : zeros in Q found 0
+eps=0.05   T=0.001  : zeros in Q found 0
+eps=0.05   T=0.0001 : zeros in Q found 1; box-mate diff 3.9e-16, box opposition 4.4e-16, x_eps-1/2 = -7.952e-09, y_eps-x_eps = -5.6e-17; max Re eig -0.1760, min Re eig -1.8340, max |Im| 0.0e+00
+eps=0.05   T=1e-05  : zeros in Q found 1; box-mate diff 2.2e-16, box opposition 1.1e-16, x_eps-1/2 = +1.110e-16, y_eps-x_eps = +0.0e+00; max Re eig -0.1760, min Re eig -1.8340, max |Im| 0.0e+00
+eps=0.05   T=1e-06  : zeros in Q found 1; box-mate diff 2.2e-16, box opposition 1.1e-16, x_eps-1/2 = +1.110e-16, y_eps-x_eps = +0.0e+00; max Re eig -0.1760, min Re eig -1.8340, max |Im| 0.0e+00
+   (c) eps=0.05, T=1       eps^2/T=   0.0025: sup|V_peer|/eps^2 = 1.684, sup||D V_peer||_inf/eps^2 = 6.173
+   (c) eps=0.05, T=0.01    eps^2/T=     0.25: sup|V_peer|/eps^2 = 1.589, sup||D V_peer||_inf/eps^2 = 5.434
+   (c) eps=0.05, T=0.001   eps^2/T=      2.5: sup|V_peer|/eps^2 = 0.725, sup||D V_peer||_inf/eps^2 = 2.258
+   (c) eps=0.05, T=0.0003  eps^2/T=     8.33: sup|V_peer|/eps^2 = 0.060, sup||D V_peer||_inf/eps^2 = 3.970
+   (c) eps=0.05, T=0.0001  eps^2/T=       25: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+   (c) eps=0.05, T=3e-05   eps^2/T=     83.3: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+   (c) eps=0.05, T=1e-05   eps^2/T=      250: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+   (c) eps=0.05, T=1e-06   eps^2/T=  2.5e+03: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+   (c) eps=0.05, T=1e-08   eps^2/T=  2.5e+05: sup|V_peer|/eps^2 = 0.038, sup||D V_peer||_inf/eps^2 = 4.054
+   (d) eps=0.015, T=1e-06: t=   0.0  in-box separation (+ box) 2.617e-02; in Q: True
+   (d) eps=0.015, T=1e-06: t=  10.0  in-box separation (+ box) 1.205e-04; in Q: True
+   (d) eps=0.015, T=1e-06: t=  25.0  in-box separation (+ box) 8.479e-06; in Q: True
+   (d) eps=0.015, T=1e-06: t=  50.0  in-box separation (+ box) 1.017e-07; in Q: True
+   (d) eps=0.015, T=1e-06: t= 100.0  in-box separation (+ box) 1.668e-11; in Q: True
+   (d) eps=0.015, T=1e-06: t= 150.0  in-box separation (+ box) 1.137e-13; in Q: True

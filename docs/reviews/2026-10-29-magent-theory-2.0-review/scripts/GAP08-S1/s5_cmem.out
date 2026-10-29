@@ -1,0 +1,31 @@
+== (a) cmem:free-energy-split ==
+Z_m(o) = ['0.1479825', '0.15207219', '0.21910549']  Z(o) = 0.18012123
+correlated Q #0: F(def) = 2.58551534083; |F(def) - split| = 0.0; |F(def) - F(log ratio)| = 0.0; F + log Z = 0.8713902
+correlated Q #1: F(def) = 2.51551004165; |F(def) - split| = 5.35e-51; |F(def) - F(log ratio)| = 5.35e-51; F + log Z = 0.8013849
+correlated Q #2: F(def) = 2.35915691847; |F(def) - split| = 0.0; |F(def) - F(log ratio)| = 0.0; F + log Z = 0.64503178
+posterior: F(def) = 1.71412514159; |F(def) - split| = 0.0; |F(def) - F(log ratio)| = 5.35e-51; F + log Z = 0.0
+uniform Q (mass on the null cue): F(def) = +inf, F(log ratio) = +inf, split = +inf
+presentation 0 with Z_0(o) = 0: 0.0 ; posterior weights ['0.0', '0.283978', '0.716022'] (well defined, w_0 = 0; the r-a.e. positivity in the first line of cmem:evidence is not needed)
+
+== (b) cmem:gibbs ==
+max |f_a(separated) - f_a(KL form)| = 5.35e-51
+Gibbs s minimizes KL(s||r) + sum s_a f_a: smallest excess over 300 random s = 0.00066278
+at exact conditionals: max |f_a + log Z_a| = 0.0 ; max |s - w| = 3.34e-52
+
+== (c) cmem:product-label ==
+label update minimizes over s at fixed q_X: smallest excess = 0.00072914
+cue update minimizes over q_X at fixed s: smallest excess = 0.015439
+normalizer of the cue update 0.1698313168 <= sum_a s_a Z_a(o) = 0.176772325
+disjoint cue supports, s = (1/2, 1/2): product of weighted densities = ['0.0', '0.0', '0.0', '0.0'] so the normalizer is 0 and every q_X has KL(q_X||mu_1) or KL(q_X||mu_2) infinite
+
+== (d) the D06-PRED-04 example ==
+Z(0) = 2.7182818284590452354  e = 2.7182818284590452354
+S =             10: int over (e^-S, 1/e) of l log l du = 0.96310211 (closed form 0.96310211)
+S =           1000: int over (e^-S, 1/e) of l log l du = 4.9235708 (closed form 4.9235708)
+S =        1000000: int over (e^-S, 1/e) of l log l du = 11.81554 (closed form 11.81554)
+S =  1000000000000: int over (e^-S, 1/e) of l log l du = 25.631021 (closed form 25.631021)
+the integral of l log l diverges like log S, so KL(posterior || prior) = +inf and the separated form is +inf - (+inf) at the posterior, while KL(posterior || posterior) - log Z(0) = -1
+
+== (e) cmem:joint-covariance with a singular regression ==
+rank F = 1 ; Schur complement - Q = [[0, 0], [0, 0]] ; joint covariance positive definite (Sylvester minors): True [2, 7/4, 7/4, 49/72]
+model covariance minus cmem:joint-covariance: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]

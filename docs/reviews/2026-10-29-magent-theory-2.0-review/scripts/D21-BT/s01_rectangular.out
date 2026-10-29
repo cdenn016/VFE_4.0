@@ -1,0 +1,24 @@
+curvature form dX^dP Q: True
+curvature form dX^(I-P)dQ: True
+curvature form dX^(I-P)dX^T H^-1: True
+curvature form X dP^dP Q (Berry): True
+metric compatibility d_x: True
+trace identity d_x: True
+metric compatibility d_y: True
+trace identity d_y: True
+Tr F = 0: True
+H^-1 F skew: True
+affine law d_x: True
+affine law d_y: True
+witness a: True
+witness F: True
+witness F(0): Matrix([[0, 1], [-1, 0]])
+Laplace pullback F: True
+Laplace F at x=0 vanishes: True
+Laplace F entry (1,2) / x positive factor: (x**2 + 1)/(x**2*y**2 + x**2 + 2*x*y + 2)**2
+scalar a = -s ds/(1+s^2): True
+scalar a exact (gauge-trivial): True
+backtrack-only F_raw at (0,0): Matrix([[-1/9, 2/9], [-2/9, 1/9]])
+backtrack-only F_raw nonzero entry (1,2): (exp(2*x) + 1)*exp(x + y)/(exp(4*x) + 2*exp(2*x) + exp(4*y) + 2*exp(2*y) + 2*exp(2*x + 2*y) + 1)
+reciprocal-only F_rec = 0: True
+ALL BOOLEAN CHECKS TRUE

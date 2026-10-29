@@ -1,0 +1,25 @@
+(a) natural-gradient check of the two nulls (unequal precisions, T_q = 1)
+    kappa=0.0 R1: shape residual 7.9e-31, precision residual 9.9e-31; shape rates -(d alpha/dt)/(alpha-alpha0) = [nan  2.  2.  2.]
+    kappa=0.0 R2: shape residual 3.0e-31, precision residual 2.5e-31; shape rates -(d alpha/dt)/(alpha-alpha0) = [    nan 1.21839 1.12891 1.06683]
+    kappa=1.0 R1: shape residual 3.9e-31, precision residual 9.9e-31; shape rates -(d alpha/dt)/(alpha-alpha0) = [nan  2.  2.  2.]
+    kappa=1.0 R2: shape residual 4.9e-31, precision residual 4.9e-31; shape rates -(d alpha/dt)/(alpha-alpha0) = [    nan 1.03449 1.00604 1.00051]
+
+(b) membership histories (time, joined block); alpha0 = 1, delta = 0.1, T_q = 1, P(0) = I
+  chapter example (1,1.2,1.8,2.1): full flow (every kappa) [(0.346574, (0, 1)), (0.549306, (2, 3)), (1.070033, (0, 1, 2, 3))]
+     R2 null kappa=0.0: [(0.559052, (0, 1)), (1.025291, (2, 3)), (1.79907, (0, 1, 2, 3))]   partition sequence equal: True
+     R2 null kappa=1.0: [(0.650449, (0, 1)), (1.111327, (2, 3)), (2.057807, (0, 1, 2, 3))]   partition sequence equal: True
+     R2 null kappa=5.0: [(0.693147, (0, 1)), (1.098612, (2, 3)), (2.140063, (0, 1, 2, 3))]   partition sequence equal: True
+  gaps (0.30,0.60,0.29): full flow (every kappa) [(0.532355, (2, 3)), (0.549306, (0, 1)), (1.095827, (0, 1, 2, 3))]
+     R2 null kappa=0.0: [(0.889975, (0, 1)), (1.011233, (2, 3)), (1.85441, (0, 1, 2, 3))]   partition sequence equal: False
+     R2 null kappa=1.0: [(1.041093, (0, 1)), (1.076294, (2, 3)), (2.121269, (0, 1, 2, 3))]   partition sequence equal: False
+     R2 null kappa=5.0: [(1.064711, (2, 3)), (1.098612, (0, 1)), (2.191652, (0, 1, 2, 3))]   partition sequence equal: True
+
+(c) scan of d3 at d1 = 0.30, d2 = 0.60 (kappa = 1): first join under full flow vs R2 null
+   d3=0.270: full first (2, 3) at 0.4966; R2 null first (2, 3) at 1.0045; sequences equal: True
+   d3=0.280: full first (2, 3) at 0.5148; R2 null first (0, 1) at 1.0409; sequences equal: False
+   d3=0.285: full first (2, 3) at 0.5237; R2 null first (0, 1) at 1.0410; sequences equal: False
+   d3=0.290: full first (2, 3) at 0.5324; R2 null first (0, 1) at 1.0411; sequences equal: False
+   d3=0.295: full first (2, 3) at 0.5409; R2 null first (0, 1) at 1.0412; sequences equal: False
+   d3=0.299: full first (2, 3) at 0.5476; R2 null first (0, 1) at 1.0413; sequences equal: False
+   d3=0.301: full first (0, 1) at 0.5493; R2 null first (0, 1) at 1.0413; sequences equal: True
+   d3=0.310: full first (0, 1) at 0.5493; R2 null first (0, 1) at 1.0415; sequences equal: True

@@ -1,0 +1,5 @@
+(a) quadrature checks of Z, L and the row weights
+  max |log Z - formula|, |log-odds - L| : 1.33e-15
+  max |Gibbs row (quadrature) - pa:angular-weights| : 1.67e-16
+(b,c) exactness of the full and null parameter fields
+  max coefficient error full: 5.33e-15, null: 3.50e-15; max L2(q) residual outside the span: 1.15e-15

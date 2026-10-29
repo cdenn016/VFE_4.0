@@ -1,0 +1,13 @@
+worst law-level instance (content-only search): max Re = 0.0686375291610235
+  P_0 eigenvalues [0.36825 9.01315], first eigenvector angle 146.03 deg
+  P_1 eigenvalues [ 0.25201 23.87233], first eigenvector angle -160.06 deg
+  P_2 eigenvalues [0.12004 0.27693], first eigenvector angle -85.97 deg
+  edge 1->0: code angle 167.69 deg, R = 0.16296
+  edge 2->0: code angle 11.06 deg, R = 1.3707
+  edge 0->1: code angle 146.60 deg, R = 0.0031266
+  edge 2->1: code angle 161.45 deg, R = 0.0012628
+  edge 0->2: code angle 76.49 deg, R = 0.037363
+  edge 1->2: code angle 23.50 deg, R = 0.0045683
+lam=0.0 sigma2=1.0: loops 5; covariance fixed point from two starts differs by 3.7e-13 (iterations 84, 82); law-level per-agent max Re +0.06864; global max Re -0.0022; RK4 growth |mu(100)-mu*|/1e-6 = 116
+lam=1.0 sigma2=1.0: loops 5; covariance fixed point from two starts differs by 3.7e-13 (iterations 84, 82); law-level per-agent max Re +0.06864; global max Re -0.0022; RK4 growth |mu(100)-mu*|/1e-6 = 116
+lam=5.0 sigma2=0.3: loops 5; covariance fixed point from two starts differs by 3.7e-13 (iterations 84, 82); law-level per-agent max Re +0.06864; global max Re -0.0022; RK4 growth |mu(100)-mu*|/1e-6 = 116

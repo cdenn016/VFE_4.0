@@ -1,0 +1,9 @@
+C_j - KL_j/T for the three sources: ['3.7084323847449726079', '3.7084323847449726079', '3.7084323847449726079']
+predicted constant c_TW + d/(2T) + H(p)/T - c_W/T: 3.7084323847449726079
+max deviation: 7.8886e-31
+rows from C: ['0.593154621901', '0.00307183177598', '0.403773546323']
+rows from KL/T: ['0.593154621901', '0.00307183177598', '0.403773546323']
+Gaussian-receiver constant of eq:sup-row-constant at the same V: 4.2126758370611799984 (differs by (H(p) - H(N(a,V)))/T = -0.5042434523 )
+source 0: d(C_j - KL_j/T) along dM = 1.09422492401216; Tr(V^-1 dV)/(2T) = 1.09422492401216
+source 1: d(C_j - KL_j/T) along dM = 1.09422492401216; Tr(V^-1 dV)/(2T) = 1.09422492401216
+source 2: d(C_j - KL_j/T) along dM = 1.09422492401216; Tr(V^-1 dV)/(2T) = 1.09422492401216

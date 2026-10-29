@@ -1,0 +1,107 @@
+10.1016/j.acha.2010.02.001
+  Singer, A.
+  Angular synchronization by eigenvectors and semidefinite programming
+  Applied and Computational Harmonic Analysis vol=30 no=1 pp=20-36 yr=2011 type=journal-article publisher=Elsevier BV
+10.1007/s41468-019-00038-7
+  Hansen, Jakob; Ghrist, Robert
+  Toward a spectral theory of cellular sheaves
+  Journal of Applied and Computational Topology vol=3 no=4 pp=315-358 yr=2019 type=journal-article publisher=Springer Science and Business Media LLC
+10.1007/s00454-019-00100-2
+  Gao, Tingran; Brodzki, Jacek; Mukherjee, Sayan
+  The Geometry of Synchronization Problems and Learning Group Actions
+  Discrete &amp; Computational Geometry vol=65 no=1 pp=150-211 yr=2021 type=journal-article publisher=Springer Science and Business Media LLC
+10.1137/18M1223101
+  Lim, Lek-Heng
+  Hodge Laplacians on Graphs
+  SIAM Review vol=62 no=3 pp=685-715 yr=2020 type=journal-article publisher=Society for Industrial & Applied Mathematics (SIAM)
+10.1007/BF02566245
+  Eckmann, Beno
+  Harmonische Funktionen und Randwertaufgaben in einem Komplex
+  Commentarii Mathematici Helvetici vol=17 no=1 pp=240-255 yr=1944 type=journal-article publisher=European Mathematical Society - EMS - Publishing House GmbH
+10.1017/S0266466698144043
+  Poirier, Dale J.
+  REVISING BELIEFS IN NONIDENTIFIED MODELS
+  Econometric Theory vol=14 no=4 pp=483-509 yr=1998 type=journal-article publisher=Cambridge University Press (CUP)
+10.2202/1557-4679.1206
+  Gustafson, Paul
+  Bayesian Inference for Partially Identified Models
+  The International Journal of Biostatistics vol=6 no=2 pp=None yr=2010 type=journal-article publisher=Walter de Gruyter GmbH
+10.1007/978-1-4612-5034-0
+  Golubitsky, Martin; Schaeffer, David G.
+  Singularities and Groups in Bifurcation Theory
+  Applied Mathematical Sciences vol=None no=None pp=None yr=1985 type=book publisher=Springer New York
+10.1103/PhysRevLett.24.715
+  Griffiths, Robert B.
+  Thermodynamics Near the Two-Fluid Critical Mixing Point in
+                    <mml:math xmlns:mml="http://www.w3.org/1998/Math/MathML" display="inline">
+                      <mml:mrow>
+                        <mml:msup>
+                          <mml:mrow>
+                            <mml:mi mathvariant="normal">He</mml:mi>
+                          </mml:mrow>
+                          <mml:mrow>
+                            <mml:mn>3</mml:mn>
+                          </mml:mrow>
+                        </mml:msup>
+                      </mml:mrow>
+                    </mml:math>
+                    -
+                    <mml:math xmlns:mml="http://www.w3.org/1998/Math/MathML" display="inline">
+                      <mml:mrow>
+                        <mml:msup>
+                          <mml:mrow>
+                            <mml:mi mathvariant="normal">He</mml:mi>
+                          </mml:mrow>
+                          <mml:mrow>
+                            <mml:mn>4</mml:mn>
+                          </mml:mrow>
+                        </mml:msup>
+                      </mml:mrow>
+                    </mml:math>
+  Physical Review Letters vol=24 no=13 pp=715-717 yr=1970 type=journal-article publisher=American Physical Society (APS)
+10.1109/TAC.2022.3159527
+  Bizyaeva, Anastasia; Franci, Alessio; Leonard, Naomi Ehrich
+  Nonlinear Opinion Dynamics With Tunable Sensitivity
+  IEEE Transactions on Automatic Control vol=68 no=3 pp=1415-1430 yr=2023 type=journal-article publisher=Institute of Electrical and Electronics Engineers (IEEE)
+10.1016/0040-9383(93)90035-T
+  Forman, Robin
+  Determinants of Laplacians on graphs
+  Topology vol=32 no=1 pp=35-46 yr=1993 type=journal-article publisher=Elsevier BV
+10.1214/10-AOP596
+  Kenyon, Richard
+  Spanning forests and the vector bundle Laplacian
+  The Annals of Probability vol=39 no=5 pp=1983-2017 yr=2011 type=journal-article publisher=Institute of Mathematical Statistics
+10.1007/BF00484597
+  Davidson, Donald
+  Belief and the basis of meaning
+  Synthese vol=27 no=3-4 pp=309-323 yr=1974 type=journal-article publisher=Springer Science and Business Media LLC
+10.1162/00335530360698469
+  DeMarzo, P. M.; Vayanos, D.; Zwiebel, J.
+  Persuasion Bias, Social Influence, and Unidimensional Opinions
+  The Quarterly Journal of Economics vol=118 no=3 pp=909-968 yr=2003 type=journal-article publisher=Oxford University Press (OUP)
+10.1257/aer.101.6.2590
+  Kamenica, Emir; Gentzkow, Matthew
+  Bayesian Persuasion
+  American Economic Review vol=101 no=6 pp=2590-2615 yr=2011 type=journal-article publisher=American Economic Association
+10.1016/S0019-9958(59)90348-1
+  Stam, A.J.
+  Some inequalities satisfied by the quantities of information of Fisher and Shannon
+  Information and Control vol=2 no=2 pp=101-112 yr=1959 type=journal-article publisher=Elsevier BV
+10.7151/dmgt.1200
+  Gleiss, Petra M.; Leydold, Josef; Stadler, Peter F.
+  Circuit bases of strongly connected digraphs
+  Discussiones Mathematicae Graph Theory vol=23 no=2 pp=241 yr=2003 type=journal-article publisher=University of Zielona Góra, Poland
+10.1017/CBO9780511802256
+  Vaart, A. W. van der
+  Asymptotic Statistics
+   vol=None no=None pp=None yr=1998 type=monograph publisher=Cambridge University Press
+10.1111/j.2517-6161.1977.tb01600.x
+  Dempster, A. P.; Laird, N. M.; Rubin, D. B.
+  Maximum Likelihood from Incomplete Data Via the
+                    <i>EM</i>
+                    Algorithm
+  Journal of the Royal Statistical Society Series B: Statistical Methodology vol=39 no=1 pp=1-22 yr=1977 type=journal-article publisher=Oxford University Press (OUP)
+10.1007/s11023-026-09789-6
+  Amornbunchornvej, Chainarong
+  Interpretation as Linear Transformation: A Cognitive-Geometric Model of Concepts and Meaning
+  Minds and Machines vol=36 no=3 pp=None yr=2026 type=journal-article publisher=Springer Science and Business Media LLC

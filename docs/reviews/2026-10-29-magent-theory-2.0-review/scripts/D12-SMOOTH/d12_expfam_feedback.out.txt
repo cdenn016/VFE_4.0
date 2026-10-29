@@ -1,0 +1,7 @@
+(a) H_formula - KL simplified: log(-2*a*theta2 + 1)/2 + log(-1/(2*a*theta2 - 1))/2
+    numeric check: 0.06741706535442413 0.0674170653544242
+    grad psi = (E v, E v^2): 0 0
+(b) record probabilities: 0.625 0.375 ; posteriors: [0.9 0.1] [0.5 0.5]
+(c) marked feedback vs direct Bayes through record-flow-record: max residual 6.66e-16
+    within-mark: same marked spectrum True; record law 0.534772 vs 0.534772; same posterior marked state True
+    cross-mark: same marked spectrum False; record law 0.534772 vs 0.437590; same posterior marked state False

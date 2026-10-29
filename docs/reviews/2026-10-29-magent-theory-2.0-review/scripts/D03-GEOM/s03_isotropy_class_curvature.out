@@ -1,0 +1,13 @@
+rank J at c0: 3  |J stab| = 3.624202287500099e-16
+(0) structure-identity residual (all pairs, V([d_mu,d_nu]) = 0): 3.94e-12
+(1) max |J F(A) - J F(A+beta)| over all pairs: 2.29e-13  vs max |J F| = 2.075
+(2) max |F(A) - F(A+beta)| (full curvature): 0.120
+    eigenvalues of h^min at c0: [-4.4716e-16  7.6553e-19  1.6479e+00  1.7401e+00]
+    radical dimension: 2
+(3) max |J F(Z, d_nu)| for Z in radical: 1.18e-12
+    max |J F| on radical x radical: 1.16e-13
+(4) J F(d_1, d_2) = [ 0.0823 -2.0754 -0.308  -0.788  -0.2691 -0.5066 -0.1831 -0.1452]  norm 2.3267
+    |cos angle| between J F(d1,d2) and phase orbit direction J(iI): 1.000000
+(5) max |L_Z h^min| = 1.13e-12  vs max |h^min| = 1.658  |Z| = 1.123
+    |r([Z0,Z1])| = 3.52e-13  vs |[Z0,Z1]| = 0.260
+(6) control non-minimizing A: max |J F - J F(A)| = 0.483 ; max |J F(Z,.)| = 0.299

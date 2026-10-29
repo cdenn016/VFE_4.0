@@ -1,0 +1,20 @@
+(A) closed-form KL(N(0,1)||N(0.5,2)) = 0.159073590280
+    width 2^-0 : partition sum = 0.146993277529   (nondecreasing: True)
+    width 2^-2 : partition sum = 0.158263716878   (nondecreasing: True)
+    width 2^-4 : partition sum = 0.159022743064   (nondecreasing: True)
+    width 2^-6 : partition sum = 0.159070411426   (nondecreasing: True)
+    width 2^-8 : partition sum = 0.159073391598   (nondecreasing: True)
+    width 2^-10: partition sum = 0.159073577862   (nondecreasing: True)
+    width 2^-12: partition sum = 0.159073589504   (nondecreasing: True)
+    width 2^-14: partition sum = 0.159073590232   (nondecreasing: True)
+    delta_0 vs N(0,1), cell width 2^-0 : partition sum = 1.0749
+    delta_0 vs N(0,1), cell width 2^-4 : partition sum = 3.6922
+    delta_0 vs N(0,1), cell width 2^-8 : partition sum = 6.4641
+    delta_0 vs N(0,1), cell width 2^-16: partition sum = 12.0093
+    delta_0 vs N(0,1), cell width 2^-32: partition sum = 23.0996
+(B) disintegration Gamma(. | D0, D1 = h): gain on (d0, h) = (0.5049504950, 0.3465346535), variance = 0.2524752475
+    encoder noise R = 1     : gain = (0.6015936255, 0.1394422311), variance = 0.3007968127, sup_h k(h|d1) = 3.989e-01
+    encoder noise R = 0.01  : gain = (0.5073170732, 0.3414634146), variance = 0.2536585366, sup_h k(h|d1) = 3.989e+00
+    encoder noise R = 0.0001: gain = (0.5049745087, 0.3464831956), variance = 0.2524872544, sup_h k(h|d1) = 3.989e+01
+    encoder noise R = 1e-08 : gain = (0.5049504975, 0.3465346483), variance = 0.2524752487, sup_h k(h|d1) = 3.989e+03
+    encoder noise R = 1e-12 : gain = (0.5049504950, 0.3465346535), variance = 0.2524752475, sup_h k(h|d1) = 3.989e+05

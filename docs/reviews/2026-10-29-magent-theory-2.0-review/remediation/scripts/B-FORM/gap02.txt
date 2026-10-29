@@ -1,0 +1,152 @@
+### GAP02-S2-01: The late comparison closes with eps_b = 1 by a validated interval certificate, so A = 34 is admissible; adopting it requires the horizon to stop at a = a_*
+**Category:** improvement
+**Severity:** medium
+**Location:** chapters/12_open_formation.tex:222-228 (late comparison in the proof of `open:routing`: "persist when the initial half-gap at a=4 is below some eps_b>0"), :252 (`open:constants`: "that enclosure is not part of the proof"); companion/c12_open_formation.tex:80
+**Evidence:** The certificate works in the reduced core system `open:core` (12:176-183) on the region Omega_eps = {a_* <= a <= 4, 0 <= b <= eps a/4}, where a_* = sqrt(log 2) is the point at which B = 1/5 when b = 0. I verified five conditions by enclosures that are rigorous up to mpmath's own correctness: mpmath 1.3.0 `iv`, 64-bit precision, outward rounding, adaptive bisection with box widths forced to at most 1/512 in a and 1/1024 x 1/256 on the crossing set (`s2_epsb_certificate.py`, 9.7 s).
+(I) Face condition. On b = eps a/4 I evaluated Phi_I = (eps/4) f_a - f_b in closed form as a function of a alone, (eps/2)(c_p - c_0) + (2 - eps/2)(1 + eps/4) v_+/Z_+ - (2 + eps/2)(1 - eps/4) v_-/Z_-, times a. This agrees with the generic field to 2e-20. It is positive, so d/dt(b - eps a/4) < 0 on the face. Since f_a <= -a < 0 on Omega (because a > b) and b = 0 is invariant, a trajectory from (4, b_0) with 0 < b_0 <= eps stays in Omega until a = a_*, which it reaches within log(4/a_*) = 1.56955.
+(III) On every box where the enclosure of B contains 1/10, Bdot = B_a f_a + B_b f_b > 0. The crossing is therefore unique and transverse.
+(III') Bdot is also positive on the band |B - 1/10| <= 0.01. This gives `open:persistence` its margins (m, s) for the parent crossing.
+(IV) B(4, b) < 1/10 for b <= eps, and B(a_*, b) > 1/10 for b <= eps a_*/4.
+(V) First-pair weights stay at least 1/10 + 0.002 and contrasts at least 1/20 + 0.002 on Omega. This uses the monotonicity of w/(1+w+s) and (w-s)/(1+w+s), with w >= e^{-2(eps a/4)^2} and v_0 + v_pm <= e^{-2a^2} + e^{-2(a - eps a/4)^2}.
+Results for eps = 1, all PASS:
+- (I): k - |f_a|/a >= 0.1548. The float64 minimum is 0.1598, at a = a_*.
+- (III): Bdot >= 0.4091 on 425 crossing boxes, with crossing at a in [1.0468, 1.1233] (float64 minimum 0.4156). The crossing therefore happens within log(4/1.0468) = 1.3406 of t_A, earlier than S = 1.42670.
+- (III'): Bdot >= 0.3714 on the band.
+- (IV): start B <= 1.29e-14; exit B >= 0.19935.
+- (V): first-pair weight >= 0.1192 and contrast >= 0.0794 (float64 minima 0.119203 and 0.079414).
+- sup over Omega of |f_a|/a <= 1.8548, so the parent window after the crossing lasts at least log(1.0468/a_*)/1.8548 = 0.1234.
+For eps = 1/4 all conditions also pass, with Bdot >= 0.5386 on the crossing, 0.5015 on the band, and first-pair contrast margin 0.125. Since 2(34/4)^{-0.975} = 0.24823 < 1/4 (`s1`), the text's own bound `open:small-gap` already puts A = 34 inside the eps = 1/4 certificate. The eps = 1 certificate needs only A > 8.144, so the early phase (A >= 33.163, `s1`) is the binding constraint.
+These numbers confirm 2026-10-22 G1-02 and sharpen its face margin from 0.0838 to 0.1548. G1 used float64 with 4-ulp padding and the mean-value form; the closed form removes that overestimation.
+The horizon caveat. The text fixes L = t_A + S, which is right for its persistence-based eps_b because the perturbed trajectory stays near the b = 0 reference, and that reference reaches a_* exactly at S. The certificate says nothing after the trajectory leaves Omega. `s3b` shows that at A = 34 the first-pair contrast falls to 1/20 - 0.023 by t_A + log(4/a_*), after the exit. So with eps_b = 1 the horizon must be the exit time.
+**Fix:** Replace the persistence sentence at 12:228 by a lemma. For every b_0 in (0, 1], the trajectory of `open:core` from (4, b_0) stays in Omega_1 until the time T_exit <= log(4/a_*) at which a = a_*. On Omega_1 the first-pair weights exceed 0.119 and the contrasts 0.079. B crosses 1/10 exactly once, at some a in [1.046, 1.124] and within 1.341 of entry, and Bdot >= 0.37 while |B - 1/10| <= 0.01. Cite the validated computation of conditions (I), (III'), (IV) and (V). Set L = t_A + T_exit. A = 34 is then admissible, and the remark's A = 4096 too, which removes D16-OPEN-07 (i). `open:constants` can then drop "not part of the proof", and the companion at c12:80 can say that the crossing persists for every residual gap below 1.
+**Falsifies:** A point of Omega_1 violating (I), (III), (IV) or (V). Equivalently, an error in mpmath's interval `exp`, or a residual in the reduction `open:core`, which D16-OPEN and G1 matched to the four-agent field to about 1e-15.
+
+### GAP02-S2-03: The R-step derivative bound grows with R through the field bound M, and the Jacobian-difference bound it states is not an input of open:persistence
+**Category:** gap
+**Severity:** low
+**Location:** chapters/12_open_formation.tex:243 ("The same quotient-rule bookkeeping bounds the differences of the Jacobians and of the block-row gradients by absolute multiples of (1+D_R^2)phi(D_R) ... None of these constants depends on A or R"); :139 (`open:persistence-bounds`: eta_1 M + L_1 Delta M + G(e + C Delta))
+**Evidence:** On the radius-one tube about the decoupled reference, the far-pair coordinates reach Re^{-t} + 3. Since |u_i| - 2(n-1)e^{-1/2} <= |Psi_i| <= |u_i| + 2(n-1)e^{-1/2}, any admissible M satisfies D_R + A - 4 <= M, and M = R + 3 + 10e^{-1/2} suffices, so the terms eta_1 M and L_1 Delta M of the derivative bound grow linearly in R. For a core observable O (decoupled), and its six-agent version, I derived three bounds, with D >= 1, phi = e^{-D^2/2}, n' the complement size and S_K = (|K|-1)e^{-1/2}. The full gradient difference satisfies |grad(O~ - O)|_1 <= n' phi (8 S_K + 4D + 3 n' D phi), which for the core is phi(29.1 + 8D + 12 D phi). Its far components satisfy n' D phi (2 + n' phi), and they multiply the far velocity of size Re^{-t}. The value difference satisfies |O~ - O| <= 2 n' phi for contrasts and n' phi for in-cluster rows; the text's 2 phi for the core-parent row is a case of this. Sampled ratios to these bounds are at most 0.33 for the field, 0.027 for rows and contrasts, 0.013 for the core gradient, 0.03 for the far part and 0.21 for the far-pair gradient, in float64 over 1500 tube configurations with D in [2.5, 7]. At 40 digits over 150 configurations with D in [3, 12] they are at most 0.28 and 0.18 (`s3` [3], [3b]). A first float64 run with D up to 12 showed a ratio of 7.9 for the field. That was cancellation: there the bound is below the roundoff of a difference of two order-10 fields. The step closes because R = (D_R + A + 6)e^L, so every error term is O((D_R + A)e^L (1 + D_R)phi(D_R)) and tends to zero as R grows. The text does not say this. "None of these constants depends on A or R" is true of the multiples and silent about M. `open:persistence` needs a Lipschitz constant of the reference field Phi, which is the decoupled field, together with the observable closeness eta_0 and eta_1. It does not need Jacobian differences. I bound the decoupled Lipschitz constant by C_4 = 1 + 2[min(1 + 6/e, 3) + 9/e] + 3[2 + 6/e] <= 26.24 and C_2 <= 6.47, independent of A and R as the text says. The Jacobian formula behind this agrees with central differences to 5e-10.
+**Fix:** Add the following to the R-step. On the tube, M <= R + 3 + 10e^{-1/2}. The in-cluster gradient difference is at most phi(D_R)(29.1 + 8D_R + 12 D_R phi(D_R)), and the far part at most 2 D_R phi(D_R)(2 + 2 phi(D_R)). Since R = (D_R + A + 6)e^L, each term of `open:persistence-bounds` tends to zero as R grows. Replace "the differences of the Jacobians" by "the Lipschitz constant of the decoupled field (at most 26.3)".
+**Falsifies:** A tube configuration on which the far components of grad(O~ - O) exceed 2D phi(2 + 2 phi), or a configuration on which the decoupled Jacobian row sums exceed 26.25; the samples found neither.
+
+### GAP02-S2-04: Confirms D16-OPEN-06 and makes the fix precise: the anchored representative ends where an anchor moment vanishes, while the quotient flow is global
+**Category:** gap
+**Severity:** low
+**Location:** chapters/12_open_formation.tex:362-379 (`open:parent-flow`, "On the regular local chart"), :503-507 (`open:all-partitions`, "suppose every anchor moment is nonzero at t_0"), :359-360 (`open:global-anchor`)
+**Evidence:** Under `open:angular-flow` take the even profile f_0 ∝ exp(-0.3 cos θ + 2.5 cos 2θ + 1.2 cos 3θ). Its anchor moment u(rho) is real, equals 0.37089 at rho = 1, and changes sign at rho* = 0.235144, that is t* = 0.723779 (`s4` [4]); D16-OPEN found 0.236 and 0.72. At t* the phase arg u jumps by π. The slice representative of that child then jumps by a rotation of π, and omega_i is undefined. The quotient flow is unaffected: equivariance and uniqueness define the orbit flow for all t (12:365). Along the moving flow d/dt arg u~_i = omega_bar_I for i in I. I derived this from integration by parts: d u~_i/dt = ∫e^{iθ}V_i dν + i(omega_bar_I - omega_i)u~_i. `s4` [2] confirms it to six digits. So the slice is preserved up to the first zero t_1 of the product of the block's anchor moments, and no further. The theorem is unaffected. On [0, L] the reference moments I_1(e^{-2t}κ_*)/I_0(e^{-2t}κ_*) are bounded below, and the proof of `open:formation` (12:521) shrinks the neighborhood to keep the phase chart.
+**Fix:** In `open:parent-flow` write "On the regular local chart, up to the first time an anchor moment of a block vanishes". In `open:all-partitions` replace "nonzero at t_0" by "nonzero on [t_0, t_1)", and add that the orbit flow exists for all t. One further point is cheap to state. The non-symmetric representative of `open:global-anchor` rotates children j >= 2 to phase zero and child 1 by the sum of their phases. It is H_I-canonical without ϑ_1: under b in H_I it maps to a - b because sum b = 0. So it needs only |I| - 1 nonzero moments, and a single vanishing moment can be bypassed by choosing which child is distinguished.
+**Falsifies:** A proof that anchor moments stay nonzero along every trajectory whose moments are nonzero initially; the profile above is a counterexample.
+
+### GAP02-S2-05: The C^r-neighborhood claim at 12:489 rests on an unstated C^2 flow-map lemma, and C^1 in the angle suffices for it
+**Category:** gap
+**Severity:** low
+**Location:** chapters/12_open_formation.tex:489 ("Smooth dependence of the fine field and its contextual variational equations preserves these bounds ... this step uses the C^r chart, since the rotation scores are angular derivatives"); :477-487 (`open:equivariant-lift`); :521 (proof of `open:formation`)
+**Evidence:** Reconstruction. Take the tied common S^1 and the lift of `open:equivariant-lift`, which is a pure belief rotation in χ with context-independent model sections. Then A_χ = -a/(a+b). Here a(κ, t) is the total belief rotation inertia, the sum over i of ∫(∂_θ q_i)^2/q_i dν at context κ. b(t) is the total model inertia, and it does not depend on κ at any time, because the model sector evolves autonomously from context-independent data. A_κ does not depend on χ, since single-factor Fisher pairings are rotation invariant. Hence F = ∂_κ A_χ = -b ∂_κ a/(a+b)^2. Bit-marginal scores are Fisher-orthogonal to ∂_θ q and drop out of the connection. At the reference this reproduces `open:curvature` to 1.8e-8, 7.8e-9 and 1.3e-9 at t = 0, 0.5 and 1, for a two-agent block under the full fine flow. At a correlated law perturbed by 0.05 it stays within 1.3 percent of the reference, and so do h_χχ and the anchor moments. ∂_κ a converges at second order under δ -> δ/2 (`s5`). The curvature therefore needs the jets ∂_κ q(t), ∂_θ q(t) and ∂_κ∂_θ q(t), and no second angular derivative.
+The lemma the sentence needs has four parts.
+(i) The fine field is real analytic on the open set of log-densities in L^∞. It is built from exp, log, finite sums and bounded integrals, with no angular derivative. So Φ_t is C^2, with derivatives continuous in the initial point uniformly on [0, L]; this is standard Banach-space ODE theory, for example Dieudonné, Foundations of Modern Analysis, ch. 10 (locator from memory).
+(ii) Equivariance transports angular derivatives: ∂_θΦ_t(q) = DΦ_t(q)∂_θ q, and ∂_κ∂_θ q(t) = D^2Φ_t[∂_κ q(0), ∂_θ q(0)] + DΦ_t[∂_κ∂_θ q(0)].
+(iii) x -> (q_{i,x}, ∂_κ q_{i,x}, ∂_θ q_{i,x}, ∂_κ∂_θ q_{i,x}) is continuous from C^1 to C^0, which uses continuity of ϑ_i(x).
+(iv) The context patch times [0, L] is compact.
+With (i)-(iv) the claim holds, and r >= 1 suffices. This answers the question left open by 2026-10-22 L09-OPEN-11: r >= 3 is not load-bearing here.
+**Fix:** State the lemma (i)-(iv) after 12:489. Say that the geometric neighborhood is open in C^1, hence in C^r, and that uniform closeness of log-densities, the topology of `open:open-laws`, is not enough for this step.
+**Falsifies:** A step of the geometry that needs two angular derivatives. The χ-equivariant reduction above has none.
+
+### GAP02-S2-06: The finite-dimensional gradient-flow clause of open:quotient-gradient does not distinguish the quotient metric from the slice metric
+**Category:** weakness
+**Severity:** low
+**Location:** chapters/12_open_formation.tex:389 ("Its gradient structure is that of the quotient metric"), :397 (von Mises clause), :402 ("the last statement does not exercise it")
+**Evidence:** On the product von Mises family, E is invariant under all of (S^1)^{2N}, and parity makes the Fisher metric block diagonal between phase and non-phase directions. So grad E has no phase component, the phases are constant and the moving term vanishes, as 12:402 says. The two metrics of `open:two-metrics` differ only on phase directions, so the restricted flow is equally the gradient flow of the restricted energy for the slice-induced metric. The clause therefore cannot single out the quotient metric. What does distinguish the two is the pointwise dissipation identity. With moving phases the slice velocity has squared norm g(V,V) + g(Jη, Jη), where η_i = omega_bar_I - omega_i. On a correlated three-agent instance, `s4` [3] gives g(Jη, Jη) = 0.239 at t = 0 and 3.4e-3 at t = 0.6, while g(V, J_i) vanishes to 1e-15 and dE/dt + g(V,V) = 2.7e-6. Only the quotient metric satisfies `open:quotient-dissipation`. The sentence at 12:389 is thus supported by the dissipation identity, not by a gradient-flow statement on any family where the phases move.
+**Fix:** Prove the gradient-flow clause on the product family with two-harmonic angular factors f ∝ exp(κ_1 cos(θ - χ) + κ_2 cos(2(θ - χ) - α)), κ_1 > 0. It is invariant, because f^ρ stays in the family with χ and α fixed. The H_I action on χ is free (κ_1 > 0), proper and isometric. The anchor phase moves; D16-OPEN-05's profile cos θ + 2cos(2θ - 1) belongs to the family. The same argument via `inh:gradient-inheritance` then applies with a nonzero moving term. Alternatively, write "its dissipation is that of the quotient metric" at 12:389.
+**Falsifies:** An invariant finite-dimensional family, in the text, on which the anchor phases move and the clause is proved.
+
+### GAP02-S2-07: Symbol clashes across open:selector, open:persistence and open:open-laws
+**Category:** consistency
+**Severity:** low
+**Location:** chapters/12_open_formation.tex:89 (ε = 1/10, δ = 1/20), :130-143 (M, e, δ_0, L, L_1, G, K_ρ), :228 (ε_b, L), :298-302 (M, ε, e_0)
+**Evidence:** In `open:open-laws`, M is the oscillation bound of the log-conditionals, while in `open:persistence`, applied in the same proof, M is the field bound. The ε in "Mε < h e_0" is the largest conditional difference, while ε = 1/10 is the selector threshold fixed at 12:89. δ = 1/20 sits beside δ_0, and L (horizon) beside L_1 (gradient Lipschitz constant). XC4-CONS listed the G and K_ρ clashes, not these.
+**Fix:** Rename the oscillation bound (for example Θ) and the conditional difference (for example ε_c, the 2026-10-22 L09-OPEN-04 notation), and keep M for the field bound.
+**Falsifies:** Distinct macros already separating these symbols in the source.
+
+## Checked without defect
+
+"Hand" means a derivation I redid; residuals are maxima over the stated samples.
+
+| Label or item | What was checked | Method | Result |
+|---|---|---|---|
+| open:interior, open:logit-bound | max/min logit comparison: at the max, both peer sums of ϑ̇_i are nonpositive; global interior solution; convergence | hand | correct (Dini-derivative comparison, standard; no citation in the text) |
+| open:persistence, open:persistence-bounds | Gronwall on convex slices; first exit; four-term split of the derivative difference; single transverse zero in I | hand | correct for time-independent observables, which is every use in the chapter |
+| open:limit | scaled field and rows analytic in (h^2, u); limit field; gradient of Σ u_i^2/2 - Σ_i log Σ_k e^{-(u_i-u_k)^2/2} | hand | correct (expansion also checked by D16-OPEN and G1) |
+| open:core | two normalizers, reduction from the four-agent field | hand | correct |
+| open:early-bounds | g_c' = E[c(1-4r^2)+E]/(c+E)^2 and its bound; constants | hand; `s1` [1] at 40 digits | 68e^{-8} = 0.0228115; 1-68e^{-8} = 0.977189 > 0.977; 3+68e^{-8} = 3.02281 < 3.03; 1+4e^{-32}+4e^{-8} = 1.0013419 < 1.0014; max ratio of the exact |g_c'| to its bound 0.99501 |
+| early phase (12:200-212) | τ, a(τ), ẇ >= w/2, the bound on the derivatives of v_0 and v_pm, p(τ) | hand; `s1` [2] | log 4/0.977 = 1.418930 < 1.42; e^{-1.0014·1.42} = 0.241234 > 0.239; A >= 33.163 suffices; p(τ) >= 0.377383; derivative bound at a = 8 is 5.2e-29 |
+| open:small-gap | t_A bounds; exponent 0.977/1.0014 = 0.975634 >= 0.975 | hand; `s1` [2] | A = 34: t_A in [2.137074, 2.140066], b(t_A) <= 0.248226; A = 4096: <= 2.3227e-3 |
+| late comparison at b = 0 (12:222-228) | B = v/(1+v), p = (1-B)/2, ȧ = -a(1+4B), Ḃ; a_c, a_*, S | hand; `s1` [3] | a_c = 1.04814707, a_* = 0.83255461, S = 1.42669571 <= 1.56955082, Ḃ(a_c) = 0.55370059, time 4 -> a_c 1.28167246 |
+| late comparison for b(t_A) <= 1 | invariant region, crossing, windows | validated intervals `s2` | GAP02-S2-01 |
+| third pair (12:230-235) | antisymmetric interaction, ḃ_c = -b_c(1+4p_c), p_c(log 4) > 1/4 | hand | correct |
+| open:distant-bound | normalizer changes in both directions plus cross forces: core (12e^{-1/2}+4D)φ, pair (8e^{-1/2}+8D)φ, both <= 8(e^{-1/2}+D)φ for D >= 1 | hand; `s3` [3], [3b] | sampled ratio <= 0.33 (float64) and 0.28 (40 digits, D in [3, 12]) |
+| core-parent row difference <= 2φ(D_R); cross masses <= 4φ(D_R) < 10^{-3} for D_R > 4.07 | w_ij - w~_ij = -w~_ij ε_i/Z_i | hand; `s3` | sampled ratio <= 0.022 |
+| Lipschitz constant of the decoupled field independent of A and R (12:243) | row sums of DF with M_i = Σ_j w_ij x_ij, N_i = Σ_j w_ji x_ij | hand; `s3` [1], [2] | C_4 <= 26.24, C_2 <= 6.47 (C_6 <= 57.15); Jacobian formula agrees with central differences to 5e-10 |
+| quantifier order A -> eps_b -> L -> R -> h -> δ_0 -> correlation budget | dependency audit with the rederived constants | hand; `s3` [5], [6] | no circularity; with eps_b = 1 the order becomes A >= 34 -> L = t_A + T_exit -> R -> h -> δ_0 |
+| h-step (12:245) | h(R+3) < 1; C^1 convergence on the compact tube by analyticity in h^2 | hand | correct; needs Δ_R <= 1/2 from the R-step for the stated bound R+3, which "R sufficiently large" provides |
+| open:null-control | null binary field; D16-OPEN-04's replacement proof that -ḃ/b > 1 (rate >= 1 + 2w/Z_+ for b >= 1/2 via b e^{-2b^2} >= (a-b)e^{-2(a-b)^2}; >= 1.4768 for b <= 1) | hand | the replacement proof is correct; the margin at (4, 2) is about 2e^{-8} |
+| open:constants | t_A, L, R, the admissibility and tube bounds | `s1` [4] | t_A = 6.9315, L = 8.35817, R = 1.7537e7 (D_R = 10), T < 3.25e-15, T < 7.2e-22 before Gronwall; A = 4096 needs eps_b >= 2.3227e-3 |
+| open:reduction, open:conditional-flow, open:bit-forcing | h_i^q = 2 log f_i + φ_i(z); ∂_t log f_i = -2(log f_i - E[log f_i\|z]); forcing -(1/2)(1-x^2)(c(1)-c(-1)) from Cov(z, c); logit bounds; convergence | hand | correct |
+| open:product-reference, open:angular-flow | invariance; f_0^{e^{-2t}} | hand | correct (von Mises phase fixed; general phases move, D16-OPEN-05) |
+| open:open-laws | dR_ρ/ds = ρ^2 Cov(ℓ_s, ς); \|Cov\| <= osc(ℓ_s)‖ς‖_∞; scaled forcing <= e^{-4t}Mε/h; openness under uniform convergence of log-densities | hand; `s4` [5] | correct; max ratio to the stated bound 0.085 over 300 profiles and three ρ. Grüss's inequality gives \|Cov\| <= osc(X) osc(Y)/4, so \|c(1)-c(-1)\| <= (1/2)ρ^2 M osc(Δℓ) <= ρ^2 M ‖Δℓ‖_∞, a factor-2 improvement that needs no normalization (Grüss, Math. Z. 39 (1935), locator from memory) |
+| open:final-merge | limits -1/2, 0, 1/3, 2/3; event no later than the time when all strict inequalities hold | hand | correct |
+| open:parent-flow, open:moving-flow | ȧ_i = omega_bar_I - omega_i; equivariance; slice preservation d/dt arg u~_i = omega_bar_I; uniqueness: x = τ_{-b}y with ḃ = omega_bar - omega solves the fine equation in the sup norm, where the fine field is Lipschitz | hand; `s4` [1], [2] (independent implementation, 128 angles, correlated laws, fourth-order time stencil) | residual 1.3e-10 to 1.7e-12 against 0.98 to 1.2e-2 without the moving term; omega(x~) = omega(x) to 1.8e-15; slice phase identity to 6 digits |
+| open:two-metrics | Lagrange minimization; slice minus quotient = (I_1-I_2)^2/(4(I_1+I_2)) dF^2 | hand | correct |
+| open:quotient-gradient, open:quotient-dissipation | V ⊥ orbit directions; the moving term is the vertical part; dĒ/dt = -g(V,V); Riemannian submersion on the von Mises family | hand; `s4` [3] | correct; weakness GAP02-S2-06 |
+| open:response (12:406-411) | pushforward of the product law; same kernel from the parent law when Σ a_i = 0 | hand | correct |
+| open:equivariant-lift, open:curvature via F = -b ∂_κ a/(a+b)^2 | reduction, closed form, continuity at a perturbed law | hand; `s5` | closed-form match to 1.8e-8; perturbed law within 1.3 percent |
+
+Companion c12:41-103 against the main text (focus question 3):
+
+| Companion | Statement | Recomputation | Status |
+|---|---|---|---|
+| c12:43-50 | conditional relaxation co:angular, forcing, von Mises κ e^{-2t} | = open:reduction, open:angular-flow | agrees |
+| c12:52-59 | co:limit and the log-sum-exp gradient flow | = open:limit | agrees |
+| c12:61-67 | -1.0014a <= ȧ <= -a, -3.03b <= ḃ <= -0.977b, initial partner weight <= e^{-8} | 1.0013419, 3.0228115, 0.9771885 | agrees with 12:195 after rounding |
+| c12:69-73 | crossing of 1/10; b <= 2(A/4)^{-0.975} | exponent 0.975634 | agrees |
+| c12:75-80 | B = v/(1+v), ȧ = -a(1+4B), crossing at sqrt(log 9/2), second stage near log A | 1.04814707; parent event at t_A + 1.2817 = log A - 0.105 (A = 4096) | agrees |
+| c12:82 | cross forces bounded by a constant times (1+D)e^{-D^2/2}; masses < 10^{-3} | 8(e^{-1/2}+D)φ <= 8(1+D)φ; 4φ(D_R) < 10^{-3} needs D_R > 4.07 | agrees |
+| c12:84-94 | block rows, criterion, partner uniqueness | = open:block-row, open:contrast | agrees |
+| c12:96 | far pair near u ≈ 2×10^7; T below 10^{-15}, or about 10^{-21} | true only for A = 4096 (R = 1.754e7 at D_R = 10, 2.03e7 at the rigorous D_R = 22.4); with rigorous constants the written route implies T < 5.4e-232 (A = 4096) and 3.2e-101 (A = 34) | inaccurate, as in D16-OPEN-07; the numbers here sharpen it |
+| c12:100 | events move by less than ten percent; peer forces contract the pairs faster | 9.85 and 0.69 percent; the contraction claim is true but its stated support is not (D16-OPEN-04) | as D16-OPEN-04 |
+| c12:102 | rows -> 1/6; contrasts -> 1/6 - 4/6; two-block rows -> 2/6 and 4/6 | -1/2, 1/3, 2/3 | agrees |
+
+## Prior-review findings in scope
+
+| 2026-10-22 ID | Status | Evidence |
+|---|---|---|
+| G1-01 | partially resolved | `open:constants` (12:252) discloses the common-mode term and the 1e-21 bound before Gronwall; the centre-relative comparison is not carried out (GAP02-S2-02) |
+| G1-02 | partially resolved (the manuscript keeps a nonconstructive eps_b at 12:228; the enclosure is now recertified with validated arithmetic) | GAP02-S2-01 |
+| G1-03 | resolved | `open:persistence` (12:129-146); closeness facts at 12:243 and 12:245 |
+| G1-04 | resolved | R-step in original coordinates (12:237-243) |
+| G1-05 | partially resolved | C^0 constant printed at 12:240; the C^1 constants are described, not printed; rederived here (GAP02-S2-03) |
+| L09-OPEN-04 | partially resolved | 12:252, 12:519 disclose the unquantified temperature; the late step can now be constructive (GAP02-S2-01); orders of magnitude of the written route in GAP02-S2-02 |
+| L09-OPEN-11 | partially resolved | topology stated (12:12, 296, 512); the question whether r >= 3 is load-bearing is not answered in the text; it is not (GAP02-S2-05) |
+| L09-OPEN-15 | unresolved | `open:necessity-open` (12:532) lists validated witness constants as open; the late-phase piece is supplied here |
+| X4-PRIOR-06, X1-GAUGE-07 | resolved, with the weakness GAP02-S2-06 | `open:quotient-gradient` (12:391-402) |
+| X1-GAUGE-08 | resolved | `open:reduction` (12:258-276), `open:open-laws` (12:295-303) |
+| X4-PRIOR-14, X5-IMPL-07 | partially resolved | disclosed in `open:constants`; with GAP02-S2-01, A = 34 is admissible; R, h and the neighborhood radius are not explicit in the manuscript |
+
+## Extensions and improvements
+
+The fastest route to an explicit witness reuses what is now certified. The early phase is analytic for A >= 33.163, and the late phase is the validated region certificate of GAP02-S2-01. The third pair is the scalar comparison ḃ_c = -b_c(1+4p_c), whose band crossing can be certified by the same 1-D interval bisection. What remains are the R-step, the h-step and the initial-data step, and all three go through `open:persistence`. In its present form the lemma multiplies every error by e^{CL} with a global Lipschitz constant. The rigorous bounds are 26.24 for the core and 57.15 for six agents, and they give the absurd scales of GAP02-S2-02. Two changes avoid this. A one-sided version, D^+|Y - X| <= e + mu_bar|Y - X|, needs only the slice supremum mu_bar of the logarithmic norm. Along the A = 34 reference mu_inf is at most 0.204 and integrates to -2.66, so the Gronwall factor should be of order one. Enclosing mu_bar is a four-dimensional and a two-dimensional interval computation of the same kind as `s2`. Then do the h-step relative to each cluster's centre, which removes the common-mode term (2/3) h^2 R^3 and leaves relative errors of order h^2 U^2. With D_R around 7 and R around 2e3 at A = 34, the temperature should come out near 1e-9. The open-law budget becomes Mε < h e_0, with e_0 a fixed fraction of the certified margins (0.37 for crossings, 0.06 for windows). This would turn `open:formation` into a theorem with stated T, horizon and neighborhood radius. That is a prerequisite for the interaction-necessity programme of `open:necessity-open`, because D16-OPEN-10's moderate-separation candidate sits at T between about 1e-6 and 1e-4.
+
+A second improvement concerns the gradient structure of the parent. The two-harmonic product family of GAP02-S2-06 is invariant and finite-dimensional, H_I acts on it freely, properly and isometrically, and its anchor phases move. On this family the gradient-flow clause of `open:quotient-gradient` would be a statement with content. The parent flow is the quotient gradient flow, and the anchored representative moves with a nonzero vertical correction. The slice-metric gradient differs from both, by the computable amount (I_1 - I_2)^2/(4(I_1 + I_2)) in the two-child case.
+
+A third point concerns the regular chart. Since `open:global-anchor`'s non-symmetric representative needs only |I| - 1 anchor moments, the anchored parent flow can be continued through an isolated zero of one moment by re-choosing the distinguished child. A rule that does this, chosen before selection and invariant under relabeling within a block, would make the parent dynamics of `open:all-partitions` global in time on an open dense set of initial laws. The orbit flow is already global, so only the representative needs the rule.
+
+## Not checked
+
+- I did not certify, by interval arithmetic, the early phase, the third pair, the R-step, the h-step or the initial-data step. Their constants were derived by hand and sampled (`s3`, `s3b`). The margin floors m = s = 0.01 for the first-pair and third-pair crossings rest on the analytic early-phase bounds and float64 readouts, not on a certificate. Only the parent crossing (band Bdot >= 0.3714) and the late-phase windows are certified (`s2`).
+- I estimated the h-step error at leading order only, from the common-mode term (2/3) h^2 u^3. I did not bound the higher-order terms or the exact-versus-limit row gradients.
+- The Hessian bound L1_n and the in-cluster eta_1 bound were derived by hand and sampled, not written as a formal proof.
+- The claim at 12:489 was tested at one perturbed law with a two-agent block, not the six-agent population. The C^2 flow-map lemma is sketched, not proved in full.
+- I did not check the measurability or weak-strong uniqueness questions of the C^r chart beyond the sup-norm Lipschitz property of `open:force`; they belong to GAP04.
+- I did not adjudicate the null control, (F5) or (F6b) (D16-OPEN-01 to -03, -08, -10), and I did not reread `open:formation` beyond its proof at 12:521.
+- I did not reopen the cited sources: Dahlquist 1958, Lozinskii 1958, Söderlind 2006, Grüss 1935, Dieudonné, O'Neill 1966. Their locators are from memory, and no Exa tools were used.
+- I read companion c12:104-187 but did not recompute it. I did not rerun the 2026-10-22 G1 scripts s2 to s4.
+

@@ -1,0 +1,247 @@
+# 87 bib entries carry a DOI; checking indices 0..18
+== Abbas2009 [references.bib, @article]
+  bib author: Abbas, Ali E.
+  bib title: A {K}ullback-{L}eibler View of Linear and Log-Linear Pools
+  bib journal: Decision Analysis
+  bib volume: 6
+  bib number: 1
+  bib pages: 25--37
+  bib year: 2009
+  bib doi: 10.1287/deca.1080.0133
+  CR authors: Abbas, Ali E.
+  CR title:   A Kullback-Leibler View of Linear and Log-Linear Pools
+  CR venue:   Decision Analysis
+  CR vol/iss/pages: 6/1/25-37  article-number: None
+  CR date: [2009, 3]
+== Amari1998 [references.bib, @article]
+  bib author: Amari, Shun-ichi
+  bib title: Natural Gradient Works Efficiently in Learning
+  bib journal: Neural Computation
+  bib volume: 10
+  bib number: 2
+  bib pages: 251--276
+  bib year: 1998
+  bib doi: 10.1162/089976698300017746
+  CR authors: Amari, Shun-ichi
+  CR title:   Natural Gradient Works Efficiently in Learning
+  CR venue:   Neural Computation
+  CR vol/iss/pages: 10/2/251-276  article-number: None
+  CR date: [1998, 2, 1]
+== AyJostLeSchwachhofer2015 [references.bib, @article]
+  bib author: Ay, Nihat and Jost, J{\"u}rgen and L{\^e}, H{\^o}ng V{\^a}n and Schwachh{\"o}fer, Lorenz
+  bib title: Information Geometry and Sufficient Statistics
+  bib journal: Probability Theory and Related Fields
+  bib volume: 162
+  bib pages: 327--364
+  bib year: 2015
+  bib doi: 10.1007/s00440-014-0574-8
+  CR authors: Ay, Nihat; Jost, Jürgen; Lê, Hông Vân; Schwachhöfer, Lorenz
+  CR title:   Information geometry and sufficient statistics
+  CR venue:   Probability Theory and Related Fields
+  CR vol/iss/pages: 162/1-2/327-364  article-number: None
+  CR date: [2015, 6]
+== AyJostLeSchwachhofer2018 [references.bib, @article]
+  bib author: Ay, Nihat and Jost, J{\"u}rgen and L{\^e}, H{\^o}ng V{\^a}n and Schwachh{\"o}fer, Lorenz
+  bib title: Parametrized Measure Models
+  bib journal: Bernoulli
+  bib volume: 24
+  bib number: 3
+  bib pages: 1692--1725
+  bib year: 2018
+  bib doi: 10.3150/16-BEJ910
+  CR authors: Ay, Nihat; Jost, Jürgen; Lê, Hông Vân; Schwachhöfer, Lorenz
+  CR title:   Parametrized measure models
+  CR venue:   Bernoulli
+  CR vol/iss/pages: 24/3/1692-1725  article-number: None
+  CR date: [2018, 8, 1]
+== BarnettSeth2023 [references.bib, @article]
+  bib author: Barnett, Lionel and Seth, Anil K.
+  bib title: Dynamical Independence: Discovering Emergent Macroscopic Processes in Complex Dynamical Systems
+  bib journal: Physical Review E
+  bib volume: 108
+  bib pages: 014304
+  bib year: 2023
+  bib doi: 10.1103/PhysRevE.108.014304
+  CR authors: Barnett, L.; Seth, A. K.
+  CR title:   Dynamical independence: Discovering emergent macroscopic processes in complex dynamical systems
+  CR venue:   Physical Review E
+  CR vol/iss/pages: 108/1/None  article-number: 014304
+  CR date: [2023, 7, 17]
+== BartlettRudolphSpekkens2007 [references.bib, @article]
+  bib author: Bartlett, Stephen D. and Rudolph, Terry and Spekkens, Robert W.
+  bib title: Reference frames, superselection rules, and quantum information
+  bib journal: Reviews of Modern Physics
+  bib volume: 79
+  bib number: 2
+  bib pages: 555--609
+  bib year: 2007
+  bib doi: 10.1103/RevModPhys.79.555
+  CR authors: Bartlett, Stephen D.; Rudolph, Terry; Spekkens, Robert W.
+  CR title:   Reference frames, superselection rules, and quantum information
+  CR venue:   Reviews of Modern Physics
+  CR vol/iss/pages: 79/2/555-609  article-number: None
+  CR date: [2007, 4, 5]
+== BatesLuZeng2000 [references.bib, @article]
+  bib author: Bates, Peter W. and Lu, Kening and Zeng, Chongchun
+  bib title: Invariant Foliations near Normally Hyperbolic Invariant Manifolds for Semiflows
+  bib journal: Transactions of the American Mathematical Society
+  bib volume: 352
+  bib number: 10
+  bib pages: 4641--4676
+  bib year: 2000
+  bib doi: 10.1090/S0002-9947-00-02503-4
+  CR authors: Bates, Peter; Lu, Kening; Zeng, Chongchun
+  CR title:   Invariant foliations near normally hyperbolic invariant manifolds for semiflows
+  CR venue:   Transactions of the American Mathematical Society
+  CR vol/iss/pages: 352/10/4641-4676  article-number: None
+  CR date: [2000, 6, 14]
+== BaumPetrie1966 [references.bib, @article]
+  bib author: Baum, Leonard E. and Petrie, Ted
+  bib title: Statistical Inference for Probabilistic Functions of Finite State {M}arkov Chains
+  bib journal: The Annals of Mathematical Statistics
+  bib volume: 37
+  bib number: 6
+  bib pages: 1554--1563
+  bib year: 1966
+  bib doi: 10.1214/aoms/1177699147
+  CR authors: Baum, Leonard E.; Petrie, Ted
+  CR title:   Statistical Inference for Probabilistic Functions of Finite State Markov Chains
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 37/6/1554-1563  article-number: None
+  CR date: [1966, 12]
+== BeynThummler2004 [references.bib, @article]
+  bib author: Beyn, Wolf-J{\"u}rgen and Th{\"u}mmler, Vera
+  bib title: Freezing solutions of equivariant evolution equations
+  bib journal: SIAM Journal on Applied Dynamical Systems
+  bib volume: 3
+  bib number: 2
+  bib pages: 85--116
+  bib year: 2004
+  bib doi: 10.1137/030600515
+  CR authors: Beyn, W. J.; Thümmler, V.
+  CR title:   Freezing Solutions of Equivariant Evolution Equations
+  CR venue:   SIAM Journal on Applied Dynamical Systems
+  CR vol/iss/pages: 3/2/85-116  article-number: None
+  CR date: [2004, 1]
+== Blackwell1953 [references.bib, @article]
+  bib author: Blackwell, David
+  bib title: Equivalent Comparisons of Experiments
+  bib journal: The Annals of Mathematical Statistics
+  bib volume: 24
+  bib number: 2
+  bib pages: 265--272
+  bib year: 1953
+  bib doi: 10.1214/aoms/1177729032
+  CR authors: Blackwell, David
+  CR title:   Equivalent Comparisons of Experiments
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 24/2/265-272  article-number: None
+  CR date: [1953, 6]
+== BonaschiEtAl2015 [references.bib, @article]
+  bib author: Bonaschi, Giovanni A. and Carrillo, Jos{\'e} A. and Di Francesco, Marco and Peletier, Mark A.
+  bib title: Equivalence of Gradient Flows and Entropy Solutions for Singular Nonlocal Interaction Equations in {1D}
+  bib journal: ESAIM: Control, Optimisation and Calculus of Variations
+  bib volume: 21
+  bib number: 2
+  bib pages: 414--441
+  bib year: 2015
+  bib doi: 10.1051/cocv/2014032
+  CR authors: Bonaschi, Giovanni A.; Carrillo, José A.; Di Francesco, Marco; Peletier, Mark A.
+  CR title:   Equivalence of gradient flows and entropy solutions for singular nonlocal interaction equations in 1D
+  CR venue:   ESAIM: Control, Optimisation and Calculus of Variations
+  CR vol/iss/pages: 21/2/414-441  article-number: None
+  CR date: [2015, 4]
+== Buchholz1994 [references.bib, @article]
+  bib author: Buchholz, Peter
+  bib title: Exact and Ordinary Lumpability in Finite {M}arkov Chains
+  bib journal: Journal of Applied Probability
+  bib volume: 31
+  bib number: 1
+  bib pages: 59--75
+  bib year: 1994
+  bib doi: 10.2307/3215235
+  CR authors: Buchholz, Peter
+  CR title:   Exact and ordinary lumpability in finite Markov chains
+  CR venue:   Journal of Applied Probability
+  CR vol/iss/pages: 31/1/59-75  article-number: None
+  CR date: [1994, 3]
+== BudanurEtAl2015 [references.bib, @article]
+  bib author: Budanur, Nazmi Burak and Cvitanovi{\'c}, Predrag and Davidchack, Ruslan L. and Siminos, Evangelos
+  bib title: Reduction of {SO}(2) symmetry for spatially extended dynamical systems
+  bib journal: Physical Review Letters
+  bib volume: 114
+  bib pages: 084102
+  bib year: 2015
+  bib doi: 10.1103/PhysRevLett.114.084102
+  CR authors: Budanur, Nazmi Burak; Cvitanović, Predrag; Davidchack, Ruslan L.; Siminos, Evangelos
+  CR title:   Reduction of SO(2) Symmetry for Spatially Extended Dynamical Systems
+  CR venue:   Physical Review Letters
+  CR vol/iss/pages: 114/8/None  article-number: 084102
+  CR date: [2015, 2, 27]
+== BurkeRosenblatt1958 [references.bib, @article]
+  bib author: Burke, C. J. and Rosenblatt, M.
+  bib title: A {M}arkovian Function of a {M}arkov Chain
+  bib journal: The Annals of Mathematical Statistics
+  bib volume: 29
+  bib number: 4
+  bib pages: 1112--1122
+  bib year: 1958
+  bib doi: 10.1214/aoms/1177706444
+  CR authors: Burke, C. J.; Rosenblatt, M.
+  CR title:   A Markovian Function of a Markov Chain
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 29/4/1112-1122  article-number: None
+  CR date: [1958, 12]
+== Calinon2016 [references.bib, @article]
+  bib author: Calinon, Sylvain
+  bib title: A Tutorial on Task-Parameterized Movement Learning and Retrieval
+  bib journal: Intelligent Service Robotics
+  bib volume: 9
+  bib number: 1
+  bib pages: 1--29
+  bib year: 2016
+  bib doi: 10.1007/s11370-015-0187-9
+  CR authors: Calinon, Sylvain
+  CR title:   A tutorial on task-parameterized movement learning and retrieval
+  CR venue:   Intelligent Service Robotics
+  CR vol/iss/pages: 9/1/1-29  article-number: None
+  CR date: [2016, 1]
+== CarreiraPerpinan2006 [references.bib, @inproceedings]
+  bib author: Carreira-Perpi{\~n}{\'a}n, Miguel {\'A}.
+  bib title: Fast nonparametric clustering with {G}aussian blurring mean-shift
+  bib booktitle: Proceedings of the 23rd International Conference on Machine Learning
+  bib pages: 153--160
+  bib year: 2006
+  bib doi: 10.1145/1143844.1143864
+  CR authors: Carreira-Perpiñán, Miguel Á.
+  CR title:   Fast nonparametric clustering with Gaussian blurring mean-shift
+  CR venue:   Proceedings of the 23rd international conference on Machine learning  - ICML '06
+  CR vol/iss/pages: None/None/153-160  article-number: None
+  CR date: [2006]
+== CarrilloEtAl2011 [references.bib, @article]
+  bib author: Carrillo, Jos{\'e} A. and Di Francesco, Marco and Figalli, Alessio and Laurent, Thomas and Slep{\v{c}}ev, Dejan
+  bib title: Global-in-Time Weak Measure Solutions and Finite-Time Aggregation for Nonlocal Interaction Equations
+  bib journal: Duke Mathematical Journal
+  bib volume: 156
+  bib pages: 229--271
+  bib year: 2011
+  bib doi: 10.1215/00127094-2010-211
+  CR authors: Carrillo, J. A.; DiFrancesco, M.; Figalli, A.; Laurent, T.; Slepčev, D.
+  CR title:   Global-in-time weak measure solutions and finite-time aggregation for nonlocal interaction equations
+  CR venue:   Duke Mathematical Journal
+  CR vol/iss/pages: 156/2/229-271  article-number: None
+  CR date: [2011, 2, 1]
+== Cheng1995 [references.bib, @article]
+  bib author: Cheng, Yizong
+  bib title: Mean shift, mode seeking, and clustering
+  bib journal: IEEE Transactions on Pattern Analysis and Machine Intelligence
+  bib volume: 17
+  bib number: 8
+  bib pages: 790--799
+  bib year: 1995
+  bib doi: 10.1109/34.400568
+  CR authors: Yizong Cheng, 
+  CR title:   Mean shift, mode seeking, and clustering
+  CR venue:   IEEE Transactions on Pattern Analysis and Machine Intelligence
+  CR vol/iss/pages: 17/8/790-799  article-number: None
+  CR date: [1995]

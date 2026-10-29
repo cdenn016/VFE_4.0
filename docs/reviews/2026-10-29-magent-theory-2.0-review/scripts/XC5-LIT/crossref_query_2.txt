@@ -1,0 +1,120 @@
+== Haynsworth1968 [references.bib, @article]
+  bib author: Haynsworth, Emilie V.
+  bib title: Determination of the Inertia of a Partitioned {H}ermitian Matrix
+  bib journal: Linear Algebra and its Applications
+  bib volume: 1
+  bib number: 1
+  bib pages: 73--81
+  bib year: 1968
+  -- candidate 1: DOI 10.1016/0024-3795(68)90050-5
+  CR authors: Haynsworth, Emilie V.
+  CR title:   Determination of the inertia of a partitioned Hermitian matrix
+  CR venue:   Linear Algebra and its Applications
+  CR vol/iss/pages: 1/1/73-81  article-number: None
+  CR date: [1968, 1]
+  -- candidate 2: DOI 10.1016/0024-3795(68)90009-8
+  CR authors: Haynsworth, Emilie V.; Ostrowski, Alexander M.
+  CR title:   On the inertia of some classes of partitioned matrices
+  CR venue:   Linear Algebra and its Applications
+  CR vol/iss/pages: 1/2/299-316  article-number: None
+  CR date: [1968, 4]
+== Kalman1960 [item1_refs.bib, @article]
+  bib author: Kalman, R. E.
+  bib title: A new approach to linear filtering and prediction problems
+  bib journal: Journal of Basic Engineering
+  bib volume: 82
+  bib number: 1
+  bib pages: 35--45
+  bib year: 1960
+  -- candidate 1: DOI 10.1115/1.3662552
+  CR authors: Kalman, R. E.
+  CR title:   A New Approach to Linear Filtering and Prediction Problems
+  CR venue:   Journal of Basic Engineering
+  CR vol/iss/pages: 82/1/35-45  article-number: None
+  CR date: [1960, 3, 1]
+  -- candidate 2: DOI 10.1109/9780470544334.ch9
+  CR authors: 
+  CR title:   A New Approach to Linear Filtering and Prediction Problems
+  CR venue:   Control Theory
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2009]
+== Louis1982 [item1_refs.bib, @article]
+  bib author: Louis, Thomas A.
+  bib title: Finding the observed information matrix when using the {EM} algorithm
+  bib journal: Journal of the Royal Statistical Society: Series B
+  bib volume: 44
+  bib number: 2
+  bib pages: 226--233
+  bib year: 1982
+  -- candidate 1: DOI 10.1111/j.2517-6161.1982.tb01203.x
+  CR authors: Louis, Thomas A.
+  CR title:   Finding the Observed Information Matrix When Using the <i>EM</i> Algorithm
+  CR venue:   Journal of the Royal Statistical Society Series B: Statistical Methodology
+  CR vol/iss/pages: 44/2/226-233  article-number: None
+  CR date: [1982, 1, 1]
+  -- candidate 2: DOI 10.2307/1390841
+  CR authors: 
+  CR title:   Correction: A Simple Method for Computing the Observed Information Matrix When Using the EM Algorithm with Categorical Data
+  CR venue:   Journal of Computational and Graphical Statistics
+  CR vol/iss/pages: 1/2/180  article-number: None
+  CR date: [1992, 6]
+== SingerWu2012 [item1_refs.bib, @article]
+  bib author: Singer, Amit and Wu, Hau-Tieng
+  bib title: Vector diffusion maps and the connection {L}aplacian
+  bib journal: Communications on Pure and Applied Mathematics
+  bib volume: 65
+  bib number: 8
+  bib pages: 1067--1144
+  bib year: 2012
+  -- candidate 1: DOI 10.1002/cpa.21395
+  CR authors: Singer, A.; Wu, H.‐T.
+  CR title:   Vector diffusion maps and the connection Laplacian
+  CR venue:   Communications on Pure and Applied Mathematics
+  CR vol/iss/pages: 65/8/1067-1144  article-number: None
+  CR date: [2012, 8]
+  -- candidate 2: DOI 10.1137/1.9781611972825.17
+  CR authors: Rabin, Neta; Coifman, Ronald R.
+  CR title:   Heterogeneous datasets representation and learning using diffusion maps and Laplacian pyramids
+  CR venue:   Proceedings of the 2012 SIAM International Conference on Data Mining
+  CR vol/iss/pages: None/None/189-199  article-number: None
+  CR date: [2012, 4, 26]
+== Csiszar1975 [references.bib, @article]
+  bib author: Csisz{\'a}r, Imre
+  bib title: {I}-Divergence Geometry of Probability Distributions and Minimization Problems
+  bib journal: The Annals of Probability
+  bib volume: 3
+  bib number: 1
+  bib pages: 146--158
+  bib year: 1975
+  -- candidate 1: DOI 10.1214/aop/1176996454
+  CR authors: Csiszar, I.
+  CR title:   $I$-Divergence Geometry of Probability Distributions and Minimization Problems
+  CR venue:   The Annals of Probability
+  CR vol/iss/pages: 3/1/146-158  article-number: None
+  CR date: [1975, 2, 1]
+  -- candidate 2: DOI 10.1017/cbo9780511662034.033
+  CR authors: Halin, R.
+  CR title:   Minimization Problems for Infinite <i>n</i>-Connected Graphs
+  CR venue:   Combinatorics, Geometry and Probability
+  CR vol/iss/pages: None/None/355-374  article-number: None
+  CR date: [1997, 5, 22]
+== Ruelle1973Symmetry [references.bib, @article]
+  bib author: Ruelle, David
+  bib title: Bifurcations in the Presence of a Symmetry Group
+  bib journal: Archive for Rational Mechanics and Analysis
+  bib volume: 51
+  bib pages: 136--152
+  bib year: 1973
+  bib url: https://www.ihes.fr/~ruelle/PUBLICATIONS/[39].pdf
+  -- candidate 1: DOI 10.1007/bf00247751
+  CR authors: Ruelle, David
+  CR title:   Bifurcations in the presence of a symmetry group
+  CR venue:   Archive for Rational Mechanics and Analysis
+  CR vol/iss/pages: 51/2/136-152  article-number: None
+  CR date: [1973, 1]
+  -- candidate 2: DOI 10.1142/9789812833709_0004
+  CR authors: RUELLE, DAVID
+  CR title:   Bifurcations in the Presence of a Symmetry Group
+  CR venue:   World Scientific Series on Nonlinear Science Series A
+  CR vol/iss/pages: None/None/91-108  article-number: None
+  CR date: [1995, 9]

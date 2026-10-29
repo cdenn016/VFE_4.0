@@ -1,0 +1,20 @@
+== (a) random chain ==
+T = [['0', '1/4', '1/3', '1/12', '1/3'], ['0', '0', '4/15', '1/3', '2/5'], ['2/9', '5/9', '1/9', '1/9', '0'], ['1/15', '1/15', '1/5', '2/5', '4/15'], ['1/3', '5/12', '1/6', '1/12', '0']]
+[random] positive-probability histories checked: 120; max exact discrepancies: law 0, next-record 0, update 0, length-2 words 0; zero-history violations 0
+
+== (b) Markov property of the filter process ==
+[fiber-constant rows] positive-probability histories checked: 30; max exact discrepancies: law 0, next-record 0, update 0, length-2 words 0; zero-history violations 0
+histories of length 4 grouped by filter value: group sizes [4, 4, 4, 4]; groups whose next-filter law differs across histories: 0
+
+== (c) deterministic three-cycle, uniform start ==
+[three-cycle (has zero-probability histories)] positive-probability histories checked: 11; max exact discrepancies: law 0, next-record 0, update 0, length-2 words 0; zero-history violations 0
+history (0, 0): probability 1/3, terminal law ['0', '1', '0'] (states 1,2,3), next-record law ['0', '1']
+history (1, 0): probability 1/3, terminal law ['1', '0', '0'] (states 1,2,3), next-record law ['1', '0']
+
+== (d) sinh:conditional-tower on a random finite joint law ==
+max |E[g(O)|W] - E[E[g(O)|Z]|W]| = 0
+
+== (e) non-Markov hidden process: X_{n+1} = X_{n-1}, retention R = identity ==
+history (0, 0): probability 1/4, terminal conditional law of X_1 = {0: '1'}, law of the next record X_2 = {0: '1'}
+history (1, 0): probability 1/4, terminal conditional law of X_1 = {0: '1'}, law of the next record X_2 = {1: '1'}
+same terminal conditional law, different next-record laws: the current conditional law is not sufficient for prediction without the Markov property

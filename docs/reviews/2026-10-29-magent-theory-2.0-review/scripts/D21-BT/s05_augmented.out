@@ -1,0 +1,6 @@
+(1) metric invariance under nonorthogonal h: |H' - H| = 0.00e+00
+(2-4) Y=[1. 0.]: affine-law residual 4.23e-11; trace-identity residual -7.47e-12; |dH + aH + Ha^T| = 4.459e-02
+(2-4) Y=[0. 1.]: affine-law residual 4.22e-11; trace-identity residual 1.65e-11; |dH + aH + Ha^T| = 5.703e-01
+(5) lam=0.0: holonomy eigenvalues [0.999524+0.030845j 0.999524-0.030845j]  moduli [1. 1.]  det 1.000000; eigenvalues of -(Hol-I)/area [0.0119+0.7711j 0.0119-0.7711j]
+(5) lam=1.0: holonomy eigenvalues [0.999549+0.030026j 0.999549-0.030026j]  moduli [1. 1.]  det 1.000000; eigenvalues of -(Hol-I)/area [0.0113+0.7506j 0.0113-0.7506j]
+(5) lam=0 reproduces -dX Q_X: |a - a_rect| = 6.21e-17

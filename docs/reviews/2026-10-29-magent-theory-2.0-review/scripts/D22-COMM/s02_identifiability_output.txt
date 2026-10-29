@@ -1,0 +1,18 @@
+(a) K=3 r=2: max abs(F formula - F finite diff) = 8.170e-10 (scale 3.932e+00); rank F = 6, K r = 6, K^2 = 9
+(a)   dim ker F = 3, K(K-r) = 3, max abs(T delta) over kernel basis = 2.28e-15
+(b)   det s = 0.312; max abs(T s - T) = 2.22e-16; max abs(T (theta s)^-1 - T theta^-1) = 8.33e-16
+(c)   single operating content: rank F = 2 (= r = 2); grounded PD M: rank 6
+(a) K=5 r=2: max abs(F formula - F finite diff) = 5.058e-08 (scale 3.772e+02); rank F = 10, K r = 10, K^2 = 25
+(a)   dim ker F = 15, K(K-r) = 15, max abs(T delta) over kernel basis = 6.71e-14
+(b)   det s = -0.599; max abs(T s - T) = 2.78e-16; max abs(T (theta s)^-1 - T theta^-1) = 7.72e-15
+(c)   single operating content: rank F = 2 (= r = 2); grounded PD M: rank 10
+(c) companion: T delta c = [0. 0.] ; T delta = [[0.0, 0.0], [0.0, 1.0]] ; F with M = I: 1.0 ; F with M = c c^T: 0.0
+(d) SO(3), r=1: dim{delta in so(K): T delta = 0} = 1, predicted (K-r)(K-r-1)/2 = 1; identifiable dim = 2, GL identifiable K r = 3, GL invisible K(K-r) = 6
+(d) SO(3), r=2: dim{delta in so(K): T delta = 0} = 0, predicted (K-r)(K-r-1)/2 = 0; identifiable dim = 3, GL identifiable K r = 6, GL invisible K(K-r) = 3
+(d) SO(4), r=2: dim{delta in so(K): T delta = 0} = 1, predicted (K-r)(K-r-1)/2 = 1; identifiable dim = 5, GL identifiable K r = 8, GL invisible K(K-r) = 8
+(d) SO(5), r=2: dim{delta in so(K): T delta = 0} = 3, predicted (K-r)(K-r-1)/2 = 3; identifiable dim = 7, GL identifiable K r = 10, GL invisible K(K-r) = 15
+(e) t_3: J_f = 0.666667 >= 1/Var = 0.333333: True
+(e) t_5: J_f = 0.750000 >= 1/Var = 0.600000: True
+(e) t_10: J_f = 0.846154 >= 1/Var = 0.800000: True
+(e) t_30: J_f = 0.939394 >= 1/Var = 0.933333: True
+(f) max abs(Tbar theta^-1 - (Tbar g)(theta g)^-1) = 1.2212453270876722e-15 ; Tbar g - Tbar is not zero: True

@@ -1,0 +1,4 @@
+gHg/4 == T_c: True  (T_c = 0.3230875667)
+D/(D+4) == printed ratio: True
+(D+4)/D = 6.3349 (printed 'about 6.34')
+c = -0.1056551 (printed -0.1056551); sqrt(-4/c) = 6.15297 (printed 6.15297)

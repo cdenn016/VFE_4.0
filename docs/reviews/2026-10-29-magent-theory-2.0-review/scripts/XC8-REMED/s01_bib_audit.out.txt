@@ -1,0 +1,84 @@
+references.bib entries: 141
+duplicate keys: []
+entries never cited by main/supplement/companion: 1
+  LewisNigamOlver2003
+cited but absent from references.bib and item bibs: []
+cited keys found only in item bibs: ['BandeiraSingerSpielman2013', 'Berk1966', 'HansenGhrist2021', 'Kalman1960', 'Louis1982', 'Pearl1988', 'SingerWu2012', 'Vaswani2017']
+
+# keys flagged in remediation logs as from memory / not re-fetched
+Abbas2009	logs=R-FOUND,R-INH,R-ERA	in_bib=True	cited=3	chapters/03_dynamics.tex:54; chapters/05_inheritance.tex:827; chapters/09_public_compression.tex:135
+AbsilMahonyAndrews2005	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:183
+AmbrosioGigliSavare2008	logs=R-FUS	in_bib=True	cited=1	chapters/07_smooth_closure.tex:189
+BairdWood2003	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:213
+BartlettRudolphSpekkens2007	logs=R-OPEN	in_bib=True	cited=2	chapters/12_open_formation.tex:20; chapters/17_communication_links.tex:500
+BatesLuZeng2000	logs=R-ERA	in_bib=True	cited=1	chapters/09_public_compression.tex:137
+BattistelliChisci2014	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:54
+BaumPetrie1966	logs=R-INH	in_bib=True	cited=1	supplements/s04_inheritance.tex:94
+Blackwell1953	logs=R-FUS	in_bib=True	cited=1	chapters/07_smooth_closure.tex:153
+Brezis1973	logs=R-FUS	in_bib=True	cited=2	chapters/06_fusion.tex:247; companion/c07_fusion.tex:66
+CarreiraPerpinan2006	logs=R-OPEN	in_bib=True	cited=1	chapters/12_open_formation.tex:162
+Cencov1982	logs=R-FOUND,R-GEOM	in_bib=True	cited=4	chapters/02_geometry.tex:28; chapters/03_dynamics.tex:194; chapters/03_dynamics.tex:234; companion/c06_geometry.tex:69
+ChenEtAl2023	logs=R-OPEN	in_bib=True	cited=3	chapters/07_smooth_closure.tex:187; chapters/11_conditional_formation.tex:179; chapters/12_open_formation.tex:278
+Cheng1995	logs=R-OPEN	in_bib=True	cited=1	chapters/12_open_formation.tex:162
+Clarke1983	logs=R-FUS	in_bib=True	cited=1	chapters/06_fusion.tex:265
+Csiszar1975	logs=R-FOUND	in_bib=True	cited=3	chapters/04_prediction.tex:137; companion/c04_communication.tex:97; companion/c17_communication_links.tex:24
+Csiszar1984	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:403
+Dawid1979	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:608
+DeGroot1974	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:54
+DiaconisZabell1982	logs=R-FOUND	in_bib=True	cited=5	chapters/04_prediction.tex:122; chapters/04_prediction.tex:137; supplements/s01_probability.tex:49; companion/c04_communication.tex:97; companion/c17_communication_links.tex:24
+Dieudonne1960	logs=R-FOUND,R-FUS	in_bib=True	cited=2	chapters/03_dynamics.tex:231; chapters/07_smooth_closure.tex:208
+DixonMortimer1996	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:1249
+DonskerVaradhan1975	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:89
+DupuisEllis1997	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:89
+Dynkin1965	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:402
+EphraimMerhav2002	logs=R-INH	in_bib=True	cited=1	supplements/s04_inheritance.tex:94
+FelsOlver1998	logs=R-OPEN	in_bib=True	cited=1	chapters/12_open_formation.tex:329
+Field2007	logs=R-BND	in_bib=True	cited=1	chapters/10_boundary_closure.tex:178
+Filippov1988	logs=R-FUS	in_bib=True	cited=1	chapters/06_fusion.tex:265
+Fritz2020	logs=R-FOUND,R-INH	in_bib=True	cited=2	chapters/04_prediction.tex:179; chapters/05_inheritance.tex:62
+FruchartEtAl2021	logs=R-FOUND	in_bib=True	cited=3	chapters/03_dynamics.tex:370; chapters/18_link_dynamics.tex:153; companion/c18_link_dynamics.tex:125
+GenestZidek1986	logs=R-INH,R-ERA	in_bib=True	cited=3	chapters/03_dynamics.tex:54; chapters/05_inheritance.tex:826; chapters/09_public_compression.tex:135
+GeshkovskiEtAl2025	logs=R-OPEN	in_bib=True	cited=1	chapters/12_open_formation.tex:162
+GolubitskyStewart2002	logs=R-ERA	in_bib=True	cited=1	chapters/09_public_compression.tex:94
+GolubitskyStewartSchaeffer1988	logs=R-INH,R-BND	in_bib=True	cited=2	chapters/05_inheritance.tex:1000; chapters/10_boundary_closure.tex:178
+HalmosSavage1949	logs=R-FOUND	in_bib=True	cited=2	chapters/04_prediction.tex:179; companion/c04_communication.tex:106
+Haynsworth1968	logs=R-FOUND	in_bib=True	cited=2	chapters/03_dynamics.tex:199; chapters/18_link_dynamics.tex:435
+HegselmannKrause2002	logs=R-FOUND,R-FUS,R-CND	in_bib=True	cited=3	chapters/03_dynamics.tex:101; chapters/06_fusion.tex:704; chapters/11_conditional_formation.tex:327
+Higham2008	logs=R-GEOM	in_bib=True	cited=7	chapters/02_interactions.tex:202; chapters/16_link_base_transport.tex:79; chapters/17_communication_links.tex:128; supplements/s02_geometry.tex:13; supplements/s02_geometry.tex:55; companion/c16_link_base_transport.tex:119
+HofbauerSigmund1998	logs=R-FOUND	in_bib=True	cited=2	chapters/03_dynamics.tex:106; chapters/03_dynamics.tex:178
+JordanEtAl1999	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:245
+Kechris1995	logs=R-FOUND,R-INH	in_bib=True	cited=4	chapters/01_foundations.tex:32; chapters/01_foundations.tex:102; chapters/05_inheritance.tex:91; chapters/05_inheritance.tex:99
+KirchhoffEtAl2018	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:715
+KobayashiNomizu1963	logs=R-FOUND	in_bib=True	cited=1	chapters/01_foundations.tex:27
+Kullback1959	logs=R-GEOM	in_bib=True	cited=1	chapters/02_geometry.tex:132
+LaSalle1960	logs=R-ERA	in_bib=True	cited=1	chapters/08_smooth_erasure.tex:190
+LanceWilliams1967	logs=R-CND	in_bib=True	cited=2	chapters/11_conditional_formation.tex:327; companion/c11_formation.tex:115
+LarsenSkou1991	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:522
+Lauritzen1996	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:609
+LeCamYang2000	logs=R-GEOM	in_bib=True	cited=1	chapters/02_geometry.tex:28
+Lee2013	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:272
+LiRabitz1989	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:121
+Lojasiewicz1963	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:183
+MardiaJupp2000	logs=R-OPEN	in_bib=True	cited=1	chapters/12_open_formation.tex:443
+MauroyMezicMoehlis2013	logs=R-ERA	in_bib=True	cited=1	chapters/09_public_compression.tex:137
+Molino1988	logs=R-GEOM	in_bib=True	cited=1	chapters/02_geometry.tex:151
+MondererShapley1996	logs=R-FOUND	in_bib=True	cited=2	chapters/03_dynamics.tex:134; chapters/03_dynamics.tex:370
+Muirhead1982	logs=R-CND	in_bib=True	cited=2	chapters/11_conditional_formation.tex:25; companion/c11_formation.tex:22
+NealHinton1998	logs=R-FOUND	in_bib=True	cited=1	chapters/03_dynamics.tex:245
+ONeill1966	logs=R-GEOM,R-INH,R-CND,R-OPEN	in_bib=True	cited=8	chapters/02_geometry.tex:244; chapters/05_inheritance.tex:212; chapters/05_inheritance.tex:283; chapters/11_conditional_formation.tex:545; chapters/12_open_formation.tex:389; chapters/15_contextual_coupling.tex:436
+PalaciosEtAl2020	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:715
+Palais1979	logs=R-BND	in_bib=True	cited=1	chapters/10_boundary_closure.tex:178
+PappasLafferriereSastry2000	logs=R-ERA	in_bib=True	cited=1	chapters/09_public_compression.tex:246
+Petz1988	logs=R-FOUND	in_bib=True	cited=1	chapters/04_prediction.tex:37
+Price1970	logs=R-FUS	in_bib=True	cited=1	chapters/07_smooth_closure.tex:29
+Procesi1976	logs=R-GEOM	in_bib=True	cited=1	chapters/02_interactions.tex:190
+Prony1795	logs=R-OPEN	in_bib=True	cited=1	chapters/12_open_formation.tex:552
+Reinhart1959	logs=R-GEOM	in_bib=True	cited=1	chapters/02_geometry.tex:151
+RogersPitman1981	logs=R-INH	in_bib=True	cited=2	chapters/05_inheritance.tex:456; companion/c05_inheritance.tex:168
+RowleyEtAl2003	logs=R-OPEN	in_bib=True	cited=1	chapters/12_open_formation.tex:329
+Shahshahani1979	logs=R-FOUND	in_bib=True	cited=2	chapters/03_dynamics.tex:178; chapters/13_per_agent_inheritance.tex:16
+Smale1970	logs=R-CND	in_bib=True	cited=5	chapters/02_geometry.tex:244; chapters/11_conditional_formation.tex:545; companion/c06_geometry.tex:137; companion/c11_formation.tex:191; companion/c13_per_agent_inheritance.tex:231
+Torgersen1991	logs=R-FUS	in_bib=True	cited=1	chapters/07_smooth_closure.tex:153
+Walters1982	logs=R-BND	in_bib=True	cited=1	chapters/10_boundary_closure.tex:184
+WeiKuo1969	logs=R-INH	in_bib=True	cited=1	chapters/05_inheritance.tex:120
+Zamir1998	logs=R-GEOM	in_bib=True	cited=1	chapters/02_geometry.tex:51

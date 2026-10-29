@@ -1,0 +1,76 @@
+== QUERY: Eckmann Harmonische Funktionen und Randwertaufgaben in einem Komplex Commentarii Mathematici Helvetici
+  -- hit 1: DOI 10.1007/bf02566245
+  CR authors: Eckmann, Beno
+  CR title:   Harmonische Funktionen und Randwertaufgaben in einem Komplex
+  CR venue:   Commentarii Mathematici Helvetici
+  CR vol/iss/pages: 17/1/240-255  article-number: None
+  CR date: [1944, 12]
+  -- hit 2: DOI 10.1007/978-3-642-61708-9_9
+  CR authors: Eckmann, Beno
+  CR title:   Harmonische Funktionen und Randwertaufgaben in einem Komplex
+  CR venue:   Selecta
+  CR vol/iss/pages: None/None/173-188  article-number: None
+  CR date: [1987]
+  -- hit 3: DOI 10.1007/978-3-642-37339-8_9
+  CR authors: Eckmann, Beno
+  CR title:   Harmonische Funktionen und Randwertaufgaben in einem Komplex
+  CR venue:   Springer Collected Works in Mathematics
+  CR vol/iss/pages: None/None/173-188  article-number: None
+  CR date: [1987]
+== QUERY: Lim Hodge Laplacians on graphs SIAM Review 2020
+  -- hit 1: DOI 10.1137/18m1223101
+  CR authors: Lim, Lek-Heng
+  CR title:   Hodge Laplacians on Graphs
+  CR venue:   SIAM Review
+  CR vol/iss/pages: 62/3/685-715  article-number: None
+  CR date: [2020, 1]
+  -- hit 2: DOI 10.1137/22m1482299
+  CR authors: Ribando-Gros, Emily; Wang, Rui; Chen, Jiahui; Tong, Yiying; Wei, Guo-Wei
+  CR title:   Combinatorial and Hodge Laplacians: Similarities and Differences
+  CR venue:   SIAM Review
+  CR vol/iss/pages: 66/3/575-601  article-number: None
+  CR date: [2024, 8]
+  -- hit 3: DOI 10.2139/ssrn.3998070
+  CR authors: Lim, Tongseok
+  CR title:   Hodge Theoretic Reward Allocation for Generalized Cooperative Games on Graphs
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2022]
+== QUERY: Schonemann A generalized solution of the orthogonal Procrustes problem Psychometrika 1966
+  -- hit 1: DOI 10.1007/bf02289451
+  CR authors: Schönemann, Peter H.
+  CR title:   A Generalized Solution of the Orthogonal Procrustes Problem
+  CR venue:   Psychometrika
+  CR vol/iss/pages: 31/1/1-10  article-number: None
+  CR date: [1966, 3]
+  -- hit 2: DOI 10.1007/s11336-004-1160-5
+  CR authors: ten Berge, Jos M. F.
+  CR title:   The Rigid Orthogonal Procrustes Rotation Problem
+  CR venue:   Psychometrika
+  CR vol/iss/pages: 71/1/201-205  article-number: None
+  CR date: [2006, 3]
+  -- hit 3: DOI 10.1007/bf02295981
+  CR authors: ten Berge, Jos M. F.; Nevels, Klaas
+  CR title:   A General Solution to Mosier's Oblique Procrustes Problem
+  CR venue:   Psychometrika
+  CR vol/iss/pages: 42/4/593-600  article-number: None
+  CR date: [1977, 12]
+== QUERY: Hinton Training products of experts by minimizing contrastive divergence Neural Computation 2002
+  -- hit 1: DOI 10.1162/089976602760128018
+  CR authors: Hinton, Geoffrey E.
+  CR title:   Training Products of Experts by Minimizing Contrastive Divergence
+  CR venue:   Neural Computation
+  CR vol/iss/pages: 14/8/1771-1800  article-number: None
+  CR date: [2002, 8, 1]
+  -- hit 2: DOI 10.1162/neco.2008.01-07-430
+  CR authors: Movellan, Javier R.
+  CR title:   Contrastive Divergence in Gaussian Diffusions
+  CR venue:   Neural Computation
+  CR vol/iss/pages: 20/9/2238-2252  article-number: None
+  CR date: [2008, 9]
+  -- hit 3: DOI 10.1162/neco.2008.11-07-647
+  CR authors: Bengio, Yoshua; Delalleau, Olivier
+  CR title:   Justifying and Generalizing Contrastive Divergence
+  CR venue:   Neural Computation
+  CR vol/iss/pages: 21/6/1601-1621  article-number: None
+  CR date: [2009, 6]

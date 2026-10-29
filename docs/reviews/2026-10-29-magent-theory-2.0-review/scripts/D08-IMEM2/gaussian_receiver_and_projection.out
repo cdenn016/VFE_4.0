@@ -1,0 +1,6 @@
+(a) receiver likelihood, formula vs direct 2-D integration:
+    h= 0.30 a=0 x=-1.00: formula=0.2633986436 direct=0.2633986436 |diff|=1.58e-12
+    h= 1.70 a=1 x= 0.40: formula=0.1328764455 direct=0.1328764455 |diff|=1.10e-13
+    h=-0.90 a=0 x= 2.00: formula=0.1550691404 direct=0.1550691404 |diff|=1.75e-15
+(b) moment match q_G : KL(Pi||w x q)=0.540709446115, I(A;Y)+KL(Pi_Y||q)=0.540709446115, |diff|=4.00e-15
+(b) arbitrary q      : KL(Pi||w x q)=0.573410941725, I(A;Y)+KL(Pi_Y||q)=0.573410941725, |diff|=4.22e-15

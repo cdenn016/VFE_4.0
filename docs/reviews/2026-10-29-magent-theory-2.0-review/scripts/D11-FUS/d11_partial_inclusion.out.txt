@@ -1,0 +1,4 @@
+theta=[0. 0.]: w(2)=[0.12931016 0.05462956], selection residual 6.6e-10; selections in [-1,1]^2: True; antisymmetric (eps21=-eps12): True
+theta=[1. 0.]: w(2)=[-0.1553473  -0.03998532], selection residual 9.6e-10; selections in [-1,1]^2: True; antisymmetric (eps21=-eps12): False
+theta=[ 0.5 -1. ]: w(2)=[0.08159631 0.29197958], selection residual 8.7e-10; selections in [-1,1]^2: True; antisymmetric (eps21=-eps12): False
+distinct limiting gradients: [[-0.3, 0.3], [0.3, -0.3]] -> convex hull is the segment {lam(s,-s)}, the joint subdifferential

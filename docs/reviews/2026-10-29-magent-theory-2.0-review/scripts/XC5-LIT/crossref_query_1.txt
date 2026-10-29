@@ -1,0 +1,119 @@
+== BandeiraSingerSpielman2013 [item1_refs.bib, @article]
+  bib author: Bandeira, Afonso S. and Singer, Amit and Spielman, Daniel A.
+  bib title: A {C}heeger inequality for the graph connection {L}aplacian
+  bib journal: SIAM Journal on Matrix Analysis and Applications
+  bib volume: 34
+  bib number: 4
+  bib pages: 1611--1630
+  bib year: 2013
+  -- candidate 1: DOI 10.1137/120875338
+  CR authors: Bandeira, Afonso S.; Singer, Amit; Spielman, Daniel A.
+  CR title:   A Cheeger Inequality for the Graph Connection Laplacian
+  CR venue:   SIAM Journal on Matrix Analysis and Applications
+  CR vol/iss/pages: 34/4/1611-1630  article-number: None
+  CR date: [2013, 1]
+  -- candidate 2: DOI 10.4171/jst/216
+  CR authors: Tudisco, Francesco; Hein, Matthias
+  CR title:   A nodal domain theorem and a higher-order Cheeger inequality for the graph $p$-Laplacian
+  CR venue:   Journal of Spectral Theory
+  CR vol/iss/pages: 8/3/883-908  article-number: None
+  CR date: [2018, 7, 12]
+== Berk1966 [item1_refs.bib, @article]
+  bib author: Berk, Robert H.
+  bib title: Limiting behavior of posterior distributions when the model is incorrect
+  bib journal: Annals of Mathematical Statistics
+  bib volume: 37
+  bib number: 1
+  bib pages: 51--58
+  bib year: 1966
+  -- candidate 1: DOI 10.1214/aoms/1177699597
+  CR authors: Berk, Robert H.
+  CR title:   Limiting Behavior of Posterior Distributions when the Model is Incorrect
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 37/1/51-58  article-number: None
+  CR date: [1966, 2]
+  -- candidate 2: DOI 10.1214/aoms/1177699477
+  CR authors: Berk, Robert H.
+  CR title:   Correction Notes: Correction to Limiting Behavior of Posterior Distributions when the Model is Incorrect
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 37/3/745-746  article-number: None
+  CR date: [1966, 6]
+== BissiriHolmesWalker2016 [references.bib, @article]
+  bib author: Bissiri, Pier Giovanni and Holmes, Chris C. and Walker, Stephen G.
+  bib title: A general framework for updating belief distributions
+  bib journal: Journal of the Royal Statistical Society: Series B
+  bib volume: 78
+  bib number: 5
+  bib pages: 1103--1130
+  bib year: 2016
+  -- candidate 1: DOI 10.1111/rssb.12158
+  CR authors: Bissiri, P. G.; Holmes, C. C.; Walker, S. G.
+  CR title:   A General Framework for Updating Belief Distributions
+  CR venue:   Journal of the Royal Statistical Society Series B: Statistical Methodology
+  CR vol/iss/pages: 78/5/1103-1130  article-number: None
+  CR date: [2016, 11, 1]
+  -- candidate 2: DOI 10.31219/osf.io/f2jpa
+  CR authors: Kube, Tobias
+  CR title:   Biased belief updating in depression
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2022, 8, 2]
+== BleiEtAl2017 [references.bib, @article]
+  bib author: Blei, David M. and Kucukelbir, Alp and McAuliffe, Jon D.
+  bib title: Variational inference: a review for statisticians
+  bib journal: Journal of the American Statistical Association
+  bib volume: 112
+  bib number: 518
+  bib pages: 859--877
+  bib year: 2017
+  -- candidate 1: DOI 10.1080/01621459.2017.1285773
+  CR authors: Blei, David M.; Kucukelbir, Alp; McAuliffe, Jon D.
+  CR title:   Variational Inference: A Review for Statisticians
+  CR venue:   Journal of the American Statistical Association
+  CR vol/iss/pages: 112/518/859-877  article-number: None
+  CR date: [2017, 4, 3]
+  -- candidate 2: DOI 10.1101/2024.03.18.585474
+  CR authors: Mishra, Aditya; McNichol, Jesse; Fuhrman, Jed; Blei, David; Müller, Christian L.
+  CR title:   Variational inference for microbiome survey data with application to global ocean data
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2024, 3, 19]
+== FruchartEtAl2021 [references.bib, @article]
+  bib author: Fruchart, Michel and Hanai, Ryo and Littlewood, Peter B. and Vitelli, Vincenzo
+  bib title: Non-Reciprocal Phase Transitions
+  bib journal: Nature
+  bib volume: 592
+  bib pages: 363--369
+  bib year: 2021
+  -- candidate 1: DOI 10.1038/s41586-021-03375-9
+  CR authors: Fruchart, Michel; Hanai, Ryo; Littlewood, Peter B.; Vitelli, Vincenzo
+  CR title:   Non-reciprocal phase transitions
+  CR venue:   Nature
+  CR vol/iss/pages: 592/7854/363-369  article-number: None
+  CR date: [2021, 4, 15]
+  -- candidate 2: DOI 10.1016/b978-0-08-017955-1.50043-9
+  CR authors: Madar, R.; Barberon, M.; Fruchart, Mm E.; Lorthioir, G.; Fruchart, R.
+  CR title:   EVOLUTION OF FIRST ORDER MAGNETIC TRANSITIONS IN THE SOLID SOLUTION Cu1−xAgxMn3N
+  CR venue:   Phase Transitions–1973
+  CR vol/iss/pages: None/None/423-428  article-number: None
+  CR date: [1973]
+== HansenGhrist2021 [item1_refs.bib, @article]
+  bib author: Hansen, Jakob and Ghrist, Robert
+  bib title: Opinion dynamics on discourse sheaves
+  bib journal: SIAM Journal on Applied Mathematics
+  bib volume: 81
+  bib number: 5
+  bib pages: 2033--2060
+  bib year: 2021
+  -- candidate 1: DOI 10.1137/20m1341088
+  CR authors: Hansen, Jakob; Ghrist, Robert
+  CR title:   Opinion Dynamics on Discourse Sheaves
+  CR venue:   SIAM Journal on Applied Mathematics
+  CR vol/iss/pages: 81/5/2033-2060  article-number: None
+  CR date: [2021, 1]
+  -- candidate 2: DOI 10.1016/j.copsyc.2021.03.010
+  CR authors: Kurz, Tim; Prosser, Annayah M.B.
+  CR title:   Understanding the social dynamics of climate change through analyses of discourse
+  CR venue:   Current Opinion in Psychology
+  CR vol/iss/pages: 42/None/71-75  article-number: None
+  CR date: [2021, 12]

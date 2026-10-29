@@ -1,0 +1,2 @@
+constant channels: spread of E - 2F over 25 configurations = 4.44e-15 (constant => E = 2F + b)
+identity channels: spread of E - 2F over the same configurations = 1.230 (not constant)

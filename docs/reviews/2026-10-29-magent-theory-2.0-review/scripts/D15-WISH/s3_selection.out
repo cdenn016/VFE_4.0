@@ -1,0 +1,9 @@
+(a) 3000 random configurations (N=3..9): centroid-linkage set mismatches 0, max |t_k - (1/2)log(h_k/delta)| = 4.0e-15, height inversions 0, cascades 0, ties skipped 0
+(b) distinct trees over four thresholds: 1
+(c) rule: [(1.0, [0, 1]), (1.45, [2, 3]), (2.275, [0, 1, 2, 3])]
+    single: [(np.float64(1.0), [0, 1]), (np.float64(1.05), [0, 1, 2]), (np.float64(1.45), [0, 1, 2, 3])]
+(d) N=4: predicate of form:gaps agrees with the rule in 40000/40000 gap triples (18324 balanced)
+(e) kappa=0.0: integrated event times [0.3465736 0.5493061 1.0700331]; P11(1.5) = 1.0174
+(e) kappa=1.0: integrated event times [0.3465736 0.5493061 1.0700331]; P11(1.5) = 1.4436
+(e) kappa=5.0: integrated event times [0.3465736 0.5493061 1.0700331]; P11(1.5) = 2.3971
+    closed form: [0.3465736 0.5493061 1.0700331] coexistence (1/2)log(17/6) = 0.5207269

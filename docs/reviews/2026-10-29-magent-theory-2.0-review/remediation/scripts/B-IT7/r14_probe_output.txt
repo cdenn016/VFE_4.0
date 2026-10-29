@@ -1,0 +1,4 @@
+f=1.0: events by 2.3 [(2.15, 3), (2.2, 3), (2.25, 3), (2.3, 3)]; left gap at 2.3 0.6138; within-group ranges [0.034 0.034 0.036 0.035]
+f=1.5: events by 2.3 []; left gap at 2.3 0.4359; within-group ranges [0.059 0.059 0.062 0.061]
+f=2.0: events by 2.3 []; left gap at 2.3 0.3019; within-group ranges [0.087 0.087 0.092 0.089]
+f=3.0: events by 2.3 []; left gap at 2.3 0.2026; within-group ranges [0.136 0.135 0.147 0.14 ]

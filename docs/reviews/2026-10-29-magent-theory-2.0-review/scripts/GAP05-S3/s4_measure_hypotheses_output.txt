@@ -1,0 +1,28 @@
+== A1. Bayes formula for the induced action, non-Gaussian instance ==
+max |posterior from Z - joint-grid marginal| = 3.3e-16 (Fubini on the grid)
+posterior mean of w = -0.375160; Z > 0 on the grid: True
+== A2. a second density version, equal to the first except at o = o0 ==
+posterior mean at o0: version 1 -0.375160, version 2 -0.741417; P(w > 0 | o0): 0.2942 vs 0.0000
+Both versions give the same joint law of (y, w, o), so both posteriors are versions of the
+conditional law; the value at one registered o is fixed only after a version is chosen.
+== B1. Gaussian parent precision under different reference measures mu ==
+P_1 = P_2 = 0.5: it3:parent-gaussian precision 1.500000 mean 0.466667; mu = Lebesgue: 1.500000, 0.466667
+P_1 = P_2 = 1.5: it3:parent-gaussian precision 3.500000 mean 0.485714; mu = Lebesgue: 3.500000, 0.485714
+mu = N(0,1): precision 1.500000 (formula - |I| = 1.500000), mean 1.133333 (formula 0.485714)
+mu = e^{0.7 z} dz: precision 3.500000, mean 0.085714 (formula 0.485714; predicted shift -|I| b / P' = -0.400000)
+== B2. Z_A finite for Lebesgue, infinite for mu = N(0,1) (P_A = P_1 = P_2 = 0.5) ==
+  box [-10, 10]: Z_A(Lebesgue) = 1.489102e-02   log10 Z_A(N(0,1)) = 33.4
+  box [-20, 20]: Z_A(Lebesgue) = 1.489102e-02   log10 Z_A(N(0,1)) = 133.9
+  box [-40, 40]: Z_A(Lebesgue) = 1.489102e-02   log10 Z_A(N(0,1)) = 530.5
+== B3. literal bridge normalizer against mu x mu x pi_b, no parent self densities ==
+  box half-width    5: integral 15.9630, per unit length 1.5963
+  box half-width   10: integral 33.7097, per unit length 1.6855
+  box half-width   20: integral 69.2033, per unit length 1.7301
+  box half-width   40: integral 140.1907, per unit length 1.7524
+  with parent self laws N(0,1) included: 0.373136 (finite)
+== C. soft-to-rigid limit of the normalized parent marginal, non-Gaussian self densities ==
+  tau =      4: TV(soft, rigid with Lebesgue) = 4.233e-02
+  tau =     16: TV(soft, rigid with Lebesgue) = 1.690e-02   ratio 2.51
+  tau =     64: TV(soft, rigid with Lebesgue) = 5.794e-03   ratio 2.92
+  tau =    256: TV(soft, rigid with Lebesgue) = 1.748e-03   ratio 3.31
+  tau =   1024: TV(soft, rigid with Lebesgue) = 4.870e-04   ratio 3.59

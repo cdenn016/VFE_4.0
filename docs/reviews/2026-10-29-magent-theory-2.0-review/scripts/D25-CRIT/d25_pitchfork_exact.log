@@ -1,0 +1,35 @@
+[  0.12s] stationary curve order 1 solved
+[  0.48s] stationary curve order 2 solved
+[  1.52s] stationary curve order 3 solved
+[  2.29s] formula ingredients done
+[  4.31s] Part A done: c = -0.105655093486, straight-line c = 1.620538
+{
+ "p_equals_minus_Hinv_g": true,
+ "A4": "236914859731152/655026269697361",
+ "Delta3": "-31633266640/129477420379",
+ "3kHk": "21485600170644766720/2074468196131542287",
+ "A4_claim_match": true,
+ "Delta3_claim_match": true,
+ "3kHk_claim_match": true,
+ "X2_equals_minus_Hinv_k": true,
+ "Phi_coeffs_s0..s4_at_Tc": [
+  "-log(5) - log(3) + 19/30 + 4*log(2)",
+  "0",
+  "0",
+  "0",
+  "-164383598397632368/6223404588394626861"
+ ],
+ "Phi_ssss_formula": "-1315068787181058944/2074468196131542287",
+ "Phi_ssss_direct": "-1315068787181058944/2074468196131542287",
+ "Phi_ssss_direct_with_X_truncated_at_s2": "-1315068787181058944/2074468196131542287",
+ "formula_equals_direct": true,
+ "c": "-657534393590529472/6223404588394626861",
+ "c_float": -0.10565509348640072,
+ "c_matches_claim": true,
+ "straight_line_Phi_ssss": "6368971071507328/655026269697361",
+ "straight_line_c_float": 1.6205383321114628,
+ "D": "19189456/25593481",
+ "D_matches_claim": true,
+ "branch_prefactor_sqrt(-4/c)": 6.152969698825556,
+ "wall_seconds": 4.31
+}

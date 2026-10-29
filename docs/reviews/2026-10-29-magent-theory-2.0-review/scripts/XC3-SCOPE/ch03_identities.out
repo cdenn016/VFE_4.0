@@ -1,0 +1,4 @@
+(1) label-model residual: [np.float64(8.881784197001252e-16), np.float64(8.881784197001252e-16), np.float64(0.0)]
+(2) registered: type-class formula max err 1.67e-16, (iii) residual 4.44e-16, (iv) residual 2.78e-16
+(3) global/local residual: 0.0
+(4) three-cycle eigenvalue error: 4.965068306494546e-16

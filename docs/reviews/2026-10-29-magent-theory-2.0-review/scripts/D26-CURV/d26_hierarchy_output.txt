@@ -1,0 +1,13 @@
+(a) tau = 1.0 : |effective precision - (1/tau + s2|c|^2)^-1 I| = 5.551115123125783e-17  cap 1/(s2|c|^2) = 0.11341370636630059
+(a) tau = 10.0 : |effective precision - (1/tau + s2|c|^2)^-1 I| = 1.0408340855860843e-15  cap 1/(s2|c|^2) = 0.11341370636630059
+(a) tau = 10000.0 : |effective precision - (1/tau + s2|c|^2)^-1 I| = 1.4278161986069904e-12  cap 1/(s2|c|^2) = 0.11341370636630059
+(b) int_0^1 p = 1  int_0^1 p^2 = oo
+(c) tau = 10.0 : tau*|x_soft - x_rigid| = 2.763709   tau*|Cov_soft - Cov_rigid| = 0.485158
+(c) tau = 100.0 : tau*|x_soft - x_rigid| = 4.831327   tau*|Cov_soft - Cov_rigid| = 0.851565
+(c) tau = 1000.0 : tau*|x_soft - x_rigid| = 5.265939   tau*|Cov_soft - Cov_rigid| = 0.932342
+(c) tau = 10000.0 : tau*|x_soft - x_rigid| = 5.314741   tau*|Cov_soft - Cov_rigid| = 0.941483
+(d) no-path example: available walk holonomies {'b1->a1->b1': 1, 'b2->a2->b2': 1.0}  J->I bridges carry 1 and 2
+    pairs with a closing walk: [('e1', 'g1'), ('e1', 'g2'), ('e2', 'g1')] (the manuscript hypothesis asks for all 4)
+    flatness of the three available walks forces theta_e2 = 1.7 = theta_e1 = 1.7 ; product on the unavailable pair (e2, g2) = 1.0
+    cross-scale path a1 -> A -> a2 with dictionaries (2, 0.25): walk holonomy 1.0 but theta_g theta_e = 2.0
+(e) tau = 5: |(omega_e + omega_g) c - [(F_e - F_g) Delta_e + F_g (Delta_e + Delta_g)]| = 1.7208456881689926e-15  |Delta_e + Delta_g| = 0.585069

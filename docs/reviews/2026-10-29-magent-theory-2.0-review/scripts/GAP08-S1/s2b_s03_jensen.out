@@ -1,0 +1,9 @@
+
+== (e) eq:sup-integrated-score and eq:sup-gaussian-jensen ==
+integrated score: -E log r(X) - formula = 0
+convolution of N(.; y, rho) with N(y; b, w) minus N(x; b, w + rho) at x = -1, 0, 5/2 (mpmath quad): ['0.0', '-4.93e-32', '-1.23e-32']
+Jensen gap: (E[-log k] + E log r) - G_formula = 0
+200 random d = 2 instances (one in four with rank-one W):
+  |first line - (1/2) sum (lambda - log(1 + lambda))| max = 6.3109e-30
+  min eigenvalue of R^-1 - (W+R)^-1 = -1.8354e-31 ; min G = 0.015486
+  W = 0 gives first line 0.0 and R^-1 - (0+R)^-1 = 0, hence G = 0

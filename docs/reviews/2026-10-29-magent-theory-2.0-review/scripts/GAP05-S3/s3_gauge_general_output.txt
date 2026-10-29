@@ -1,0 +1,24 @@
+== (a) GL+(K): explicit absorbing dictionaries, non-Gaussian noise ==
+K=2: |theta2 v - y2_i| <= 3.0e-13, min det theta2 = 0.006, max |Im logm theta2| = 0.0e+00,
+      coded discrepancy mismatch <= 4.7e-13, relative record-density mismatch (Laplace, t_3) <= 5.4e-13
+K=3: |theta2 v - y2_i| <= 1.1e-14, min det theta2 = 0.001, max |Im logm theta2| = 0.0e+00,
+      coded discrepancy mismatch <= 5.3e-15, relative record-density mismatch (Laplace, t_3) <= 8.7e-15
+== (b) SO(2) on S^1, von Mises records on y_i - w_e - y_j ==
+max relative record-density mismatch over 1000 random displacements: 5.3e-15 (no exceptional set)
+law level: s2 gives dC_e/dmu_0 = -dC_e/dmu_1 = -dC_e/dalpha_e = 0.162284769479, so C_e depends on
+(mu_0, mu_1, alpha_e) only through mu_0 - alpha_e - mu_1 for von Mises contents and dictionary laws.
+== (c) SO(2) acting linearly on R^2 ==
+closed form vs brute force over all rotations (injective code; rank-one code):
+   injective 0.6001 vs ||y2_i|-|v|| 0.6001;   rank-one 0.0000 vs max(0,|v_1|-|y2_i|) 0.0000
+   injective 0.4784 vs ||y2_i|-|v|| 0.4784;   rank-one 0.0004 vs max(0,|v_1|-|y2_i|) 0.0000
+   injective 0.1553 vs ||y2_i|-|v|| 0.1553;   rank-one 0.0002 vs max(0,|v_1|-|y2_i|) 0.0000
+   injective 0.4332 vs ||y2_i|-|v|| 0.4332;   rank-one 0.0001 vs max(0,|v_1|-|y2_i|) 0.0000
+   injective 0.3240 vs ||y2_i|-|v|| 0.3240;   rank-one 0.3119 vs max(0,|v_1|-|y2_i|) 0.3119
+injective code: absorbable displacements 0/400; median minimal mismatch 0.527
+rank-one code: absorbable displacements 305/400 (an inequality, not a subspace)
+R_{>0} x SO(2): max |g v - w| = 9.5e-14;  SL(2): max |g v - w| + |det g - 1| = 2.5e-14
+== (d) tangent gauge space: belief projection dimension, one edge, K = 2 ==
+  T = I_2   c = e_1        gl(2): 4 of 4   so(2): 3 of 4
+  T = I_2   c = (1,1)/sqrt2 gl(2): 4 of 4   so(2): 3 of 4
+  T = (1,0) c = e_1        gl(2): 4 of 4   so(2): 3 of 4
+  T = (1,0) c = (1,1)/sqrt2 gl(2): 4 of 4   so(2): 4 of 4

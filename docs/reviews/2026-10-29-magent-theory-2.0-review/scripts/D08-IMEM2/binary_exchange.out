@@ -1,0 +1,49 @@
+PASS  preparation normalized                                                                   
+PASS  all preparation atoms positive                                                           
+PASS  A_0 fair, P(X_0=A_0|A_0)=3/4                                                             P(A=1)=1/2, P(X=1|A=1)=3/4
+PASS  A_1 fair, P(X_1=A_1|A_1)=3/4                                                             P(A=1)=1/2, P(X=1|A=1)=3/4
+PASS  history law normalized at t=0                                                            
+PASS  history law normalized at t=1                                                            
+PASS  history law normalized at t=2                                                            
+PASS  history law normalized at t=3                                                            
+PASS  history law normalized at t=4                                                            
+PASS  k_{1,0}(1|0)=5/8, k_{1,0}(1|1)=3/8                                                       {0: Fraction(5, 8), 1: Fraction(3, 8)}
+PASS  P(H1=1|X1=0,1) = 9/16, 7/16                                                              {0: Fraction(9, 16), 1: Fraction(7, 16)}
+PASS  P(H1=1|X0=0,1) = 17/32, 15/32                                                            {0: Fraction(17, 32), 1: Fraction(15, 32)}
+PASS  P(H1=1|X0,D0) = P(H1=1|X0) (receiver record does not enter)                              
+PASS  P(X0=1|D0=1,H1=1)=45/62 and P(X0=1|D0=0,H1=1)=5/22                                       {0: Fraction(5, 22), 1: Fraction(45, 62)}
+PASS  k_{0,1}(1|D0=0,H1=1)=7/11, k_{0,1}(1|D0=1,H1=1)=12/31                                    {0: Fraction(7, 11), 1: Fraction(12, 31)}
+PASS  reply differs from agent 0's initial sampling law                                        initial {0: Fraction(5, 8), 1: Fraction(3, 8)}, reply {0: Fraction(7, 11), 1: Fraction(12, 31)}
+PASS  lambda_0 = (9,7,7,9)/32                                                                  [Fraction(9, 32), Fraction(7, 32), Fraction(7, 32), Fraction(9, 32)]
+PASS  lambda_1|H1=1 = (45,21,35,27)/128                                                        [Fraction(45, 128), Fraction(21, 128), Fraction(35, 128), Fraction(27, 128)]
+PASS  lambda_2|H1=H2=1 = (105/242, 49/242, 70/341, 54/341)                                     [Fraction(105, 242), Fraction(49, 242), Fraction(70, 341), Fraction(54, 341)]
+PASS  P(H1=1)=1/2                                                                              1/2
+PASS  P(H2=1|H1=1)=33/64                                                                       33/64
+PASS  P(X0=1|D) = (1/6, 5/14, 9/14, 5/6)                                                       [Fraction(1, 6), Fraction(5, 14), Fraction(9, 14), Fraction(5, 6)]
+PASS  V_0(D;{1}) = (2/3, 4/7, 3/7, 1/3)                                                        [Fraction(2, 3), Fraction(4, 7), Fraction(3, 7), Fraction(1, 3)]
+PASS  V_1(D;{1}) = (2/3, 3/7, 4/7, 1/3)                                                        [Fraction(2, 3), Fraction(3, 7), Fraction(4, 7), Fraction(1, 3)]
+PASS  P(X1=1|D) = (1/6, 9/14, 5/14, 5/6) (exchange of D0,D1)                                   [Fraction(1, 6), Fraction(9, 14), Fraction(5, 14), Fraction(5, 6)]
+PASS  reduced readout reproduces k_(0,1)(1|D0=0)                                               7/11
+PASS  reduced readout reproduces k_(0,1)(1|D0=1)                                               12/31
+PASS  P(D0=1|D1=0,H=11) = 308/959                                                              44/137 (lowest terms)
+PASS  308/959 and 651/959 are not in lowest terms (=44/137, 93/137)                            
+PASS  P(X1=1|D1=0,H1=H2=1) = 437/1918 (brute force)                                            437/1918
+PASS  437/1918 equals the displayed reconstruction sum                                         
+PASS  table imem:binary-exchange                                                               {0: (Fraction(3, 4), Fraction(1, 4)), 1: (Fraction(45, 62), Fraction(1, 4)), 2: (Fraction(45, 62), Fraction(437, 1918))}
+PASS  Gamma_t = W lambda_t exactly on all 31 histories (t<=4)                                  
+PASS  sender invariance of the entire private posterior, all histories                         
+PASS  imem:binary-correlations at every information state (t<=4)                               
+PASS  cue probabilities strictly inside (0,1) at every history (nonzero covariance)            
+PASS  direct Y1=1: cue likelihoods 5/8, 3/8 and posterior 9/14                                 {0: Fraction(5, 8), 1: Fraction(3, 8)}, 9/14
+PASS  P(H1=H2=1|X1=0,1) = 21/64, 13/64                                                         {0: Fraction(21, 64), 1: Fraction(13, 64)}
+PASS  receiver posterior after two fresh samples = 45/64                                       45/64
+PASS  squared once-marginalized likelihoods give 171/244                                       171/244
+PASS  information identity, i=0, n=2                                                           I(Z;H|D_i)=0.007345, rhs=0.007345, residual=-6.22e-15
+PASS  information identity, i=1, n=2                                                           I(Z;H|D_i)=0.007306, rhs=0.007306, residual=-6.22e-15
+PASS  reduced free-energy identity at h=(1,1), 5 random nu                                     max residual 2.22e-16
+PASS  history likelihood and evidence Z_2 for all four histories; lambda_2 = lambda_0 L_2/Z_2  Z_2: 00=33/128, 01=31/128, 10=31/128, 11=33/128
+PASS  Z_2(11) = 33/128, Z_2(01) = Z_2(10) = 31/128                                             
+PASS  full free-energy identity F = KL(Q||Gamma_2) - log Z_2, 3 random Q                       max residual 4.44e-16
+PASS  extension: lambda_1 recovered exactly from next two speakers' kernels (Brook)            [Fraction(45, 128), Fraction(21, 128), Fraction(35, 128), Fraction(27, 128)]
+
+47/47 checks passed

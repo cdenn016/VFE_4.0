@@ -1,0 +1,11 @@
+(a) overlapping widths 2+2 sharing one row: Fisher rank = 15  predicted K*dim(row sum) = 15  naive K*(2+2) = 20
+(a) two identical full-rank codes: Fisher rank = 25  K^2 = 25
+(b) residuals T th0^-1 - S: 2.220446049250313e-16  T th1^-1 - S: 2.220446049250313e-16  det signs: 1.0 -1.0
+(b) th0^-1 th1 in Stab(T): max abs(T s - T) = 4.6629367034256575e-15
+(c) counterexample: ranks 1 1  equal left kernels: False  lstsq residual = 0.5000000000000002
+(c) equal relations: ranks 2, 2; equal left kernels: True; lstsq residual 2.22e-15; generic solution det 0.458, residual 3.11e-15
+(c) unequal relations, equal rank: ranks 2, 2; equal left kernels: False; lstsq residual 1.54e+00; generic solution det 0.189, residual 1.54e+00
+(d) analytic sum_c beta_c F_c eigenvalues: [0.2279 0.5361 1.2135 2.8538]
+(d) complete-data MC eigenvalues:           [0.2275 0.5472 1.2156 2.8615]  max rel deviation: 0.0039
+(d) latent-label MC eigenvalues:            [0.1162 0.353  0.9409 2.3608]
+(d) eigenvalues of (sum beta F) - latent MC (Loewner gap, should be >= 0 up to MC error): [0.0891 0.2047 0.2373 0.5292]

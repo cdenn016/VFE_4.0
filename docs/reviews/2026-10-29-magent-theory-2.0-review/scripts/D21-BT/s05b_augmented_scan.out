@@ -1,0 +1,3 @@
+lam=0 (rectangular): det F = 0.8638, tr F = -3.9e-11, eig F = [-0.+0.9294j -0.-0.9294j]
+most negative det F over scan: -11.1845 (trial 3, lam 10.0); tr F = -4.2e-11; eig F = [-3.3443  3.3443]
+small-square holonomy (side 0.05): eigenvalues [1.00831247 0.99175605], moduli [1.00831247 0.99175605], det 1.00000000, |tr| = 2.00006853

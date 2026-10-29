@@ -1,0 +1,2 @@
+zero mean: KL tangent form rank = 6 of 9 (null dim predicted 3); dressed-defect tangent min eigenvalue = 0.0477 (rank 9)
+nonzero mean: KL tangent form rank = 8 of 9 (null dim predicted 1); dressed-defect tangent min eigenvalue = 0.0477 (rank 9)

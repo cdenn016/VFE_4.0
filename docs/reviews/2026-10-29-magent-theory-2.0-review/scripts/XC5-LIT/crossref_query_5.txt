@@ -1,0 +1,116 @@
+== FristonFrith2015 [item1_refs.bib, @article]
+  bib author: Friston, Karl and Frith, Christopher
+  bib title: A duet for one
+  bib journal: Consciousness and Cognition
+  bib volume: 36
+  bib pages: 390--405
+  bib year: 2015
+  -- candidate 1: DOI 10.1016/j.concog.2014.12.003
+  CR authors: Friston, Karl; Frith, Christopher
+  CR title:   A Duet for one
+  CR venue:   Consciousness and Cognition
+  CR vol/iss/pages: 36/None/390-405  article-number: None
+  CR date: [2015, 11]
+  -- candidate 2: DOI 10.1093/law/9780192869081.003.0008
+  CR authors: Friston, Mark
+  CR title:   Orders for Costs (Qualified One-Way Costs Shifting)
+  CR venue:   Friston on Costs
+  CR vol/iss/pages: None/None/277-298  article-number: None
+  CR date: [2023, 6, 20]
+== FristonEtAl2020Language [item1_refs.bib, @article]
+  bib author: Friston, Karl J. and Parr, Thomas and Yufik, Yan and Sajid, Noor and Price, Catherine J. and Holmes, Emma
+  bib title: Generative models, linguistic communication and active inference
+  bib journal: Neuroscience and Biobehavioral Reviews
+  bib volume: 118
+  bib pages: 42--64
+  bib year: 2020
+  -- candidate 1: DOI 10.1016/j.neubiorev.2020.07.005
+  CR authors: Friston, Karl J.; Parr, Thomas; Yufik, Yan; Sajid, Noor; Price, Catherine J.; Holmes, Emma
+  CR title:   Generative models, linguistic communication and active inference
+  CR venue:   Neuroscience &amp; Biobehavioral Reviews
+  CR vol/iss/pages: 118/None/42-64  article-number: None
+  CR date: [2020, 11]
+  -- candidate 2: DOI 10.31234/osf.io/4j2k6
+  CR authors: Friston, Karl; Parr, Thomas; Yufik, Yan; Sajid, Noor; Price, Cathy J.; Holmes, Emma
+  CR title:   Generative models, language and active inference
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2020, 3, 4]
+== WarglienGardenfors2013 [item1_refs.bib, @article]
+  bib author: Warglien, Massimo and G{\"a}rdenfors, Peter
+  bib title: Semantics, conceptual spaces, and the meeting of minds
+  bib journal: Synthese
+  bib volume: 190
+  bib number: 12
+  bib pages: 2165--2193
+  bib year: 2013
+  -- candidate 1: DOI 10.1007/s11229-011-9963-z
+  CR authors: Warglien, Massimo; Gärdenfors, Peter
+  CR title:   Semantics, conceptual spaces, and the meeting of minds
+  CR venue:   Synthese
+  CR vol/iss/pages: 190/12/2165-2193  article-number: None
+  CR date: [2013, 8]
+  -- candidate 2: DOI 10.7551/mitpress/9629.003.0006
+  CR authors: 
+  CR title:   Pointing as Meeting of Minds
+  CR venue:   The Geometry of Meaning
+  CR vol/iss/pages: None/None/77-90  article-number: None
+  CR date: [2014, 1, 17]
+== LahavNeemeh2022 [item1_refs.bib, @article]
+  bib author: Lahav, Nir and Neemeh, Zachariah A.
+  bib title: A relativistic theory of consciousness
+  bib journal: Frontiers in Psychology
+  bib volume: 12
+  bib pages: 704270
+  bib year: 2022
+  -- candidate 1: DOI 10.3389/fpsyg.2021.704270
+  CR authors: Lahav, Nir; Neemeh, Zachariah A.
+  CR title:   A Relativistic Theory of Consciousness
+  CR venue:   Frontiers in Psychology
+  CR vol/iss/pages: 12/None/None  article-number: 704270
+  CR date: [2022, 5, 12]
+  -- candidate 2: DOI 10.31234/osf.io/8yzfc_v1
+  CR authors: Kromer, Wolfgang
+  CR title:   EVALUATING THE BIOLOGICAL RELEVANCE OF THE RELATIVISTIC THEORY OF CONSCIOUSNESS
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2026, 6, 12]
+== vanEnk2006 [item1_refs.bib, @article]
+  bib author: van Enk, S. J.
+  bib title: Quantum communication, reference frames, and gauge theory
+  bib journal: Physical Review A
+  bib volume: 73
+  bib pages: 042306
+  bib year: 2006
+  -- candidate 1: DOI 10.1103/physreva.73.042306
+  CR authors: van Enk, S. J.
+  CR title:   Quantum communication, reference frames, and gauge theory
+  CR venue:   Physical Review A
+  CR vol/iss/pages: 73/4/None  article-number: 042306
+  CR date: [2006, 4, 10]
+  -- candidate 2: DOI 10.47749/t/unicamp.2017.986161
+  CR authors: Dias Truran, Henrique
+  CR title:   Quantum field theory in accelerated reference frames
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [None]
+== ZaslavskyEtAl2018 [item1_refs.bib, @article]
+  bib author: Zaslavsky, Noga and Kemp, Charles and Regier, Terry and Tishby, Naftali
+  bib title: Efficient compression in color naming and its evolution
+  bib journal: Proceedings of the National Academy of Sciences
+  bib volume: 115
+  bib number: 31
+  bib pages: 7937--7942
+  bib year: 2018
+  -- candidate 1: DOI 10.1073/pnas.1800521115
+  CR authors: Zaslavsky, Noga; Kemp, Charles; Regier, Terry; Tishby, Naftali
+  CR title:   Efficient compression in color naming and its evolution
+  CR venue:   Proceedings of the National Academy of Sciences
+  CR vol/iss/pages: 115/31/7937-7942  article-number: None
+  CR date: [2018, 7, 31]
+  -- candidate 2: DOI 10.1101/2021.11.03.467047
+  CR authors: Zaslavsky, Noga; Garvin, Karee; Kemp, Charles; Tishby, Naftali; Regier, Terry
+  CR title:   The evolution of color naming reflects pressure for efficiency: Evidence from the recent past
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2021, 11, 16]

@@ -1,0 +1,18 @@
+normalization |sum P - 1| = 0.0
+posterior formula residual max|w Pi - Bayes| = 1.1102230246251565e-16
+evidence residual |Z - P(o)| = 2.7755575615628914e-17
+cmem:free-energy-split max residual over 200 random correlated Q = 1.7763568394002505e-15
+separated ELBO form max residual = 2.6645352591003757e-15
+min over random Q of F + log Z (must be > 0) = 1.150221814609341
+F(posterior) + log Z = 0.0
+cmem:gibbs: min over 500 random s of F(s) - F(s*) (must be >= 0) = 0.0007530156462944859
+cmem:gibbs: max|f_a(Pi_a) + log Z_a| = 0.0
+cmem:gibbs: Gibbs weights at exact conditionals vs w, max diff = 0.0
+structured family: F residual vs KL(s||r)+sum s KL(qX||mu_a) - E log l = 0.0
+cmem:product-label: min over random s of F - F(label update) (>= 0) = 0.00010922668014634596
+q_X update: min over random q_X of F - F(update) (>= 0) = 0.02225259561894788
+structured optimum vs exact minimum (F_struct - (-log Z), >= 0) = 0.32556990762199156
+l_Y normalized: max|sum_o l_Y - 1| = 2.220446049250313e-16
+(M,Y,O) marginal residual = 1.3877787807814457e-17
+result posterior (M,Y) residual = 5.551115123125783e-17
+structured coordinate descent: monotone = True ; converged gap F - (-log Z) = 0.14173401319016143 ; last change = 0.0

@@ -1,0 +1,21 @@
+main: {'proof': 201, 'square': 20, 'subsection': 23, 'subsubsection': 5, 'name+ref': 3}
+   chapters/05_inheritance.tex:94: uniquely. $\square$
+   chapters/05_inheritance.tex:153: $M(DB(x)v)$. $\square$
+   chapters/05_inheritance.tex:366: reproduce both trajectories. $\square$
+   chapters/05_inheritance.tex:398: \eqref{inh:lumpability}. $\square$
+   chapters/05_inheritance.tex:454: llows by integrating $K_a$ against it. $\square$
+   chapters/05_inheritance.tex:496: equivalence. $\square$
+   chapters/05_inheritance.tex:520: $\square$
+   chapters/05_inheritance.tex:676: anging the integration order is valid. $\square$
+   chapters/05_inheritance.tex:956: ws establish the additional assertion. $\square$
+   chapters/05_inheritance.tex:981: \eqref{inh:boundary-square}. $\square$
+   chapters/05_inheritance.tex:997: , contradicting the initial condition. $\square$
+   chapters/05_inheritance.tex:1229: convergence in total variation. $\square$
+supplement: {'proof': 5, 'square': 2}
+   supplements/s04_inheritance.tex:34: surjectivity proves uniqueness. $\square$
+   supplements/s04_inheritance.tex:107: n gives every future word probability. $\square$
+companion: {'proof': 1, 'subsection': 1}
+item1: {'proof': 19}
+item2: {'proof': 10}
+item3: {'proof': 5}
+item7: {'proof': 16}

@@ -1,0 +1,29 @@
+g_N = Matrix([[4/(u**4 + 2*u**2*v**2 + 2*u**2 + v**4 + 2*v**2 + 1), 0], [0, 4/(u**4 + 2*u**2*v**2 + 2*u**2 + v**4 + 2*v**2 + 1)]])
+(1) f X - (I - n n^T) = Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+    H_X - g^{-1} = Matrix([[0, 0], [0, 0]]) ; det H_X = (u**2 + v**2 + 1)**4/16 (> 0: rank 2 everywhere)
+(2) Q_X - f = Matrix([[0, 0], [0, 0], [0, 0]])
+    a - Levi-Civita form: [Matrix([
+[0, 0],
+[0, 0]]), Matrix([
+[0, 0],
+[0, 0]])]
+(4) dM - (M a + a^T M): [Matrix([
+[0, 0],
+[0, 0]]), Matrix([
+[0, 0],
+[0, 0]])]
+    F_uv = Matrix([[0, 4/(u**2 + v**2 + 1)**2], [-4/(u**2 + v**2 + 1)**2, 0]])
+    M F skew: Matrix([[0, 0], [0, 0]])
+(5) Pfaffian density = 4/sqrt(u**8 + 4*u**6*v**2 + 4*u**6 + 6*u**4*v**4 + 12*u**4*v**2 + 6*u**4 + 4*u**2*v**6 + 12*u**2*v**4 + 12*u**2*v**2 + 4*u**2 + v**8 + 4*v**6 + 6*v**4 + 4*v**2 + 1) ; area density = 4/sqrt(u**8 + 4*u**6*v**2 + 4*u**6 + 6*u**4*v**4 + 12*u**4*v**2 + 6*u**4 + 4*u**2*v**6 + 12*u**2*v**4 + 12*u**2*v**2 + 4*u**2 + v**8 + 4*v**6 + 6*v**4 + 4*v**2 + 1) ; ratio = 1
+    Pfaffian density - 4/(1+u^2+v^2)^2 = 0 (squares; both positive)
+    integral of Pfaffian density over the chart (= S^2 minus a point): 4*pi ; Euler number = integral/(2 pi) = 2
+(3) same point on overlap: Matrix([[0], [0], [0]])
+    X_S - h^{-1} X_N = Matrix([[0, 0, 0], [0, 0, 0]])
+    a_S - (h^{-1} a_N h + h^{-1} dh): [Matrix([
+[0, 0],
+[0, 0]]), Matrix([
+[0, 0],
+[0, 0]])]
+    det h = -(u**2 + v**2)**2 (orientation-reversing chart change; gluing is unaffected)
+
+Moebius: X(theta) = (cos theta/2, sin theta/2), X(2 pi) = -X(0) (transition h = -1); a = Matrix([[0]]) ; holonomy = transition sign = -1

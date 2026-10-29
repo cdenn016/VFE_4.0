@@ -1,0 +1,5 @@
+dim N = 12  dim ker L_N = 4
+lam=1e+02: |z - z_inf| = 2.280e-03
+lam=1e+04: |z - z_inf| = 2.309e-05
+lam=1e+06: |z - z_inf| = 2.309e-07
+isotropic reduction to it1:bias: |formula(Pi0 = I) - (-P_ker z* - L_N^+ Z^T B^T W B w*)| = 8.33e-16

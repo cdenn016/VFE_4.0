@@ -1,0 +1,4 @@
+structure identity residual: [0, 0]
+V(Z) = [0, 0]
+basic criterion residual: 0
+basic criterion residual (X,X): 0

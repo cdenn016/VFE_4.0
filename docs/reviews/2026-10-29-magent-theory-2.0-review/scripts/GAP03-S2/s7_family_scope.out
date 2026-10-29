@@ -1,0 +1,5 @@
+Gaussian common variance, blocks [2, 2]: |parent - pushforward| mean 1.90e-09, variance 1.08e-09; fine variance velocities spread 0.00e+00
+Gaussian common variance, blocks [1, 2, 1]: |parent - pushforward| mean 2.40e-09, variance 0.00e+00; fine variance velocities spread 0.00e+00
+Gaussian common variance, blocks [4]: |parent - pushforward| mean 3.80e-09, variance 2.16e-09; fine variance velocities spread 0.00e+00
+Poisson, blocks [2, 2]: parent velocity [-0.081041  1.363286] vs pushforward [-1.127537  0.2892  ]
+Poisson, blocks [4]: parent velocity [1.371318] vs pushforward [-0.838337]

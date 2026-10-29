@@ -1,0 +1,4 @@
+exact record, independent frames: |change| = 2.4868995751603507e-14
+tangent record, common frame g, omega -> g omega g^{-1}: |change| = 1.1102230246251565e-16
+independent frames: |T (g_j^{-1} g_i - I)| = 115.00237603552502 (nonzero => no omega' works for all y_i)
+Frobenius anchor under conjugation (non-orthogonal g): ||w||, ||g w g^-1|| = 0.3044574201122632 0.6040900066135829

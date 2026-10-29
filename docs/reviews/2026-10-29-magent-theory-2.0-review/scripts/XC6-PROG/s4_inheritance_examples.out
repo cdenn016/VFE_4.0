@@ -1,0 +1,13 @@
+(a) |Lambda T - T^c Lambda| = 5.55e-17; lumpability sums into b from states 1,2: 0.2, 0.4
+    TV of retained path laws of 5 states from delta_1: 0.100000
+    TV of retained path laws of 6 states from delta_1: 0.100000
+    from nu Lambda with nu = delta_a (6 states): TV = 1.14e-16
+(b) (p1,p2)=(0.8,0.2): law of K1+K2 = [0.16 0.68 0.16], d/dt E = -1.20
+(b) (p1,p2)=(0.2,0.8): law of K1+K2 = [0.16 0.68 0.16], d/dt E = -1.80
+(c) xbar' at A = 0.125000 (claim J c = 0.125); at B = 0.093750 (claim J c (1-a^2) = 0.09375); ybar' equal: 0.00e+00
+(d) response means 20.0000/256 and 17.0000/256; difference 0.011719 vs 3/4 m a^2 = 0.011719
+(e) common clock (full flow, coefficient -2.0): max spread over k of residual = 1.11e-15
+(e) common clock (null flow, coefficient -1.0): max spread over k of residual = 6.66e-16
+(f) fine rows normalized (0.0e+00); first-parent kernel error 5.6e-17; second-parent kernel error 5.6e-17
+(g) anisotropic differences at t=1: [0.3679 0.    ], [0.     0.0747]
+    Cov(x1,x2) = 0.07599950 vs formula 0.07599950

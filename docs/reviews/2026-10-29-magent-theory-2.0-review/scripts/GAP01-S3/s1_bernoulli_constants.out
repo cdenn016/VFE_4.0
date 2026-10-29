@@ -1,0 +1,29 @@
+(a) u_* = [15/7, 15/7, 5/7]  eigenvalues of M: {-1/5: 1, -7/5: 2}
+    u_eps = u_* + eps^2 w + O(eps^4), w = [1275/2401, 1275/2401, 1725/4802] = [0.5310287380258226, 0.5310287380258226, 0.3592253227821741]  |w| = 0.8324817558040252
+(b) numerical u_eps (fsolve on the exact scaled field):
+    eps=0.200 |u_eps-u_*|=3.3382e-02  (u_eps-u_*)/eps^2=[0.532158 0.532158 0.360704]  vs w=[0.531029 0.531029 0.359225]  res=0.0e+00
+    eps=0.100 |u_eps-u_*|=8.3305e-03  (u_eps-u_*)/eps^2=[0.531343 0.531343 0.35961 ]  vs w=[0.531029 0.531029 0.359225]  res=0.0e+00
+    eps=0.050 |u_eps-u_*|=2.0816e-03  (u_eps-u_*)/eps^2=[0.531109 0.531109 0.359322]  vs w=[0.531029 0.531029 0.359225]  res=3.3e-16
+    eps=0.025 |u_eps-u_*|=5.2032e-04  (u_eps-u_*)/eps^2=[0.531049 0.531049 0.35925 ]  vs w=[0.531029 0.531029 0.359225]  res=0.0e+00
+(c) |u_in-u_*| = 3.014421, common part [-0.5 -0.5 -0.5], difference part [ 2.357143 -1.142857 -1.214286]
+    binding asymptotic margin of 4u_3-u_2>0 at u_*: 0.173240
+    initial no-edge margin of 4u_2-u_1<0 at u_in: 0.485071 (r0 must be smaller)
+  r0=0.05 rho0=3.0644: ball B(u_*,rho0) invariant for eps<=0.1619; 5*Rbar<=asym/2 for eps<=0.0280
+      eps=0.0010 Rbar=2.213e-05 shadow=5Rbar=1.107e-04  explicit entrance time T=4.4112
+      eps=0.0050 Rbar=5.533e-04 shadow=5Rbar=2.767e-03  explicit entrance time T=4.4839
+      eps=0.0100 Rbar=2.214e-03 shadow=5Rbar=1.107e-02  explicit entrance time T=4.7212
+      eps=0.0200 Rbar=8.860e-03 shadow=5Rbar=4.430e-02  explicit entrance time T=5.8401
+      eps=0.0280 Rbar=1.732e-02 shadow=5Rbar=8.662e-02  explicit entrance time T=7.8202
+  r0=0.20 rho0=3.2144: ball B(u_*,rho0) invariant for eps<=0.1577; 5*Rbar<=asym/2 for eps<=0.0266
+      eps=0.0010 Rbar=2.445e-05 shadow=5Rbar=1.222e-04  explicit entrance time T=5.9103
+      eps=0.0050 Rbar=6.112e-04 shadow=5Rbar=3.056e-03  explicit entrance time T=5.9951
+      eps=0.0100 Rbar=2.445e-03 shadow=5Rbar=1.223e-02  explicit entrance time T=6.2704
+      eps=0.0200 Rbar=9.787e-03 shadow=5Rbar=4.893e-02  explicit entrance time T=7.5607
+      eps=0.0266 Rbar=1.732e-02 shadow=5Rbar=8.659e-02  explicit entrance time T=9.3641
+(d) exact flow from u_in (DOP853, rtol 1e-11): last time the full block is absent, t in [0,60]
+    eps=0.01: full block from t=3.832 on (persistent to t=60: True); |u(60)-u_*|_inf=5.003e-05
+    eps=0.02: full block from t=3.833 on (persistent to t=60: True); |u(60)-u_*|_inf=2.093e-04
+    eps=0.05: full block from t=3.839 on (persistent to t=60: True); |u(60)-u_*|_inf=1.325e-03
+    eps=0.10: full block from t=3.860 on (persistent to t=60: True); |u(60)-u_*|_inf=5.310e-03
+    eps=0.30: full block from t=4.062 on (persistent to t=60: True); |u(60)-u_*|_inf=4.797e-02
+    eps=0 limit trajectory: full block from t=3.8330

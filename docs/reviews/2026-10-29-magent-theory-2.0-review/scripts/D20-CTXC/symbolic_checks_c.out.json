@@ -1,0 +1,117 @@
+{
+ "script": "symbolic_checks.py",
+ "part": "c",
+ "sympy": "1.14.0",
+ "runtime_s": 0.84,
+ "all_zero": true,
+ "results": [
+  {
+   "check": "witness KL(q x s || r G) = |mu-nu|^2/2 + |nu|^2/2 + 1",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "witness Hessian H (ctx:c:eq:witnessV)",
+   "zero_residual": "True",
+   "residual": "Matrix([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])",
+   "note": ""
+  },
+  {
+   "check": "H v = kappa v",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0], [0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "kappa = (11 - sqrt 5)/2",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "kappa is an eigenvalue of H (spectrum listed)",
+   "zero_residual": "True",
+   "residual": "True",
+   "note": "eigenvalues [3/2 - sqrt(5)/2, sqrt(5)/2 + 3/2, 11/2 - sqrt(5)/2, sqrt(5)/2 + 11/2]"
+  },
+  {
+   "check": "w = ||V0||^2 = 5 - sqrt 5",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "witness alpha_* = -phi_x",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "witness D_x P = R_phi a_x V0",
+   "zero_residual": "True",
+   "residual": "Matrix([[0, 0, 0, 0], [0, 0, 0, 0]])",
+   "note": ""
+  },
+  {
+   "check": "witness D_x D_x P = R_phi a_xx V0",
+   "zero_residual": "True",
+   "residual": "Matrix([[0, 0, 0, 0], [0, 0, 0, 0]])",
+   "note": ""
+  },
+  {
+   "check": "witness -PH = -kappa P on the ansatz",
+   "zero_residual": "True",
+   "residual": "Matrix([[0, 0, 0, 0], [0, 0, 0, 0]])",
+   "note": ""
+  },
+  {
+   "check": "<PH, JP>_F = 0 for symmetric H",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "a(t,x) solves a_t = lam a_xx - kappa a",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "exact energy (ctx:c:eq:exactenergy)",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "dF/dt formula",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "dF/dt = -int ||P_t||^2",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "n=1,2 profiles agree with first derivative at x=0",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "velocity difference = -3 lam a1 (times R_phi(0) V0)",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "lower bound a >= e^{-kappa t}(a0-|a1|)",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  }
+ ]
+}

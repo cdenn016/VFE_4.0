@@ -1,0 +1,17 @@
+(a) c=0.0: X alpha0 = 0.800000 (2 mu = 0.8)
+    t=0.00: b_t/I_t = 0.400000, tensor defect hbar-h = +1.976e-13
+    t=0.25: b_t/I_t = 0.553350, tensor defect hbar-h = -1.754e-01
+    t=0.50: b_t/I_t = 0.651650, tensor defect hbar-h = -2.526e-01
+    t=1.00: b_t/I_t = 0.744662, tensor defect hbar-h = -2.786e-01
+    t=2.00: b_t/I_t = 0.783729, tensor defect hbar-h = -2.120e-01
+(a) c=0.3: X alpha0 = 0.800000 (2 mu = 0.8)
+    t=0.00: b_t/I_t = 0.400000, tensor defect hbar-h = +7.333e-13
+    t=0.25: b_t/I_t = 0.546629, tensor defect hbar-h = -1.732e-01
+    t=0.50: b_t/I_t = 0.645766, tensor defect hbar-h = -2.505e-01
+    t=1.00: b_t/I_t = 0.744071, tensor defect hbar-h = -2.772e-01
+    t=2.00: b_t/I_t = 0.787107, tensor defect hbar-h = -2.112e-01
+(b) coherent start, J=0.3, at chi=1: d/dchi arg S(chi,T=0.5) = +5.689e-05
+(b) coherent start, J=0.3, at chi=1: d/dchi arg S(chi,T=1.0) = +7.372e-05
+(b) coherent start, J=0.3, at chi=1: d/dchi arg S(chi,T=2.0) = +8.207e-05
+(b) chapter scaling eps=0.05, at chi=1: d/dchi arg S(chi,T=1.0) = +1.462e-09
+(b) chapter scaling eps=0.05, at chi=1: d/dchi arg S(chi,T=4.0) = +1.561e-09

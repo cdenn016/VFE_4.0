@@ -1,0 +1,9 @@
+(a) pa:four-linear eigenvalues, numerical: [-2.25 -1.25 -1.15 -1.15 -1.15 -1.15 -0.85 -0.85 -0.85 -0.85 -0.75  0.25]
+    claimed: [-2.25 -1.25 -1.15 -1.15 -1.15 -1.15 -0.85 -0.85 -0.85 -0.85 -0.75  0.25]  max |diff| = 9.356959651540819e-11
+(b) pa:bit-limit |u_eps-u_*|, eps=0.2,0.1,0.05,0.025: [0.021286 0.005313 0.001328 0.000332]  ratios: [4.006138 4.001761 4.000454]
+(c) pa:angular-flow (circles resampled): residual outside family span 1.32e-29; max|ODE coef - projection| 3.33e-15; max|rows - closed form| 5.55e-17
+(c) lp:field (psi transmitted): residual outside family span 6.14e-30; max|ODE coef - projection| 2.55e-15; max|rows - closed form| 5.55e-17
+(d) lp:sum-failure dOmega/du - (4ks+6k^2E)/(5D^2) = 0
+    Omega from rows -0.074987032683582 vs closed form -0.074987032683582
+(e) lp:causal-flow max|R_theta xbar - R_U0 x| over [0,3.0] = 8.62e-13; slice constraint S_y(xbar(T)) = 8.02e-18, theta(T) = 0.0054
+(b2) eps=0.05: blocks at t=0 full/null = 3/3; first time full flow has one block: 3.84; one block on [first, 60]: True; null ever one block: False; final full u = [2.144182 2.144182 0.715181]

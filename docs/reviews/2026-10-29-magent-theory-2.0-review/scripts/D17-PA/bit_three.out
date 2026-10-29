@@ -1,0 +1,18 @@
+(a) pa:bit-flow vs Fisher gradient of the reduced per-agent free energy
+  max residual 5.25e-09
+(b) eig M = [-1.4 -1.4 -0.2] ; u_* = -M^{-1}o = [2.142857 2.142857 0.714286]  (15/7 = 2.142857 , 5/7 = 0.714286 )
+(c) partition histories (event time, partition)
+  eps=0.02 full: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.24), ((1, 2), (3,))), (np.float64(3.84), ((1, 2, 3),))] | final l/eps=[2.1431 2.1431 0.7144]
+           null: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.667), ((1, 2), (3,)))] | final l/eps=[ 5.005  5.005 -5.005]
+  eps=0.05 full: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.24), ((1, 2), (3,))), (np.float64(3.84), ((1, 2, 3),))] | final l/eps=[2.1442 2.1442 0.7152]
+           null: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.667), ((1, 2), (3,)))] | final l/eps=[ 5.0315  5.0315 -5.0315]
+  eps=0.10 full: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.24), ((1, 2), (3,))), (np.float64(3.867), ((1, 2, 3),))] | final l/eps=[2.1482 2.1482 0.7179]
+           null: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.667), ((1, 2), (3,)))] | final l/eps=[ 5.1294  5.1294 -5.1294]
+  eps=0.30 full: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.253), ((1, 2), (3,))), (np.float64(4.067), ((1, 2, 3),))] | final l/eps=[2.1908 2.1908 0.7469]
+           null: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.667), ((1, 2), (3,)))] | final l/eps=[ 6.4898  6.4898 -6.4898]
+  eps=1.00 full: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.307), ((1, 2), (3,))), (np.float64(5.28), ((1, 2, 3),))] | final l/eps=[2.6179 2.6179 1.0761]
+           null: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.733), ((1, 2), (3,)))] | final l/eps=[ 8.99  8.99 -8.99]
+  eps=2.00 full: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.28), ((1, 2), (3,)))] | final l/eps=[ 3.1827  3.1827 -0.8949]
+           null: [(np.float64(0.0), ((1,), (2,), (3,))), (np.float64(0.733), ((1, 2), (3,)))] | final l/eps=[ 9.  9. -9.]
+(d) random open perturbations at eps=0.05
+  full: starts singletons and ends in the full block 40/40; null ever has the full block 0/40

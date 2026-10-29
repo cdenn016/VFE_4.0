@@ -1,0 +1,76 @@
+== QUERY: Efron Tweedie's formula and selection bias JASA 2011
+  -- hit 1: DOI 10.1198/jasa.2011.tm11181
+  CR authors: Efron, Bradley
+  CR title:   Tweedie’s Formula and Selection Bias
+  CR venue:   Journal of the American Statistical Association
+  CR vol/iss/pages: 106/496/1602-1614  article-number: None
+  CR date: [2011, 12]
+  -- hit 2: DOI 10.32614/cran.package.bcaboot
+  CR authors: Efron, Bradley; Narasimhan, Balasubramanian
+  CR title:   bcaboot: Bias Corrected Bootstrap Confidence Intervals
+  CR venue:   CRAN: Contributed Packages
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2018, 8, 31]
+  -- hit 3: DOI 10.4135/9781412959636.n550
+  CR authors: 
+  CR title:   Selection Bias
+  CR venue:   International Encyclopedia of Political Science
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2011]
+== QUERY: Rowley Marsden Reconstruction equations and the Karhunen-Loeve expansion for systems with symmetry Physica D 2000
+  -- hit 1: DOI 10.1016/s0167-2789(00)00042-7
+  CR authors: Rowley, Clarence W.; Marsden, Jerrold E.
+  CR title:   Reconstruction equations and the Karhunen–Loève expansion for systems with symmetry
+  CR venue:   Physica D: Nonlinear Phenomena
+  CR vol/iss/pages: 142/1-2/1-19  article-number: None
+  CR date: [2000, 8]
+  -- hit 2: DOI 10.1109/cdc.1998.758639
+  CR authors: Glavaski, S.; Marsden, J.E.; Murray, R.M.
+  CR title:   Model reduction, centering, and the Karhunen-Loeve expansion
+  CR venue:   Proceedings of the 37th IEEE Conference on Decision and Control (Cat. No.98CH36171)
+  CR vol/iss/pages: 2/None/2071-2076  article-number: None
+  CR date: [None]
+  -- hit 3: DOI 10.1063/1.1361660
+  CR authors: Páta, Petr
+  CR title:   Properties of Karhunen-Loeve Expansion of astronomical images in comparison with other integral transforms
+  CR venue:   AIP Conference Proceedings
+  CR vol/iss/pages: 526/None/882-886  article-number: None
+  CR date: [2000]
+== QUERY: Krishnamurthy Hamdi Mis-information removal in social networks constrained estimation dynamic directed acyclic graphs data incest
+  -- hit 1: DOI 10.1109/jstsp.2013.2245630
+  CR authors: Krishnamurthy, Vikram; Hamdi, Maziyar
+  CR title:   Mis-Information Removal in Social Networks: Constrained Estimation on Dynamic Directed Acyclic Graphs
+  CR venue:   IEEE Journal of Selected Topics in Signal Processing
+  CR vol/iss/pages: 7/2/333-346  article-number: None
+  CR date: [2013, 4]
+  -- hit 2: DOI 10.1109/icif.2003.177451
+  CR authors: McLaughlin, S.P.; Evans, R.J.; Krishnamurthy, V.
+  CR title:   Data incest removal in a survivable estimation fusion architecture
+  CR venue:   Sixth International Conference of Information Fusion, 2003. Proceedings of the
+  CR vol/iss/pages: None/None/229-236  article-number: None
+  CR date: [2003]
+  -- hit 3: DOI 10.5220/0001858300170024
+  CR authors: Chen, Yangjun
+  CR title:   DIRECTED ACYCLIC GRAPHS AND DISJOINT CHAINS
+  CR venue:   Proceedings of the 11th International Conference on Enterprise Information
+  CR vol/iss/pages: None/None/17-24  article-number: None
+  CR date: [2009]
+== QUERY: Ghahramani Jordan Supervised learning from incomplete data via an EM approach 1994
+  -- hit 1: DOI 10.21236/ada295618
+  CR authors: Ghahramani, Zoubin; Jordan, Michael I.
+  CR title:   Learning from Incomplete Data.
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [1994, 12, 10]
+  -- hit 2: DOI 10.3724/sp.j.1001.2008.00073
+  CR authors: LI, Xiao-Lin
+  CR title:   An Approach to Learning PRM from Incomplete Relational Data
+  CR venue:   Journal of Software
+  CR vol/iss/pages: 19/1/73-81  article-number: None
+  CR date: [2008, 6, 30]
+  -- hit 3: DOI 10.5353/th_991044214995203414
+  CR authors: Ge, Weifeng
+  CR title:   Image understanding from imperfect data via transfer learning, metric learning, and weakly supervised learning
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [None]

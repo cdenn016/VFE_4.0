@@ -1,0 +1,2 @@
+(a) max |direct - K(sum dim I - dim sum I)| over 40 random three-agent instances = 0
+(b) det s = -1.0; message-law residual vs truth = 0.0e+00; |H_gamma - I| = 2.00; |H_gamma^2 - I| = 0.0e+00; tangent: chains of gamma^2 span the cycle space over R (rank of B = 9 = K^2)

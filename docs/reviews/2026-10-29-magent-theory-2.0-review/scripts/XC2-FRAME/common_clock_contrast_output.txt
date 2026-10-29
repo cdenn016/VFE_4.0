@@ -1,0 +1,2 @@
+A additive moment   : max over 20 random 4-agent states of |d/dt(l_i-l_j) + 2(l_i-l_j)| = 1.380e-08
+B geometric mean    : max over 20 random 4-agent states of |d/dt(l_i-l_j) + 2(l_i-l_j)| = 1.444e+00

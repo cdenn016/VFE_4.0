@@ -1,0 +1,10 @@
+thm:dyn-registered, n=4, |X_n| = 27
+(i)   max relative error of registration probability vs |T_q| exp(-n[H+D]): 5.50705865389462e-16
+(ii)  max |posterior of label - Gibbs row at T=1/n|: 1.6653345369377348e-16
+(iii) max |T F - (E + C_n + T log|X_n|)|: 8.881784197001252e-16
+(iv)  max |E_red - (-T log P(o|x) - C_n)|: 2.7755575615628914e-16   evidence bound holds at every x: True
+c_n on the interior types: [0.2158 0.2452 0.2158]  upper bound |supp| log(n+1)/n = 0.8047
+
+cor:dyn-frozen-source, N = 5 copies, three frozen sources on a ternary alphabet
+eq:dyn-frozen-source residual: 1.6653345369377348e-16
+posterior of J given a sequence of type (1/5,2/5,2/5) vs Gibbs row at T=1/5, max diff: 1.1102230246251565e-16

@@ -1,0 +1,20 @@
+1. max |w_+ formula - direct|              : 1.1102230246251565e-16
+2. c_+ > c_- > 0 at h=0.8                  : True (c_+=0.403586, c_-=0.036612)
+   max |k formula - direct|                : 5.551115123125783e-17
+3. receiver likelihood tails (h=0.8):
+   x= -60: l_0 = 0.0366124564
+   x= -30: l_0 = 0.0366125450
+   x= -10: l_0 = 0.0411136746
+   x=   0: l_0 = 0.2200990105
+   x=  10: l_0 = 0.3990843465
+   x=  30: l_0 = 0.4035854761
+   x=  60: l_0 = 0.4035855647
+   targets  c_- = 0.0366124564, c_+ = 0.4035855647
+4. h=0: c_+ - c_- = 0.0 ; l_0(0|x) over x in {-20,0,20}: [0.18134268371, 0.18134268371, 0.18134268371]
+5. D1-marginal of lambda_1 is exactly a 2-component Gaussian mixture: max residual 1.3877787807814457e-17
+   P(H=h|D0= -80) = 0.0366124564
+   P(H=h|D0= -40) = 0.0366126579
+   P(H=h|D0=  40) = 0.4035853632
+   P(H=h|D0=  80) = 0.4035855647
+   (tends to c_- and c_+: distinct tail limits of the D0-marginal ratio; the D0 prior
+    marginal is the single Gaussian N(0, L0+N0), so the tail lemma of the proof applies)

@@ -1,0 +1,14 @@
+(a) analytic fine first variation vs central FD of the fine potential (random non-family states)
+   d=2 coin  : max relative directional-derivative residual 8.52e-10
+   d=2 circle: max relative directional-derivative residual 3.13e-10
+   d=3 coin  : max relative directional-derivative residual 1.50e-08
+(b,c) E - N F at t=0, and fine flow vs lifted profile flow at t=1 (RK4, dt=0.01)
+   d=2 coin  : N=4 distinct leaf laws=4 E-NF=3.55e-15  sup|q - lift f|=4.44e-16 sup|s - lift g|=4.44e-16 sup|rows|=1.67e-16  E(0)=4.761450 E(1)=0.309130
+   d=2 circle: N=4 distinct leaf laws=4 E-NF=4.44e-15  sup|q - lift f|=4.44e-16 sup|s - lift g|=1.11e-15 sup|rows|=3.33e-16  E(0)=6.425885 E(1)=1.240363
+   d=3 coin  : N=8 distinct leaf laws=8 E-NF=1.78e-15  sup|q - lift f|=4.44e-16 sup|s - lift g|=1.33e-15 sup|rows|=2.22e-16  E(0)=14.934438 E(1)=2.404184
+(d) incoming term removed from the profile flow: sup |f(1) - f_noincoming(1)|
+   d=2: 0.0453
+   d=3: 0.1275
+(e) null flow (all peer costs deleted): fine vs lifted profile null flow at t=1
+   d=2 circle: sup|q - lift f|=6.66e-16 sup|s - lift g|=7.77e-16 rows=1.11e-16
+   d=3 coin  : sup|q - lift f|=6.66e-16 sup|s - lift g|=8.88e-16 rows=5.55e-17

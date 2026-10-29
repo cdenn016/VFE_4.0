@@ -1,0 +1,46 @@
+{
+  "S_var_equality_residual": "0",
+  "S_identity_g2T_plus_P": "0",
+  "S_cue_posterior_var_residual": "0",
+  "S_cue_posterior_mean_residual": "0",
+  "S_receiver_mean_residual": "0",
+  "S_receiver_var_residual": "0",
+  "S_cov_X0_H_vs_direct": [
+    "L1*S*b*f1/(L1 + N1)",
+    "S*b*f1"
+  ],
+  "G_gaussian_protocol": [
+    {
+      "max_abs_mean_diff": 2.498001805406602e-16,
+      "max_abs_cov_diff": 3.3306690738754696e-15,
+      "max_change_offdiag_precision": 1.3877787807814457e-16,
+      "max_change_diag_precision": 0.5514989614036299
+    },
+    {
+      "max_abs_mean_diff": 3.3306690738754696e-15,
+      "max_abs_cov_diff": 4.440892098500626e-15,
+      "max_change_offdiag_precision": 2.7755575615628914e-17,
+      "max_change_diag_precision": 0.08137836404782181
+    },
+    {
+      "max_abs_mean_diff": 1.9317880628477724e-14,
+      "max_abs_cov_diff": 1.637578961322106e-14,
+      "max_change_offdiag_precision": 1.6653345369377348e-16,
+      "max_change_diag_precision": 3.579449712284267
+    }
+  ],
+  "M_logistic_weight_max_err": 2.220446049250313e-16,
+  "M_c_plus_c_minus": [
+    0.40358556467884044,
+    0.05887334970377377
+  ],
+  "M_ell0_at_x": {
+    "-40.0": 0.05887334970377378,
+    "-10.0": 0.05900949500359657,
+    "0.0": 0.23122945719130708,
+    "10.0": 0.4034494193790177,
+    "40.0": 0.40358556467884044
+  },
+  "wall_seconds": 0.881,
+  "scope": "Symbolic identities are exact; Gaussian and quadrature checks are numerical instances only."
+}

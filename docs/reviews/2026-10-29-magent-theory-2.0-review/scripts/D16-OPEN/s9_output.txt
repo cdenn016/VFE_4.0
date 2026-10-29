@@ -1,0 +1,6 @@
+A=4096 R=1.754569e+07
+h=0: full t(core)=0.58860054 t(far)=0.58860053 | null t(core)=0.64612327 t(far)=0.64612327 | offset core -5.752e-02 far -5.752e-02, difference -9.432e-09
+h=2e-11: full t(core)=0.58860054 t(far)=0.58860065 | null t(core)=0.64612327 t(far)=0.64612337 | offset core -5.752e-02 far -5.752e-02, difference -1.792e-09
+h=1e-09: full t(core)=0.58860054 t(far)=0.58885480 | null t(core)=0.64612327 t(far)=0.64638890 | offset core -5.752e-02 far -5.753e-02, difference -1.138e-05
+   far-gap scan (11 values in [-2e-3,2e-3] and 17 in [-2.8e-4,-2.4e-4]): order(full) != order(null) at eta = [-0.000265  -0.0002625 -0.00026   -0.0002575 -0.000255 ]
+   (predicted wedge: eta between -(tF_far - tF_core) = -2.5426e-04 and -(tN_far - tN_core) = -2.6564e-04)

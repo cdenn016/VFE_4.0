@@ -1,0 +1,17 @@
+== (a) eq:dyn-gaussian-flow vs the exact Fisher-Rao flow of KL(. || N(m, S)) ==
+  symmetric-gradient check: tr(gS dSigma) - FD = 1.61e-10
+  covariance factor 2: max deviation from the exact Fisher-Rao solution = 2.38e-13
+  covariance factor 1: max deviation from the exact Fisher-Rao solution = 2.08e+00
+== (b)-(c) a Gaussian source with one receiver ==
+  log(q_k^2/q_i) has x^2 coefficient (-v_i + v_k/2)/(v_i*v_k): integrable iff v_k < 2 v_i
+  chi^2(q_k||q_i) with v_k = 2 v_i - d, d > 0 (zero means): Piecewise((-1 + I*v_i/(sqrt(d)*sqrt(polar_lift(d - 2*v_i))), Abs(arg(d - 2*v_i) - pi) <= pi/2), ((-sqrt(2)*sqrt(v_i)*Integral(exp(d*x**2/(2*v_i*(d - 2*v_i))), (x, -oo, oo)) + 2*sqrt(pi)*(-d + 2*v_i))/(2*sqrt(pi)*(d - 2*v_i)), True))
+    v_i = 1, v_k = 1.5: chi^2 = 0.1547 (quadrature 0.1547)
+    v_i = 1, v_k = 1.9: chi^2 = 1.2942 (quadrature 1.2942)
+    v_i = 1, v_k = 1.99: chi^2 = 6.0888 (quadrature 6.0888)
+  weighted L2 distance of phi from quadratics on [-4,4]: 0.3288 (zero for a Gaussian-preserving velocity)
+== (d) restricted Gaussian velocity of a source = score-pairing projection of the full velocity ==
+  receiver N(0.7, 1.5), source N(0.1, 1.0): restricted [0.4  0.93], projection [0.4  0.93]; chi^2(q_k||q_i) = 1.3722551343947118
+  receiver N(0.7, 3.0), source N(0.1, 1.0): restricted [0.4  1.68], projection [0.4  1.68]; chi^2(q_k||q_i) = inf
+== (e) prop:dyn-compensation and the Gaussian source variance force ==
+  compensation identity residual = 1.11e-16 (magnitude 0.770)
+  d/dv_j KL(N(m_i,v_i)||N(m_j,v_j)) - (v_j - v_i - (m_i-m_j)^2)/(2 v_j^2) = 0

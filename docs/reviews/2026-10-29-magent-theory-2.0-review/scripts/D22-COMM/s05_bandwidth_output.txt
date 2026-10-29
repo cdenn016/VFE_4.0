@@ -1,0 +1,9 @@
+(a) normalized log-odds at n=2e5: 0.12197776886630424  KL(nu||nu_k) - KL(nu||nu_j) = 0.12407359027997263  difference = -0.002095821413668389
+(b) n=10, k=7: log odds = 4.394449154672439, (2k-n) log 3 = 4.394449154672439
+(b) n=100, k=41: log odds = -19.775021196025975, (2k-n) log 3 = -19.775021196025975
+(c) mass of nu: t-substitution = 1.0 ; x-quadrature with exact tail = 0.999999999999999999996769297335
+(c) partial E_nu log nu up to t=1e+02: 2.7172736 (grows like log L = 4.6051702)
+(c) partial E_nu log nu up to t=1e+04: 7.2123824 (grows like log L = 9.2103404)
+(c) partial E_nu log nu up to t=1e+08: 16.420681 (grows like log L = 18.420681)
+(d) q = q_j = N(0,1), true code 1, candidate code 2: KL(message laws) = 0.3181471805599453  > KL(q||q_j) = 0
+(d) common code: KL(Tq||Tq_j) = 0.15907359027997264  <= KL(q||q_j) = 2.6097674459459177

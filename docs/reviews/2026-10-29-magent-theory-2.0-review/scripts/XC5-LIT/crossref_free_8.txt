@@ -1,0 +1,57 @@
+== QUERY: Smith Sorensen Pathological outcomes of observational learning Econometrica 2000
+  -- hit 1: DOI 10.1111/1468-0262.00113
+  CR authors: Smith, Lones; Sorensen, Peter
+  CR title:   Pathological Outcomes of Observational Learning
+  CR venue:   Econometrica
+  CR vol/iss/pages: 68/2/371-398  article-number: None
+  CR date: [2000, 3]
+  -- hit 2: DOI 10.1111/1468-0262.00112
+  CR authors: Shimer, Robert; Smith, Lones
+  CR title:   Assortative Matching and Search
+  CR venue:   Econometrica
+  CR vol/iss/pages: 68/2/343-369  article-number: None
+  CR date: [2000, 3]
+  -- hit 3: DOI 10.1111/1468-0262.00170
+  CR authors: Brezzi, Monica; Lai, Tze Leung
+  CR title:   Incomplete Learning from Endogenous Data in Dynamic Allocation
+  CR venue:   Econometrica
+  CR vol/iss/pages: 68/6/1511-1516  article-number: None
+  CR date: [2000, 11]
+== QUERY: Gustafson Bayesian inference for partially identified models International Journal of Biostatistics 2010
+  -- hit 1: DOI 10.2202/1557-4679.1206
+  CR authors: Gustafson, Paul
+  CR title:   Bayesian Inference for Partially Identified Models
+  CR venue:   The International Journal of Biostatistics
+  CR vol/iss/pages: 6/2/None  article-number: None
+  CR date: [2010, 3, 8]
+  -- hit 2: DOI 10.1201/b18308
+  CR authors: Gustafson, Paul
+  CR title:   Bayesian Inference for Partially Identified Models
+  CR venue:   
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2015, 4, 1]
+  -- hit 3: DOI 10.3982/qe399
+  CR authors: Kline, Brendan; Tamer, Elie
+  CR title:   Bayesian inference in a class of partially identified models
+  CR venue:   Quantitative Economics
+  CR vol/iss/pages: 7/2/329-366  article-number: None
+  CR date: [2016, 7]
+== QUERY: Crawford Sobel Strategic information transmission Econometrica 1982
+  -- hit 1: DOI 10.2307/1913390
+  CR authors: Crawford, Vincent P.; Sobel, Joel
+  CR title:   Strategic Information Transmission
+  CR venue:   Econometrica
+  CR vol/iss/pages: 50/6/1431  article-number: None
+  CR date: [1982, 11]
+  -- hit 2: DOI 10.3982/ecta17617
+  CR authors: Kono, Haruki; Kandori, Michihiro
+  CR title:   Corrigendum to Crawford and Sobel (1982) “Strategic Information Transmission”
+  CR venue:   Econometrica
+  CR vol/iss/pages: 89/4/1-10  article-number: None
+  CR date: [2021]
+  -- hit 3: DOI 10.2307/2951741
+  CR authors: Austen-Smith, David
+  CR title:   Strategic Transmission of Costly Information
+  CR venue:   Econometrica
+  CR vol/iss/pages: 62/4/955  article-number: None
+  CR date: [1994, 7]

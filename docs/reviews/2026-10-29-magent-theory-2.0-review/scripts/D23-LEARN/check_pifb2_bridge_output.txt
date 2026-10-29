@@ -1,0 +1,4 @@
+(a) eps=1e-02: Q/eps^2 = 11.753748; tangent form = 11.799099; kron form = 11.799099
+(a) eps=1e-03: Q/eps^2 = 11.793786; tangent form = 11.799099; kron form = 11.799099
+(b) MC 0.56739 (n=400000) vs (1+2 lam s2)^(-1/2) = 0.56796 vs det ratio = 0.56796
+(c) MC Z = 0.2109 (n=20000); Jensen lower bound exp(-lam E Q) = 0.0003; upper bound 1

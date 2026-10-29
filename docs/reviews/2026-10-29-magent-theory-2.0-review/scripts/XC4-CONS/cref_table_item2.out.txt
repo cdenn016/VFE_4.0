@@ -1,0 +1,14 @@
+Item_2_link_dynamics.tex:152 -> it2:global-flow [proposition, Item_2_link_dynamics.tex:130, same] 'The global flow'
+      ...nothing to $H_{y_jy_i}$. Hence $H$ need not be symmetric, and its fixed point need not equal $x^\star$. \end{enumerate} \begin{proof} (i) and (ii) follow as in \cref{it2:global-flow}, with the peers' means as data in $E_i$. For (iii), compare
+Item_2_link_dynamics.tex:166 -> it2:global-flow [proposition, Item_2_link_dynamics.tex:130, same] 'The global flow'
+      ...nt for the metric there and has real spectrum, since its Jacobian is the negative metric inverse times the symmetric objective Hessian. The global statement is \cref{it2:global-flow}(ii). The second form of $w$ and the limits are algebra. \en
+Item_2_link_dynamics.tex:192 -> it2:per-agent-flow [proposition, Item_2_link_dynamics.tex:143, same] 'The per-agent flow'
+      ...ary block is the restriction of the dictionary prior precision $\sigma^{-2}I+\lambda B^TWB$ to the invisible directions, positive definite, in both pictures by \cref{it2:per-agent-flow}(iii). \end{proof} The theorem identifies two different kno
+Item_2_link_dynamics.tex:257 -> it2:per-agent-flow [proposition, Item_2_link_dynamics.tex:143, same] 'The per-agent flow'
+      ...tive definite because the self terms and the anchor are. (iv) In the per-agent law-level model $\tilde R_e=R_e+\bar T_e\Sigma_j\bar T_e^T=S_{j,e}$; the rest is \cref{it2:per-agent-flow}(iii). \end{proof} At fixed covariances and fixed rows, the
+Item_2_link_dynamics.tex:279 -> it2:potential [definition, Item_2_link_dynamics.tex:228, same] 'Tangent reciprocal potential'
+      ...inty is asserted for that flow. General non-Gaussian Bayesian posteriors may also change their uncertainty when records change. For product dictionary laws in \cref{it2:potential}, covariance stationarity gives $V_e^{-1}=\sigma^{-2}I+\lamb
+Item_2_link_dynamics.tex:279 -> it2:echo [proposition, Item_2_link_dynamics.tex:202, same] 'Echo around a loop'
+      ... loop diagonal block is the number of simple loops containing $e$ times the identity, so $N_e$ is invariant under this precision. In the single-loop setting of \cref{it2:echo}, the variance on an unread coordinate is $(\sigma^{-2}+\lam
+Item_2_link_dynamics.tex:291 -> it2:gauge [theorem, Item_2_link_dynamics.tex:78, same] 'Belief and meaning are interdependent'
+      ...\omega_e(y_i-c_i)$ and let the operating contents follow the beliefs. Factorized recognition then acquires second-moment terms, and the interpretation gauge of \cref{it2:gauge} becomes a nonlinear orbit. Determine whether grounding stil

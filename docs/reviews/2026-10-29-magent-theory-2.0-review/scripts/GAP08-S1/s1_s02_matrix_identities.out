@@ -1,0 +1,36 @@
+== lem:sgeom-lowrank: e^{OT} = I + O phi_1(TO) T ==
+(d,r)=(4,1): |e^OT - (I+O phi1 T)| = 5.3455e-51; |phi1_aug - phi1_series| = 2.6728e-51
+(d,r)=(5,2): |e^OT - (I+O phi1 T)| = 5.3455e-51; |phi1_aug - phi1_series| = 1.0691e-50
+(d,r)=(3,5): |e^OT - (I+O phi1 T)| = 1.3364e-51; |phi1_aug - phi1_series| = 5.3455e-51
+(d,r)=(6,6): |e^OT - (I+O phi1 T)| = 5.3455e-51; |phi1_aug - phi1_series| = 1.3364e-50
+(d,r)=(7,2): |e^OT - (I+O phi1 T)| = 1.0691e-50; |phi1_aug - phi1_series| = 2.6728e-51
+singular TO: det(TO) = 1.0974e-51 ; |e^OT - (I+O phi1 T)| = 2.6728e-51
+nilpotent TO (sympy exact): e^OT - (I + O(I+Z/2)T) = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+prop:int-rank (d,r)=(5,2): max |e^OT v - v| over ker T basis = 8.0183e-51; |(e^OT - I) - P_imO (e^OT - I)| = 5.3455e-51; det e^OT = 3.1357148 vs e^tr(OT) = 3.1357148
+
+== stacked interfaces (s02:26) ==
+full stacked formula residual: 2.6728e-51
+diagonal-block replacement error (generic): 0.94791
+cross products |T2 O1|, |T1 O2| = 9.01e-52 2.04e-51
+diagonal-block formula with both cross products zero: 2.6728e-51
+one-sided vanishing (T2 O1 = 0, T1 O2 != 0): |T1 O2| = 1.816 ; diagonal-block error = 0.24923
+
+== prop:sgeom-rankone (sympy, symbolic u, v in R^3) ==
+L^n = t^(n-1) L for n = 2..6: exact
+det(I + c u v^T) - (1 + c t) = 0
+so det e^L = 1 + phi_1(t) t = exp(u1*v1 + u2*v2 + u3*v3) (= e^t)
+t = -0.874: |e^L - (I + phi1(t) L)| = 2.6728e-51, det e^L - e^t = -6.6819e-52
+t = 0.0: |e^L - (I + phi1(t) L)| = 0.0, det e^L - e^t = 0.0
+t = 1.188: |e^L - (I + phi1(t) L)| = 0.0, det e^L - e^t = 0.0
+t = 3.5: |e^L - (I + phi1(t) L)| = 1.7106e-49, det e^L - e^t = 8.5528e-50
+
+== lem:sgeom-frechet ==
+n=2: |block - central difference(h=1e-18)| = 4.7613e-33; |[L,H]| = 1.469; |D - e^L H| = 1.697
+n=2: |integral (eq:sgeom-frechet) - block| = 0.0
+n=3: |block - central difference(h=1e-18)| = 3.6307e-33; |[L,H]| = 3.633; |D - e^L H| = 3.002
+n=4: |block - central difference(h=1e-18)| = 2.9857e-33; |[L,H]| = 2.49; |D - e^L H| = 2.415
+commuting H = p(L): |D exp_L[H] - e^L H| = 1.3364e-51
+diagonal L, (1,2) entry of the integral minus h12 (e^l1 - e^l2)/(l1 - l2): 0
+
+== eq:sgeom-moment-derivative (sympy, d = 2) ==
+dL - formula = [[0, 0], [0, 0]]

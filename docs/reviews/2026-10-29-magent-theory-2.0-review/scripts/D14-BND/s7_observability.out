@@ -1,0 +1,21 @@
+uniform model reference: residual of eq:boundary-binary-flow (x) 5.43e-166, exchanged (y) 2.17e-165
+model reference (1 + rho k')/2: residual of eq:boundary-binary-flow (x) 6.78e-167, exchanged (y) 3.40e-01
+   extra model term equals (1 - y1^2) atanh(rho): residual 2.17e-165 (vanishes at rho = 0)
+F_x minus claimed expansion, through total degree 4: 0
+   (degree-5 part present, as O(5) allows: True)
+uncoupled identity residual: 0
+uncoupled series through degree 4: 6*a**2*m + 2*m**3/3 - m
+J=+0.20 c=(+0.7,+1.3): det/eps^4 at eps=1e-3,1e-4: 103.7447157415, 103.7443714774; claimed 103.7443680000; (det/eps^4-lead)/eps^2: 347.7415, 347.7402
+J=+0.20 c=(-1.1,+0.4): det/eps^4 at eps=1e-3,1e-4: 24.2542695226, 24.2542086152; claimed 24.2542080000; (det/eps^4-lead)/eps^2: 61.5226, 61.5225
+J=-0.15 c=(+0.7,+1.3): det/eps^4 at eps=1e-3,1e-4: 131.3950182092, 131.3946309121; claimed 131.3946270000; (det/eps^4-lead)/eps^2: 391.2092, 391.2077
+J=-0.15 c=(-1.1,+0.4): det/eps^4 at eps=1e-3,1e-4: 30.7185812129, 30.7185126921; claimed 30.7185120000; (det/eps^4-lead)/eps^2: 69.2129, 69.2128
+J=+1.70 c=(+0.7,+1.3): det/eps^4 at eps=1e-3,1e-4: 12.8191494516, 12.8189896145; claimed 12.8189880000; (det/eps^4-lead)/eps^2: 161.4516, 161.4508
+J=+1.70 c=(-1.1,+0.4): det/eps^4 at eps=1e-3,1e-4: 2.9969565641, 2.9969282856; claimed 2.9969280000; (det/eps^4-lead)/eps^2: 28.5641, 28.5640
+J=+2.00 c=(+0.7,+1.3): det/eps^4 at eps=1e-3,1e-4: 0.0001241936, 0.0000012419; claimed 0.0000000000; (det/eps^4-lead)/eps^2: 124.1936, 124.1929
+J=+2.00 c=(-1.1,+0.4): det/eps^4 at eps=1e-3,1e-4: 0.0000219724, 0.0000002197; claimed 0.0000000000; (det/eps^4-lead)/eps^2: 21.9724, 21.9723
+J=+6.00 c=(+0.7,+1.3): det/eps^4 at eps=1e-3,1e-4: -0.0003725796, -0.0000037258; claimed 0.0000000000; (det/eps^4-lead)/eps^2: -372.5796, -372.5788
+J=+6.00 c=(-1.1,+0.4): det/eps^4 at eps=1e-3,1e-4: -0.0000659170, -0.0000006592; claimed 0.0000000000; (det/eps^4-lead)/eps^2: -65.9170, -65.9169
+off-diagonal leading coefficients Q(c; J):
+   J=2, c=(1, 0, 1, 1): Q = -32; exact det/eps^4 at eps=1e-4: -32.00000075
+   J=6, c=(1, 0, 1, 1/2): Q = -36; exact det/eps^4 at eps=1e-4: -36.00000112
+   J=0, c=(1, 1, 1, 1): Q = 144; exact det/eps^4 at eps=1e-4: 144.00000448

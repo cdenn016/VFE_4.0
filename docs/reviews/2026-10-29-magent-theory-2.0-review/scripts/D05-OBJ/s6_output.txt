@@ -1,0 +1,7 @@
+start [0.01 0.   0.   1.39 1.39 1.39] : period mean 3.497594 spread 4.09e-12; successive maxima of l_1 mean 1.345874 spread 1.44e-06; |z| max 1.386
+start [ 2. -3.  1.  0. -1.  2.] : period mean 3.497594 spread 4.09e-12; successive maxima of l_1 mean 1.345874 spread 1.37e-06; |z| max 3.000
+
+w = 0.5: field at (rho, log w) = 0.0e+00; eigenvalues [-1.16667-0.28868j -1.16667+0.28868j -1.     +0.j      -1.     +0.j
+ -1.     +0.j      -0.66667+0.j     ]; predicted complex pair (-1-3w/2 +- i sqrt3 w/2)/(1+w) = -1.16667 +- 0.28868 i
+w = 2.0: field at (rho, log w) = 0.0e+00; eigenvalues [-1.33333-0.57735j -1.33333+0.57735j -1.     +0.j      -1.     +0.j
+ -1.     +0.j      -0.33333+0.j     ]; predicted complex pair (-1-3w/2 +- i sqrt3 w/2)/(1+w) = -1.33333 +- 0.57735 i

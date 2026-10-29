@@ -1,0 +1,10 @@
+(1) KL(q x s || rG) - claim = 0
+(2) grad E(X) = [[2, 3, -2, -2], [-2, -2, 2, 3]] ; minus manuscript = [[0, 0, 0, 0], [0, 0, 0, 0]]
+(3) (C,S,rho) = (8,0,8); c(theta) - closed form = 0
+    R_* = [[1, 0], [0, 1]], c_* = 3, stationarity at 0 = 0, Hessian = 8 (rho = 8)
+(4) envelope residuals: X-part {0}, Y-part {0}
+(5) Xdot - manuscript = [[0, 0, 0, 0], [0, 0, 0, 0]]
+    changed neighbor: R_* = [[1, 0], [0, 1]], Xdot change = [[lambda, 0, 0, 0], [0, 0, 0, 0]]
+(6) F at lambda=1: 75/2; dF/dt + ||vel||^2 = 0; ||vel||^2 at lambda=1: 323
+    target-context velocity (not displayed in manuscript): [[-lambda - 3, -2*lambda - 10, 4, 6], [2, 4, -1, -lambda - 7]]
+    ||vel||^2 as polynomial in lambda: 12*lambda**2 + 38*lambda + 273

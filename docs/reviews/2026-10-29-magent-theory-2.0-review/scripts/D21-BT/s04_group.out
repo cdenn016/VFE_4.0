@@ -1,0 +1,10 @@
+(a) so(3) selector, SO(3)-valued h: |a' - (h^-1 a h + h^-1 dh)| = 6.21e-11
+(a) so(3) selector, GL(3)-valued h: |a' - (h^-1 a h + h^-1 dh)| = 8.81e-01
+(b) gl(3): |a(M) - a(I)| = 4.93e-16; |a(M) - (-dX Q_X)| = 4.61e-16
+(b) so(3): |a(M) - a(I)| = 4.301e-01 (M-dependence of the constrained selector)
+(c) joint selector affine law: |a' - (h^-1 a h + h^-1 dh)| = 4.10e-11
+(c) |joint - q-only| = 2.824e-01; |d rho_s(joint) - s-only gl connection| = 4.915e-01
+(c) one generator for both one-sector gl connections? |(-aq_only^T) - as_gl| = 6.063e-01
+(c) relative sector weight lam=  0.1: joint a(Y) = [[-0.0786, 0.3634], [0.2421, -0.046]]
+(c) relative sector weight lam=  1.0: joint a(Y) = [[-0.1875, 0.3417], [0.2917, -0.1854]]
+(c) relative sector weight lam= 10.0: joint a(Y) = [[-0.3295, 0.1383], [0.3397, -0.171]]

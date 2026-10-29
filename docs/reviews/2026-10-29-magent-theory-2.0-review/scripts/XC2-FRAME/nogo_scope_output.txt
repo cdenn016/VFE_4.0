@@ -1,0 +1,6 @@
+(i)  sup of E_red over a 2001^2 grid reaching 1e-9 from the boundary: 2.772589
+     analytic bound 2 log 2 + 2 T log 2 = 2.772589
+(ii) d_p1 d_p2^2 E_red at (0.3, 0.7) = 9.738699  (nonzero)
+     d_p1 d_p2^2 E_red at (0.2, 2/3) = 13.583296
+(iii) E - 2 KL(product || Pi) over 6 random configurations: [0.21947428 0.21947428 0.21947428 0.21947428 0.21947428 0.21947428]
+      spread = 3.33e-16 (constant up to rounding)

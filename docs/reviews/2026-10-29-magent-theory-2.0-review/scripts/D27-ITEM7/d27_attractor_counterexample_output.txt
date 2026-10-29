@@ -1,0 +1,5 @@
+Hessian eigenvalues: [ 1.7574  1.7574  2.      2.     10.2426 10.2426]
+minimizer: [-0.4292 -0.4042  0.4042  0.4292 -0.0833  0.0833] ; parent gap d* = 0.1667 ; KL(d*) = 0.0833 (coherence needs < 0.05)
+generator eigenvalues: [-1.6772 -1.6772 -0.1    -0.1    -0.0894 -0.0894]
+actual handoff (block gap 0.5): block gap 0.50 (KL 0.750, walled True); internal member gap 0.05 (KL 0.0075, coherent True); min |parent gap| 0.1175; longest coherent dwell 4.81; union selected at 3.785; |x(400) - x*| = 6.2e-14
+counterfactual handoff (block gap 0.7): block gap 0.70 (KL 1.470, walled True); internal member gap 0.05 (KL 0.0075, coherent True); min |parent gap| 0.1502; longest coherent dwell 0.00; union selected at None; |x(400) - x*| = 6.2e-14

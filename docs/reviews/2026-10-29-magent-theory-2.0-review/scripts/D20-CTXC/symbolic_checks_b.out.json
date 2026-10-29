@@ -1,0 +1,75 @@
+{
+ "script": "symbolic_checks.py",
+ "part": "b",
+ "sympy": "1.14.0",
+ "runtime_s": 1.13,
+ "all_zero": true,
+ "results": [
+  {
+   "check": "polar metric = du^2 + u^2 (dr + eta du)^2",
+   "zero_residual": "True",
+   "residual": "Matrix([[0, 0], [0, 0]])",
+   "note": ""
+  },
+  {
+   "check": "polar V = (u^2 + a^2 - 2 a u cos phi)/2",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "polar V_r = a u sin phi",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "polar V_u = u - a cos phi + a eta u sin phi",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "polar zero-coupling u_t = -u + a cos phi",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "polar zero-coupling r_t = -eta u_t - (a/u) sin phi",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "polar zero coupling reconstructs p_t = -(p - a e1)",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "omitting C^T V_r changes u_t by -a eta u sin phi",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "polar alpha_* = -phi_x",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "polar D_x D_x p = u_xx e_rad",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "polar positive coupling: chart system = Cartesian Fisher flow",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0]])",
+   "note": ""
+  }
+ ]
+}

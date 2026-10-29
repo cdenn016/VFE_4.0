@@ -1,0 +1,13 @@
+(a) it7:null constants:
+    s = 1.0: |y| in [1.845, 3.155]; beta0 <= 1.933e-6; evaluator term <= 3.566e-6 < record term 2.5e-5: True; adjacent KL >= 3 (0.14)^2 = 0.0588 > 0.05
+    s = 1.1: |y| in [1.795, 3.205]; beta0 <= 3.337e-6; evaluator term <= 5.989e-6 < record term 2.5e-5: True; adjacent KL >= 3 (0.14)^2 = 0.0588 > 0.05
+    s = 1.2: |y| in [1.745, 3.255]; beta0 <= 5.675e-6; evaluator term <= 9.902e-6 < record term 2.5e-5: True; adjacent KL >= 3 (0.14)^2 = 0.0588 > 0.05
+    s = 1.3: |y| in [1.695, 3.305]; beta0 <= 9.507e-6; evaluator term <= 1.611e-5 < record term 2.5e-5: True; adjacent KL >= 3 (0.14)^2 = 0.0588 > 0.05
+(b) deviation limits: first stage 0.001493 ; unions 0.006965 (text: at most 0.0015 and 0.007)
+(c) local exponents of d_u(n): 3->4 0.7742 ; 4->6 0.6469 ; 3->6 0.6997 (text: roughly 1/2)
+(d) check (15), reduced horizons:
+    a = 0.0: blocks [(1, (0, 1, 2)), (1, (3, 4, 5)), (1, (6, 7, 8)), (1, (9, 10, 11)), (2, (0, 1, 2, 3, 4, 5)), (2, (6, 7, 8, 9, 10, 11))]; times [3.2, 3.2, 3.2, 3.2, 39.98, 39.98]; identical to stored times: True; 1.0 s
+    a = 0.3: blocks [(1, (0, 1, 2)), (1, (3, 4, 5)), (1, (6, 7, 8)), (1, (9, 10, 11)), (2, (0, 1, 2, 3, 4, 5)), (2, (6, 7, 8, 9, 10, 11))]; times [3.2, 3.2, 3.2, 3.2, 100.18, 100.18]; identical to stored times: True; 2.4 s
+    a = 0.6: blocks [(1, (0, 1, 2)), (1, (3, 4, 5)), (1, (6, 7, 8)), (1, (9, 10, 11)), (2, (0, 1, 2, 3, 4, 5)), (2, (6, 7, 8, 9, 10, 11))]; times [3.2, 3.2, 3.2, 3.2, 245.28, 245.28]; identical to stored times: True; 5.7 s
+    null control at y(0) = eta: velocity 0.0 ; smallest adjacent KL 0.27 > delta_c = 0.05, so the null never selects
+elapsed 9.1 s

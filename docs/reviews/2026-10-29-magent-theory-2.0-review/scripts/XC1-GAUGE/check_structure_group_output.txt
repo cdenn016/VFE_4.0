@@ -1,0 +1,11 @@
+(a) lam=0.0  h_min(marked group)=0.092510   h_min(marked x common psi)=0.092510   psi-connection component=[-0.]
+(a) lam=0.5  h_min(marked group)=0.133303   h_min(marked x common psi)=0.092510   psi-connection component=[-0.5]
+(a) lam=1.0  h_min(marked group)=0.255683   h_min(marked x common psi)=0.092510   psi-connection component=[-1.]
+    predicted lam^2 * I_phys increment at lam=1: 0.16317258834828752
+(b) tied minimizer xi = -I1/(I1 + I2)  residual = I1*I2/(I1 + I2)
+    untied minimizer = {xi_q: -1, xi_s: 0}  residual = 0  (connection -dchi on beliefs, 0 on models: flat for any I1(a), I2)
+(c) t= 0  F_t coefficient = -0.484403708027
+(c) t= 2  F_t coefficient = -0.498071631703
+(c) t= 6  F_t coefficient = -0.498075116506
+(c) t=12  F_t coefficient = -0.498075116506
+    claimed limit -2 lam^2 kappa/(kappa^2+lam^2)^2 = -0.498075116506

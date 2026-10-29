@@ -1,0 +1,15 @@
+== mirror-symmetric critical point (x0, x1, x2, b) = [0.5        0.21014235 0.78985765 0.5       ]
+   |b - beta*(u)| = 0.00e+00; |grad E_red(u)| = 4.44e-16
+   row Hessian H_bb = 0.400000; T times Fisher of the row = 0.400000
+   inertia (neg, zero, pos) of Hess E = (1, 0, 3), of Hess E_red = (1, 0, 2)
+   max abs(Hess E_red - Schur complement) = 3.55e-15; eigenvalues Hess E_red = [-18.848837   6.155932  12.086708]
+== local minimum of E_red from (0.15, 0.15, 0.85) critical point (x0, x1, x2, b) = [0.33479011 0.20201771 0.8999156  0.99985059]
+   |b - beta*(u)| = 0.00e+00; |grad E_red(u)| = 4.44e-16
+   row Hessian H_bb = 669.393012; T times Fisher of the row = 669.393012
+   inertia (neg, zero, pos) of Hess E = (0, 0, 4), of Hess E_red = (0, 0, 3)
+   max abs(Hess E_red - Schur complement) = 1.24e-14; eigenvalues Hess E_red = [ 5.209647 11.05398  19.200625]
+== local minimum of E_red from (0.85, 0.15, 0.85) critical point (x0, x1, x2, b) = [6.6520989e-01 1.0008440e-01 7.9798229e-01 1.4941000e-04]
+   |b - beta*(u)| = 4.61e-19; |grad E_red(u)| = 6.66e-16
+   row Hessian H_bb = 669.393012; T times Fisher of the row = 669.393012
+   inertia (neg, zero, pos) of Hess E = (0, 0, 4), of Hess E_red = (0, 0, 3)
+   max abs(Hess E_red - Schur complement) = 1.04e-16; eigenvalues Hess E_red = [ 5.209647 11.05398  19.200625]

@@ -1,0 +1,20 @@
+== (a) fixed-kernel Fisher loss
+  |I_in - I_out - E Cov| = 2.22e-16 ; |I_out - FD output Fisher| = 2.09e-11 ; eig(E Cov) = [0.1352 1.6913]
+  equality case: v=e1 loss E Var(l_1|Ybar) = 2.35e-32 ; v=e2 loss = 0.7743
+== (b) Bernoulli pair
+  second-coordinate score at 0: 0 ; discarded Fisher: -4*t**2/((t**2 - 2)*(t**2 + 2)) ; at 0: 0
+== (c) moving channel
+  max |E[b|Y]| = 1.1e-16
+  I(Ybar) formula = 0.0717373196 ; finite-difference = 0.0717373196 ; residual 3.0e-11
+  logistic output Fisher residual: 0
+== (d) horizontal-defect witness
+  c=1/10: h - f^*hbar = 79/200; criterion 2g(Psi u,a)+|a|^2 <= Delta(u,u): True
+  c=1/2: h - f^*hbar = -1/8; criterion 2g(Psi u,a)+|a|^2 <= Delta(u,u): False
+== (e) two-location retention example
+  coarse minimizer a = 1/3 ; hbar_min = 4/3 ; identity 2 - hbar - 1/2 - (3/2) a^2 = 0
+== (f) SO(3), three agents, isotropic noise channels
+  max relative residual of minimal-contraction identity over 200 trials: 1.2e-15
+  equal noise: |Delta(r,J.)| = 3.0e-16 ; |A_fine - A_coarse| = 1.1e-16
+  unequal noise: |Delta(r,J.)| = 0.411 ; |A_fine - A_coarse| = 0.346
+== (g) defect composition
+  residual: 0

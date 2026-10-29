@@ -1,0 +1,18 @@
+(1) structure
+  d(a0')/d(others) all zero: True
+  contrast field A(a) = -3*aa**2*log(1 - aa)/2 + 3*aa**2*log(aa + 1)/2 - 2*aa + 3*log(1 - aa)/2 - 3*log(aa + 1)/2
+  m0' + A1 m0 m1 (H0 - H1) depends on a0, a1?: [False, False] (False, False expected)
+  coupling part: -m0*(A0*m0 - 1)*(11*L00*n0 - 11*L01*n0 + 20*L01 - 11*L10*n0 + 11*L11*n0 - 20*L11)/20
+
+(2) closed-form determinant vs interval value (uniform bases, J = 4/5, point of g6)
+  det_q = 0.031466546485047947049, det_s = -0.093574642488603147823, product = -0.002944470837689373661660491
+  g6 interval enclosure: -0.0029444708376893736616604911082864...
+  omega(a) = psi/kappa' is even: omega(0.3) - omega(-0.3) = 0.e-124
+  det_q vanishes on a0 = a1: True
+  omega on (0,1) at 19 points (not monotone, so {omega(a0) = omega(a1)} has a branch off the diagonal): [-9.995, -9.9802, -9.956, -9.9234, -9.8835, -9.8385, -9.791, -9.7451, -9.707, -9.6854, -9.6941, -9.7547, -9.9027, -10.2005, -10.7646, -11.8378, -14.008, -19.1026, -36.5845]
+
+(3) invisibility of base-uniform shapes in the root responses
+  d = 1: two belief shapes F, F' (sorted values [0.68, 1.32] vs [0.592, 1.408])
+    max |root belief response difference| over t in [0, 3] (record at t = 0.5) = 5.73e-14; the profiles themselves differ by up to 0.062 in log
+  d = 2: two belief shapes F, F' (sorted values [0.552, 0.725, 1.315, 1.407] vs [0.782, 0.877, 0.989, 1.353])
+    max |root belief response difference| over t in [0, 3] (record at t = 0.5) = 4.66e-15; the profiles themselves differ by up to 0.100 in log

@@ -1,0 +1,122 @@
+Item_1_communication_links.tex:22 -> it1:gaussian-reconstruction [proposition, Item_1_communication_links.tex:126, same] 'Gaussian reconstruction'
+      ...ce, and the reconstructed belief adopts the sender's belief along the communicated directions while keeping the receiver's own belief along the discarded ones (\cref{it1:gaussian-reconstruction}). For general laws and a noiseless code, the meaning lost i
+Item_1_communication_links.tex:22 -> it1:loss [proposition, Item_1_communication_links.tex:79, same] 'Meaning lost through a noiseless code'
+      ...ction}). For general laws and a noiseless code, the meaning lost in transmission equals the total disagreement minus the disagreement visible through the code (\cref{it1:loss}). Coded messages identify the dictionary only up to the sub
+Item_1_communication_links.tex:22 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ...essages identify the dictionary only up to the subgroup that leaves the code unchanged, a subgroup of dimension $K(K-r)$ in $\GL(K,\R)$ for a code of rank $r$ (\cref{it1:identifiability}); several modalities sharing one dictionary identify it up 
+Item_1_communication_links.tex:22 -> it1:modalities [corollary, Item_1_communication_links.tex:191, same] 'Pooling modalities through one dictionary'
+      ...; several modalities sharing one dictionary identify it up to the intersection of their stabilizers, so overlapping modalities help less than independent ones (\cref{it1:modalities}). Exact consensus of transported beliefs is possible exactl
+Item_1_communication_links.tex:22 -> it1:consensus [theorem, Item_1_communication_links.tex:269, same] 'Consensus and holonomy invariance'
+      ... exactly on the common fixed space of the holonomies of the communication graph, so nontrivial holonomy on a loop is an obstruction to agreement, a dissonance (\cref{it1:consensus}). Finally, with $n$ coded messages per exchange the posteri
+Item_1_communication_links.tex:22 -> it1:bandwidth [proposition, Item_1_communication_links.tex:293, same] 'Coded messages give Gibbs rows at temperature one over the message count'
+      ...change the posterior over who was heard behaves as a Gibbs row at temperature $1/n$ whose costs are divergences between message laws, not between full beliefs (\cref{it1:bandwidth}). Learning the dictionaries from grounded messages under a 
+Item_1_communication_links.tex:22 -> it1:learning [theorem, Item_1_communication_links.tex:349, same] 'Learning with a loop prior'
+      ...s holonomy concentrates the recognition law on the identified coset, and within it the loop term fills exactly those invisible directions that create holonomy (\cref{it1:learning}). These are the same directions in which a true dissonance 
+Item_1_communication_links.tex:22 -> it1:complementary [proposition, Item_1_communication_links.tex:413, same] 'Filling and detection are complementary'
+      ...that create holonomy (\cref{it1:learning}). These are the same directions in which a true dissonance would go undetected and be absorbed into the dictionaries (\cref{it1:complementary}). A pair detects its mutual misunderstanding only in what b
+Item_1_communication_links.tex:22 -> it1:pair [proposition, Item_1_communication_links.tex:461, same] 'Reciprocal pair'
+      ...ementary}). A pair detects its mutual misunderstanding only in what both can say and repairs its dictionaries through reciprocity in what at least one can say (\cref{it1:pair}), and loops through third agents can fix directions that no
+Item_1_communication_links.tex:22 -> it1:unreachable [proposition, Item_1_communication_links.tex:429, same] 'The unreachable directions'
+      ...irs its dictionaries through reciprocity in what at least one can say (\cref{it1:pair}), and loops through third agents can fix directions that no pair can (\cref{it1:unreachable,it1:complete-exchange}). The theory is meant for general probability laws, and Ga
+Item_1_communication_links.tex:22 -> it1:complete-exchange [corollary, Item_1_communication_links.tex:449, same] 'Complete exchange'
+      ...irs its dictionaries through reciprocity in what at least one can say (\cref{it1:pair}), and loops through third agents can fix directions that no pair can (\cref{it1:unreachable,it1:complete-exchange}). The theory is meant for general probability laws, and Ga
+Item_1_communication_links.tex:24 -> it1:location [remark, Item_1_communication_links.tex:180, same] 'Noise laws beyond the Gaussian'
+      ...he modality and routing corollaries, the structural parts of the learning chapter and the exact identification results hold for every location family of noise (\cref{it1:location}); the decoder as a Kalman gain, the Gaussian reconstruction
+Item_1_communication_links.tex:24 -> it1:open-learning [openproblem, Item_1_communication_links.tex:517, same] 'Learning the dictionaries beyond the tangent model'
+      ...are Gaussian, and their linearity, data-independent covariances and exact factorized means are features of that family. Extensions to general laws are posed in \cref{it1:open-learning,it1:open-general}. Every identity was also checked numerically at small size
+Item_1_communication_links.tex:24 -> it1:open-general [openproblem, Item_1_communication_links.tex:531, same] 'Beyond Gaussian codes'
+      ...are Gaussian, and their linearity, data-independent covariances and exact factorized means are features of that family. Extensions to general laws are posed in \cref{it1:open-learning,it1:open-general}. Every identity was also checked numerically at small size
+Item_1_communication_links.tex:65 -> it1:modalities [corollary, Item_1_communication_links.tex:191, same] 'Pooling modalities through one dictionary'
+      ...ial access is carried by the code, not by the dictionary. Second, one dictionary serves every modality, which is what lets several codes pool their evidence in \cref{it1:modalities}. Third, invertibility is used: the consensus theorem \cref{
+Item_1_communication_links.tex:65 -> it1:consensus [theorem, Item_1_communication_links.tex:269, same] 'Consensus and holonomy invariance'
+      ...onary serves every modality, which is what lets several codes pool their evidence in \cref{it1:modalities}. Third, invertibility is used: the consensus theorem \cref{it1:consensus} needs inverses to show that transported beliefs are well de
+Item_1_communication_links.tex:181 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ...cation family $h=\bar T\bar\theta^{-1}\bar y+\varepsilon$ with $\varepsilon$ independent of $\bar y$ and of a fixed law $\nu$ on $\R^r$. Parts (i) and (iii) of \cref{it1:identifiability} hold for every $\nu$, because a probability law on $\R^r$ d
+Item_1_communication_links.tex:186 -> it1:modalities [corollary, Item_1_communication_links.tex:191, same] 'Pooling modalities through one dictionary'
+      ...ame kernel, since the score of the perturbation is $\nabla\log f(\varepsilon)^T\bar T\delta\bar\theta^{-1}\bar y$ and $\varepsilon$ is independent of $\bar y$. \Cref{it1:modalities,it1:routed} and the structural results of \cref{it1:ch-learning} theref
+Item_1_communication_links.tex:186 -> it1:routed [corollary, Item_1_communication_links.tex:206, same] 'Routed modalities'
+      ...ame kernel, since the score of the perturbation is $\nabla\log f(\varepsilon)^T\bar T\delta\bar\theta^{-1}\bar y$ and $\varepsilon$ is independent of $\bar y$. \Cref{it1:modalities,it1:routed} and the structural results of \cref{it1:ch-learning} theref
+Item_1_communication_links.tex:186 -> it1:ch-learning [chapter, Item_1_communication_links.tex:307, same] 'Learning the dictionaries'
+      ...f(\varepsilon)^T\bar T\delta\bar\theta^{-1}\bar y$ and $\varepsilon$ is independent of $\bar y$. \Cref{it1:modalities,it1:routed} and the structural results of \cref{it1:ch-learning} therefore hold for every such noise law. The Gaussian value
+Item_1_communication_links.tex:186 -> it1:open-general [openproblem, Item_1_communication_links.tex:531, same] 'Beyond Gaussian codes'
+      ...e Fisher form agrees with \cref{it1:fisher-location} to $0.3$ percent. Codes whose messages are not a location family, such as codes into finite alphabets, are \cref{it1:open-general}. \chapter{Several modalities} \label{it1:ch-modalities} \
+Item_1_communication_links.tex:199 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ... the row spaces span $V^*$. \begin{proof} Identity of the conditional laws of all messages requires identity for each modality, which gives the intersection by \cref{it1:identifiability}. Fisher information adds over conditionally independent mes
+Item_1_communication_links.tex:204 -> it1:modalities [corollary, Item_1_communication_links.tex:191, same] 'Pooling modalities through one dictionary'
+      ...cross modalities. Without it each modality would have its own effective code to learn, and the modalities could not pool their evidence about the other agent. \Cref{it1:modalities} assumes that receiver $i$ hears sender $j$ in every modalit
+Item_1_communication_links.tex:215 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ...d is a sum over $c$. A term with $J_c=k\neq j$ does not depend on $\bar\theta_{ij}$ and contributes nothing. A term with $J_c=j$ contributes the information of \cref{it1:identifiability}. Averaging the indicator of $J_c=j$ gives the weight $\beta
+Item_1_communication_links.tex:215 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ... the messages, which is positive semidefinite. (iii) A sum of positive-semidefinite forms with positive weights vanishes exactly where every form vanishes, and \cref{it1:identifiability} identifies the kernel of each. \end{proof} A modality that
+Item_1_communication_links.tex:226 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ...sender's code through an arbitrary full-rank map $S$ therefore holds exactly the identifiable part of a dictionary, a point of the $rK$-dimensional quotient of \cref{it1:identifiability}. The proposition also applies to the stacked code $(\bar T^
+Item_1_communication_links.tex:236 -> it1:query-dictionary [proposition, Item_1_communication_links.tex:220, same] 'A receiver's reading of a code is a dictionary modulo the stabilizer'
+      ...morphism to the full dual space gives right multiplication by an invertible matrix $A$, with $T_*A=S_*$. Put $\theta=A^{-1}$. The coset statement follows as in \cref{it1:query-dictionary}. When the common rank is less than $K$, the extension can r
+Item_1_communication_links.tex:238 -> it1:heads [remark, Item_1_communication_links.tex:240, same] 'Attention heads as modalities'
+      ...the relation $T_1-T_2=0$ fails for the readings. Sharing also constrains the readings when one dictionary must serve routing and content roles, as discussed in \cref{it1:heads}. \remarkheading{Attention heads as modalities}{it1:heads} 
+Item_1_communication_links.tex:251 -> it1:kalman [proposition, Item_1_communication_links.tex:107, same] 'Reception of one message'
+      ...key map, and the value map that sends content, of width $d_h$\\ receiver's reading $S_c=\bar T^c\bar\theta^{-1}$ of the code & query map\\ decoder, the gain of \cref{it1:kalman} & output map of the head\\ routing $\beta^{(c)}_{ij}$ & att
+Item_1_communication_links.tex:257 -> it1:query-dictionary [proposition, Item_1_communication_links.tex:220, same] 'A receiver's reading of a code is a dictionary modulo the stabilizer'
+      ...omy can be nontrivial but cannot depend on which edges a loop uses. When the heads' total width is $K$ and the stacked maps are invertible, the stacked form of \cref{it1:query-dictionary} shows that the independently learned query maps are reading
+Item_1_communication_links.tex:257 -> it1:modalities [corollary, Item_1_communication_links.tex:191, same] 'Pooling modalities through one dictionary'
+      ...ref{it1:query-dictionary} shows that the independently learned query maps are readings of one shared dictionary, so the heads already pool their evidence as in \cref{it1:modalities,it1:routed}; the stacked code is then invertible, the condition for ful
+Item_1_communication_links.tex:257 -> it1:routed [corollary, Item_1_communication_links.tex:206, same] 'Routed modalities'
+      ...ref{it1:query-dictionary} shows that the independently learned query maps are readings of one shared dictionary, so the heads already pool their evidence as in \cref{it1:modalities,it1:routed}; the stacked code is then invertible, the condition for ful
+Item_1_communication_links.tex:257 -> it1:kalman [proposition, Item_1_communication_links.tex:107, same] 'Reception of one message'
+      .... Requiring the receiver to use the same dictionary both to choose its sources and to interpret what it hears, with the decoder derived from that reading as in \cref{it1:kalman}, is a substantive constraint. A readout in which the key ma
+Item_1_communication_links.tex:280 -> it1:consensus [theorem, Item_1_communication_links.tex:269, same] 'Consensus and holonomy invariance'
+      ...ks $\sqrt{w_{ij}}(I,-\bar\theta_{ij})$, so $E=\mu^TB^TB\mu$ and its kernel is $\ker B$. The least eigenvalue of $B^TB$ is positive exactly when $\ker B=0$, and \cref{it1:consensus} identifies $\ker B$. \end{proof} For orthogonal links on u
+Item_1_communication_links.tex:288 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ...ch edge and modality. Grounded messages with a positive-definite referent second moment instead identify the whole effective code, modulo its stabilizer, as in \cref{it1:identifiability}. The tangent statement \cref{it1:complementary} concerns th
+Item_1_communication_links.tex:288 -> it1:complementary [proposition, Item_1_communication_links.tex:413, same] 'Filling and detection are complementary'
+      ...itive-definite referent second moment instead identify the whole effective code, modulo its stabilizer, as in \cref{it1:identifiability}. The tangent statement \cref{it1:complementary} concerns this latter experiment. A perturbation can fix one
+Item_1_communication_links.tex:309 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ...inite temperature and a selective cost. \chapter{Learning the dictionaries} \label{it1:ch-learning} The receiver owns its dictionaries and has to learn them. \Cref{it1:identifiability} says what messages can teach: a coset of the stabilizer of 
+Item_1_communication_links.tex:311 -> it1:exact-pair [proposition, Item_1_communication_links.tex:482, same] 'Exact reciprocal identification'
+      ... directions and their sheaf count, the split of the loop space into filled and detectable directions as a dimension count, and the exact identification results \cref{it1:exact-pair,it1:exact-flat} depend only on the identifiability kernel and on the loops;
+Item_1_communication_links.tex:311 -> it1:exact-flat [proposition, Item_1_communication_links.tex:496, same] 'Exact flat identification'
+      ... directions and their sheaf count, the split of the loop space into filled and detectable directions as a dimension count, and the exact identification results \cref{it1:exact-pair,it1:exact-flat} depend only on the identifiability kernel and on the loops;
+Item_1_communication_links.tex:311 -> it1:location [remark, Item_1_communication_links.tex:180, same] 'Noise laws beyond the Gaussian'
+      ... as a dimension count, and the exact identification results \cref{it1:exact-pair,it1:exact-flat} depend only on the identifiability kernel and on the loops; by \cref{it1:location} they hold for every location family of noise and every prio
+Item_1_communication_links.tex:311 -> it1:owned [remark, Item_1_communication_links.tex:511, same] 'Ownership and the loop term'
+      ...they hold for every location family of noise and every prior. The limiting law as a conditioned Gaussian, the shrinkage and bias formulas, and the variances of \cref{it1:owned} are features of the Gaussian family. \section{The tangent 
+Item_1_communication_links.tex:316 -> it1:routed [corollary, Item_1_communication_links.tex:206, same] 'Routed modalities'
+      ...k{gl}(K,\R)$, so that $\omega=(\omega_e)_e\in X=\mathfrak g^{\mathcal E}$. Write $\bar T_e$ for the stacked code of the modalities with $\beta^{(c)}_{ij}>0$ in \cref{it1:routed}. Let $\mathcal L$ be a finite set of directed closed walks 
+Item_1_communication_links.tex:321 -> it1:routed [corollary, Item_1_communication_links.tex:206, same] 'Routed modalities'
+      ...sitive-definite quadratic form on $\mathfrak g$, with $W=\bigoplus_\gamma W_\gamma$; and of the messages that $i$ attributes to $j$, with observed labels as in \cref{it1:routed}(i), each produced from a referent $\bar y\sim\rho$ with sec
+Item_1_communication_links.tex:345 -> it1:routed [corollary, Item_1_communication_links.tex:206, same] 'Routed modalities'
+      ...n of $X$ onto $N$ and $L_N$ is the loop operator on the invisible directions. Let $\bar F_e=\sum_c\beta^{(c)}_{ij}F_c^{(j)}$ be the information per exchange of \cref{it1:routed}(i), evaluated at $\bar\theta_e=I$, where $C=M$. \section{C
+Item_1_communication_links.tex:379 -> it1:routed [corollary, Item_1_communication_links.tex:206, same] 'Routed modalities'
+      ...0$. By the strong law of large numbers $F_{Y,n}\to Y^TF_\kappa Y$ almost surely, and this limit is positive definite because the kernel of $F_\kappa$ is $N$ by \cref{it1:routed}(iii). In the basis $(Y,Z)$ the matrix $\Lambda_n$ has block
+Item_1_communication_links.tex:422 -> it1:learning [theorem, Item_1_communication_links.tex:349, same] 'Learning with a loop prior'
+      ...BZ((BZ)^TWBZ)^+(BZ)^TW$ is the $W$-orthogonal projection onto the range of $BZ$, which is $I-Q$. (iii) The dimension of $B(N)$ is the rank of $BZ$, computed in \cref{it1:learning}(iii). The energy splits because $Q$ is a $W$-orthogonal pro
+Item_1_communication_links.tex:450 -> it1:unreachable [proposition, Item_1_communication_links.tex:429, same] 'The unreachable directions'
+      ...xchange} Let every pair of agents exchange in both directions, and let $\mathcal L$ contain every two-cycle and every directed triangle. Then the hypothesis of \cref{it1:unreachable} holds and \begin{equation} H^0=\bigl\{u:u_i-u_j\in\ker\bar 
+Item_1_communication_links.tex:456 -> it1:learning [theorem, Item_1_communication_links.tex:349, same] 'Learning with a loop prior'
+      ...ar T_{i\to j}(u_j-u_i)=0$. If the pairs with trivial intersection connect the agents, $u$ is constant along each of them, hence constant. The last statement is \cref{it1:learning}(iv). \end{proof} The sufficient condition is not necessary
+Item_1_communication_links.tex:473 -> it1:complementary [proposition, Item_1_communication_links.tex:413, same] 'Filling and detection are complementary'
+      ...th range in $(\mathcal K_0+\mathcal K_1)^\perp=\mathcal R_0\cap\mathcal R_1$, and the orthogonal projection onto it is $X\mapsto P_\cap X$. Thus $Q=P_\cap$ and \cref{it1:complementary}(i) gives $\mathcal D$. The space $N\cap\ker B$ consists of 
+Item_1_communication_links.tex:491 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ... T_0\bar\theta^\star_{01})$ is injective; otherwise the solutions form a set of dimension $K\dim\ker(\bar T_1;\bar T_0\bar\theta^\star_{01})$. \begin{proof} By \cref{it1:identifiability}(i), the edge $1\to0$ reproduces its law exactly when $\bar\
+Item_1_communication_links.tex:504 -> it1:identifiability [theorem, Item_1_communication_links.tex:161, same] 'Identifiability up to the code stabilizer'
+      ...s for the complete exchange with every two-cycle and every directed triangle. \begin{proof} By hypothesis $\bar\theta_{ij}=k_ik_j^{-1}$; write $k_v=g_vu_v$. By \cref{it1:identifiability}(i), the edge $e$ reproduces its law exactly when $(\bar\the
+Item_1_communication_links.tex:507 -> it1:unreachable [proposition, Item_1_communication_links.tex:429, same] 'The unreachable directions'
+      ..._{0i}^{-1}\bar\theta_{j0}^{-1}=k_ik_j^{-1}$. \end{proof} The residual set of \cref{it1:exact-flat-eq} has dimension $K(\dim H^0-K)$ at the truth, the count of \cref{it1:unreachable}. In the numerical check, the complete exchange of three age
+Item_1_communication_links.tex:518 -> it1:learning [theorem, Item_1_communication_links.tex:349, same] 'Learning with a loop prior'
+      ...against the exact $7.75$. \chapter{Next steps} \label{it1:ch-next} \openproblemheading{Learning the dictionaries beyond the tangent model}{it1:open-learning} \Cref{it1:learning,it1:complementary} settle the learning problem in the tangent model, and \cref
+Item_1_communication_links.tex:518 -> it1:complementary [proposition, Item_1_communication_links.tex:413, same] 'Filling and detection are complementary'
+      ...against the exact $7.75$. \chapter{Next steps} \label{it1:ch-next} \openproblemheading{Learning the dictionaries beyond the tangent model}{it1:open-learning} \Cref{it1:learning,it1:complementary} settle the learning problem in the tangent model, and \cref
+Item_1_communication_links.tex:518 -> it1:exact-pair [proposition, Item_1_communication_links.tex:482, same] 'Exact reciprocal identification'
+      ...rning the dictionaries beyond the tangent model}{it1:open-learning} \Cref{it1:learning,it1:complementary} settle the learning problem in the tangent model, and \cref{it1:exact-pair,it1:exact-flat} settle the constraint form of the loop term for a flat trut
+Item_1_communication_links.tex:518 -> it1:exact-flat [proposition, Item_1_communication_links.tex:496, same] 'Exact flat identification'
+      ...rning the dictionaries beyond the tangent model}{it1:open-learning} \Cref{it1:learning,it1:complementary} settle the learning problem in the tangent model, and \cref{it1:exact-pair,it1:exact-flat} settle the constraint form of the loop term for a flat trut
+Item_1_communication_links.tex:523 -> it1:routed [corollary, Item_1_communication_links.tex:206, same] 'Routed modalities'
+      ...thcal N(0,I_2)$, the law-comparison penalty is zero while $Q(H;I_2)=2$. Third, treat latent routing labels, which lower the information below the routed sum of \cref{it1:routed}, and loop weights built from the routing weights. Fourth, r
+Item_1_communication_links.tex:532 -> it1:loss [proposition, Item_1_communication_links.tex:79, same] 'Meaning lost through a noiseless code'
+      ...us dynamics reduces visible dissonance and pushes holonomies toward the stabilizers of the codes. \openproblemheading{Beyond Gaussian codes}{it1:open-general} \Cref{it1:loss,it1:noisy,it1:bandwidth} already hold for general laws and measurable codes, includi
+Item_1_communication_links.tex:532 -> it1:noisy [corollary, Item_1_communication_links.tex:95, same] 'Noisy codes'
+      ...us dynamics reduces visible dissonance and pushes holonomies toward the stabilizers of the codes. \openproblemheading{Beyond Gaussian codes}{it1:open-general} \Cref{it1:loss,it1:noisy,it1:bandwidth} already hold for general laws and measurable codes, includi
+Item_1_communication_links.tex:532 -> it1:bandwidth [proposition, Item_1_communication_links.tex:293, same] 'Coded messages give Gibbs rows at temperature one over the message count'
+      ...us dynamics reduces visible dissonance and pushes holonomies toward the stabilizers of the codes. \openproblemheading{Beyond Gaussian codes}{it1:open-general} \Cref{it1:loss,it1:noisy,it1:bandwidth} already hold for general laws and measurable codes, includi
+Item_1_communication_links.tex:532 -> it1:location [remark, Item_1_communication_links.tex:180, same] 'Noise laws beyond the Gaussian'
+      ...ady hold for general laws and measurable codes, including codes into finite alphabets such as words, and the consensus theorem holds for laws as well as means. \Cref{it1:location} extends identifiability to every location family of noise. 

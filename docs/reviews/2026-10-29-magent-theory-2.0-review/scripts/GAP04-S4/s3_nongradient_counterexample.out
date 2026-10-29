@@ -1,0 +1,11 @@
+min sampled sup-distance between distinct e_s: 0.5005 (claim >= 1/2)
+max sampled sup-norm Lipschitz quotient of V: 0.9997 (claim <= 1)
+s=0.250 in E: True   <Phi_T(e_s)-e_s, g0> = 0.108083089593   predicted a(T)1_E(s) = 0.108083089595
+s=0.400 in E: True   <Phi_T(e_s)-e_s, g0> = 0.108083089593   predicted a(T)1_E(s) = 0.108083089595
+s=0.731 in E: True   <Phi_T(e_s)-e_s, g0> = 0.108083089593   predicted a(T)1_E(s) = 0.108083089595
+s=0.300 in E: False  <Phi_T(e_s)-e_s, g0> = 0.000000000000   predicted a(T)1_E(s) = 0.000000000000
+s=0.500 in E: False  <Phi_T(e_s)-e_s, g0> = 0.000000000000   predicted a(T)1_E(s) = 0.000000000000
+s=0.900 in E: False  <Phi_T(e_s)-e_s, g0> = 0.000000000000   predicted a(T)1_E(s) = 0.000000000000
+|s-s'|=1e-02: ||e_s - e_s'||_1 = 0.01980,  ||Phi_T(e_s) - Phi_T(e_s')||_1 = 0.11572
+|s-s'|=2e-03: ||e_s - e_s'||_1 = 0.00399,  ||Phi_T(e_s) - Phi_T(e_s')||_1 = 0.10964
+|s-s'|=5e-04: ||e_s - e_s'||_1 = 0.00100,  ||Phi_T(e_s) - Phi_T(e_s')||_1 = 0.10847

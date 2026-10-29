@@ -1,0 +1,5 @@
+frontmatter.tex brace-depth 0 neg False odd$ 0 unbalanced-env {} banned []
+chapters/06_outlook.tex brace-depth 0 neg False odd$ 0 unbalanced-env {} banned []
+appendices/notation.tex brace-depth 0 neg False odd$ 0 unbalanced-env {} banned []
+companion/glossary.tex brace-depth 0 neg False odd$ 0 unbalanced-env {} banned []
+chapters/01_foundations.tex brace-depth 0 neg False odd$ 0 unbalanced-env {} banned []

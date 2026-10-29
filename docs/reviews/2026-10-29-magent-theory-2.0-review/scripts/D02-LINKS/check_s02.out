@@ -1,0 +1,38 @@
+== lem:sgeom-lowrank for random rectangular O (d x r), T (r x d), including r > d
+  (d,r)=(3,1): |e^OT - I - O phi1(TO) T| = 9.35e-16; |det e^OT - e^tr(OT)| / e^tr = 0.00e+00; tr(OT) - tr(TO) = 0.0e+00
+  (d,r)=(4,2): |e^OT - I - O phi1(TO) T| = 4.83e-16; |det e^OT - e^tr(OT)| / e^tr = 2.57e-15; tr(OT) - tr(TO) = 0.0e+00
+  (d,r)=(5,3): |e^OT - I - O phi1(TO) T| = 1.62e-15; |det e^OT - e^tr(OT)| / e^tr = 3.03e-15; tr(OT) - tr(TO) = -4.4e-16
+  (d,r)=(6,6): |e^OT - I - O phi1(TO) T| = 1.26e-14; |det e^OT - e^tr(OT)| / e^tr = 2.84e-14; tr(OT) - tr(TO) = -8.9e-16
+  (d,r)=(3,5): |e^OT - I - O phi1(TO) T| = 3.28e-15; |det e^OT - e^tr(OT)| / e^tr = 3.64e-14; tr(OT) - tr(TO) = -8.9e-16
+  (d,r)=(7,2): |e^OT - I - O phi1(TO) T| = 1.89e-14; |det e^OT - e^tr(OT)| / e^tr = 4.47e-15; tr(OT) - tr(TO) = -4.4e-16
+  phi1 block exponential vs truncated series: 7.365040182080916e-16
+  invertible Z: |phi1(Z) - (e^Z - I) Z^-1| = 8.55632022058753e-16
+  singular TO (rank 2 ): residual 2.3287407621728912e-15
+  nilpotent TO = [[0.0, 1.0], [0.0, 0.0]] : residual 0.0
+== Stacked interfaces: generic cross products versus block-diagonal replacement
+  full stacked formula residual: 4.263340439400943e-14
+  replacing TO by its diagonal blocks, generic: error 31.0776
+  with T_h O_k = 0 (h != k; max cross norm 2.1e-15): error 7.24e-14
+== prop:sgeom-rankone
+  t = -0.874: |e^L - I - phi1(t) L| = 2.41e-16; |det e^L - e^t| = 0.00e+00
+  t = +0.000: |e^L - I - phi1(t) L| = 4.71e-16; |det e^L - e^t| = 4.44e-16; |L^2| = 6.8e-16
+  t = +1.188: |e^L - I - phi1(t) L| = 5.69e-16; |det e^L - e^t| = 4.44e-16
+  t = +3.500: |e^L - I - phi1(t) L| = 3.72e-13; |det e^L - e^t| = 1.21e-13
+== lem:sgeom-frechet
+  d=3: |quadrature - expm_frechet| = 1.17e-14; |central difference - expm_frechet| = 9.14e-10
+        commuting direction: |D exp_L[H] - e^L H| = 2.57e-15; noncommuting: |D exp_L[H] - e^L H| = 9.831
+  d=5: |quadrature - expm_frechet| = 1.05e-14; |central difference - expm_frechet| = 5.14e-10
+        commuting direction: |D exp_L[H] - e^L H| = 1.54e-14; noncommuting: |D exp_L[H] - e^L H| = 8.131
+== eq:sgeom-moment-derivative (sympy, d = 2, symbolic curves)
+  direct derivative minus formula: [[0, 0], [0, 0]]
+== Regularity sentence: DQM of Theta -> Theta#nu_j versus differentiability of KL(nu_i || Theta#nu_j)
+  eps=0.01: witness of supp nu_i outside (1+eps) supp: preimage x1 = 0.995050 < 1; outside (1-eps) supp: preimage x1 = 2.015152 > 2
+  eps=0.0001: witness of supp nu_i outside (1+eps) supp: preimage x1 = 0.999950 < 1; outside (1-eps) supp: preimage x1 = 2.000150 > 2
+  truncated scale Fisher information, |x-1| > 0.01: 0.95135569
+  truncated scale Fisher information, |x-1| > 0.0001: 1.5094331
+  truncated scale Fisher information, |x-1| > 1.0e-6: 2.0828843
+  eps=1e-2: KL(nu||(1+eps)#nu) = 5.50076e-5, KL/eps = 0.005501, KL/eps^2 = 0.55008; (1-eps): KL/eps = 0.005569
+  eps=1e-3: KL(nu||(1+eps)#nu) = 6.93388e-7, KL/eps = 0.0006934, KL/eps^2 = 0.69339; (1-eps): KL/eps = 0.0007308
+  eps=1e-4: KL(nu||(1+eps)#nu) = 8.3632e-9, KL/eps = 8.363e-5, KL/eps^2 = 0.83632; (1-eps): KL/eps = 7.044e-5
+  eps=1e-5: KL(nu||(1+eps)#nu) = 9.79829e-11, KL/eps = 9.798e-6, KL/eps^2 = 0.97983; (1-eps): KL/eps = 8.123e-6
+  nu_j Gaussian (DQM scale family), nu_i = (delta_{-1} + delta_{+1})/2 (finite moments, variance 1): nu_i is not absolutely continuous w.r.t. any Theta#nu_j, so KL = +inf for every Theta

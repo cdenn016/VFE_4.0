@@ -1,0 +1,8 @@
+(a) non-affine G=-x^3: G(x)+G(y)=0.316000 vs G(x')+G(y')=0.028000 (same sum -0.40)
+(a) affine G: 1.600000 vs 1.600000
+(b) selector sequence equals initial segment of centroid agglomeration in 30/30 random trials
+(c1) horizon 1.0: full sequence [(0, 1), (2, 3)]; null sequence []; differ: True
+(c2) full a=-0.5, null a^0=0: full [(0, 1), (2, 3), (0, 1, 2, 3)]; null []
+(d) diag(-1,-3) at t=1: (1,0)->[0.3679 0.    ], (0,1.5)->[0.     0.0747]; norms 0.3679 vs 0.0747
+(e) centroid fiber residual, linear cross force + cubic odd within-block force: 1.78e-14
+(e) centroid fiber residual, bounded-confidence cross force u*exp(-u^2): 1.194e+00

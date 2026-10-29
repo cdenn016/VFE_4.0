@@ -1,0 +1,39 @@
+{
+ "script": "symbolic_checks.py",
+ "part": "d",
+ "sympy": "1.14.0",
+ "runtime_s": 0.6,
+ "all_zero": true,
+ "results": [
+  {
+   "check": "Hopf chart metric = h + k (dchi + sin^2(theta/2) dpsi)^2",
+   "zero_residual": "True",
+   "residual": "Matrix([[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])",
+   "note": ""
+  },
+  {
+   "check": "J P = d Psi/d chi (fiber is the SO(2) orbit)",
+   "zero_residual": "True",
+   "residual": "Matrix([[0], [0], [0], [0]])",
+   "note": ""
+  },
+  {
+   "check": "H_psi orthogonal to the orbit",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  },
+  {
+   "check": "Hopf quotient Christoffel symbols (rho,theta,psi)=(0,1,2)",
+   "zero_residual": "n/a",
+   "residual": "{\"Gamma^0_11\": \"-rho/4\", \"Gamma^0_22\": \"-rho*sin(theta)**2/4\", \"Gamma^1_01\": \"1/rho\", \"Gamma^1_10\": \"1/rho\", \"Gamma^1_22\": \"-sin(2*theta)/2\", \"Gamma^2_02\": \"1/rho\", \"Gamma^2_12\": \"1/tan(theta)\", \"Gamma^2_20\": \"1/rho\", \"Gamma^2_21\": \"1/tan(theta)\"}",
+   "note": "used in hopf_flow_check.py"
+  },
+  {
+   "check": "d(sin^2(theta/2)) / d theta = sin(theta)/2",
+   "zero_residual": "True",
+   "residual": "0",
+   "note": ""
+  }
+ ]
+}

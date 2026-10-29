@@ -1,0 +1,7 @@
+(a) D_k versus the symmetric Dirichlet form
+   d=2: max |D_k - E_Pk(f, log f)| = 1.11e-16
+   d=3: max |D_k - E_Pk(f, log f)| = 5.55e-17
+   d=4: max |D_k - E_Pk(f, log f)| = 1.11e-16
+(b) null-flow contrast decay rate vs full flow (d = 3, rows at class priors)
+   peer terms off: measured rates [1.00003 1.00002 1.00001]
+   peer terms on : measured rates [3.28564 3.2857  3.28571]

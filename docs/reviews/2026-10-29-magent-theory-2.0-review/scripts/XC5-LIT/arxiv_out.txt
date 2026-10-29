@@ -1,0 +1,84 @@
+== http://arxiv.org/abs/1108.2849v2
+  title: Existence and non-existence of the non-central Wishart distributions
+  authors: Gérard Letac; Hélène Massam
+  first: 2011-08-14T07:54:58Z  latest: 2017-10-13T05:53:18Z
+  journal_ref: -
+  doi: -
+  comment: -
+== http://arxiv.org/abs/cond-mat/9907176v2
+  title: Computational Mechanics: Pattern and Prediction, Structure and Simplicity
+  authors: Cosma Rohilla Shalizi; James P. Crutchfield
+  first: 1999-07-13T00:52:34Z  latest: 2000-06-19T19:32:25Z
+  journal_ref: Journal of Statistical Physics 104 (2001): 816--879
+  doi: 10.1023/A:1010388907793
+  comment: 29 pages, 4 EPS figures, http://www.santafe.edu/projects/CompMech/papers/cmppss.html Revision: Typos fixed, minor tweaks to wording, a few references updated
+== http://arxiv.org/abs/1107.3797v2
+  title: A note on insufficiency and the preservation of Fisher information
+  authors: David Pollard
+  first: 2011-07-19T18:25:39Z  latest: 2012-04-20T19:31:05Z
+  journal_ref: -
+  doi: -
+  comment: Contribution to a volume in honor of Jon Wellner's 65th birthday (revised)
+== http://arxiv.org/abs/physics/0004057v1
+  title: The information bottleneck method
+  authors: Naftali Tishby; Fernando C. Pereira; William Bialek
+  first: 2000-04-24T15:22:30Z  latest: 2000-04-24T15:22:30Z
+  journal_ref: -
+  doi: -
+  comment: -
+== http://arxiv.org/abs/2312.10794v5
+  title: A mathematical perspective on Transformers
+  authors: Borjan Geshkovski; Cyril Letrouit; Yury Polyanskiy; Philippe Rigollet
+  first: 2023-12-17T19:06:29Z  latest: 2025-08-21T11:31:09Z
+  journal_ref: Bull. Amer. Math. Soc. 62 (2025), 427-479
+  doi: -
+  comment: -
+== http://arxiv.org/abs/2408.15946v2
+  title: Sigma Flows for Image and Data Labeling and Learning Structured Prediction
+  authors: Jonas Cassel; Bastian Boll; Stefania Petra; Peter Albers; Christoph Schnörr
+  first: 2024-08-28T17:04:56Z  latest: 2025-09-11T13:14:43Z
+  journal_ref: -
+  doi: -
+  comment: 51 pages, revised experimental section
+== http://arxiv.org/abs/2512.09831v2
+  title: Interpretation as Linear Transformation: A Cognitive-Geometric Model of Concepts and Meaning
+  authors: Chainarong Amornbunchornvej
+  first: 2025-12-10T17:13:01Z  latest: 2026-06-13T09:46:29Z
+  journal_ref: Minds and Machines, Volume 36, Issue 3, Article number 36, (2026)
+  doi: 10.1007/s11023-026-09789-6
+  comment: The revised draft w.r.t. reviewer comments. The code is at https://github.com/DarkEyes/Cognitive-Geometry
+== http://arxiv.org/abs/2005.12798v1
+  title: Opinion Dynamics on Discourse Sheaves
+  authors: Jakob Hansen; Robert Ghrist
+  first: 2020-05-26T15:31:59Z  latest: 2020-05-26T15:31:59Z
+  journal_ref: -
+  doi: -
+  comment: 23 pages, 7 figures
+== http://arxiv.org/abs/1703.06700v1
+  title: Independence clustering (without a matrix)
+  authors: Daniil Ryabko
+  first: 2017-03-20T12:09:53Z  latest: 2017-03-20T12:09:53Z
+  journal_ref: -
+  doi: -
+  comment: -
+== http://arxiv.org/abs/1605.01233v3
+  title: Info-Clustering: A Mathematical Theory for Data Clustering
+  authors: Chung Chan; Ali Al-Bashabsheh; Qiaoqiao Zhou; Tarik Kaced; Tie Liu
+  first: 2016-05-04T11:43:47Z  latest: 2016-12-11T15:57:16Z
+  journal_ref: -
+  doi: -
+  comment: In celebration of Claude Shannon's Centenary
+== http://arxiv.org/abs/math/0508338v2
+  title: A Discrete Theory of Connections on Principal Bundles
+  authors: Melvin Leok; Jerrold E. Marsden; Alan D. Weinstein
+  first: 2005-08-18T06:45:49Z  latest: 2005-08-18T22:24:10Z
+  journal_ref: -
+  doi: -
+  comment: 38 pages, 11 figures. Fixed labels in figures
+== http://arxiv.org/abs/math/0311198v1
+  title: The Universal Connection and Metrics on Moduli Spaces
+  authors: Fortune Massamba; George Thompson
+  first: 2003-11-12T15:25:56Z  latest: 2003-11-12T15:25:56Z
+  journal_ref: Commun.Math.Phys. 253 (2004) 323-335
+  doi: 10.1007/s00220-004-1191-7
+  comment: 14 pages

@@ -1,0 +1,23 @@
+A  it1:loss finite alphabet: KL(q||qhat) = 0.3731440620000333  KL(q||p)-KL(Tq||Tp) = 0.37314406200003314  residual 1.6653345369377348e-16
+B  it1:noisy finite alphabet: slack KL(q||p)-KL(qK||pK)-KL(q||qhat) = 0.0007329835759876113 (must be >= 0)
+   minimum slack over 2000 random instances = 0.0005105391040396423
+C  compatible rank-deficient stack: equal left kernels True  |T_* A - S_*| = 1.7763568394002505e-15  det A = 9.163627589815432
+   counterexample: ker(T^T) = [-0.70710678  0.70710678]  ker(S^T) = [-0.89442719  0.4472136 ]
+D  lam = 100.0 : |B w_inf - Q B w*| = 0.037861575450233845  loop energy 3.1059858664903173  D(w*) = 3.1023385710308453
+D  lam = 10000.0 : |B w_inf - Q B w*| = 0.00039181841442749617  loop energy 3.1023389605050027  D(w*) = 3.1023385710308453
+D  lam = 1000000.0 : |B w_inf - Q B w*| = 3.919550404312203e-06  loop energy 3.1023385710698204  D(w*) = 3.1023385710308453
+   it1:learning(iii): |S^-1 - s2 (I + lam s2 L_N)^-1| = 5.551115123125783e-17  rank L_N = 6  predicted K dim(K0+K1) = 6
+E  flat truth  lam = 1000.0 : |w_inf - w*| = 0.004631936979582196  |B w*| = 0.0  |B w_inf| = 0.004631936979582196  invisible-part error |Z^T(w_inf - w*)| = 0.004631936979582196
+E  flat truth  lam = 10000000.0 : |w_inf - w*| = 4.638553368074838e-07  |B w*| = 0.0  |B w_inf| = 4.638553368074838e-07  invisible-part error |Z^T(w_inf - w*)| = 4.638553368074838e-07
+E  dissonant truth  lam = 1000.0 : |w_inf - w*| = 2.2529310946592656  |B w*| = 2.2552882649424735  |B w_inf| = 0.002357170283207699  invisible-part error |Z^T(w_inf - w*)| = 2.2529310946592656
+E  dissonant truth  lam = 10000000.0 : |w_inf - w*| = 2.25528802888874  |B w*| = 2.2552882649424735  |B w_inf| = 2.3605373322688195e-07  invisible-part error |Z^T(w_inf - w*)| = 2.25528802888874
+F  complete exchange, tangent learning model:
+   |receiver-factorized reverse-KL means - exact| = 4.693728045124246e-15
+   |plug-in per-agent fixed point - exact|        = 1.601583449195587e-14
+   |law-level per-agent fixed point - exact|      = 0.04439691523972362  (iterations 172 , |exact| = 0.5378509234816442 )
+   total variance: exact 10.827903042044394  receiver-factorized 6.771808022709847  law-level per-agent 9.253280804162122
+G  n = 2000 : (1/n) log odds(0 vs 2) = 0.020640012974879867  KL(nu||nu_2) - KL(nu||nu_0) = 0.041020663663719925
+G  n = 200000 : (1/n) log odds(0 vs 2) = 0.04293163098953847  KL(nu||nu_2) - KL(nu||nu_0) = 0.041020663663719925
+E2 lam = 1000.0 : largest limiting invisible variance = 0.0009985734664764623  squared Mahalanobis error of the truth under the limit law = 18774.101256978523
+E2 lam = 10000000.0 : largest limiting invisible variance = 9.999998571428775e-08  squared Mahalanobis error of the truth under the limit law = 187698750.66006887
+H  weakly connected graph: least eigenvalue of the consensus energy = 0.05603142879586586 ; holonomies based at vertex 2 are {I} (common fixed space R^2), based at vertex 0 rotation 0.7 (none)

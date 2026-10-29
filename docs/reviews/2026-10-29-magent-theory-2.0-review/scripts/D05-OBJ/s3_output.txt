@@ -1,0 +1,18 @@
+(a) E along q_i -> delta_1, q_j -> delta_2 (u = 1 - t, x = t):
+   t = 1e-01  E = 2.5117
+   t = 1e-02  E = 4.8291
+   t = 1e-04  E = 7.7766
+   t = 1e-08  E = 13.3062
+
+(b) mixed derivatives (q = ((1+x)/2, (1-x)/2))
+   d_xi d^2_xj KL(q_i||q_j) = -2*x_j/(x_j**4 - 2*x_j**2 + 1) ; at (0.1, 0.3): -0.7245501750996255
+   d_xi d^2_xj of a mean-field free energy with arbitrary positive table P: 0
+
+(c) countable model: (1+beta) F(Q(x)) - E(u, x) is constant on (0,1)^2
+   max over x of the spread of L across nine values of u (u-independence): 1.4210854715202004e-14
+   L(x) on logit(x) in [-30, 30]: min 1.6603 max 3.7519
+   analytic upper bound U on L: 8.2132 (sup_M log(2M^2)/sqrt(M) = 1.7495)
+   max |(1+beta) F(Q(x)) - E(u,x) - U'| over 9 x 241 interior points, U' = 9.2132: 7.11e-15
+
+(d) finite truncation: delta in {-50..50}, theta in {0..60}; exact where M(x) <= 50 and the target is reachable
+   max |(1+beta) F - E - U'| on |logit x| <= 6, nine u values: 1.78e-15

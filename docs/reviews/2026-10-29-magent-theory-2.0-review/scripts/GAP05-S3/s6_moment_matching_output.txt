@@ -1,0 +1,23 @@
+== A1. categorical source, identity kernel ==
+  max |grad - (E_q t - E_p t)| = 1.1e-16
+== A2. von Mises source, identity kernel ==
+  max |grad - (E_q t - E_p t)| = 1.1e-16
+== B. categorical source seen through a noisy code K (n contents -> n messages) ==
+  max |grad - (E_q t - E_ptilde t)| = 2.4e-17   (EM form)
+  max |grad - (E_q t - E_p t)|      = 8.265e-02   (displayed formula with p read on the content alphabet)
+  stationary source: KL(p || q K) = 3.11e-17, |q - q*| = 1.4e-08
+  at stationarity |E_q t - E_ptilde t| = 4.8e-09 but |E_q t - E_p t| = 0.045
+  the naive moment match q = p gives KL(p || p K) = 0.0043 > 0
+== C. Gaussian tangent potential: it2:source-covariance is the EM form ==
+  max |complex-step gradient - it2:source-covariance| = 2.8e-16
+  max |it2:source-covariance - EM form| = 4.4e-16
+== D. a non-Gaussian prior: the posterior variance depends on the record ==
+  Laplace prior, Gaussian record noise 0.5, o = 0.0: posterior variance 0.16987
+  Laplace prior, Gaussian record noise 0.5, o = 1.0: posterior variance 0.22810
+  Laplace prior, Gaussian record noise 0.5, o = 3.0: posterior variance 0.25000
+  Laplace prior, Gaussian record noise 0.5, o = 6.0: posterior variance 0.25000
+== B2. von Mises source through von Mises code noise (compared family not exponential) ==
+  gradient [ 0.18301722 -0.04769368]
+  EM form E_q t - E_ptilde t                 [ 0.18301722 -0.04769368]  (residual 8.3e-17)
+  message-space match E_qK t_H - E_p t_H       [ 0.38082754 -0.07634754]  (residual 1.978e-01)
+  content-space reading E_q t - E_p t          [0.56834706 0.02593584]  (residual 3.853e-01)

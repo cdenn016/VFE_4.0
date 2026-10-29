@@ -1,0 +1,18 @@
+C:\Users\chris and christine\Desktop\VFE_4.0\docs\reviews\2026-10-29-magent-theory-2.0-review\scripts\D13-ERAPUB\s01_erasure_constants_symbolic.py:40: RuntimeWarning: overflow encountered in exp
+  s = 1 / (1 + np.exp(phi))
+(a) M_chi = max chi' = 2.000000000000 at r = 0.500000; chi(1/2) = 0.500000, chi(3/4) = 0.935031
+(b) B = 0.9818181818; grid max of |d_alpha d|/rho over rho<=1/2 = 0.9818181818 (<= B: True)
+(c) m_K = 1.328834 (at h = 0.1250), M_K = 1.650726 (at h = 0.4713), V_K = 2.315143
+(c) erase:time-choice admits Delta < 0.047831; initial interval in K needs Delta <= 1/3; closure bound 3 Delta/(2 m_K) at Delta=0.04: 0.04515
+(c) rho bound from B rho M_chi / Delta <= m_K/2 with M_chi=2, B=0.981818: rho <= 0.33836 * Delta
+(d) J l - atanh l = 2.259685e-03, atanh u - J u = 2.437502e-03; J/2 - atanh(1/2) = 0.00e+00
+(e) erase:public-derivatives residuals: 0, 0
+(e) series in eps: d1 D = epsilon**2*(v**2*x - v*x**2 - v + x)/(x**4 - 2*x**2 + 1) ; d2 D = epsilon**2*(-v + x)/(x**2 - 1)
+(e) erase:crossed-pair-gap residual: 0
+(e) d_1^2 d(x,c) = -1/(x**2 - 1)
+(e) erase:row-bound Delta_eps/eps^2 = 0.479930; same-box bound (u-l)^2/(2(1-u^2)) = 2.703e-04, cross bound (2l)^2/2 = 0.4802
+(f) erase:mixed-term residual (coefficient of eps^2 rho): 0
+(f) erase:mixed-witness residual: 0
+(f) witness numerators at corner (a,b)=(l,u): 0.9592, 1.0392; at (u,u): 1.0404, 1.0404
+(g) dx*/dJ at x=1/2: 2.130188; 1/(8/3 - 2 log 3) = 2.130188
+(g) det of Jacobian (atanh x - J y, atanh y - J x) at (1/2,1/2): 16/9 - J^2 = 0.570829

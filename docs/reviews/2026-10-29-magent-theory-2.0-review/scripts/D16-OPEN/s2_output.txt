@@ -1,0 +1,17 @@
+[1] open:core vs limit field (400 random (a,b)): max residual 9.992e-16
+[2] -bdot/b on a in [4,40], b in (0,2]: min 1.000670700, max 3.000000000; stated [0.977189, 3.022811]
+    -adot/a: min 1.000000000000, max 1.000335238; stated [1.000000, 1.0013419]
+    min of (-bdot/b - 1) = 6.707e-04 at a = 4.0000, b = 2.0000  (positive => full field contracts faster than null)
+    refined min of -bdot/b - 1 = 6.707003e-04 at (a,b) = (4.000000, 2.000000)
+    stated lower bound 1 - 68e^-8 = 0.977189 < 1, so open:early-bounds alone does not give a rate above 1
+[3] max |g_c'| / ((1+4r^2)e^{-2r^2}) on r in [2,12], c in {1,1.001,1.5,3}: 0.996534 (<= 1 required)
+    (1+4r^2)e^{-2r^2} decreasing on [2,6]: True
+[4] a_c = 1.048147, B(a_c) = 0.100000; a_* = 0.832555, B(a_*) = 0.200000
+    time 4 -> a_c = 1.281672; S (4 -> a_*) = 1.426696 <= log(4/a_*) = 1.569551; Bdot(a_c) = 0.553701
+    Bdot formula check at a=1.3: closed 0.243603690904, chain rule 0.243603690894
+[5] A=34: tau=0.96830 (<1.42), a(tau)=12.9107 (>=8), t_A=2.14007 in [2.13707, 2.14007], b(t_A)=1.6275e-02 <= 2.4823e-01
+    first-pair weights cross 1/10 near t=0.5887; on [tau, t_A] min p = 0.3777 (>1/4); max cross weight on [0,t_A] = 1.642e-14 (<= e^-8 = 3.355e-04)
+    late: parent row crosses 1/10 at +1.2817 (dB/dt=0.5538 there), reaches 1/5 at +1.4267; min first-pair weight 0.4000, min first-pair contrast 0.2000 before B=1/5
+[5] A=4096: tau=0.96830 (<1.42), a(tau)=1555.3620 (>=8), t_A=6.93147 in [6.92178, 6.93147], b(t_A)=9.3094e-09 <= 2.3227e-03
+    first-pair weights cross 1/10 near t=0.5893; on [tau, t_A] min p = 0.3779 (>1/4); max cross weight on [0,t_A] = 1.266e-14 (<= e^-8 = 3.355e-04)
+    late: parent row crosses 1/10 at +1.2817 (dB/dt=0.5538 there), reaches 1/5 at +1.4267; min first-pair weight 0.4000, min first-pair contrast 0.2001 before B=1/5

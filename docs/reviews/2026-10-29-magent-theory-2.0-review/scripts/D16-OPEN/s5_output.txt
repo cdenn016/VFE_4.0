@@ -1,0 +1,18 @@
+n=1 t=0: A_chi num -0.66702076 cl -0.66701973 | F num -0.24017166 cl -0.24017129 | h_cc num 2.977509e-01 cl 2.977509e-01 | h_kk num 2.472030e-01 cl 2.472030e-01 | h_kc -3.7e-09 | A_kappa -4.1e-09
+n=1 t=1: A_chi num -0.69170258 cl -0.69170150 | F num -0.28288228 cl -0.28288184 | h_cc num 6.320019e-03 cl 6.320019e-03 | h_kk num 9.017900e-03 cl 9.017900e-03 | h_kc -3.9e-11 | A_kappa -1.9e-09
+n=1 t=2: A_chi num -0.69229761 cl -0.69229653 | F num -0.28400304 cl -0.28400260 | h_cc num 1.161149e-04 cl 1.161149e-04 | h_kk num 1.676838e-04 cl 1.676838e-04 | h_kc -5.9e-13 | A_kappa -1.6e-09
+n=1 t=3: A_chi num -0.69230857 cl -0.69230749 | F num -0.28402372 cl -0.28402328 | h_cc num 2.126840e-06 cl 2.126840e-06 | h_kk num 3.072090e-06 cl 3.072090e-06 | h_kc -1.1e-14 | A_kappa -1.5e-09
+n=2 t=0: A_chi num -0.66702076 cl -0.66701973 | F num -0.24017166 cl -0.24017129 | h_cc num 5.955018e-01 cl 5.955018e-01 | h_kk num 4.944060e-01 cl 4.944060e-01 | h_kc -7.3e-09 | A_kappa -4.1e-09
+n=2 t=1: A_chi num -0.69170258 cl -0.69170150 | F num -0.28288228 cl -0.28288184 | h_cc num 1.264004e-02 cl 1.264004e-02 | h_kk num 1.803580e-02 cl 1.803580e-02 | h_kc -7.7e-11 | A_kappa -1.9e-09
+n=2 t=2: A_chi num -0.69229761 cl -0.69229653 | F num -0.28400304 cl -0.28400260 | h_cc num 2.322299e-04 cl 2.322299e-04 | h_kk num 3.353677e-04 cl 3.353677e-04 | h_kc -1.2e-12 | A_kappa -1.6e-09
+n=2 t=3: A_chi num -0.69230857 cl -0.69230749 | F num -0.28402372 cl -0.28402328 | h_cc num 4.253681e-06 cl 4.253681e-06 | h_kk num 6.144181e-06 cl 6.144181e-06 | h_kc -2.1e-14 | A_kappa -1.5e-09
+n=4 t=0: A_chi num -0.66702076 cl -0.66701973 | F num -0.24017166 cl -0.24017129 | h_cc num 1.191004e+00 cl 1.191004e+00 | h_kk num 9.888120e-01 cl 9.888120e-01 | h_kc -1.5e-08 | A_kappa -4.1e-09
+n=4 t=1: A_chi num -0.69170258 cl -0.69170150 | F num -0.28288228 cl -0.28288184 | h_cc num 2.528008e-02 cl 2.528008e-02 | h_kk num 3.607160e-02 cl 3.607160e-02 | h_kc -1.5e-10 | A_kappa -1.9e-09
+n=4 t=2: A_chi num -0.69229761 cl -0.69229653 | F num -0.28400304 cl -0.28400260 | h_cc num 4.644598e-04 cl 4.644597e-04 | h_kk num 6.707354e-04 cl 6.707354e-04 | h_kc -2.4e-12 | A_kappa -1.6e-09
+n=4 t=3: A_chi num -0.69230857 cl -0.69230749 | F num -0.28402372 cl -0.28402328 | h_cc num 8.507362e-06 cl 8.507362e-06 | h_kk num 1.228836e-05 cl 1.228836e-05 | h_kc -4.2e-14 | A_kappa -1.5e-09
+t=4: F (closed form) -0.2840236616 vs F_inf -0.2840236686; e^{4t} h_cc/n 0.34615384 vs 0.34615385; e^{4t} h_kk/n (num) 0.500000 vs 0.5
+t=6: F (closed form) -0.2840236686 vs F_inf -0.2840236686; e^{4t} h_cc/n 0.34615385 vs 0.34615385; e^{4t} h_kk/n (num) 0.500000 vs 0.5
+t=8: F (closed form) -0.2840236686 vs F_inf -0.2840236686; e^{4t} h_cc/n 0.34615385 vs 0.34615385; e^{4t} h_kk/n (num) 0.500000 vs 0.5
+min |F| over kappa in [0.2,5], t in [0,12] (lambda=1): 1.4636e-02; at t=12 vs limit: max rel dev 6.66e-15
+untied (S^1_q x S^1_s): A_q(chi) = -1.00000156 (expected -1), F = 6.26e-09, h_cc = 1.91e-10, h_kk = 1.8036e-02 (rank one)
+open:cost-equality: fine sum 6.0918613677, parent-law Fisher cost 6.0918613677, rel diff 4.19e-13

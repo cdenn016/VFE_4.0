@@ -1,0 +1,40 @@
+(a) Lemma A residual grad KL - HessF (x-y), symbolic: [0, 0, 0, 0]
+(b) Lemma B residual grad Tr(G0 m(x)) - HessF (0,-G0), symbolic: [0, 0, 0, 0]
+(b) Lemma B with the channel energy, exact at a rational point: [0, 0, 0, 0]
+(c1) fine natural gradient, N=3, kappa=1, alpha0=7/5, unequal precisions: max |H v + grad E| = 0
+(c1) fine natural gradient, N=3, kappa=5, alpha0=3/2, unequal precisions: max |H v + grad E| = 0
+(c1) fine natural gradient, N=2, kappa=1/3, alpha0=1, unequal precisions: max |H v + grad E| = 0
+(c2) parent natural gradient, blocks (2, 2) of N=4, kappa=1, alpha0=6/5: max |H v + grad E^c| = 0; intertwining residual (parent shape velocity - summed fine shape velocities; parent C_q - fine C_q) = 0
+(c2) parent natural gradient, blocks (1, 2, 1) of N=4, kappa=1, alpha0=6/5: max |H v + grad E^c| = 0; intertwining residual (parent shape velocity - summed fine shape velocities; parent C_q - fine C_q) = 0
+(c2) parent natural gradient, blocks (4,) of N=4, kappa=1, alpha0=6/5: max |H v + grad E^c| = 0; intertwining residual (parent shape velocity - summed fine shape velocities; parent C_q - fine C_q) = 0
+(c2) parent natural gradient, blocks (1, 3) of N=4, kappa=1, alpha0=6/5: max |H v + grad E^c| = 0; intertwining residual (parent shape velocity - summed fine shape velocities; parent C_q - fine C_q) = 0
+(c2) parent natural gradient, blocks (2,2), kappa=5/2, alpha0=1: 0; intertwining 0
+(d) conformal factor psi2'(A) * sum 1/psi2'(alpha_i) for equal shapes (n, alpha, value):
+     n=2 alpha=  0.60  factor=0.0780707250
+     n=2 alpha=  0.80  factor=0.3151263611
+     n=2 alpha=  1.00  factor=0.4801822454
+     n=2 alpha=  1.50  factor=0.6863428903
+     n=2 alpha=  2.00  factor=0.7775737312
+     n=2 alpha=  5.00  factor=0.9197511621
+     n=2 alpha= 20.00  factor=0.9809335916
+     n=2 alpha=100.00  factor=0.9962374687
+     n=3 alpha=  0.60  factor=0.0534282760
+     n=3 alpha=  0.80  factor=0.2481549490
+     n=3 alpha=  1.00  factor=0.4036446692
+     n=3 alpha=  1.50  factor=0.6193052354
+     n=3 alpha=  2.00  factor=0.7229029628
+     n=3 alpha=  5.00  factor=0.8956732065
+     n=3 alpha= 20.00  factor=0.9747325476
+     n=3 alpha=100.00  factor=0.9949893415
+     n=4 alpha=  0.60  factor=0.0458029958
+     n=4 alpha=  0.80  factor=0.2237311193
+     n=4 alpha=  1.00  factor=0.3733771002
+     n=4 alpha=  1.50  factor=0.5902391613
+     n=4 alpha=  2.00  factor=0.6982251837
+     n=4 alpha=  5.00  factor=0.8840820611
+     n=4 alpha= 20.00  factor=0.9716602246
+     n=4 alpha=100.00  factor=0.9943664064
+     shapes (0.6, 2.0) factor=0.6905060425
+     shapes (1.0, 1.2) factor=0.5407275103
+     shapes (0.7, 0.9, 3.0) factor=0.6601952210
+(d) symbolic: parent - fine horizontal norm = -s**2*(w1 + w2)*(-Wp*w1 - Wp*w2 + w1*w2)/(w1**2*w2**2) ; expected s^2 H (Wp H - 1): diff 0

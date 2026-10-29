@@ -1,0 +1,32 @@
+=== Part A: symbolic structure ===
+  [m1>0] E_v - [(m1-1)^2/2 + (m2+2)^2/2 + (m1-m2)^2 + |m1|^(7/2)] = 0
+  [m1<0] E_v - [(m1-1)^2/2 + (m2+2)^2/2 + (m1-m2)^2 + |m1|^(7/2)] = 0
+  right limits at 0 of d^k |m|^(7/2), k=1..3: [0, 0, 0] (even function: odd derivatives change sign, so all are continuous at 0 iff these limits vanish)
+  right limits at 0 of d^k |m|^(7/4), k=1..2: [0, oo]  -> sigma is C^1 but not C^2
+
+=== Part A: numerics ===
+  own-block field at the equilibrium (0,-1): [np.float64(-0.0), np.float64(-0.0)]
+  difference quotient of the m1-component at x=1e-02: 3.6192e+00  (~ (7/4) x^(-1/4) = 5.5340e+00)
+  difference quotient of the m1-component at x=1e-04: 1.5503e+01  (~ (7/4) x^(-1/4) = 1.7500e+01)
+  difference quotient of the m1-component at x=1e-06: 5.3340e+01  (~ (7/4) x^(-1/4) = 5.5340e+01)
+  difference quotient of the m1-component at x=1e-08: 1.7300e+02  (~ (7/4) x^(-1/4) = 1.7500e+02)
+  solutions from (x0, -1) as x0 -> 0 (DOP853, rtol 1e-12):
+    x0 = 1e-04: m1(0.5, 1, 2) = [0.00563608 0.03050029 0.19748627]
+    x0 = 1e-08: m1(0.5, 1, 2) = [0.00167449 0.01635152 0.14183486]
+    x0 = 1e-12: m1(0.5, 1, 2) = [0.00145097 0.0152994  0.13725948]
+  the x0 -> 0+ limit is a solution from (0,-1) with m1(2) ~ 0.137 > 0 (Arzela-Ascoli limit of the sequence above);
+  the constant m(t) = (0,-1) is also a solution (field = 0 there): two distinct solutions -> non-uniqueness.
+  reciprocal gradient flow of E_v from (0,-1) (C^2 field, unique): m(2) = [-0.17597729 -0.78518777]
+
+=== Part C: chapter 3 per-agent free energies with self sources and evolving rows ===
+  [m1>0] costs: c11 - (phi+s11) = 0, D12 - (phi+s12) = 0, c22 - (s22-phi) = 0, D21 - (s21-phi) = 0
+  [m1>0] F_tot - [2 + |m1|^2] (row entropies aside) = 0
+  [m1>0] own-block d F_1/d m1 = -7*x**(3/4)/4 + 2*x
+  [m1<0] costs: c11 - (phi+s11) = 0, D12 - (phi+s12) = 0, c22 - (s22-phi) = 0, D21 - (s21-phi) = 0
+  [m1<0] F_tot - [2 + |m1|^2] (row entropies aside) = 0
+  [m1<0] own-block d F_1/d m1 = -7*x**(3/4)/4 - 2*x
+  F_tot is C^infinity (phi cancels); agent 1's own-block force is -phi'(m1) - 2 m1 with -phi' = (7/4)|m1|^(3/4).
+  per-agent m1 from 1e-08: m1(1), m1(2) = [0.01506653 0.09610542]
+  per-agent m1 from 1e-12: m1(1), m1(2) = [0.01414925 0.09383977]
+
+runtime 4.3 s

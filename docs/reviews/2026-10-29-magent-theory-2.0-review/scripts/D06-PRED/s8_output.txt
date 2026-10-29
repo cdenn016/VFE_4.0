@@ -1,0 +1,5 @@
+S =             10: int l du (tail part) = 0.9, int l log l du (tail part) = 0.963102111593, log S = 2.30258509299
+S =           1000: int l du (tail part) = 0.999, int l log l du (tail part) = 4.92357078954, log S = 6.90775527898
+S =        1000000: int l du (tail part) = 0.999999, int l log l du (tail part) = 11.815540189, log S = 13.815510558
+S =  1000000000000: int l du (tail part) = 0.999999999999, int l log l du (tail part) = 25.631021116, log S = 27.6310211159
+Z(0) = 1 + (e - 1) = 2.71828182845904523536028747135

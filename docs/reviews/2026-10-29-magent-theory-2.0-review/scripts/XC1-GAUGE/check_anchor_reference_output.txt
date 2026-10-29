@@ -1,0 +1,8 @@
+(i) fixed Frobenius anchor/loop form: |omega_inf' - h^-1 omega_inf h| = 0.843797351035789
+(ii) metric carried with the data:      |omega_inf' - h^-1 omega_inf h| = 2.220446049250313e-15
+(iii) orthogonal h, fixed Frobenius:   residual = 2.220446049250313e-16
+(iv) covariance-dressed anchor:        residual = 2.1094237467877974e-15
+(v) detectable dissonance, Frobenius W: before 2.4525488927956268e-32  after fixed-Frobenius reference change 1.7322928943969767e-30
+    zero set check: D=0 for a truth in B(N)? before 1.0303123442745996e-31
+(vi) it1:pair detectable dissonance with Frobenius W: original 7.900634544441984  after nonorthogonal h 10.435740065186435
+     closed form ||P_cap(w01+w10)||^2 = 7.900634544441984

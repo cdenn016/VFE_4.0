@@ -1,0 +1,94 @@
+{
+ "a_nonmonotone_summands": {
+  "u0=0, r0=1": {
+   "pde_residual": "0",
+   "dirichlet(t)": "lam*(exp(2*t*(lam + 1)) - 2*exp(t*(lam + 1)) + 1)*exp(-2*t*(lam + 1))/(4*(lam**2 + 2*lam + 1))",
+   "local(t)": "(2*lam**2*exp(2*lam*t) + lam**2*exp(2*t*(lam + 1)) + 4*lam*exp(2*lam*t) + 2*lam*exp(t*(lam + 1)) + 2*exp(2*lam*t) + 1)*exp(-2*t*(lam + 1))/(4*(lam**2 + 2*lam + 1))",
+   "dF/dt + kinetic": "0",
+   "d dirichlet/dt at t=0.5, lam=1": 0.05813603948370741,
+   "d local/dt at t=0.5, lam=1": -0.493683122273456,
+   "d total/dt at t=0.5, lam=1": -0.43554708278974863
+  },
+  "u0=cos x, r0=0": {
+   "pde_residual": "0",
+   "dirichlet(t)": "lam*(lam**2 + 2*lam*exp(t*(lam + 1)) + exp(2*t*(lam + 1)))*exp(-2*t*(lam + 1))/(4*(lam**2 + 2*lam + 1))",
+   "local(t)": "lam**2*(exp(2*t*(lam + 1)) - 2*exp(t*(lam + 1)) + 1)*exp(-2*t*(lam + 1))/(4*(lam**2 + 2*lam + 1))",
+   "dF/dt + kinetic": "0",
+   "d dirichlet/dt at t=0.5, lam=1": -0.1258036811020138,
+   "d local/dt at t=0.5, lam=1": 0.05813603948370741,
+   "d total/dt at t=0.5, lam=1": -0.0676676416183064
+  }
+ },
+ "b1_polar_singular_orbit": {
+  "u_t + u - a cos(pi)": "0",
+  "phi_t = -(a/u) sin(pi)": "0",
+  "u(t*)": "0",
+  "t*": "log(1 + u0/a)",
+  "energy (u+a)^2/2 derivative": "-(a + u0)**2*exp(-2*t)",
+  "Cartesian p(t) = (a - (u0+a) e^{-t}) e1 passes 0 at t*": "0"
+ },
+ "b2_two_agent_singular_orbit": {
+  "grad V = PH - c e^T, max fd error": 3.7729386281881716e-10,
+  "ODE residual": 1.1143410638680962e-09,
+  "||P(0)||": 4.764406409004239,
+  "||P(t*)||": 1.7413167731470526e-14,
+  "min ||P|| on [0, 0.99 t*]": 0.011516872101489273,
+  "energy decreasing on grid": true,
+  "V(P(0)), V(P(t*))": [
+   36.772308837733235,
+   2.6500000000000106
+  ],
+  "rank of P(t) (columns parallel to c)": 1
+ },
+ "c_frame_persistence_illustration": {
+  "lambda": 0.7,
+  "s": 3,
+  "T": 1.0,
+  "rows": [
+   {
+    "J": 4,
+    "||g||_Hs": 0.8436856971381911,
+    "||r(T)-r0||_Hs": 0.2910382859873823,
+    "naive int_0^T ||r_t||_Hs dt": 0.3680264479917794,
+    "ratio naive/actual": 1.2645293272780436
+   },
+   {
+    "J": 8,
+    "||g||_Hs": 0.8739056162292914,
+    "||r(T)-r0||_Hs": 0.31248354728189875,
+    "naive int_0^T ||r_t||_Hs dt": 0.48839324841169174,
+    "ratio naive/actual": 1.562940681709238
+   },
+   {
+    "J": 16,
+    "||g||_Hs": 0.8900411601282794,
+    "||r(T)-r0||_Hs": 0.32366878942723465,
+    "naive int_0^T ||r_t||_Hs dt": 0.6205519437548661,
+    "ratio naive/actual": 1.917243688688665
+   },
+   {
+    "J": 24,
+    "||g||_Hs": 0.8955789757444624,
+    "||r(T)-r0||_Hs": 0.3274654088867373,
+    "naive int_0^T ||r_t||_Hs dt": 0.7008640831432665,
+    "ratio naive/actual": 2.1402690608634
+   },
+   {
+    "J": 32,
+    "||g||_Hs": 0.8983783342300516,
+    "||r(T)-r0||_Hs": 0.3293768000663882,
+    "naive int_0^T ||r_t||_Hs dt": 0.7586917167328536,
+    "ratio naive/actual": 2.303415773606198
+   },
+   {
+    "J": 40,
+    "||g||_Hs": 0.9000677649507662,
+    "||r(T)-r0||_Hs": 0.33052785653307626,
+    "naive int_0^T ||r_t||_Hs dt": 0.803902798931264,
+    "ratio naive/actual": 2.4321786592012002
+   }
+  ],
+  "bound ||r(T)-r0||_Hs <= ||g||_Hs / 2": true
+ },
+ "runtime_s": 2.28
+}

@@ -1,0 +1,7 @@
+anchor phases at t0: [-2.1486  0.2719 -1.8912] ; omega_i = [-0.251654 -0.435796 -0.12776 ] ; adot = [-0.092071  0.092071  0.      ]
+[1] belief: max|d/dt q~ - (V(x~) - adot d_theta q~)| = 6.707e-08 ; omitting the moving term: 1.871e-01
+[2] model: max|d/dt q~ - (V(x~) - adot d_theta q~)| = 9.343e-08 ; omitting the moving term: 2.499e-01
+[3] max|V(x~) - tau_a V(x)| = 4.441e-15 ; max|omega(x~) - omega(x)| = 1.166e-15
+    slice: representative anchor phases [-0.9383255  -0.9383255  -1.89121892] (agents 0,1 equal); finite-difference adot = [-0.092071  0.092071  0.      ]
+[4] max over single-law rotation directions |g(V, J)| = 5.475e-17  (|V|_g scale 1.537e+00)
+[5] block kernel max|K(x) - K(x~)| = 8.674e-19 (total mass 1.000000); singleton first-moment change |u_0(x)-u_0(x~)| = 2.301e-01

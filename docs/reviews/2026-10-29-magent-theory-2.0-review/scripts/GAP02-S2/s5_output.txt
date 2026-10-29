@@ -1,0 +1,12 @@
+[1] reference product family (n = 2 block), F and h_chichi vs closed form:
+  t=0.0: F = -0.24017128, closed form -0.24017129 (diff 1.8e-08); h_chichi = 0.59550183, closed form 2ab/(a+b) = 0.59550183
+  t=0.5: F = -0.27597529, closed form -0.27597529 (diff 7.8e-09); h_chichi = 0.09156817, closed form 2ab/(a+b) = 0.09156817
+  t=1.0: F = -0.28288184, closed form -0.28288184 (diff 1.3e-09); h_chichi = 0.01264004, closed form 2ab/(a+b) = 0.01264004
+[2] perturbed correlated law (size 0.05) vs reference:
+  t=0.0: F -0.243374 vs -0.240171 (rel diff 0.013); h_chichi 0.597353 vs 0.595502; min anchor |u| 0.5875 vs 0.5961
+  t=0.5: F -0.276120 vs -0.275975 (rel diff 0.001); h_chichi 0.092346 vs 0.091568; min anchor |u| 0.2629 vs 0.2659
+  t=1.0: F -0.281726 vs -0.282882 (rel diff 0.004); h_chichi 0.012779 vs 0.012640; min anchor |u| 0.1001 vs 0.1010
+[3] mixed jet d_kappa a at t = 1 under delta -> delta/2 (central-difference convergence):
+  delta=2e-02: d_kappa a = 0.0540917739
+  delta=1e-02: d_kappa a = 0.0540918460
+  delta=5e-03: d_kappa a = 0.0540918641

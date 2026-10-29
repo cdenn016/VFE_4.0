@@ -1,0 +1,77 @@
+=== Item_1_communication_links.tex: 33 results; chapters/17_communication_links.tex: 34 results
+  it1:code                     definition   Code of a modality
+  it1:dictionary               definition   Dictionary
+  it1:why-group                remark       Why the dictionary is group valued
+  it1:loss                     proposition  Meaning lost through a noiseless code   [chapter: corollary 'Meaning lost through a noiseless code']
+  it1:noisy                    corollary    Noisy codes
+  it1:kalman                   proposition  Reception of one message
+  it1:gaussian-reconstruction  proposition  Gaussian reconstruction
+  it1:exponential              remark       The link with a code-shaped generator
+  it1:identifiability          theorem      Identifiability up to the code stabilizer
+  it1:location                 remark       Noise laws beyond the Gaussian
+  it1:modalities               corollary    Pooling modalities through one dictionary
+  it1:routed                   corollary    Routed modalities
+  it1:query-dictionary         proposition  A receiver's reading of a code is a dictionary modulo the stabilizer
+  it1:stack-compatibility      proposition  Compatibility of stacked readings
+  it1:heads                    remark       Attention heads as modalities
+  it1:consensus                theorem      Consensus and holonomy invariance
+  it1:frustration              corollary    Frustration
+  it1:dissonance               definition   Dissonance of a loop
+  it1:bandwidth                proposition  Coded messages give Gibbs rows at temperature one over the message count
+  it1:tangent-model            definition   Tangent learning model
+  it1:learning                 theorem      Learning with a loop prior
+  it1:detectable               definition   Detectable dissonance
+  it1:complementary            proposition  Filling and detection are complementary
+  it1:unreachable              proposition  The unreachable directions
+  it1:complete-exchange        corollary    Complete exchange
+  it1:pair                     proposition  Reciprocal pair
+  it1:exact-pair               proposition  Exact reciprocal identification
+  it1:exact-flat               proposition  Exact flat identification
+  it1:owned                    remark       Ownership and the loop term
+  it1:open-learning            openproblem  Learning the dictionaries beyond the tangent model
+  it1:open-codes               openproblem  Codes as part of the species model
+  it1:open-free-energy         openproblem  Dictionaries in the free-energy pictures
+  it1:open-general             openproblem  Beyond Gaussian codes
+  it1:loop-comparisons         remark       A law comparison and a dressed link comparison   [CHAPTER ONLY]
+=== Item_2_link_dynamics.tex: 20 results; chapters/18_link_dynamics.tex: 26 results
+  it2:model                    definition   Tangent communication model
+  it2:global                   definition   Global joint
+  it2:per-agent-model          definition   Per-agent tangent model
+  it2:gauge-general            remark       The interpretation gauge without linearization or Gaussian noise
+  it2:gauge                    theorem      Belief and meaning are interdependent
+  it2:split                    proposition  Persuasion and reinterpretation
+  it2:grounding                corollary    Grounding turns reinterpretation into persuasion
+  it2:global-flow              proposition  The global flow
+  it2:per-agent-flow           proposition  The per-agent flow
+  it2:ring                     proposition  A directed ring
+  it2:separation               theorem      Separation in the grounded limit
+  it2:echo                     proposition  Echo around a loop
+  it2:potential                definition   Tangent reciprocal potential
+  it2:potential-forces         proposition  Forces in the reciprocal potential
+  it2:certainty                proposition  Disagreement and certainty
+  it2:open-reciprocal          openproblem  Rows and covariances in the reciprocal potential   [chapter: openproblem 'Coupled dynamics beyond the finite example']
+  it2:open-convergence         openproblem  Convergence of per-agent flows
+  it2:open-nonlinear           openproblem  Beyond the tangent model
+  it2:open-general             openproblem  General laws
+  it2:open-messages            openproblem  What agents must exchange
+  it2:law-potential            definition   Dictionary laws and source rows   [CHAPTER ONLY]
+  it2:coupled-flow             proposition  Complete Gaussian Fisher equations   [CHAPTER ONLY]
+  it2:coupled-global           theorem      Global flow in the Gaussian tangent family   [CHAPTER ONLY]
+  it2:coupled-critical-structure proposition  Source adaptation and the complete Hessian   [CHAPTER ONLY]
+  it2:coupled-threshold        theorem      A three-agent coupled threshold   [CHAPTER ONLY]
+  it2:critical-pitchfork       theorem      Critical dynamics and nearby branches   [CHAPTER ONLY]
+=== Item_3_curvature_hierarchy.tex: 14 results; chapters/19_curvature_hierarchy.tex: 14 results
+  it3:hierarchy                definition   A supplied hierarchy
+  it3:general-induced          remark       Evidence gives an induced action for general laws
+  it3:induced                  theorem      The Gaussian action and its cohomological quadratic part
+  it3:observation              remark       Which experiment sees a dictionary
+  it3:rank-one                 proposition  One operating content gives a rank-one stationary mean
+  it3:dissonance               corollary    Equal gains cancel the linearized loop sum
+  it3:cap                      remark       Reinterpretation limits the effective top-down precision
+  it3:rigid                    proposition  A normalized rigid restriction of a supplied hierarchy
+  it3:flat-wall                proposition  Flat wall walks and a common boundary dictionary
+  it3:tower                    remark       Repeating a supplied rigid restriction
+  it3:open-formation           openproblem  Formation with top-down feedback
+  it3:open-fluctuation         openproblem  Fluctuations beyond the fixed tangent experiment
+  it3:open-general             openproblem  General content laws
+  it3:open-gains               openproblem  Learning gains from loop records

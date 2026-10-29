@@ -1,0 +1,3 @@
+exact posterior mean          : [ 0.84745763 -0.6779661 ]  exact marginal variances: [0.08474576 0.25423729]
+plug-in per-agent fixed point : means [ 0.84745763 -0.6779661 ], variances [0.06666667 0.2       ], |means - exact| = 0.000e+00
+law-level per-agent fixed pt  : means [ 0.86984508 -0.65557864], variances [0.0768356  0.24632713], |means - exact| = 2.239e-02

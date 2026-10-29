@@ -1,0 +1,112 @@
+### D18-LP-10: The slice canonicalization, the moving-frame field and the accumulator are the method of slices and the freezing method, attributed in chapter 12 but not here
+Location: lp:retention (14:103-109), lp:omega and lp:closed-reference (14:114-126, which cite only HorstmeyerAtay2016), lp:causal-system (14:215-221), lp:phase-information (14:159-164)
+Fix: Cite the four records at `lp:retention`, `lp:closed-reference` and `lp:causal-system`, cross-reference `open:anchor` and `open:moving-flow`, and state what is new here: a common collective rotation exposed against every proper block, the per-agent field, and evaluation-local jets.
+
+### XC1-GAUGE-01: "Physical" and "nongauge" in chapters 13 and 14, the abstract and the outlook name distinctions that the chapter 1 definition makes gauge
+Location: `frontmatter.tex:11` ("An angular extension admits a physically noninjective parent"); `chapters/05_inheritance.tex:1397`; `chapters/13_per_agent_inheritance.tex:5, 297` (section "A physical quotient with inherited records"), `:299` (protocol), `:302` (pa:phase-parent, "physically noninjective"), `:309`, `:316`, `:326`, `:396`; `chapters/14_collective_local_parent.tex:5, 41` ("The common physical rotation of psi is a separate nongauge action"), `:82` (section "Collective rather than primitive physical loss"), `:84` (protocol), `:109`, `:139`, `:159`, `:279` (lp:causal-coherence), `:285`, `:378`; `chapters/06_outlook.tex:14`; `companion/c14_collective_local_parent.tex:5, 7, 181`. Contrast `chapters/01_foundations.tex:87`, `chapters/10_boundary_closure.tex:191`, `chapters/12_open_formation.tex:416` (open:observables), `chapters/17_communication_links.tex:157`, `AUTHORING.md:53`.
+Fix: Keep the chapter 1 meaning and requalify chapters 13 and 14: "noninjective on a phase that is gauge relative to the population and the admitted protocol, distinguished only by the child-level law diagnostic \cref{pa:hidden-diagnostic}", and likewise for the common psi angle of chapter 14. Alternatively introduce a separate word in chapter 1 for the active-versus-passive distinction, declare in chapters 13 and 14 an algebra that contains child-level law diagnostics, and apply the same algebra to chapters 10 and 12 so that the abstract compares like with like. Reword frontmatter:11, ch5:1397 and outlook:14 accordingly.
+
+### XC1-GAUGE-03: The chapter 14 obstructions and the initial-coherence requirement exist because the common psi rotation is excluded from the declared structure group
+Location: `chapters/14_collective_local_parent.tex:41` (declared group), `:159-164` (lp:phase-information), `:272-299` (lp:causal-coherence, lp:initial-phase-score-defect, lp:initial-phase-datum), `:319-333` (lp:jet-obstruction), `:345-370` (lp:path-memory-obstruction, eq lp:path-memory-polynomial), `:372-378` (lp:causal-jet-obstruction); `chapters/06_outlook.tex:14`; `frontmatter.tex:13`; contrast the disclosures at `chapters/11_conditional_formation.tex:455, 545` and `chapters/12_open_formation.tex:425`.
+Fix: In lp:causal-coherence, lp:jet-obstruction, lp:path-memory-obstruction, lp:causal-jet-obstruction and the outlook, state that the inherited geometry is the minimizing geometry of the declared marked group. Add the enlarged-group computation: for S^1_marked x S^1_psi the minimized tensor is independent of the common psi phase field, pointwise canonicalization preserves it, and the connection class changes by the affine law (minus d alpha_0 in the psi component). Then justify why the parent must preserve the tensor of the smaller group, given that the extra term lambda^2 I_phys measures a phase gradient that no agent, channel or admitted query resolves.
+
+### XC1-GAUGE-05: The abstract states nonflat rank-two geometry for chapter 12 without the declared tie of belief and model rotations (2026-10-22 X1-GAUGE-04, partially resolved)
+Location: `frontmatter.tex:9` ("nonflat rank-two contextual geometry on a declared finite window"); compare `chapters/12_open_formation.tex:425, 517` (open:formation (d), "the tied collective minimizing connection"), `chapters/11_conditional_formation.tex:455, 545`, `companion/c11_formation.tex:193`, `companion/c12_open_formation.tex:158`.
+Fix: Abstract: "nonflat rank-two contextual geometry of the declared common belief and model rotation on a declared finite window".
+
+### XC2-FRAME-01: Clause (F4) is read four ways; chapter 13's "physical compression" and the abstract's "physically noninjective parent" hold only under chapter 13's own reading
+Location: chapters/05_inheritance.tex:1387-1388 (inh:recursive-formation, (F3), (F4)), 686-712 (inh:inherited-parent), 527-532; chapters/08_smooth_erasure.tex:15, 261; chapters/09_public_compression.tex:251; chapters/11_conditional_formation.tex:393; chapters/12_open_formation.tex:416, 526; chapters/13_per_agent_inheritance.tex:221, 299, 301-316 (pa:phase-parent), 396; chapters/14_collective_local_parent.tex:5, 41, 84; frontmatter.tex:11; README.md:30; AUTHORING.md:45, 53, 75, 81; companion/c13_per_agent_inheritance.tex:184, 192; Item_7_formation_feedback.tex:254-256
+Fix: Rewrite (F4): "A child-level probe class A^ch, declared together with A_I before any retention and containing only probes that some agent, channel, record, or declared external querier can apply before the handoff, contains a probe that separates two configurations in one fiber of R_I on the post-handoff invariant set." If persistence of the loss is intended, add "and the separation does not tend to zero along the post-handoff flow". Chapters 13 and 14 then fail (F4). Replace "physically noninjective parent" at frontmatter.tex:11, README.md:30 and inh:formation-open (05:1397) by "a parent that quotients a protocol-invisible hidden phase", and "nongauge" at 14:41 and AUTHORING.md:81 by "outside the marked structure group".
+
+### XC2-FRAME-04: "Interaction-sensitive selection ... requires receiver-dependent targets" does not follow from inh:common-clock; a shared geometric-mean target reverses the first join
+Location: chapters/05_inheritance.tex:1371-1373 (after inh:common-clock); chapters/11_conditional_formation.tex:208 (after form:mean-field); chapters/06_outlook.tex:16; companion/c05_inheritance.tex:251-252
+Fix: Replace the four sentences by: "Under the reciprocal potential, a selector that reads pairwise log-ratios cannot be interaction-sensitive when every target is one law of the additive moment; receiver-dependent targets, or shared targets that depend non-additively on the expectation parameters, are required."
+
+### XC2-FRAME-08: Open problems are scattered, one is stale, and two propositions are stated twice with different hypotheses
+Location: 22 open-problem headings: chapters/02_geometry.tex:264; 03_dynamics.tex:437; 05_inheritance.tex:738, 1396; 10_boundary_closure.tex:264; 11_conditional_formation.tex:567; 12_open_formation.tex:531; 17_communication_links.tex:488-497 (four); 18_link_dynamics.tex:628-640 (five); 19_curvature_hierarchy.tex:256-267 (four); appendices/base_connection.tex:71; appendices/interacting_memory.tex:663. Also chapters/06_outlook.tex:16; 05_inheritance.tex:738-743 (inh:type-closure-open) against 11_conditional_formation.tex:223-246 (form:parent); 05_inheritance.tex:1287-1363 against 11_conditional_formation.tex:196-221
+Fix: Close the outlook with a table of all 22 open problems by label and one line each; mark the first case of inh:type-closure-open as answered by form:parent, or state what form:parent leaves undetermined; keep one statement of each duplicated proposition in chapter 5 with both hypothesis sets and cite it from chapter 11.
+
+### XC2-FRAME-09: The abstract attributes "nonflat rank-two contextual geometry" to the six-agent construction without the declared family and the tied representation that produce it
+Location: frontmatter.tex:9; chapters/12_open_formation.tex:425, 511-523 (open:formation (d)); AUTHORING.md:71; REMEDIATION.md:28 (decision 4)
+Fix: "... and, on a declared contextual family with tied belief and model rotations, preserved nonflat rank-two contextual geometry on a finite window".
+
+### XC3-SCOPE-06: The Wishart density flow is posed in an undefined solution class instead of a declared chart
+Location: chapters/11_conditional_formation.tex:98-177 (`form:full-flow`, last paragraph of the proof), :197 (`form:mean-field`), :324 (null flow in the proof of `form:kappa-independence`)
+Fix: Define the solution class in `form:full-flow` (for example, `C^1` curves of densities whose log differences from the initial law lie in a weighted space dominating `log det X` and `|X|`, with the density equation holding pointwise), and say that bounded log-density charts do not cover this family.
+
+### XC4-CONS-02: The abstract, the outlook and the formation-standard section state as proved a null-flow reproduction that chapter 12 calls unproved numerics of a limit field
+Location: frontmatter.tex:9; chapters/06_outlook.tex:10; chapters/05_inheritance.tex:1394; against chapters/12_open_formation.tex:4 and 248-249 (open:null-control) and companion/c12_open_formation.tex:7
+Fix: In all three places write "integrations of the limit field indicate that the null flow reproduces its membership history; the theorem does not establish (F5)". Alternatively prove the statement by running the null limit u(t)=e^{-t}u(0) through the same window and crossing estimates used for open:routing (open:persistence with explicit margins).
+
+### XC4-CONS-03: The outlook turns the shared-target common-clock proposition into a necessity claim for every reciprocal architecture
+Location: chapters/06_outlook.tex:16; against chapters/05_inheritance.tex:1329-1336 (inh:common-clock) and chapters/11_conditional_formation.tex:6
+Fix: "With shared targets and additive moment channels every pairwise comparison relaxes on a common clock (\cref{inh:common-clock}); interaction-sensitive selection under the reciprocal potential therefore needs receiver-dependent targets or channels outside that class."
+
+### XC4-CONS-08: The canonical potential, reduced potential, rows and record kernel appear under several names, all algebraically the same
+Location: chapters/03_dynamics.tex:42-48, 62-83; chapters/10_boundary_closure.tex:82-83; chapters/12_open_formation.tex:45, 392; chapters/18_link_dynamics.tex:225-231; chapters/01_foundations.tex:173; chapters/03_dynamics.tex:340; companion/c13_per_agent_inheritance.tex:13; chapters/13_per_agent_inheritance.tex:37; chapters/18_link_dynamics.tex:213; companion/c18_link_dynamics.tex:9-18; companion/c19_curvature_hierarchy.tex:19; chapters/19_curvature_hierarchy.tex:14
+Fix: Use one name per object across chapters, and state in chapter 18 that agent-dependent temperatures extend def:dyn-potential.
+
+### XC4-CONS-09: Five cross-chapter statements misquote or misdirect their targets
+Location: chapters/03_dynamics.tex:221; chapters/10_boundary_closure.tex:321; chapters/13_per_agent_inheritance.tex:5; chapters/12_open_formation.tex:43; chapters/05_inheritance.tex:1017, 1026; companion/figures/message_reconstruction.tex:6
+Fix: (i) "are proved for the full Fisher flow, on full density charts or on invariant subfamilies of it"; (ii) "|J|<1"; (iii) "\cref{ch:fusion} to \cref{ch:open-formation}"; (iv) "With an identity self channel"; (v) restate T and P_z at 05:1026 and drop the pointer; (vi) relabel the figure μ=T_#q.
+
+### XC4-CONS-12: AUTHORING typography rules are broken in a few places, and two heading conventions are mixed
+Location: chapters/06_fusion.tex:299, 563; chapters/07_smooth_closure.tex:47, 105, 254; Item_7_formation_feedback.tex:345, 348; chapters/05_inheritance.tex (40 \eqref), chapters/15_contextual_coupling.tex (52 \eqref, 761 and 795 "Lemma \ref"), chapters/12_open_formation.tex (1), supplements/s04_inheritance.tex (7); chapters/16_link_base_transport.tex:222; chapters/09_public_compression.tex:1, supplements/s03_variation.tex:1, companion/c09_public_compression.tex:1; preamble.tex:29 with appendices/conditional_memory.tex:208-226; frontmatter.tex:24; chapters/15_contextual_coupling.tex:6, 31, 416
+Fix: Remove the spacing macros, convert \eqref and \ref to \cref, title-case the three titles, add a \constitutiveheading (or print "Construction") and move the claims of cmem:sequential into a following proposition, write "variational free energy" for ELBO, and use the proof environment throughout.
+
+### XC4-CONS-14: Many result labels are never referenced, and label prefixes encode working-document history
+Location: labels_refs.out.txt (full lists); chapters/15_contextual_coupling.tex:107, 136, 527, 804; chapters/17-19 (it1:, it2:, it3: labels); chapters/02_geometry.tex (open:geo-gauged-flow); appendices/base_connection.tex:71 (open:conn-derived)
+Fix: Cite the unused results where the abstract, outlook or later chapters use them, or demote them to remarks; rename the chapter 15 labels semantically; give chapters 17 to 19 chapter-based prefixes; reserve open: for one chapter.
+
+### XC6-PROG-12: The gauge structure does no dynamical work in any formation result; its formation role is to supply orbits that a parent may forget
+Location: `chapters/02_geometry.tex:66`; `chapters/06_outlook.tex:16`; `chapters/01_foundations.tex:85`, `:236-246` (prop:loop-blindness); `chapters/10_boundary_closure.tex:4`; `chapters/12_open_formation.tex:4`, `:33-41`; `AUTHORING.md:53`, `:87-93`; `future_TODO.md:92`
+Fix: Say in the outlook that within formation the gauge structure supplies only the forgotten orbits, and pose a holonomy-sensitive formation problem (XC6-PROG-16, or `future_TODO.md:92`: holonomy-sensitive records giving compression with an internal observer).
+
+### XC6-PROG-18: (F5) is misapplied in chapter 8, and the chapter 12 null reproduction is asserted as fact where chapter 12 calls it a numerical indication
+Location: `chapters/08_smooth_erasure.tex:263`; `frontmatter.tex:9`; `chapters/05_inheritance.tex:1394`; `chapters/06_outlook.tex:10`; `chapters/12_open_formation.tex:4`, `:249`
+Fix: Write "(F5) fails" in chapter 8, and "integrations of the limit field indicate that the null flow reproduces" in the abstract, chapter 5 and the outlook.
+
+### XC8-REMED-02: The corollary "interaction-sensitive selection requires receiver-dependent targets" is stronger than `inh:common-clock` and `form:mean-field` prove
+Location: chapters/05_inheritance.tex:1365-1373 (remark after inh:common-clock); chapters/11_conditional_formation.tex:208 (after form:mean-field); chapters/06_outlook.tex:16; companion/c05_inheritance.tex:251-252; echoed in future_TODO.md:92
+Fix: Replace the four sentences by what the propositions support: within this class, every relabeling-equivariant selector that reads only centered pairwise log-likelihood ratios fails (F5); escaping requires a selector that reads more than these ratios, receiver- or source-dependent targets (including channels that read the source sample), heterogeneous evaluators, or self sources. The exact tilt conjugacy sketched in XC8-REMED-13 can replace the remark; it gives a sharp sufficient condition for failing (F5).
+
+### XC8-REMED-03: The chapter 12 null-flow comparison is labeled unproved in chapter 12 but stated as fact in the abstract, outlook, chapter 5 and companion
+Location: frontmatter.tex:9; chapters/06_outlook.tex:10; chapters/05_inheritance.tex:1394; companion/c05_inheritance.tex:271; AUTHORING.md:71; against chapters/12_open_formation.tex:4 and :249 (open:null-control)
+Fix: "integrations of the limit field indicate that, in the proof regime, the null flow reproduces its membership history" in all five places, or prove the statement for the exact scaled field at the theorem's h.
+
+### XC8-REMED-05: Parallel remediation left duplicated results with diverging hypotheses and no cross-references
+Location: chapters/01_foundations.tex:236 (prop:loop-blindness) and chapters/02_interactions.tex:212 (prop:int-loop-blindness); chapters/05_inheritance.tex:1329 (inh:common-clock) and chapters/11_conditional_formation.tex:196 (form:mean-field); 05:1287 (inh:scalar-additive) and 11:212 (form:scalar-closure); 05:257 (inh:equivariant-descent) and chapters/10_boundary_closure.tex:168 (lem:boundary-equivariance); chapters/03_dynamics.tex:228 (prop:dyn-chart-flow) and 10:50 (lem:boundary-fine-wellposed), 07:197 (smooth:wellposed), 09:33-39 (eq:public-phase-chart-flow)
+Fix: State each result once in chapter 5 under the union of the hypotheses (self excluded, or self compared through the same constant channel, with the two different null-flow conclusions stated separately) and replace the chapter 1, 10 and 11 versions by citations; let chapters 7, 9, 10 and 12 cite prop:dyn-chart-flow and keep only their Lipschitz verifications (see XC8-REMED-12).
+
+### XC8-REMED-07: Chapter 10 cites a superseded coupling range of chapter 9
+Location: chapters/10_boundary_closure.tex:321 (prop:boundary-observable); chapters/09_public_compression.tex:9
+Fix: "this includes the range |J| < 1 used in ch:public-compression".
+
+### XC8-REMED-10: The outlook calls every construction a selection, while chapters 7, 9 and 10 make no selection claim
+Location: chapters/06_outlook.tex:10; against chapters/07_smooth_closure.tex:7, 09_public_compression.tex:251, 10_boundary_closure.tex:4
+Fix: "Every selection construction is therefore ...".
+
+### XC8-REMED-11: `prop:boundary-joint-spectrum` treats the pointwise-applied path as a chart solution without argument
+Location: chapters/10_boundary_closure.tex:195-200
+Fix: A short lemma: for a field F(r, v; t) with continuous inputs, locally Lipschitz in v uniformly in r on sets of values bounded and bounded away from zero, the chart solution is the pointwise flow almost everywhere, and conversely.
+
+### XC8-REMED-12: The consolidated chart well-posedness proposition is cited nowhere, and global existence for the chapter 7 public flow is still open (author decision 2)
+Location: chapters/03_dynamics.tex:228-234 (prop:dyn-chart-flow); 07_smooth_closure.tex:197-215; 09_public_compression.tex:33-39; 10_boundary_closure.tex:50-71; 12_open_formation.tex:12 (chart of the chapter)
+Fix: Cite prop:dyn-chart-flow in the four chapters. For chapter 7 with identity or bounded-kernel public channels, global existence follows from the joint maximum and minimum principle already used in prop:dyn-global-flow and lem:boundary-global: take the essential maximum of log mu_i over all agents and public points; the incoming terms are bounded below by minus the incoming weight because the source law is maximal there, the receiver and evaluator terms are bounded by (H2) and energy decrease, and the forcing satisfies 0 <= H <= M by smooth:wellposed (i); the minimum is treated as in prop:dyn-global-flow. This gives log-density bounds of the form max(sup log mu_i(0), K) with K depending on E(0), (H2) and M, hence T* = infinity. Difficulty: low for identity channels, moderate for bounded kernels with law dependence.
+
+### XC8-REMED-13: In the common-clock class the full flow is the null flow at doubled time followed by one common tilt, which gives a sharp sufficient condition for failing (F5) and shows how tilt-sensitive selectors pass it
+Location: chapters/05_inheritance.tex:1329-1373 (inh:common-clock) and :1389 ((F5)); chapters/11_conditional_formation.tex:196-208
+Fix: State the conjugacy as a corollary of inh:common-clock. It does not transfer to form:mean-field: there the null flow keeps the self cost with the channel evaluated at frozen peer moments, so its forcing V^0_i depends on the agent, and only the Wishart shape coordinates keep a common clock (form:kappa-independence (iii)). Consider stating (F5), or its strong form, modulo time reparametrization and modulo symmetries that intertwine Phi and Phi^0, so that a common tilt cannot by itself certify interaction necessity. Difficulty: low for the corollary; the revision of (F5) is a definitional choice for the author.
+
+## Checked without defect
+
+| Label | What was checked | Method | Result |
+| :- | :- | :- | :- |
+| lem:measurable-bundle (01:29) | Borel measurability of (g, zeta) to g_#zeta; standard Borel structure independent of the atlas | reconstruction (monotone class; countable Borel partition of the base) | correct |
+| prop:bundle-morphism (01:58) | well-definedness on [ug, zeta] = [u, g_#zeta], affinity, KL contraction, content morphisms | reconstruction | correct |
+| prop:record-covariance (01:148) | R(gamma x, A) = R(x, tau(gamma)^{-1} A) | reconstruction | correct |
+| prop:content-law (01:214) | consistency of finite designs; projected free energy by the chain rule | reconstruction | correct (needs finite F, stated) |
+| prop:loop-blindness (01:236), prop:int-loop-blindness (02_interactions:212) | both parts; diagonal transformation of the shared-sample pair | reconstruction | correct (duplicate, XC8-REMED-05) |
+| 01:232 examples | hard agreement record: only point masses, KL log 2; soft record m = tanh(Jm), threshold J = 1 | hand derivation | correct |
+| prop:int-reciprocal (02_interactions:192) | Omega_ji = Omega_ij^{-1}; transformation law; Laplace example Omega_12 = 
+

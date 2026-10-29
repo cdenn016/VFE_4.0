@@ -1,0 +1,24 @@
+evaluator compatibility: |s_i K_i - s_j K_j| = 0.0
+thm:predictive-chain max residual (200 random, finite) = 8.881784197001252e-16
+infinite case (KL(s||t), KL(sK||tK), cond) = (inf, inf, np.float64(inf))
+sufficient case: conditional term = 1.6712286642265963e-17  recovery error = 1.3877787807814457e-17
+non-sufficient case: conditional term = 1.2521764195112743  recovery error = 0.5935236419251136
+infinite case recovery error (equality of infinities without recovery) = 0.5
+conditional-lift: |T# qhat - mu| = 5.551115123125783e-17  loss residual = 2.7755575615628914e-17
+pythagorean residual = 2.7755575615628914e-17  |KL(qhat||p) - KL(mu||T#p)| = 8.326672684688674e-17
+I-projection: KL(qhat||p) = 0.10994603068580239  best random competitor = 0.1108543445870822
+zero-atom case pythagorean residual = 2.7755575615628914e-17
+common recovery [generic L]: density residual = 5.551115123125783e-17  recovery error = 0.05342651252621877
+common recovery [sigma(C)-measurable L]: density residual = 1.1102230246251565e-16  recovery error = 1.1102230246251565e-16
+local recovery CI case: error = 1.1102230246251565e-16
+local recovery dependent case: error = 0.12893163226460735
+local recovery CI case, descending family: error = 1.3877787807814457e-17
+local recovery CI case, non-descending family: error = 0.020272784788908843
+two-point witness: lift = [0.25 0.25 0.25 0.25]  vs P0 = [0.5 0.  0.  0.5]
+decoder decomposition residual = 1.1102230246251565e-16
+distortion identity residual |I(Y;X|U,Z) - (I(Y;X|Z) - I(Y;U|Z))| = 0.0
+inh:causal-memory identity residual = 2.220446049250313e-16
+companion four-point: KL(q||uniform reconstruction) - log 2 = 0.0
+compression: D for Y=A is 0; D for Y=B equals H(B|A) - log2 = 0.0
+values: I(Y;X|U,Z) = 0.08468173540181416  I(Y;X|Z) = 0.08615768479702895  I(Y;U|Z) = 0.001475949395214799
+brute-force I(Y;U|Z) residual = 2.8189256484623115e-17

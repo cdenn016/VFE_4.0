@@ -1,0 +1,19 @@
+=== A. prop:dyn-global-local (3 blocks, sizes 3,2,4; record likelihood) ===
+eq:dyn-fixed-vfe residual: 0.0
+eq:dyn-local-free-energy max residual over i: 6.661338147750939e-16
+block-update schedule, first F values: [1.643535 1.288457 1.288454 1.126893 1.109512 1.10091  1.09372 ]  largest step (must be <= 0): -2.8185656919532676e-08
+F at Q_0^*: 1.089678274262947  best of 2000 random competitors: 1.0897394968341463  competitor >= minimizer: True
+ebar_0 affine in Q_1, residual: 8.881784197001252e-16
+
+=== B. prop:dyn-per-agent (|M|=2, |K|=3, J in {self,p1,p2}, L in {self,p1}, ell(o|k,m)) ===
+eq:dyn-per-agent-free-energy residual: 2.220446049250313e-16
+row-gap identity residual F(b,g)-F(b*,g*)-KL(b||b*)-KL(g||g*): 1.1102230246251565e-16
+peer costs vs KL(q||nu): [0.76583287 0.13022967] [0.76583287 0.13022967]
+Gibbs content row b*: [0.4522 0.043  0.5048]   exact posterior P(J|o): [0.4195 0.0737 0.5069]
+Gibbs model row   g*: [0.4898 0.5102]   exact posterior P(L|o): [0.4397 0.5603]
+label marginal equals rt*Gt*ell (def:generative-model form), residual: 2.7755575615628914e-17
+F_i(b*,g*) - F_marg(s x q): 0.2813697249042372   expected label gap: 0.2813697249042372
+
+=== C. prop:dyn-label-model (3 agents, |K|=3, nonself labels, T=0.7) ===
+eq:dyn-label-model residual |T F - rhs|: 0.0
+recognition-optimal row: [0.69915 0.30085]  Gibbs row: [0.70002 0.29998]  G_0j: [0.06702 0.06412]

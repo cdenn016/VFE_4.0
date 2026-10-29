@@ -1,0 +1,5 @@
+fraction of Fisher norm of d/dt log q_1 outside span{1,x,x^2}
+channel            reciprocal(E)   per-agent(F_1)   global(F)
+identity           8.072e-01       2.016e-30        1.515e-30
+linear-Gaussian    3.896e-01       2.528e-30        1.515e-30
+control, reciprocal with source role deleted: 4.038e-31

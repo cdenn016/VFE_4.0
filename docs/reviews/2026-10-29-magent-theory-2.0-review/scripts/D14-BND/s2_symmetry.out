@@ -1,0 +1,14 @@
+(a) equivariance of the fine field at random non-family states, random fibered maps x agent perms
+   d=2: sup |F(omega x) - omega F(x)| = 1.33e-15
+   d=3: sup |F(omega x) - omega F(x)| = 4.44e-15
+(b,c) fixed-point subspaces on the configuration space R^{N x C} (trivial base, one sector)
+   coin d=2: dim Fix(H_alpha) = 4 (2^d = 4); rank[Fix; lift image] = 4
+   coin d=2: dim Fix(root-branch stabilizer) = 8 (two-block family 2*2^d = 8)
+   coin d=3: dim Fix(H_alpha) = 8 (2^d = 8); rank[Fix; lift image] = 8
+   coin d=3: dim Fix(root-branch stabilizer) = 16 (two-block family 2*2^d = 16)
+   circle d=2, 4-point circle: dim Fix(H_alpha) = 4 (2^d = 4); rank[Fix; lift image] = 4
+(d) Phi_tau (coin, d=3, random orientations, random tau): mismatches of u(i,Phi_tau xi) vs tau u(i,xi): 0; bijective on cells: True
+(e) pullback by theta -> theta + (alpha' - alpha): sup|q o Phi - family(alpha')| = 9.428; sup|q o Phi - family(2 alpha - alpha')| = 0.00e+00
+    pullback by theta -> theta - (alpha' - alpha): sup|q o Phi - family(alpha')| = 0.00e+00
+(f) d=2: distinct labelings = 8 (|Aut(T_d)| = 2^(N-1) = 8); all are automorphisms: True
+(f) d=3: distinct labelings = 128 (|Aut(T_d)| = 2^(N-1) = 128); all are automorphisms: True

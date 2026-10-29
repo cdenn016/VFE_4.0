@@ -1,0 +1,58 @@
+AyJostLeSchwachhofer2015:
+   - issue missing in bib (cr=1-2)
+BarnettSeth2023:
+   - issue missing in bib (cr=1)
+BudanurEtAl2015:
+   - issue missing in bib (cr=8)
+CarrilloEtAl2011:
+   - issue missing in bib (cr=2)
+   - authors bib=['carrillo', 'di francesco', 'figalli', 'laurent', 'slepcev'] cr=['carrillo', 'difrancesco', 'figalli', 'laurent', 'slepcev']
+Cheng1995:
+   - authors bib=['cheng'] cr=['yizong cheng']
+CrandallLiggett1971:
+   - pages bib=265--298 cr=265 art=None
+Dawid1979:
+   - pages bib=1--31 cr=1-15 art=None
+DixonMortimer1996:
+   - venue bib='None' cr='Graduate Texts in Mathematics'
+EellsSampson1964:
+   - pages bib=109--160 cr=109 art=None
+Fenichel1974:
+   - pages bib=1109--1137 cr=1109 art=None
+   - title similarity 0.00: bib='Asymptotic Stability with Rate Conditions' cr=''
+GolubitskyStewart2002:
+   - title similarity 0.38: bib='The Symmetry Perspective: From Equilibrium to Chaos in Phase Space and Physical Space' cr='The Symmetry Perspective'
+Higham2008:
+   - title similarity 0.67: bib='Functions of Matrices: Theory and Computation' cr='Functions of Matrices'
+KaganShepp2005:
+   - title similarity 0.46: bib='A Sufficiency Paradox: An Insufficient Statistic Preserving the {F}isher Information' cr='A Sufficiency Paradox'
+Kallenberg2021:
+   - venue bib='None' cr='Probability Theory and Stochastic Modelling'
+LeCamYang2000:
+   - title similarity 0.67: bib='Asymptotics in Statistics: Some Basic Concepts' cr='Asymptotics in Statistics'
+   - authors bib=['le cam', 'yang'] cr=['le cam', 'lo yang']
+   - venue bib='None' cr='Springer Series in Statistics'
+Lee2013:
+   - year bib=2013 cr=2012
+   - venue bib='None' cr='Graduate Texts in Mathematics'
+LewisNigamOlver2005:
+   - volume bib=7 cr=07
+   - issue bib=3 cr=03
+LittlejohnReinsch1997:
+   - pages bib=213--275 cr=213-276 art=None
+OClery2013:
+   - authors bib=['o clery', 'yuan', 'stan', 'barahona'] cr=['oclery', 'yuan', 'stan', 'barahona']
+PeronyEtAl2012:
+   - venue bib='Proceedings of the 26th European Conference on Modelling and Simulation (ECMS 2012)' cr='ECMS 2012 Proceedings edited by: K. G. Troitzsch, M. Moehring, U. Lotzmann'
+Pollard2013:
+   - venue bib='From Probability to Statistics and Back: High-Dimensional Models and Processes' cr='Institute of Mathematical Statistics Collections'
+Price1970:
+   - issue missing in bib (cr=5257)
+Reinhart1959:
+   - pages bib=119--132 cr=119 art=None
+Smale1970:
+   - issue missing in bib (cr=4)
+Vorobev1962:
+   - authors bib=['vorob ev'] cr=['vorobev']
+
+87 entries compared; 25 with at least one flag

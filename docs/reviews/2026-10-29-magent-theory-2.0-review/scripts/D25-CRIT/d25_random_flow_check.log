@@ -1,0 +1,16 @@
+{
+ "max_err_g_mu": 2.380559971371099e-09,
+ "max_err_G_Sigma": 8.781458893381e-10,
+ "max_err_g_a": 4.168044187569109e-09,
+ "max_err_G_V": 3.87829612868984e-09,
+ "max_err_row_force": 4.69644973952188e-10,
+ "dissipation_formula": 172.92972417244258,
+ "dE/dt_finite_difference": -172.92972417415342,
+ "dissipation_rel_err": 9.893295136798714e-12,
+ "max_err_reduced_envelope": 2.2490164175437144e-09,
+ "row_gap_identity_err": 1.6583956430338276e-15,
+ "edge0_cost_formula": 1.4580746209398998,
+ "edge0_cost_monte_carlo": 1.4568767042969322,
+ "edge0_cost_mc_stderr": 0.003110549854083069,
+ "wall_seconds": 0.04
+}

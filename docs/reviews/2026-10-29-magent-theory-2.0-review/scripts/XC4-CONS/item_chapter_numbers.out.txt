@@ -1,0 +1,39 @@
+file number -> files (printed chapter):
+  01: chapters/01_foundations.tex (Ch 1)
+  02: chapters/02_interactions.tex (Ch 2), chapters/02_geometry.tex (Ch 3)
+  03: chapters/03_dynamics.tex (Ch 4)
+  04: chapters/04_prediction.tex (Ch 5)
+  05: chapters/05_inheritance.tex (Ch 6)
+  06: chapters/06_fusion.tex (Ch 7), chapters/06_outlook.tex (Ch 21)
+  07: chapters/07_smooth_closure.tex (Ch 8)
+  08: chapters/08_smooth_erasure.tex (Ch 9)
+  09: chapters/09_public_compression.tex (Ch 10)
+  10: chapters/10_boundary_closure.tex (Ch 11)
+  11: chapters/11_conditional_formation.tex (Ch 12)
+  12: chapters/12_open_formation.tex (Ch 13)
+  13: chapters/13_per_agent_inheritance.tex (Ch 14)
+  14: chapters/14_collective_local_parent.tex (Ch 15)
+  15: chapters/15_contextual_coupling.tex (Ch 16)
+  16: chapters/16_link_base_transport.tex (Ch 17)
+  17: chapters/17_communication_links.tex (Ch 18)
+  18: chapters/18_link_dynamics.tex (Ch 19)
+  19: chapters/19_curvature_hierarchy.tex (Ch 20)
+Item_7_formation_feedback.tex:11: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:37: 'chapter~3 of the main manuscript' -> file-number reading: ['03_dynamics.tex=Ch 4']
+Item_7_formation_feedback.tex:47: 'chapters~11 to~13 of the main manuscript' -> file-number reading: ['11_conditional_formation.tex=Ch 12', '13_per_agent_inheritance.tex=Ch 14']
+Item_7_formation_feedback.tex:50: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:55: 'chapter~13 of the main manuscript' -> file-number reading: ['13_per_agent_inheritance.tex=Ch 14']
+Item_7_formation_feedback.tex:135: 'chapter~3 of the main manuscript' -> file-number reading: ['03_dynamics.tex=Ch 4']
+Item_7_formation_feedback.tex:141: 'chapter~3 of the main manuscript' -> file-number reading: ['03_dynamics.tex=Ch 4']
+Item_7_formation_feedback.tex:165: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:179: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:190: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:193: 'chapter~11 of the main manuscript' -> file-number reading: ['11_conditional_formation.tex=Ch 12']
+Item_7_formation_feedback.tex:193: 'chapters~12 and~13 of the main manuscript' -> file-number reading: ['12_open_formation.tex=Ch 13', '13_per_agent_inheritance.tex=Ch 14']
+Item_7_formation_feedback.tex:203: 'chapter~13 of the main manuscript' -> file-number reading: ['13_per_agent_inheritance.tex=Ch 14']
+Item_7_formation_feedback.tex:248: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:279: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:296: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:403: 'chapter~5 of the main manuscript' -> file-number reading: ['05_inheritance.tex=Ch 6']
+Item_7_formation_feedback.tex:406: 'chapter~3 of the main manuscript' -> file-number reading: ['03_dynamics.tex=Ch 4']
+total hard-coded main-manuscript chapter references: 18

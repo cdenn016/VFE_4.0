@@ -1,0 +1,18 @@
+(a) L^1 versus L^infty continuity of the time-1 flow map
+  M=   64 eps=2^-2: L1 4.365e-01 -> 1.664e-01 (ratio  0.381);  sup 0.627 -> 0.126
+  M=   64 eps=2^-4: L1 1.667e-01 -> 5.702e-02 (ratio  0.342);  sup 0.881 -> 0.166
+  M=   64 eps=2^-6: L1 4.138e-02 -> 1.487e-02 (ratio  0.359);  sup 0.973 -> 0.170
+  M=  256 eps=2^-2: L1 4.301e-01 -> 1.561e-01 (ratio  0.363);  sup 0.640 -> 0.127
+  M=  256 eps=2^-4: L1 1.544e-01 -> 5.489e-02 (ratio  0.356);  sup 0.895 -> 0.171
+  M=  256 eps=2^-6: L1 4.108e-02 -> 1.482e-02 (ratio  0.361);  sup 0.974 -> 0.167
+  M=  256 eps=2^-8: L1 1.262e-02 -> 4.383e-03 (ratio  0.347);  sup 0.991 -> 0.163
+  M= 1024 eps=2^-2: L1 4.313e-01 -> 1.576e-01 (ratio  0.365);  sup 0.637 -> 0.131
+  M= 1024 eps=2^-4: L1 1.483e-01 -> 5.408e-02 (ratio  0.365);  sup 0.902 -> 0.175
+  M= 1024 eps=2^-6: L1 4.084e-02 -> 1.467e-02 (ratio  0.359);  sup 0.974 -> 0.183
+  M= 1024 eps=2^-8: L1 1.051e-02 -> 4.163e-03 (ratio  0.396);  sup 0.993 -> 0.166
+(b) equal joint spectra without a reference-preserving bijection
+  x: normalizations [1. 1. 1.]
+  y: normalizations [1. 1. 1.]
+  max deviation from the predicted value-vector exchange at t=2: 2.08e-17
+  rows: max |beta_x - beta_y| = 2.22e-16, max |gamma_x - gamma_y| = 1.11e-16; model laws 1.39e-17
+  the configurations differ: sup |log q_x - log q_y| at t=2 = 0.062

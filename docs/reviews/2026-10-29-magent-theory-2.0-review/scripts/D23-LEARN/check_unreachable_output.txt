@@ -1,0 +1,25 @@
+=== U1: ker B versus coboundaries ===
+complete exchange, two-cycles + triangles: dim ker B = 8  dim im(delta) = 8  equal subspaces: True
+complete exchange, two-cycles only        : dim ker B = 12  dim im(delta) = 8  (cycle space has dim 6-3+1 = 4, two-cycles span 3)
+4-cycle with chord (strongly connected): dim ker B = 12  dim im(delta) = 12  equal: True
+
+=== U2: dim(N cap ker B) = K (dim H^0 - K) on random instances ===
+max |dim(N cap ker B) - K(dim H0 - K)| over 30 random instances = 0
+
+=== U3: the K = 3 example after it1:complete-exchange ===
+pair {0,1}: dim(ker cap ker) = 1, line = [0. 0. 1.]
+pair {1,2}: dim(ker cap ker) = 1, line = [-1.  0.  0.]
+pair {0,2}: dim(ker cap ker) = 1, line = [ 0. -1.  0.]
+dim N = 36 ; two-cycles + triangles: dim(N cap ker B) = 0  K(dim H0 - K) = 0
+two-cycles only: dim(N cap ker B) = 9  (sum over pairs of K*1 = 9)
+coplanar (dependent) lines with two-cycles + triangles: dim(N cap ker B) = 3  K(dim H0 - K) = 3
+
+=== U4: detectability equals rejectability of the flat hypothesis ===
+generic truth: D(w*) = 3.067e+01, flat-fit Fisher excess = 2.334e+00
+truth with B w* in B(N): D(w*) = 1.077e-28, flat-fit Fisher excess = 5.314e-14
+
+=== P1: reciprocal pair split and detectable defect ===
+ranks (r0,r1)=(2,2): (filled,unreach,detect)=(6,0,3) predicted (6,0,3); D lstsq=1.522101 formula=1.522101; both basings listed: D=3.044201 (ratio 2.000)
+ranks (r0,r1)=(1,1): (filled,unreach,detect)=(9,3,0) predicted (9,3,0); D lstsq=0.000000 formula=0.000000; both basings listed: D=0.000000 (ratio nan)
+ranks (r0,r1)=(1,2): (filled,unreach,detect)=(9,0,0) predicted (9,0,0); D lstsq=0.000000 formula=0.000000; both basings listed: D=0.000000 (ratio nan)
+ranks (r0,r1)=(2,1): (filled,unreach,detect)=(9,0,0) predicted (9,0,0); D lstsq=0.000000 formula=0.000000; both basings listed: D=0.000000 (ratio nan)

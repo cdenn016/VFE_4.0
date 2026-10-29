@@ -1,0 +1,99 @@
+counts by heading kind: {'proposition': 44, 'lemma': 7, 'definition': 10, 'openproblem': 5, 'corollary': 10, 'hypothesis': 2, 'remark': 18, 'theorem': 2}
+appendices/determinant_example.tex:61	proposition	geo:det-rank	Rank of the aggregate jet for proper complex Gaussian targets	R-GEOM.md	refs=1 outside=1
+appendices/record_process.tex:61	proposition	prop:variational-history	Departure from Bayesian assimilation	R-FOUND.md	refs=0 outside=0
+chapters/01_foundations.tex:29	lemma	lem:measurable-bundle	Measurable structure of the statistical bundle	R-FOUND.md	refs=0 outside=0
+chapters/01_foundations.tex:51	definition	def:bundle-morphism	Morphism of statistical bundles	R-FOUND.md	refs=0 outside=0
+chapters/01_foundations.tex:58	proposition	prop:bundle-morphism	Statistical bundle morphisms	R-FOUND.md	refs=0 outside=0
+chapters/01_foundations.tex:148	proposition	prop:record-covariance	Covariant record laws	R-FOUND.md	refs=0 outside=0
+chapters/01_foundations.tex:204	definition	def:content-law	Content law on fields	R-FOUND.md	refs=1 outside=0
+chapters/01_foundations.tex:214	proposition	prop:content-law	Consistency and projected free energy	R-FOUND.md	refs=0 outside=0
+chapters/01_foundations.tex:236	proposition	prop:loop-blindness	Law comparisons and shared samples	R-FOUND.md	refs=0 outside=0
+chapters/02_geometry.tex:155	proposition	geo:radical-curvature	Curvature criteria for the radical	R-GEOM.md	refs=1 outside=0
+chapters/02_geometry.tex:232	proposition	geo:shape-pullback	Shape-space form of the minimal tensor	R-GEOM.md	refs=2 outside=0
+chapters/02_geometry.tex:264	openproblem	open:geo-gauged-flow	Extensions of the contextual Fisher flow	R-GEOM.md	refs=1 outside=0
+chapters/02_geometry.tex:405	corollary	geo:minimal-contraction	Exact contraction of the minimal tensor	R-GEOM.md	refs=0 outside=0
+chapters/02_interactions.tex:65	hypothesis	hyp:int-reference-consistency	Reference consistency	R-GEOM.md	refs=1 outside=0
+chapters/02_interactions.tex:192	proposition	prop:int-reciprocal	Reciprocal and backtrack parts of a directed pair	R-GEOM.md	refs=0 outside=0
+chapters/02_interactions.tex:212	proposition	prop:int-loop-blindness	Law-level comparisons and the stabilizer	R-GEOM.md	refs=0 outside=0
+chapters/02_interactions.tex:219	proposition	prop:int-loop-defect	Law-dressed loop defect	R-GEOM.md	refs=1 outside=1
+chapters/03_dynamics.tex:23	remark	rem:dyn-product	What the product restriction removes	R-FOUND.md	refs=2 outside=2
+chapters/03_dynamics.tex:100	remark	rem:dyn-self-sources	Identity self sources and learned source priors	R-FOUND.md	refs=0 outside=0
+chapters/03_dynamics.tex:136	proposition	prop:dyn-compensation	Receiver and source pools	R-FOUND.md	refs=1 outside=0
+chapters/03_dynamics.tex:180	proposition	prop:dyn-global-flow	Global flow for fixed channels	R-FOUND.md	refs=0 outside=0
+chapters/03_dynamics.tex:188	proposition	prop:dyn-row-relaxation	Row relaxation	R-FOUND.md	refs=1 outside=0
+chapters/03_dynamics.tex:196	proposition	prop:dyn-morse	Full and reduced flows have the same critical structure	R-FOUND.md	refs=2 outside=1
+chapters/03_dynamics.tex:204	definition	def:dyn-restricted-flow	Restricted-family flow	R-FOUND.md	refs=1 outside=1
+chapters/03_dynamics.tex:215	proposition	prop:dyn-gaussian-noninvariance	Gaussian agents are not an invariant family	R-FOUND.md	refs=0 outside=0
+chapters/03_dynamics.tex:225	definition	def:dyn-chart-flow	Fisher flow in bounded log-density charts	R-FOUND.md	refs=0 outside=0
+chapters/03_dynamics.tex:228	proposition	prop:dyn-chart-flow	Local well-posedness in charts	R-FOUND.md	refs=0 outside=0
+chapters/03_dynamics.tex:288	proposition	prop:dyn-label-model	Gibbs rows and a normalized label model	R-FOUND.md	refs=1 outside=0
+chapters/03_dynamics.tex:359	proposition	prop:dyn-nonreciprocal	Per-agent dynamics need not be a gradient flow	R-FOUND.md	refs=0 outside=0
+chapters/03_dynamics.tex:391	theorem	thm:dyn-registered	Registered agreement	R-FOUND.md	refs=2 outside=0
+chapters/03_dynamics.tex:407	corollary	cor:dyn-frozen-source	Frozen-source episodes	R-FOUND.md	refs=0 outside=0
+chapters/03_dynamics.tex:428	definition	def:dyn-evidence-potential	Evidence-augmented reciprocal potential	R-FOUND.md	refs=0 outside=0
+chapters/04_prediction.tex:124	corollary	cor:pythagorean	Pythagorean identity and information projection	R-FOUND.md	refs=2 outside=1
+chapters/05_inheritance.tex:130	proposition	inh:projectable	Projectable vector fields	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:155	remark	inh:trajectory-remark	Why inheritance is tested on a set of configurations	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:257	proposition	inh:equivariant-descent	Equivariant descent	R-INH.md	refs=1 outside=0
+chapters/05_inheritance.tex:294	proposition	inh:coordinate-projection	Coordinate projections are exact only for isolated blocks	R-INH.md	refs=1 outside=0
+chapters/05_inheritance.tex:318	proposition	inh:no-underdamped	Exact inheritance of a gradient flow creates no oscillatory mode	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:342	proposition	inh:role-loss	Loss of dynamical roles under product recognition	R-INH.md	refs=1 outside=0
+chapters/05_inheritance.tex:419	proposition	inh:intertwining	Intertwined handoffs	R-INH.md	refs=3 outside=0
+chapters/05_inheritance.tex:471	proposition	inh:canonical-parent	The coarsest exact parent containing an interface	R-INH.md	refs=2 outside=0
+chapters/05_inheritance.tex:502	proposition	inh:canonical-lumping	The coarsest strongly lumpable refinement	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:686	definition	inh:inherited-parent	Inherited parent	R-INH.md	refs=1 outside=0
+chapters/05_inheritance.tex:722	definition	inh:type-closed	Type closure	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:738	openproblem	inh:type-closure-open	Type-closed parents	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:1199	proposition	inh:independence-discontinuity	Weak coupling can destroy every independent split	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:1287	proposition	inh:scalar-additive	Scalar additive closure fixes the membership order	R-INH.md	refs=0 outside=0
+chapters/05_inheritance.tex:1329	proposition	inh:common-clock	Shared targets give a common clock	R-INH.md	refs=0 outside=0
+chapters/06_fusion.tex:229	lemma	fus:uniqueness	Global well-posedness, contraction, and persistence	R-FUS.md	refs=4 outside=0
+chapters/06_fusion.tex:269	proposition	fus:sync	Complete synchronization in finite time	R-FUS.md	refs=7 outside=0
+chapters/06_fusion.tex:323	lemma	fus:isolated-pair	Isolated pairs synchronize	R-FUS.md	refs=1 outside=0
+chapters/06_fusion.tex:460	corollary	fus:open-two-stage	The two-stage pattern is open in the full space	R-FUS.md	refs=2 outside=0
+chapters/06_fusion.tex:488	corollary	fus:dyadic	Coalescence of any finite depth	R-FUS.md	refs=0 outside=0
+chapters/06_fusion.tex:560	remark	fus:prox	A discrete update that keeps exact sticking	R-FUS.md	refs=0 outside=0
+chapters/06_fusion.tex:606	remark	fus:sufficiency	Sufficiency beyond the lognormal family	R-FUS.md	refs=0 outside=0
+chapters/06_fusion.tex:694	remark	fus:smooth-open	Smooth peer KL dynamics and persistent parents	R-FUS.md	refs=0 outside=0
+chapters/07_smooth_closure.tex:44	corollary	smooth:submersion	Pushforward as a Fisher submersion	R-FUS.md	refs=0 outside=0
+chapters/07_smooth_closure.tex:102	hypothesis	smooth:hypotheses	Regularity on general spaces	R-FUS.md	refs=4 outside=0
+chapters/07_smooth_closure.tex:197	proposition	smooth:wellposed	Well-posedness and exact lift on general spaces	R-FUS.md	refs=3 outside=0
+chapters/07_smooth_closure.tex:241	proposition	smooth:cgf-completion	A coarser completion for the public flow	R-FUS.md	refs=1 outside=0
+chapters/07_smooth_closure.tex:253	remark	smooth:exponential-family	Exponential families and finite-parameter private closure	R-FUS.md	refs=1 outside=0
+chapters/07_smooth_closure.tex:256	remark	smooth:channel-variants	Which channels permit the completion	R-FUS.md	refs=1 outside=0
+chapters/07_smooth_closure.tex:320	remark	smooth:formation-open	Aggregation with conditional information retained	R-FUS.md	refs=0 outside=0
+chapters/08_smooth_erasure.tex:181	proposition	erase:pair-convergence	Each preferred pair converges to a common state	R-ERA.md	refs=1 outside=0
+chapters/09_public_compression.tex:129	corollary	cor:public-phase-unique	Uniqueness of the phase parent and extension to the basin	R-ERA.md	refs=1 outside=0
+chapters/09_public_compression.tex:204	corollary	cor:public-gibbs-channel	Gibbs probes through a fixed channel	R-ERA.md	refs=0 outside=0
+chapters/09_public_compression.tex:232	definition	def:public-controlled-projection	Controlled projectability and descent of joining	R-ERA.md	refs=0 outside=0
+chapters/10_boundary_closure.tex:50	lemma	lem:boundary-fine-wellposed	Fine identity-channel flow in bounded log-density charts	R-BND.md	refs=6 outside=0
+chapters/10_boundary_closure.tex:130	lemma	lem:boundary-global	Global bounded-log existence of the profile flow	R-BND.md	refs=2 outside=0
+chapters/10_boundary_closure.tex:168	lemma	lem:boundary-equivariance	Equivariant reduction	R-BND.md	refs=5 outside=0
+chapters/10_boundary_closure.tex:180	proposition	prop:boundary-fixed-family	The profile family is a fixed-point set	R-BND.md	refs=1 outside=0
+chapters/10_boundary_closure.tex:195	proposition	prop:boundary-joint-spectrum	Descent of the joint conditional spectrum	R-BND.md	refs=1 outside=0
+chapters/10_boundary_closure.tex:204	remark	rem:boundary-heterogeneous	Compression requires the symmetry	R-BND.md	refs=0 outside=0
+chapters/10_boundary_closure.tex:212	remark	rem:boundary-wreath	Other symmetric hierarchies	R-BND.md	refs=0 outside=0
+chapters/10_boundary_closure.tex:254	remark	rem:boundary-evidence	A persistent base-only evidence term	R-BND.md	refs=0 outside=0
+chapters/10_boundary_closure.tex:264	openproblem	op:boundary-minimality	Minimality of the unordered profile tree	R-BND.md	refs=0 outside=0
+chapters/10_boundary_closure.tex:277	proposition	prop:boundary-contrast-decay	Decay of public contrast	R-BND.md	refs=2 outside=0
+chapters/11_conditional_formation.tex:196	proposition	form:mean-field	Shared targets impose a common relaxation clock	R-CND.md	refs=2 outside=0
+chapters/11_conditional_formation.tex:212	proposition	form:scalar-closure	Scalar sum closure forces a common clock	R-CND.md	refs=1 outside=0
+chapters/11_conditional_formation.tex:294	definition	form:threshold-rule	Threshold membership rule	R-CND.md	refs=3 outside=0
+chapters/11_conditional_formation.tex:311	proposition	form:kappa-independence	Coupling-independent centroid dendrogram	R-CND.md	refs=6 outside=1
+chapters/11_conditional_formation.tex:329	theorem	form:selection	Two selected stages on the four-agent family	R-CND.md	refs=1 outside=0
+chapters/11_conditional_formation.tex:410	corollary	form:responses	Adaptive extensive-response inheritance	R-CND.md	refs=2 outside=0
+chapters/11_conditional_formation.tex:547	proposition	form:geometry-decay	Decay of the inherited contextual geometry	R-CND.md	refs=1 outside=0
+chapters/11_conditional_formation.tex:556	remark	form:anisotropic-reference	Persistent contextual geometry from anisotropic references	R-CND.md	refs=0 outside=0
+chapters/11_conditional_formation.tex:567	openproblem	form:approximate-open	Approximate inheritance off the common-precision family	R-CND.md	refs=0 outside=0
+chapters/12_open_formation.tex:129	lemma	open:persistence	Persistence of strict windows	R-OPEN.md	refs=6 outside=0
+chapters/12_open_formation.tex:248	remark	open:null-control	Null-flow control	R-OPEN.md	refs=4 outside=0
+chapters/12_open_formation.tex:251	remark	open:constants	Size of the constants	R-OPEN.md	refs=1 outside=0
+chapters/12_open_formation.tex:258	proposition	open:reduction	Exact reduction of the bit-circle flow	R-OPEN.md	refs=4 outside=0
+chapters/12_open_formation.tex:305	corollary	open:final-merge	Transient relations and a forced final merge	R-OPEN.md	refs=2 outside=0
+chapters/12_open_formation.tex:359	remark	open:global-anchor	Global representatives	R-OPEN.md	refs=1 outside=0
+chapters/12_open_formation.tex:391	proposition	open:quotient-gradient	The parent flow and the quotient metric	R-OPEN.md	refs=0 outside=0
+chapters/12_open_formation.tex:413	definition	open:observables	Declared observable algebra	R-OPEN.md	refs=1 outside=0
+chapters/12_open_formation.tex:420	remark	open:loss-information	How much is lost	R-OPEN.md	refs=1 outside=0
+chapters/12_open_formation.tex:503	proposition	open:all-partitions	Symmetry reduction for every partition	R-OPEN.md	refs=3 outside=0
+chapters/12_open_formation.tex:528	remark	open:depth	Finite depth by collapsed clusters	R-OPEN.md	refs=0 outside=0
+chapters/12_open_formation.tex:531	openproblem	open:necessity-open	Interaction-necessary selection in the bit-circle architecture	R-OPEN.md	refs=0 outside=0

@@ -1,0 +1,4 @@
+h^min(X,X) = 0.146693492171
+eps=1e-01: edge cost/eps^2 = 0.072736680606; relative error vs h/2 = 8.32e-03
+eps=1e-02: edge cost/eps^2 = 0.073282915283; relative error vs h/2 = 8.70e-04
+eps=1e-03: edge cost/eps^2 = 0.073340335138; relative error vs h/2 = 8.74e-05

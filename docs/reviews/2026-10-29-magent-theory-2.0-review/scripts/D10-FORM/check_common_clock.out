@@ -1,0 +1,12 @@
+(a) dynamic rows, hypotheses met: k-spread of r_i-r_j with coeff 2: 0.00e+00
+(b) Gibbs-reduced (all peer costs equal, Z_i = exp(-D_i/T)): k-spread with coeff 2: 0.00e+00
+(c) null flow: k-spread with coeff 1: 0.00e+00; with coeff 2: 3.05e+00
+(d1) self in source set (identity self channel, unequal beta_ii): spread coeff 2: 1.180e+00
+(d2) heterogeneous evaluators: spread coeff 2: 2.708e+00
+(d3) input-dependent fixed channel q_j K: spread coeff 2: 1.510e+00
+(d4) model-dependent evaluator, unequal s_i: spread coeff 2: 1.625e+00
+(e) closed linear law for log-odds differences (full: rate 2 to dgamma/2; null: rate 1 to dgamma): max residual 6.26e-12
+(e) full-flow joins (pair, time): [((0, 1), 1.22)]
+(e) null-flow joins (pair, time): []
+(e) partition sequences differ (full vs null) in 20/20 random perturbations of size 0.1
+(f) horizon tau=1.0: pair with |Delta(0)|=delta*e^(1.5 tau) joins in full flow: True; in null flow: False; set of such Delta(0) is the open interval (delta e^tau, delta e^(2 tau))

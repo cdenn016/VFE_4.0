@@ -1,0 +1,19 @@
+first jet: Theta = I - B(dc) residual: Matrix([[0, 0], [0, 0]])
+F = U F^a U^{-1} residual: Matrix([[0, 0], [0, 0]])
+U' = gU: B' - (g B g^-1 - dg g^-1): [Matrix([
+[0, 0],
+[0, 0]]), Matrix([
+[0, 0],
+[0, 0]])]
+U' = Uh with a' = h^-1 a h + h^-1 dh: B' - B: [Matrix([
+[0, 0],
+[0, 0]]), Matrix([
+[0, 0],
+[0, 0]])]
+curved example F_xy: Matrix([[1, 0], [0, -1]])
+circle holonomy: exp(-2*pi*b)
+SO(3) link alignment: a_x = [0, 0, 0] ; a_y = [0, 0, ((cos(beta) - 1)*(8*(sin(y)**2*cos(beta) + cos(y)**2)*(cos(beta) - 1)*sin(y + pi/4)*cos(y + pi/4) + (cos(beta) - 1)**2*(cos(4*y) - 1) - 4*sin(beta)**2*sin(y)**2)/8 + sin(beta)**2*sin(y)**2/2 + sin(beta)**2*cos(y)**2/2)/(cos(beta) + cos(x) - 2)]
+  a_y + wb/(wx+wb) e3 residual: Matrix([[0, 0, (((cos(beta) - 1)*(8*(sin(y)**2*cos(beta) + cos(y)**2)*(cos(beta) - 1)*sin(y + pi/4)*cos(y + pi/4) + (cos(beta) - 1)**2*(cos(4*y) - 1) - 4*sin(beta)**2*sin(y)**2) + 4*sin(beta)**2*sin(y)**2 + 4*sin(beta)**2*cos(y)**2)*(cos(beta) + cos(x) - 2)/2 - 8*(cos(beta) + cos(x) - 2)*sin(beta/2)**2)/(4*(cos(beta) + cos(x) - 2)**2)]])
+  F_xy - 2 wb sin x/(wx+wb)^2 e3: Matrix([[0, 0, ((cos(beta) - 1)*(8*(sin(y)**2*cos(beta) + cos(y)**2)*(cos(beta) - 1)*sin(y + pi/4)*cos(y + pi/4) + (cos(beta) - 1)**2*(cos(4*y) - 1) - 4*sin(beta)**2*sin(y)**2)/4 - 4*sin(beta/2)**2 + sin(beta)**2*sin(y)**2 + sin(beta)**2*cos(y)**2)*sin(x)/(2*(cos(beta) + cos(x) - 2)**2)]])
+  F_xy - 2 wb sin x/(wx+wb)^2 e3: Matrix([[0, 0, ((cos(beta) - 1)*(8*(sin(y)**2*cos(beta) + cos(y)**2)*(cos(beta) - 1)*sin(y + pi/4)*cos(y + pi/4) + (cos(beta) - 1)**2*(cos(4*y) - 1) - 4*sin(beta)**2*sin(y)**2)/4 - 4*sin(beta/2)**2 + sin(beta)**2*sin(y)**2 + sin(beta)**2*cos(y)**2)*sin(x)/(2*(cos(beta) + cos(x) - 2)**2)]])
+  numeric max residual of a_y and F_xy formulas at 5 random points: 1.5e-16

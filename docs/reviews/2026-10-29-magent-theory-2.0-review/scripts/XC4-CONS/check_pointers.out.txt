@@ -1,0 +1,4 @@
+Item_1_communication_links.tex: numbered check pointers 0 on lines []; 'numerical check' phrases 13
+Item_2_link_dynamics.tex: numbered check pointers 0 on lines []; 'numerical check' phrases 0
+Item_3_curvature_hierarchy.tex: numbered check pointers 0 on lines []; 'numerical check' phrases 0
+Item_7_formation_feedback.tex: numbered check pointers 25 on lines [86, 190, 214, 227, 232, 235, 238, 313, 345, 348, 350, 370]; 'numerical check' phrases 0

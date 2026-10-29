@@ -1,0 +1,14 @@
+(h D h^T)_01 = d0*h0*h3 + d1*h1*h4 + d2*h2*h5
+monomial h: max off-diagonal of h D h^T = 0.0 ; generic h: 1.4198773931562072
+record-kernel variances C_i = 1, C_j = 2 are psi-independent; KL(N(0,1)||N(0,2)) = 0.09657359027997264
+augmented-record posterior residual (C=1.0) = 0.0
+augmented-record posterior residual (C=2.0) = 0.0
+cmem:filter vs brute-force enumeration, max error = 1.1102230246251565e-16
+next-record predictive density: recursion vs brute force, error = 5.551115123125783e-17
+persistent cue: exact P(A|o0,o1) = [0.41743 0.58257]  fresh-emission filter = [0.377541 0.622459]
+deterministic copy: exact (= one record) = [0.437823 0.562177]  replicate likelihood = [0.377541 0.622459]
+o_0=-1.0: w_0 = [0.5 0.5], exact E[O_1|o_0] = -0.375000, fresh-emission E[O_1|o_0] = 0.000000
+o_0=1.0: w_0 = [0.5 0.5], exact E[O_1|o_0] = 0.375000, fresh-emission E[O_1|o_0] = 0.000000
+Dirichlet log-normalizers (must be equal) = [0.57059357 0.57059357 0.57059357]
+Dirichlet posterior vs pi_b v_b^theta, error = 1.1102230246251565e-16
+uniform pi, theta = 1: posterior - v = 2.7755575615628914e-17

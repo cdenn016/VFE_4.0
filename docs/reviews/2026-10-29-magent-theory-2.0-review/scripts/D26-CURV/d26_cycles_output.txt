@@ -1,0 +1,6 @@
+(a) DAG residual = 0.33333333333333326  directed cycles: []
+(b) directed cycles: [[0, 1]]  their sums of v: [0.0]  residual = 0.4  cycle-space dim = 2  span of directed cycles = 1
+(c) two-cycle sums: [0.0, 0.0, 0.0]  triangle sum: 3.0  residual = 6.0  span of two-cycles = 3  cycle-space dim = 4
+(d) criterion 'condensation multigraph is a forest' agrees with 'directed cycles span' in 3000 of 3000 random digraphs; strongly connected cases spanning: 520 of 520
+(e) weak-anchor minimizer omega* = [-0.166667 -0.166667 -0.166667]  loop sum = -0.5  class norm^2 of V omega* = 0.083333  at o = 0 the minimizer is 0
+    finite anchors, o = 0, self means [0. 1. 3.] : omega* = [ 0.2  0.4 -0.6]  loop sum = 0.0

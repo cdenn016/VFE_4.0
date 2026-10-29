@@ -1,0 +1,95 @@
+G              | structure group                          |   8 | chapters/01_foundations.tex:8, chapters/01_foundations.tex:30, chapters/16_link_base_transport.tex:11, chapters/17_communication_links.tex:152
+G_i            | evaluator kernel                         |  31 | chapters/01_foundations.tex:171, chapters/01_foundations.tex:173, chapters/01_foundations.tex:176, chapters/01_foundations.tex:183
+G_ij           | Jensen-gap term (ch3)                    |   1 | chapters/03_dynamics.tex:296
+\mathsf G      | collective Fisher metric                 |   2 | chapters/02_geometry.tex:195, chapters/02_geometry.tex:200
+K              | dimension of V_q                         |  16 | chapters/01_foundations.tex:16, chapters/16_link_base_transport.tex:11, chapters/16_link_base_transport.tex:116, chapters/17_communication_links.tex:152
+K              | generic Markov kernel                    |   3 | chapters/01_foundations.tex:106, chapters/04_prediction.tex:24, supplements/s01_probability.tex:19
+K_a            | record mechanism on Z                    |   1 | chapters/01_foundations.tex:212
+K              | subgroup (ch10)                          |   1 | chapters/10_boundary_closure.tex:171
+T_q            | row temperature                          |   9 | chapters/03_dynamics.tex:39, chapters/03_dynamics.tex:403, chapters/10_boundary_closure.tex:51, chapters/15_contextual_coupling.tex:56
+T_j^a          | sending map                              |   2 | chapters/02_interactions.tex:78, companion/c02_links.tex:45
+T              | time / census / horizon                  |   7 | chapters/14_collective_local_parent.tex:78, chapters/14_collective_local_parent.tex:270, chapters/15_contextual_coupling.tex:776, chapters/15_contextual_coupling.tex:795
+T              | measurable code                          |   1 | chapters/17_communication_links.tex:57
+T              | deterministic readout / statistic        |   3 | chapters/03_dynamics.tex:134, chapters/04_prediction.tex:35, chapters/07_smooth_closure.tex:254
+T              | base transport                           |   1 | chapters/16_link_base_transport.tex:175
+P              | principal bundle                         |   2 | chapters/01_foundations.tex:8, chapters/16_link_base_transport.tex:11
+P_i            | generative joint                         |   6 | chapters/01_foundations.tex:173, chapters/01_foundations.tex:178, chapters/03_dynamics.tex:330, companion/c01_objects.tex:29
+P_0            | content / global prior                   |   3 | chapters/01_foundations.tex:205, chapters/03_dynamics.tex:239, companion/c03_dynamics.tex:88
+P(x)           | partition sequence                       |   6 | chapters/05_inheritance.tex:1380, chapters/05_inheritance.tex:1389, chapters/11_conditional_formation.tex:316, appendices/notation.tex:56
+g^F_P          | law named P in Fisher metric             |   1 | chapters/02_geometry.tex:23
+\mathcal F     | free energy                              |  11 | chapters/01_foundations.tex:180, chapters/01_foundations.tex:217, chapters/01_foundations.tex:223, chapters/01_foundations.tex:226
+F_D            | finite-design evaluation map             |   1 | chapters/01_foundations.tex:209
+F_ij           | deterministic transition                 |   2 | chapters/01_foundations.tex:141, companion/c01_objects.tex:49
+F^c            | inherited update                         |   3 | chapters/05_inheritance.tex:72, appendices/notation.tex:63, companion/glossary.tex:32
+\Phi           | content-bundle morphism                  |   1 | chapters/01_foundations.tex:61
+\Phi           | flow of a construction                   |   5 | chapters/05_inheritance.tex:1380, chapters/05_inheritance.tex:1392, chapters/11_conditional_formation.tex:316, appendices/notation.tex:55
+\phi           | group homomorphism                       |   2 | chapters/01_foundations.tex:52, chapters/02_geometry.tex:343
+\phi           | presentation bijection (species)         |   1 | chapters/01_foundations.tex:186
+\phi_I         | anchor phase                             |  10 | chapters/12_open_formation.tex:325, chapters/12_open_formation.tex:326, chapters/12_open_formation.tex:349, chapters/12_open_formation.tex:352
+\kappa         | Markov kernel (bundle morphism)          |   2 | chapters/01_foundations.tex:52, chapters/02_geometry.tex:343
+\kappa_ij      | content sources (per-agent model)        |   1 | chapters/03_dynamics.tex:322
+\kappa         | coupling strength                        |   8 | chapters/05_inheritance.tex:1394, chapters/11_conditional_formation.tex:6, chapters/11_conditional_formation.tex:311, chapters/11_conditional_formation.tex:357
+A              | intertwiner                              |   2 | chapters/01_foundations.tex:59, chapters/01_foundations.tex:67
+A_i            | comparison matrix                        |   2 | chapters/01_foundations.tex:160, companion/c01_objects.tex:60
+A              | registration update map                  |   1 | appendices/record_process.tex:7
+A              | Dirichlet total concentration            |   1 | appendices/record_process.tex:57
+A^F            | minimizing connection                    |  32 | chapters/02_geometry.tex:210, chapters/02_geometry.tex:212, chapters/02_geometry.tex:214, chapters/02_geometry.tex:222
+A_I            | belief shape sum                         |   2 | appendices/notation.tex:59, companion/glossary.tex:38
+B_ij           | comparison matrix                        |   1 | chapters/01_foundations.tex:163
+B_i            | connection representative                |  10 | chapters/14_collective_local_parent.tex:293, chapters/14_collective_local_parent.tex:332, chapters/16_link_base_transport.tex:42, chapters/16_link_base_transport.tex:61
+B^q_IJ         | native rows                              |   5 | chapters/12_open_formation.tex:74, appendices/notation.tex:61, appendices/notation.tex:69, companion/c12_open_formation.tex:86
+\mathcal B_i   | statistical bundle                       |   1 | chapters/01_foundations.tex:21
+\mathcal E_q   | content bundle                           |   1 | chapters/01_foundations.tex:12
+\mathcal E_o   | evidence-augmented potential             |   1 | chapters/03_dynamics.tex:431
+\mathcal E_0   | sum of local terms                       |   2 | chapters/03_dynamics.tex:12, companion/c03_dynamics.tex:18
+E_i            | sample bundle                            |   1 | chapters/01_foundations.tex:202
+E_i^a          | coordinate copy of V_a                   |  10 | chapters/01_foundations.tex:76, chapters/02_interactions.tex:13, chapters/02_interactions.tex:17, chapters/02_interactions.tex:22
+E              | standard Borel space (loop prop.)        |   2 | chapters/01_foundations.tex:237, chapters/02_interactions.tex:213
+H,H'           | loop transports                          |   2 | chapters/01_foundations.tex:237, chapters/02_interactions.tex:213
+H_i            | state-to-record kernel                   |   1 | chapters/04_prediction.tex:8
+H_p            | orthogonal complement                    |   1 | chapters/02_geometry.tex:198
+H(x)           | membership history                       |   3 | chapters/05_inheritance.tex:1380, chapters/11_conditional_formation.tex:316, appendices/notation.tex:56
+H_a            | message space                            |   1 | chapters/02_interactions.tex:76
+H(.)           | entropy                                  |   5 | chapters/03_dynamics.tex:293, chapters/03_dynamics.tex:387, chapters/03_dynamics.tex:394, chapters/03_dynamics.tex:400
+J              | registered transition                    |   1 | appendices/record_process.tex:14
+J_p            | infinitesimal action                     |  10 | chapters/02_geometry.tex:196, chapters/02_geometry.tex:197, chapters/02_geometry.tex:198, chapters/02_geometry.tex:200
+J              | spin coupling                            |   2 | chapters/01_foundations.tex:232, companion/c01_objects.tex:66
+J^q_i          | source label                             |   3 | chapters/03_dynamics.tex:389, chapters/03_dynamics.tex:394, chapters/03_dynamics.tex:395
+\mathsf O_i    | record alphabet                          |  11 | chapters/01_foundations.tex:122, chapters/01_foundations.tex:125, chapters/01_foundations.tex:130, chapters/01_foundations.tex:146
+O_ij,t         | record variable                          |   2 | chapters/01_foundations.tex:127, appendices/notation.tex:50
+O_i^a          | receiving map                            |   2 | chapters/02_interactions.tex:79, companion/c02_links.tex:46
+R_i            | reference joint                          |   2 | chapters/03_dynamics.tex:11, companion/c03_dynamics.tex:16
+R              | event kernel (record appendix)           |   1 | appendices/record_process.tex:7
+\mathcal R_ij  | induced record kernel                    |   3 | chapters/01_foundations.tex:137, chapters/01_foundations.tex:149, companion/c01_objects.tex:54
+r_i            | reference law over presentations         |   2 | chapters/01_foundations.tex:171, chapters/03_dynamics.tex:9
+r_ij           | comparison map                           |   1 | chapters/01_foundations.tex:158
+r_D'D          | deletion map                             |   2 | chapters/01_foundations.tex:215, chapters/01_foundations.tex:223
+Z_{t+1}        | random configuration                     |   2 | chapters/01_foundations.tex:125, chapters/01_foundations.tex:127
+\mathsf Z      | coefficient space                        |  13 | chapters/01_foundations.tex:205, chapters/04_prediction.tex:140, chapters/04_prediction.tex:156, chapters/05_inheritance.tex:27
+Z_o            | evidence                                 |  14 | chapters/01_foundations.tex:218, chapters/01_foundations.tex:223, chapters/03_dynamics.tex:239, chapters/03_dynamics.tex:242
+D              | finite design                            |   2 | chapters/01_foundations.tex:212, chapters/01_foundations.tex:215
+D_ij           | peer divergence                          |  24 | chapters/03_dynamics.tex:30, chapters/03_dynamics.tex:43, chapters/03_dynamics.tex:65, chapters/03_dynamics.tex:66
+\ell_i         | record kernel                            |   6 | chapters/01_foundations.tex:171, chapters/01_foundations.tex:173, chapters/01_foundations.tex:176, chapters/03_dynamics.tex:331
+\ell_v         | score                                    |   8 | chapters/02_geometry.tex:21, chapters/02_geometry.tex:23, chapters/02_geometry.tex:30, appendices/notation.tex:30
+\ell_o         | likelihood of z                          |   5 | chapters/01_foundations.tex:215, chapters/03_dynamics.tex:239, chapters/03_dynamics.tex:241, companion/c03_dynamics.tex:88
+\gamma         | passive change on S                      |   1 | chapters/01_foundations.tex:146
+\gamma_i       | model-sector source row                  |   6 | chapters/03_dynamics.tex:36, chapters/03_dynamics.tex:156, chapters/03_dynamics.tex:337, chapters/15_contextual_coupling.tex:444
+\sigma         | reference point in P_c                   |   1 | chapters/01_foundations.tex:76
+\sigma_k       | spin variable                            |   2 | chapters/01_foundations.tex:232, companion/c01_objects.tex:66
+m              | model presentation                       |   1 | companion/c01_objects.tex:9
+m              | magnetization                            |   2 | chapters/01_foundations.tex:232, companion/c01_objects.tex:66
+\rho_i         | record readout                           |   3 | chapters/01_foundations.tex:122, companion/c01_objects.tex:42, companion/glossary.tex:23
+\rho_il        | presentation sources (ch3)               |   1 | chapters/03_dynamics.tex:324
+\varrho_q      | representation                           |   1 | chapters/01_foundations.tex:16
+\varrho_i      | log odds of references (ch3)             |   1 | chapters/03_dynamics.tex:360
+\mu_j          | message law                              |   1 | appendices/notation.tex:43
+\mu_i^a        | mean (moment family)                     |   7 | chapters/02_interactions.tex:154, chapters/02_interactions.tex:157, chapters/02_interactions.tex:161, chapters/02_interactions.tex:167
+\omega_ij      | link generator                           |   3 | chapters/02_interactions.tex:95, chapters/17_communication_links.tex:39, chapters/17_communication_links.tex:287
+\omega         | subgroup element (ch10)                  |   2 | chapters/10_boundary_closure.tex:172, chapters/10_boundary_closure.tex:175
+W              | two-cycle loop                           |   1 | chapters/02_interactions.tex:220
+W_2            | Wishart law                              |  35 | chapters/11_conditional_formation.tex:18, chapters/11_conditional_formation.tex:30, chapters/11_conditional_formation.tex:31, chapters/11_conditional_formation.tex:56
+\Theta^s_ij    | bimeasurable model link (ch4)            |   1 | chapters/04_prediction.tex:16
+\Theta^a_ij    | framed exponential                       |   1 | chapters/02_interactions.tex:87
+\Theta^q_ij    | image of group link                      |   2 | chapters/02_interactions.tex:99, appendices/notation.tex:16
+Q              | response kernel (ch10)                   |   1 | chapters/10_boundary_closure.tex:172
+Q              | recognition law on Z                     |   1 | chapters/01_foundations.tex:205

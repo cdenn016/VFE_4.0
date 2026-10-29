@@ -1,0 +1,69 @@
+== DOI 10.1162/00335530360698469
+  CR authors: DeMarzo, P. M.; Vayanos, D.; Zwiebel, J.
+  CR title:   Persuasion Bias, Social Influence, and Unidimensional Opinions
+  CR venue:   The Quarterly Journal of Economics
+  CR vol/iss/pages: 118/3/909-968  article-number: None
+  CR date: [2003, 8, 1]
+== DOI 10.1137/20M1341088
+  CR authors: Hansen, Jakob; Ghrist, Robert
+  CR title:   Opinion Dynamics on Discourse Sheaves
+  CR venue:   SIAM Journal on Applied Mathematics
+  CR vol/iss/pages: 81/5/2033-2060  article-number: None
+  CR date: [2021, 1]
+== QUERY: Singer Angular synchronization by eigenvectors and semidefinite programming 2011
+  -- hit 1: DOI 10.1016/j.acha.2010.02.001
+  CR authors: Singer, A.
+  CR title:   Angular synchronization by eigenvectors and semidefinite programming
+  CR venue:   Applied and Computational Harmonic Analysis
+  CR vol/iss/pages: 30/1/20-36  article-number: None
+  CR date: [2011, 1]
+  -- hit 2: DOI 10.1007/s10107-016-1059-6
+  CR authors: Bandeira, Afonso S.; Boumal, Nicolas; Singer, Amit
+  CR title:   Tightness of the maximum likelihood semidefinite relaxation for angular synchronization
+  CR venue:   Mathematical Programming
+  CR vol/iss/pages: 163/1-2/145-167  article-number: None
+  CR date: [2017, 5]
+  -- hit 3: DOI 10.1137/090767777
+  CR authors: Singer, A.; Shkolnisky, Y.
+  CR title:   Three-Dimensional Structure Determination from Common Lines in Cryo-EM by Eigenvectors and Semidefinite Programming
+  CR venue:   SIAM Journal on Imaging Sciences
+  CR vol/iss/pages: 4/2/543-572  article-number: None
+  CR date: [2011, 1]
+== QUERY: Poirier Revising beliefs in nonidentified models Econometric Theory
+  -- hit 1: DOI 10.1017/s0266466698144043
+  CR authors: Poirier, Dale J.
+  CR title:   REVISING BELIEFS IN NONIDENTIFIED MODELS
+  CR venue:   Econometric Theory
+  CR vol/iss/pages: 14/4/483-509  article-number: None
+  CR date: [1998, 8]
+  -- hit 2: DOI 10.1017/s0266466625000039
+  CR authors: Babii, Andrii; Florens, Jean-Pierre
+  CR title:   IS COMPLETENESS NECESSARY? ESTIMATION IN NONIDENTIFIED LINEAR MODELS
+  CR venue:   Econometric Theory
+  CR vol/iss/pages: 41/6/1284-1321  article-number: None
+  CR date: [2025, 12]
+  -- hit 3: DOI 10.1080/07474930701220204
+  CR authors: Milani, Fabio; Poirier, Dale J.
+  CR title:   Econometric Issues in DSGE Models
+  CR venue:   Econometric Reviews
+  CR vol/iss/pages: 26/2-4/201-204  article-number: None
+  CR date: [2007, 4, 12]
+== QUERY: Hansen Ghrist Toward a spectral theory of cellular sheaves
+  -- hit 1: DOI 10.1007/s41468-019-00038-7
+  CR authors: Hansen, Jakob; Ghrist, Robert
+  CR title:   Toward a spectral theory of cellular sheaves
+  CR venue:   Journal of Applied and Computational Topology
+  CR vol/iss/pages: 3/4/315-358  article-number: None
+  CR date: [2019, 12]
+  -- hit 2: DOI 10.1137/20m1341088
+  CR authors: Hansen, Jakob; Ghrist, Robert
+  CR title:   Opinion Dynamics on Discourse Sheaves
+  CR venue:   SIAM Journal on Applied Mathematics
+  CR vol/iss/pages: 81/5/2033-2060  article-number: None
+  CR date: [2021, 1]
+  -- hit 3: DOI 10.4310/hha.2022.v24.n1.a16
+  CR authors: Ghrist, Robert; Riess, Hans
+  CR title:   Cellular sheaves of lattices and the Tarski Laplacian
+  CR venue:   Homology, Homotopy and Applications
+  CR vol/iss/pages: 24/1/325-345  article-number: None
+  CR date: [2022]

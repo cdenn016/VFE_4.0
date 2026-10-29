@@ -1,0 +1,21 @@
+1. three-cycle (1+w) l_i' = -(l_i - rho_i) - w (l_i - l_{i+1})
+   eigenvalues: [-1.333333-0.57735j -1.333333+0.57735j -0.333333+0.j     ]
+   predicted: -1/(1+w) = -0.3333333333333333  and (-1-3w/2 +- i sqrt3 w/2)/(1+w) = -1.3333333333333333 +- 0.5773502691896257 i
+   eigenvalues of A + A^T (all < 0 => V = |l - l*|^2 is a strict global Lyapunov function): [-2.666667 -2.666667 -0.666667]
+   along a trajectory: max increment of V = -2.362724795558395e-08  V(0) = 26.763157894736835  V(20) = 4.85879037694508e-06
+
+2. fixed rows, fixed positive channels, ternary alphabet, 4 agents: contraction in max-osc
+   self weight b = 0.176  fitted contraction rate = 0.908  max of M(t)/(M(0) e^{-bt}) = 0.9226
+   self weight b = 0.394  fitted contraction rate = 0.779  max of M(t)/(M(0) e^{-bt}) = 0.9452
+   self weight b = 0.256  fitted contraction rate = 0.752  max of M(t)/(M(0) e^{-bt}) = 0.9260
+   self weight b = 0.204  fitted contraction rate = 0.683  max of M(t)/(M(0) e^{-bt}) = 0.9199
+
+3. per-agent dynamics with a constant-in-input law-dependent channel (rows evolve, T = 1)
+   equilibrium z* = (l = 0, L = log(pi_p/pi_s)); field there: [-0. -0. -0. -0. -0. -0.]
+   Jacobian eigenvalues: [-4.2+0.j      -1. +0.j      -1. +0.j      -1. +0.j       0.6-2.77128j
+  0.6+2.77128j]
+   predicted law block: -1-c = -4.2 , -1+c/2 +- i c sqrt3/2 = 0.6000000000000001 +- 2.7712812921102037 i  (c = pi_p g = 3.2 )
+   late-time amplitude of l_1: [-1.3459, 1.3459]; up-crossing periods: mean 3.4970, spread 2.00e-02
+   F_tot along the per-agent limit cycle oscillates in [1.1258, 1.2803]
+   gradient flow of F_tot: max increment of F_tot = 3.55e-16, F_tot(0) = 0.000172, F_tot(200) = -0.000000, |field| at t=200 = 4.25e-10
+   endpoint of the gradient flow l = [ 0. -0. -0.]

@@ -1,0 +1,16 @@
+it2:ring ell=5: max distance of spectrum to claimed set 2.0e-15; w=0.601202
+it2:ring ell=7: max distance of spectrum to claimed set 1.4e-15; w=0.036364
+it2:echo ell=2: exact 0.504950 (claimed 0.504950), factorized 0.019608, per-agent fixed point 0.131774, cavity 0.504950
+it2:echo ell=3: exact 1.333444 (claimed 1.333444), factorized 0.001000, per-agent fixed point 1.000500, cavity 1.333444
+it2:echo ell=4: exact 0.383333 (claimed 0.383333), factorized 0.111111, per-agent fixed point 0.353137, cavity 0.383333
+it2:split(i): |dy_i - claimed| 7.216449660063518e-16  |kappa domega - claimed| 2.498001805406602e-16
+it2:split(ii): S' - S = 8.881784197001252e-16 (the per-agent and global innovation covariances coincide)
+it2:coupled-derivatives vs central differences: max error 2.56e-09 over 29 directional derivatives
+it3:marginal |Lambda_w - (I/sig2 + V^T C_P^-1 V)| = 1.1013412404281553e-13
+it3:affine-action linear term residual: 3.029868023141091e-14
+it3:projection |C_P^-1(eps) - Pi_H| for eps=1e-2..1e-5: ['8.81e-04', '8.82e-05', '8.82e-06', '8.82e-07'] (O(eps))
+it3:quotient: 109.59649295605087 vs min_a: 109.59649295605088
+rank of V^T Pi_H V: 4  claimed K(|E|-|V|+1) = 4
+it3:dag-example min_a ||(0,0,1) - delta a||^2 = 0.33333333333333326
+it3:rank-one-eq max residual: 1.547373340571312e-15  ranks: [np.int64(1), np.int64(1), np.int64(1), np.int64(1)]
+it3:rigid minimizer limit (tau, error, tau*error): [(100.0, '1.36e-02', '1.3638'), (1000.0, '1.46e-03', '1.4587'), (10000.0, '1.47e-04', '1.4689')]

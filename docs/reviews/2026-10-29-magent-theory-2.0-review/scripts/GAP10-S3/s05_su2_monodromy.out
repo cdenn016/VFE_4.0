@@ -1,0 +1,21 @@
+case (a) flat, winding 1:
+   r=0.4   : r|a| = 1.2274, min eig K = 7.11e-02, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 4.06e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 8.26e-11; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+   r=0.1   : r|a| = 1.0653, min eig K = 4.95e-03, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 4.36e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 6.51e-11; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+   r=0.02  : r|a| = 1.0132, min eig K = 2.00e-04, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 4.52e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 1.49e-10; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+   r=0.004 : r|a| = 1.0026, min eig K = 7.98e-06, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 4.51e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 1.42e-10; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+case (b) nonflat, winding 1:
+   r=0.4   : r|a| = 1.2626, min eig K = 7.74e-02, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 6.24e-03; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 3.12e-03; |Ad(Hol_SU2) - Hol_SO3| = 5.3e-09
+   r=0.1   : r|a| = 1.0723, min eig K = 5.06e-03, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 1.10e-04; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 5.51e-05; |Ad(Hol_SU2) - Hol_SO3| = 4.3e-09
+   r=0.02  : r|a| = 1.0145, min eig K = 2.00e-04, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 8.89e-07; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 4.45e-07; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+   r=0.004 : r|a| = 1.0029, min eig K = 7.99e-06, e1-circulation = -6.28319 (/2pi = -1.0000); |Hol_SO3 - I| = 8.43e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 3.56e-09; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+case (c) winding 2:
+   r=0.4   : r|a| = 2.2057, min eig K = 1.25e-02, e1-circulation = -12.56637 (/2pi = -2.0000); |Hol_SO3 - I| = 1.44e-07; |Hol_SU2 - I| = 4.29e-09, |Hol_SU2 + I| = 2.83e+00; |Ad(Hol_SU2) - Hol_SO3| = 1.4e-07
+   r=0.1   : r|a| = 2.0132, min eig K = 4.99e-05, e1-circulation = -12.56637 (/2pi = -2.0000); |Hol_SO3 - I| = 1.44e-07; |Hol_SU2 - I| = 4.39e-09, |Hol_SU2 + I| = 2.83e+00; |Ad(Hol_SU2) - Hol_SO3| = 1.4e-07
+   r=0.02  : r|a| = 2.0005, min eig K = 7.98e-08, e1-circulation = -12.56637 (/2pi = -2.0000); |Hol_SO3 - I| = 1.44e-07; |Hol_SU2 - I| = 4.53e-09, |Hol_SU2 + I| = 2.83e+00; |Ad(Hol_SU2) - Hol_SO3| = 1.4e-07
+   r=0.004 : r|a| = 2.0000, min eig K = 1.28e-10, e1-circulation = -12.56637 (/2pi = -2.0000); |Hol_SO3 - I| = 1.44e-07; |Hol_SU2 - I| = 4.51e-09, |Hol_SU2 + I| = 2.83e+00; |Ad(Hol_SU2) - Hol_SO3| = 1.4e-07
+case (d) winding -1:
+   r=0.4   : r|a| = 1.2274, min eig K = 7.11e-02, e1-circulation =  6.28319 (/2pi =  1.0000); |Hol_SO3 - I| = 4.05e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 8.67e-11; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+   r=0.1   : r|a| = 1.0653, min eig K = 4.95e-03, e1-circulation =  6.28319 (/2pi =  1.0000); |Hol_SO3 - I| = 4.36e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 6.62e-11; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+   r=0.02  : r|a| = 1.0132, min eig K = 2.00e-04, e1-circulation =  6.28319 (/2pi =  1.0000); |Hol_SO3 - I| = 4.53e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 1.51e-10; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+   r=0.004 : r|a| = 1.0026, min eig K = 7.98e-06, e1-circulation =  6.28319 (/2pi =  1.0000); |Hol_SO3 - I| = 4.51e-09; |Hol_SU2 - I| = 2.83e+00, |Hol_SU2 + I| = 1.42e-10; |Ad(Hol_SU2) - Hol_SO3| = 4.2e-09
+runtime 2.4 s

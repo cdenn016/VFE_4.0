@@ -1,0 +1,120 @@
+== Csiszar1984 [references.bib, @article]
+  bib author: Csisz{\'a}r, Imre
+  bib title: Sanov Property, Generalized {I}-Projection and a Conditional Limit Theorem
+  bib journal: The Annals of Probability
+  bib volume: 12
+  bib number: 3
+  bib pages: 768--793
+  bib year: 1984
+  -- candidate 1: DOI 10.1214/aop/1176993227
+  CR authors: Csiszar, Imre
+  CR title:   Sanov Property, Generalized $I$-Projection and a Conditional Limit Theorem
+  CR venue:   The Annals of Probability
+  CR vol/iss/pages: 12/3/768-793  article-number: None
+  CR date: [1984, 8, 1]
+  -- candidate 2: DOI 10.1007/978-1-4615-2425-0_4
+  CR authors: Blaquière, Austin; Sigal-Pauchard, M.
+  CR title:   Entropy Minimization Problems with Linear Constraints, Schrödinger Bridge and a Conditional Sanov Theorem
+  CR venue:   Mechanics and Control
+  CR vol/iss/pages: None/None/21-39  article-number: None
+  CR date: [1994]
+== DeGroot1974 [references.bib, @article]
+  bib author: DeGroot, Morris H.
+  bib title: Reaching a Consensus
+  bib journal: Journal of the American Statistical Association
+  bib volume: 69
+  bib number: 345
+  bib pages: 118--121
+  bib year: 1974
+  -- candidate 1: DOI 10.1080/01621459.1974.10480137
+  CR authors: Degroot, Morris H.
+  CR title:   Reaching a Consensus
+  CR venue:   Journal of the American Statistical Association
+  CR vol/iss/pages: 69/345/118-121  article-number: None
+  CR date: [1974, 3]
+  -- candidate 2: DOI 10.1007/978-981-97-0421-7_3
+  CR authors: Dong, Yucheng; Ding, Zhaogang; Kou, Gang
+  CR title:   Consensus Reaching Through Adding Minimum Interactions
+  CR venue:   Social Network DeGroot Model
+  CR vol/iss/pages: None/None/59-82  article-number: None
+  CR date: [2024]
+== DonskerVaradhan1975 [references.bib, @article]
+  bib author: Donsker, Monroe D. and Varadhan, S. R. Srinivasa
+  bib title: Asymptotic Evaluation of Certain {M}arkov Process Expectations for Large Time, {I}
+  bib journal: Communications on Pure and Applied Mathematics
+  bib volume: 28
+  bib number: 1
+  bib pages: 1--47
+  bib year: 1975
+  -- candidate 1: DOI 10.1002/cpa.3160280206
+  CR authors: Donsker, M. D.; Varadhan, S. R. S.
+  CR title:   Asymptotic evaluation of certain markov process expectations for large time, II
+  CR venue:   Communications on Pure and Applied Mathematics
+  CR vol/iss/pages: 28/2/279-301  article-number: None
+  CR date: [1975, 3]
+  -- candidate 2: DOI 10.1002/cpa.3160280102
+  CR authors: Donsker, M. D.; Varadhan, S. R. S.
+  CR title:   Asymptotic evaluation of certain markov process expectations for large time, I
+  CR venue:   Communications on Pure and Applied Mathematics
+  CR vol/iss/pages: 28/1/1-47  article-number: None
+  CR date: [1975, 1]
+== JordanEtAl1999 [references.bib, @article]
+  bib author: Jordan, Michael I. and Ghahramani, Zoubin and Jaakkola, Tommi S. and Saul, Lawrence K.
+  bib title: An Introduction to Variational Methods for Graphical Models
+  bib journal: Machine Learning
+  bib volume: 37
+  bib number: 2
+  bib pages: 183--233
+  bib year: 1999
+  -- candidate 1: DOI 10.1007/978-94-011-5014-9_5
+  CR authors: Jordan, Michael I.; Ghahramani, Zoubin; Jaakkola, Tommi S.; Saul, Lawrence K.
+  CR title:   An Introduction to Variational Methods for Graphical Models
+  CR venue:   Learning in Graphical Models
+  CR vol/iss/pages: None/None/105-161  article-number: None
+  CR date: [1998]
+  -- candidate 2: DOI 10.1023/a:1007665907178
+  CR authors: Jordan, Michael I.; Ghahramani, Zoubin; Jaakkola, Tommi S.; Saul, Lawrence K.
+  CR title:   An Introduction to Variational Methods for Graphical Models
+  CR venue:   Machine Learning
+  CR vol/iss/pages: 37/2/183-233  article-number: None
+  CR date: [1999, 11]
+== MondererShapley1996 [references.bib, @article]
+  bib author: Monderer, Dov and Shapley, Lloyd S.
+  bib title: Potential Games
+  bib journal: Games and Economic Behavior
+  bib volume: 14
+  bib number: 1
+  bib pages: 124--143
+  bib year: 1996
+  -- candidate 1: DOI 10.1006/game.1996.0044
+  CR authors: Monderer, Dov; Shapley, Lloyd S.
+  CR title:   Potential Games
+  CR venue:   Games and Economic Behavior
+  CR vol/iss/pages: 14/1/124-143  article-number: None
+  CR date: [1996, 5]
+  -- candidate 2: DOI 10.1006/game.1996.0045
+  CR authors: Monderer, Dov; Sela, Aner
+  CR title:   A2 ×2Game without the Fictitious Play Property
+  CR venue:   Games and Economic Behavior
+  CR vol/iss/pages: 14/1/144-148  article-number: None
+  CR date: [1996, 5]
+== Skibinsky1967 [references.bib, @article]
+  bib author: Skibinsky, Morris
+  bib title: Adequate Subfields and Sufficiency
+  bib journal: The Annals of Mathematical Statistics
+  bib volume: 38
+  bib number: 1
+  bib pages: 155--161
+  bib year: 1967
+  -- candidate 1: DOI 10.1214/aoms/1177699065
+  CR authors: Skibinsky, Morris
+  CR title:   Adequate Subfields and Sufficiency
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 38/1/155-161  article-number: None
+  CR date: [1967, 2]
+  -- candidate 2: DOI 10.2307/2314923
+  CR authors: Halton, J. H.; Skibinsky, M.
+  CR title:   5391
+  CR venue:   The American Mathematical Monthly
+  CR vol/iss/pages: 74/5/601  article-number: None
+  CR date: [1967, 5, 1]

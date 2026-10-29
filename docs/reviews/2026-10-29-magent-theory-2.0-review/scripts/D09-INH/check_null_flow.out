@@ -1,0 +1,10 @@
+1. (a,b)=(2.0,0.0): d/dt(theta_i - theta_j) + 2(theta_i - theta_j) residuals: ['-2.2e-16', '-2.2e-16', '0.0e+00']
+1. (a,b)=(2.0,1.5): d/dt(theta_i - theta_j) + 2(theta_i - theta_j) residuals: ['6.7e-16', '-2.2e-16', '-8.9e-16']
+2. (a,b)=(2.0,0.0) at theta(0) = [-1.0, 1.2, 3.0]: P = [((0,), (1, 2)), ((0, 1, 2),)]; P0 = [((0, 1), (2,)), ((0, 1, 2),)]; differ: True
+   grid of 27 perturbed initial configurations (+-0.05 per coordinate): P != P0 in 24
+2. (a,b)=(2.0,1.5) at theta(0) = [-1.0, 1.2, 3.0]: P = [((0,), (1, 2)), ((0, 1, 2),)]; P0 = [((0, 1), (2,)), ((0, 1, 2),)]; differ: True
+   grid of 27 perturbed initial configurations (+-0.05 per coordinate): P != P0 in 24
+3. coarse-grid configurations with P = P0 (b = 0): [(np.float64(-1.05), np.float64(1.15), np.float64(2.95)), (np.float64(-1.05), np.float64(1.15), np.float64(3.0)), (np.float64(-1.05), np.float64(1.15), np.float64(3.05))]
+   finer grid (+-0.02 per coordinate): P != P0 in 27/27
+4. (a,b)=(2.0,0.0) frozen-environment control: P = [((0,), (1, 2)), ((0, 1, 2),)], P_frozen = [((0,), (1, 2)), ((0, 1, 2),)]; P != P_frozen on 0/27 grid points (+-0.02)
+4. (a,b)=(2.0,1.5) frozen-environment control: P = [((0,), (1, 2)), ((0, 1, 2),)], P_frozen = [((0, 1), (2,)), ((0, 1, 2),)]; P != P_frozen on 27/27 grid points (+-0.02)

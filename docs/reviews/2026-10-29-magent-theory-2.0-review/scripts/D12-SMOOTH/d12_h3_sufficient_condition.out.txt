@@ -1,0 +1,9 @@
+     n  sup|h-Eh|  1+log n  L1(mu_j)   |dy|op   |db|op    c1*x*J   formula
+    16     0.2074   3.7726    0.0810   1.0126   0.5063   0.08003   2.2e-16
+    64     0.3183   5.1589    0.0812   1.0144   0.5072   0.08000   4.4e-16
+   256     0.4292   6.5452    0.0812   1.0146   0.5073   0.08000   4.4e-16
+  1024     0.5401   7.9315    0.0812   1.0146   0.5073   0.08000   4.4e-16
+  4096     0.6510   9.3178    0.0812   1.0146   0.5073   0.08000   4.4e-16
+fitted slope of sup|h-Eh| in log n: 0.08000; predicted |c1 x_j J| = 0.08000
+sup|h - E h| grows like |c1 x_j J| (1 + log n); the L^1 norm and every quantity in the
+stated sufficient condition stay bounded. The stated condition does not imply (H3).

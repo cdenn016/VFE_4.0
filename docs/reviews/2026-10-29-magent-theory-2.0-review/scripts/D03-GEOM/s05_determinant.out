@@ -1,0 +1,24 @@
+== (a)
+  eta(H,H)+det H: 1.1e-16
+  scaling residual: 1.1e-16
+  gamma invariance with kappa = det M: 1.7e-17
+== (b)
+  canonical identity residual: 1.0e-17
+  Fisher of CN(0,M) via real Gaussian vs Tr(M^-1 H M^-1 H): 1.4e-16
+  theta - (dlogdet M + 2 Re Tr A): 8.9e-16
+  dilation gamma + c^2: 4.4e-15
+  entropy residual vs log det(pi e M): 0.0e+00
+== (c) ranks
+  n=1 random (rank J, dim H, rank dM|H): [(np.int64(4), 0, 0), (np.int64(4), 0, 0), (np.int64(4), 0, 0), (np.int64(4), 0, 0), (np.int64(4), 0, 0)]
+  n=2 random (rank J, dim H, rank dM|H): [(np.int64(6), 2, 2), (np.int64(6), 2, 2), (np.int64(6), 2, 2), (np.int64(6), 2, 2), (np.int64(6), 2, 2)]
+  n=3 random (rank J, dim H, rank dM|H): [(np.int64(7), 5, 3), (np.int64(7), 5, 3), (np.int64(7), 5, 3), (np.int64(7), 5, 3), (np.int64(7), 5, 3)]
+  n=4 random (rank J, dim H, rank dM|H): [(np.int64(7), 9, 4), (np.int64(7), 9, 4), (np.int64(7), 9, 4), (np.int64(7), 9, 4), (np.int64(7), 9, 4)]
+  n=3 singular values of dM|H: [8.047e-01 5.241e-01 3.170e-01 3.503e-16]
+  coordinate reconstruction residual: 0.0e+00
+  proof kernel vector: |sum k| = 0.0e+00  |sum M^-1 k| = 4.6e-16
+  proof kernel vector: |sum k| = 0.0e+00  |sum M^-1 k| = 1.8e-15
+  n=4 manuscript witness: (np.int64(7), 9, 4)
+  n=2 proportional (M, 2M): (np.int64(4), 4, 4)
+  n=3 proportional (M, 2M, 3M): (np.int64(4), 8, 4)
+== (d) scalar curvature of -det(dM)/det M
+  scalar curvature: -6

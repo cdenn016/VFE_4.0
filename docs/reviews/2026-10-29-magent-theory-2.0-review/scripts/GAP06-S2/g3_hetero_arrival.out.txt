@@ -1,0 +1,32 @@
+(A) nondegenerate three-agent datum
+  sync history: [(0.0, ((0,), (1,), (2,))), (1.7781768203, ((0, 1), (2,)))]
+  sector events: [(0.300152484, 'merge', 1, (1, 2)), (0.300152484, 'regroup', [[(1,), (2,), (0,)], [(0,), (2, 1)]], [[(1,), (2,), (0,)], [(0,), (1,), (2,)]]), (0.4174885947, 'merge', 0, (0, 2)), (0.4174885947, 'regroup', [[(1,), (2, 0)], [(0,), (1,), (2,)]], [[(1,), (0,), (2,)], [(0,), (1,), (2,)]]), (0.5976371372, 'merge', 1, (0, 1)), (0.5976371372, 'regroup', [[(1,), (0,), (2,)], [(0, 1), (2,)]], [[(1,), (0,), (2,)], [(1, 0), (2,)]]), (1.1771675654, 'merge', 1, (0, 1, 2)), (1.1771675654, 'regroup', [[(1,), (0,), (2,)], [(1, 0, 2)]], [[(1,), (0,), (2,)], [(1, 2, 0)]]), (1.7781768203, 'merge', 0, (0, 1)), (1.7781768203, 'regroup', [[(1, 0), (2,)], [(1, 2, 0)]], [[(1, 0), (2,)], [(1, 0, 2)]])]
+  sector 0 cluster [0, 1]: stationarity residual 3.33e-16
+  sector 0 cluster [2]: stationarity residual 2.22e-16
+  sector 1 cluster [0, 1, 2]: stationarity residual 1.22e-15
+  sector partitions at mu*: [[[0, 1], [2]], [[0, 1, 2]]]
+  mu* = [[0.908333333333, 0.866666666667], [0.908333333333, 0.866666666667], [1.183333333333, 0.866666666667]]
+  theta = 0.275000, sep* = 0.2750, r = 0.064818
+  observed arrival at final partition t = 1.778177 ; bound T_1 + 2r/(theta c0) = 7.9330 + 0.6667 = 8.5996
+
+(B) degenerate datum: a X^q - c X^s = 2 lam exactly
+  eps*_q = (aX^q - cX^s)/(2lam) = 1.000, eps*_s = (aX^s - cX^q)/(2lam) = -0.125
+  sector events: [(0.255998897697, 'merge', 1, (0, 1))]
+  sync history: [(0.0, ((0,), (1,)))]
+  t =  2.2560: Delta^q = 1.292579e-01, predicted 1.292579e-01, Delta^s = 2.8e-17
+  t =  8.2560: Delta^q = 3.203983e-04, predicted 3.203983e-04, Delta^s = 4.0e-17
+  t = 25.0000: Delta^q = 1.713413e-11, predicted 1.713417e-11, Delta^s = -3.9e-17
+
+(C) same degenerate references, opposite side Delta^q(0) < 0
+  sync history: [(0.0, ((0,), (1,))), (0.1982236208, ((0, 1),))]
+
+(D) near-degenerate references X^q = 2.5 - delta: arrival time
+  delta = 1e-01: arrival t = 2.591204, log(1/delta)/a = 2.3026
+  delta = 1e-02: arrival t = 4.823362, log(1/delta)/a = 4.6052
+  delta = 1e-03: arrival t = 7.118625, log(1/delta)/a = 6.9078
+  delta = 1e-04: arrival t = 9.420475, log(1/delta)/a = 9.2103
+  delta = 1e-06: arrival t = 14.025565, log(1/delta)/a = 13.8155
+
+(E) a synchronized pair splits when a|X^q| - ... exceeds the binding
+  sync history: [(0.0, ((0, 1),)), (0.0, ((0,), (1,)))]
+  final state: [[2.0, -0.0], [-2.0, 0.0]]

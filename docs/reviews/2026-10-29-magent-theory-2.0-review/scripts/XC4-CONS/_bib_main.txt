@@ -1,0 +1,500 @@
+in the dynamics, a sector marginal ia in the interaction chapter, and a Wishart shape. A frame Uia is an
+invertible map; the coding variable U is a random representation. A Markov kernel returns a probability
+
+measure, whereas an ordinary map returns one value. The symbol  composes maps and juxtaposition
+
+composes kernels, in the order in which a law traverses them.
+
+              304
+Bibliography
+
+   [1] Ali E. Abbas. A Kullback-Leibler view of linear and log-linear pools. Decision Analysis, 6(1):25­37,
+        2009. doi: 10.1287/deca.1080.0133.
+
+   [2] P.-A. Absil, R. Mahony, and B. Andrews. Convergence of the iterates of descent methods for analytic
+        cost functions. SIAM Journal on Optimization, 16(2):531­547, 2005.
+
+   [3] Shun-ichi Amari. Natural gradient works efficiently in learning. Neural Computation, 10(2):251­276,
+        1998. doi: 10.1162/089976698300017746.
+
+   [4] Luigi Ambrosio, Nicola Gigli, and Giuseppe Savaré. Gradient Flows in Metric Spaces and in the Space
+        of Probability Measures. Lectures in Mathematics ETH Zürich. Birkhäuser, Basel, 2 edition, 2008.
+
+   [5] Nihat Ay, Jürgen Jost, Hông Vân Lê, and Lorenz Schwachhöfer. Information geometry and sufficient
+        statistics. Probability Theory and Related Fields, 162:327­364, 2015. doi: 10.1007/s00440-014-0574-8.
+
+   [6] Nihat Ay, Jürgen Jost, Hông Vân Lê, and Lorenz Schwachhöfer. Parametrized measure models.
+        Bernoulli, 24(3):1692­1725, 2018. doi: 10.3150/16-BEJ910. URL https://arxiv.org/abs/1510.
+        07305.
+
+   [7] Paul Baird and John C. Wood. Harmonic Morphisms Between Riemannian Manifolds, volume 29 of
+        London Mathematical Society Monographs, New Series. Oxford University Press, Oxford, 2003.
+
+   [8] Afonso S. Bandeira, Amit Singer, and Daniel A. Spielman. A Cheeger inequality for the graph
+        connection Laplacian. SIAM Journal on Matrix Analysis and Applications, 34(4):1611­1630, 2013.
+
+   [9] Lionel Barnett and Anil K. Seth. Dynamical independence: Discovering emergent macroscopic
+        processes in complex dynamical systems. Physical Review E, 108:014304, 2023. doi: 10.1103/
+        PhysRevE.108.014304.
+
+ [10] Stephen D. Bartlett, Terry Rudolph, and Robert W. Spekkens. Reference frames, superselection
+        rules, and quantum information. Reviews of Modern Physics, 79(2):555­609, 2007. doi: 10.1103/
+        RevModPhys.79.555.
+
+ [11] Peter W. Bates, Kening Lu, and Chongchun Zeng. Invariant foliations near normally hyperbolic invariant
+        manifolds for semiflows. Transactions of the American Mathematical Society, 352(10):4641­4676,
+        2000. doi: 10.1090/S0002-9947-00-02503-4.
+
+ [12] Giorgio Battistelli and Luigi Chisci. Kullback­Leibler average, consensus on probability densities, and
+        distributed state estimation with guaranteed stability. Automatica, 50(3):707­718, 2014.
+
+ [13] Robert H. Berk. Limiting behavior of posterior distributions when the model is incorrect. Annals of
+        Mathematical Statistics, 37(1):51­58, 1966.
+
+ [14] Wolf-Jürgen Beyn and Vera Thümmler. Freezing solutions of equivariant evolution equations. SIAM
+        Journal on Applied Dynamical Systems, 3(2):85­116, 2004. doi: 10.1137/030600515.
+
+ [15] Christopher M. Bishop. Pattern Recognition and Machine Learning. Springer, New York, 2006.
+ [16] Pier Giovanni Bissiri, Chris C. Holmes, and Stephen G. Walker. A general framework for updating
+
+        belief distributions. Journal of the Royal Statistical Society: Series B, 78(5):1103­1130, 2016.
+ [17] David Blackwell. Equivalent comparisons of experiments. The Annals of Mathematical Statistics, 24
+
+        (2):265­272, 1953. doi: 10.1214/aoms/1177729032.
+ [18] David M. Blei, Alp Kucukelbir, and Jon D. McAuliffe. Variational inference: a review for statisticians.
+
+        Journal of the American Statistical Association, 112(518):859­877, 2017.
+ [19] Giovanni A. Bonaschi, José A. Carrillo, Marco Di Francesco, and Mark A. Peletier. Equivalence of
+
+        gradient flows and entropy solutions for singular nonlocal interaction equations in 1D. ESAIM: Control,
+        Optimisation and Calculus of Variations, 21(2):414­441, 2015. doi: 10.1051/cocv/2014032.
+ [20] Haïm Brézis. Opérateurs Maximaux Monotones et Semi-Groupes de Contractions dans les Espaces
+        de Hilbert, volume 5 of North-Holland Mathematics Studies. North-Holland, Amsterdam, 1973.
+ [21] Peter Buchholz. Exact and ordinary lumpability in finite Markov chains. Journal of Applied Probability,
+        31(1):59­75, 1994. doi: 10.2307/3215235.
+
+                                                              305
+Bibliography       MAgent Theory 2.0
+
+[22] Nazmi Burak Budanur, Predrag Cvitanovic´, Ruslan L. Davidchack, and Evangelos Siminos. Reduction
+      of SO(2) symmetry for spatially extended dynamical systems. Physical Review Letters, 114:084102,
+      2015. doi: 10.1103/PhysRevLett.114.084102.
+
+[23] C. J. Burke and M. Rosenblatt. A Markovian function of a Markov chain. The Annals of Mathematical
+      Statistics, 29(4):1112­1122, 1958. doi: 10.1214/aoms/1177706444.
+
+[24] Sylvain Calinon. A tutorial on task-parameterized movement learning and retrieval. Intelligent Service
+      Robotics, 9(1):1­29, 2016. doi: 10.1007/s11370-015-0187-9. URL https://calinon.ch/papers/
+      Calinon-JIST2015.pdf.
+
+[25] Miguel Á. Carreira-Perpiñán. Fast nonparametric clustering with Gaussian blurring mean-shift. In
+      Proceedings of the 23rd International Conference on Machine Learning, pages 153­160, 2006. doi:
+      10.1145/1143844.1143864.
+
+[26] José A. Carrillo, Marco Di Francesco, Alessio Figalli, Thomas Laurent, and Dejan Slepcev. Global-
+      in-time weak measure solutions and finite-time aggregation for nonlocal interaction equations. Duke
+      Mathematical Journal, 156:229­271, 2011. doi: 10.1215/00127094-2010-211.
+
+[27] Jonas Cassel, Bastian Boll, Stefania Petra, Peter Albers, and Christoph Schnörr. Sigma flows for
+      image and data labeling and learning structured prediction, 2024. URL https://arxiv.org/abs/
+      2408.15946v1. Version 1.
+
+[28] N. N. C encov. Statistical Decision Rules and Optimal Inference, volume 53 of Translations of Mathe-
+      matical Monographs. American Mathematical Society, Providence, RI, 1982.
+
+[29] Chung Chan, Ali Al-Bashabsheh, Qiaoqiao Zhou, Tarik Kaced, and Tie Liu. Info-clustering: A
+      mathematical theory for data clustering, 2016. URL https://arxiv.org/abs/1605.01233.
+
+[30] Yifan Chen, Daniel Zhengyu Huang, Jiaoyang Huang, Sebastian Reich, and Andrew M. Stuart.
+      Sampling via gradient flows in the space of probability measures, 2023.
+
+[31] Yizong Cheng. Mean shift, mode seeking, and clustering. IEEE Transactions on Pattern Analysis and
+      Machine Intelligence, 17(8):790­799, 1995. doi: 10.1109/34.400568.
+
+[32] Frank H. Clarke. Optimization and Nonsmooth Analysis. Wiley, New York, 1983.
+
+[33] Jorge Cortés. Finite-time convergent gradient flows with applications to network consensus. Automat-
+      ica, 42(11):1993­2000, 2006. doi: 10.1016/j.automatica.2006.06.015.
+
+[34] Thomas A. Courtade and Tsachy Weissman. Multiterminal source coding under logarithmic loss. IEEE
+      Transactions on Information Theory, 60(1):740­761, 2014. doi: 10.1109/TIT.2013.2288257.
+
+[35] Thomas M. Cover and Joy A. Thomas. Elements of Information Theory. Wiley, Hoboken, NJ, second
+      edition, 2006.
+
+[36] Michael G. Crandall and Thomas M. Liggett. Generation of semi-groups of nonlinear transformations
+      on general Banach spaces. American Journal of Mathematics, 93(2):265­298, 1971. doi: 10.2307/
+      2373376.
+
+[37] Imre Csiszár. I-divergence geometry of probability distributions and minimization problems. The
+      Annals of Probability, 3(1):146­158, 1975.
+
+[38] Imre Csiszár. Sanov property, generalized I-projection and a conditional limit theorem. The Annals of
+      Probability, 12(3):768­793, 1984.
+
+[39] Walter J. Culver. On the existence and uniqueness of the real logarithm of a matrix. Proceedings of the
+      American Mathematical Society, 17(5):1146­1151, 1966. doi: 10.1090/S0002-9939-1966-0202740-6.
+
+[40] A. D'Adda, M. Lüscher, and P. Di Vecchia. A 1/n expandable series of non-linear  models with
+      instantons. Nuclear Physics B, 146(1):63­76, 1978. doi: 10.1016/0550-3213(78)90432-7.
+
+[41] M. H. A. Davis. Piecewise-deterministic Markov processes: a general class of non-diffusion stochastic
+      models. Journal of the Royal Statistical Society: Series B, 46(3):353­388, 1984.
+
+[42] A. P. Dawid. Conditional independence in statistical theory. Journal of the Royal Statistical Society:
+      Series B (Methodological), 41(1):1­31, 1979. doi: 10.1111/j.2517-6161.1979.tb01052.x.
+
+[43] Gaspard Riche de Prony. Essai expérimental et analytique: sur les lois de la dilatabilité des fluides
+      élastiques et sur celles de la force expansive de la vapeur de l'alkool, à différentes températures.
+      Journal de l'École Polytechnique, 1(22):24­76, 1795.
+
+              306
+Bibliography       MAgent Theory 2.0
+
+[44] Morris H. DeGroot. Reaching a consensus. Journal of the American Statistical Association, 69(345):
+      118­121, 1974.
+
+[45] Salem Derisavi, Holger Hermanns, and William H. Sanders. Optimal state-space lumping in Markov
+      chains. Information Processing Letters, 87(6):309­315, 2003. doi: 10.1016/S0020-0190(03)00343-0.
+
+[46] Persi Diaconis and Sandy L. Zabell. Updating subjective probability. Journal of the American Statistical
+      Association, 77(380):822­830, 1982.
+
+[47] Jean Dieudonné. Foundations of Modern Analysis. Academic Press, New York, 1960.
+
+[48] John D. Dixon and Brian Mortimer. Permutation Groups, volume 163 of Graduate Texts in Mathematics.
+      Springer, New York, 1996. doi: 10.1007/978-1-4612-0731-3.
+
+[49] Monroe D. Donsker and S. R. Srinivasa Varadhan. Asymptotic evaluation of certain Markov process
+      expectations for large time, I. Communications on Pure and Applied Mathematics, 28(1):1­47, 1975.
+
+[50] Paul Dupuis and Richard S. Ellis. A Weak Convergence Approach to the Theory of Large Deviations.
+      Wiley, New York, 1997.
+
+[51] E. B. Dynkin. Markov Processes, Volume I, volume 121 of Grundlehren der mathematischen Wis-
+      senschaften. Springer, Berlin, 1965.
+
+[52] Jr. Eells, James and J. H. Sampson. Harmonic mappings of riemannian manifolds. American Journal
+      of Mathematics, 86(1):109­160, 1964. doi: 10.2307/2373037.
+
+[53] Jaap Eldering, Matthew Kvalheim, and Shai Revzen. Global linearization and fiber bundle structure
+      of invariant manifolds. Nonlinearity, 31(9):4202­4245, 2018. doi: 10.1088/1361-6544/aaca8d. URL
+      https://arxiv.org/abs/1711.03646.
+
+[54] Mark Fels and Peter J. Olver. Moving coframes: I. A practical algorithm. Acta Applicandae Mathemati-
+      cae, 51(2):161­213, 1998. doi: 10.1023/A:1005878210297.
+
+[55] Neil Fenichel. Asymptotic stability with rate conditions. Indiana University Mathematics Journal, 23
+      (12):1109­1137, 1974. doi: 10.1512/iumj.1974.23.23090.
+
+[56] Michael J. Field. Dynamics and Symmetry, volume 3 of ICP Advanced Texts in Mathematics. Imperial
+      College Press, London, 2007.
+
+[57] Aleksei F. Filippov. Differential Equations with Discontinuous Righthand Sides, volume 18 of Mathe-
+      matics and Its Applications (Soviet Series). Kluwer Academic Publishers, Dordrecht, 1988.
+
+[58] Cédric Fournel, Jordan François, Serge Lazzarini, and Thierry Masson. Gauge invariant composite
+      fields out of connections, with examples. International Journal of Geometric Methods in Modern
+      Physics, 11(1):1450016, 2014.
+
+[59] Karl Friston. The free-energy principle: a unified brain theory? Nature Reviews Neuroscience, 11(2):
+      127­138, 2010.
+
+[60] Karl J. Friston, Erik D. Fagerholm, Tahereh S. Zarghami, Thomas Parr, Inês Hipólito, Loïc Magrou, and
+      Adeel Razi. Parcels and particles: Markov blankets in the brain. Network Neuroscience, 5(1):211­251,
+      2021. doi: 10.1162/netn_a_00175.
+
+[61] Tobias Fritz. A synthetic approach to Markov kernels, conditional independence and theorems on
+      sufficient statistics. Advances in Mathematics, 370:107239, 2020.
+
+[62] Michel Fruchart, Ryo Hanai, Peter B. Littlewood, and Vincenzo Vitelli. Non-reciprocal phase transitions.
+      Nature, 592:363­369, 2021.
+
+[63] Christian Genest and James V. Zidek. Combining probability distributions: A critique and an annotated
+      bibliography. Statistical Science, 1(1):114­135, 1986. doi: 10.1214/ss/1177013825.
+
+[64] Borjan Geshkovski, Cyril Letrouit, Yury Polyanskiy, and Philippe Rigollet. A mathematical per-
+      spective on Transformers. Bulletin of the American Mathematical Society, 62(3):427­479, 2025.
+      arXiv:2312.10794.
+
+[65] S. G. Gindikin. Invariant generalized functions in homogeneous domains. Functional Analysis and Its
+      Applications, 9(1):50­52, 1975. doi: 10.1007/BF01078179.
+
+[66] Martin Golubitsky and Ian Stewart. The Symmetry Perspective: From Equilibrium to Chaos in Phase
+      Space and Physical Space, volume 200 of Progress in Mathematics. Birkhäuser, Basel, 2002. doi:
+      10.1007/978-3-0348-8167-8.
+
+              307
+Bibliography  MAgent Theory 2.0
+
+[67] Martin Golubitsky, Ian Stewart, and David G. Schaeffer. Singularities and Groups in Bifurcation Theory,
+      Volume II, volume 69 of Applied Mathematical Sciences. Springer-Verlag, New York, 1988.
+
+[68] Robert M. Gray. Entropy and Information Theory. Springer-Verlag, New York, 1990. URL https:
+      //www-ee.stanford.edu/~gray/it.pdf. Corrected first edition, revised June 26, 2023.
+
+[69] John Guckenheimer. Isochrons and phaseless sets. Journal of Mathematical Biology, 1(3):259­273,
+      1975. doi: 10.1007/BF01273747.
+
+[70] A. Guichardet. On rotation and vibration motions of molecules. Annales de l'I.H.P. Physique théorique,
+      40(3):329­342, 1984. URL https://www.numdam.org/item/AIHPA_1984__40_3_329_0/.
+
+[71] Paul R. Halmos and L. J. Savage. Application of the Radon­Nikodym theorem to the theory of sufficient
+      statistics. The Annals of Mathematical Statistics, 20(2):225­241, 1949.
+
+[72] Jakob Hansen and Robert Ghrist. Opinion dynamics on discourse sheaves. SIAM Journal on Applied
+      Mathematics, 81(5):2033­2060, 2021.
+
+[73] Emilie V. Haynsworth. Determination of the inertia of a partitioned Hermitian matrix. Linear Algebra
+      and its Applications, 1(1):73­81, 1968.
+
+[74] Rainer Hegselmann and Ulrich Krause. Opinion dynamics and bounded confidence: models, analysis
+      and simulation. Journal of Artificial Societies and Social Simulation, 5(3), 2002.
+
+[75] Robert Hermann and Arthur J. Krener. Nonlinear controllability and observability. IEEE Transactions
+      on Automatic Control, 22(5):728­740, 1977. doi: 10.1109/TAC.1977.1101601.
+
+[76] Nicholas J. Higham. Functions of Matrices: Theory and Computation. Society for Industrial and
+      Applied Mathematics, Philadelphia, 2008. doi: 10.1137/1.9780898717778.
+
+[77] Toby Dylan Hocking, Armand Joulin, Francis Bach, and Jean-Philippe Vert. Clusterpath: An algorithm
+      for clustering using convex fusion penalties. In Proceedings of the 28th International Conference
+      on Machine Learning, pages 745­752, 2011. URL https://icml.cc/2011/papers/419_icmlpaper.
+      pdf.
+
+[78] Josef Hofbauer and Karl Sigmund. Evolutionary Games and Population Dynamics. Cambridge
+      University Press, Cambridge, 1998.
+
+[79] Leonhard Horstmeyer and Fatihcan M. Atay. Characterization of exact lumpability for vector fields on
+      smooth manifolds. Differential Geometry and its Applications, 48:46­60, 2016. doi: 10.1016/j.difgeo.
+      2016.06.001.
+
+[80] Michael I. Jordan, Zoubin Ghahramani, Tommi S. Jaakkola, and Lawrence K. Saul. An introduction to
+      variational methods for graphical models. Machine Learning, 37(2):183­233, 1999.
+
+[81] Abram Kagan and Lawrence A. Shepp. A sufficiency paradox: An insufficient statistic preserving the
+      Fisher information. The American Statistician, 59(1):54­56, 2005. doi: 10.1198/000313005X21041.
+
+[82] Olav Kallenberg. Foundations of Modern Probability. Springer, Cham, 3 edition, 2021. doi: 10.1007/
+      978-3-030-61871-1.
+
+[83] R. E. Kalman. A new approach to linear filtering and prediction problems. Journal of Basic Engineering,
+      82(1):35­45, 1960.
+
+[84] Alexander S. Kechris. Classical Descriptive Set Theory, volume 156 of Graduate Texts in Mathematics.
+      Springer, New York, 1995.
+
+[85] John G. Kemeny and J. Laurie Snell. Finite Markov Chains. Springer, New York, 1976. ISBN
+      9780387901923. Reprint of the 1960 edition, with a new appendix.
+
+[86] Michael Kirchhoff, Thomas Parr, Ensor Palacios, Karl Friston, and Julian Kiverstein. The Markov
+      blankets of life: Autonomy, active inference and the free energy principle. Journal of the Royal Society
+      Interface, 15(138):20170792, 2018. doi: 10.1098/rsif.2017.0792.
+
+[87] Shoshichi Kobayashi and Katsumi Nomizu. Foundations of Differential Geometry, Volume I. Inter-
+      science Publishers, New York, 1963.
+
+[88] Solomon Kullback. Information Theory and Statistics. Wiley, New York, 1959.
+
+[89] Solomon Kullback and Richard A. Leibler. On information and sufficiency. The Annals of Mathematical
+      Statistics, 22(1):79­86, 1951. doi: 10.1214/aoms/1177729694.
+
+[90] G. N. Lance and W. T. Williams. A general theory of classificatory sorting strategies. I. Hierarchical
+      systems. The Computer Journal, 9(4):373­380, 1967. doi: 10.1093/comjnl/9.4.373.
+
+                                                            308
+Bibliography       MAgent Theory 2.0
+
+ [91] Kim G. Larsen and Arne Skou. Bisimulation through probabilistic testing. Information and Computation,
+        94(1):1­28, 1991. doi: 10.1016/0890-5401(91)90030-6.
+
+ [92] Joseph P. LaSalle. Some extensions of Liapunov's second method. IRE Transactions on Circuit
+        Theory, 7(4):520­527, 1960. doi: 10.1109/TCT.1960.1086720.
+
+ [93] Steffen L. Lauritzen. Graphical Models, volume 17 of Oxford Statistical Science Series. Clarendon
+        Press, Oxford, 1996.
+
+ [94] Lieven Le Bruyn and Claudio Procesi. Semisimple representations of quivers. Transactions of the
+        American Mathematical Society, 317(2):585­598, 1990. doi: 10.1090/S0002-9947-1990-0958897-0.
+
+ [95] Lucien Le Cam and Grace Lo Yang. Asymptotics in Statistics: Some Basic Concepts. Springer, New
+        York, second edition, 2000. doi: 10.1007/978-1-4612-1166-2.
+
+ [96] John M. Lee. Introduction to Smooth Manifolds, volume 218 of Graduate Texts in Mathematics.
+        Springer, New York, 2 edition, 2013. doi: 10.1007/978-1-4419-9982-5.
+
+ [97] Melvin Leok, Jerrold E. Marsden, and Alan D. Weinstein. A discrete theory of connections on principal
+        bundles, 2005. URL https://arxiv.org/abs/math/0508338.
+
+ [98] Gérard Letac and Hélène Massam. Existence and non-existence of the non-central Wishart distribu-
+        tions, 2017. URL https://arxiv.org/abs/1108.2849v2. Version 2.
+
+ [99] Debra Lewis, Nilima Nigam, and Peter J. Olver. Connections for general group actions. Communica-
+        tions in Contemporary Mathematics, 7(3):341­374, 2005. doi: 10.1142/S0219199705001787.
+
+[100] Genyuan Li and Herschel Rabitz. A general analysis of exact lumping in chemical kinetics. Chemical
+        Engineering Science, 44(6):1413­1430, 1989. doi: 10.1016/0009-2509(89)85014-6.
+
+[101] Robert G. Littlejohn and Matthias Reinsch. Gauge fields in the separation of rotations and internal
+        motions in the n-body problem. Reviews of Modern Physics, 69(1):213­275, 1997. doi: 10.1103/
+        RevModPhys.69.213.
+
+[102] Stanislaw Lojasiewicz. Une propriété topologique des sous-ensembles analytiques réels. In Les
+        Équations aux Dérivées Partielles, pages 87­89. Éditions du Centre National de la Recherche
+        Scientifique, Paris, 1963.
+
+[103] Thomas A. Louis. Finding the observed information matrix when using the EM algorithm. Journal of
+        the Royal Statistical Society: Series B, 44(2):226­233, 1982.
+
+[104] Kanti V. Mardia and Peter E. Jupp. Directional Statistics. Wiley, Chichester, 2000.
+
+[105] Fortune Massamba and George Thompson. The universal connection and metrics on moduli spaces,
+        2003. URL https://arxiv.org/abs/math/0311198.
+
+[106] Alexandre Mauroy, Igor Mezic´, and Jeff Moehlis. Isostables, isochrons, and Koopman spectrum for the
+        action-angle representation of stable fixed point dynamics. Physica D: Nonlinear Phenomena, 261:
+        19­30, 2013. doi: 10.1016/j.physd.2013.06.004.
+
+[107] Thomas P. Minka. Expectation propagation for approximate bayesian inference. In Proceedings of the
+        Seventeenth Conference on Uncertainty in Artificial Intelligence, pages 362­369. Morgan Kaufmann,
+        2001. URL https://tminka.github.io/papers/ep/minka-ep-uai.pdf.
+
+[108] Pierre Molino. Riemannian Foliations, volume 73 of Progress in Mathematics. Birkhäuser, Boston,
+        1988. doi: 10.1007/978-1-4684-8670-4.
+
+[109] Dov Monderer and Lloyd S. Shapley. Potential games. Games and Economic Behavior, 14(1):124­143,
+        1996.
+
+[110] Robb J. Muirhead. Aspects of Multivariate Statistical Theory. John Wiley & Sons, New York, 1982.
+
+[111] M. S. Narasimhan. Existence of universal connections. In General Topology and its Relations to
+        Modern Analysis and Algebra, page 286, Prague, 1962. Academia. URL https://dml.cz/handle/
+        10338.dmlcz/700905. Report on joint work with S. Ramanan.
+
+[112] Ashutosh Nayyar, Aditya Mahajan, and Demosthenis Teneketzis. Decentralized stochastic control with
+        partial history sharing: A common information approach. IEEE Transactions on Automatic Control,
+        58(7):1644­1658, 2013. doi: 10.1109/TAC.2013.2239000. URL https://cim.mcgill.ca/~adityam/
+        projects/info-structures/journal/partial-sharing.pdf.
+
+[113] Radford M. Neal and Geoffrey E. Hinton. A view of the EM algorithm that justifies incremental, sparse,
+        and other variants. In Michael I. Jordan, editor, Learning in Graphical Models, pages 355­368. Kluwer,
+
+              309
+Bibliography       MAgent Theory 2.0
+
+        Dordrecht, 1998.
+
+[114] Barrett O'Neill. The fundamental equations of a submersion. Michigan Mathematical Journal, 13(4):
+        459­469, 1966. doi: 10.1307/mmj/1028999604.
+
+[115] Brad E. Paden and Shankar S. Sastry. A calculus for computing Filippov's differential inclusion with
+        application to the variable structure control of robot manipulators. IEEE Transactions on Circuits and
+        Systems, 34(1):73­82, 1987. doi: 10.1109/TCS.1987.1086038.
+
+[116] Ensor Rafael Palacios, Adeel Razi, Thomas Parr, Michael Kirchhoff, and Karl Friston. On Markov
+        blankets and hierarchical self-organisation. Journal of Theoretical Biology, 486:110089, 2020. doi:
+        10.1016/j.jtbi.2019.110089.
+
+[117] Richard S. Palais. The principle of symmetric criticality. Communications in Mathematical Physics, 69
+        (1):19­30, 1979. doi: 10.1007/BF01941322.
+
+[118] George J. Pappas, Gerardo Lafferriere, and Shankar Sastry. Hierarchically consistent control systems.
+        IEEE Transactions on Automatic Control, 45(6):1144­1160, 2000. doi: 10.1109/9.863598.
+
+[119] Judea Pearl. Probabilistic Reasoning in Intelligent Systems: Networks of Plausible Inference. Morgan
+        Kaufmann, San Mateo, CA, 1988.
+
+[120] Dénes Petz. Sufficiency of channels over von Neumann algebras. The Quarterly Journal of Mathe-
+        matics, 39(1):97­108, 1988.
+
+[121] David Pollard. A note on insufficiency and the preservation of Fisher information. In From Probability
+        to Statistics and Back: High-Dimensional Models and Processes, volume 9 of IMS Collections,
+        pages 266­275. Institute of Mathematical Statistics, 2013. doi: 10.1214/12-IMSCOLL919. URL
+        https://arxiv.org/abs/1107.3797.
+
+[122] George R. Price. Selection and covariance. Nature, 227:520­521, 1970. doi: 10.1038/227520a0.
+
+[123] Claudio Procesi. The invariant theory of n × n matrices. Advances in Mathematics, 19(3):306­381,
+        1976. doi: 10.1016/0001-8708(76)90027-X.
+
+[124] Bruce L. Reinhart. Foliated manifolds with bundle-like metrics. Annals of Mathematics, 69(1):119­132,
+        1959. doi: 10.2307/1970097.
+
+[125] L. C. G. Rogers and J. W. Pitman. Markov functions. The Annals of Probability, 9(4):573­582, 1981.
+        doi: 10.1214/aop/1176994363.
+
+[126] Clarence W. Rowley, Ioannis G. Kevrekidis, Jerrold E. Marsden, and Kurt Lust. Reduction and
+        reconstruction for self-similar dynamical systems. Nonlinearity, 16(4):1257­1275, 2003. doi: 10.1088/
+        0951-7715/16/4/304.
+
+[127] David Ruelle. Bifurcations in the presence of a symmetry group. Archive for Rational Mechanics and
+        Analysis, 51:136­152, 1973. URL https://www.ihes.fr/~ruelle/PUBLICATIONS/[39].pdf.
+
+[128] Daniil Ryabko. Independence clustering (without a matrix), 2017. URL https://arxiv.org/abs/
+        1703.06700.
+
+[129] Siavash Shahshahani. A New Mathematical Framework for the Study of Linkage and Selection,
+        volume 17 of Memoirs of the American Mathematical Society. American Mathematical Society,
+        Providence, RI, 1979.
+
+[130] Cosma Rohilla Shalizi and James P. Crutchfield. Computational mechanics: Pattern and prediction,
+        structure and simplicity. Journal of Statistical Physics, 104:817­879, 2001. URL https://arxiv.org/
+        abs/cond-mat/9907176.
+
+[131] Claude E. Shannon. Coding theorems for a discrete source with a fidelity criterion. IRE Inter-
+        national Convention Record, 7(4):142­163, 1959. URL https://gwern.net/doc/cs/algorithm/
+        information/1959-shannon.pdf.
+
+[132] Amit Singer and Hau-Tieng Wu. Vector diffusion maps and the connection Laplacian. Communications
+        on Pure and Applied Mathematics, 65(8):1067­1144, 2012.
+
+[133] Morris Skibinsky. Adequate subfields and sufficiency. The Annals of Mathematical Statistics, 38(1):
+        155­161, 1967.
+
+[134] Stephen Smale. Topology and mechanics. I. Inventiones Mathematicae, 10:305­331, 1970. doi:
+        10.1007/BF01418778.
+
+              310
+Bibliography       MAgent Theory 2.0
+
+[135] Robert R. Sokal and Charles D. Michener. A statistical method for evaluating systematic relationships.
+        The University of Kansas Science Bulletin, 38(22):1409­1438, 1958.
+
+[136] Naftali Tishby, Fernando C. Pereira, and William Bialek. The information bottleneck method,
+        1999. URL https://arxiv.org/abs/physics/0004057. Manuscript dated September 30, 1999;
+        arXiv:physics/0004057, posted 2000.
+
+[137] David Tong. Gauge theory. University of Cambridge lecture notes, 2018. URL https://www.damtp.
+        cam.ac.uk/user/tong/gaugetheory/gt.pdf.
+
+[138] Erik Torgersen. Comparison of Statistical Experiments, volume 36 of Encyclopedia of Mathematics
+        and its Applications. Cambridge University Press, Cambridge, 1991.
+
+[139] Tim van Erven and Peter Harremoës. Rényi divergence and Kullback­Leibler divergence. IEEE
+        Transactions on Information Theory, 60(7):3797­3820, 2014. doi: 10.1109/TIT.2014.2320500.
+
+[140] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz
+        Kaiser, and Illia Polosukhin. Attention is all you need. In Advances in Neural Information Processing
+        Systems, volume 30, 2017.
+
+[141] N. N. Vorob'ev. Consistent families of measures and their extensions. Theory of Probability and Its
+        Applications, 7(2):147­163, 1962. doi: 10.1137/1107014.
+
+[142] Peter Walters. An Introduction to Ergodic Theory, volume 79 of Graduate Texts in Mathematics.
+        Springer-Verlag, New York, 1982.
+
+[143] James Wei and James C. W. Kuo. A lumping analysis in monomolecular reaction systems: Analysis of
+        the exactly lumpable system. Industrial & Engineering Chemistry Fundamentals, 8(1):114­123, 1969.
+        doi: 10.1021/i160029a019.
+
+[144] Kenneth G. Wilson. Confinement of quarks. Physical Review D, 10(8):2445­2459, 1974. doi:
+        10.1103/PhysRevD.10.2445.
+
+[145] Aaron D. Wyner and Jacob Ziv. The rate-distortion function for source coding with side information at the
+        decoder. IEEE Transactions on Information Theory, 22(1):1­10, 1976. doi: 10.1109/TIT.1976.1055508.
+
+[146] Ram Zamir. A proof of the Fisher information inequality via a data processing argument. IEEE
+        Transactions on Information Theory, 44(3):1246­1250, 1998. doi: 10.1109/18.669301.
+
+              311
+

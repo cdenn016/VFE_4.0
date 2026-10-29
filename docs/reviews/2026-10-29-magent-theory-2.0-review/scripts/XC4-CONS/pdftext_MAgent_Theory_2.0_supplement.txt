@@ -1,0 +1,549 @@
+MAgent Theory 2.0
+
+        Supplementary Proofs
+           Robert C. Dennis
+
+              Independent Researcher
+
+                     October 2026
+Contents
+
+S1 Probability and Predictive Reconstruction                                                   1
+
+S1.1 The conditional relative-entropy identity . . . . . . . . . . . . . . . . . . . . . . .   1
+
+S1.2 Different predictive mechanisms . . . . . . . . . . . . . . . . . . . . . . . . . . .     1
+
+S1.3 A conditional reconstruction on four points . . . . . . . . . . . . . . . . . . . . . .   2
+
+S1.4 A shared source and two routes . . . . . . . . . . . . . . . . . . . . . . . . . . . .    2
+
+S1.5 Predictive sufficiency for a selected response . . . . . . . . . . . . . . . . . . . .    2
+
+S2 Algebra of Exponential Links with Low-Rank Generators                                       3
+
+S2.1 The low-rank exponential . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    3
+
+S2.2 Differentiating a law-dependent link . . . . . . . . . . . . . . . . . . . . . . . . . .  4
+
+S3 Gaussian comparison costs and repeated variables                                            6
+
+S3.1 The expected comparison likelihood . . . . . . . . . . . . . . . . . . . . . . . . .      6
+
+S3.2 Equal rows need not give equal covariance updates . . . . . . . . . . . . . . . .         7
+
+S3.3 Identity self-comparisons and independent snapshots . . . . . . . . . . . . . . .         7
+
+S3.4 Integrating the source before taking a logarithm . . . . . . . . . . . . . . . . . . .    8
+
+S4 Supporting Constructions for Inheritance                                                    9
+
+S4.1 Linear boundary descent . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     9
+
+S4.2 Exact finite filtering . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+
+S4.3 Successive retention of responses . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+
+This supplement gives supporting calculations and secondary proofs. Each result restates its
+assumptions and uses the same notation as the main text. The main constructions and their
+decisive proofs remain in the main manuscript and its appendices.
+
+                                             i
+Chapter S1
+
+Probability and Predictive
+Reconstruction
+
+S1.1 The conditional relative-entropy identity
+
+The disintegrations used here are regular conditional laws on standard Borel spaces [6].
+
+Let µ,  be probability laws on a product X × Y of standard Borel spaces. Write their marginals as
+µY , Y and their conditional laws as µy, y. Then
+
+DKL(µ) = DKL(µY Y ) + DKL(µyy)µY (dy).                                            (S1.1)
+
+The identity holds in [0, ], both sides being infinite together. Suppose first µ   and put
+f = dµ/d, a jointly measurable function. Then a(y) = f (x, y)y(dx) is a version of dµY /dY , and
+b = f /a on {a > 0} is jointly measurable with µy = b(·, y)y for µY -almost every y. Starting from
+f in this way avoids choosing a jointly measurable version of the conditional densities separately.
+
+The logarithm splits into log a + log b. The negative parts of x log x are bounded by 1/e, so the
+
+negative parts of the two logarithms have finite µ-integrals and the split integrates in [0, ], giving
+eq. (S1.1). If µ is not absolutely continuous with respect to , then either µY   Y or µy   y on a
+set of positive µY -measure, and both sides are infinite. This argument underlies the predictive and
+reconstruction identities in the main text.
+
+S1.2 Different predictive mechanisms
+
+Let s, t be laws on a model space and let K, L be normalized kernels into a common record space.
+Suppose the following joint divergence is finite. Define
+
+µ(dm, do) = s(dm)K(m, do), (dm, do) = t(dm)L(m, do).                              (S1.2)
+
+Disintegration first by m and then by o gives the exact equality
+
+DKL(st) + DKL(K(m, ·)L(m, ·))s(dm) = DKL(sKtL)                                    (S1.3)
+                                                             + DKL(µoo)(sK)(do).
+
+This is two uses of eq. (S1.1) on one joint law. It displays explicitly the distinction contributed by the
+evaluators. Equal model laws do not remove that term.
+
+1
+S1. Probability and Predictive Reconstruction                     MAgent Theory 2.0
+
+For a bijective change of model presentation , replace t by #t and replace L by L(-1m, ·).
+Both sides then compare laws in one presentation. Measurable record relabeling must be applied
+consistently as well.
+
+S1.3 A conditional reconstruction on four points
+
+Let E = {0, 1}2, write its coordinates as (H, V ), and transmit only H. Choose a sender law with
+
+                1                              q(V = H | H) = 1.  (S1.4)
+q(H = 1) = ,
+
+                2
+
+Let the receiver's prior p make H, V independent uniform bits. The communicated marginal is
+uniform, so reconstruction using p(V | H) returns the uniform law on all four points. Its transmitted
+marginal is exactly correct, but it discards the sender's perfect dependence. Direct evaluation gives
+
+                                               1 1/2  = log 2.    (S1.5)
+DKL(qq) = 2                                      log
+                                               2 1/4
+
+The conditional divergence at each value of H is also log 2, verifying the conditional identity exactly.
+A receiver whose prior has the same conditional relation V = H instead reconstructs q from the
+transmitted marginal. The difference comes from its prior conditional, not from a larger message.
+The reconstruction is Jeffrey's rule of conditioning the receiver's prior on the transmitted marginal
+[3], and it is the law closest to that prior, in relative entropy, among all laws with the transmitted
+marginal.
+
+S1.4 A shared source and two routes
+
+Let X be a uniform bit. Two routes return Y1 = X and Y2 = X  b, where b  {0, 1} is a fixed route
+mark and  is addition modulo two. The comparison O = Y1  Y2 equals b with probability one. If
+the second route instead uses an independent uniform bit X, the same comparison is uniform and
+reveals no route mark. The marginal law arriving on each route is uniform in both experiments.
+Thus the shared-source dependence, not those marginals, determines the comparison outcome. A
+record model intended to inspect a loop must specify which occurrences refer to the same source.
+In general, a functional of the pair of route laws cannot distinguish two loop maps H, H with the
+same pushforward of the source law, whereas the joint law of a shared sample and its image along
+the loop determines the loop map almost everywhere; the route mark is the simplest instance.
+
+S1.5 Predictive sufficiency for a selected response
+
+Let X = (A, B) be two independent uniform bits, let the encoder retain U = A, and take no side
+information. For target Y = A, one has I(Y ; X | U ) = 0. For target Y = B, the same representation
+gives I(Y ; X | U ) = log 2. Perfect predictive retention is therefore a statement about a specified
+target. If a later interaction reads B, the first sufficiency statement does not supply its response.
+This elementary distinction persists when X is a complete configuration of law-valued agents and
+Y is a boundary process.
+
+                                               2
+Chapter S2
+
+Algebra of Exponential Links with
+Low-Rank Generators
+
+This chapter gives supporting matrix identities for interactions written in a reference vector space.
+All spaces are finite dimensional and real. The results concern arbitrary finite matrices and do not
+require Gaussian laws, diagonalizability, or invertibility of the generator. A statistical interpretation
+enters only when the matrices are assigned to interfaces or made functions of law parameters.
+
+S2.1 The low-rank exponential
+
+Let O : Rr  Rd be a receiving map and T : Rd  Rr a sending map. Define the entire matrix
+
+function                        Zn-1
+
+          1(Z) =                                                 .                               (S2.1)
+                                                            n!
+                               n=1
+
+When Z is invertible this equals (eZ - I)Z-1, but the series defines it also at singular Z [5].
+
+Lemma S2.1 (Exponential through the message space). The following identity holds for all
+
+O, T :
+
+          eOT = Id + O1(T O)T.                                                                   (S2.2)
+
+Proof. Associativity gives (OT )n = O(T O)n-1T for every integer n  1. Absolute convergence of
+the finite-dimensional exponential series permits summation and yields eq. (S2.2).
+
+In particular, the correction to identity has image in im O and vanishes on ker T . The image of the
+full exponential need not be low dimensional. Indeed its inverse is e-OT , so the identity contribution
+preserves all input dimensions even when the communicated correction is selective.
+
+The identity also applies to several interfaces simultaneously. For maps Oh, Th, stack O =
+[O1 · · · OH ] and stack the Th vertically to form T . Then OT = h OhTh and the same for-
+mula holds. The smaller matrix T O includes all cross-interface products ThOk; replacing it by its
+diagonal blocks would require additional vanishing conditions.
+
+Proposition S2.2 (Rank-one closed form and determinant). For column vectors u, v  Rd, put
+L = uvT and t = vT u. Then
+
+                                          eL = Id + 1(t)L,  det eL = et.                         (S2.3)
+If t = 0, then L2 = 0 and eL = Id + L.
+
+                               3
+S2. Algebra of Exponential Links with Low-Rank Generators                           MAgent Theory 2.0
+
+Proof. The first identity is eq. (S2.2) with a one-dimensional message space. For any square
+
+matrix  A,  Jacobi's  determinant  identity  applied  to  X (s)  =  esA  gives  d   det X(s)  =  tr(A) det X(s).
+                                                                                ds
+Since X(0) = I, its determinant is es tr(A). Set A = L, s = 1, and use tr(uvT ) = vT u. Finally
+
+L2 = u(vT u)vT proves the nilpotent case.
+
+This result distinguishes a singular generator from a singular interaction: a rank-one generator
+gives an invertible exponential in every dimension. It does not assert that every invertible real matrix
+is one exponential: a real matrix is a real exponential exactly when it is invertible and each Jordan
+block for a negative eigenvalue occurs an even number of times [2].
+
+S2.2 Differentiating a law-dependent link
+
+Lemma S2.3 (Derivative of the matrix exponential). For square matrices L, H, the Fréchet
+
+derivative is                                                  1
+
+                                   D expL[H] = e(1-t)LHetLdt.                                    (S2.4)
+
+                                                             0
+
+Proof. Let X(t) = et(L+H). Differentiating its matrix differential equation with respect to  at zero
+
+gives Y = LY + HetL, Y (0) = 0. Multiplying by e-tL and integrating gives Y (t) =             t  e(t-s)LH  esLds.
+                                                                                              0
+
+Evaluation at t = 1 proves the formula. Smooth dependence is also obtained directly by differenti-
+
+ating the locally uniformly convergent exponential series. The integral representation is standard
+
+[5].
+
+If [L, H] = 0, this derivative reduces to eLH. Without that hypothesis the replacement is invalid in
+general. For a link  = UieLUj-1 with fixed endpoint frames, its variation is UiD expL[dL]Uj-1.
+If the frames vary, the product rule supplies their two additional terms, including d(Uj-1) =
+-Uj-1(dUj )Uj-1.
+
+For the moment-dependent family L = µiµTj -j 1, with fixed scalar , ordinary differentiation gives
+
+                      dL =  (dµi)µjT j-1 + µi(dµj)T j-1                                          (S2.5)
+                                 - µiµjT -j 1(dj )j-1 .
+
+Here a differentiable family of laws is assumed to have differentiable first and second moments;
+differentiation under their defining integrals requires the corresponding domination or integrability
+hypotheses. Positive-definite covariance makes inversion smooth. Combining eqs. (S2.4) and (S2.5)
+gives the complete link derivative on this admitted family, with no assumption about the shape
+of its densities. That statement concerns d only. Differentiating a cost such as DKL(i#j)
+in  requires in addition that   #j be differentiable in quadratic mean, which is a shape
+assumption, namely finite location-scale Fisher information. Within the admitted moment family it
+can fail: if j is uniform on [1, 2] × [0, 1] and i = (0)#j, then for  = (1 ± )0 the support of i is
+not contained in that of #j, so the divergence is infinite arbitrarily close to 0, where it vanishes.
+
+Under that additional hypothesis, the resulting terms enter a variational derivative whenever an
+interaction energy reads the link. Holding the generator fixed suppresses them and defines a
+different update convention. This algebra separates the constitutive choice of a law-dependent in-
+
+                                                      4
+S2. Algebra of Exponential Links with Low-Rank Generators  MAgent Theory 2.0
+
+teraction from the kinetic choice used to evolve the laws; neither choice follows from the exponential
+parameterization alone.
+
+5
+Chapter S3
+
+Gaussian comparison costs and
+repeated variables
+
+This chapter distinguishes a Gaussian comparison likelihood from a divergence between Gaussian
+laws by direct calculation. The comparison likelihood is normalized in its record. Its expectation
+depends on the joint law of the contents that enter the comparison, including whether two ap-
+pearances denote the same variable. The calculations require finite second moments; Gaussian
+recognition is needed only where a Gaussian relative entropy is evaluated.
+
+S3.1 The expected comparison likelihood
+
+Let Xi  Rni and Xj  Rnj have means µi, µj, covariances ii, jj, and cross covariance
+ij = Cov(Xi, Xj). Let A : Rni  Rd and B : Rnj  Rd be fixed linear maps. For R  0, define the
+
+normalized record law
+
+                       O | Xi, Xj  N (AXi - BXj, R),              cR  =  1  log det(2R).                     (S3.1)
+                                                                         2
+
+Proposition S3.1 (Complete residual covariance). At a fixed record o, set  = Aµi - Bµj - o.
+
+Then                                                1  T  R-1     1   tr(R-1 Vij ),
+                                                    2             2
+             E[- log p(o    |  Xi, Xj)]  =   cR  +             +                                             (S3.2)
+
+                               Vij = AiiAT + BjjBT - AijBT - BjiAT .
+
+Proof.  The  negative  log  density is cR +  1  (AXi  -  BXj  -  o)T  R-1(AXi  -     BXj  - o).  Write  its  residual
+                                             2
+
+as its mean  plus a centered variable. The linear cross terms have zero expectation, and the
+
+centered quadratic has expectation tr(R-1Vij). Expanding the covariance of AXi - BXj gives the
+
+stated four terms.
+
+Independence is sufficient to remove ij, but it is stronger than necessary. Only the cross
+covariance visible through A and B contributes to this cost. A pair can be dependent while both
+displayed cross terms vanish. Conversely, knowing the two marginal laws does not generally
+determine the expected likelihood.
+
+                                                         6
+S3. Gaussian comparison costs and repeated variables                                                     MAgent Theory 2.0
+
+S3.2 Equal rows need not give equal covariance updates
+
+For the next calculation let AXi  N (a, V ) and BXj  N (bj, Wj) be independent, with V, Wj  0,
+and take o = 0. The likelihood score and the direct peer score are
+
+                     Cj  =  cR  +  1   (a - bj)T R-1(a - bj) + tr(R-1(V + Wj))                   ,          (S3.3)
+                                   2
+
+                 Dj  =   1  (a  -  bj  )T  Wj-1(a     -  bj )  +  tr(Wj-1V     )  -  d  +   log  det Wj  .  (S3.4)
+                         2                                                                       det V
+
+The second formula follows by taking the expectation of the log ratio of the two Gaussian densities.
+It is the divergence DKL(A#qiB#qj) between the two laws in the common comparison space; it
+equals the peer divergence of the dynamics, the divergence from the receiver law to the channelled
+source law, only when A is invertible and the channel is identified accordingly. Its receiver quadratic
+has expectation d, while its source quadratic has expectation tr(Wj-1V ) + (a - bj)T Wj-1(a - bj).
+
+Proposition S3.2 (A restricted routing equivalence). Suppose Wj = W for every source, W is
+held fixed, and R = T W for T > 0. Then
+
+                                Cj     -   Dj  = cT W      +   d     -   1  log   det W                     (S3.5)
+                                           T                   T        2T                .
+
+                                                                                  det V
+
+Consequently normalized rows proportional to je-Cj and to je-Dj/T coincide. Their derivatives
+with respect to receiver covariance nevertheless differ by
+
+                                   dV  Cj  -   dV  (Dj/T )        =   1  tr(V  -1dV     ).                  (S3.6)
+                                                                     2T
+
+Proof. Insert R = T W and Wj = W into eqs. (S3.3) and (S3.4). The mean quadratic and tr(W -1V )
+cancel in their difference, leaving eq. (S3.5), which is independent of j. A common additive score
+cancels on row normalization. Differentiating the remaining log det V gives eq. (S3.6).
+
+At T = 1 the score difference is H(N (a, V )) + d/2, with entropy measured against Lebesgue
+measure. It is constant for source selection, but not for variation of the receiver law. The receiver-
+mean and source-mean derivatives agree for every V , since eq. (S3.5) contains neither a nor bj;
+only the receiver-covariance derivatives differ. If source covariances vary independently, or the
+comparison maps change them, the hypothesis of a common held W no longer applies. These are
+restrictions on the optimization block, not alternative formulas for one universal interaction.
+
+S3.3 Identity self-comparisons and independent snapshots
+
+Take A = B = Id and let a self comparison use the same random variable twice. Then Xi - Xi = 0
+
+identically, so
+
+                                E[-    log  p(o    |  Xi,  Xi)]   =  cR  +  1  oT  R-1o.                    (S3.7)
+                                                                            2
+
+Its derivative with respect to the law of Xi is zero. In eq. (S3.2), all four covariance terms cancel
+because ii is also the cross covariance. The zero-record identity peer divergence DKL(qiqi) = 0
+likewise has zero total derivative.
+
+                                                               7
+S3. Gaussian comparison costs and repeated variables                         MAgent Theory 2.0
+
+Now let Xi and Xi be independent variables with the same N (0, Id) law, and compare their
+difference with noise R = T Id. At zero record their cost is cR + d/T . Thus an identity self candidate
+and a distinct independent candidate with the same marginal law receive different likelihood scores,
+while their peer divergences are both zero. With equal source priors, the likelihood odds in favor of
+the identity self candidate are ed/T .
+
+An independently sampled self snapshot realizes the second calculation. A remembered state can
+instead be correlated with the current state, in which case its joint law determines an intermediate
+or different cost through eq. (S3.2). Calling a candidate "self" does not select that joint law. The
+distinction must be fixed before computing a comparison or a receiving update.
+
+S3.4 Integrating the source before taking a logarithm
+
+Let X  N (a, V ), Y  N (b, W ) be independent, with V  0, W  0, and R  0. Regard
+k(x | y) = N (x; y, R) as a normalized receiver-coordinate kernel. Integrating over the sender gives
+r(x) = N (x; b, W + R). Therefore
+
+-EX  log  r(X )  =  cW +R  +  1    (a - b)T (W + R)-1(a - b) + tr((W + R)-1V )  .  (S3.8)
+                              2
+
+This expression compares the receiver to a noise-convolved source. It is not the peer divergence
+against N (b, W ), even when that law is nonsingular.
+
+Subtracting eq. (S3.8) from the expected negative log kernel gives the exact Jensen gap
+
+                    G  =   1  log      det R  R)  +   1  tr(R-1W )
+                           2       det(W +            2
+
+                           +  1  (a  -  b)T  R-1 - (W + R)-1        (a - b)        (S3.9)
+                              2
+
+                           +  1  tr     R-1 - (W + R)-1 V .
+                              2
+
+For completeness, R-1 - (W + R)-1 is positive semidefinite: conjugating by R1/2 reduces this
+assertion to I - (I + R-1/2W R-1/2)-1  0. The first line of eq. (S3.9) is half the sum of  - log(1 + )
+over the nonnegative eigenvalues of R-1/2W R-1/2. Each summand is nonnegative because its
+derivative is /(1 + ) and its value at zero is zero. Hence G  0, with G > 0 whenever W = 0.
+Averaging the conditional log density and taking the log of the integrated density remain different
+even at coincident means.
+
+                                              8
+Chapter S4
+
+Supporting Constructions for
+Inheritance
+
+This chapter gives two exact ways to determine what a parent must retain: factorization of a
+boundary map and conditional prediction from a retained history. Both distinguish an inherited
+response from a newly chosen parent interaction.
+
+S4.1 Linear boundary descent
+
+Proposition S4.1 (Descent through a surjective retention). Let Ej, Ei, Zj, Zi be finite-
+
+dimensional real vector spaces. Let Cj : Ej  Zj be surjective, let Ci : Ei  Zi be linear,
+and let Mij : Ej  Ei be a linear boundary map. There is a linear map MIcJ : Zj  Zi satisfying
+
+                Ci  Mij = MIcJ  Cj ,   (S4.1)
+
+if and only if
+
+                ker Cj  ker(Ci  Mij).  (S4.2)
+
+When it exists, it is unique.
+
+Proof. If (S4.1) holds, every v  ker Cj satisfies Ci(Mijv) = 0. Conversely, define MIcJ (Cjv) =
+Ci(Mijv). Two choices v, w with Cjv = Cjw differ by an element of ker Cj, which (S4.2) annihilates.
+The definition is therefore independent of the representative. It is linear, and surjectivity of Cj
+defines it everywhere. The same surjectivity proves uniqueness. 
+
+This is the factor theorem for linear maps. It covers deterministic linear retentions only. For a
+stochastic sample retention the parent channel must be a Markov kernel, and its existence is the
+garbling condition stated with the channel square in the main text; a linear solution with negative
+entries does not qualify.
+
+For example, let Cj(u, v) = u and Ci be the identity on R. The map Mij(u, v) = u + v cannot
+descend: the discarded vector (0, 1) changes the retained output. The map Mij(u, v) = 2u
+descends to multiplication by two. Agreement of two current input laws does not change either
+conclusion, since the requirement concerns the boundary mechanism on its declared domain.
+
+The same criterion handles an additive-noise channel without requiring Gaussian noise. Suppose
+the receiver content is Mijv + , where  has a fixed probability law  independent of v. If (S4.2)
+holds, its retained law is the distribution of
+
+                MIcJ Cjv + Ci.         (S4.3)
+
+                              9
+S4. Supporting Constructions for Inheritance                             MAgent Theory 2.0
+
+Thus the parent inherits the pushed noise law (Ci)#. A state-dependent noise law requires its
+own factorization through Cj; factoring the mean map alone is insufficient.
+
+S4.2 Exact finite filtering
+
+Let Xn be a Markov chain on a finite configuration space S with transition matrix T and initial row
+distribution p0. Let Zn = R(Xn) for a map into a finite retained space Sc. For each z, let Pz be the
+
+diagonal matrix whose entry at x is 1{R(x)=z}. These matrices are selectors of configurations, not
+new dynamical transitions.
+
+Proposition S4.2 (The terminal conditional law retains every future prediction). For a retained
+history hn = (z0, . . . , zn) of positive probability, define
+
+fhn = p0Pz0 T Pz1 · · · T Pzn ,                           phn  =  fhn .  (S4.4)
+                                                                  fhn 1
+
+Then phn is the conditional distribution of Xn given hn, and
+
+Pr(Zn+1 = z | hn) = phn T Pz1.                                           (S4.5)
+
+After a positive-probability next value z, the update is
+
+                             p(hn,z)          =  phn T Pz .              (S4.6)
+                                                 phn T Pz1
+
+For any finite future word, its probability is obtained by further multiplication by the corresponding
+T Pz matrices and by 1. The recursion is the forward algorithm for a function of a Markov chain
+[1, 4]. The normalized vector phn is itself a Markov process on the simplex of laws on S, moving to
+(S4.6) with probability (S4.5).
+
+Proof. The x component of p0Pz0 is the joint probability of X0 = x and Z0 = z0. Multiplication
+by T propagates this joint mass one step; multiplication by Pz1 restricts it to the next retained
+value. Induction gives the joint mass of hn and Xn = x as the x component of fhn. Its sum is
+the probability of hn, so division gives the conditional distribution. One further propagation and
+selection gives (S4.5) and (S4.6). Repeating the operation gives every future word probability. 
+
+A zero-probability history has zero unnormalized message and no conditional law supplied by this
+formula. Because all matrices are nonnegative, every extension of that history also has zero mass.
+The construction therefore needs no arbitrary prediction on an impossible history.
+
+The filter is sufficient even when the retained process is not Markov. For the deterministic cycle
+1  2  3  1 with uniform initial law, set R(1) = R(2) = 0 and R(3) = 1. The histories (0, 0) and
+(1, 0) both have positive probability and end at the same retained value. The first ends at state 2
+and predicts 1 next; the second ends at state 1 and predicts 0. Hence the current retained value
+cannot determine its next distribution. The terminal conditional law does: it is the point mass 2
+after (0, 0) and 1 after (1, 0). Here the filter recovers the fine state, so it compresses nothing; a
+history-based parent forgets information only when noise or nonobservability prevents the history
+from determining the fine state.
+
+                                              10
+S4. Supporting Constructions for Inheritance      MAgent Theory 2.0
+
+S4.3 Successive retention of responses
+
+Suppose a declared joint law contains a fine state X and a boundary response O. Let Z = R10(X)
+and W = R21(Z), and assume all spaces are standard Borel. For every bounded measurable
+response observable g, conditional expectation gives
+
+E[g(O) | W ] = E E[g(O) | Z] | W .                (S4.7)
+
+To verify the identity, integrate either side over any event determined by W . Such an event is also
+determined by Z, so both integrals equal the integral of g(O) over that event. This characterizes
+conditional expectation up to null sets.
+
+The identity concerns one declared joint law. Applying it to an equilibrium law produces equilibrium-
+conditional responses. Applying it to the joint law conditional on a retained history produces the
+corresponding predictive responses. These are interchangeable only when their relevant conditional
+laws agree. Exact boundary descent is stronger: it fixes the response on every admitted fiber,
+independently of the conditional weights used there.
+
+                                              11
+Bibliography
+
+[1] Leonard E. Baum and Ted Petrie. Statistical inference for probabilistic functions of finite
+    state Markov chains. The Annals of Mathematical Statistics, 37(6):1554­1563, 1966. doi:
+    10.1214/aoms/1177699147.
+
+[2] Walter J. Culver. On the existence and uniqueness of the real logarithm of a matrix. Pro-
+    ceedings of the American Mathematical Society, 17(5):1146­1151, 1966. doi: 10.1090/
+    S0002-9939-1966-0202740-6.
+
+[3] Persi Diaconis and Sandy L. Zabell. Updating subjective probability. Journal of the American
+    Statistical Association, 77(380):822­830, 1982.
+
+[4] Yariv Ephraim and Neri Merhav. Hidden Markov processes. IEEE Transactions on Information
+    Theory, 48(6):1518­1569, 2002. doi: 10.1109/TIT.2002.1003838.
+
+[5] Nicholas J. Higham. Functions of Matrices: Theory and Computation. Society for Industrial and
+    Applied Mathematics, Philadelphia, 2008. doi: 10.1137/1.9780898717778.
+
+[6] Olav Kallenberg. Foundations of Modern Probability. Springer, Cham, 3 edition, 2021. doi:
+    10.1007/978-3-030-61871-1.
+
+                                                               12
+

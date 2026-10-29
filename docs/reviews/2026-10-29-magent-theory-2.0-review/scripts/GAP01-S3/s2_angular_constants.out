@@ -1,0 +1,29 @@
+(a) explicit constants, uniform over omega in T^3, |A_i(0)|<=A0, |C_i(0)|<=eps^3, any b_i(0)>0, theta
+  A0=0.05 r0=0.05 rho0=3.0644
+     eps=0.001 Rbar=2.232e-05 (crude 8.283e-05) delta_bar=1.000e-07 ball invariant=True  explicit T=4.4112
+     eps=0.005 Rbar=5.590e-04 (crude 2.071e-03) delta_bar=2.500e-06 ball invariant=True  explicit T=4.4848
+     eps=0.010 Rbar=2.242e-03 (crude 8.290e-03) delta_bar=1.000e-05 ball invariant=True  explicit T=4.7257
+     eps=0.020 Rbar=9.015e-03 (crude 3.324e-02) delta_bar=4.001e-05 ball invariant=True  explicit T=5.8717
+     sup of eps with a finite explicit T (bisection, Rbound increasing in eps): 0.03897
+  A0=0.05 r0=0.20 rho0=3.2144
+     eps=0.001 Rbar=2.463e-05 (crude 9.033e-05) delta_bar=1.000e-07 ball invariant=True  explicit T=5.9103
+     eps=0.005 Rbar=6.168e-04 (crude 2.259e-03) delta_bar=2.500e-06 ball invariant=True  explicit T=5.9960
+     eps=0.010 Rbar=2.473e-03 (crude 9.040e-03) delta_bar=1.000e-05 ball invariant=True  explicit T=6.2751
+     eps=0.020 Rbar=9.944e-03 (crude 3.625e-02) delta_bar=4.001e-05 ball invariant=True  explicit T=7.5943
+     sup of eps with a finite explicit T (bisection, Rbound increasing in eps): 0.03713
+  A0=0.50 r0=0.05 rho0=3.0644
+     eps=0.001 Rbar=2.387e-05 (crude 8.439e-05) delta_bar=1.000e-06 ball invariant=True  explicit T=4.4114
+     eps=0.005 Rbar=5.978e-04 (crude 2.110e-03) delta_bar=2.500e-05 ball invariant=True  explicit T=4.4909
+     eps=0.010 Rbar=2.397e-03 (crude 8.446e-03) delta_bar=1.000e-04 ball invariant=True  explicit T=4.7520
+     eps=0.020 Rbar=9.639e-03 (crude 3.387e-02) delta_bar=4.000e-04 ball invariant=True  explicit T=6.0109
+     sup of eps with a finite explicit T (bisection, Rbound increasing in eps): 0.03754
+  A0=0.50 r0=0.20 rho0=3.2144
+     eps=0.001 Rbar=2.618e-05 (crude 9.189e-05) delta_bar=1.000e-06 ball invariant=True  explicit T=5.9106
+     eps=0.005 Rbar=6.557e-04 (crude 2.298e-03) delta_bar=2.500e-05 ball invariant=True  explicit T=6.0025
+     eps=0.010 Rbar=2.629e-03 (crude 9.197e-03) delta_bar=1.000e-04 ball invariant=True  explicit T=6.3026
+     eps=0.020 Rbar=1.057e-02 (crude 3.688e-02) delta_bar=4.000e-04 ball invariant=True  explicit T=7.7403
+     sup of eps with a finite explicit T (bisection, Rbound increasing in eps): 0.03589
+(b) exact field, random omega, |A(0)|<=0.05, |C(0)|<=eps^3, u(0) in B(u_in,0.05):
+   eps=0.01: 6 random records/amplitudes; singletons at 0 and persistent full block: True; latest entrance 3.960
+   eps=0.05: 6 random records/amplitudes; singletons at 0 and persistent full block: True; latest entrance 4.070
+   eps=0.20: 6 random records/amplitudes; singletons at 0 and persistent full block: True; latest entrance 4.120

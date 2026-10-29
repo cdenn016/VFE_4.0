@@ -1,0 +1,38 @@
+======================================================================
+Part A: velocity-level checks of smooth:energy-split and smooth:split-flow
+======================================================================
+energy split |E_fine - (E_c + private)|         max = 4.44e-16
+public log-velocity, fine projection vs retained  max = 7.22e-16
+fine dlog q vs dlog mu + (H - ell), both sectors  max = 8.88e-16
+Fisher row log-velocities, fine vs coarse          max = 2.22e-16
+(baseline: velocities are O(1); complex-step gradients exact to about 1e-15)
+     part A time 0.1s
+
+======================================================================
+Part B: trajectory level (2 agents, product private reference A1 (x) A2)
+======================================================================
+[B1] fine vs retained public laws at T=0.5: max |diff| = 3.13e-11
+[B1] fine kappa_0(T) vs explicit exponential arc:  max |diff| = 1.40e-11
+[B2] cgf product example (psi vs psi2 at every z): public max |diff| = 3.14e-11
+[B2] control (psi at z=0, psi2 at z=1):             public max |diff| = 1.14e-02
+[B2] spectra differ at z=0: sorted atoms A [-0.1598 -0.0622  0.0408  0.1384] vs B [-1.5686 -1.471   0.428   0.5256]
+     part B time 2.1s
+
+======================================================================
+Part C: spectral identities
+======================================================================
+[C1] smooth:entropy-rate dH/dt + Var_kappa(ell): max = 7.16e-12 (central diff, h=1e-5)
+[C2] smooth:spectrum-inverse: max |recovered - ell0| = 2.78e-16
+[C3] smooth:cgf-flow Lambda^t(b) = Lambda^0(ab) - b Lambda^0(a): max = 2.01e-16
+[C4] range stays in [m0,M0]: True; width ratio vs e^-t: max dev = 1.94e-16
+[C5] H(t) = a Lambda0prime(a) - Lambda0(a): max = 5.72e-17
+[C6] smooth:renyi Lambda(b) - (b-1) D_b: 0.00e+00  (D_b = 0.0614 >= 0)
+
+======================================================================
+Part D: smooth:channel-variants
+======================================================================
+[D1] fixed reconstruction B (x) A: |dlog kappa - 2(H - ell)| max = 8.88e-16
+[D2] peer cost KL((3/4,1/4)||(1/4,3/4)) = 0.549306144334; (1/2)log3 = 0.549306144334
+[D2] d/dt int f(ell) dA with f=r^2: same-kappa -0.682487, swapped-kappa -3.704066 (same spectra, different velocity)
+
+total time 2.2s

@@ -1,0 +1,4 @@
+(a) m=2 symbols, K=3: dim ker F = 6, predicted K(K-rank(CW)) = 6 with rank(CW) = 1; max abs(C W delta) over kernel = 1.1e-15
+(a) m=3 symbols, K=3: dim ker F = 3, predicted K(K-rank(CW)) = 3 with rank(CW) = 2; max abs(C W delta) over kernel = 8.7e-16
+(a) m=4 symbols, K=3: dim ker F = 0, predicted K(K-rank(CW)) = 0 with rank(CW) = 3; max abs(C W delta) over kernel = 0.0e+00
+(b) max over 50 draws of sigma_{r+1}/sigma_1 of log(I + rank-2 perturbation) = 7.120306189286828e-15

@@ -1,0 +1,20 @@
+cmem:gaussian-posterior cue product: exponent residual = 0 , prefactor residual = 0
+joint (X,Y)|xi,a Gaussian: exponent residual = 0 , det residual = 0
+cmem:result-only-gaussian: exponent residual = 0 , prefactor residual = 0 , S*V = L1*Q1
+cmem:joint-covariance Schur complement - Q = 0
+1D two-component response identity exact (numerator expands to 0): True
+1D two-component Fisher identity exact (numerator expands to 0): True
+1D same-state response d/dxi E[X|xi] = Cov(X|xi)/C exact: True
+  elapsed 0.4 s
+one-component response - F L/(L+C) = 0 ; with F = H(L+C)/L the response is H
+2D generic: P_X C^-1 - L W^-1 = Matrix([[0, 0], [0, 0]])
+2D generic: C^-1 (m_X - xi) + W^-1 (xi - nu) = Matrix([[0, 0]])
+  elapsed 0.6 s
+det F_2 = 0
+2D response Jacobian residual (4 points, 40 digits) = 1.6173e-173
+2D Fisher residual C^-1 + Hess log Z - C^-1 Cov(X|xi) C^-1 = 1.2938e-172
+2D Fisher eigenvalues at (1/2,-3/4) = [0.431769, 2.38587]
+2D response matrix at (1/2,-3/4) = [[0.119994, 1.07143], [0.932071, -0.328268]]
+  elapsed 3.4 s
+frame laws residual (|det h| Z' - Z, weights, result mean, result covariance) = 1.0351e-171
+total elapsed 5.7 s

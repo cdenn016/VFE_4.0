@@ -1,0 +1,17 @@
+A  S' - S = 0
+B  fixed-row derivative at Gibbs rows      = [-0.11988265 -0.4278381 ]
+   derivative of -T log Z (with entropy)    = [-0.11988265 -0.4278381 ]  diff 1.4231499312344909e-10
+   derivative of sum beta*(x) C(x) (no entropy) = [-0.56659708 -0.2082177 ]  diff 0.4467144240612772
+C  exact marginal l=3 from matrix inverse: 0
+   law-level quadratic check (ratio should be constant): sigma2
+   cavity minus exact (general l): 0
+   l = 2 : spread of fixed points over 200 random starts = 4.912736883966318e-15  max asymmetry = 0.0  value 0.13177446878761426
+   l = 3 : spread of fixed points over 200 random starts = 3.708144902248023e-14  max asymmetry = 0.0  value 0.5096223724480023
+   l = 5 : spread of fixed points over 200 random starts = 2.631228568361621e-14  max asymmetry = 0.0  value 0.7516520143689174
+D  c = 0.0  s = 1e-06 : w = 0.617647  max |Im| = 0.534898  |eig - formula| = 1.047382306668854e-15
+D  c = 0.0  s = 1.0 : w = 0.617647  max |Im| = 0.534898  |eig - formula| = 1.1102230246251565e-15
+D  c = 0.0  s = 1000000.0 : w = 0.617647  max |Im| = 0.534898  |eig - formula| = 1.047382306668854e-15
+D  c = 0.9  s = 1e-06 : w = 1e-06  max |Im| = 1e-06  |eig - formula| = 3.0289826202789527e-10
+D  c = 0.9  s = 1.0 : w = 0.374245  max |Im| = 0.324106  |eig - formula| = 1.3732700395566711e-15
+D  c = 0.9  s = 1000000.0 : w = 0.617647  max |Im| = 0.534898  |eig - formula| = 5.551115123125783e-16
+E  df/d(d2) = -1/(R + v)**2  => dv/d(d2) = -f_d2/f_v > 0 when f_v > 0

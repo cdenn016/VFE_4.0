@@ -1,0 +1,7 @@
+(a) Omega - claimed (after u = sech(v/2)): 0
+(a) dOmega/du - (4ks+6k^2E)/(5D^2): 0
+    S = [2*b, b]
+(b) lp:causal-law-jets second-order residual: Matrix([[0, 0]])
+(b) first-order residual: Matrix([[0, 0]])
+(c) U(R_a S) R_a - U(S): Matrix([[0, 0], [0, 0]])
+(d) parent score - (fine score - alpha0' * l_phys): 0

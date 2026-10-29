@@ -1,0 +1,10 @@
+m=0.50 s2=0.50: Fisher-norm fraction outside Gaussian tangent = 0.2276 ; E[(qk/qi)^2] = 1.3641
+m=1.00 s2=0.80: Fisher-norm fraction outside Gaussian tangent = 0.0211 ; E[(qk/qi)^2] = 2.3484
+m=1.00 s2=1.20: Fisher-norm fraction outside Gaussian tangent = 0.3287 ; E[(qk/qi)^2] = 3.5623
+m=0.00 s2=1.50: Fisher-norm fraction outside Gaussian tangent = 0.1920 ; E[(qk/qi)^2] = 1.1547
+s2=1.900: E_{q_i}[(q_k/q_i)^2] = 2.294157338705619
+s2=1.990: E_{q_i}[(q_k/q_i)^2] = 7.088812050083422
+s2=1.999: E_{q_i}[(q_k/q_i)^2] = 22.366272042132493
+s2=2.000: E_{q_i}[(q_k/q_i)^2] = inf
+s2=3.000: E_{q_i}[(q_k/q_i)^2] = inf
+pairings with tangent vectors stay finite: E_qk[x^2] = m^2+s2, e.g. s2=3 -> 3.0

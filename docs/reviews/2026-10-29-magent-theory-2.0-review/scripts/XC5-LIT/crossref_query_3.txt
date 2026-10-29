@@ -1,0 +1,118 @@
+== ChanEtAl2016 [references.bib, @misc]
+  bib author: Chan, Chung and Al-Bashabsheh, Ali and Zhou, Qiaoqiao and Kaced, Tarik and Liu, Tie
+  bib title: Info-Clustering: A Mathematical Theory for Data Clustering
+  bib year: 2016
+  bib eprint: 1605.01233
+  bib url: https://arxiv.org/abs/1605.01233
+  -- candidate 1: DOI 10.1109/tmbmc.2016.2630054
+  CR authors: Chan, Chung; Al-Bashabsheh, Ali; Zhou, Qiaoqiao; Kaced, Tarik; Liu, Tie
+  CR title:   Info-Clustering: A Mathematical Theory for Data Clustering
+  CR venue:   IEEE Transactions on Molecular, Biological and Multi-Scale Communications
+  CR vol/iss/pages: 2/1/64-91  article-number: None
+  CR date: [2016, 6]
+  -- candidate 2: DOI 10.1109/isit.2018.8437930
+  CR authors: Chan, Chung; Al-Bashabsheh, Ali; Zhou, Qiaoqiao
+  CR title:   Agglomerative Info-Clustering
+  CR venue:   2018 IEEE International Symposium on Information Theory (ISIT)
+  CR vol/iss/pages: None/None/1725-1729  article-number: None
+  CR date: [2018, 6]
+== GeshkovskiEtAl2025 [references.bib, @article]
+  bib author: Geshkovski, Borjan and Letrouit, Cyril and Polyanskiy, Yury and Rigollet, Philippe
+  bib title: A mathematical perspective on {T}ransformers
+  bib journal: Bulletin of the American Mathematical Society
+  bib volume: 62
+  bib number: 3
+  bib pages: 427--479
+  bib year: 2025
+  bib note: arXiv:2312.10794
+  -- candidate 1: DOI 10.1090/bull/1863
+  CR authors: Geshkovski, Borjan; Letrouit, Cyril; Polyanskiy, Yury; Rigollet, Philippe
+  CR title:   A mathematical perspective on transformers
+  CR venue:   Bulletin of the American Mathematical Society
+  CR vol/iss/pages: 62/3/427-479  article-number: None
+  CR date: [2025, 4, 29]
+  -- candidate 2: DOI 10.1007/s10208-026-09754-w
+  CR authors: Geshkovski, Borjan; Rigollet, Philippe; Ruiz-Balet, Domènec
+  CR title:   Measure-to-Measure Interpolation Using Transformers
+  CR venue:   Foundations of Computational Mathematics
+  CR vol/iss/pages: None/None/None  article-number: None
+  CR date: [2026, 6, 10]
+== Fritz2020 [references.bib, @article]
+  bib author: Fritz, Tobias
+  bib title: A Synthetic Approach to {M}arkov Kernels, Conditional Independence and Theorems on Sufficient Statistics
+  bib journal: Advances in Mathematics
+  bib volume: 370
+  bib pages: 107239
+  bib year: 2020
+  -- candidate 1: DOI 10.1016/j.aim.2020.107239
+  CR authors: Fritz, Tobias
+  CR title:   A synthetic approach to Markov kernels, conditional independence and theorems on sufficient statistics
+  CR venue:   Advances in Mathematics
+  CR vol/iss/pages: 370/None/107239  article-number: 107239
+  CR date: [2020, 8]
+  -- candidate 2: DOI 10.1016/j.spl.2021.109197
+  CR authors: Nogales, A.G.
+  CR title:   A note on conditional expectation for Markov kernels
+  CR venue:   Statistics &amp; Probability Letters
+  CR vol/iss/pages: 178/None/109197  article-number: 109197
+  CR date: [2021, 11]
+== HalmosSavage1949 [references.bib, @article]
+  bib author: Halmos, Paul R. and Savage, L. J.
+  bib title: Application of the {R}adon--{N}ikodym Theorem to the Theory of Sufficient Statistics
+  bib journal: The Annals of Mathematical Statistics
+  bib volume: 20
+  bib number: 2
+  bib pages: 225--241
+  bib year: 1949
+  -- candidate 1: DOI 10.1214/aoms/1177730032
+  CR authors: Halmos, Paul R.; Savage, L. J.
+  CR title:   Application of the Radon-Nikodym Theorem to the Theory of Sufficient Statistics
+  CR venue:   The Annals of Mathematical Statistics
+  CR vol/iss/pages: 20/2/225-241  article-number: None
+  CR date: [1949, 6]
+  -- candidate 2: DOI 10.1007/978-1-4613-8208-9_8
+  CR authors: Halmos, Paul R.; Savage, L. J.
+  CR title:   Application of the Radon-Nikodym Theorem to the Theory of Sufficient Statistics
+  CR venue:   Selecta
+  CR vol/iss/pages: None/None/95-111  article-number: None
+  CR date: [1983]
+== DiaconisZabell1982 [references.bib, @article]
+  bib author: Diaconis, Persi and Zabell, Sandy L.
+  bib title: Updating Subjective Probability
+  bib journal: Journal of the American Statistical Association
+  bib volume: 77
+  bib number: 380
+  bib pages: 822--830
+  bib year: 1982
+  -- candidate 1: DOI 10.1080/01621459.1982.10477893
+  CR authors: Diaconis, Persi; Zabell, Sandy L.
+  CR title:   Updating Subjective Probability
+  CR venue:   Journal of the American Statistical Association
+  CR vol/iss/pages: 77/380/822-830  article-number: None
+  CR date: [1982, 12]
+  -- candidate 2: DOI 10.1017/cbo9780511598951.014
+  CR authors: Diaconis, Persi; Zabell, Sandy L.
+  CR title:   UPDATING SUBJECTIVE PROBABILITY
+  CR venue:   Decision Making
+  CR vol/iss/pages: None/None/266-283  article-number: None
+  CR date: [1988, 10, 28]
+== Petz1988 [references.bib, @article]
+  bib author: Petz, D{\'e}nes
+  bib title: Sufficiency of Channels over von {N}eumann Algebras
+  bib journal: The Quarterly Journal of Mathematics
+  bib volume: 39
+  bib number: 1
+  bib pages: 97--108
+  bib year: 1988
+  -- candidate 1: DOI 10.1093/qmath/39.1.97
+  CR authors: PETZ, DÉNES
+  CR title:   SUFFICIENCY OF CHANNELS OVER VON NEUMANN ALGEBRAS
+  CR venue:   The Quarterly Journal of Mathematics
+  CR vol/iss/pages: 39/1/97-108  article-number: None
+  CR date: [1988]
+  -- candidate 2: DOI 10.1016/0022-1236(90)90065-s
+  CR authors: Cecchini, Carlo; Petz, Dénes
+  CR title:   Classes of conditional expectations over von Neumann algebras
+  CR venue:   Journal of Functional Analysis
+  CR vol/iss/pages: 92/1/8-29  article-number: None
+  CR date: [1990, 8]

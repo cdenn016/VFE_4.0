@@ -1,0 +1,13 @@
+normalization: 1.0
+eps = +1e-2: KL = 5.50076e-5, KL/|eps| = 0.00550076, KL/(eps^2 log(1/eps)) = 0.119448
+eps = -1e-2: KL = 5.62043e-5, KL/|eps| = 0.00562043, KL/(eps^2 log(1/eps)) = 0.122046
+eps = +1e-3: KL = 6.93388e-7, KL/|eps| = 0.000693388, KL/(eps^2 log(1/eps)) = 0.100378
+eps = -1e-3: KL = 6.93965e-7, KL/|eps| = 0.000693965, KL/(eps^2 log(1/eps)) = 0.100462
+eps = +1e-4: KL = 8.3632e-9, KL/|eps| = 8.3632e-5, KL/(eps^2 log(1/eps)) = 0.0908023
+eps = -1e-4: KL = 8.3796e-9, KL/|eps| = 8.3796e-5, KL/(eps^2 log(1/eps)) = 0.0909804
+eps = +1e-5: KL = 9.79829e-11, KL/|eps| = 9.79829e-6, KL/(eps^2 log(1/eps)) = 0.0851068
+eps = -1e-5: KL = 9.79315e-11, KL/|eps| = 9.79315e-6, KL/(eps^2 log(1/eps)) = 0.0850622
+truncated scale Fisher information over |x-1| > 1e-2: 0.95135569
+truncated scale Fisher information over |x-1| > 1e-4: 1.5094331, increment 0.558077 (log(100)/8 = 0.575646)
+truncated scale Fisher information over |x-1| > 1e-6: 2.0828843, increment 0.573451 (log(100)/8 = 0.575646)
+truncated scale Fisher information over |x-1| > 1e-8: 2.6583062, increment 0.575422 (log(100)/8 = 0.575646)

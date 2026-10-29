@@ -1,0 +1,9 @@
+(a) recovered tilted weights / exp(iota/T): [0.5 0.3 0.2] (true [0.5 0.3 0.2])
+(b) slopes 0.000e+00, 0.000e+00; max response difference on the fixed line 1.11e-16; on another line 7.105e-02
+(c) channelled laws: [0.515 0.485], [0.515 0.485], [0.655 0.345]; q1 != q2: True
+(c) equal channelled laws: max |Z1-Z2| = 0.0e+00; different channelled law: min |Z1-Z3| = 2.09e-04 over 200 receivers
+(d) deterministic: images [0.4 0.6] / [0.4 0.6]; image velocities [-0.05  0.05] / [-0.05  0.05]; r - nu = [-0.05  0.05]
+(d) nondeterministic: images [0.515 0.485] / [0.515 0.485]; image velocities [-0.03156  0.03156] / [-0.038034  0.038034]; r - nu = [-0.165  0.165]
+(e) q = [0.25 0.25 0.5 ]: intercept -0.056633012265; velocity 0.111111111
+(e) q = [0.404508 0.404508 0.190983]: intercept -0.056633012265; velocity 0.131148876
+(e) 1/9 = 0.111111111; (5 sqrt5 - 10)/9 = 0.131148876
