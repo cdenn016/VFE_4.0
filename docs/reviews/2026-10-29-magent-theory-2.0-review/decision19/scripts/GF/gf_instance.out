@@ -1,0 +1,24 @@
+a=0.800000 b=0.200000 kappa=0.953271 k_fin=0.803922 eta=0.200000
+full    events: [(0, '[1|2|3|4 ; 1|2|3|4]'), (1, '[12|34 ; 12|34]'), (2, '[12|34 ; 1234]')]  min gap over 120 sweeps = 0.01418
+lp      events: [(0, '[1|2|3|4 ; 1|2|3|4]'), (1, '[12|34 ; 12|34]'), (2, '[12|34 ; 1234]')]  min gap over 120 sweeps = 0.01418
+rn      events: [(0, '[1|2|3|4 ; 1|2|3|4]'), (1, '[12|34 ; 1234]')]  min gap over 120 sweeps = 0.03978
+frozen  events: [(0, '[1|2|3|4 ; 1|2|3|4]'), (1, '[12|34 ; 12|34]'), (2, '[12|34 ; 1234]')]  min gap over 120 sweeps = 0.01418
+full: limit [2.99559 3.15559 4.23696 4.39696], certificate radius 0.1145, contraction 0.1884, inside from sweep 3
+lp: limit [2.76449 2.95514 4.19439 4.38505], certificate radius 0.2611, contraction 0.1608, inside from sweep 3
+rn limit kappa o selects [12|34 ; 1234] gap 0.03978
+perturbation eps=0.001: 0/200 changed a sequence
+perturbation eps=0.005: 0/200 changed a sequence
+perturbation eps=0.01: 0/200 changed a sequence
+within-block contrasts after the first-stage sweep: full [0.16 0.16]  a*do = [0.16 0.16]  nulls kappa*do = [0.190654 0.190654]
+contraction factor a/kappa = 0.8392156862745098
+full limit m* = [2.99559 3.15559 4.23696 4.39696]  null limit kappa o = [2.76449 2.95514 4.19439 4.38505]
+first event sweep 1: full state == lp state: True
+exact posterior top 4: [('[12|34 ; 1234]', 0.0496), ('[1|2|34 ; 1234]', 0.0482), ('[1|234 ; 1234]', 0.0478), ('[1234 ; 1234]', 0.0478)]
+soft structure factor at m* top 4: [('[12|34 ; 1234]', 0.0522), ('[1234 ; 1234]', 0.0509), ('[1|2|34 ; 1234]', 0.0504), ('[1|234 ; 1234]', 0.0503)]
+inherited parent reproduces the fine block means and selections from the handoff, max error 8.881784197001252e-16
+parent structure ((0,), (1,)) self-consistent: False  (selected ((0, 1),), gap 1.281) at fixed point [2.92063 4.38095]
+parent structure ((0, 1),) self-consistent: True  (selected ((0, 1),), gap 1.529) at fixed point [3.07559 4.31696]
+counterfactual parent states in the selector domain: 11486, union occurs from 11486, max sweeps 3
+bistable-regime example full ['[1|2|3|4 ; 1|2|3|4]', '[1|234 ; 1234]', '[12|34 ; 1234]']
+bistable-regime example lp ['[1|2|3|4 ; 1|2|3|4]', '[1|234 ; 1234]', '[12|34 ; 12|34]']
+bistable-regime example rn ['[1|2|3|4 ; 1|2|3|4]', '[12|34 ; 12|34]']

@@ -1,0 +1,8 @@
+(1)-(3) collapsed step, Tweedie, fixed point: True
+(1') expected child log-likelihood depends on Q_i through (m_i, S_i) only, S-term Pi-free: True
+(4) within-block term independent of Pi2: True
+(5) parent update a_B ohat_B + b_B zbar_B, parent variance eta_B: True
+(6) finest sweep = label-preserving null sweep; both nulls fix kappa o: True
+(7) exact posterior variances (join): [91481/425472, 30329/106368, 9101/26592, 1229/6648]
+    mean-field variances eta_i      : [1/5, 3/11, 1/4, 2/11]
+    exact - eta >= 0: True
